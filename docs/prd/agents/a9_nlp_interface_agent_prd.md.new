@@ -1,0 +1,520 @@
+# A9_NLP_Interface_Agent Product Requirements Document
+
+<!-- 
+CANONICAL PRD DOCUMENT
+This is the official, canonical PRD document for this agent.
+Last updated: 2025-08-05
+-->
+
+
+## Modification History
+- 2025-05-26: Added async method `parse_business_query` for orchestrator-driven, LLM-powered business query parsing. Updated Functional Requirements and compliance notes. (Cascade)
+- 2025-08-05: Updated agent responsibilities for the SQL generation workflow to clarify separation of concerns with LLM Service Agent. (Cascade)
+
+## 1. Overview
+
+### 1.1 Purpose
+The A9_NLP_Interface_Agent provides a unified interface for natural language processing capabilities across different ERP systems, enabling seamless integration of business intelligence and analytics with enterprise systems.
+
+**YAML Contract Context:**
+The agent must read and respond to `yaml_contract_text` provided in the context by the orchestrator, supporting protocol-compliant workflows that leverage YAML-driven data product contracts for schema, mapping, and constraints.
+
+### 1.2 Scope
+This document outlines the requirements for version 1.0 of the A9_NLP_Interface_Agent, focusing on core NLP capabilities and ERP system integration.
+
+### 1.3 Target Audience
+- System Administrators
+- Integration Developers
+- Business Analysts
+- Data Scientists
+
+## 2. Business Requirements
+
+### 2.1 Business Objectives
+1. Provide a standardized NLP interface for enterprise systems
+2. Enable business context-aware document processing
+3. Support enterprise-grade data processing and analysis
+4. Facilitate integration with existing ERP systems
+
+### 2.2 Key Metrics
+- Processing latency: < 1 second for small documents
+- Accuracy: > 90% for standard document types
+- System availability: 99.9% uptime
+- Error rate: < 1%
+
+
+
+## Hackathon Quick Start
+
+### Development Environment Setup
+- Clone the Agent9-Hackathon-Template repository
+- Install required dependencies from requirements.txt
+- Configure environment variables in .env file based on .env.template
+
+### Key Files and Entry Points
+- Main agent implementation: `src/agents/new/A9_NLP_Interface_Agent_Agent.py`
+- Configuration model: `src/agents/new/agent_config_models.py`
+- Agent card: `src/agents/new/cards/a9_nlp_interface_agent_agent_card.py`
+
+### Test Data Location
+- Sample data available in `test-data/` directory
+- Test harnesses in `test-harnesses/` directory
+
+### Integration Points
+- Integrates with Agent Registry for orchestration
+- Follows A2A protocol for agent communication
+- Uses shared logging utility for consistent error reporting
+
+## Implementation Guidance
+
+### Suggested Implementation Approach
+1. Start with the agent's core functionality
+2. Implement required protocol methods
+3. Add registry integration
+4. Implement error handling and logging
+5. Add validation and testing
+
+### Core Functionality to Focus On
+- Protocol compliance (A2A)
+- Registry integration
+- Error handling and logging
+- Proper model validation
+
+### Testing Strategy
+- Unit tests for core functionality
+- Integration tests with mock registry
+- End-to-end tests with test harnesses
+
+### Common Pitfalls to Avoid
+- Direct agent instantiation (use registry pattern)
+- Missing error handling
+- Incomplete logging
+- Improper model validation
+
+## Success Criteria
+
+### Minimum Viable Implementation
+- Agent implements all required protocol methods
+- Agent properly integrates with registry
+- Agent handles errors and logs appropriately
+- Agent validates inputs and outputs
+
+### Stretch Goals
+- Enhanced error handling and recovery
+- Performance optimizations
+- Additional features from Future Enhancements section
+
+### Evaluation Metrics
+- Protocol compliance
+- Registry integration
+- Error handling
+- Logging quality
+- Input/output validation
+
+## Compliance & Integration Update (2025-05-12)
+- HITL (Human-in-the-Loop) enablement is fully implemented and enforced for all key actions:
+  - The agent config supports a `hitl_enabled` flag.
+  - Output protocol fields (`human_action_required`, `human_action_type`, `human_action_context`) are present and validated.
+  - When HITL is enabled, all outputs require human approval and set these fields accordingly.
+- All integration and testing for this agent is orchestrator-driven and production-like:
+  - Agent inputs and outputs are always real Pydantic model instances, never mocked or stubbed.
+  - Testing runs the full agent lifecycle: registry integration, initialization, operation, and cleanup.
+  - No direct instantiation of agents is permitted in documentation or examples.
+  - Orchestrator controls all agent instantiation and registration; no self-registration logic.
+- All integration and end-to-end tests must use orchestrator-driven workflows.
+- Example usage and documentation must show orchestrator-driven invocation and registry integration.
+- All input/output model references must match those in `agent_config_models.py`.
+
+### 3.1 Core NLP Capabilities
+
+#### 3.1.1 Natural Language Query (NLQ) Pipeline
+- The NLP Interface Agent must provide a core pipeline for processing business queries in natural language.
+- The pipeline must invoke the LLM Agent for complex query understanding.
+- The agent pipeline must invoke the Data Governance Agent to resolve business terms to technical columns/KPIs.
+- If any terms cannot be mapped, the agent must escalate to HITL by setting output fields:
+    - `human_action_required: True`
+    - `human_action_type: "term_mapping"`
+    - `human_action_context: {"unmapped_terms": ["term1", "term2"], "attempted_mappings": {...}}`
+- The agent must support interpreting natural language business queries from Principals or Agents and transforming them into structured data queries against the MCP data service.
+- The pipeline must include:
+  1. **Intent Parsing**: Extract the data product, aggregation/groupby, filters, and other query parameters from the user's natural language question.
+  2. **Entity Resolution**: Map business entities/terms to technical columns/values using the Data Governance Agent.
+  3. **Query Building**: Construct a structured query representation with resolved technical terms.
+  4. **Data Request**: Send the structured representation to the Data Product MCP Service Agent for execution.
+  5. **Result Formatting**: Format the results for presentation to the user.
+
+- The NLQ pipeline must NOT be responsible for SQL generation; this is delegated to the LLM Service Agent via the Data Product MCP Service Agent.
+- The NLQ pipeline must validate all query parameters before sending to Data Product MCP Service Agent.
+- MCP returns JSON result, which is formatted for the end user.
+
+- The agent must be extensible to support new query types, filters, and aggregations as the MCP evolves.
+- The NLQ capability must be covered by integration and end-to-end tests with example business queries and expected API calls/results.
+
+#### 3.1.6 Entity Extraction as Core Capability (MVP)
+
+#### 3.1.7 LLM Explainability Compliance (2025-06-24)
+
+- As of 2025-06-24, the NLP Interface Agent is required to enhance all returned responses with explainability information according to Agent9 LLM explainability standards:
+  - All LLM-derived outputs must include metadata about the source LLM, confidence scores, and reasoning.
+  - When terms or entities are extracted, confidence scores and source attribution must be included.
+  - Unmapped or uncertain terms must be explicitly flagged with confidence measures.
+  - For entity extraction outcomes, the agent must provide visibility into detection patterns and logic.
+
+- **Entity Extraction Importance**:
+  - Robust entity extraction is essential to ensure that queries are properly scoped, access-controlled, and relevant to the user's business context.
+  - Without entity extraction, Agent9 cannot reliably map user intent to secure, personalized queries.
+
+- **Requirements:**
+  1. The agent MUST implement and expose only the `entity_extraction` NLP model for the MVP. All other NLP models (document analysis, relationship analysis, sentiment analysis) are to be omitted or stubbed until post-MVP.
+  2. The agent MUST use the LLM Service Agent for entity extraction from business queries.
+  3. The agent MUST apply standard entity extraction patterns, then enhance with LLM-powered extraction for edge cases.
+  4. All extracted entities MUST be validated against Data Governance mappings.
+  5. Entity extraction MUST support context from the orchestrator, combining extracted entities with principal context.
+  6. Entity extraction output MUST follow the protocol model specification in `agent_config_models.py`.
+
+- **Example Flow:**
+  - User query: "Show me Q1 revenue for EMEA"
+  - Entity extraction identifies: `time_period: "Q1"`, `entity: "revenue"`, `region: "EMEA"`
+  - Orchestrator applies principal context: `[{'type': 'department', 'value': 'Finance'}, {'type': 'region', 'value': 'EMEA'}]`
+  - Final query is filtered by both extracted and principal context entities.
+
+- **Notes:**
+  - Entity extraction is the foundation for secure, context-aware NLQ-to-SQL/data product workflows in Agent9.
+  - All future NLP model enhancements should build on this robust entity extraction core.
+
+#### 3.1.8 Business Query Parsing (2025-05-26)
+
+- The agent must implement a protocol-compliant method `parse_business_query` that processes natural language business queries into structured data requests.
+- This method must use the LLM Service Agent for complex query understanding and parsing.
+- Business terms must be mapped to technical attributes through the Data Governance Agent.
+- The method must be async and must follow A2A protocol for request/response with Pydantic models.
+- Test coverage must include integration with the orchestrator, LLM agent, error/HITL handling, and edge cases for unmapped terms.
+
+- Usage documentation and examples:
+
+  **parse_business_query usage example:**
+  ```python
+  from src.agents.new.A9_NLP_Interface_Agent import A9_NLP_Interface_Agent
+  from src.registry.agent_registry import AgentRegistry
+  from src.models.nlp_models import BusinessQueryRequest, BusinessQueryResult
+  
+  async def process_query():
+      # Get agent from registry (orchestrator-driven)
+      agent = await A9_NLP_Interface_Agent.create_from_registry(
+          AgentRegistry(), 
+          agent_config={"hitl_enabled": True}
+      )
+      
+      # Create protocol-compliant input model
+      input_model = BusinessQueryRequest(
+          query="What was our revenue by region for Q1 2025?",
+          principal_context={"filters": {"region": "North America"}}
+      )
+      result = await agent.parse_business_query(input_model)
+      # Access result.topn, result.filters, result.principal_context, result.human_action_required, etc.
+  ```
+
+- **Output Protocol Fields:**
+  - `matched_views`: List[dict] — NLQ intent resolution (KPI/groupings/time/filter)
+  - `unmapped_terms`: List[str] — Terms not mapped during parsing
+  - `filters`: dict — Final filters applied (business or technical)
+  - `data_product_id`: str — Identified data product to query
+  - `fields`: List[str] — Fields to retrieve
+  - `aggregations`: dict — Aggregation operations
+  - `groupby`: List[str] — Fields to group by
+  - `orderby`: dict — Sorting specifications
+  - `limit`: int — Result limit
+  - `human_action_required`: bool — Whether human action is required
+  - `human_action_type`: str — Type of human action if required
+  - `human_action_context`: dict — Context for human action
+
+### 3.1.9 Document Analysis Capability
+
+- The agent must implement document analysis to extract structured information from unstructured text.
+- Multiple document types must be supported with specialized extractors.
+- Analysis should include entity extraction, relationship detection, and key information identification.
+
+- Example:
+```python
+# Input (from governance agent)
+filters = {"REGION_CODE": "NA", "PROD_CODE": "CE"}
+result = await nlp_agent.analyze_document("Revenue by Business Unit for Q1", filters=filters)
+# Output (DocumentAnalysis)
+{
+  "summary": "Revenue for North America, Consumer Electronics is above target.",
+  "key_points": ["Growth YoY: 8%", "Margin: 12%"],
+  "entities": [...],
+  "relationships": [...],
+  "confidence": 0.95
+}
+```
+
+### 3.2 Integration Requirements
+
+#### 3.2.1 Data Governance Agent Integration
+- Implement integration with Data Governance Agent for term mapping
+- Support technical attribute resolution
+- Handle unmapped terms
+- Provide fallback mechanisms
+- Log all mapping attempts
+
+#### 3.2.2 LLM Service Integration
+- Integrate with LLM Service Agent for complex NLP tasks
+- Support context-aware prompts
+- Handle response validation
+- Process multi-turn interactions
+- Log all LLM operations
+
+#### 3.2.3 Data Product MCP Service Integration
+- Support structured data requests
+- Handle query parameter validation
+- Process data product results
+- Format results for end-users
+- Manage pagination and large result sets
+
+### 3.3 Security Requirements
+- Secure data transmission
+- Role-based access control
+- Audit logging
+- Compliance with data protection regulations
+
+## 4. Non-Functional Requirements
+
+### 4.1 Performance
+- Process documents in real-time
+- Handle large document volumes
+- Maintain consistent performance
+- Support concurrent processing
+
+### 4.2 Scalability
+- Scale horizontally
+- Support multiple ERP connections
+- Handle increasing document volumes
+- Maintain performance under load
+
+### 4.3 Reliability
+- High availability architecture
+- Automatic failover
+- Data backup and recovery
+- Error handling and recovery
+
+## 5. Technical Requirements
+
+### 5.1 System Architecture
+- Microservices-based architecture
+- RESTful API interface
+- Containerized deployment
+- Cloud-native design
+
+### 5.2 Technology Stack
+- Python 3.10+
+- FastAPI for REST API
+- SQLAlchemy for database
+- Docker for containerization
+- Kubernetes for orchestration
+
+### 5.3 Integration Points (UPDATED 2025-08-05)
+
+- **NLQ-to-Result Workflow:**
+  1. NLP Interface Agent receives natural language query from user
+  2. NLP Interface Agent parses query to extract intent and entities
+  3. NLP Interface Agent consults Data Governance Agent to map business terms to technical attributes
+  4. NLP Interface Agent identifies the target Data Product view based on query intent
+  5. NLP Interface Agent creates structured query with technical terms and Data Product ID
+  6. Data Product MCP Service Agent receives structured query with Data Product ID
+  7. If SQL is needed, Data Product MCP Service Agent invokes LLM Service Agent for SQL generation against the view
+  8. Data Product MCP Service Agent executes query or generated SQL
+  9. Results flow back through the chain to the user
+
+- **Responsibility Boundaries:**
+  - **NLP Interface Agent:** Business language understanding, intent extraction, term mapping
+  - **Data Governance Agent:** Business-to-technical term resolution
+  - **LLM Service Agent:** SQL generation, text processing
+  - **Data Product MCP Service Agent:** Data access, query execution
+
+This clear separation ensures each agent has a well-defined role in the NLQ-to-result pipeline without duplicating functionality.
+
+### 5.4 Performance Optimization
+- Implements YAML contract caching mechanism for improved performance
+- Provides optimized contract access during agent operation
+- Reduces redundant parsing and processing of YAML contracts
+
+### 5.5 Entity Extraction Implementation
+- Implements regex-based entity extraction for standard entity types
+- Provides extensible pattern matching for custom entity recognition
+- Supports entity normalization and standardization
+- Includes confidence scoring for extracted entities
+
+### 5.6 HITL Escalation
+- Implements protocol-compliant HITL escalation logic
+- Provides structured context for human review and intervention
+- Supports configurable escalation thresholds
+- Includes detailed logging of escalation events
+
+### 5.7 Error Handling
+- Implements comprehensive error handling for all agent operations
+- Provides standardized error response format
+- Supports graceful degradation for partial failures
+- Includes detailed error logging for troubleshooting
+
+## 6. Implementation Phases
+
+### Phase 1: Core NLP Engine (2 weeks)
+- Basic NLP processing
+- Core document analysis
+- Basic entity recognition
+- Initial error handling
+
+### Phase 2: ERP Integration (2 weeks)
+- ERP system connections
+- Data format conversion
+- Basic integration tests
+- Security implementation
+
+### Phase 3: Advanced Features (2 weeks)
+- Relationship analysis
+- Business context processing
+- Performance optimization
+- Advanced error handling
+
+### Phase 4: Testing and Documentation (1 week)
+- Comprehensive testing
+- Performance testing
+- Security testing
+- Documentation creation
+
+## 7. Dependencies
+
+### 7.1 External Dependencies
+- ERP system licenses
+- NLP service subscriptions
+- Cloud infrastructure
+- Security services
+
+### 7.2 Internal Dependencies
+- Agent Registry
+- Authentication System
+- Logging Infrastructure
+- Monitoring System
+
+## 8. Agent Requirements
+
+### 8.1 Core Agent Interface
+- Follow Agent9 agent registry interface requirements
+- Implement required registry integration methods
+- All document analysis functions must be async
+- Input must be compatible with Data Governance Agent output
+- Use standard error handling patterns
+- Maintain consistent logging
+- Log all integration attempts and failures
+
+### 8.2 Configuration Management
+- Support default configuration values
+- Validate configuration on initialization
+- Maintain configuration state
+- Handle agent-specific configuration
+
+### 8.3 Error Handling
+- Implement structured error handling
+- Log errors appropriately
+- Return consistent error responses
+- Handle common error types (connection, processing, validation)
+- Validate all technical attribute names and filter code values
+- Handle unmapped filters/attributes with robust error handling
+
+### 8.4 Logging
+- Initialize agent-specific logger
+- Log initialization and major operations
+- Support different log levels
+- Include timestamps in logs
+
+### 8.5 Core Methods
+- Implement _initialize for setup
+- Implement _setup_logging for logging
+- Implement _setup_error_handling for error management
+- Implement create_from_registry class method
+- Implement analyze_document as async, accepting technical filters
+
+### 8.6 Error Types
+- ConfigurationError: Invalid configuration
+- RegistrationError: Failed to register with registry
+- ProcessingError: Failed to process data
+- ValidationError: Invalid input data
+- ConnectionError: Connection failures
+- UnmappedFilterError: Provided filter could not be mapped to a technical attribute
+
+## 9. Testing Requirements (NEW, MVP Alignment)
+- Test orchestrator-driven business query parsing (parse_business_query) with LLM Service Agent
+- Validate protocol compliance (Pydantic input/output)
+- Test error and HITL handling paths
+- Test unmapped terms and edge cases
+- Document test coverage and assumptions (pending usage example update)
+
+- Test document analysis with technical filters (integration with Data Governance Agent)
+- Test input validation for technical attribute names/code values
+- Test error handling for unmapped filters/attributes
+- Test async operation and registry integration
+- Test integration with Data Product Agent (end-to-end flow)
+- Document test coverage and assumptions
+
+## 10. Acceptance Criteria
+
+### 10.0 Protocol Compliance (2025-06-24)
+- All entrypoints use only protocol-compliant models as defined in code.
+- Orchestrator-driven lifecycle is enforced; no agent-side registration or direct instantiation in documentation or code samples.
+- All event logging is async/awaited and uses `A9_SharedLogger`.
+- YAML contract context is always propagated and accessed via the context kwarg.
+- All tests and usage examples are orchestrator-driven.
+
+### 10.1 Functional
+- Successful ERP system integration
+- Accurate document processing
+- Proper error handling
+- Complete documentation
+
+### 10.2 Non-Functional
+- Performance meets requirements
+- Security requirements met
+- Scalability verified
+- Documentation complete
+
+## 11. Maintenance and Support
+
+## 12. Compliance: YAML Contract Context
+- The agent must always check for and apply `yaml_contract_text` from the context if present, for all entrypoints. This is required for A2A protocol compliance and is enforced by orchestrator-driven workflow execution and tests.
+
+### Example: Accessing YAML Contract Context in a Protocol-Compliant Method
+```python
+# In any protocol-compliant agent method:
+def some_method(self, input_model, context=None):
+    yaml_contract = context.get('yaml_contract_text') if context else None
+    # Use yaml_contract for schema mapping, validation, etc.
+```
+
+## 13. Roadmap and Future Enhancements
+
+- **SQL Query Support:** (UPDATED 2025-08-05)
+  - The agent is responsible for translating natural language queries into structured query representations
+  - The actual SQL generation is delegated to the LLM Service Agent via the Data Product MCP Service Agent
+  - The NLP Interface Agent focuses on:
+    - Extracting query intent, entities, and parameters from natural language
+    - Mapping business terms to technical attributes via the Data Governance Agent
+    - Constructing structured query representations with properly mapped technical terms
+    - Identifying appropriate Data Product views for query execution
+  - This separation of concerns ensures:
+    - The NLP Interface Agent maintains focus on business language understanding
+    - SQL generation expertise is centralized in the LLM Service Agent
+    - The Data Product MCP Service Agent maintains control over data access
+
+### 13.1 Maintenance
+### 11.1 Maintenance
+- Regular updates
+- Security patches
+- Performance optimization
+- Documentation updates
+
+### 11.2 Support
+- User documentation
+- API documentation
+- Troubleshooting guide
+- Support channels

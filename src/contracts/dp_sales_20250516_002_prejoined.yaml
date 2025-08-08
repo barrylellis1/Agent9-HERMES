@@ -1,0 +1,31 @@
+data_product: dp_sales_20250516_002_prejoined
+description: >
+  Pre-joined intermediate result for Sales Order Items, ready for fast analytics and filtering.
+tables:
+  - name: PrejoinedSalesOrderItems
+    columns:
+      - name: sales_order_id
+        type: string
+      - name: product_id
+        type: string
+      - name: item_amount
+        type: decimal
+      - name: quantity
+        type: integer
+      - name: order_date
+        type: date
+relationships: []
+kpis:
+  - name: TotalItemAmount
+    description: Total item amount in prejoined table
+    formula: sum(item_amount)
+  - name: OrderCount
+    description: Total number of orders in prejoined sales data
+    calculation: COUNT(sales_order_id)
+    aggregation: COUNT
+    base_column: sales_order_id
+    join_tables: []
+    dependencies: null
+    sql_example: |
+      SELECT COUNT(sales_order_id) AS order_count
+      FROM SalesOrders

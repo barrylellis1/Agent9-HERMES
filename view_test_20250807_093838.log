@@ -1,0 +1,117 @@
+2025-08-07 09:38:38,036 - view_test - INFO - Initializing DuckDB connection
+2025-08-07 09:38:38,053 - view_test - INFO - Creating schema
+2025-08-07 09:38:38,054 - view_test - INFO - Creating test tables
+2025-08-07 09:38:38,055 - view_test - INFO - Inserting sample data
+2025-08-07 09:38:38,091 - view_test - INFO - Found 14 tables in contract
+2025-08-07 09:38:38,092 - view_test - INFO - Creating table GLAccountsHierarchy with 3 columns
+2025-08-07 09:38:38,092 - view_test - INFO - Inserting sample data into GLAccountsHierarchy
+2025-08-07 09:38:38,093 - view_test - INFO - Creating table FinancialTransactions with 11 columns
+2025-08-07 09:38:38,094 - view_test - INFO - Inserting sample data into FinancialTransactions
+2025-08-07 09:38:38,095 - view_test - INFO - Creating table GLAccountsTexts with 2 columns
+2025-08-07 09:38:38,095 - view_test - INFO - Inserting sample data into GLAccountsTexts
+2025-08-07 09:38:38,096 - view_test - INFO - Creating table GLAccounts with 3 columns
+2025-08-07 09:38:38,096 - view_test - INFO - Inserting sample data into GLAccounts
+2025-08-07 09:38:38,097 - view_test - INFO - Creating table Products with 2 columns
+2025-08-07 09:38:38,097 - view_test - INFO - Inserting sample data into Products
+2025-08-07 09:38:38,098 - view_test - INFO - Creating table ProductHierarchy with 3 columns
+2025-08-07 09:38:38,099 - view_test - INFO - Inserting sample data into ProductHierarchy
+2025-08-07 09:38:38,099 - view_test - INFO - Creating table Customer with 3 columns
+2025-08-07 09:38:38,099 - view_test - INFO - Inserting sample data into Customer
+2025-08-07 09:38:38,100 - view_test - INFO - Creating table CustomersHierarchy with 3 columns
+2025-08-07 09:38:38,100 - view_test - INFO - Inserting sample data into CustomersHierarchy
+2025-08-07 09:38:38,101 - view_test - INFO - Creating table CustomerType with 2 columns
+2025-08-07 09:38:38,101 - view_test - INFO - Inserting sample data into CustomerType
+2025-08-07 09:38:38,101 - view_test - INFO - Creating table ProductCategories with 2 columns
+2025-08-07 09:38:38,102 - view_test - INFO - Inserting sample data into ProductCategories
+2025-08-07 09:38:38,102 - view_test - INFO - Creating table ProfitCenter with 2 columns
+2025-08-07 09:38:38,102 - view_test - INFO - Inserting sample data into ProfitCenter
+2025-08-07 09:38:38,103 - view_test - INFO - Creating table ProfitCenterHierarchy with 3 columns
+2025-08-07 09:38:38,103 - view_test - INFO - Inserting sample data into ProfitCenterHierarchy
+2025-08-07 09:38:38,104 - view_test - INFO - Creating table ProfitCenterTexts with 5 columns
+2025-08-07 09:38:38,104 - view_test - INFO - Inserting sample data into ProfitCenterTexts
+2025-08-07 09:38:38,105 - view_test - INFO - Creating table CustomerTypeTexts with 5 columns
+2025-08-07 09:38:38,105 - view_test - INFO - Inserting sample data into CustomerTypeTexts
+2025-08-07 09:38:38,105 - view_test - INFO - All tables created successfully based on YAML contract
+2025-08-07 09:38:38,106 - view_test - INFO - Extracted SQL from contract file
+2025-08-07 09:38:38,107 - view_test - INFO - Original SQL from contract:
+2025-08-07 09:38:38,107 - view_test - INFO - WITH FinancialTransactions_Typed AS (
+    SELECT *, strptime(CAST(date AS VARCHAR), '%Y%m%d') AS transaction_date FROM FinancialTransactions
+)
+SELECT
+  ft.transactionid AS "Transaction ID",
+  EXTRACT(year FROM ft.transaction_date) AS "Fiscal Year",
+  EXTRACT(quarter FROM ft.transaction_date) AS "Fiscal Quarter",
+  EXTRACT(month FROM ft.transaction_date) AS "Fiscal Month",
+  CAST(strftime(ft.transaction_date, '%Y-%m') AS VARCHAR) AS "Fiscal Year-Month",
+  strftime(ft.transaction_date, '%W') AS "Fiscal Week",
+  CASE WHEN EXTRACT(year FROM ft.transaction_date) = EXTRACT(year FROM CURRENT_DATE) THEN 1 ELSE 0 END AS "Fiscal YTD Flag",
+  CASE WHEN EXTRACT(year FROM ft.transaction_date) = EXTRACT(year FROM CURRENT_DATE) AND EXTRACT(quarter FROM ft.transaction_date) = EXTRACT(quarter FROM CURRENT_DATE) THEN 1 ELSE 0 END AS "Fiscal QTD Flag",
+  CASE WHEN EXTRACT(year FROM ft.transaction_date) = EXTRACT(year FROM CURRENT_DATE) AND EXTRACT(month FROM ft.transaction_date) = EXTRACT(month FROM CURRENT_DATE) THEN 1 ELSE 0 END AS "Fiscal MTD Flag",
+  CASE WHEN ft.transaction_date >= (CURRENT_DATE - INTERVAL '1' YEAR) THEN 1 ELSE 0 END AS "Rolling 12 Months Flag",
+  CASE WHEN ft.transaction_date >= (CURRENT_DATE - INTERVAL '4' QUARTER) THEN 1 ELSE 0 END AS "Rolling 4 Quarters Flag",
+  ft.accountid AS "Account ID",
+  ft.accounttypeid AS "Account Type ID",
+  ft.customerid AS "Customer ID",
+  ft.customertypeid AS "Customer Type ID",
+  ft.productid AS "Product ID",
+  ft.productcategoryid AS "Product Category ID",
+  ft.profitcenterid AS "Profit Center ID",
+  ft.version AS "Version",
+  ft.transaction_date AS "Transaction Date",
+  CAST(REPLACE(ft.value, ',', '.') AS DECIMAL(18, 2)) AS "Transaction Value Amount",
+  gah.DESCRIPTION AS "Account Hierarchy Desc",
+  gat."LONG_DESCR" AS "Account Long Description",
+  gah.DESCRIPTION AS "Account/Group Description",
+  gah.LEVEL AS "Parent Account/Group Hierarchy ID",
+  gah_parent.DESCRIPTION AS "Parent Account/Group Description",
+  ph.DESCRIPTION AS "Product Name",
+  ph.LEVEL AS "Parent Product Hierarchy ID",
+  ph_parent.DESCRIPTION AS "Parent Product/Group Description",
+  ch.DESCRIPTION AS "Customer Name",
+  ch.DESCRIPTION AS "Customer/Group Description",
+  ch.LEVEL AS "Parent Customer Hierarchy ID",
+  ch_parent.DESCRIPTION AS "Parent Customer/Group Description",
+  ctt.LONG_DESCR AS "Customer Type Name",
+  pct.LONG_DESCR AS "Profit Center Name",
+  pch.HIERARCHYID AS "Profit Center Hierarchyid",
+  ch.HIERARCHYID AS "Customer Hierarchyid",
+  pch.DESCRIPTION AS "Profit Center/Group Description",
+  pch.LEVEL AS "Parent Profit Center Hierarchy ID",
+  pch_parent.DESCRIPTION AS "Parent Profit Center/Group Description"
+FROM FinancialTransactions_Typed ft
+JOIN GLAccounts ga ON ft.accountid = ga.accountid
+LEFT JOIN GLAccountsTexts gat ON ga.accountid = gat.accountid
+LEFT JOIN GLAccountsHierarchy gah ON ga.accountid = gah.HIERARCHYID
+LEFT JOIN GLAccountsHierarchy gah_parent ON gah.LEVEL = gah_parent.HIERARCHYID
+LEFT JOIN Products p ON ft.productid = p.productid
+LEFT JOIN ProductHierarchy ph ON p.productid = ph.HIERARCHYID
+LEFT JOIN ProductHierarchy ph_parent ON ph.LEVEL = ph_parent.HIERARCHYID
+LEFT JOIN Customer c ON ft.customerid = c.customerid
+LEFT JOIN CustomersHierarchy ch ON c.customerid = ch.HIERARCHYID
+LEFT JOIN CustomersHierarchy ch_parent ON ch.LEVEL = ch_parent.HIERARCHYID
+LEFT JOIN CustomerType ct ON c.customertypeid = ct.customertypeid
+LEFT JOIN CustomerTypeTexts ctt ON ct.customertypeid = ctt.CUSTOMERTYPEID
+LEFT JOIN ProfitCenter pc ON ft.profitcenterid = pc.profitcenterid
+LEFT JOIN ProfitCenterTexts pct ON pc.profitcenterid = pct.PROFITCENTERID
+LEFT JOIN ProfitCenterHierarchy pch ON pc.profitcenterid = pch.HIERARCHYID
+LEFT JOIN ProfitCenterHierarchy pch_parent ON pch.LEVEL = pch_parent.HIERARCHYID
+
+2025-08-07 09:38:38,109 - view_test - INFO - Creating a simplified test view instead of the complex one from YAML
+2025-08-07 09:38:38,109 - view_test - INFO - Using simplified view SQL to match actual table schemas:
+2025-08-07 09:38:38,109 - view_test - INFO - 
+            SELECT 
+                ft.transactionid AS "Transaction ID",
+                ft.date AS "Transaction Date", 
+                CAST(REPLACE(ft.value, ',', '.') AS DECIMAL(18, 2)) AS "Transaction Value",
+                ft.accountid AS "Account ID",
+                gat.account_long_desc AS "Account Description",
+                ft.customerid AS "Customer ID",
+                ft.productid AS "Product ID",
+                ft.profitcenterid AS "Profit Center ID"
+            FROM sap.FinancialTransactions ft
+            LEFT JOIN sap.GLAccountsTexts gat ON ft.accountid = gat.accountid
+            
+2025-08-07 09:38:38,110 - view_test - INFO - Creating view: fi_star_view
+2025-08-07 09:38:38,115 - view_test - INFO - [PASS] View created successfully
+2025-08-07 09:38:38,132 - view_test - ERROR - [FAIL] View query failed: Conversion Error: Could not convert string "Sample value" to DECIMAL(18,2)
+2025-08-07 09:38:38,135 - view_test - ERROR - [FAIL] Tests failed

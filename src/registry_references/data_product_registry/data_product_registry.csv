@@ -1,0 +1,8 @@
+product_id,name,domain,description,tags,last_updated,documentation,reviewed,language,output_path,yaml_contract_path
+dp_fi_20250516_001,Dp Fi 20250516 001,FI,FI Star Schema with Account Hierarchy (YAML-driven contract),erp;finance,6/21/2025,"Uses canonical YAML contract for schema, KPIs, and relationships. See yaml_contract_path.",TRUE,EN,C:\Users\barry\Documents\Agent 9\SAP DataSphere Data\datasphere-content-1.7\datasphere-content-1.7\SAP_Sample_Content\CSV\FI,src/registry_references/data_product_registry/data_products/fi_star_schema.yaml
+dp_fi_20250516_002,GL Accounts,SAP,General ledger accounts master data,erp;finance;gl;sap,5/16/2025,,TRUE,,src/agents/new/data_products/dp_fi_20250516_002.yaml,
+dp_hr_20250516_001,Employee Headcount,SAP,Headcount data by department and division,erp;hr;headcount;sap,5/16/2025,,TRUE,,src/agents/new/data_products/dp_hr_20250516_001.yaml,
+dp_hr_20250516_002,Employee Performance,SAP,Employee performance ratings and KPIs,erp;hr;performance;sap,5/16/2025,,TRUE,,src/agents/new/data_products/dp_hr_20250516_002.yaml,
+dp_hr_20250516_003,Employee Personal Data,SAP,Personal and demographic data for SAP employees,erp;hr;personal;sap,5/16/2025,,TRUE,,src/agents/new/data_products/dp_hr_20250516_003.yaml,
+dp_sales_20250516_001,Sales Orders,SAP,Sales orders from SAP sample data,erp;sales;orders;sap,5/16/2025,,TRUE,,src/agents/new/data_products/dp_sales_20250516_001.yaml,
+dp_sales_20250516_002,Sales Order Items,SAP,Line items for sales orders,erp;sales;orderitems;sap,5/16/2025,,TRUE,,src/agents/new/data_products/dp_sales_20250516_002.yaml,

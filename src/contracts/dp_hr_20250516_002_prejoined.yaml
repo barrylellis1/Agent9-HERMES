@@ -1,0 +1,29 @@
+data_product: dp_hr_20250516_002_prejoined
+description: >
+  Pre-joined intermediate result for Employee Performance, ready for fast analytics and filtering.
+tables:
+  - name: PrejoinedPerformance
+    columns:
+      - name: employee_id
+        type: string
+      - name: department_id
+        type: string
+      - name: performance_rating
+        type: integer
+      - name: bonus_amount
+        type: decimal
+relationships: []
+kpis:
+  - name: AvgPerformanceRating
+    description: Average performance rating in prejoined table
+    formula: avg(performance_rating)
+  - name: TotalEmployees
+    description: Total number of employees in prejoined HR data
+    calculation: COUNT(employee_id)
+    aggregation: COUNT
+    base_column: employee_id
+    join_tables: []
+    dependencies: null
+    sql_example: |
+      SELECT COUNT(employee_id) AS total_employees
+      FROM Employees

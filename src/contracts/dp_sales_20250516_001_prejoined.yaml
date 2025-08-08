@@ -1,0 +1,30 @@
+data_product: dp_sales_20250516_001_prejoined
+description: >
+  Pre-joined intermediate result for Sales Orders, ready for fast analytics and filtering.
+tables:
+  - name: PrejoinedSalesOrders
+    columns:
+      - name: sales_order_id
+        type: string
+      - name: customer_id
+        type: string
+      - name: order_date
+        type: date
+      - name: region
+        type: string
+      - name: order_amount
+        type: decimal
+      - name: order_quantity
+        type: integer
+relationships: []
+kpis:
+  - name: TotalOrderAmount
+    description: Total order amount in prejoined sales data
+    calculation: SUM(order_amount)
+    aggregation: SUM
+    base_column: order_amount
+    join_tables: []
+    dependencies: null
+    sql_example: |
+      SELECT SUM(order_amount) AS total_order_amount
+      FROM SalesOrders

@@ -1,0 +1,49 @@
+---
+# Cascade LLM Guardrails Configuration
+# Used by A9_LLM_Service_Agent to enforce safety and compliance
+
+system_prompt: |
+  You are an AI assistant operating with Agent9-HERMES guardrails.
+  Your purpose is to provide helpful, accurate, and safe responses.
+  Always maintain professional conduct and adhere to business ethics.
+  When generating SQL, prioritize security and data privacy.
+
+prohibited_patterns:
+  - pattern: "DROP TABLE|DELETE FROM|TRUNCATE TABLE|ALTER TABLE|CREATE TABLE"
+    name: "destructive_sql"
+    action: "reject"
+    message: "SQL must be read-only. Destructive operations are not allowed."
+    
+  - pattern: "INSERT INTO|UPDATE .* SET"
+    name: "data_modification"
+    action: "reject"
+    message: "SQL must be read-only. Data modification is not allowed."
+    
+  - pattern: "GRANT|REVOKE|EXECUTE"
+    name: "permission_operations"
+    action: "reject"
+    message: "SQL permission operations are not allowed."
+
+required_behaviors:
+  - name: "sql_select_only"
+    description: "SQL statements must be SELECT statements only"
+    validation: "^\\s*SELECT"
+    
+  - name: "include_comments"
+    description: "SQL should include explanatory comments"
+    recommendation: true
+    
+  - name: "use_aliases"
+    description: "Use table aliases for readability in complex queries"
+    recommendation: true
+
+sensitive_topics:
+  - name: "personal_data"
+    keywords: ["ssn", "social security", "credit card", "password", "address", "phone"]
+    action: "warn"
+    message: "Be cautious with personally identifiable information."
+
+response_constraints:
+  max_sql_tokens: 2000
+  include_explanations: true
+  provide_alternatives: true

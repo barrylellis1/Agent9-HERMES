@@ -1,0 +1,18 @@
+# Agent9 Configuration File
+
+A9_Principal_Context_Agent:
+  hcm_system_api_url: "https://hcm.example.com/api/v1/employees"
+
+A9_Situation_Awareness_Agent:
+  default_kpis:
+    - "Revenue"
+    - "Gross_Margin_Percentage"
+
+A9_Deep_Analysis_Agent:
+  analysis_model_endpoint: "https://ml.example.com/models/deep_analysis"
+
+A9_Solution_Finder_Agent:
+  solution_model_endpoint: "https://ml.example.com/models/solution_finder"
+
+A9_Orchestrator_Agent:
+  # No specific config needed for this agent yet

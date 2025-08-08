@@ -1,0 +1,10 @@
+2025-08-06 20:27:24,833 - view_test - INFO - Initializing DuckDB connection
+2025-08-06 20:27:24,904 - view_test - INFO - Creating schema
+2025-08-06 20:27:24,909 - view_test - INFO - Creating test tables
+2025-08-06 20:27:24,912 - view_test - INFO - Inserting sample data
+2025-08-06 20:27:24,925 - view_test - ERROR - Test failed: Binder Error: table GLAccounts has 15 columns but 17 values were supplied
+2025-08-06 20:27:24,932 - view_test - ERROR - Traceback (most recent call last):
+  File "C:\Users\barry\CascadeProjects\Agent9-HERMES\test_view_creation.py", line 114, in test_view_creation
+    conn.execute(f"INSERT INTO sap.{table} VALUES ('ID1', 'Desc1', 'L1', 'ACC1', 'PROD1', 'CUST1', 'PF1', 'CT1', 'Long Desc', 'PF1', 'CT1', 'Account Long', 'Account Hier', 'Account', 'Product', 'Customer', 'Type')")
+duckdb.duckdb.BinderException: Binder Error: table GLAccounts has 15 columns but 17 values were supplied
+

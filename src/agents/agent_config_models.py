@@ -1,0 +1,178 @@
+"""
+Agent configuration models for Agent9-HERMES.
+All agent configuration models must be defined here for centralized validation.
+"""
+
+from typing import Dict, Any, Optional, List
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class A9_LLM_Service_Agent_Config(BaseModel):
+    """
+    Configuration for the A9_LLM_Service_Agent.
+    Controls LLM provider settings, model selection, and guardrails.
+    """
+    model_config = ConfigDict(extra="allow")
+    
+    # Provider settings
+    provider: str = Field("anthropic", description="LLM provider to use (anthropic, openai)")
+    model_name: str = Field("claude-3-sonnet-20240229", 
+                           description="Default model to use for LLM requests")
+    api_key_env_var: str = Field("ANTHROPIC_API_KEY", 
+                               description="Environment variable containing API key")
+    
+    # Generation settings
+    max_tokens: int = Field(4096, description="Default maximum tokens for completion")
+    temperature: float = Field(0.7, description="Default temperature for generation")
+    
+    # Guardrails settings
+    guardrails_path: str = Field("docs/cascade_guardrails.yaml", 
+                                description="Path to guardrails configuration file")
+    prompt_templates_path: str = Field("docs/cascade_prompt_templates.md", 
+                                     description="Path to prompt templates file")
+    system_prompt_override: Optional[str] = Field(None, 
+                                                description="Override for system prompt")
+    
+    # Routing and orchestration
+    require_orchestrator: bool = Field(True, 
+                                     description="Whether calls must be routed through orchestrator")
+    log_all_requests: bool = Field(True, 
+                                 description="Whether to log all LLM requests and responses")
+    
+    # Environment settings
+    use_mocks_in_test: bool = Field(True, 
+                                   description="Whether to use mock responses in test environment")
+
+
+class A9_Data_Product_MCP_Service_Config(BaseModel):
+    """
+    Configuration for the A9_Data_Product_MCP_Service_Agent.
+    Controls data sources, product registry, and query execution settings.
+    """
+    model_config = ConfigDict(extra="allow")
+    
+    # Data source settings
+    sap_data_path: str = Field(..., description="Path to SAP data files")
+    
+    # Registry settings
+    registry_path: str = Field("src/registry_references", 
+                              description="Path to registry references")
+    data_product_registry: str = Field("data_product_registry/data_product_registry.csv",
+                                      description="Path to data product registry file")
+    contracts_path: str = Field("src/registry_references/data_product_registry/data_products",
+                              description="Path to data product contract YAML files")
+    
+    # Query execution settings
+    allow_custom_sql: bool = Field(True, 
+                                description="Whether to allow custom SQL execution")
+    validate_sql: bool = Field(True, 
+                            description="Whether to validate SQL for security")
+
+
+class A9_Orchestrator_Agent_Config(BaseModel):
+    """
+    Configuration for the A9_Orchestrator_Agent.
+    Controls workflow execution, agent discovery, and registry management.
+    """
+    model_config = ConfigDict(extra="allow")
+    
+    # Registry settings
+    agent_discovery_paths: List[str] = Field(["src/agents"], 
+                                          description="Paths to scan for agent modules")
+    card_discovery_paths: List[str] = Field(["src/agents/cards"], 
+                                         description="Paths to scan for agent cards")
+    
+    # Workflow settings
+    workflow_definition_path: str = Field("src/workflows", 
+                                        description="Path to workflow definitions")
+    default_workflow: str = Field("situation_awareness", 
+                                description="Default workflow to execute if not specified")
+    
+    # Logging settings
+    log_level: str = Field("INFO", description="Default log level")
+    log_to_file: bool = Field(True, description="Whether to log to file")
+    log_file_path: str = Field("logs/orchestrator.log", description="Path to log file")
+    
+    # Performance settings
+    max_concurrent_workflows: int = Field(10, 
+                                       description="Maximum concurrent workflows")
+    agent_timeout_seconds: int = Field(30, 
+                                    description="Timeout for agent operations in seconds")
+
+
+class A9_Principal_Context_Agent_Config(BaseModel):
+    """
+    Configuration for the A9_Principal_Context_Agent.
+    Controls principal profile management and context handling.
+    """
+    model_config = ConfigDict(extra="allow")
+    
+    # Data sources
+    registry_path: str = Field("src/registry_references/principal_registry", 
+                             description="Path to principal registry data")
+    cache_profiles: bool = Field(True, 
+                               description="Whether to cache principal profiles in memory")
+    
+    # Context settings
+    context_ttl_seconds: int = Field(300, 
+                                   description="Time-to-live for cached context in seconds")
+    refresh_on_access: bool = Field(True, 
+                                  description="Whether to refresh context on access")
+    
+    # Privacy settings
+    pii_fields: List[str] = Field(["email", "phone", "address"], 
+                                description="Fields containing PII to be handled securely")
+
+
+class A9_Data_Product_MCP_Service_Config(BaseModel):
+    """
+    Configuration for the A9_Data_Product_MCP_Service_Agent.
+    Controls data access, SQL execution, and registry integration.
+    """
+    model_config = ConfigDict(extra="allow")
+    
+    # Data source settings
+    sap_data_path: str = Field(
+        "C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI", 
+        description="Path to SAP DataSphere CSV data files"
+    )
+    
+    # Registry settings
+    registry_path: str = Field(
+        "src/registry_references", 
+        description="Path to registry data files"
+    )
+    data_product_registry: str = Field(
+        "data_product_registry/data_product_registry.csv", 
+        description="Path to data product registry file relative to registry_path"
+    )
+    
+    # Security settings
+    allow_custom_sql: bool = Field(
+        True, 
+        description="Whether to allow custom SQL execution (vs. only registry-defined queries)"
+    )
+    validate_sql: bool = Field(
+        True, 
+        description="Whether to validate SQL statements for security (only SELECT allowed)"
+    )
+    
+    # Performance settings
+    cache_tables: bool = Field(
+        True, 
+        description="Whether to cache loaded tables in memory"
+    )
+    max_result_rows: int = Field(
+        10000, 
+        description="Maximum number of rows to return in a result"
+    )
+    
+    # Logging settings
+    log_queries: bool = Field(
+        True, 
+        description="Whether to log all executed SQL queries"
+    )
+    include_query_results_in_logs: bool = Field(
+        False, 
+        description="Whether to include query results in logs (could expose sensitive data)"
+    )

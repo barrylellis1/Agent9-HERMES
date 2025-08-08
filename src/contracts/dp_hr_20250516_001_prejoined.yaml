@@ -1,0 +1,27 @@
+data_product: dp_hr_20250516_001_prejoined
+description: >
+  Pre-joined intermediate result for Employee Headcount, ready for fast analytics and filtering.
+tables:
+  - name: PrejoinedHeadcount
+    columns:
+      - name: employee_id
+        type: string
+      - name: department_id
+        type: string
+      - name: division_id
+        type: string
+      - name: hire_date
+        type: date
+relationships: []
+kpis:
+  - name: Headcount
+    description: Number of employees in prejoined HR data
+    calculation: COUNT(employee_id)
+    aggregation: COUNT
+    base_column: employee_id
+    join_tables: []
+    dependencies: null
+    sql_example: |
+      SELECT COUNT(employee_id) AS headcount
+      FROM Employees
+    formula: count(employee_id)

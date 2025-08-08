@@ -1,0 +1,15 @@
+[2025-08-07 09:38:38] START: Beginning view creation test
+[2025-08-07 09:38:38] STEP: Initializing DuckDB connection
+[2025-08-07 09:38:38] STEP: Creating schema
+[2025-08-07 09:38:38] STEP: Creating test tables
+[2025-08-07 09:38:38] STEP: Inserting sample data
+[2025-08-07 09:38:38] STEP: Parsing table definitions from YAML contract
+[2025-08-07 09:38:38] INFO: Found 14 tables in contract: GLAccountsHierarchy, FinancialTransactions, GLAccountsTexts, GLAccounts, Products, ProductHierarchy, Customer, CustomersHierarchy, CustomerType, ProductCategories, ProfitCenter, ProfitCenterHierarchy, ProfitCenterTexts, CustomerTypeTexts
+[2025-08-07 09:38:38] SUCCESS: Tables created successfully
+[2025-08-07 09:38:38] STEP: Extracting SQL from contract
+[2025-08-07 09:38:38] STEP: SQL extracted successfully
+[2025-08-07 09:38:38] STEP: Creating view: fi_star_view
+[2025-08-07 09:38:38] SUCCESS: View created successfully
+[2025-08-07 09:38:38] STEP: Testing view query
+[2025-08-07 09:38:38] ERROR: View query failed: Conversion Error: Could not convert string "Sample value" to DECIMAL(18,2)
+[2025-08-07 09:38:38] FAILED: Tests failed - see log for details

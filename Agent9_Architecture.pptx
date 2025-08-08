@@ -1,0 +1,50 @@
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.enum.shapes import MSO_SHAPE
+from pptx.dml.color import RGBColor
+
+prs = Presentation()
+slide = prs.slides.add_slide(prs.slide_layouts[5])
+
+# Title
+title_shape = slide.shapes.add_textbox(Inches(0.5), Inches(0.1), Inches(9), Inches(0.7))
+title_frame = title_shape.text_frame
+title_frame.text = "Agent9 Future-Proof Architecture"
+title_frame.paragraphs[0].font.size = Pt(32)
+title_frame.paragraphs[0].font.bold = True
+
+# Top Layer
+orchestrator = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.5), Inches(1.1), Inches(2.5), Inches(0.7))
+orchestrator.text = "A9_Orchestrator Agent\nCoordinates workflows, delegates to agents"
+agent_layer = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(3.2), Inches(1.1), Inches(3.3), Inches(0.7))
+agent_layer.text = "Agent Layer\nAnalytics, Governance, Data Product, LLM, etc."
+situation = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(6.7), Inches(1.1), Inches(2.7), Inches(0.7))
+situation.text = "Situation Awareness & Diagnostic Agents\nDetect anomalies, generate insights, escalate issues"
+
+# Data Access Layer
+data_access = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.5), Inches(2.2), Inches(8.8), Inches(0.7))
+data_access.text = "Data Access Layer\nUnified access to both refined data products and direct source systems"
+
+# Data Connectors
+dp_connectors = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.7), Inches(3.1), Inches(2.3), Inches(0.6))
+dp_connectors.text = "Data Product Connectors\nConnect to curated data marts, warehouses, data contracts"
+ds_connectors = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(3.2), Inches(3.1), Inches(2.3), Inches(0.6))
+ds_connectors.text = "Direct Source Connectors (JDBC, APIs, Files)\nSecure, direct access to raw/source data"
+federated = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(5.7), Inches(3.1), Inches(3.2), Inches(0.6))
+federated.text = "Federated Query Engine (Trino, Dremio, etc.)\nQuery across multiple sources with strong access controls"
+
+# Profiling & Governance
+profiling = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.7), Inches(4.0), Inches(4.2), Inches(0.6))
+profiling.text = "Data Profiling & Schema Discovery\nAutomated profiling, schema inference, anomaly detection"
+governance = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(5.2), Inches(4.0), Inches(4.1), Inches(0.6))
+governance.text = "Governance, Security & Compliance\nAccess control, audit logging, data lineage, masking, privacy"
+
+# Feedback & Learning
+feedback = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.7), Inches(4.9), Inches(8.6), Inches(0.6))
+feedback.text = "Feedback & Learning\nLogs, user feedback, outcome tracking, continuous retraining, benchmarking"
+
+# Marketplace (Future)
+marketplace = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.7), Inches(5.8), Inches(8.6), Inches(0.6))
+marketplace.text = "Marketplace Layer (future)\nPlug-in agents, human consultants, benchmarking, payment, certification, selection/orchestration"
+
+prs.save("Agent9_Architecture.pptx")

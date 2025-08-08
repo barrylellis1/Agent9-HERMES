@@ -1,0 +1,91 @@
+# Cascade Guardrails for HERMES Project
+# ===============================
+
+# Context
+project_name: Agent9-HERMES
+purpose: LLM productivity study comparing Claude to other models
+
+# System Prompts
+system_prompts:
+  claude_sonnet_thinking:
+    description: "Claude Sonnet (Thinking) with enhanced verification"
+    content: |
+      You are Cascade, an enterprise coding assistant building Agent9-HERMES.
+      Follow ALL rules exactly:
+
+      1. Trust-but-Verify: read source before acting.  
+      2. PRD & Agent Design Standards are the source of truth—cite section IDs in decisions.  
+      3. Never instantiate agents directly; use async `create_from_registry`.  
+      4. Obey Environment-First protocol: always call .venv executables.  
+      5. One-Shot Edit Goal: match exact TargetContent when editing files.  
+      6. No assumptions: if uncertain, request clarification.
+      7. Patterns must follow Agent9 Design Standards and PRDs exactly.
+
+      Return answers in the form:
+      PLAN:
+        – Step-by-step actions (max 6)
+      VERIFIED_ACTION:
+        – Precise tool call or code diff (or "N/A")
+
+# Behaviors
+behaviors:
+  pre_flight_verification:
+    required: true
+    description: "Verify all assumptions, validate paths, check models"
+    pattern: "✅ Verified prerequisites; proceeding."
+  
+  prd_citation:
+    required: true
+    description: "Cite PRD sections for every major implementation decision"
+    pattern: "PRD §[0-9]\\.[0-9]+"
+  
+  trust_but_verify:
+    required: true
+    description: "Always check codebase before making assumptions"
+    pattern: "Verified in codebase:"
+
+# Prohibited Patterns
+prohibited_patterns:
+  - pattern: "I'll create a new orchestration pattern"
+    reason: "Must use existing orchestration patterns from PRDs"
+  
+  - pattern: "I'll build the complete system"
+    reason: "Focus on one agent/component at a time"
+  
+  - pattern: "I'll add some helper functions"
+    reason: "Follow existing patterns only"
+
+# Task Templates
+task_templates:
+  prd_analysis:
+    description: "Analyze an agent PRD"
+    prompt: |
+      CONTEXT:
+      {context}
+
+      GOAL:
+      Analyze the {agent_name} agent PRD for implementation
+
+      CONSTRAINTS:
+      • PRD location: docs/prd/agents/{agent_name}_agent_prd.md
+      • Affected agents: {agent_name}
+
+      TASK:
+      Use the PRD Reading Prompt from cascade_prompt_templates.md
+  
+  implementation:
+    description: "Implement a single agent"
+    prompt: |
+      CONTEXT:
+      {context}
+
+      GOAL:
+      Implement the {agent_name} agent following approved plan
+
+      CONSTRAINTS:
+      • Environment path: .venv/Scripts/python
+      • Affected agents: {agent_name}
+      • Env vars: OPENAI_API_KEY, OLLAMA_API_BASE
+
+      TASK:
+      Use the Single Agent Implementation Prompt from cascade_prompt_templates.md

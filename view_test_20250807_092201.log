@@ -1,0 +1,42 @@
+2025-08-07 09:22:01,922 - view_test - INFO - Initializing DuckDB connection
+2025-08-07 09:22:01,953 - view_test - INFO - Creating schema
+2025-08-07 09:22:01,958 - view_test - INFO - Creating test tables
+2025-08-07 09:22:01,959 - view_test - INFO - Inserting sample data
+2025-08-07 09:22:01,997 - view_test - INFO - Found 14 tables in contract
+2025-08-07 09:22:01,998 - view_test - INFO - Creating table GLAccountsHierarchy with 3 columns
+2025-08-07 09:22:01,999 - view_test - INFO - Inserting sample data into GLAccountsHierarchy
+2025-08-07 09:22:02,000 - view_test - INFO - Creating table FinancialTransactions with 11 columns
+2025-08-07 09:22:02,001 - view_test - INFO - Inserting sample data into FinancialTransactions
+2025-08-07 09:22:02,004 - view_test - INFO - Creating table GLAccountsTexts with 2 columns
+2025-08-07 09:22:02,005 - view_test - INFO - Inserting sample data into GLAccountsTexts
+2025-08-07 09:22:02,006 - view_test - INFO - Creating table GLAccounts with 3 columns
+2025-08-07 09:22:02,007 - view_test - INFO - Inserting sample data into GLAccounts
+2025-08-07 09:22:02,007 - view_test - INFO - Creating table Products with 2 columns
+2025-08-07 09:22:02,008 - view_test - INFO - Inserting sample data into Products
+2025-08-07 09:22:02,008 - view_test - INFO - Creating table ProductHierarchy with 3 columns
+2025-08-07 09:22:02,009 - view_test - INFO - Inserting sample data into ProductHierarchy
+2025-08-07 09:22:02,009 - view_test - INFO - Creating table Customer with 3 columns
+2025-08-07 09:22:02,010 - view_test - INFO - Inserting sample data into Customer
+2025-08-07 09:22:02,011 - view_test - INFO - Creating table CustomersHierarchy with 3 columns
+2025-08-07 09:22:02,011 - view_test - INFO - Inserting sample data into CustomersHierarchy
+2025-08-07 09:22:02,012 - view_test - INFO - Creating table CustomerType with 2 columns
+2025-08-07 09:22:02,012 - view_test - INFO - Inserting sample data into CustomerType
+2025-08-07 09:22:02,013 - view_test - INFO - Creating table ProductCategories with 2 columns
+2025-08-07 09:22:02,013 - view_test - INFO - Inserting sample data into ProductCategories
+2025-08-07 09:22:02,013 - view_test - INFO - Creating table ProfitCenter with 2 columns
+2025-08-07 09:22:02,014 - view_test - INFO - Inserting sample data into ProfitCenter
+2025-08-07 09:22:02,014 - view_test - INFO - Creating table ProfitCenterHierarchy with 3 columns
+2025-08-07 09:22:02,015 - view_test - INFO - Inserting sample data into ProfitCenterHierarchy
+2025-08-07 09:22:02,015 - view_test - INFO - Creating table ProfitCenterTexts with 5 columns
+2025-08-07 09:22:02,016 - view_test - INFO - Inserting sample data into ProfitCenterTexts
+2025-08-07 09:22:02,016 - view_test - INFO - Creating table CustomerTypeTexts with 5 columns
+2025-08-07 09:22:02,017 - view_test - INFO - Inserting sample data into CustomerTypeTexts
+2025-08-07 09:22:02,018 - view_test - INFO - All tables created successfully based on YAML contract
+2025-08-07 09:22:02,020 - view_test - INFO - Extracted SQL from contract file
+2025-08-07 09:22:02,020 - view_test - INFO - Creating view: fi_star_view
+2025-08-07 09:22:02,071 - view_test - ERROR - [FAIL] View creation failed: Catalog Error: Table with name FinancialTransactions does not exist!
+Did you mean "sap.FinancialTransactions"?
+
+LINE 2: ...(CAST(date AS VARCHAR), '%Y%m%d') AS transaction_date FROM FinancialTransactions
+                                                                      ^
+2025-08-07 09:22:02,078 - view_test - ERROR - [FAIL] Tests failed

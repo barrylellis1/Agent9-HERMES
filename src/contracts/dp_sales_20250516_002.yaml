@@ -1,0 +1,73 @@
+data_product: dp_sales_20250516_002
+description: >
+  Line items for sales orders from SAP sample data.
+tables:
+  - name: SalesOrderItems
+    columns:
+      - name: sales_order_id
+        type: string
+      - name: product_id
+        type: string
+      - name: item_amount
+        type: decimal
+      - name: quantity
+        type: integer
+      - name: order_date
+        type: date
+relationships:
+  - from_table: SalesOrderItems
+    from_column: sales_order_id
+    to_table: SalesOrders
+    to_column: sales_order_id
+kpis:
+  - name: AvgOrderValue
+    description: Average order value
+    calculation: AVG(order_amount)
+    aggregation: AVG
+    base_column: order_amount
+    join_tables: []
+    dependencies: null
+    sql_example: |
+      SELECT AVG(order_amount) AS avg_order_value
+      FROM SalesOrders
+  - name: OrderCount
+    description: Total number of orders
+    calculation: COUNT(sales_order_id)
+    aggregation: COUNT
+    base_column: sales_order_id
+    join_tables: []
+    dependencies: null
+    sql_example: |
+      SELECT COUNT(sales_order_id) AS order_count
+      FROM SalesOrders
+  - name: TotalQuantity
+    description: Total quantity of items ordered
+    calculation: SUM(quantity)
+    aggregation: SUM
+    base_column: quantity
+    join_tables: []
+    dependencies: null
+    sql_example: |
+      SELECT SUM(quantity) AS total_quantity
+      FROM SalesOrderItems
+  - name: GrossAmount
+    description: Total gross sales amount (sum of all item amounts)
+    calculation: SUM(item_amount)
+    aggregation: SUM
+    base_column: item_amount
+    join_tables: []
+    dependencies: null
+    sql_example: |
+      SELECT SUM(item_amount) AS gross_amount
+      FROM SalesOrderItems
+  - name: NetAmount
+    description: Total net sales amount (sum of net_amount column if available; placeholder if not present)
+    calculation: SUM(net_amount)
+    aggregation: SUM
+    base_column: net_amount
+    join_tables: []
+    dependencies: null
+    sql_example: |
+      SELECT SUM(net_amount) AS net_amount
+      FROM SalesOrderItems
+    # NOTE: If net_amount column does not exist, this KPI is a placeholder until field is present
