@@ -10,7 +10,7 @@ Last updated: 2025-07-17
 ## 1. Overview
 
 ### 1.1 Purpose
-The A9_Data_Product_Agent manages the lifecycle of data products, including creation, version management, deployment tracking, and usage monitoring. It follows Agent9's architectural principles of simplicity, independence, and reliability.
+The A9_Data_Product_Agent manages the lifecycle of data products, including creation, version management, deployment tracking, and usage monitoring. It leverages the Unified Registry Access Layer to discover, register, and provide access to data products. It follows Agent9's architectural principles of simplicity, independence, and reliability.
 
 ### 1.2 Scope
 This document outlines the requirements for version 1.0 of the A9_Data_Product_Agent, focusing on core data product management capabilities.
@@ -39,11 +39,14 @@ This document outlines the requirements for version 1.0 of the A9_Data_Product_A
 
 ### 3.1 Core Data Product Management
 
-#### 3.1.1 Data Product Creation
+#### 3.1.1 Data Product Creation and Registry Integration
 - Create new data products with unique IDs
 - Configure product properties including version and capabilities
 - Set up versioning and status tracking
 - Define data sources and transformations
+- Register data products with the Unified Registry Access Layer
+- Support loading data products from various sources (YAML, JSON, Python modules)
+- Provide registry access to data product definitions for other agents
 
 #### 3.1.2 Data Processing
 - All data access, joining, filtering, and aggregation must be performed exclusively by the MCP (DuckDB backend) service.
@@ -57,7 +60,11 @@ This document outlines the requirements for version 1.0 of the A9_Data_Product_A
 - Monitor usage metrics (requests, errors, success rate)
 - Generate comprehensive analysis reports
 
-#### 3.1.4 Data Product Discovery & Matching (NEW, MVP Alignment)
+#### 3.1.4 Data Product Discovery & Matching with Registry Integration (NEW, MVP Alignment)
+- Leverage the Unified Registry Access Layer to discover data products
+- Map business processes and KPIs to relevant data products
+- Use the Data Product Provider to find data products by attribute, domain, or business process
+- Support both legacy enum-based discovery and new registry-based discovery
 
 ### 3.1.5 LLM Explainability Compliance (2025-06-24)
 - All summary and recommendation text fields are routed through the A9_LLM_Service_Agent for explainability and business-user-friendly output.
@@ -192,6 +199,14 @@ All error responses must be in the following format:
 
 ## 5. Technical Requirements
 
+### 5.0 Registry Architecture Integration
+- Must integrate with the Unified Registry Access Layer
+- Must use the Registry Factory to access providers
+- Must use the Data Product Provider for all data product operations
+- Must support loading data products from YAML contracts
+- Must support data product registration from multiple sources
+- Must provide backward compatibility for legacy code using enum values
+
 ### 5.1 Protocol Compliance Update (2025-06-24)
 - All entrypoints accept only protocol-compliant models: `DataProductNLQSearchInput` and `DataAssetPathRequest` as input; `DataProductNLQSearchOutput` and `DataAssetPathResponse` as output.
 - No legacy, deprecated, or stub models are permitted.
@@ -283,7 +298,8 @@ All error responses must be in the following format:
 - Configuration management
 
 ### 7.2 Internal Dependencies
-- Agent Registry
+- Unified Registry Access Layer
+- Registry Factory and Providers
 - Logging Infrastructure
 - Monitoring System
 
@@ -337,6 +353,15 @@ All error responses must be in the following format:
 - Integrates with Agent Registry for orchestration
 - Follows A2A protocol for agent communication
 - Uses shared logging utility for consistent error reporting
+- Integrates with the Unified Registry Access Layer for data products and query mappings
+
+### Registry Architecture Integration
+- Must use the Registry Factory to initialize and access all registry providers
+- Must configure and use appropriate registry providers for data products, contracts, and query templates
+- Must use registry data for context-aware data product discovery and access
+- Must NOT cache registry data locally; instead, always access the latest data through the Unified Registry Access Layer
+- Must support backward compatibility with legacy code
+- Must delegate registry operations to the appropriate providers
 
 ## Implementation Guidance
 
@@ -449,7 +474,8 @@ All error responses must be in the following format:
 
 ### 10.1 Core Agent Interface
 - Follow Agent9 agent registry interface requirements
-- Implement required registry integration methods
+- Implement required Unified Registry integration methods
+- Use the Data Product Provider for registry operations
 - Use standard error handling patterns
 - Maintain consistent logging
 

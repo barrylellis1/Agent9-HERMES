@@ -1,0 +1,490 @@
+# KPI Registry - Finance Domain
+# Contains all KPIs for financial analysis and monitoring
+# Format follows the src.registry.models.kpi model structure
+
+# List of KPIs
+kpis:
+  - id: gross_revenue
+    name: "Gross Revenue"
+    domain: "Finance"
+    description: "Total gross revenue recognized in the period."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    business_process_ids: 
+      - "finance_revenue_growth_analysis"
+      - "finance_profitability_analysis"
+    sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Gross Revenue'"
+    thresholds:
+      - comparison_type: "yoy"
+        green_threshold: 0.10
+        yellow_threshold: 0.0
+        red_threshold: -0.05
+        inverse_logic: false
+      - comparison_type: "mom"
+        green_threshold: 0.05
+        yellow_threshold: 0.0
+        red_threshold: -0.03
+        inverse_logic: false
+    dimensions:
+      - name: "Region"
+        field: "region"
+        values: ["EMEA", "AMERICAS", "APAC"]
+        description: "Geographic region"
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "revenue"
+      - "top_line"
+      - "financial"
+    owner_role: "CFO"
+    stakeholder_roles:
+      - "CFO"
+      - "Finance Manager"
+      - "CEO"
+
+  - id: cost_of_goods_sold
+    name: "Cost of Goods Sold"
+    domain: "Finance"
+    description: "Total cost of goods sold in the period."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    business_process_ids:
+      - "finance_profitability_analysis" 
+      - "finance_expense_management"
+    sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Cost of Goods Sold'"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.10
+        inverse_logic: true
+      - comparison_type: "budget"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.10
+        inverse_logic: true
+    dimensions:
+      - name: "Region"
+        field: "region"
+        values: ["EMEA", "AMERICAS", "APAC"]
+        description: "Geographic region"
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "cogs"
+      - "cost"
+      - "financial"
+    owner_role: "CFO"
+    stakeholder_roles:
+      - "CFO"
+      - "Finance Manager"
+
+  - id: gross_margin
+    name: "Gross Margin"
+    domain: "Finance"
+    description: "Gross Margin is calculated as Gross Revenue minus Cost of Goods Sold."
+    unit: "%"
+    data_product_id: "FI_Star_Schema"
+    business_process_ids:
+      - "finance_profitability_analysis"
+      - "finance_revenue_growth_analysis"
+    sql_query: "WITH gross_rev AS (SELECT SUM(value) as gross FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Gross Revenue'), cogs AS (SELECT SUM(value) as cost FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Cost of Goods Sold') SELECT (gross_rev.gross - cogs.cost) / gross_rev.gross * 100 FROM gross_rev, cogs"
+    thresholds:
+      - comparison_type: "yoy"
+        green_threshold: 0.10
+        yellow_threshold: 0.0
+        red_threshold: -0.05
+        inverse_logic: false
+      - comparison_type: "budget"
+        green_threshold: 0.0
+        yellow_threshold: -0.05
+        red_threshold: -0.10
+        inverse_logic: false
+    dimensions:
+      - name: "Region"
+        field: "region"
+        values: ["EMEA", "AMERICAS", "APAC"]
+        description: "Geographic region"
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "margin"
+      - "profitability"
+      - "financial"
+    owner_role: "CFO"
+    stakeholder_roles:
+      - "CFO"
+      - "Finance Manager"
+      - "CEO"
+
+  - id: running_total_gross_revenue
+    name: "Running Total Gross Revenue"
+    domain: "Finance"
+    description: "Cumulative sum of Gross Revenue by region and profit center."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    business_process_ids:
+      - "finance_revenue_growth_analysis"
+    sql_query: "SELECT SUM(value) OVER (ORDER BY posting_date) as running_total FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Gross Revenue'"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: 0.05
+        yellow_threshold: 0.0
+        red_threshold: -0.02
+        inverse_logic: false
+    dimensions:
+      - name: "Region"
+        field: "region"
+        values: ["EMEA", "AMERICAS", "APAC"]
+        description: "Geographic region"
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "revenue"
+      - "cumulative"
+      - "financial"
+    owner_role: "CFO"
+    stakeholder_roles:
+      - "CFO"
+      - "Finance Manager"
+
+  - id: top_profit_centers_by_revenue
+    name: "Top 3 Profit Centers by Gross Revenue"
+    domain: "Finance"
+    description: "Top 3 profit centers by Gross Revenue for the period."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    business_process_ids:
+      - "finance_revenue_growth_analysis"
+    sql_query: "SELECT profit_center, SUM(value) as total_revenue FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Gross Revenue' GROUP BY profit_center ORDER BY total_revenue DESC LIMIT 3"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: 0.03
+        yellow_threshold: 0.0
+        red_threshold: -0.03
+        inverse_logic: false
+    dimensions:
+      - name: "Region"
+        field: "region"
+        values: ["EMEA", "AMERICAS", "APAC"]
+        description: "Geographic region"
+    tags:
+      - "revenue"
+      - "profit_center"
+      - "financial"
+    owner_role: "CFO"
+    stakeholder_roles:
+      - "CFO"
+      - "Finance Manager"
+
+  - id: sales_deductions
+    name: "Sales Deductions"
+    domain: "Finance"
+    description: "Total sales deductions applied in the period."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    business_process_ids:
+      - "finance_revenue_growth_analysis"
+      - "finance_budget_vs_actuals"
+    sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Sales Deductions'"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.05
+        inverse_logic: true
+      - comparison_type: "budget"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.05
+        inverse_logic: true
+    dimensions:
+      - name: "Region"
+        field: "region"
+        values: ["EMEA", "AMERICAS", "APAC"]
+        description: "Geographic region"
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "deductions"
+      - "revenue"
+      - "financial"
+    owner_role: "Finance Manager"
+    stakeholder_roles:
+      - "CFO"
+      - "Finance Manager"
+
+  - id: revenue
+    name: "Revenue"
+    domain: "Finance"
+    description: "Total revenue generated from sales."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    business_process_ids:
+      - "finance_revenue_growth_analysis"
+    sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Net Revenue'"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: 0.05
+        yellow_threshold: 0.0
+        red_threshold: -0.03
+        inverse_logic: false
+      - comparison_type: "budget"
+        green_threshold: 0.02
+        yellow_threshold: -0.02
+        red_threshold: -0.05
+        inverse_logic: false
+    dimensions:
+      - name: "Region"
+        field: "region"
+        values: ["EMEA", "AMERICAS", "APAC"]
+        description: "Geographic region"
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "revenue"
+      - "sales"
+      - "financial"
+    owner_role: "CFO"
+    stakeholder_roles:
+      - "CFO"
+      - "Finance Manager"
+      - "CEO"
+
+  - id: utilities_expense
+    name: "Utilities Expense"
+    domain: "Finance"
+    description: "Total utilities expense."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    business_process_ids:
+      - "finance_expense_management"
+      - "finance_budget_vs_actuals"
+    sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Utilities Expense'"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: -0.03
+        yellow_threshold: 0.02
+        red_threshold: 0.05
+        inverse_logic: true
+      - comparison_type: "budget"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.07
+        inverse_logic: true
+    dimensions:
+      - name: "Region"
+        field: "region"
+        values: ["EMEA", "AMERICAS", "APAC"]
+        description: "Geographic region"
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "expense"
+      - "utilities"
+      - "financial"
+    owner_role: "Finance Manager"
+    stakeholder_roles:
+      - "Finance Manager"
+      - "COO"
+
+  - id: office_expense
+    name: "Office Expense"
+    domain: "Finance"
+    description: "Total office expense."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    business_process_ids:
+      - "finance_expense_management"
+      - "finance_budget_vs_actuals"
+    sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Office Expense'"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: -0.03
+        yellow_threshold: 0.0
+        red_threshold: 0.05
+        inverse_logic: true
+      - comparison_type: "budget"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.07
+        inverse_logic: true
+    dimensions:
+      - name: "Region"
+        field: "region"
+        values: ["EMEA", "AMERICAS", "APAC"]
+        description: "Geographic region"
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "expense"
+      - "office"
+      - "financial"
+    owner_role: "Finance Manager"
+    stakeholder_roles:
+      - "Finance Manager"
+      - "COO"
+
+  - id: payroll
+    name: "Payroll"
+    domain: "Finance"
+    description: "Total payroll expense."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    business_process_ids:
+      - "finance_expense_management"
+      - "finance_budget_vs_actuals"
+    sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Payroll'"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: -0.02
+        yellow_threshold: 0.03
+        red_threshold: 0.07
+        inverse_logic: true
+      - comparison_type: "budget"
+        green_threshold: -0.03
+        yellow_threshold: 0.0
+        red_threshold: 0.05
+        inverse_logic: true
+    dimensions:
+      - name: "Region"
+        field: "region"
+        values: ["EMEA", "AMERICAS", "APAC"]
+        description: "Geographic region"
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "expense"
+      - "payroll"
+      - "financial"
+      - "hr"
+    owner_role: "Finance Manager"
+    stakeholder_roles:
+      - "Finance Manager"
+      - "CHRO"
+      - "CFO"
+
+  - id: travel
+    name: "Travel"
+    domain: "Finance"
+    description: "Total travel expense."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    business_process_ids:
+      - "finance_expense_management"
+      - "finance_budget_vs_actuals"
+    sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Travel'"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.10
+        inverse_logic: true
+      - comparison_type: "budget"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.10
+        inverse_logic: true
+    dimensions:
+      - name: "Region"
+        field: "region"
+        values: ["EMEA", "AMERICAS", "APAC"]
+        description: "Geographic region"
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "expense"
+      - "travel"
+      - "financial"
+    owner_role: "Finance Manager"
+    stakeholder_roles:
+      - "Finance Manager"
+      - "COO"
+
+  - id: employee_expense_other
+    name: "Employee Expense Other"
+    domain: "Finance"
+    description: "Total employee expense (other)."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    business_process_ids:
+      - "finance_expense_management"
+      - "finance_budget_vs_actuals"
+    sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Employee Expense Other'"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: -0.03
+        yellow_threshold: 0.02
+        red_threshold: 0.05
+        inverse_logic: true
+      - comparison_type: "budget"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.07
+        inverse_logic: true
+    dimensions:
+      - name: "Region"
+        field: "region"
+        values: ["EMEA", "AMERICAS", "APAC"]
+        description: "Geographic region"
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "expense"
+      - "employee"
+      - "financial"
+      - "hr"
+    owner_role: "Finance Manager"
+    stakeholder_roles:
+      - "Finance Manager"
+      - "CHRO"
+
+  - id: other_operating_expense
+    name: "Other Operating Expense"
+    domain: "Finance"
+    description: "Total other operating expense."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    business_process_ids:
+      - "finance_expense_management"
+      - "finance_budget_vs_actuals"
+    sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Other Operating Expense'"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: -0.03
+        yellow_threshold: 0.02
+        red_threshold: 0.05
+        inverse_logic: true
+      - comparison_type: "budget"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.07
+        inverse_logic: true
+    dimensions:
+      - name: "Region"
+        field: "region"
+        values: ["EMEA", "AMERICAS", "APAC"]
+        description: "Geographic region"
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "expense"
+      - "operating"
+      - "financial"
+    owner_role: "Finance Manager"
+    stakeholder_roles:
+      - "Finance Manager"
+      - "CFO"
+      - "COO"

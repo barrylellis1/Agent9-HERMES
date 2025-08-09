@@ -34,6 +34,9 @@ from src.agents.agent_config_models import (
     A9_Data_Product_MCP_Service_Config
 )
 
+# Import Registry Factory
+from src.registry.factory import RegistryProvider
+
 # Import any needed test utilities
 import yaml
 import logging
@@ -83,9 +86,10 @@ class TestOrchestratorSQLWorkflow(unittest.TestCase):
         # Configure Data Product MCP Service Agent
         self.data_product_config = A9_Data_Product_MCP_Service_Config(
             sap_data_path="C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI",
-            registry_path="src/registry_references",
-            data_product_registry="data_product_registry/data_product_registry.csv",
-            contracts_path="src/registry_references/data_product_registry/data_products",
+            # Use Registry Factory pattern instead of direct registry references
+            registry_path=RegistryProvider.get_registry_path(),
+            data_product_registry=RegistryProvider.get_registry_path("data_product_registry/data_product_registry.csv"),
+            contracts_path=RegistryProvider.get_registry_path("data_product_registry/data_products"),
             allow_custom_sql=True,
             validate_sql=True
         )
@@ -97,6 +101,9 @@ class TestOrchestratorSQLWorkflow(unittest.TestCase):
             # No running event loop, create a new one
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
+        # Initialize the registry provider before creating agents
+        RegistryProvider.initialize(registry_base_path="src/registry_references")
+        
         self.llm_agent = A9_LLM_Service_Agent(self.llm_config)
         # Use async factory method for data product agent
         self.data_product_agent = loop.run_until_complete(
@@ -242,6 +249,9 @@ class TestOrchestratorSQLWorkflow(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    # Initialize the Registry Provider with the correct base path
+    RegistryProvider.initialize(registry_base_path="src/registry_references")
+    
     # Check if API key is set (should be loaded from .env via dotenv)
     if not os.environ.get("OPENAI_API_KEY"):
         print("WARNING: OPENAI_API_KEY environment variable not set in .env file. LLM tests will fail.")

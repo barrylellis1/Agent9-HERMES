@@ -8,7 +8,7 @@ Last updated: 2025-07-17
 
 
 ## Overview
-**Purpose:** Ensure data quality, security, and compliance through comprehensive data governance, policy enforcement, and continuous monitoring
+**Purpose:** Ensure data quality, security, and compliance through comprehensive data governance, policy enforcement, and continuous monitoring. Leverage the Unified Registry Access Layer to manage business glossary terms, data asset locations, and governance policies.
 
 **YAML Contract Context:**
 The agent must read and respond to `yaml_contract_text` provided in the context by the orchestrator, supporting protocol-compliant workflows that leverage YAML-driven data product contracts for schema, mapping, dependencies, and governance enforcement.
@@ -21,10 +21,11 @@ The agent must read and respond to `yaml_contract_text` provided in the context 
 - When present, the agent must use `yaml_contract_text` from the context to inform schema, mapping, dependency resolution, and policy enforcement.
 
 ### Calculated KPI Support
-- The Data Governance Agent SHALL support calculated KPIs, where the value is computed from a formula defined in the business glossary/registry (e.g., Gross Margin = Gross Revenue - Cost of Goods Sold).
+- The Data Governance Agent SHALL support calculated KPIs, where the value is computed from a formula defined in the KPI Provider from the Unified Registry Access Layer (e.g., Gross Margin = Gross Revenue - Cost of Goods Sold).
 - The agent SHALL resolve dependencies between KPIs, allowing formulas to reference other KPIs recursively.
-- All formulas and dependencies SHALL be documented, versioned, and auditable in the business glossary/registry.
+- All formulas and dependencies SHALL be documented, versioned, and auditable in the KPI Provider registry.
 - The agent SHALL log and escalate (via HITL) any missing data or unmapped KPI references encountered during calculation.
+- KPI definitions and relationships SHALL be managed through the Registry Factory and Unified Registry Access Layer.
 
 ### DuckDB View Strategy for KPI Calculation
 - The primary mechanism for implementing calculated KPIs SHALL be via DuckDB views, where business logic and formulas are defined in the database schema.
@@ -35,10 +36,11 @@ The agent must read and respond to `yaml_contract_text` provided in the context 
 
 
 ### Business Glossary and Synonym Matching
-- The Data Governance Agent SHALL use a governed Business Glossary (registry/data asset) as the authoritative source for business terms, synonyms, aliases, definitions, and technical attribute mappings.
+- The Data Governance Agent SHALL use the Business Glossary Provider from the Unified Registry Access Layer as the authoritative source for business terms, synonyms, aliases, definitions, and technical attribute mappings.
 - The glossary SHALL support dynamic synonym and alias matching for business term and filter translation, enabling robust NLP and business query support.
 - The glossary SHALL be versioned, auditable, and updatable by data stewards/governance teams without code changes.
-- The Data Governance Agent SHALL load and use this registry for all mapping operations, and log all unmapped or ambiguous terms for HITL escalation and audit.
+- The Data Governance Agent SHALL load and use the registry for all mapping operations, and log all unmapped or ambiguous terms for HITL escalation and audit.
+- The Business Glossary Provider SHALL be initialized through the Registry Factory to ensure proper integration with the Unified Registry Access Layer.
 
 
 
@@ -182,8 +184,17 @@ Example protocol output:
 
 ### Integration Points
 - Integrates with Agent Registry for orchestration
+- Integrates with the Unified Registry Access Layer for business terms, technical terms, and data product contracts
 - Follows A2A protocol for agent communication
 - Uses shared logging utility for consistent error reporting
+
+### Registry Architecture Integration
+- Must use the Registry Factory to initialize and access all registry providers
+- Must configure and use appropriate registry providers for business terms, technical terms, and translation mappings
+- Must use registry data for context-aware business-to-technical term translation and data governance decisions
+- Must NOT cache registry data locally; instead, always access the latest data through the Unified Registry Access Layer
+- Must support backward compatibility with legacy code
+- Must delegate registry operations to the appropriate providers
 
 ## Implementation Guidance
 
@@ -210,6 +221,9 @@ Example protocol output:
 - Missing error handling
 - Incomplete logging
 - Improper model validation
+- Direct enum usage (use registry providers instead)
+- Hardcoded business glossary terms or data asset paths (use registry data)
+- Initializing registry providers directly (use Registry Factory)
 
 ## Success Criteria
 
@@ -339,8 +353,8 @@ tech_filters = await governance_agent.translate_filters({"Region": "North Americ
 ## Dynamic Data Asset Discovery & Path Resolution (2025-05-14)
 
 ### Overview
-- Data Governance Agent is the authoritative source for all data asset locations in Agent9.
-- All requests for data asset paths (e.g., KPI CSVs) must be resolved dynamically, not hardcoded.
+- Data Governance Agent is the authoritative source for all data asset locations in Agent9, using the Data Asset Provider from the Unified Registry Access Layer.
+- All requests for data asset paths (e.g., KPI CSVs) must be resolved dynamically through the registry, not hardcoded.
 - Asset path resolution is performed via async, registry-compliant APIs, delegating to the Data Product Agent for catalog lookups as needed.
 
 ### Responsibilities

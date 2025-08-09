@@ -219,8 +219,17 @@ class A9_Data_Product_MCP_Service_Agent:
         Returns:
             Initialized Data Product MCP Service Agent instance
         """
-        # Use provided logger or fall back to default
-        agent_logger = logger or default_logger
+        # Use provided logger or create a default one if none is provided
+        if logger:
+            agent_logger = logger
+        else:
+            agent_logger = logging.getLogger(__name__)
+            if not agent_logger.hasHandlers():
+                agent_logger.setLevel(logging.INFO)
+                handler = logging.StreamHandler(sys.stdout)
+                handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+                agent_logger.addHandler(handler)
+        
         agent_logger.info("Creating Data Product MCP Service Agent instance")
         
         try:

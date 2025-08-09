@@ -175,11 +175,20 @@ recommendations = await optimization_agent.optimize_process({"workflow": "Order 
 - **Comprehensive Error Logging:** Logs all errors with context for debugging and audit purposes
 - **Metadata-Driven Validation:** Uses signal metadata to determine validation requirements (e.g., numeric values)
 
+### Registry Architecture Integration
+- Must use the Registry Factory to initialize and access all registry providers
+- Must configure and use appropriate registry providers for business processes and KPIs
+- Must use registry data for context-aware optimization decisions
+- Must NOT cache registry data locally; instead, always access the latest data through the Unified Registry Access Layer
+- Must support backward compatibility with legacy code
+- Must delegate registry operations to the appropriate providers
+
 ### Integration Points
 1. Business Systems
    - Connect to ERP, CRM, and other business platforms
    - Interface with analytics tools
    - Integrate with reporting systems
+   - Integrate with the Unified Registry Access Layer for business processes and KPIs
 
 2. Output Systems
    - Generate reports

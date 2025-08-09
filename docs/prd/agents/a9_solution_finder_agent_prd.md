@@ -12,6 +12,7 @@ Last updated: 2025-07-17
 
 
 ## Overview
+**Purpose:** Systematically generate, evaluate, and recommend solutions to specific problems or diagnoses—especially those surfaced by the Deep Analysis Agent. This agent acts as a driver for problem-solving workflows, scenario evaluation, and decision support, with a human-in-the-loop and iterative refinement. Leverages the Unified Registry Access Layer for business processes, KPIs, and data products.
 
 
 
@@ -33,6 +34,8 @@ Last updated: 2025-07-17
 
 ### Integration Points
 - Integrates with Agent Registry for orchestration
+- Integrates with the Unified Registry Access Layer for business processes, KPIs, and data products
+- Uses Registry Factory for provider initialization and configuration
 - Follows A2A protocol for agent communication
 - Uses shared logging utility for consistent error reporting
 
@@ -61,6 +64,12 @@ Last updated: 2025-07-17
 - Missing error handling
 - Incomplete logging
 - Improper model validation
+- Direct enum usage (use registry providers instead)
+- Hardcoded business logic or KPI definitions (use registry data)
+- Initializing registry providers directly (use Registry Factory)
+- Bypassing the Unified Registry Access Layer
+- Duplicating registry access logic
+- Caching registry data locally instead of using the registry providers
 
 ## Success Criteria
 
@@ -98,7 +107,7 @@ Agent9 agents are prioritized for LLM integration as follows (see BACKLOG_REFOCU
 **Reference:** See "Agents Prioritized for LLM Integration" in BACKLOG_REFOCUS.md for rationale and full table.
 
 ---
-**Purpose:** Systematically generate, evaluate, and recommend solutions to specific problems or diagnoses—especially those surfaced by the Deep Analysis Agent. This agent acts as a driver for problem-solving workflows, scenario evaluation, and decision support, with a human-in-the-loop and iterative refinement.
+**Purpose:** Systematically generate, evaluate, and recommend solutions to specific problems or diagnoses—especially those surfaced by the Deep Analysis Agent. This agent acts as a driver for problem-solving workflows, scenario evaluation, and decision support, with a human-in-the-loop and iterative refinement. Utilizes the Unified Registry Access Layer to access business processes, KPIs, and data products for context-aware solution generation.
 **Agent Type:** Core/Driver Agent
 **Version:** 1.0
 
@@ -116,6 +125,7 @@ Agent9 agents are prioritized for LLM integration as follows (see BACKLOG_REFOCU
 1. **Problem Intake**
    - Accepts a problem statement, diagnosis, or root cause (from Deep Analysis Agent or user)
    - Validates and structures the problem context using Pydantic models
+   - Enriches problem context with relevant business processes, KPIs, and data products from the registry
    - Integrates directly with Deep Analysis Agent for seamless problem intake
    - Supports direct use of Deep Analysis Agent output (A9_Deep_Analysis_Output) as structured input, including insights and recommendations
    - Integrates directly with Market Analysis Agent for tailored market research and intelligence as structured input (A9_Market_Analysis_Output), including LLM-powered insights when available.
@@ -124,9 +134,11 @@ Agent9 agents are prioritized for LLM integration as follows (see BACKLOG_REFOCU
    - Systematically generates multiple solution options/alternatives for the problem
    - Supports both automated and user-guided brainstorming
    - Allows user to supply constraints, preferences, and iterative feedback
+   - Uses registry data to ensure solutions are relevant to business context and constraints
 3. **Solution Evaluation**
     - Evaluates and ranks solutions based on criteria provided by Deep Analysis Agent or user (criteria are context-dependent)
     - Supports trade-off analysis and scenario comparison
+    - Leverages registry data (KPIs, business processes) for evaluation criteria and impact assessment
     - Creates a trade-off matrix with a recommendation for conflicting objectives
     - **Generates a Trade-Off Analysis Deliverable:** For every major decision point (e.g., speed vs. rigor, cost vs. benefit), the agent produces a structured deliverable comparing all viable options. This includes: option descriptions, expected time to result, confidence level, risks, business impact, and required resources/cost. The deliverable is presented to the principal for review and decision, and all decisions/rationales are logged for audit and learning.
 4. **Recommendation & Human-in-the-Loop**

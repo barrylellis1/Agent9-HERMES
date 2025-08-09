@@ -13,7 +13,7 @@ Last updated: 2025-07-17
 ## 1. Overview
 
 ### 1.1 Purpose
-The A9_NLP_Interface_Agent provides a unified interface for natural language processing capabilities across different ERP systems, enabling seamless integration of business intelligence and analytics with enterprise systems.
+The A9_NLP_Interface_Agent provides a unified interface for natural language processing capabilities across different ERP systems, enabling seamless integration of business intelligence and analytics with enterprise systems. It leverages the Unified Registry Access Layer to access business glossary terms, KPIs, and data products for context-aware language processing.
 
 **YAML Contract Context:**
 The agent must read and respond to `yaml_contract_text` provided in the context by the orchestrator, supporting protocol-compliant workflows that leverage YAML-driven data product contracts for schema, mapping, and constraints.
@@ -61,8 +61,18 @@ This document outlines the requirements for version 1.0 of the A9_NLP_Interface_
 
 ### Integration Points
 - Integrates with Agent Registry for orchestration
+- Integrates with the Unified Registry Access Layer for business glossary terms, KPIs, and data products
+- Uses Registry Factory for provider initialization and configuration
 - Follows A2A protocol for agent communication
 - Uses shared logging utility for consistent error reporting
+
+### Registry Architecture Integration
+- Must use the Registry Factory to initialize and access all registry providers
+- Must configure and use appropriate registry providers for business terms, entity mapping, and synonym resolution
+- Must use registry data for context-aware natural language processing and intent extraction
+- Must NOT cache registry data locally; instead, always access the latest data through the Unified Registry Access Layer
+- Must support backward compatibility with legacy code
+- Must delegate registry operations to the appropriate providers
 
 ## Implementation Guidance
 
@@ -89,6 +99,12 @@ This document outlines the requirements for version 1.0 of the A9_NLP_Interface_
 - Missing error handling
 - Incomplete logging
 - Improper model validation
+- Direct enum usage (use registry providers instead)
+- Hardcoded business glossary terms (use registry data)
+- Initializing registry providers directly (use Registry Factory)
+- Bypassing the Unified Registry Access Layer
+- Duplicating registry access logic
+- Caching registry data locally instead of using the registry providers
 
 ## Success Criteria
 
@@ -155,12 +171,16 @@ This document outlines the requirements for version 1.0 of the A9_NLP_Interface_
 - The LLM or UI must prompt the principal to clarify or select mappings for these terms before continuing.
 - The agent must support interpreting natural language business queries from Principals or Agents and transforming them into structured data queries against the MCP data service.
 - The pipeline must include:
-  1. **Intent Parsing**: Extract the data product, aggregation/groupby, filters, and other query parameters from the user's natural language question.
-  2. **Schema Awareness**: Reference the available data products and columns (from the MCP registry or a cached schema) to validate and ground the query.
-  3. **Query Generation**: Translate the parsed intent into a structured API call (HTTP GET with query parameters) to the MCP service. Optionally, support SQL query generation if the MCP exposes a SQL endpoint.
-  4. **MCP Integration**: Call the MCP service endpoint, handle the response, and format it for the user or downstream agent.
-  5. **Synonym/Mapping Support**: Map business terms (e.g., "customer" or "revenue") to technical attribute names used in the data registry.
-  6. **Robust Error Handling**: Handle unmapped terms, unsupported queries, and MCP errors gracefully, providing actionable feedback.
+  - **Workflow Components:**
+    1. **Input Processing:** Parse natural language inputs for key entities, intents, and context.
+    2. **Business Term Mapping:** Map extracted terms to business glossary entries using the Unified Registry Access Layer.
+    3. **Principal Context Enhancement:** Combine extracted context with principal context from the orchestrator.
+    4. **Data Product Resolution:** Identify the correct data product/view for the query using the Data Product Registry Provider.
+    5. **Registry Access:** Use the appropriate registry providers through the Unified Registry Access Layer for all registry data access.
+  - **Query Generation**: Translate the parsed intent into a structured API call (HTTP GET with query parameters) to the MCP service. Optionally, support SQL query generation if the MCP exposes a SQL endpoint.
+  - **MCP Integration**: Call the MCP service endpoint, handle the response, and format it for the user or downstream agent.
+  - **Synonym/Mapping Support**: Map business terms (e.g., "customer" or "revenue") to technical attribute names used in the data registry.
+  - **Robust Error Handling**: Handle unmapped terms, unsupported queries, and MCP errors gracefully, providing actionable feedback.
 
 - Example workflow:
   - Input: "Show me total value by customer for product X in 2024"
@@ -173,8 +193,13 @@ This document outlines the requirements for version 1.0 of the A9_NLP_Interface_
 
 #### 3.1.6 Entity Extraction as Core Capability (MVP)
 
-#### 3.1.7 LLM Explainability Compliance (2025-06-24)
-- All summary and key point fields in document analysis are routed through the A9_LLM_Service_Agent for explainability and business-user-friendly output.
+#### 3.1.7 Unified Registry Access Layer Integration for Entity Resolution
+- The NLP Interface Agent MUST use the Business Glossary Provider from the Unified Registry Access Layer to resolve entities and business terms.
+- Entity extraction MUST reference and validate against the canonical business terms stored in the registry.
+- All extracted entities MUST be mapped to their technical counterparts using registry relationships.
+
+#### 3.1.8 LLM Explainability Compliance (2025-06-24)
+- All NLP model outputs that require business user-friendly explanations are routed through the A9_LLM_Service_Agent for explainability.
 - LLM calls are protocol-compliant, orchestrator-driven, and fully async with structured event logging and error handling.
 - See agent card for implementation and compliance details.
 
@@ -191,14 +216,17 @@ This document outlines the requirements for version 1.0 of the A9_NLP_Interface_
 
 - **Requirements:**
   1. The agent MUST implement and expose only the `entity_extraction` NLP model for the MVP. All other NLP models (document analysis, relationship analysis, sentiment analysis) are to be omitted or stubbed until post-MVP.
+  2. The agent MUST use the Registry Factory to access the Business Glossary Provider and KPI Provider for entity resolution and validation.
   2. Entity extraction MUST:
      - Accept a natural language business question as input.
      - Return a list of entities, each with at least `type` and `value` fields (e.g., `{type: "department", value: "Finance"}`).
      - Support extensibility for additional entity types as business needs evolve.
      - Be directly integrated with the orchestrator's principal context filter application logic.
      - Be covered by integration and end-to-end tests using real-world business queries and principal contexts.
-  3. The entity extraction method MUST be robust to synonyms, abbreviations, and common business language variations.
+  3. The entity extraction method MUST be robust to synonyms, abbreviations, and common business language variations by leveraging the Business Glossary through the Unified Registry Access Layer.
   4. The agent MUST escalate to HITL if ambiguous or unmapped entities are detected, with actionable feedback for the user.
+  5. The agent MUST use the RegistryFactory to initialize and access all registry providers.
+  6. The agent MUST NOT cache registry data locally; instead, it should always access the latest data through the Unified Registry Access Layer.
 
 - **Example Workflow:**
   - Principal context: `{ department: "Finance", region: "EMEA" }`

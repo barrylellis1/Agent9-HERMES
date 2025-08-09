@@ -8,6 +8,7 @@ Last updated: 2025-07-17
 
 
 ## Overview
+**Purpose:** Deliver actionable, interpretable insights to support decision-making by providing transparent analysis, clear recommendations, and confidence scores. Emphasizes explainability, auditability, and compliance. Leverages the Unified Registry Access Layer for consistent business glossary, KPI, and data access.
 
 
 
@@ -29,6 +30,8 @@ Last updated: 2025-07-17
 
 ### Integration Points
 - Integrates with Agent Registry for orchestration
+- Integrates with the Unified Registry Access Layer for KPIs, business processes, and data products
+- Uses Registry Factory for provider initialization and configuration
 - Follows A2A protocol for agent communication
 - Uses shared logging utility for consistent error reporting
 
@@ -57,6 +60,9 @@ Last updated: 2025-07-17
 - Missing error handling
 - Incomplete logging
 - Improper model validation
+- Direct enum usage (use registry providers instead)
+- Hardcoded business logic or KPI definitions (use registry data)
+- Initializing registry providers directly (use Registry Factory)
 
 ## Success Criteria
 
@@ -85,7 +91,7 @@ Last updated: 2025-07-17
 A9_Deep_Analysis_Agent is a high-priority candidate for LLM integration, benefiting from LLM-powered insight extraction, summarization, and recommendations. See the "Agents Prioritized for LLM Integration" table in BACKLOG_REFOCUS.md for a complete rationale and comparison across agents.
 
 ---
-**Purpose:** Deliver actionable, interpretable insights to support decision-making by providing transparent analysis, clear recommendations, and confidence scores. Emphasizes explainability, auditability, and compliance.
+**Purpose:** Deliver actionable, interpretable insights to support decision-making by providing transparent analysis, clear recommendations, and confidence scores. Emphasizes explainability, auditability, and compliance. Utilizes the Unified Registry Access Layer to access KPIs, business processes, and data products.
 **Agent Type:** Clarity Team
 **Version:** 1.0
 
@@ -131,6 +137,7 @@ A9_Deep_Analysis_Agent is a high-priority candidate for LLM integration, benefit
    - Deliver interpretable analysis results with clear explanations and recommendations
    - Provide confidence scores for all results
    - Output concise text summaries for decision support
+   - Leverage registry data for contextual awareness and business relevance
 
 2. Transparency & Lineage
    - Ensure transparency for input data, transformation steps, and analysis lineage
@@ -157,8 +164,10 @@ A9_Deep_Analysis_Agent is a high-priority candidate for LLM integration, benefit
 - The agent adapts its investigation based on intermediate findings, drilling down by segment, time, or other relevant dimensions.
 - The agent quantifies the scope and severity of the problem, or determines if no material problem exists, and documents the rationale for its conclusion.
 
-**9. LLM-Driven Investigation Planning**
+**9. LLM-Driven Investigation Planning with Registry Integration**
 - The agent uses an LLM not only for summarization, but also to propose investigation steps, next queries, and hypotheses based on evolving context.
+- Investigation planning leverages registry data (KPIs, business processes, data products) for context-aware analysis.
+- LLM prompts include relevant registry information to enhance investigation quality.
 - The LLM is prompted to act as a business analyst working on behalf of the principal, ensuring all outputs are principal-centric and actionable.
 
 **10. Multi-Agent Orchestration via Orchestration Agent**

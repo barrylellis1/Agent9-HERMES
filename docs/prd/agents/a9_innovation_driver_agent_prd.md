@@ -31,6 +31,15 @@ Last updated: 2025-07-17
 - Integrates with Agent Registry for orchestration
 - Follows A2A protocol for agent communication
 - Uses shared logging utility for consistent error reporting
+- Integrates with the Unified Registry Access Layer for business processes, KPIs, and innovation metrics
+
+### Registry Architecture Integration
+- Must use the Registry Factory to initialize and access all registry providers
+- Must configure and use appropriate registry providers for business processes, innovation data, and market trends
+- Must use registry data for context-aware innovation analysis and recommendations
+- Must NOT cache registry data locally; instead, always access the latest data through the Unified Registry Access Layer
+- Must support backward compatibility with legacy code
+- Must delegate registry operations to the appropriate providers
 
 ## Implementation Guidance
 

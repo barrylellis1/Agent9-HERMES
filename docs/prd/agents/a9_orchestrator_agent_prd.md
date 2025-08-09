@@ -8,7 +8,7 @@ Last updated: 2025-07-17
 
 
 ## Overview
-**Purpose:** Coordinate innovation workflow and agent collaboration through workflow orchestration, agent coordination, and decision making
+**Purpose:** Coordinate innovation workflow and agent collaboration through workflow orchestration, agent coordination, and decision making. Integrate with the Unified Registry Access Layer to access business processes, KPIs, data products, and principal profiles for context-aware orchestration.
 
 > **COMPLIANCE NOTE:**
 > - This agent must ONLY be invoked via the AgentRegistry and orchestrator pattern.
@@ -31,6 +31,7 @@ Last updated: 2025-07-17
    - Create workflow plans
    - Generate workflow metrics
    - Handle workflow exceptions
+   - Integrate with Registry Factory and providers
 
 2. Agent Coordination
    - Manage agent registry
@@ -38,6 +39,7 @@ Last updated: 2025-07-17
    - Create coordination plans
    - Generate coordination metrics
    - Handle agent handoffs
+   - Provide registry access to agents
 
 3. Decision Making
    - Make workflow decisions
@@ -99,6 +101,13 @@ Last updated: 2025-07-17
 
 ## Technical Requirements
 
+### Registry Architecture Integration
+- Must initialize the Registry Factory during startup
+- Must configure and register all required registry providers
+- Must provide registry access to agents during orchestration
+- Must use registry data for context-aware workflow decisions
+- Must support backward compatibility with legacy code
+
 ### Integration Points
 1. Agent Systems
    - Connect to all agents
@@ -107,6 +116,8 @@ Last updated: 2025-07-17
    - Connect to communication systems
    - Support dynamic agent loading via AGENT_MODULE_MAP
    - Implement workflow-driven agent imports to maintain protocol compliance
+   - Initialize and provide access to the Unified Registry Access Layer
+   - Create and configure registry providers for all business domains
 
 ### Implementation Details
 
@@ -241,6 +252,9 @@ Last updated: 2025-07-17
 - Missing error handling
 - Incomplete logging
 - Improper model validation
+- Direct enum usage (use registry providers instead)
+- Hardcoded business logic (use registry data)
+- Initializing registry providers directly (use Registry Factory)
 
 ## Success Criteria
 

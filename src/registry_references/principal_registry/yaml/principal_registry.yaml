@@ -1,0 +1,420 @@
+# Principal Registry
+# Contains all principal profiles for personalization and context-aware processing
+# Format follows the src.agents.models.a9_core_models.A9PrincipalContextProfile structure
+
+principals:
+  - id: "cfo_001"
+    name: "Lars Mikkelsen"
+    title: "Chief Financial Officer"
+    first_name: "Lars"
+    last_name: "Mikkelsen"
+    role: "CFO"
+    department: "Finance"
+    responsibilities:
+      - "maximize EBIT"
+      - "manage revenue"
+      - "control expenses"
+    business_processes:
+      - "Finance: Profitability Analysis"
+      - "Finance: Revenue Growth Analysis"
+      - "Finance: Expense Management"
+      - "Finance: Cash Flow Management"
+      - "Finance: Budget vs. Actuals"
+    default_filters:
+      profit_center_hierarchyid: ["Total"]
+      customer_hierarchyid: ["Total"]
+    typical_timeframes:
+      - "Monthly"
+      - "Quarterly"
+    principal_groups:
+      - "Executive Leadership"
+      - "Finance Committee"
+    persona_profile:
+      decision_style: "analytical"
+      risk_tolerance: "low"
+      communication_style: "concise"
+      values:
+        - "accuracy"
+        - "compliance"
+        - "predictability"
+    preferences:
+      channel: "Slack"
+      ui: "summary_dashboard"
+    permissions:
+      - "finance_read"
+      - "finance_write"
+    source: "HR Database"
+    description: "CFO responsible for financial performance in EMEA."
+
+  - id: "ceo_001"
+    name: "Alex Morgan"
+    title: "Chief Executive Officer"
+    first_name: "Alex"
+    last_name: "Morgan"
+    role: "CEO"
+    department: "Executive"
+    responsibilities:
+      - "set strategic direction"
+      - "oversee company performance"
+      - "lead executive team"
+    business_processes:
+      - "Strategy: Market Share Analysis"
+      - "Strategy: EBITDA Growth Tracking"
+      - "Strategy: Capital Allocation Efficiency"
+      - "Operations: Global Performance Oversight"
+      - "Finance: Investor Relations Reporting"
+    default_filters:
+      profit_center_hierarchyid: ["#"]
+    typical_timeframes:
+      - "Quarterly"
+      - "Annually"
+    principal_groups:
+      - "Executive Leadership"
+      - "Board of Directors"
+    persona_profile:
+      decision_style: "visionary"
+      risk_tolerance: "medium"
+      communication_style: "inspirational"
+      values:
+        - "growth"
+        - "innovation"
+        - "leadership"
+    preferences:
+      channel: "Email"
+      ui: "executive_dashboard"
+    permissions:
+      - "executive_read"
+      - "executive_write"
+    source: "HR Database"
+    description: "CEO driving company strategy and performance."
+
+  - id: "coo_001"
+    name: "Priya Desai"
+    title: "Chief Operating Officer"
+    first_name: "Priya"
+    last_name: "Desai"
+    role: "COO"
+    department: "Operations"
+    responsibilities:
+      - "optimize operations"
+      - "reduce operational costs"
+      - "improve process efficiency"
+    business_processes:
+      - "Operations: Order-to-Cash Cycle Optimization"
+      - "Operations: Inventory Turnover Analysis"
+      - "Operations: Production Cost Management"
+      - "Supply Chain: Logistics Efficiency"
+    default_filters:
+      profit_center_hierarchyid: ["Best Run U"]
+      customer_hierarchyid: ["17100001"]
+    typical_timeframes:
+      - "Monthly"
+      - "Quarterly"
+    principal_groups:
+      - "Executive Leadership"
+      - "Operations Committee"
+    persona_profile:
+      decision_style: "pragmatic"
+      risk_tolerance: "medium"
+      communication_style: "direct"
+      values:
+        - "efficiency"
+        - "execution"
+        - "quality"
+    preferences:
+      channel: "Email"
+      ui: "operations_dashboard"
+    permissions:
+      - "operations_read"
+      - "operations_write"
+    source: "HR Database"
+    description: "COO focused on operational excellence and efficiency."
+
+  - id: "chro_001"
+    name: "Sofia Eriksson"
+    title: "Chief Human Resources Officer"
+    first_name: "Sofia"
+    last_name: "Eriksson"
+    role: "CHRO"
+    department: "Human Resources"
+    responsibilities:
+      - "develop talent strategy"
+      - "manage organizational culture"
+      - "oversee employee engagement"
+    business_processes:
+      - "HR: Employee Attrition Rate Analysis"
+      - "HR: Recruitment Cycle Time"
+      - "HR: Compensation Ratio Analysis"
+      - "HR: Workforce Diversity Reporting"
+    default_filters:
+      profit_center_hierarchyid: ["Best Run U"]
+      customer_hierarchyid: ["17100001"]
+    typical_timeframes:
+      - "Monthly"
+      - "Quarterly"
+    principal_groups:
+      - "Executive Leadership"
+      - "HR Council"
+    persona_profile:
+      decision_style: "collaborative"
+      risk_tolerance: "medium"
+      communication_style: "empathetic"
+      values:
+        - "talent development"
+        - "diversity"
+        - "engagement"
+    preferences:
+      channel: "Slack"
+      ui: "hr_dashboard"
+    permissions:
+      - "hr_read"
+      - "hr_write"
+    source: "HR Database"
+    description: "CHRO responsible for talent strategy and organizational culture."
+
+  - id: "cmo_001"
+    name: "Mateo Silva"
+    title: "Chief Marketing Officer"
+    first_name: "Mateo"
+    last_name: "Silva"
+    role: "CMO"
+    department: "Marketing"
+    responsibilities:
+      - "drive market growth"
+      - "manage brand"
+      - "optimize marketing ROI"
+    business_processes:
+      - "Marketing: Campaign Conversion Rates"
+      - "Marketing: Customer Acquisition Cost"
+      - "Marketing: Brand Sentiment Analysis"
+      - "Marketing: Market Share Tracking"
+    default_filters:
+      profit_center_hierarchyid: ["Best Run U"]
+      customer_hierarchyid: ["17100001"]
+    typical_timeframes:
+      - "Weekly"
+      - "Monthly"
+    principal_groups:
+      - "Executive Leadership"
+      - "Marketing Council"
+    persona_profile:
+      decision_style: "creative"
+      risk_tolerance: "high"
+      communication_style: "persuasive"
+      values:
+        - "creativity"
+        - "growth"
+        - "customer focus"
+    preferences:
+      channel: "Slack"
+      ui: "marketing_dashboard"
+    permissions:
+      - "marketing_read"
+      - "marketing_write"
+    source: "HR Database"
+    description: "CMO responsible for market expansion and brand leadership."
+
+  - id: "cio_001"
+    name: "Jin Park"
+    title: "Chief Information Officer"
+    first_name: "Jin"
+    last_name: "Park"
+    role: "CIO"
+    department: "IT"
+    responsibilities:
+      - "manage IT strategy"
+      - "ensure data security"
+      - "drive digital transformation"
+    business_processes:
+      - "IT: Project Spend vs. Budget"
+      - "IT: System Uptime/Downtime Analysis"
+      - "IT: Cybersecurity Incident Rate"
+      - "IT: Digital Transformation ROI"
+    default_filters:
+      profit_center_hierarchyid: ["Best Run U"]
+      customer_hierarchyid: ["17100001"]
+    typical_timeframes:
+      - "Monthly"
+      - "Annually"
+    principal_groups:
+      - "Executive Leadership"
+      - "IT Steering Committee"
+    persona_profile:
+      decision_style: "systematic"
+      risk_tolerance: "low"
+      communication_style: "precise"
+      values:
+        - "security"
+        - "innovation"
+        - "reliability"
+    preferences:
+      channel: "Email"
+      ui: "it_dashboard"
+    permissions:
+      - "it_read"
+      - "it_write"
+    source: "HR Database"
+    description: "CIO leading IT strategy and digital transformation."
+
+  - id: "cdo_001"
+    name: "Anika Schneider"
+    title: "Chief Data Officer"
+    first_name: "Anika"
+    last_name: "Schneider"
+    role: "CDO"
+    department: "Data & Analytics"
+    responsibilities:
+      - "govern data assets"
+      - "drive data-driven culture"
+      - "ensure data compliance"
+    business_processes:
+      - "Data: Data Quality Score Tracking"
+      - "Data: Data Access Compliance Audits"
+      - "Data: Analytics Adoption Rate"
+      - "Data: Self-Service BI Usage"
+    default_filters:
+      profit_center_hierarchyid: ["Best Run U"]
+      customer_hierarchyid: ["17100001"]
+    typical_timeframes:
+      - "Quarterly"
+      - "Annually"
+    principal_groups:
+      - "Executive Leadership"
+      - "Data Governance Board"
+    persona_profile:
+      decision_style: "evidence-based"
+      risk_tolerance: "medium"
+      communication_style: "informative"
+      values:
+        - "compliance"
+        - "insight"
+        - "accuracy"
+    preferences:
+      channel: "Slack"
+      ui: "data_dashboard"
+    permissions:
+      - "data_read"
+      - "data_write"
+    source: "HR Database"
+    description: "CDO responsible for data governance and analytics."
+
+  - id: "manager_001"
+    name: "Morgan Taylor"
+    title: "Manager"
+    first_name: "Morgan"
+    last_name: "Taylor"
+    role: "manager"
+    department: "Operations"
+    responsibilities:
+      - "manage team"
+      - "oversee projects"
+      - "report to executives"
+    business_processes:
+      - "Team: Productivity Metrics"
+      - "Team: Project Milestone Tracking"
+      - "Team: Budget Adherence"
+    default_filters:
+      profit_center_hierarchyid: ["Best Run U"]
+      customer_hierarchyid: ["17100001"]
+    typical_timeframes:
+      - "Monthly"
+      - "Quarterly"
+    principal_groups:
+      - "Management Team"
+    persona_profile:
+      decision_style: "collaborative"
+    preferences:
+      channel: "Email"
+      ui: "manager_dashboard"
+    permissions:
+      - "manager_read"
+      - "manager_write"
+    source: "HR Database"
+    description: "Manager responsible for team and project oversight."
+
+# Role definitions
+roles:
+  - id: "employee"
+    name: "Employee"
+    description: "Regular employee without management responsibilities"
+    permissions:
+      - "employee_read"
+  - id: "manager"
+    name: "Manager"
+    description: "Team or department manager"
+    permissions:
+      - "manager_read"
+      - "manager_write"
+  - id: "executive"
+    name: "Executive"
+    description: "Executive leadership"
+    permissions:
+      - "executive_read"
+      - "executive_write"
+  - id: "data_owner"
+    name: "Data Owner"
+    description: "Business stakeholder responsible for data assets"
+    permissions:
+      - "data_owner_read"
+      - "data_owner_write"
+  - id: "data_steward"
+    name: "Data Steward"
+    description: "Data quality and governance specialist"
+    permissions:
+      - "data_steward_read"
+      - "data_steward_write"
+  - id: "data_custodian"
+    name: "Data Custodian"
+    description: "Technical caretaker of data systems"
+    permissions:
+      - "data_custodian_read"
+      - "data_custodian_write"
+  - id: "cfo"
+    name: "CFO"
+    description: "Chief Financial Officer"
+    permissions:
+      - "finance_read"
+      - "finance_write"
+      - "executive_read"
+  - id: "ceo"
+    name: "CEO"
+    description: "Chief Executive Officer"
+    permissions:
+      - "executive_read"
+      - "executive_write"
+      - "all_domain_read"
+  - id: "coo"
+    name: "COO"
+    description: "Chief Operating Officer"
+    permissions:
+      - "operations_read"
+      - "operations_write"
+      - "executive_read"
+  - id: "chro"
+    name: "CHRO"
+    description: "Chief Human Resources Officer"
+    permissions:
+      - "hr_read"
+      - "hr_write"
+      - "executive_read"
+  - id: "cmo"
+    name: "CMO"
+    description: "Chief Marketing Officer"
+    permissions:
+      - "marketing_read"
+      - "marketing_write"
+      - "executive_read"
+  - id: "cio"
+    name: "CIO"
+    description: "Chief Information Officer"
+    permissions:
+      - "it_read"
+      - "it_write"
+      - "executive_read"
+  - id: "cdo"
+    name: "CDO"
+    description: "Chief Data Officer"
+    permissions:
+      - "data_read"
+      - "data_write"
+      - "executive_read"

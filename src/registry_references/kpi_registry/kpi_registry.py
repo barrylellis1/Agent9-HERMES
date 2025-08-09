@@ -1,5 +1,24 @@
 from src.models.kpi_models import KPI, KPIThreshold, KPIComparisonMethod
 
+# Default comparison methods for consistency
+DEFAULT_MONTHLY_COMPARISON = KPIComparisonMethod(
+    type="TREND_MONTHLY",
+    description="Compares the current month-to-date value against the full previous month.",
+    timeframe_logic="monthly"
+)
+
+DEFAULT_YOY_COMPARISON = KPIComparisonMethod(
+    type="YOY_QTR",
+    description="Compares the current quarter-to-date value against the same quarter in the previous year.",
+    timeframe_logic="quarterly_yoy"
+)
+
+DEFAULT_BUDGET_COMPARISON = KPIComparisonMethod(
+    type="BUDGET_VS_ACTUAL",
+    description="Compares actual values against budgeted values for the period.",
+    timeframe_logic="current_period"
+)
+
 KPI_REGISTRY = [
     KPI(
         name="Gross Revenue",
@@ -13,7 +32,8 @@ KPI_REGISTRY = [
         dimensions=["region", "profit_center"],
         thresholds=KPIThreshold(warning=0.10, critical=-0.05), # Opportunity: 10% growth, Problem: 5% decline
         positive_trend_is_good=True,
-        business_processes=["Strategy: Global Performance Oversight"],
+        business_processes=["Finance: Revenue Growth Analysis", "Finance: Profitability Analysis"],
+        data_product_id="FI_Star_Schema",
         default_comparison="TREND_MONTHLY",
         comparison_methods=[
             KPIComparisonMethod(
@@ -38,9 +58,12 @@ KPI_REGISTRY = [
         join_tables=["GLAccounts"],
         filters=[{"column": "account_hierarchy_desc", "value": "Cost of Goods Sold"}],
         dimensions=["region", "profit_center"],
-        thresholds=KPIThreshold(warning=None, critical=None),
+        thresholds=KPIThreshold(warning=0.05, critical=0.10),
         positive_trend_is_good=False,
-        business_processes=["Finance: Profitability Analysis", "Operations: Production Cost Management"],
+        business_processes=["Finance: Profitability Analysis", "Finance: Expense Management"],
+        data_product_id="FI_Star_Schema",
+        default_comparison="TREND_MONTHLY",
+        comparison_methods=[DEFAULT_MONTHLY_COMPARISON, DEFAULT_BUDGET_COMPARISON],
     ),
     KPI(
         name="Gross Margin",
@@ -52,7 +75,7 @@ KPI_REGISTRY = [
         join_tables=["GLAccounts"],
         dependencies=["Gross Revenue", "Cost of Goods Sold"],
         data_product_id="FI_Star_Schema",
-        business_processes=["Strategy: EBITDA Growth Tracking"],
+        business_processes=["Finance: Profitability Analysis", "Finance: Revenue Growth Analysis"],
         dimensions=["region", "profit_center"],
         thresholds=KPIThreshold(warning=0.10, critical=-0.05), # Opportunity: 10% growth, Problem: 5% decline
         positive_trend_is_good=True,
@@ -82,8 +105,12 @@ KPI_REGISTRY = [
         partition_by=["region", "profit_center"],
         order_by=["date"],
         dimensions=["region", "profit_center"],
-        thresholds=KPIThreshold(warning=None, critical=None),
+        thresholds=KPIThreshold(warning=0.10, critical=-0.05),
         positive_trend_is_good=True,
+        business_processes=["Finance: Revenue Growth Analysis"],
+        data_product_id="FI_Star_Schema",
+        default_comparison="TREND_MONTHLY",
+        comparison_methods=[DEFAULT_MONTHLY_COMPARISON],
     ),
     KPI(
         name="Top 3 Profit Centers by Gross Revenue",
@@ -93,26 +120,36 @@ KPI_REGISTRY = [
         aggregation="SUM",
         base_column="value",
         join_tables=["GLAccounts"],
-        type_kpi="top_n",
-        base_kpi="Gross Revenue",
+        # Removed incorrect type_kpi parameter
+        # Added dependency to base KPI
+        dependencies=["Gross Revenue"],
         top_n=3,
         partition_by=["region"],
         order_by=["SUM(value) DESC"],
         dimensions=["region", "profit_center"],
-        thresholds=KPIThreshold(warning=None, critical=None),
+        thresholds=KPIThreshold(warning=0.10, critical=-0.05),
         positive_trend_is_good=True,
+        business_processes=["Finance: Revenue Growth Analysis"],
+        data_product_id="FI_Star_Schema",
+        default_comparison="TREND_MONTHLY",
+        comparison_methods=[DEFAULT_MONTHLY_COMPARISON],
     ),
     KPI(
         name="Sales Deductions",
-        description="Total sales deductions in the period.",
+        description="Total sales deductions applied in the period.",
         type="financial",
         calculation="SUM(value) WHERE GLAccounts.account_hierarchy_desc = 'Sales Deductions'",
         aggregation="SUM",
         base_column="value",
         join_tables=["GLAccounts"],
         filters=[{"column": "account_hierarchy_desc", "value": "Sales Deductions"}],
-        thresholds=KPIThreshold(warning=None, critical=None),
+        thresholds=KPIThreshold(warning=0.05, critical=0.10),
         positive_trend_is_good=False,
+        business_processes=["Finance: Revenue Growth Analysis"],
+        data_product_id="FI_Star_Schema",
+        dimensions=["region", "profit_center"],
+        default_comparison="TREND_MONTHLY",
+        comparison_methods=[DEFAULT_MONTHLY_COMPARISON, DEFAULT_BUDGET_COMPARISON],
     ),
     KPI(
         name="Revenue",
@@ -127,6 +164,9 @@ KPI_REGISTRY = [
         thresholds=KPIThreshold(critical=-0.10, warning=-0.05),
         positive_trend_is_good=True,
         business_processes=["Finance: Revenue Growth Analysis"],
+        data_product_id="FI_Star_Schema",
+        default_comparison="TREND_MONTHLY",
+        comparison_methods=[DEFAULT_MONTHLY_COMPARISON, DEFAULT_BUDGET_COMPARISON],
     ),
     KPI(
         name="Utilities Expense",
@@ -137,8 +177,13 @@ KPI_REGISTRY = [
         base_column="value",
         join_tables=["GLAccounts"],
         filters=[{"column": "account_hierarchy_desc", "value": "Utilities Expense"}],
-        thresholds=KPIThreshold(warning=None, critical=None),
+        thresholds=KPIThreshold(warning=0.05, critical=0.10),
         positive_trend_is_good=False,
+        business_processes=["Finance: Expense Management", "Finance: Budget vs. Actuals"],
+        data_product_id="FI_Star_Schema",
+        dimensions=["region", "profit_center"],
+        default_comparison="TREND_MONTHLY",
+        comparison_methods=[DEFAULT_MONTHLY_COMPARISON, DEFAULT_BUDGET_COMPARISON],
     ),
     KPI(
         name="Office Expense",
@@ -149,9 +194,13 @@ KPI_REGISTRY = [
         base_column="value",
         join_tables=["GLAccounts"],
         filters=[{"column": "account_hierarchy_desc", "value": "Office Expense"}],
-        thresholds=KPIThreshold(warning=None, critical=None),
+        thresholds=KPIThreshold(warning=0.05, critical=0.10),
         positive_trend_is_good=False,
-        business_processes=["Finance: Expense Management"],
+        business_processes=["Finance: Expense Management", "Finance: Budget vs. Actuals"],
+        data_product_id="FI_Star_Schema",
+        dimensions=["region", "profit_center"],
+        default_comparison="TREND_MONTHLY",
+        comparison_methods=[DEFAULT_MONTHLY_COMPARISON, DEFAULT_BUDGET_COMPARISON],
     ),
     KPI(
         name="Payroll",
@@ -162,8 +211,13 @@ KPI_REGISTRY = [
         base_column="value",
         join_tables=["GLAccounts"],
         filters=[{"column": "account_hierarchy_desc", "value": "Payroll"}],
-        thresholds=KPIThreshold(warning=None, critical=None),
+        thresholds=KPIThreshold(warning=0.05, critical=0.10),
         positive_trend_is_good=False,
+        business_processes=["Finance: Expense Management", "Finance: Budget vs. Actuals"],
+        data_product_id="FI_Star_Schema",
+        dimensions=["region", "profit_center"],
+        default_comparison="TREND_MONTHLY",
+        comparison_methods=[DEFAULT_MONTHLY_COMPARISON, DEFAULT_BUDGET_COMPARISON],
     ),
     KPI(
         name="Travel",
@@ -174,9 +228,13 @@ KPI_REGISTRY = [
         base_column="value",
         join_tables=["GLAccounts"],
         filters=[{"column": "account_hierarchy_desc", "value": "Travel"}],
-        thresholds=KPIThreshold(warning=None, critical=None),
+        thresholds=KPIThreshold(warning=0.05, critical=0.10),
         positive_trend_is_good=False,
-        business_processes=["Finance: Expense Management"],
+        business_processes=["Finance: Expense Management", "Finance: Budget vs. Actuals"],
+        data_product_id="FI_Star_Schema",
+        dimensions=["region", "profit_center"],
+        default_comparison="TREND_MONTHLY",
+        comparison_methods=[DEFAULT_MONTHLY_COMPARISON, DEFAULT_BUDGET_COMPARISON],
     ),
     KPI(
         name="Employee Expense Other",
@@ -187,8 +245,13 @@ KPI_REGISTRY = [
         base_column="value",
         join_tables=["GLAccounts"],
         filters=[{"column": "account_hierarchy_desc", "value": "Employee Expense Other"}],
-        thresholds=KPIThreshold(warning=None, critical=None),
+        thresholds=KPIThreshold(warning=0.05, critical=0.10),
         positive_trend_is_good=False,
+        business_processes=["Finance: Expense Management", "Finance: Budget vs. Actuals"],
+        data_product_id="FI_Star_Schema",
+        dimensions=["region", "profit_center"],
+        default_comparison="TREND_MONTHLY",
+        comparison_methods=[DEFAULT_MONTHLY_COMPARISON, DEFAULT_BUDGET_COMPARISON],
     ),
     KPI(
         name="Other Operating Expense",
@@ -199,8 +262,12 @@ KPI_REGISTRY = [
         base_column="value",
         join_tables=["GLAccounts"],
         filters=[{"column": "account_hierarchy_desc", "value": "Other Operating Expense"}],
-        thresholds=KPIThreshold(warning=None, critical=None),
+        thresholds=KPIThreshold(warning=0.05, critical=0.10),
         positive_trend_is_good=False,
-        business_processes=["Finance: Expense Management"],
+        business_processes=["Finance: Expense Management", "Finance: Budget vs. Actuals"],
+        data_product_id="FI_Star_Schema",
+        dimensions=["region", "profit_center"],
+        default_comparison="TREND_MONTHLY",
+        comparison_methods=[DEFAULT_MONTHLY_COMPARISON, DEFAULT_BUDGET_COMPARISON],
     )
 ]

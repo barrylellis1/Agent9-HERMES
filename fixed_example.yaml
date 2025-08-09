@@ -1,0 +1,19 @@
+- id: "finance_revenue_growth_analysis"
+  name: "Revenue Growth Analysis"
+  domain: "Finance"
+  description: "Analysis of revenue growth trends, patterns, and drivers across products and regions"
+  kpis:
+    - "revenue_growth_rate"
+    - "sales_by_product"
+    - "sales_by_region"
+  owner_role: "CFO"
+  stakeholder_roles:
+    - "CEO"
+    - "Sales Director"
+    - "Finance Manager"
+  display_name: "Finance: Revenue Growth Analysis"
+  tags:
+    - "finance"
+    - "revenue" 
+    - "growth"
+    - "analysis"

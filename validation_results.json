@@ -1,0 +1,62 @@
+{
+  "business_process_alignment": {
+    "model_business_processes": [
+      "Finance: Profitability Analysis",
+      "Finance: Revenue Growth Analysis",
+      "Finance: Expense Management",
+      "Finance: Cash Flow Management",
+      "Finance: Budget vs. Actuals"
+    ],
+    "profile_business_processes": [],
+    "kpi_business_processes": [],
+    "missing_in_model": [],
+    "missing_in_profiles": [
+      "Finance: Profitability Analysis",
+      "Finance: Revenue Growth Analysis",
+      "Finance: Expense Management",
+      "Finance: Budget vs. Actuals",
+      "Finance: Cash Flow Management"
+    ],
+    "missing_in_kpis": [
+      "Finance: Profitability Analysis",
+      "Finance: Revenue Growth Analysis",
+      "Finance: Expense Management",
+      "Finance: Budget vs. Actuals",
+      "Finance: Cash Flow Management"
+    ]
+  },
+  "principal_role_alignment": {
+    "model_roles": [
+      "CFO",
+      "Finance Manager"
+    ],
+    "registry_roles": [],
+    "missing_in_model": [
+      "cfo",
+      "ceo",
+      "chro",
+      "manager",
+      "data_owner",
+      "data_steward",
+      "data_custodian",
+      "cio",
+      "cmo",
+      "employee",
+      "coo",
+      "executive",
+      "cdo"
+    ],
+    "missing_in_registry": [
+      "Finance Manager",
+      "CFO"
+    ]
+  },
+  "kpi_metadata_completeness": {
+    "total_kpis": 0,
+    "kpis_with_thresholds": 0,
+    "kpis_with_business_processes": 0,
+    "kpis_with_data_product_id": 0,
+    "kpis_with_comparison_methods": 0,
+    "kpis_with_dimensions": 0
+  }
+}

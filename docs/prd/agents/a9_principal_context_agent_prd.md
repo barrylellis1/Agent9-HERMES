@@ -18,7 +18,7 @@ Last updated: 2025-07-17
 > result = await principal_agent.set_principal_context(...)
 > ```
 
-The A9 Principal Context Agent manages principal context and relationships in business operations, providing essential context-aware functionality for other agents.
+The A9 Principal Context Agent manages principal context and relationships in business operations, providing essential context-aware functionality for other agents. It leverages the Unified Registry Access Layer to store, retrieve, and manage principal profiles as well as their relationships to business processes and KPIs.
 
 ## Purpose
 - Manage principal context and relationships
@@ -26,6 +26,8 @@ The A9 Principal Context Agent manages principal context and relationships in bu
 - Handle access control and permissions
 - Maintain context history
 - Integrate with HCM systems
+- Register and retrieve principal profiles using the Unified Registry Access Layer
+- Map principals to business processes and KPIs using registry relationships
 
 ## Key Features
 
@@ -34,9 +36,11 @@ The A9 Principal Context Agent manages principal context and relationships in bu
 ### 1. Principal Context Management
 - Set and maintain principal context
 - Fetch principal profiles from HCM systems
+- Register and update principal profiles in the Principal Profile Provider
 - Track context history
 - Clear context when needed
 - Provide responsibilities and filter criteria in business terms (English descriptions) for downstream translation
+- Use registry relationships to map principals to business processes, KPIs, and data products
 - Automatically default dimensional filters based on principal profile context (e.g., job description, region, business unit) for relevant data products. For example, if the principal is a Sales Manager for Northern Region, automatically add {"Region": "Northern"} to filters for Sales data queries.
 - The agent must use an LLM or NLP pipeline to extract potential dimensional filters (e.g., region, business unit, product line) from the principal's job or role description text. These extracted filters should be merged with explicit profile filters and included in the output filters dictionary for downstream translation and query assembly. Example: For a role description "Sales manager for Northern Region, responsible for consumer electronics", the agent should extract and default filters such as {"Region": "Northern", "Product": "Consumer Electronics"}.
 - Output structure must include:
@@ -94,6 +98,8 @@ The A9 Principal Context Agent manages principal context and relationships in bu
 
 ### 2. Dependencies
 - Agent Registry
+- Unified Registry Access Layer
+- Registry Factory and Providers
 - HCM System Connector
 - Data Governance System
 - Logging Framework
@@ -204,6 +210,8 @@ async def clear_context(self) -> None
 
 ### Integration Points
 - Integrates with Agent Registry for orchestration
+- Integrates with the Unified Registry Access Layer for principal profiles
+- Uses the Principal Profile Provider for registry operations
 - Follows A2A protocol for agent communication
 - Uses shared logging utility for consistent error reporting
 
@@ -232,6 +240,9 @@ async def clear_context(self) -> None
 - Missing error handling
 - Incomplete logging
 - Improper model validation
+- Direct enum usage (use registry providers instead)
+- Hardcoded principal profile logic (use registry data)
+- Initializing registry providers directly (use Registry Factory)
 
 ## Success Criteria
 

@@ -79,6 +79,15 @@ Centralize and standardize all LLM (Large Language Model) operations for Agent9 
 - Integrates with Agent Registry for orchestration
 - Follows A2A protocol for agent communication
 - Uses shared logging utility for consistent error reporting
+- Integrates with the Unified Registry Access Layer for LLM provider configuration and model selection
+
+### Registry Architecture Integration
+- Must use the Registry Factory to initialize and access all registry providers
+- Must configure and use appropriate registry providers for LLM models, prompt templates, and operation types
+- Must use registry data for context-aware LLM provider and model selection
+- Must NOT cache registry data locally; instead, always access the latest data through the Unified Registry Access Layer
+- Must support backward compatibility with legacy code
+- Must delegate registry operations to the appropriate providers
 
 ## Implementation Guidance
 

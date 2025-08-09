@@ -118,6 +118,14 @@ The A9 Change Management Agent provides comprehensive change management capabili
 
 ## Core Requirements
 
+### Registry Architecture Integration
+- Must use the Registry Factory to initialize and access all registry providers
+- Must configure and use appropriate registry providers for business processes, stakeholder information, and change initiatives
+- Must use registry data for context-aware change management decisions
+- Must NOT cache registry data locally; instead, always access the latest data through the Unified Registry Access Layer
+- Must support backward compatibility with legacy code
+- Must delegate registry operations to the appropriate providers
+
 ### Agent Template Compliance
 - Implements A9_Agent_Template patterns
 - Uses absolute imports
