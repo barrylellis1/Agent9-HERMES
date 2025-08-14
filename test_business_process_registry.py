@@ -21,7 +21,12 @@ from src.registry.providers.business_process_provider import BusinessProcessProv
 async def test_business_process_registry():
     """Test loading the business process registry from YAML."""
     # Path to the business process registry YAML
-    yaml_path = str(Path("src/registry_references/business_process_registry/yaml/business_process_registry.yaml"))
+    # First try the new location
+    new_yaml_path = str(Path("src/registry/business_process/business_process_registry.yaml"))
+    deprecated_yaml_path = str(Path("src/deprecated_registry_references/business_process_registry/yaml/business_process_registry.yaml"))
+    
+    # Use the new path if it exists, otherwise fall back to the deprecated path
+    yaml_path = new_yaml_path if os.path.exists(new_yaml_path) else deprecated_yaml_path
     
     print(f"Testing business process registry loading from: {yaml_path}")
     

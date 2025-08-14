@@ -1,0 +1,39 @@
+terms:
+  - name: Revenue
+    synonyms:
+      - sales
+      - income
+      - turnover
+    description: Total income generated from sales
+    technical_mappings:
+      sap: REVENUE
+      duckdb: revenue
+
+  - name: Profit Margin
+    synonyms:
+      - margin
+      - profit percentage
+    description: Percentage of profit relative to revenue
+    technical_mappings:
+      sap: PROFIT_MARGIN
+      duckdb: profit_margin
+
+  - name: Expense
+    synonyms:
+      - cost
+      - expenditure
+      - spending
+    description: Money spent on goods, services, or operations
+    technical_mappings:
+      sap: EXPENSE
+      duckdb: expense
+
+  - name: Customer Satisfaction
+    synonyms:
+      - customer happiness
+      - satisfaction score
+      - csat
+    description: Measure of how satisfied customers are with products or services
+    technical_mappings:
+      sap: CUST_SATISFACTION
+      duckdb: customer_satisfaction

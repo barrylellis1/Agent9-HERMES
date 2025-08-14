@@ -3,7 +3,7 @@
 # Format follows the src.agents.models.a9_core_models.A9PrincipalContextProfile structure
 
 principals:
-  - id: "cfo_001"
+  - id: "cfo"
     name: "Lars Mikkelsen"
     title: "Chief Financial Officer"
     first_name: "Lars"
@@ -298,21 +298,23 @@ principals:
     source: "HR Database"
     description: "CDO responsible for data governance and analytics."
 
-  - id: "manager_001"
+  - id: "finance_manager"
     name: "Morgan Taylor"
-    title: "Manager"
+    title: "Finance Manager"
     first_name: "Morgan"
     last_name: "Taylor"
-    role: "manager"
-    department: "Operations"
+    role: "finance_manager"
+    department: "Finance"
     responsibilities:
-      - "manage team"
-      - "oversee projects"
-      - "report to executives"
+      - "manage financial operations"
+      - "analyze financial performance"
+      - "report to CFO"
     business_processes:
-      - "Team: Productivity Metrics"
-      - "Team: Project Milestone Tracking"
-      - "Team: Budget Adherence"
+      - "Finance: Profitability Analysis"
+      - "Finance: Revenue Growth Analysis"
+      - "Finance: Expense Management"
+      - "Finance: Cash Flow Management"
+      - "Finance: Budget vs. Actuals"
     default_filters:
       profit_center_hierarchyid: ["Best Run U"]
       customer_hierarchyid: ["17100001"]

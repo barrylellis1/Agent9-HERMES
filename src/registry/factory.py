@@ -33,6 +33,7 @@ class RegistryFactory:
     
     _instance = None
     _providers: Dict[str, RegistryProvider] = {}
+    _provider_initialization_status: Dict[str, bool] = {}
     
     def __new__(cls):
         """Ensure singleton pattern."""
@@ -58,10 +59,24 @@ class RegistryFactory:
         """
         # Load all providers and their data
         for provider_name, provider in self._providers.items():
-            logger.info(f"Loading registry data for {provider_name}")
-            await provider.load()
+            try:
+                logger.info(f"Loading registry data for {provider_name}")
+                await provider.load()
+                self._provider_initialization_status[provider_name] = True
+                logger.info(f"Successfully loaded data for {provider_name} provider")
+            except Exception as e:
+                logger.error(f"Failed to load data for {provider_name} provider: {str(e)}")
+                self._provider_initialization_status[provider_name] = False
+                
+                # Try to load default data if available
+                if hasattr(provider, '_load_default_data'):
+                    try:
+                        provider._load_default_data()
+                        logger.info(f"Loaded default data for {provider_name} provider")
+                    except Exception as default_err:
+                        logger.error(f"Failed to load default data for {provider_name}: {str(default_err)}")
         
-        logger.info("All registry providers initialized and loaded")
+        logger.info("All registry providers initialization attempt complete")
     
     def register_provider(self, name: str, provider: RegistryProvider) -> None:
         """
@@ -71,7 +86,12 @@ class RegistryFactory:
             name: The name of the provider (e.g., 'business_process')
             provider: The provider instance to register
         """
+        # Check if provider is replacing an existing one
+        if name in self._providers:
+            logger.warning(f"Replacing existing {name} provider")
+            
         self._providers[name] = provider
+        self._provider_initialization_status[name] = False
         logger.info(f"Registered {name} provider")
     
     def get_provider(self, name: str) -> Optional[RegistryProvider]:
@@ -84,7 +104,21 @@ class RegistryFactory:
         Returns:
             The provider if found, None otherwise
         """
-        return self._providers.get(name)
+        provider = self._providers.get(name)
+        if provider is None:
+            logger.warning(f"Provider '{name}' not found in registry factory")
+        elif name in self._provider_initialization_status and not self._provider_initialization_status[name]:
+            logger.warning(f"Provider '{name}' exists but may not be properly initialized")
+        return provider
+        
+    @property
+    def is_initialized(self) -> bool:
+        """Check if the registry factory has been initialized with providers."""
+        return bool(self._providers)
+        
+    def provider_status(self) -> Dict[str, bool]:
+        """Get initialization status of all registered providers."""
+        return self._provider_initialization_status.copy()
     
     def get_business_process_provider(self) -> Optional[BusinessProcessProvider]:
         """Get the business process registry provider."""

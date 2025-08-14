@@ -11,18 +11,18 @@
     "kpi_business_processes": [],
     "missing_in_model": [],
     "missing_in_profiles": [
-      "Finance: Profitability Analysis",
+      "Finance: Cash Flow Management",
+      "Finance: Budget vs. Actuals",
       "Finance: Revenue Growth Analysis",
       "Finance: Expense Management",
-      "Finance: Budget vs. Actuals",
-      "Finance: Cash Flow Management"
+      "Finance: Profitability Analysis"
     ],
     "missing_in_kpis": [
-      "Finance: Profitability Analysis",
+      "Finance: Cash Flow Management",
+      "Finance: Budget vs. Actuals",
       "Finance: Revenue Growth Analysis",
       "Finance: Expense Management",
-      "Finance: Budget vs. Actuals",
-      "Finance: Cash Flow Management"
+      "Finance: Profitability Analysis"
     ]
   },
   "principal_role_alignment": {
@@ -32,23 +32,16 @@
     ],
     "registry_roles": [],
     "missing_in_model": [
-      "cfo",
-      "ceo",
-      "chro",
-      "manager",
-      "data_owner",
-      "data_steward",
-      "data_custodian",
-      "cio",
-      "cmo",
-      "employee",
-      "coo",
-      "executive",
-      "cdo"
+      "CIO",
+      "CMO",
+      "CHRO",
+      "CEO",
+      "CDO",
+      "COO",
+      "Manager"
     ],
     "missing_in_registry": [
-      "Finance Manager",
-      "CFO"
+      "Finance Manager"
     ]
   },
   "kpi_metadata_completeness": {

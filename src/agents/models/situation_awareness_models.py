@@ -110,6 +110,8 @@ class KPIDefinition(BaseModel):
     diagnostic_questions: Optional[List[str]] = Field(None, description="Diagnostic questions for the KPI")
     thresholds: Optional[Dict[str, float]] = Field(None, description="Thresholds for the KPI")
     business_processes: Optional[List[str]] = Field(None, description="Related business processes")
+    unit: Optional[str] = Field(None, description="Unit of measurement")
+    positive_trend_is_good: Optional[bool] = Field(None, description="Whether a positive trend is good for this KPI")
 
 class KPIValue(BaseModel):
     """KPI value with context."""

@@ -25,6 +25,33 @@ class RegistryProvider(ABC, Generic[T]):
     different storage formats (YAML, JSON, CSV, Python objects).
     """
     
+    _registry_base_path = "src/registry_references"
+    
+    @classmethod
+    def get_registry_path(cls, relative_path: str = "") -> str:
+        """
+        Get the absolute path to a registry reference file or directory.
+        
+        Args:
+            relative_path: Relative path within the registry references directory
+            
+        Returns:
+            Absolute path to the registry reference
+        """
+        if relative_path:
+            return f"{cls._registry_base_path}/{relative_path}"
+        return cls._registry_base_path
+    
+    @classmethod
+    def initialize(cls, registry_base_path: str = "src/registry_references") -> None:
+        """
+        Initialize the registry provider with the base path.
+        
+        Args:
+            registry_base_path: Base path to registry reference files
+        """
+        cls._registry_base_path = registry_base_path
+    
     @abstractmethod
     async def load(self) -> None:
         """

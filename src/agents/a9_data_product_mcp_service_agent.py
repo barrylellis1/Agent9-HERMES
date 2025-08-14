@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
+import yaml
 
 # Import database manager components
 # Note: Agent is designed for orchestrator-driven registry pattern per PRD
@@ -42,6 +43,15 @@ from src.agents.shared.a9_agent_base_model import (
 
 # Import config models
 from src.agents.agent_config_models import A9_Data_Product_MCP_Service_Config
+
+# Import registry components
+from src.registry.factory import RegistryFactory
+from src.registry.providers.principal_provider import PrincipalProfileProvider as PrincipalProvider
+from src.registry.providers.business_process_provider import BusinessProcessProvider
+from src.registry.models.data_product import DataProduct
+from src.registry.providers.registry_provider import RegistryProvider
+from src.registry.providers.kpi_provider import KPIProvider as KpiProvider
+from src.registry.models.data_product import DataProduct
 
 # Protocol-Compliant Request/Response Models
 class SQLExecutionRequest(A9AgentBaseRequest):
@@ -267,9 +277,12 @@ class A9_Data_Product_MCP_Service_Agent:
         # Initialize properties
         self.db_manager = None
         self.registry = {}
+        self.duckdb_conn = None
+        self.principal_context = None
+        self.data_directory = None
         self.data_product_views = {}
         
-        # Use orchestrator-provided logger or fall back to standard logging
+        # Setup logging
         if logger:
             self.logger = logger
         else:
@@ -283,8 +296,28 @@ class A9_Data_Product_MCP_Service_Agent:
         # Assign data_directory from config to instance attribute
         self.data_directory = self.config.data_directory
         
+        # Set the data_product_registry path using the registry_path from config
+        if hasattr(self.config, 'registry_path') and hasattr(self.config, 'data_product_registry'):
+            # Handle the transition to new registry location
+            if self.config.registry_path == "src/registry_references" and os.path.exists("src/registry"):
+                # Use new registry structure if available
+                self.data_product_registry = os.path.join(
+                    "src/registry/data_product", os.path.basename(self.config.data_product_registry)
+                )
+                self.logger.info(f"Using new registry structure path: {self.data_product_registry}")
+            else:
+                # Use configured path
+                self.data_product_registry = os.path.join(
+                    self.config.registry_path, self.config.data_product_registry
+                )
+                self.logger.info(f"Using configured registry path: {self.data_product_registry}")
+        else:
+            # Fallback to default
+            self.data_product_registry = "src/registry/data_product/data_product_registry.csv"
+            self.logger.warning(f"No registry path configured, using fallback: {self.data_product_registry}")
+    
         # Log initialization
-        self.logger.info(f"Data Product MCP Service Agent initialized with data_directory: {self.data_directory}")
+        self.logger.info(f"Data Product MCP Service Agent initialized with data_directory: {self.data_directory} and registry path: {self.data_product_registry}")
         
     async def _async_init(self):
         """
@@ -297,19 +330,450 @@ class A9_Data_Product_MCP_Service_Agent:
         """Async initialization logic"""
         self.logger.info("Initializing Data Product MCP Service Agent")
         
-        # Initialize database manager
+        # Run all async initialization tasks
         await self._initialize_database_connection()
+        
+        # Initialize registry providers for principal and KPI awareness
+        self._initialize_registry_providers()
         
         # Initialize duckdb connection for tests
         if hasattr(self, 'db_manager') and self.db_manager and hasattr(self.db_manager, 'connection'):
             self.duckdb_conn = self.db_manager.connection
         
         # Load registry data
-        self._registry_data = self._load_registry_data()
+        self.registry = {}
+        await self._load_registry_data()
         
         self.logger.info(f"Data Product MCP Service Agent initialized with {len(self.registry.get('data_products', []))} data products")
         self.logger.info("Async initialization for Data Product MCP Service Agent completed successfully")
+        return True
+    
+    async def _load_registry_data(self):
+        """Load data product registry from YAML file"""
+        transaction_id = str(uuid.uuid4())
+        self.logger.info(f"[TXN:{transaction_id}] Loading data product registry from: {self.data_product_registry}")
         
+        # Initialize registry data structure if needed
+        if not hasattr(self, 'registry') or self.registry is None:
+            self.registry = {}
+        
+        # Initialize data products list and status flag
+        self.registry['data_products'] = []
+        
+        try:
+            # Check if registry path is a YAML file or determine YAML path from CSV path
+            yaml_registry_path = self.data_product_registry
+            if yaml_registry_path.endswith('.csv'):
+                yaml_registry_path = yaml_registry_path.replace('.csv', '.yaml')
+            
+            self.logger.info(f"[TXN:{transaction_id}] Attempting to load from YAML registry: {yaml_registry_path}")
+            
+            # Check if YAML file exists
+            if os.path.exists(yaml_registry_path):
+                with open(yaml_registry_path, 'r') as file:
+                    yaml_data = yaml.safe_load(file)
+                
+                if yaml_data and 'data_products' in yaml_data and isinstance(yaml_data['data_products'], list):
+                    # Load data products from YAML
+                    data_products = []
+                    
+                    for product_data in yaml_data['data_products']:
+                        try:
+                            # Create DataProduct from YAML data
+                            product = DataProduct(**product_data)
+                            data_products.append(product)
+                            
+                            # If product has yaml_contract_path, load detailed definition from contract
+                            if hasattr(product, 'yaml_contract_path') and product.yaml_contract_path:
+                                try:
+                                    contract_path = product.yaml_contract_path
+                                    self.logger.info(f"[TXN:{transaction_id}] Loading contract for {product.id} from {contract_path}")
+                                    
+                                    if os.path.exists(contract_path):
+                                        with open(contract_path, 'r') as contract_file:
+                                            contract_data = yaml.safe_load(contract_file)
+                                            
+                                        # Enrich product with contract data
+                                        if contract_data:
+                                            # Add tables from contract if available
+                                            if 'tables' in contract_data:
+                                                product.tables = contract_data['tables']
+                                            
+                                            # Add views from contract if available 
+                                            if 'views' in contract_data:
+                                                product.views = contract_data['views']
+                                    else:
+                                        self.logger.warning(f"[TXN:{transaction_id}] Contract file not found: {contract_path}")
+                                except Exception as contract_error:
+                                    self.logger.error(f"[TXN:{transaction_id}] Error loading contract for {product.id}: {str(contract_error)}")
+                        except Exception as product_error:
+                            self.logger.error(f"[TXN:{transaction_id}] Error processing data product: {str(product_error)}\n{traceback.format_exc()}")
+                    
+                    # Store products in registry
+                    self.registry['data_products'] = data_products
+                    
+                    # Set the flag if we have any products
+                    if len(data_products) > 0:
+                        self.registry['has_data_products'] = True
+                        self.logger.info(f"[TXN:{transaction_id}] Loaded {len(data_products)} data products from YAML registry")
+                    else:
+                        self.registry['has_data_products'] = False
+                        self.logger.warning(f"[TXN:{transaction_id}] No data products found in YAML registry")
+                else:
+                    self.logger.warning(f"[TXN:{transaction_id}] Invalid YAML registry format or missing data_products section")
+                    self.registry['has_data_products'] = False
+            else:
+                self.logger.warning(f"[TXN:{transaction_id}] YAML registry not found at: {yaml_registry_path}")
+                self.registry['has_data_products'] = False
+                
+                # Try to fall back to CSV if YAML not found
+                await self._try_load_legacy_csv_registry()
+            
+            # If no data products loaded from YAML or CSV, load defaults
+            if not self.registry.get('has_data_products', False):
+                self._load_default_data_products()
+        
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Error loading registry data: {str(e)}\n{traceback.format_exc()}")
+            self.registry['has_data_products'] = False
+            self._load_default_data_products()
+        
+        # Log registry status
+        self.logger.info(f"[TXN:{transaction_id}] Registry status: registry={type(self.registry)}, has_data_products={self.registry.get('has_data_products', False)}")
+        return self.registry
+    
+    async def _try_load_legacy_csv_registry(self):
+        """Try to load data products from legacy CSV registry if available"""
+        transaction_id = str(uuid.uuid4())
+        
+        try:
+            # Check if we have a CSV registry path
+            csv_registry_path = None
+            if hasattr(self, 'data_product_registry') and self.data_product_registry.endswith('.csv'):
+                csv_registry_path = self.data_product_registry
+            else:
+                # Try to construct CSV path from YAML path
+                if hasattr(self, 'data_product_registry'):
+                    csv_registry_path = self.data_product_registry.replace('.yaml', '.csv')
+            
+            if csv_registry_path and os.path.exists(csv_registry_path):
+                self.logger.info(f"[TXN:{transaction_id}] Attempting to load legacy CSV registry from: {csv_registry_path}")
+                
+                # Load CSV into DataFrame
+                import pandas as pd
+                df = pd.read_csv(csv_registry_path)
+                
+                if not df.empty:
+                    # Convert DataFrame to list of DataProduct objects
+                    data_products = []
+                    
+                    for _, row in df.iterrows():
+                        try:
+                            # Create dictionary from row
+                            product_dict = row.to_dict()
+                            
+                            # Clean up dictionary (convert NaN to None)
+                            product_dict = {k: None if pd.isna(v) else v for k, v in product_dict.items()}
+                            
+                            # Create DataProduct object
+                            product = DataProduct(**product_dict)
+                            data_products.append(product)
+                            
+                        except Exception as product_error:
+                            self.logger.error(f"[TXN:{transaction_id}] Error processing CSV data product: {str(product_error)}")
+                    
+                    # Store products in registry
+                    self.registry['data_products'] = data_products
+                    
+                    # Set flag if we have products
+                    if len(data_products) > 0:
+                        self.registry['has_data_products'] = True
+                        self.logger.info(f"[TXN:{transaction_id}] Loaded {len(data_products)} data products from legacy CSV registry")
+                        return True
+                    else:
+                        self.registry['has_data_products'] = False
+                        self.logger.warning(f"[TXN:{transaction_id}] No data products found in legacy CSV registry")
+                else:
+                    self.logger.warning(f"[TXN:{transaction_id}] Empty CSV registry file")
+            else:
+                self.logger.warning(f"[TXN:{transaction_id}] Legacy CSV registry not found")
+        
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Error loading legacy CSV registry: {str(e)}")
+        
+        return False
+    
+    def _load_default_data_products(self):
+        """Load default data products when no registry is available"""
+        transaction_id = str(uuid.uuid4())
+        self.logger.warning(f"[TXN:{transaction_id}] Loading default data products as fallback")
+        
+        # Create a single default data product
+        try:
+            # Define default data product attributes
+            product_data = {
+                "product_id": "dp_fi_20250516_001",
+                "name": "Financial Transactions (Default)",
+                "domain": "FI",
+                "description": "Default financial transactions data product",
+                "tags": ["finance", "default"],
+                "last_updated": datetime.now().strftime("%Y-%m-%d")
+            }
+            
+            # Create DataProduct object
+            default_product = DataProduct(**product_data)
+            
+            # Store in registry
+            self.registry['data_products'] = [default_product]
+            self.registry['has_data_products'] = True
+            
+            self.logger.info(f"[TXN:{transaction_id}] Loaded default data product: {default_product.id}")
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Error creating default data product: {str(e)}")
+            self.registry['has_data_products'] = False
+            return False
+        
+    def _initialize_registry_providers(self):
+        """Initialize registry providers for principal and KPI-aware operations"""
+        try:
+            # Create registry factory instance
+            self.registry_factory = RegistryFactory()
+            
+            # Initialize principal provider
+            self.principal_provider = PrincipalProvider()
+            
+            # Initialize KPI provider
+            self.kpi_provider = KpiProvider()
+            
+            self.logger.info("Registry providers initialized successfully")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize registry providers: {str(e)}")
+            
+    async def _load_registry_data(self):
+        """Load data product registry data from YAML file"""
+        self.logger.info(f"Loading data product registry from: {self.data_product_registry}")
+        
+        # Update the path to use the YAML file instead of CSV
+        yaml_registry_path = self.data_product_registry.replace('.csv', '.yaml')
+        
+        # Initialize the registry data structure
+        self.registry['data_products'] = []
+        self.registry['has_data_products'] = False
+        
+        try:
+            # Check if the YAML registry file exists
+            if os.path.exists(yaml_registry_path):
+                self.logger.info(f"Found YAML data product registry at {yaml_registry_path}")
+                try:
+                    # Load data products from YAML registry
+                    with open(yaml_registry_path, 'r') as file:
+                        registry_data = yaml.safe_load(file)
+                        
+                        if registry_data and 'data_products' in registry_data:
+                            for product_data in registry_data['data_products']:
+                                # Convert each product entry to a DataProduct object
+                                product = DataProduct(
+                                    id=product_data.get('product_id'),
+                                    name=product_data.get('name'),
+                                    domain=product_data.get('domain'),
+                                    description=product_data.get('description', ''),
+                                    owner=product_data.get('domain', 'Unknown'),  # Default to domain if owner not specified
+                                    tags=product_data.get('tags', []),
+                                )
+                                
+                                # Add any additional attributes if present
+                                if 'yaml_contract_path' in product_data and product_data['yaml_contract_path']:
+                                    # If product has a YAML contract, try to load tables/views from it
+                                    contract_path = product_data['yaml_contract_path']
+                                    if os.path.exists(contract_path):
+                                        try:
+                                            with open(contract_path, 'r') as contract_file:
+                                                contract_data = yaml.safe_load(contract_file)
+                                                # Process contract data for tables and views if available
+                                                if contract_data:
+                                                    if 'tables' in contract_data:
+                                                        product.tables = contract_data['tables']
+                                                    if 'views' in contract_data:
+                                                        product.views = contract_data['views']
+                                                    
+                                                self.logger.info(f"Loaded contract data for {product.id} from {contract_path}")
+                                        except Exception as e:
+                                            self.logger.warning(f"Failed to load contract for {product.id}: {str(e)}")
+                                
+                                # Add the product to the registry
+                                self.registry['data_products'].append(product)
+                                
+                            # Set the flag if we have any products
+                            if len(self.registry['data_products']) > 0:
+                                self.registry['has_data_products'] = True
+                                self.logger.info(f"Loaded {len(self.registry['data_products'])} data products from YAML registry")
+                            else:
+                                self.logger.warning("No data products found in YAML registry")
+                        else:
+                            self.logger.warning(f"YAML registry at {yaml_registry_path} does not contain data_products list")
+                            
+                except Exception as e:
+                    self.logger.error(f"Error loading YAML data product registry: {str(e)}")
+                    # Fall back to CSV if YAML fails (for backward compatibility)
+                    await self._try_load_legacy_csv_registry()
+            else:
+                self.logger.warning(f"YAML data product registry not found at {yaml_registry_path}, trying CSV fallback")
+                # Try to load from CSV as fallback (legacy support)
+                await self._try_load_legacy_csv_registry()
+                
+            # If still no data products, load defaults
+            if not self.registry['has_data_products']:
+                self._load_default_data_products()
+                
+        except Exception as e:
+            self.logger.error(f"Failed to load data product registry: {str(e)}")
+            self._load_default_data_products()
+    
+    async def _try_load_legacy_csv_registry(self):
+        """Try to load data products from legacy CSV registry"""
+        try:
+            # Check if CSV file exists
+            if os.path.exists(self.data_product_registry):
+                import csv
+                with open(self.data_product_registry, 'r') as file:
+                    reader = csv.DictReader(file)
+                    for row in reader:
+                        try:
+                            # Create DataProduct from CSV row
+                            product = DataProduct(
+                                id=row.get('product_id'),
+                                name=row.get('name'),
+                                domain=row.get('domain'),
+                                description=row.get('description', ''),
+                                owner=row.get('domain', 'Unknown'),  # Default to domain
+                            )
+                            
+                            # Handle tags if present
+                            if 'tags' in row and row['tags']:
+                                product.tags = [tag.strip() for tag in row['tags'].split(';')] if row['tags'] else []
+                            
+                            # Handle yaml contract if present
+                            if 'yaml_contract_path' in row and row['yaml_contract_path']:
+                                contract_path = row['yaml_contract_path']
+                                if os.path.exists(contract_path):
+                                    try:
+                                        with open(contract_path, 'r') as contract_file:
+                                            contract_data = yaml.safe_load(contract_file)
+                                            # Process contract data for tables and views if available
+                                            if contract_data:
+                                                if 'tables' in contract_data:
+                                                    product.tables = contract_data['tables']
+                                                if 'views' in contract_data:
+                                                    product.views = contract_data['views']
+                                                
+                                                self.logger.info(f"Loaded contract data for {product.id} from {contract_path}")
+                                    except Exception as e:
+                                        self.logger.warning(f"Failed to load contract for {product.id}: {str(e)}")
+                                        
+                            # Add product to registry
+                            self.registry['data_products'].append(product)
+                            
+                        except Exception as e:
+                            self.logger.warning(f"Failed to process CSV row: {str(e)}")
+                    
+                    # Set the flag if we have any products
+                    if len(self.registry['data_products']) > 0:
+                        self.registry['has_data_products'] = True
+                        self.logger.info(f"Loaded {len(self.registry['data_products'])} data products from CSV registry")
+                    else:
+                        self.logger.warning("No data products found in CSV registry")
+            else:
+                self.logger.warning(f"CSV data product registry not found at {self.data_product_registry}")
+        except Exception as e:
+            self.logger.error(f"Error loading CSV data product registry: {str(e)}")
+            
+    def _load_default_data_products(self):
+        """Load default data products when no registry data is available"""
+        self.logger.warning("Loading default data products as fallback")
+        
+        # Create a default finance data product
+        finance_product = DataProduct(
+            id="finance_data",
+            name="Finance Data",
+            domain="Finance",
+            owner="Finance Team",
+            description="Core financial data product including financial transactions and dimensions",
+            tables={
+                "financial_transactions": {
+                    "name": "financial_transactions",
+                    "description": "Financial transactions including revenue, expenses, etc.",
+                    "data_source_type": "csv",
+                    "data_source_path": "data/finance/financial_transactions.csv",
+                    "schema": {
+                        "transaction_id": "string",
+                        "date": "date",
+                        "amount": "float",
+                        "category": "string",
+                        "department": "string"
+                    },
+                    "primary_keys": ["transaction_id"]
+                }
+            },
+        )
+        
+        # Add to registry
+        self.registry['data_products'] = [finance_product]
+        self.registry['has_data_products'] = True
+        
+        self.logger.info("Loaded 1 default data product")
+            
+    async def _load_registry_data(self):
+        """Load data product registry from configured sources"""
+        try:
+            transaction_id = str(uuid.uuid4())
+            self.logger.info(f"[TXN:{transaction_id}] Loading data product registry")
+            
+            # Initialize registry structure if not already done
+            if not hasattr(self, 'registry'):
+                self.registry = {}
+                
+            # Load data products from registry path if available
+            data_products = []
+            registry_path = self.data_product_registry if hasattr(self, 'data_product_registry') else None
+            
+            if registry_path:
+                self.logger.info(f"[TXN:{transaction_id}] Loading data product registry from {registry_path}")
+                try:
+                    # Load registry from CSV, YAML, or other sources based on extension
+                    if registry_path.endswith('.csv'):
+                        if os.path.exists(registry_path):
+                            df = pd.read_csv(registry_path)
+                            data_products = df.to_dict('records')
+                            self.logger.info(f"[TXN:{transaction_id}] Loaded {len(data_products)} data products from CSV")
+                        else:
+                            self.logger.warning(f"[TXN:{transaction_id}] Data product registry CSV not found at {registry_path}")
+                    elif registry_path.endswith('.yaml') or registry_path.endswith('.yml'):
+                        if os.path.exists(registry_path):
+                            with open(registry_path, 'r') as f:
+                                import yaml
+                                data_products = yaml.safe_load(f)
+                                self.logger.info(f"[TXN:{transaction_id}] Loaded {len(data_products)} data products from YAML")
+                        else:
+                            self.logger.warning(f"[TXN:{transaction_id}] Data product registry YAML not found at {registry_path}")
+                    else:
+                        self.logger.warning(f"[TXN:{transaction_id}] Unsupported registry format for {registry_path}")
+                except Exception as e:
+                    self.logger.error(f"[TXN:{transaction_id}] Error loading data product registry: {str(e)}")
+            else:
+                self.logger.warning(f"[TXN:{transaction_id}] No data product registry path configured")
+                
+            # Store in registry
+            self.registry['data_products'] = data_products
+            self.logger.info(f"[TXN:{transaction_id}] Registry status: registry={type(self.registry)}, has data_products={len(data_products) > 0}")
+            return self.registry
+        except Exception as e:
+            self.logger.error(f"Error loading registry data: {str(e)}")
+            self.registry = {'data_products': []}
+            return self.registry
+    
     async def _initialize_database_connection(self):
         """
         Initialize the database connection using the DatabaseManagerFactory.
@@ -1223,15 +1687,43 @@ class A9_Data_Product_MCP_Service_Agent:
                 'truncated': len(rows) >= request.limit if hasattr(request, 'limit') and request.limit else False
             }
             
-            # Create response with protocol compliance
+            # Get principal context from request or registry if available
+            principal_context = {}
+            principal_id = None
+            
+            # Extract principal context from request
+            if hasattr(request, 'principal_context') and request.principal_context:
+                principal_context = request.principal_context
+                principal_id = principal_context.get('principal_id')
+                self.logger.info(f"[TXN:{transaction_id}] Using principal context from request for principal ID: {principal_id}")
+            # If no principal context in request but principal_id is available, try to get from registry
+            elif hasattr(request, 'principal_id') and request.principal_id and self.principal_provider:
+                principal_id = request.principal_id
+                try:
+                    principal = self.principal_provider.get_principal_by_id(principal_id)
+                    if principal:
+                        # Convert principal model to dictionary
+                        principal_context = {
+                            'principal_id': principal_id,
+                            'role': getattr(principal, 'role', None),
+                            'business_processes': getattr(principal, 'business_processes', []),
+                            'default_filters': getattr(principal, 'default_filters', {}),
+                            'governance_level': getattr(principal, 'governance_level', 'department')
+                        }
+                        self.logger.info(f"[TXN:{transaction_id}] Retrieved principal context from registry for ID: {principal_id}")
+                except Exception as e:
+                    self.logger.warning(f"[TXN:{transaction_id}] Failed to get principal from registry: {str(e)}")
+            
+            # Create response with protocol compliance and enhanced principal context
             return SQLExecutionResponse.from_result(
                 request_id=request.request_id,
                 result=result_dict,
                 transaction_id=transaction_id,
                 metadata={
                     'source': 'duckdb',
-                    'principal_id': getattr(request, 'principal_id', None),
-                    'governance_level': getattr(request, 'governance_level', 'department')
+                    'principal_id': principal_id,
+                    'principal_context': principal_context,
+                    'governance_level': principal_context.get('governance_level', 'department')
                 }
             )
             
@@ -1254,11 +1746,26 @@ class A9_Data_Product_MCP_Service_Agent:
                     'transaction_id': transaction_id
                 } if self._needs_human_action(error_msg) else None
             )
+        except Exception as e:
+            error_msg = str(e)
+            stack_trace = traceback.format_exc()
+            self.logger.error(f"[TXN:{transaction_id}] Error executing SQL: {error_msg}\n{stack_trace}")
             
-    # First implementation of _execute_sql_async removed.
-    # The consolidated implementation at line 1882 should be used instead.
-    # This version uses the database_manager abstraction which is database-agnostic.
-            
+            # Enhanced error response with protocol compliance
+            return SQLExecutionResponse.error(
+                request_id=request.request_id,
+                error_message=f"Error executing SQL: {error_msg}",
+                transaction_id=transaction_id,
+                error_code='SQL_EXECUTION_ERROR',
+                human_action_required=self._needs_human_action(error_msg),
+                human_action_type='data_correction' if self._needs_human_action(error_msg) else None,
+                human_action_context={
+                    'sql': request.sql,
+                    'error': error_msg,
+                    'transaction_id': transaction_id
+                } if self._needs_human_action(error_msg) else None
+            )
+        
     def _needs_human_action(self, error_msg: str) -> bool:
         """
         Determine if an error requires human action based on the error message
@@ -1281,7 +1788,41 @@ class A9_Data_Product_MCP_Service_Agent:
         ]
         
         return any(pattern in error_msg.lower() for pattern in human_action_patterns)
-    
+        
+    async def get_data_product(self, request: DataProductRequest) -> DataProductResponse:
+        """
+        Get data product based on registry configuration and star schema contract
+        with protocol compliance.
+        
+        Args:
+            request: DataProductRequest with product ID and filters
+            
+        Returns:
+            DataProductResponse with data or error
+        """
+    def _needs_human_action(self, error_msg: str) -> bool:
+        """
+        Determine if an error requires human action based on the error message
+        
+        Args:
+            error_msg: Error message to analyze
+            
+        Returns:
+            True if human action is required, False otherwise
+        """
+        # These error patterns typically require human intervention
+        human_action_patterns = [
+            "no such table",
+            "no such column", 
+            "undefined column",
+            "permission denied",
+            "ambiguous column name",
+            "invalid input syntax",
+            "could not convert"
+        ]
+        
+        return any(pattern in error_msg.lower() for pattern in human_action_patterns)
+        
     async def get_data_product(self, request: DataProductRequest) -> DataProductResponse:
         """
         Get data product based on registry configuration and star schema contract
@@ -1341,6 +1882,33 @@ class A9_Data_Product_MCP_Service_Agent:
                     }
                 )
             
+            # Check if principal_id is available, either from request or principal context
+            principal_id = None
+            principal_context = {}
+            
+            # Extract principal context from request if available
+            if hasattr(request, 'principal_context') and request.principal_context:
+                principal_context = request.principal_context
+                principal_id = principal_context.get('principal_id')
+                self.logger.info(f"[TXN:{transaction_id}] Using principal context from request for principal ID: {principal_id}")
+            # If no principal context but principal_id is available, try to get from provider
+            elif hasattr(request, 'principal_id') and request.principal_id and self.principal_provider:
+                principal_id = request.principal_id
+                try:
+                    principal = self.principal_provider.get_principal_by_id(principal_id)
+                    if principal:
+                        # Convert principal model to dictionary
+                        principal_context = {
+                            'principal_id': principal_id,
+                            'role': getattr(principal, 'role', None),
+                            'business_processes': getattr(principal, 'business_processes', []),
+                            'default_filters': getattr(principal, 'default_filters', {}),
+                            'governance_level': getattr(principal, 'governance_level', 'department')
+                        }
+                        self.logger.info(f"[TXN:{transaction_id}] Retrieved principal context from registry for ID: {principal_id}")
+                except Exception as e:
+                    self.logger.warning(f"[TXN:{transaction_id}] Failed to get principal from registry: {str(e)}")
+
             # In the refactored architecture, we expect the SQL to be provided in the request
             # as it's now generated by the LLM Service Agent
             if not hasattr(request, 'sql_query') or not request.sql_query:

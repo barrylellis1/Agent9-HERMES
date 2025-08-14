@@ -98,8 +98,15 @@ def init_session_state():
     if "agent" not in st.session_state:
         st.session_state.agent = None
     
+    if "ui_orchestrator" not in st.session_state:
+        st.session_state.ui_orchestrator = None
+    
     if "principal_role" not in st.session_state:
         st.session_state.principal_role = PrincipalRole.CFO
+    
+    if "principal_id" not in st.session_state:
+        # Default principal ID for CFO role
+        st.session_state.principal_id = "cfo_001"
     
     if "business_processes" not in st.session_state:
         st.session_state.business_processes = [BusinessProcess.PROFITABILITY_ANALYSIS]
@@ -180,63 +187,81 @@ def get_principal_context(principal_role: PrincipalRole):
 # Detect situations based on current filters
 async def detect_situations():
     """Detect situations based on current filters and update the UI."""
-    agent = st.session_state.agent
-    if not agent:
-        st.error("Agent not initialized")
+    # Use orchestrator instead of direct agent call
+    from src.views.ui_orchestrator import UIOrchestrator
+    
+    if "ui_orchestrator" not in st.session_state or st.session_state.ui_orchestrator is None:
+        with st.spinner("Initializing UI Orchestrator..."):
+            # Create and initialize UIOrchestrator
+            st.session_state.ui_orchestrator = UIOrchestrator()
+            await st.session_state.ui_orchestrator.initialize()
+    
+    ui_orchestrator = st.session_state.ui_orchestrator
+    if ui_orchestrator is None:
+        st.error("UI Orchestrator not initialized")
         return
     
-    principal_context = get_principal_context(st.session_state.principal_role)
-    
-    # Create detection request
-    request = SituationDetectionRequest(
-        request_id=str(uuid.uuid4()),
-        principal_context=principal_context,
-        business_processes=st.session_state.business_processes,
-        timeframe=st.session_state.timeframe,
-        comparison_type=st.session_state.comparison_type,
-        filters=st.session_state.filters
-    )
-    
-    # Call agent to detect situations
+    # Call orchestrator to detect situations with principal_id if available
     with st.spinner("Detecting situations..."):
-        response = await agent.detect_situations(request)
-        
-        if response.status == "success":
-            st.session_state.situations = response.situations
-            
-            # Update recommended questions
-            questions = await agent.get_recommended_questions(
-                principal_context, 
-                st.session_state.business_processes[0] if st.session_state.business_processes else None
+        try:
+            situations = await ui_orchestrator.detect_situations(
+                principal_role=st.session_state.principal_role,
+                business_processes=st.session_state.business_processes,
+                timeframe=st.session_state.timeframe,
+                comparison_type=st.session_state.comparison_type,
+                filters=st.session_state.filters,
+                principal_id=st.session_state.principal_id if "principal_id" in st.session_state else None
             )
-            st.session_state.recommended_questions = questions
-        else:
-            st.error(f"Error detecting situations: {response.message}")
+            
+            st.session_state.situations = situations
+            
+            # Also get recommended questions if situations were found
+            if situations:
+                # Get principal context first (with principal_id if available)
+                principal_context = await ui_orchestrator.get_principal_context(
+                    st.session_state.principal_role,
+                    st.session_state.principal_id if "principal_id" in st.session_state else None
+                )
+                
+                # Get recommended questions using principal context
+                questions = await ui_orchestrator.get_recommended_questions(principal_context)
+                st.session_state.recommended_questions = questions
+        except Exception as e:
+            st.error(f"Error detecting situations: {str(e)}")
 
 # Process natural language query
 async def process_query():
     """Process natural language query and update the UI."""
-    agent = st.session_state.agent
-    if not agent or not st.session_state.nl_query:
+    # Use orchestrator instead of direct agent call
+    from src.views.ui_orchestrator import UIOrchestrator
+    
+    if not st.session_state.nl_query:
         return
     
-    principal_context = get_principal_context(st.session_state.principal_role)
+    if "ui_orchestrator" not in st.session_state or st.session_state.ui_orchestrator is None:
+        with st.spinner("Initializing UI Orchestrator..."):
+            # Create and initialize UIOrchestrator
+            st.session_state.ui_orchestrator = UIOrchestrator()
+            await st.session_state.ui_orchestrator.initialize()
     
-    # Create NL query request
-    request = NLQueryRequest(
-        request_id=str(uuid.uuid4()),
-        principal_context=principal_context,
-        query=st.session_state.nl_query
-    )
+    ui_orchestrator = st.session_state.ui_orchestrator
+    if ui_orchestrator is None:
+        st.error("UI Orchestrator not initialized")
+        return
     
-    # Call agent to process query
+    # Call orchestrator to process query with principal_id if available
     with st.spinner("Processing query..."):
-        response = await agent.process_nl_query(request)
-        
-        if response.status == "success":
+        try:
+            response = await ui_orchestrator.process_nl_query(
+                principal_role=st.session_state.principal_role,
+                query=st.session_state.nl_query,
+                timeframe=st.session_state.timeframe,
+                principal_id=st.session_state.principal_id if "principal_id" in st.session_state else None
+            )
+            
             st.session_state.nl_response = response
-        else:
-            st.error(f"Error processing query: {response.message}")
+        except Exception as e:
+            st.error(f"Error processing query: {str(e)}")
             st.session_state.nl_response = None
 
 # Apply recommended question
@@ -267,9 +292,26 @@ def main():
             key="principal_role_select"
         )
         
+        # Principal ID selector
+        principal_id_options = {
+            PrincipalRole.CFO: ["cfo_001"],
+            PrincipalRole.FINANCE_MANAGER: ["ceo_001"]  # CEO also listed under Finance Manager for testing
+        }
+        
+        principal_id = st.selectbox(
+            "Select Specific Principal ID",
+            options=principal_id_options.get(principal_role, [""]),
+            index=0,
+            key="principal_id_select"
+        )
+        
         if principal_role != st.session_state.principal_role:
             st.session_state.principal_role = principal_role
             # This will trigger a rerun with the new principal
+        
+        if "principal_id" not in st.session_state or principal_id != st.session_state.principal_id:
+            st.session_state.principal_id = principal_id
+            # This will trigger a rerun with the new principal ID
         
         # Business process selector
         st.subheader("Business Process")

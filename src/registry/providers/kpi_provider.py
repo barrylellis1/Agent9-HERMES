@@ -214,7 +214,18 @@ class KPIProvider(RegistryProvider[KPI]):
             with open(self.source_path, "r") as file:
                 data = yaml.safe_load(file)
                 
-                if isinstance(data, list):
+                # Handle the specific structure of our KPI registry YAML
+                if isinstance(data, dict) and "kpis" in data and isinstance(data["kpis"], list):
+                    # Process the list of KPIs under the 'kpis' key
+                    for item in data["kpis"]:
+                        if isinstance(item, dict):
+                            try:
+                                kpi = KPI(**item)
+                                self._add_kpi(kpi)
+                            except Exception as e:
+                                logger.warning(f"Failed to create KPI from YAML item: {e}")
+                # Also keep the original handling for other formats
+                elif isinstance(data, list):
                     for item in data:
                         if isinstance(item, dict):
                             try:

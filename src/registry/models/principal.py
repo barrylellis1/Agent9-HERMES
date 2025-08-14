@@ -65,7 +65,7 @@ class PrincipalProfile(BaseModel):
 # Pre-defined principal profiles
 DEFAULT_PRINCIPALS = [
     PrincipalProfile(
-        id="cfo",
+        id="cfo_001",
         name="CFO",
         title="Chief Financial Officer",
         description="Responsible for financial planning, risk management, and financial reporting",
@@ -108,7 +108,7 @@ DEFAULT_PRINCIPALS = [
         )
     ),
     PrincipalProfile(
-        id="finance_manager",
+        id="finance_manager",  # This already matches the enum value in principal_roles.py
         name="Finance Manager",
         title="Finance Manager",
         description="Manages financial operations and supports financial decision-making",

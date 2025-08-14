@@ -1,0 +1,97 @@
+# Data Product Registry
+# This registry contains all data products available in the system
+# Each data product is uniquely identified by its product_id
+# For YAML-driven data products, see the yaml_contract_path attribute
+
+data_products:
+  - product_id: "dp_fi_20250516_001"
+    name: "Dp Fi 20250516 001"
+    domain: "FI"
+    description: "FI Star Schema with Account Hierarchy (YAML-driven contract)"
+    tags:
+      - "erp"
+      - "finance"
+    last_updated: "2025-06-21"
+    documentation: "Uses canonical YAML contract for schema, KPIs, and relationships. See yaml_contract_path."
+    reviewed: true
+    language: "EN"
+    output_path: "C:\\Users\\barry\\Documents\\Agent 9\\SAP DataSphere Data\\datasphere-content-1.7\\datasphere-content-1.7\\SAP_Sample_Content\\CSV\\FI"
+    yaml_contract_path: "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
+  
+  - product_id: "dp_fi_20250516_002"
+    name: "GL Accounts"
+    domain: "SAP"
+    description: "General ledger accounts master data"
+    tags:
+      - "erp"
+      - "finance"
+      - "gl"
+      - "sap"
+    last_updated: "2025-05-16"
+    reviewed: true
+    yaml_contract_path: "src/agents/new/data_products/dp_fi_20250516_002.yaml"
+  
+  - product_id: "dp_hr_20250516_001"
+    name: "Employee Headcount"
+    domain: "SAP"
+    description: "Headcount data by department and division"
+    tags:
+      - "erp"
+      - "hr"
+      - "headcount"
+      - "sap"
+    last_updated: "2025-05-16"
+    reviewed: true
+    yaml_contract_path: "src/agents/new/data_products/dp_hr_20250516_001.yaml"
+  
+  - product_id: "dp_hr_20250516_002"
+    name: "Employee Performance"
+    domain: "SAP"
+    description: "Employee performance ratings and KPIs"
+    tags:
+      - "erp"
+      - "hr"
+      - "performance"
+      - "sap"
+    last_updated: "2025-05-16"
+    reviewed: true
+    yaml_contract_path: "src/agents/new/data_products/dp_hr_20250516_002.yaml"
+  
+  - product_id: "dp_hr_20250516_003"
+    name: "Employee Personal Data"
+    domain: "SAP"
+    description: "Personal and demographic data for SAP employees"
+    tags:
+      - "erp"
+      - "hr"
+      - "personal"
+      - "sap"
+    last_updated: "2025-05-16"
+    reviewed: true
+    yaml_contract_path: "src/agents/new/data_products/dp_hr_20250516_003.yaml"
+  
+  - product_id: "dp_sales_20250516_001"
+    name: "Sales Orders"
+    domain: "SAP"
+    description: "Sales orders from SAP sample data"
+    tags:
+      - "erp"
+      - "sales"
+      - "orders"
+      - "sap"
+    last_updated: "2025-05-16"
+    reviewed: true
+    yaml_contract_path: "src/agents/new/data_products/dp_sales_20250516_001.yaml"
+  
+  - product_id: "dp_sales_20250516_002"
+    name: "Sales Order Items"
+    domain: "SAP"
+    description: "Line items for sales orders"
+    tags:
+      - "erp"
+      - "sales"
+      - "orderitems"
+      - "sap"
+    last_updated: "2025-05-16"
+    reviewed: true
+    yaml_contract_path: "src/agents/new/data_products/dp_sales_20250516_002.yaml"

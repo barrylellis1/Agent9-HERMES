@@ -173,7 +173,23 @@ class PrincipalProfileProvider(RegistryProvider[PrincipalProfile]):
             with open(self.source_path, "r") as file:
                 data = yaml.safe_load(file)
                 
-                # Handle new registry format with 'principals' key
+                principals_loaded = False
+                roles_by_id = {}
+                principal_by_role = {}
+                
+                # First, load the roles section if it exists to build a role ID mapping
+                if isinstance(data, dict) and 'roles' in data:
+                    roles_data = data['roles']
+                    logger.info(f"Found {len(roles_data)} roles in YAML under 'roles' key")
+                    
+                    if isinstance(roles_data, list):
+                        for role in roles_data:
+                            if isinstance(role, dict) and 'id' in role and 'name' in role:
+                                role_id = role['id']
+                                roles_by_id[role_id] = role
+                                logger.debug(f"Registered role: {role_id} - {role['name']}")
+                
+                # Handle registry format with 'principals' key
                 if isinstance(data, dict) and 'principals' in data:
                     logger.info(f"Found {len(data['principals'])} principal profiles in YAML under 'principals' key")
                     principals_data = data['principals']
@@ -182,11 +198,44 @@ class PrincipalProfileProvider(RegistryProvider[PrincipalProfile]):
                         for item in principals_data:
                             if isinstance(item, dict):
                                 try:
-                                    profile = PrincipalProfile(**item)
+                                    # Filter out fields not in the PrincipalProfile model
+                                    filtered_item = {}
+                                    for field in PrincipalProfile.__annotations__.keys():
+                                        if field in item:
+                                            filtered_item[field] = item[field]
+                                    
+                                    profile = PrincipalProfile(**filtered_item)
                                     self._add_profile(profile)
-                                    logger.info(f"Registered principal: {profile.id} - {profile.first_name} {profile.last_name}")
+                                    
+                                    # Track profiles by role for additional role ID lookups
+                                    if 'role' in item:
+                                        role_name = item['role']
+                                        principal_by_role[role_name] = profile.id
+                                        logger.debug(f"Mapped role name {role_name} to principal ID {profile.id}")
+                                    
+                                    logger.info(f"Registered principal: {profile.id} - {profile.name}")
+                                    principals_loaded = True
                                 except Exception as e:
                                     logger.warning(f"Failed to create PrincipalProfile from YAML item: {e}")
+                
+                # Now add role IDs as profile IDs to support looking up by role ID
+                for role_id, role_data in roles_by_id.items():
+                    role_name = role_data.get('name')
+                    
+                    # Check if we already have this profile by role name
+                    if role_name in principal_by_role:
+                        principal_id = principal_by_role[role_name]
+                        profile = self._profiles.get(principal_id)
+                        
+                        if profile:
+                            # Clone the profile with the role ID to allow lookup by role ID
+                            role_profile_data = profile.dict()
+                            role_profile_data['id'] = role_id
+                            role_profile = PrincipalProfile(**role_profile_data)
+                            self._add_profile(role_profile)
+                            logger.info(f"Added role ID mapping: {role_id} -> {profile.name}")
+                
+                if principals_loaded:
                     return
                 
                 # Fall back to original format handling if no 'principals' key
@@ -196,6 +245,7 @@ class PrincipalProfileProvider(RegistryProvider[PrincipalProfile]):
                             try:
                                 profile = PrincipalProfile(**item)
                                 self._add_profile(profile)
+                                principals_loaded = True
                             except Exception as e:
                                 logger.warning(f"Failed to create PrincipalProfile from YAML item: {e}")
                 elif isinstance(data, dict):
@@ -207,6 +257,7 @@ class PrincipalProfileProvider(RegistryProvider[PrincipalProfile]):
                                     profile_data["name"] = key.replace("_", " ").title()
                                 profile = PrincipalProfile(**profile_data)
                                 self._add_profile(profile)
+                                principals_loaded = True
                             except Exception as e:
                                 logger.warning(f"Failed to create PrincipalProfile from YAML item: {e}")
                 

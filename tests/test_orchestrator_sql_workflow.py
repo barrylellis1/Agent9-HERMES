@@ -88,7 +88,7 @@ class TestOrchestratorSQLWorkflow(unittest.TestCase):
             sap_data_path="C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI",
             # Use Registry Factory pattern instead of direct registry references
             registry_path=RegistryProvider.get_registry_path(),
-            data_product_registry=RegistryProvider.get_registry_path("data_product_registry/data_product_registry.csv"),
+            data_product_registry="src/registry/data_product/data_product_registry.yaml",  # Updated to use YAML registry file
             contracts_path=RegistryProvider.get_registry_path("data_product_registry/data_products"),
             allow_custom_sql=True,
             validate_sql=True
@@ -250,7 +250,7 @@ class TestOrchestratorSQLWorkflow(unittest.TestCase):
 
 if __name__ == "__main__":
     # Initialize the Registry Provider with the correct base path
-    RegistryProvider.initialize(registry_base_path="src/registry_references")
+    RegistryProvider.initialize(registry_base_path="src/registry")
     
     # Check if API key is set (should be loaded from .env via dotenv)
     if not os.environ.get("OPENAI_API_KEY"):
