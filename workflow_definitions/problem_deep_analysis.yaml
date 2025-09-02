@@ -1,0 +1,67 @@
+workflow:
+  name: Problem Deep Analysis
+  category: data_driven
+  description: >
+    After a situation is recognized, this workflow conducts "Is/Is Not" analysis using the context from the Situation Awareness Agent.
+  steps:
+    - agent: A9_Orchestrator_Agent
+      entrypoint: orchestrate_workflow
+      input_model: OrchestratorWorkflowInput
+      output_model: OrchestratorWorkflowOutput
+      purpose: Oversee and coordinate the workflow execution, including step routing and monitoring.
+
+    - agent: A9_LLM_Service_Agent
+      entrypoint: process_text
+      input_model: LLMServiceInput
+      output_model: LLMServiceOutput
+      optional: true
+      purpose: Provide LLM-powered interpretation, summarization, or consensus-building for relevant TEXT fields.
+    The goal is to isolate the problem across company, regional, or product line dimensions, using repeated Data Product Agent queries.
+    The workflow produces insights for further action, including HITL escalation.
+
+  steps:
+    - agent: A9_Situation_Awareness_Agent
+      entrypoint: analyze_situation
+      input_model: A9_Situation_Awareness_Input
+      output_model: A9_Situation_Awareness_Output
+      purpose: Receive situation context and provide detailed problem framing for analysis.
+
+    - agent: A9_Deep_Analysis_Agent
+      entrypoint: analyze
+      input_model: DeepAnalysisInput
+      output_model: DeepAnalysisResult
+      purpose: Perform "Is/Is Not" analysis to identify affected dimensions (company, region, product line, etc.).
+
+    - agent: A9_Data_Product_Agent
+      entrypoint: analyze_data_product_a2a
+      input_model: DataProductAnalysisInput
+      output_model: DataProductAnalysisOutput
+      repeatable: true
+      purpose: Query and re-query data products as needed to isolate the issue and produce actionable insights.
+
+    - agent: A9_Deep_Analysis_Agent
+      entrypoint: generate_llm_outputs
+      input_model: DeepAnalysisLLMInput
+      output_model: DeepAnalysisLLMOutput
+      optional: true
+      purpose: Use LLM/AI for advanced insight generation or narrative explanation if required.
+
+    - agent: A9_Situation_Awareness_Agent
+      entrypoint: notify_principal
+      input_model: HITLNotificationInput
+      output_model: None
+      purpose: Notify principal (HITL) for next action: manual confirmation, stakeholder notification, or solution finding.
+
+  outputs:
+    - root_cause_dimensions: List[str]
+    - insight_summary: str
+    - hitl_notification_sent: bool
+
+  validations:
+    - All agent entrypoints must use Pydantic models as specified.
+    - Data Product Agent queries must be repeatable and parameterized for different dimensions.
+    - HITL notification must be protocol-compliant and auditable.
+
+  notes:
+    - This workflow is typically triggered by the outcome of Automated Situational Awareness.
+    - Further actions after HITL notification (e.g., solution finding) are out-of-scope for this workflow but may trigger additional workflows.

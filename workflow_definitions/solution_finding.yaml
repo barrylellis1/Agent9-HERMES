@@ -1,0 +1,81 @@
+workflow:
+  name: Solution Finding
+  category: solution_generation
+  description: >
+    This workflow orchestrates the collaborative generation, evaluation, and refinement of candidate solutions for a defined problem or opportunity. It leverages LLM-powered brainstorming, structured agent evaluation, and iterative consensus-building to produce a validated solution ready for implementation planning.
+
+  steps:
+    - agent: A9_Orchestrator_Agent
+      entrypoint: orchestrate_workflow
+      input_model: OrchestratorWorkflowInput
+      output_model: OrchestratorWorkflowOutput
+      purpose: Oversee and coordinate the solution finding process, including step routing and monitoring.
+
+    - agent: A9_LLM_Service_Agent
+      entrypoint: process_text
+      input_model: LLMServiceInput
+      output_model: LLMServiceOutput
+      optional: true
+      purpose: Facilitate LLM-powered brainstorming, summarization, and consensus-building for open-ended solution fields.
+
+    - agent: A9_Solution_Finder_Agent
+      entrypoint: generate_candidate_solutions
+      input_model: A9_Solution_Finder_Input
+      output_model: A9_Solution_Finder_Output
+      purpose: Generate, cluster, and prioritize candidate solutions using structured and LLM-enabled methods.
+
+    - agent: A9_GenAI_Expert_Agent
+      entrypoint: advise_on_solution_generation
+      input_model: GenAIExpertInput
+      output_model: GenAIExpertOutput
+      optional: true
+      purpose: Provide GenAI/LLM-based creative input and critique for candidate solutions.
+
+    - agent: A9_Solution_Architect_Agent
+      entrypoint: evaluate_solution_architecture
+      input_model: SolutionDesignInput
+      output_model: SolutionDesignOutput
+      purpose: Assess technical, organizational, and feasibility aspects of candidate solutions.
+
+    - agent: A9_Risk_Analysis_Agent
+      entrypoint: analyze_solution_risk
+      input_model: A9_Risk_Analysis_Input
+      output_model: A9_Risk_Analysis_Output
+      purpose: Evaluate risks, dependencies, and uncertainties for each solution.
+
+    - agent: A9_Stakeholder_Analysis_Agent
+      entrypoint: analyze_stakeholder_impact
+      input_model: StakeholderAnalysisInput
+      output_model: StakeholderAnalysisResult
+      purpose: Identify key stakeholders and estimate adoption, support, or resistance for each solution.
+
+    - agent: A9_Solution_Finder_Agent
+      entrypoint: refine_and_select_solution
+      input_model: SolutionRefinementInput
+      output_model: SolutionRefinementOutput
+      purpose: Refine candidate solutions based on evaluations and select the optimal solution for implementation.
+
+    - agent: A9_Implementation_Planner_Agent
+      entrypoint: plan_implementation
+      input_model: ImplementationPlanInput
+      output_model: ImplementationPlanOutput
+      purpose: Prepare a high-level plan for implementation of the selected solution.
+
+  outputs:
+    - candidate_solutions: List[Dict[str, Any]]
+    - solution_evaluations: List[Dict[str, Any]]
+    - risk_assessments: List[Dict[str, Any]]
+    - stakeholder_analysis: List[Dict[str, Any]]
+    - selected_solution: Dict[str, Any]
+    - implementation_plan: Dict[str, Any]
+    - orchestrator_status: str
+
+  validations:
+    - All agent entrypoints must use Pydantic models as specified.
+    - LLM-enabled and expert-driven solution steps must be tracked and auditable.
+    - Solution evaluation must include feasibility, risk, and stakeholder impact.
+
+  notes:
+    - This workflow may be triggered by Opportunity Analysis, Innovation, or Deep Analysis workflows.
+    - Supports iterative refinement and consensus-building for solution selection.
+    - Ready for handoff to Solution Deployment upon completion.

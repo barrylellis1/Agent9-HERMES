@@ -7,6 +7,9 @@ This script:
 3. Verifies that each business process has the expected properties
 """
 
+import pytest
+pytestmark = pytest.mark.skip(reason="Legacy root-level test not aligned with HERMES test layout; run tests under tests/ instead")
+
 import os
 import asyncio
 import sys

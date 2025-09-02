@@ -1,0 +1,158 @@
+2025-09-01 09:50:41,315 - principal_context_debug - INFO - Importing required modules
+2025-09-01 09:50:41,520 - principal_context_debug - ERROR - Error importing modules: cannot import name 'PrincipalProfileRequest' from 'src.agents.models.situation_awareness_models' (C:\Users\barry\CascadeProjects\Agent9-HERMES\src\agents\models\situation_awareness_models.py)
+2025-09-01 09:52:13,527 - principal_context_debug - INFO - Importing required modules
+2025-09-01 09:52:13,758 - principal_context_debug - ERROR - Error importing modules: No module named 'src.registry.registry_factory'
+2025-09-02 12:04:52,832 - principal_context_debug - INFO - Importing required modules
+2025-09-02 12:04:53,284 - principal_context_debug - INFO - Successfully imported all required modules
+2025-09-02 12:04:53,285 - asyncio - DEBUG - Using proactor: IocpProactor
+2025-09-02 12:04:53,287 - principal_context_debug - INFO - Starting Principal Context Agent debugging
+2025-09-02 12:04:53,287 - principal_context_debug - INFO - === Debugging RegistryFactory ===
+2025-09-02 12:04:53,288 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-02 12:04:53,288 - principal_context_debug - INFO - Created RegistryFactory instance
+2025-09-02 12:04:53,289 - principal_context_debug - ERROR - Error in debug_registry_factory: 'RegistryFactory' object has no attribute 'get_available_providers'
+2025-09-02 12:04:53,292 - principal_context_debug - INFO - === Debugging Agent Initialization ===
+2025-09-02 12:04:53,293 - principal_context_debug - INFO - Creating Principal Context Agent
+2025-09-02 12:04:53,294 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Initializing A9_Principal_Context_Agent
+2025-09-02 12:04:53,296 - principal_context_debug - INFO - Agent created: <src.agents.a9_principal_context_agent.A9_Principal_Context_Agent object at 0x00000149F36E3150>
+2025-09-02 12:04:53,297 - principal_context_debug - INFO - Agent attributes before initialization:
+2025-09-02 12:04:53,298 - principal_context_debug - INFO -   config: {}
+2025-09-02 12:04:53,298 - principal_context_debug - INFO -   logger: <Logger src.agents.a9_principal_context_agent.A9_Principal_Context_Agent (DEBUG)>
+2025-09-02 12:04:53,299 - principal_context_debug - INFO -   principal_profiles: {}
+2025-09-02 12:04:53,299 - principal_context_debug - INFO -   principal_profiles_by_id: {}
+2025-09-02 12:04:53,300 - principal_context_debug - INFO -   role_to_id_map: {}
+2025-09-02 12:04:53,300 - principal_context_debug - INFO - Connecting agent
+2025-09-02 12:04:53,301 - src.registry.factory - INFO - Registered principal_profile provider
+2025-09-02 12:04:53,304 - src.registry.providers.principal_provider - INFO - Loading principal profiles from C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\principal\principal_registry.yaml (yaml)
+2025-09-02 12:04:53,340 - src.registry.providers.principal_provider - INFO - Found 4 roles in YAML under 'roles' key
+2025-09-02 12:04:53,344 - src.registry.providers.principal_provider - DEBUG - Registered role: cfo_001 - CFO
+2025-09-02 12:04:53,345 - src.registry.providers.principal_provider - DEBUG - Registered role: ceo_001 - CEO
+2025-09-02 12:04:53,345 - src.registry.providers.principal_provider - DEBUG - Registered role: coo_001 - COO
+2025-09-02 12:04:53,346 - src.registry.providers.principal_provider - DEBUG - Registered role: finance_manager_001 - Finance Manager
+2025-09-02 12:04:53,347 - src.registry.providers.principal_provider - INFO - Found 4 principal profiles in YAML under 'principals' key
+2025-09-02 12:04:53,347 - src.registry.providers.principal_provider - DEBUG - Mapped role name CFO to principal ID cfo_001
+2025-09-02 12:04:53,348 - src.registry.providers.principal_provider - INFO - Registered principal: cfo_001 - Lars Mikkelsen
+2025-09-02 12:04:53,349 - src.registry.providers.principal_provider - DEBUG - Mapped role name CEO to principal ID ceo_001
+2025-09-02 12:04:53,350 - src.registry.providers.principal_provider - INFO - Registered principal: ceo_001 - Alex Morgan
+2025-09-02 12:04:53,350 - src.registry.providers.principal_provider - DEBUG - Mapped role name COO to principal ID coo_001
+2025-09-02 12:04:53,351 - src.registry.providers.principal_provider - INFO - Registered principal: coo_001 - Priya Desai
+2025-09-02 12:04:53,352 - src.registry.providers.principal_provider - DEBUG - Mapped role name Finance Manager to principal ID finance_manager_001
+2025-09-02 12:04:53,353 - src.registry.providers.principal_provider - INFO - Registered principal: finance_manager_001 - Emily Chen
+2025-09-02 12:04:53,354 - src.registry.providers.principal_provider - INFO - Added role ID mapping: cfo_001 -> Lars Mikkelsen
+2025-09-02 12:04:53,355 - src.registry.providers.principal_provider - INFO - Added role ID mapping: ceo_001 -> Alex Morgan
+2025-09-02 12:04:53,356 - src.registry.providers.principal_provider - INFO - Added role ID mapping: coo_001 -> Priya Desai
+2025-09-02 12:04:53,356 - src.registry.providers.principal_provider - INFO - Added role ID mapping: finance_manager_001 -> Emily Chen
+2025-09-02 12:04:53,357 - src.registry.providers.principal_provider - INFO - Loaded 4 principal profiles
+2025-09-02 12:04:53,358 - src.registry.bootstrap - INFO - Initialized principal provider with 4 profiles
+2025-09-02 12:04:53,363 - src.registry.factory - WARNING - Provider 'business_glossary' not found in registry factory
+2025-09-02 12:04:53,364 - src.registry.bootstrap - INFO - Initializing business glossary provider
+2025-09-02 12:04:53,369 - src.registry.providers.business_glossary_provider - INFO - Loaded 4 business terms from glossary
+2025-09-02 12:04:53,370 - src.registry.factory - INFO - Registered business_glossary provider
+2025-09-02 12:04:53,370 - src.registry.bootstrap - INFO - Initialized business glossary provider with 4 terms
+2025-09-02 12:04:53,371 - src.registry.factory - INFO - Registered data_product provider
+2025-09-02 12:04:53,371 - src.registry.providers.data_product_provider - INFO - Loading data products from C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\data_product\data_product_registry.yaml (yaml)
+2025-09-02 12:04:53,384 - src.registry.providers.data_product_provider - INFO - Loaded 1 data products
+2025-09-02 12:04:53,384 - src.registry.bootstrap - INFO - Initialized data product provider with 1 data products
+2025-09-02 12:04:53,385 - src.registry.bootstrap - INFO - Initializing KPI provider
+2025-09-02 12:04:53,385 - src.registry.factory - WARNING - Provider 'kpi' not found in registry factory
+2025-09-02 12:04:53,387 - src.registry.bootstrap - INFO - Creating KPI provider with file at C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\kpi\kpi_registry.yaml
+2025-09-02 12:04:53,388 - src.registry.bootstrap - INFO - Registering KPI provider with registry factory
+2025-09-02 12:04:53,389 - src.registry.factory - INFO - Registered kpi provider
+2025-09-02 12:04:53,389 - src.registry.bootstrap - INFO - Loading KPI provider data
+2025-09-02 12:04:53,390 - src.registry.providers.kpi_provider - INFO - Loading KPIs from C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\kpi\kpi_registry.yaml (yaml)
+2025-09-02 12:04:53,423 - src.registry.providers.kpi_provider - INFO - Loaded 6 KPIs
+2025-09-02 12:04:53,424 - src.registry.bootstrap - INFO - KPI provider successfully registered and initialized with 6 KPIs
+2025-09-02 12:04:53,424 - src.registry.bootstrap - INFO - Initializing agent bootstrap
+2025-09-02 12:04:53,445 - src.agents.agent_bootstrap - INFO - Discovered agent: A9_Data_Governance_Agent in src.agents.a9_data_governance_agent
+2025-09-02 12:05:01,492 - src.agents.agent_bootstrap - INFO - Discovered agent: A9_Data_Product_MCP_Service_Agent in src.agents.a9_data_product_mcp_service_agent
+2025-09-02 12:05:03,954 - src.agents.agent_bootstrap - INFO - Discovered agent: A9_LLM_Service_Agent in src.agents.a9_llm_service_agent
+2025-09-02 12:05:03,955 - src.agents.agent_bootstrap - INFO - Discovered agent: A9_Orchestrator_Agent in src.agents.a9_orchestrator_agent
+2025-09-02 12:05:03,957 - src.agents.agent_bootstrap - INFO - Discovered agent: A9_Principal_Context_Agent in src.agents.a9_principal_context_agent
+2025-09-02 12:05:03,971 - src.agents.agent_bootstrap - INFO - Discovered agent: A9_Data_Product_MCP_Service_Agent in src.agents.a9_situation_awareness_agent
+2025-09-02 12:05:03,972 - src.agents.agent_bootstrap - INFO - Discovered agent: A9_Orchestrator_Agent in src.agents.a9_situation_awareness_agent
+2025-09-02 12:05:03,973 - src.agents.agent_bootstrap - INFO - Discovered agent: A9_Situation_Awareness_Agent in src.agents.a9_situation_awareness_agent
+2025-09-02 12:05:03,986 - src.agents.agent_bootstrap - INFO - Discovered agent: A9_Data_Governance_Agent in src.agents.new.a9_data_governance_agent
+2025-09-02 12:05:03,989 - src.agents.agent_bootstrap - INFO - Discovered agent: A9_Orchestrator_Agent in src.agents.new.a9_orchestrator_agent
+2025-09-02 12:05:03,991 - src.agents.agent_bootstrap - INFO - Discovered agent: A9_Principal_Context_Agent in src.agents.new.a9_principal_context_agent
+2025-09-02 12:05:03,995 - src.agents.agent_bootstrap - INFO - Discovered agent: A9_Data_Product_MCP_Service_Agent in src.agents.new.a9_situation_awareness_agent
+2025-09-02 12:05:03,996 - src.agents.agent_bootstrap - INFO - Discovered agent: A9_Orchestrator_Agent in src.agents.new.a9_situation_awareness_agent
+2025-09-02 12:05:03,997 - src.agents.agent_bootstrap - INFO - Discovered agent: A9_Situation_Awareness_Agent in src.agents.new.a9_situation_awareness_agent
+2025-09-02 12:05:03,997 - src.agents.a9_orchestrator_agent - INFO - Agent factory for A9_Data_Governance_Agent registered with the registry
+2025-09-02 12:05:03,998 - src.agents.agent_bootstrap - INFO - Registered agent factory for A9_Data_Governance_Agent
+2025-09-02 12:05:03,999 - src.agents.a9_orchestrator_agent - INFO - Agent factory for A9_Data_Product_MCP_Service_Agent registered with the registry
+2025-09-02 12:05:04,000 - src.agents.agent_bootstrap - INFO - Registered agent factory for A9_Data_Product_MCP_Service_Agent
+2025-09-02 12:05:04,000 - src.agents.a9_orchestrator_agent - INFO - Agent factory for A9_LLM_Service_Agent registered with the registry
+2025-09-02 12:05:04,001 - src.agents.agent_bootstrap - INFO - Registered agent factory for A9_LLM_Service_Agent
+2025-09-02 12:05:04,002 - src.agents.a9_orchestrator_agent - INFO - Agent factory for A9_Orchestrator_Agent registered with the registry
+2025-09-02 12:05:04,004 - src.agents.agent_bootstrap - INFO - Registered agent factory for A9_Orchestrator_Agent
+2025-09-02 12:05:04,004 - src.agents.a9_orchestrator_agent - INFO - Agent factory for A9_Principal_Context_Agent registered with the registry
+2025-09-02 12:05:04,005 - src.agents.agent_bootstrap - INFO - Registered agent factory for A9_Principal_Context_Agent
+2025-09-02 12:05:04,006 - src.agents.a9_orchestrator_agent - INFO - Agent factory for A9_Situation_Awareness_Agent registered with the registry
+2025-09-02 12:05:04,007 - src.agents.agent_bootstrap - INFO - Registered agent factory for A9_Situation_Awareness_Agent
+2025-09-02 12:05:04,008 - src.agents.agent_bootstrap - INFO - Agent bootstrap initialized with 6 agents
+2025-09-02 12:05:04,009 - src.registry.bootstrap - INFO - Agent bootstrap initialization successful
+2025-09-02 12:05:04,009 - src.registry.bootstrap - INFO - Registry providers and agent factories initialized successfully
+2025-09-02 12:05:04,010 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Loaded 4 principal profiles from registry
+2025-09-02 12:05:04,010 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Profile 0: id=cfo_001, role=unknown, title=Chief Financial Officer, name=Lars Mikkelsen
+2025-09-02 12:05:04,011 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Profile 1: id=ceo_001, role=unknown, title=Chief Executive Officer, name=Alex Morgan
+2025-09-02 12:05:04,012 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Profile 2: id=coo_001, role=unknown, title=Chief Operating Officer, name=Priya Desai
+2025-09-02 12:05:04,012 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Profile 3: id=finance_manager_001, role=unknown, title=Finance Manager, name=Emily Chen
+2025-09-02 12:05:04,013 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Processing principal: id=cfo_001, role=None, title=Chief Financial Officer
+2025-09-02 12:05:04,015 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Added profile by ID: cfo_001
+2025-09-02 12:05:04,015 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Added profile by title (exact): Chief Financial Officer
+2025-09-02 12:05:04,016 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Added profile by title (lowercase): chief financial officer
+2025-09-02 12:05:04,017 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Processing principal: id=ceo_001, role=None, title=Chief Executive Officer
+2025-09-02 12:05:04,018 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Added profile by ID: ceo_001
+2025-09-02 12:05:04,019 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Added profile by title (exact): Chief Executive Officer
+2025-09-02 12:05:04,020 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Added profile by title (lowercase): chief executive officer
+2025-09-02 12:05:04,022 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Processing principal: id=coo_001, role=None, title=Chief Operating Officer
+2025-09-02 12:05:04,024 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Added profile by ID: coo_001
+2025-09-02 12:05:04,024 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Added profile by title (exact): Chief Operating Officer
+2025-09-02 12:05:04,025 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Added profile by title (lowercase): chief operating officer
+2025-09-02 12:05:04,026 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Processing principal: id=finance_manager_001, role=None, title=Finance Manager
+2025-09-02 12:05:04,027 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Added profile by ID: finance_manager_001
+2025-09-02 12:05:04,029 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Added profile by title (exact): Finance Manager
+2025-09-02 12:05:04,030 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Added profile by title (lowercase): finance manager
+2025-09-02 12:05:04,031 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Loaded 4 principal profiles by ID from registry
+2025-09-02 12:05:04,033 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Loaded 8 principal profiles by role from registry
+2025-09-02 12:05:04,034 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Available profile IDs: ['cfo_001', 'ceo_001', 'coo_001', 'finance_manager_001']
+2025-09-02 12:05:04,035 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Available role keys: ['Chief Financial Officer', 'chief financial officer', 'Chief Executive Officer', 'chief executive officer', 'Chief Operating Officer', 'chief operating officer', 'Finance Manager', 'finance manager']
+2025-09-02 12:05:04,036 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Connected to dependencies
+2025-09-02 12:05:04,037 - principal_context_debug - INFO - Agent connected
+2025-09-02 12:05:04,037 - principal_context_debug - INFO - Agent attributes after initialization:
+2025-09-02 12:05:04,038 - principal_context_debug - INFO -   config: {}
+2025-09-02 12:05:04,038 - principal_context_debug - INFO -   logger: <Logger src.agents.a9_principal_context_agent.A9_Principal_Context_Agent (DEBUG)>
+2025-09-02 12:05:04,040 - principal_context_debug - INFO -   principal_profiles: ['Chief Financial Officer', 'chief financial officer', 'Chief Executive Officer', 'chief executive officer', 'Chief Operating Officer', 'chief operating officer', 'Finance Manager', 'finance manager']
+2025-09-02 12:05:04,040 - principal_context_debug - INFO -   principal_profiles_by_id: {'cfo_001': {'id': 'cfo_001', 'role': 'Chief Financial Officer', 'name': 'Lars Mikkelsen', 'title': 'Chief Financial Officer', 'business_processes': ['Finance: Profitability Analysis', 'Finance: Revenue Growth Analysis', 'Finance: Expense Management', 'Finance: Cash Flow Management', 'Finance: Budget vs. Actuals'], 'default_filters': {'profit_center_hierarchyid': ['Total'], 'customer_hierarchyid': ['Total']}, 'decision_style': 'Analytical', 'communication_style': 'Concise', 'description': 'CFO responsible for financial performance in EMEA.', 'timeframes': []}, 'ceo_001': {'id': 'ceo_001', 'role': 'Chief Executive Officer', 'name': 'Alex Morgan', 'title': 'Chief Executive Officer', 'business_processes': ['Finance: Profitability Analysis', 'Finance: Revenue Growth Analysis', 'Finance: Expense Management', 'Finance: Cash Flow Management', 'Finance: Budget vs. Actuals'], 'default_filters': {'profit_center_hierarchyid': ['#']}, 'decision_style': 'Analytical', 'communication_style': 'Concise', 'description': 'CEO driving company strategy and performance.', 'timeframes': []}, 'coo_001': {'id': 'coo_001', 'role': 'Chief Operating Officer', 'name': 'Priya Desai', 'title': 'Chief Operating Officer', 'business_processes': ['finance_expense_management', 'finance_cash_flow', 'finance_budget_vs_actuals'], 'default_filters': {'profit_center_hierarchyid': ['Best Run U'], 'customer_hierarchyid': ['17100001']}, 'decision_style': 'Analytical', 'communication_style': 'Concise', 'description': 'COO focused on operational excellence and efficiency.', 'timeframes': []}, 'finance_manager_001': {'id': 'finance_manager_001', 'role': 'Finance Manager', 'name': 'Emily Chen', 'title': 'Finance Manager', 'business_processes': ['Finance: Expense Management', 'Finance: Budget vs. Actuals', 'Finance: Cash Flow Management'], 'default_filters': {'profit_center_hierarchyid': ['Finance'], 'customer_hierarchyid': ['Total']}, 'decision_style': 'Analytical', 'communication_style': 'Concise', 'description': 'Finance Manager responsible for departmental financial analysis and reporting.', 'timeframes': []}}
+2025-09-02 12:05:04,044 - principal_context_debug - INFO -   role_to_id_map: {'Chief Financial Officer': 'cfo_001', 'chief financial officer': 'cfo_001', 'Chief Executive Officer': 'ceo_001', 'chief executive officer': 'ceo_001', 'Chief Operating Officer': 'coo_001', 'chief operating officer': 'coo_001', 'Finance Manager': 'finance_manager_001', 'finance manager': 'finance_manager_001'}
+2025-09-02 12:05:04,045 - principal_context_debug - INFO - === Debugging fetch_principal_profile for role: cfo ===
+2025-09-02 12:05:04,046 - principal_context_debug - WARNING - Role 'cfo' not found in agent.principal_profiles
+2025-09-02 12:05:04,046 - principal_context_debug - INFO - Available roles: ['Chief Financial Officer', 'chief financial officer', 'Chief Executive Officer', 'chief executive officer', 'Chief Operating Officer', 'chief operating officer', 'Finance Manager', 'finance manager']
+2025-09-02 12:05:04,047 - principal_context_debug - INFO - Calling fetch_principal_profile with role: cfo
+2025-09-02 12:05:04,048 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Looking up profile with case-insensitive search for: 'cfo'
+2025-09-02 12:05:04,049 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - DEBUG - Available profile keys: ['Chief Financial Officer', 'chief financial officer', 'Chief Executive Officer', 'chief executive officer', 'Chief Operating Officer', 'chief operating officer', 'Finance Manager', 'finance manager']
+2025-09-02 12:05:04,050 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - DEBUG - Trying variations: ['cfo', 'CFO', 'Cfo', 'Chief Financial Officer']
+2025-09-02 12:05:04,050 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile with key: 'Chief Financial Officer'
+2025-09-02 12:05:04,051 - principal_context_debug - INFO - fetch_principal_profile result type: <class 'dict'>
+2025-09-02 12:05:04,052 - principal_context_debug - INFO - Profile content: {'business_processes': ['Finance: Profitability Analysis',
+                        'Finance: Revenue Growth Analysis',
+                        'Finance: Expense Management',
+                        'Finance: Cash Flow Management',
+                        'Finance: Budget vs. Actuals'],
+ 'communication_style': 'Concise',
+ 'decision_style': 'Analytical',
+ 'default_filters': {'customer_hierarchyid': ['Total'],
+                     'profit_center_hierarchyid': ['Total']},
+ 'description': 'CFO responsible for financial performance in EMEA.',
+ 'name': 'Lars Mikkelsen',
+ 'timeframes': [],
+ 'title': 'Chief Financial Officer'}
+2025-09-02 12:05:04,053 - principal_context_debug - INFO - === Debugging get_principal_context for role: cfo ===
+2025-09-02 12:05:04,054 - principal_context_debug - INFO - Calling get_principal_context with role: cfo
+2025-09-02 12:05:04,055 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Looking up profile by role: cfo
+2025-09-02 12:05:04,056 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Looking up profile with case-insensitive search for: 'cfo'
+2025-09-02 12:05:04,056 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - DEBUG - Available profile keys: ['Chief Financial Officer', 'chief financial officer', 'Chief Executive Officer', 'chief executive officer', 'Chief Operating Officer', 'chief operating officer', 'Finance Manager', 'finance manager']
+2025-09-02 12:05:04,058 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - DEBUG - Trying variations: ['cfo', 'CFO', 'Cfo', 'Chief Financial Officer']
+2025-09-02 12:05:04,058 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile with key: 'Chief Financial Officer'
+2025-09-02 12:05:04,059 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: cfo
+2025-09-02 12:05:04,059 - principal_context_debug - ERROR - Error in debug_get_principal_context: 'str' object is not a mapping
+2025-09-02 12:05:04,069 - principal_context_debug - INFO - Debugging completed successfully

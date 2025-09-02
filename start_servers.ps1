@@ -1,9 +1,9 @@
 # Agent9-APOLLO Server Startup Script (PowerShell)
 # This script automates startup of FastAPI backend and Streamlit UI.
 
-# Kill any process using ports 8000 (API) or 8501 (UI)
-Write-Host "Killing any process on ports 8000 and 8501..." -ForegroundColor Yellow
-$ports = @(8000, 8501)
+# Kill any process using ports 8000 (API) or 8501/8503 (UI)
+Write-Host "Killing any process on ports 8000, 8501, and 8503..." -ForegroundColor Yellow
+$ports = @(8000, 8501, 8503)
 foreach ($port in $ports) {
     $procIds = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
     foreach ($procId in $procIds) {
@@ -18,19 +18,25 @@ foreach ($port in $ports) {
 Start-Sleep -Seconds 2
 
 # Activate venv (for subprocesses)
-$venvPath = Join-Path $PSScriptRoot 'venv'
+$venvPath = Join-Path $PSScriptRoot '.venv'
 $pythonExe = Join-Path $venvPath 'Scripts\python.exe'
 $streamlitExe = Join-Path $venvPath 'Scripts\streamlit.exe'
 
-# Start FastAPI backend (uvicorn) in new window
-Write-Host "Starting FastAPI backend on port 8000..." -ForegroundColor Green
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot'; & '$pythonExe' -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000"
+# Start FastAPI backend (uvicorn) in new window if app module exists
+$apiMainPath = Join-Path $PSScriptRoot 'src\api\main.py'
+if (Test-Path $apiMainPath) {
+    Write-Host "Starting FastAPI backend on port 8000..." -ForegroundColor Green
+    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot'; & '$pythonExe' -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000"
+} else {
+    Write-Host "Skipping FastAPI backend startup: src/api/main.py not found" -ForegroundColor Yellow
+}
 
 Start-Sleep -Seconds 3
 
-# Start Streamlit UI in new window
+# Start Streamlit UI in new window (simple Decision Studio UI)
 Write-Host "Starting Streamlit UI on port 8501..." -ForegroundColor Green
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot'; & '$streamlitExe' run decision_studio_app.py --server.port 8501"
+$uiPath = Join-Path $PSScriptRoot 'src\views\decision_studio_ui.py'
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot'; & '$streamlitExe' run `"$uiPath`" --server.port 8501"
 
 Write-Host "Servers started successfully!" -ForegroundColor Magenta
 Write-Host "API Server: http://localhost:8000" -ForegroundColor White

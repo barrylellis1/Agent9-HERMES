@@ -35,7 +35,7 @@ from src.agents.models.situation_awareness_models import (
     SituationDetectionRequest,
     NLQueryRequest
 )
-from src.agents.new.a9_situation_awareness_agent import create_situation_awareness_agent
+from src.agents.a9_situation_awareness_agent import create_situation_awareness_agent
 
 # Configure logging
 import logging

@@ -1,0 +1,69 @@
+workflow:
+  name: Automated Situational Awareness
+  category: data_driven
+  description: >
+    Automated review of Principal-responsible business processes to detect KPIs out of tolerance or projected to be, 
+    recording new situations/opportunities and notifying the principal (HITL) for further action.
+  steps:
+    - agent: A9_Orchestrator_Agent
+      entrypoint: orchestrate_workflow
+      input_model: text
+      output_model: text
+      purpose: Oversee and coordinate the workflow execution, including step routing and monitoring.
+
+    - agent: A9_LLM_Service_Agent
+      entrypoint: process_text
+      input_model: text
+      output_model: text
+      optional: true
+      purpose: Provide LLM-powered interpretation, summarization, or consensus-building for relevant TEXT fields.
+
+    - agent: A9_Principal_Context_Agent
+      entrypoint: fetch_principal_profile
+      input_model: text
+      output_model: text
+      purpose: Identify principal and responsible business processes; retrieve associated KPIs.
+
+    - agent: A9_NLP_Interface_Agent
+      entrypoint: extract_entities
+      input_model: text
+      output_model: untyped
+      purpose: Parse/unstructured documentation or KPI definitions if needed.
+
+    - agent: A9_Data_Governance_Agent
+      entrypoint: translate_terms
+      input_model: text
+      output_model: text
+      purpose: Validate business terms and map to technical data asset references.
+
+    - agent: A9_Data_Product_Agent
+      entrypoint: analyze_kpi_variance_a2a
+      input_model: text
+      output_model: text
+      purpose: Retrieve and analyze KPI values/trends; flag out-of-bounds or at-risk KPIs.
+
+    - agent: A9_Situation_Awareness_Agent
+      entrypoint: analyze_situation
+      input_model: text
+      output_model: text
+      purpose: Aggregate findings, deduplicate, record new situations/opportunities.
+
+    - agent: A9_Situation_Awareness_Agent
+      entrypoint: notify_principal
+      input_model: text
+      output_model: untyped
+      purpose: Notify principal (HITL) for action: manual confirmation, deep analysis, or opportunity analysis.
+
+  outputs:
+    - situation_recorded: bool
+    - opportunity_recorded: bool
+    - hitl_notification_sent: bool
+
+  validations:
+    - Agent entrypoints should prefer text/untyped fields for integration and orchestration flexibility, unless strict structure is required for protocol compliance.
+    - Deduplication logic must be enforced before recording new situations/opportunities.
+    - HITL notification must be protocol-compliant and auditable.
+
+  notes:
+    - This workflow may be triggered on a schedule or by event (e.g., KPI update).
+    - Further actions after HITL notification are out-of-scope for this workflow and may trigger additional workflows.

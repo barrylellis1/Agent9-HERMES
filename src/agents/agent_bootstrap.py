@@ -121,7 +121,25 @@ class AgentBootstrap:
                                 continue
                                 
                             # Check if the class has a create method
-                            if hasattr(obj, 'create') and inspect.isfunction(getattr(obj, 'create')):
+                            # For classmethods, we need to check differently than regular methods
+                            has_create = False
+                            
+                            # Check if create exists as an attribute
+                            if hasattr(obj, 'create'):
+                                # Check if it's a classmethod by looking in the class dict
+                                for cls_check in obj.__mro__:
+                                    if 'create' in cls_check.__dict__:
+                                        attr = cls_check.__dict__['create']
+                                        if isinstance(attr, classmethod):
+                                            has_create = True
+                                            break
+                                
+                                # Also check if it's a regular method or function
+                                if not has_create:
+                                    create_attr = getattr(obj, 'create')
+                                    has_create = inspect.isfunction(create_attr) or inspect.ismethod(create_attr)
+                            
+                            if has_create:
                                 agents[name] = obj
                                 logger.info(f"Discovered agent: {name} in {module_path}")
                             else:
@@ -166,8 +184,13 @@ class AgentBootstrap:
             hasattr(create_method, '__func__') and inspect.iscoroutinefunction(create_method.__func__)
         )
         
-        if not (is_class_method or is_coroutine):
-            logger.warning(f"Agent class {agent_class.__name__} create method must be a classmethod and/or coroutine")
+        # For Agent9 standards, we require create to be both a classmethod and a coroutine
+        if not is_class_method:
+            logger.warning(f"Agent class {agent_class.__name__} create method must be a classmethod")
+            return None
+            
+        if not is_coroutine:
+            logger.warning(f"Agent class {agent_class.__name__} create method must be a coroutine (async def)")
             return None
             
         # Create a factory function that calls the create method

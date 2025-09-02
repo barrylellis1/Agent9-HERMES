@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 
 # Import orchestrator
-from src.agents.a9_orchestrator_agent import A9_Orchestrator_Agent
+from src.agents.a9_orchestrator_agent import A9_Orchestrator_Agent, initialize_agent_registry
 
 # Import models
 from src.agents.models.situation_awareness_models import (
@@ -70,6 +70,10 @@ class UIOrchestrator:
             orchestrator_config = self.config.get("orchestrator_config", {})
             self.orchestrator = await A9_Orchestrator_Agent.create(orchestrator_config)
             
+            # Ensure default factories are registered for known agents
+            # This provides a stable fallback when dynamic discovery misses create methods
+            await initialize_agent_registry()
+            
             # Log agent initialization
             self.debug_metrics["agent_initializations"].append({
                 "agent": "orchestrator",
@@ -108,61 +112,40 @@ class UIOrchestrator:
             "version": "1.0.0"
         }
         
-        # Let the orchestrator handle all agent discovery and registration internally
-        try:
-            # First, ask the orchestrator to refresh its agent registry
-            # This will trigger internal agent discovery via AgentBootstrap
-            self.logger.info("Requesting orchestrator to refresh agent registry")
-            await self.orchestrator.refresh_agent_registry(config)
-            
-            # Log success
-            self.debug_metrics["agent_initializations"].append({
-                "agent": "agent_registry_refresh",
-                "timestamp": datetime.now().isoformat(),
-                "status": "success"
-            })
-            
-            # Check if required agents are available
-            required_agents = [
-                "A9_Situation_Awareness_Agent",
-                "A9_Principal_Context_Agent",
-                "A9_Data_Product_MCP_Service_Agent"
-            ]
-            
-            for agent_name in required_agents:
-                try:
-                    # This will validate if the agent is available through the orchestrator
-                    is_available = await self.orchestrator.has_agent(agent_name)
-                    if is_available:
-                        self.logger.info(f"Confirmed {agent_name} is available")
-                        self.debug_metrics["agent_initializations"].append({
-                            "agent": agent_name,
-                            "timestamp": datetime.now().isoformat(),
-                            "status": "validated"
-                        })
-                    else:
-                        self.logger.warning(f"{agent_name} not available in orchestrator")
-                        self.debug_metrics["agent_initializations"].append({
-                            "agent": agent_name,
-                            "timestamp": datetime.now().isoformat(),
-                            "status": "unavailable"
-                        })
-                except Exception as e:
-                    self.logger.error(f"Error checking availability of {agent_name}: {str(e)}")
+        # Prefer explicit factory registration over dynamic discovery to avoid noisy logs
+        # Factories are registered via initialize_agent_registry() during initialize()
+        required_agents = [
+            "A9_Situation_Awareness_Agent",
+            "A9_Principal_Context_Agent",
+            "A9_Data_Product_MCP_Service_Agent"
+        ]
+
+        for agent_name in required_agents:
+            try:
+                # Attempt to instantiate the agent to validate availability
+                agent = await self.orchestrator.get_agent(agent_name, config)
+                if agent is not None:
+                    self.logger.info(f"Instantiated {agent_name} via registered factory")
                     self.debug_metrics["agent_initializations"].append({
                         "agent": agent_name,
                         "timestamp": datetime.now().isoformat(),
-                        "status": "error",
-                        "error": str(e)
+                        "status": "validated"
                     })
-        except Exception as e:
-            self.logger.error(f"Failed to refresh agent registry: {str(e)}")
-            self.debug_metrics["agent_initializations"].append({
-                "agent": "registry_refresh",
-                "timestamp": datetime.now().isoformat(),
-                "status": "failed",
-                "error": str(e)
-            })
+                else:
+                    self.logger.warning(f"{agent_name} not available (no factory registered)")
+                    self.debug_metrics["agent_initializations"].append({
+                        "agent": agent_name,
+                        "timestamp": datetime.now().isoformat(),
+                        "status": "unavailable"
+                    })
+            except Exception as e:
+                self.logger.error(f"Error instantiating {agent_name}: {str(e)}")
+                self.debug_metrics["agent_initializations"].append({
+                    "agent": agent_name,
+                    "timestamp": datetime.now().isoformat(),
+                    "status": "error",
+                    "error": str(e)
+                })
     
     async def _get_registry_status(self) -> Dict[str, Any]:
         """Get the current status of all registries."""
@@ -373,13 +356,9 @@ class UIOrchestrator:
             self.logger.error("Cannot get principal context: Orchestrator is not initialized")
             raise ValueError("Orchestrator is not initialized. Please ensure initialize() was called and completed successfully.")
             
-        # Execute through orchestrator - pass both role and ID if available
-        if principal_id:
-            # Pass both role and ID to the agent
-            request_params = {"role": principal_role, "principal_id": principal_id}
-        else:
-            # Just pass the role for backward compatibility
-            request_params = principal_role
+        # Execute through orchestrator - agent expects a single positional argument (principal_role)
+        # Principal ID is not currently supported by the legacy method signature; we may extend later via a new method
+        request_params = principal_role
             
         response = await self.orchestrator.execute_agent_method(
             "A9_Principal_Context_Agent",

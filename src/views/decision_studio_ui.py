@@ -30,7 +30,7 @@ from src.agents.models.situation_awareness_models import (
     SituationDetectionRequest,
     NLQueryRequest
 )
-from src.agents.new.a9_situation_awareness_agent import create_situation_awareness_agent
+# Note: We will route interactions through the orchestrator via UIOrchestrator
 
 # Set page configuration
 st.set_page_config(
@@ -135,54 +135,7 @@ def init_session_state():
     if "debug_mode" not in st.session_state:
         st.session_state.debug_mode = False
 
-# Initialize the Situation Awareness Agent
-async def initialize_agent():
-    """Initialize and connect to the Situation Awareness Agent."""
-    if st.session_state.agent is None:
-        with st.spinner("Initializing Situation Awareness Agent..."):
-            # Create agent with contract path
-            contract_path = os.path.join(
-                os.path.abspath(os.path.dirname(__file__)), 
-                "..", 
-                "contracts",
-                "fi_star_schema.yaml"
-            )
-            
-            agent = create_situation_awareness_agent({
-                "contract_path": contract_path
-            })
-            
-            # Connect the agent to its dependencies
-            await agent.connect()
-            
-            # Store in session state
-            st.session_state.agent = agent
-            
-            # Get recommended questions for default principal
-            principal_context = agent.principal_profiles[st.session_state.principal_role]
-            questions = await agent.get_recommended_questions(principal_context)
-            st.session_state.recommended_questions = questions
-            
-            return agent
-    
-    return st.session_state.agent
-
-# Get principal context from the agent
-def get_principal_context(principal_role: PrincipalRole):
-    """Get principal context for the selected role."""
-    agent = st.session_state.agent
-    if agent and principal_role in agent.principal_profiles:
-        return agent.principal_profiles[principal_role]
-    
-    # Fallback to default
-    return PrincipalContext(
-        role=principal_role,
-        business_processes=[BusinessProcess.PROFITABILITY_ANALYSIS],
-        default_filters={},
-        decision_style="analytical",
-        communication_style="detailed",
-        preferred_timeframes=[TimeFrame.CURRENT_QUARTER]
-    )
+# We no longer initialize/use the 'new' agent directly in this simple UI.
 
 # Detect situations based on current filters
 async def detect_situations():
@@ -192,8 +145,21 @@ async def detect_situations():
     
     if "ui_orchestrator" not in st.session_state or st.session_state.ui_orchestrator is None:
         with st.spinner("Initializing UI Orchestrator..."):
-            # Create and initialize UIOrchestrator
-            st.session_state.ui_orchestrator = UIOrchestrator()
+            # Create and initialize UIOrchestrator with config (match debug UI pattern)
+            contract_path = os.path.join(
+                os.path.abspath(os.path.dirname(__file__)), 
+                "..", 
+                "contracts",
+                "fi_star_schema.yaml"
+            )
+            st.session_state.ui_orchestrator = UIOrchestrator({
+                "contract_path": contract_path,
+                "database_config": {
+                    "type": "duckdb",
+                    "path": ":memory:"
+                },
+                "orchestrator_config": {}
+            })
             await st.session_state.ui_orchestrator.initialize()
     
     ui_orchestrator = st.session_state.ui_orchestrator
@@ -240,8 +206,21 @@ async def process_query():
     
     if "ui_orchestrator" not in st.session_state or st.session_state.ui_orchestrator is None:
         with st.spinner("Initializing UI Orchestrator..."):
-            # Create and initialize UIOrchestrator
-            st.session_state.ui_orchestrator = UIOrchestrator()
+            # Create and initialize UIOrchestrator with config (match debug UI pattern)
+            contract_path = os.path.join(
+                os.path.abspath(os.path.dirname(__file__)), 
+                "..", 
+                "contracts",
+                "fi_star_schema.yaml"
+            )
+            st.session_state.ui_orchestrator = UIOrchestrator({
+                "contract_path": contract_path,
+                "database_config": {
+                    "type": "duckdb",
+                    "path": ":memory:"
+                },
+                "orchestrator_config": {}
+            })
             await st.session_state.ui_orchestrator.initialize()
     
     ui_orchestrator = st.session_state.ui_orchestrator
@@ -399,7 +378,7 @@ def main():
         # Refresh button
         if st.button("Refresh Situations"):
             # This will be handled in the async section
-            st.experimental_rerun()
+            st.rerun()
         
         # Debug mode toggle
         st.session_state.debug_mode = st.checkbox("Debug Mode", value=st.session_state.debug_mode)
@@ -535,11 +514,8 @@ def display_situation(situation, severity_class):
 # Run the async functions
 async def run_async():
     """Run the async functions required for the app."""
-    # Initialize agent
-    agent = await initialize_agent()
-    
-    # If we have an agent and no situations, detect situations
-    if agent and not st.session_state.situations:
+    # Initialize situations via orchestrator if not already present
+    if not st.session_state.situations:
         await detect_situations()
     
     # Process natural language query if needed

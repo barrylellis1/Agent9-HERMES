@@ -10,10 +10,20 @@ Write-Host "Starting the Decision Studio UI..."
 # Activate the virtual environment and run the app
 . .\.venv\Scripts\Activate.ps1
 # Start the Streamlit server in the background
-Start-Process powershell -ArgumentList "-NoExit", "-Command", ". .\.venv\Scripts\Activate.ps1; streamlit run decision_studio_app.py"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", ". .\.venv\Scripts\Activate.ps1; streamlit run decision_studio.py"
 
 # Give the app a moment to start and create the log file
 Start-Sleep -Seconds 5
+
+# Create logs directory if it doesn't exist
+if (-not (Test-Path .\logs)) {
+    New-Item -ItemType Directory -Path .\logs | Out-Null
+}
+
+# Create log file if it doesn't exist
+if (-not (Test-Path .\logs\agent9.log)) {
+    New-Item -ItemType File -Path .\logs\agent9.log | Out-Null
+}
 
 # Tail the log file to show real-time output
 Get-Content .\logs\agent9.log -Wait

@@ -146,6 +146,10 @@ class A9_Data_Product_MCP_Service_Config(BaseModel):
         "data_product_registry/data_product_registry.csv", 
         description="Path to data product registry file relative to registry_path"
     )
+    contracts_path: str = Field(
+        "src/registry_references/data_product_registry/data_products",
+        description="Path to data product contract YAML files"
+    )
     
     # Security settings
     allow_custom_sql: bool = Field(

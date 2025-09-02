@@ -22,7 +22,6 @@ sys.path.insert(0, project_root)
 
 # Import required models and modules
 from src.agents.models.situation_awareness_models import (
-    PrincipalContext, 
     PrincipalRole,
     BusinessProcess,
     TimeFrame, 
@@ -31,8 +30,12 @@ from src.agents.models.situation_awareness_models import (
     SituationDetectionRequest,
     NLQueryRequest
 )
-# Import the correct situation awareness agent creator
-from src.agents.new.a9_situation_awareness_agent import create_situation_awareness_agent
+
+# Import PrincipalContext from both models to ensure it's available
+from src.agents.models.situation_awareness_models import PrincipalContext
+from src.agents.models.principal_context_models import PrincipalProfileResponse
+# Import the correct situation awareness agent creator (canonical path)
+from src.agents.a9_situation_awareness_agent import create_situation_awareness_agent
 
 # Set page configuration
 st.set_page_config(
@@ -173,6 +176,73 @@ async def get_principal_context(principal_role: PrincipalRole):
     
     return context
 
+def extract_principal_context(principal_profile_response):
+    """Extract PrincipalContext from a response object.
+    
+    This handles both cases where the response is a PrincipalProfileResponse with a context field,
+    or a PrincipalProfileResponse with only a profile field.
+    """
+    
+    # Check if the response already has a context attribute
+    if hasattr(principal_profile_response, 'context') and principal_profile_response.context is not None:
+        return principal_profile_response.context
+    
+    # Check if it's a PrincipalProfileResponse with profile attribute
+    elif hasattr(principal_profile_response, 'profile') and principal_profile_response.profile is not None:
+        # Extract profile data
+        profile = principal_profile_response.profile
+        
+        # Map role string to PrincipalRole enum
+        try:
+            role_str = profile.get('role', 'CFO')
+            enum_role = PrincipalRole(role_str)
+        except ValueError:
+            # Default to CFO for error cases
+            enum_role = PrincipalRole.CFO
+        
+        # Ensure we have a principal ID
+        principal_id = profile.get('id', f"{enum_role.name.lower()}_default")
+        
+        # Extract timeframes from profile
+        timeframes = []
+        for tf in profile.get('timeframes', ['Quarterly']):
+            try:
+                timeframes.append(TimeFrame(tf))
+            except ValueError:
+                # Default to current quarter
+                timeframes.append(TimeFrame.CURRENT_QUARTER)
+        
+        # Ensure we have at least one timeframe
+        if not timeframes:
+            timeframes = [TimeFrame.CURRENT_QUARTER, TimeFrame.YEAR_TO_DATE]
+        
+        # Create principal context object
+        return PrincipalContext(
+            role=enum_role,
+            principal_id=principal_id,
+            business_processes=[BusinessProcess(bp) for bp in profile.get('business_processes', [])] if profile.get('business_processes') else list(BusinessProcess),
+            default_filters=profile.get('default_filters', {}),
+            decision_style=profile.get('decision_style', 'Analytical'),
+            communication_style=profile.get('communication_style', 'Concise'),
+            preferred_timeframes=timeframes
+        )
+    
+    # If it's already a PrincipalContext object
+    elif hasattr(principal_profile_response, 'role') and hasattr(principal_profile_response, 'principal_id'):
+        return principal_profile_response
+    
+    # Default case - should not happen but provides a fallback
+    else:
+        return PrincipalContext(
+            role=PrincipalRole.CFO,
+            principal_id="default_cfo",
+            business_processes=list(BusinessProcess),
+            default_filters={},
+            decision_style="Analytical",
+            communication_style="Concise",
+            preferred_timeframes=[TimeFrame.CURRENT_QUARTER, TimeFrame.YEAR_TO_DATE]
+        )
+
 # Detect situations based on current filters
 async def detect_situations():
     """Detect situations based on current filters and update the UI."""
@@ -181,9 +251,21 @@ async def detect_situations():
         return
     
     # Prepare the situation detection request
+    # Fetch principal context (required by model)
+    principal_profile_response = await agent.get_principal_context(st.session_state.principal_role)
+    
+    # Extract the PrincipalContext object from the response using the helper function
+    principal_context = extract_principal_context(principal_profile_response)
+    
+    # Convert PrincipalContext to dict if needed for Pydantic validation
+    if isinstance(principal_context, PrincipalContext):
+        principal_context_dict = principal_context.model_dump()
+    else:
+        principal_context_dict = principal_context
+    
     request = SituationDetectionRequest(
         request_id=str(uuid.uuid4()),
-        principal_role=st.session_state.principal_role,
+        principal_context=principal_context_dict,
         business_processes=st.session_state.business_processes,
         timeframe=st.session_state.timeframe,
         comparison_type=st.session_state.comparison_type,
@@ -212,10 +294,21 @@ async def process_query():
         return
     
     # Prepare the NL query request
+    principal_profile_response = await agent.get_principal_context(st.session_state.principal_role)
+    
+    principal_context = extract_principal_context(principal_profile_response)
+    
+    # Convert PrincipalContext to dict if needed for Pydantic validation
+    if isinstance(principal_context, PrincipalContext):
+        principal_context_dict = principal_context.model_dump()
+    else:
+        principal_context_dict = principal_context
+    
     request = NLQueryRequest(
         request_id=st.session_state.nl_query,
         query=st.session_state.nl_query,
-        principal_role=st.session_state.principal_role,
+        principal_context=principal_context_dict,
+        # Extra fields are allowed and used downstream by the agent
         business_processes=st.session_state.business_processes,
         timeframe=st.session_state.timeframe,
         comparison_type=st.session_state.comparison_type,

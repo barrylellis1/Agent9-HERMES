@@ -4,7 +4,7 @@ Focused on Finance KPIs from the FI Star Schema for MVP implementation.
 """
 
 from enum import Enum
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, List, Optional, Union, Any, ForwardRef
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -31,8 +31,11 @@ class PrincipalRole(str, Enum):
     For MVP, we're focusing only on finance roles (CFO, Finance Manager).
     These roles should match the lowercase values in principal_registry.principal_roles 
     but use title case for display.
+    # TODO: Replace with a flexible string-based role system for HR integration post-MVP
+    # This enum is a temporary solution and will be replaced with a dynamic role registry
+    # that can load roles from external systems without requiring code changes.
     """
-    CFO = "CFO"  # Maps to "cfo" in registry
+    CFO = "CFO"  
     FINANCE_MANAGER = "Finance Manager"  # Maps to "manager" in registry with finance focus
     
 class TimeFrame(str, Enum):
@@ -90,6 +93,7 @@ class PrincipalContextRequest(BaseRequest):
 class PrincipalContext(BaseModel):
     """Principal context for personalization."""
     role: PrincipalRole = Field(description="Role of the principal")
+    principal_id: str = Field(description="Unique identifier for the principal")
     business_processes: List[BusinessProcess] = Field(description="Business processes relevant to the principal")
     default_filters: Dict[str, Any] = Field(description="Default filters for the principal")
     decision_style: str = Field(description="Decision-making style of the principal") 

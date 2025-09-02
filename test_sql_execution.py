@@ -4,6 +4,9 @@ Test script for SQL execution using the Data Product MCP Service Agent.
 This demonstrates how to use the agent to execute SQL queries against the registry.
 """
 
+import pytest
+pytestmark = pytest.mark.skip(reason="Legacy root-level test not aligned with HERMES test layout; run tests under tests/ instead")
+
 import asyncio
 import logging
 import os

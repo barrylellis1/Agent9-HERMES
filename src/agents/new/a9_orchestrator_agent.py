@@ -48,7 +48,7 @@ class AgentRegistry:
             factory_func: Factory function to create the agent.
         """
         cls._agent_factories[agent_name] = factory_func
-        logger.info(f"Agent factory for {agent_name} registered with the registry")
+        logger.info(f"Agent factory for {agent_name} registered with the registry (total factories: {len(cls._agent_factories)})")
     
     @classmethod
     async def get_agent(cls, agent_name: str, config: Dict[str, Any] = None) -> Any:
@@ -67,9 +67,15 @@ class AgentRegistry:
             logger.debug(f"Returning existing agent {agent_name} from registry")
             return cls._agents[agent_name]
         
+        # Log available factories for diagnostics
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Available factories: {list(cls._agent_factories.keys())}")
+        else:
+            logger.info(f"Requesting agent '{agent_name}'. Registered factories: {list(cls._agent_factories.keys())}")
+        
         # Create a new instance if we have a factory
         if agent_name in cls._agent_factories:
-            logger.info(f"Creating new agent {agent_name} using registered factory")
+            logger.info(f"Creating new agent {agent_name} using registered factory with config keys: {list((config or {}).keys())}")
             factory = cls._agent_factories[agent_name]
             
             # Check if factory is async
@@ -79,6 +85,7 @@ class AgentRegistry:
                 agent = factory(config or {})
                 
             cls._agents[agent_name] = agent
+            logger.info(f"Agent {agent_name} created and registered successfully")
             return agent
         
         logger.error(f"Agent {agent_name} not found in registry and no factory available")

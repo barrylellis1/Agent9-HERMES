@@ -1,0 +1,90 @@
+workflow:
+  name: Innovation Driver
+  category: innovation
+  description: >
+    Enables highly skilled professionals to focus on business innovation by orchestrating probabilistic brainstorming, idea incubation,
+    and opportunity shaping using LLMs and Agent9's full suite of analytical and planning agents. Estimates potential value, effort,
+    and risk for new ideas, leveraging both LLM-enabled and expert-driven innovation. Calls on Opportunity Analysis, Risk Analysis,
+    Stakeholder Analysis, Solution Finder, Implementation Planner, and optionally GenAI Expert or Solution Architect agents to shape,
+    evaluate, and prepare innovations for execution.
+
+  steps:
+    - agent: A9_Innovation_Agent
+      entrypoint: brainstorm_ideas
+      input_model: InnovationPromptInput
+      output_model: InnovationIdeasOutput
+      purpose: Use LLMs and GenAI to generate, cluster, and incubate new business innovation ideas.
+
+    - agent: A9_Opportunity_Analysis_Agent
+      entrypoint: analyze_opportunities
+      input_model: A9_Opportunity_Analysis_Input
+      output_model: A9_Opportunity_Analysis_Output
+      optional: true
+      purpose: Evaluate innovation ideas for business potential and alignment with company strategy.
+
+    - agent: A9_Risk_Analysis_Agent
+      entrypoint: analyze_risk
+      input_model: A9_Risk_Analysis_Input
+      output_model: A9_Risk_Analysis_Output
+      optional: true
+      purpose: Assess risks, uncertainties, and dependencies for each innovation.
+
+    - agent: A9_Stakeholder_Analysis_Agent
+      entrypoint: analyze_stakeholders
+      input_model: StakeholderAnalysisInput
+      output_model: StakeholderAnalysisResult
+      optional: true
+      purpose: Identify key stakeholders and estimate support, resistance, or adoption potential.
+
+    - agent: A9_Solution_Finder_Agent
+      entrypoint: find_solutions
+      input_model: A9_Solution_Finder_Input
+      output_model: A9_Solution_Finder_Output
+      optional: true
+      purpose: Suggest solution paths, prototypes, or next steps for promising innovations.
+
+    - agent: A9_Solution_Architect_Agent
+      entrypoint: design_solution
+      input_model: SolutionDesignInput
+      output_model: SolutionDesignOutput
+      optional: true
+      purpose: Architect technical or organizational solutions to enable innovation realization.
+
+    - agent: A9_GenAI_Expert_Agent
+      entrypoint: advise_on_genai_opportunity
+      input_model: GenAIExpertInput
+      output_model: GenAIExpertOutput
+      optional: true
+      purpose: Provide expert input on GenAI-enabled opportunities, risks, and implementation.
+
+    - agent: A9_Implementation_Planner_Agent
+      entrypoint: plan_implementation
+      input_model: ImplementationPlanInput
+      output_model: ImplementationPlanOutput
+      optional: true
+      purpose: Develop high-level implementation plans for selected innovations.
+
+    - agent: A9_Orchestrator_Agent
+      entrypoint: orchestrate_workflow
+      input_model: OrchestratorWorkflowInput
+      output_model: OrchestratorWorkflowOutput
+      purpose: Oversee and coordinate the innovation workflow, including incubation, review, and handoff.
+
+  outputs:
+    - innovation_ideas: List[Dict[str, Any]]
+    - opportunity_evaluations: List[Dict[str, Any]]
+    - risk_assessments: List[Dict[str, Any]]
+    - stakeholder_analysis: List[Dict[str, Any]]
+    - solution_suggestions: List[Dict[str, Any]]
+    - implementation_plans: List[Dict[str, Any]]
+    - genai_expert_feedback: List[Dict[str, Any]]
+    - orchestrator_status: str
+
+  validations:
+    - All agent entrypoints must use Pydantic models as specified.
+    - LLM-enabled and expert-driven opportunities must be tracked and auditable.
+    - Innovation evaluations should include value, effort, and risk estimates.
+
+  notes:
+    - This workflow is intended to maximize the creative and strategic capacity of professionals by automating routine analysis and enabling structured innovation.
+    - Can be iterated as new ideas are generated or as innovations move through incubation and review stages.

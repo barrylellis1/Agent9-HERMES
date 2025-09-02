@@ -186,29 +186,117 @@ class A9_Principal_Context_Agent:
         # This would be implemented in a full version
         pass
         
+    def _get_profile_case_insensitive(self, role_key: str) -> Dict[str, Any]:
+        """
+        Get a profile using case-insensitive matching with multiple format attempts.
+        
+        Args:
+            role_key: The role key to look up (can be in any case format)
+            
+        Returns:
+            The profile if found, or None if not found
+        """
+        if not role_key:
+            return None
+            
+        # Try different formats of the role key
+        formats_to_try = [
+            role_key,                              # Original format
+            role_key.lower(),                      # lowercase
+            role_key.upper(),                      # UPPERCASE
+            role_key.replace(" ", "_").upper(),     # UPPERCASE_WITH_UNDERSCORES
+            role_key.title(),                      # Title Case
+            role_key.replace("_", " ").title(),     # Title Case With Spaces
+        ]
+        
+        # Try each format against profile keys and role values
+        for fmt in formats_to_try:
+            # Direct key match
+            if fmt in self.principal_profiles:
+                return self.principal_profiles[fmt]
+                
+            # Check lowercase keys
+            for key, profile in self.principal_profiles.items():
+                # Match against key
+                if key.lower() == fmt.lower():
+                    return profile
+                    
+                # Match against role attribute if it exists
+                if hasattr(profile, 'get') and profile.get('role', '').lower() == fmt.lower():
+                    return profile
+                    
+        # No match found
+        return None
+        
+    def _map_role_to_enum(self, role_input):
+        """
+        Map a role input string to the correct PrincipalRole enum value.
+        
+        Args:
+            role_input: The role input (string or enum)
+            
+        Returns:
+            PrincipalRole enum value or the original input if mapping fails
+        """
+        from src.agents.models.situation_awareness_models import PrincipalRole
+        
+        # If already an enum, return it
+        if isinstance(role_input, PrincipalRole):
+            return role_input
+            
+        # Try to map string to enum
+        role_str = str(role_input)
+        
+        # Try direct mapping
+        try:
+            return PrincipalRole(role_str)
+        except ValueError:
+            pass
+            
+        # Try case-insensitive mapping
+        for enum_val in PrincipalRole:
+            if enum_val.value.lower() == role_str.lower():
+                self.logger.info(f"Mapped role '{role_str}' to enum value '{enum_val}'")
+                return enum_val
+                
+        # Try with underscores replaced by spaces
+        try:
+            formatted_role = role_str.replace("_", " ").title()
+            return PrincipalRole(formatted_role)
+        except ValueError:
+            pass
+            
+        # Default to CFO if no match (temporary solution)
+        self.logger.warning(f"Could not map role '{role_str}' to a valid PrincipalRole enum, using CFO as fallback")
+        return PrincipalRole.CFO
+        
     async def get_principal_context(self, principal_role) -> Dict[str, Any]:
         """
         Get principal context for a given role.
         
         Args:
-            principal_role: Role of the principal (PrincipalRole enum value)
+            principal_role: Role of the principal (string or PrincipalRole enum value)
             
         Returns:
             Principal context containing preferences and relevant business processes
         """
         from src.agents.models.situation_awareness_models import PrincipalContext, BusinessProcess, TimeFrame
         
-        # Log the request
-        self.logger.info(f"Getting principal context for role: {principal_role}")
-        
-        # First try to load from registry if not already loaded
-        if not self.principal_profiles:
-            await self._load_principal_profiles()
+        try:
+            # Log the request
+            self.logger.info(f"Getting principal context for role: {principal_role}")
             
-        # Try to find matching profile for the role
-        profile_key = str(principal_role).lower()
-        for key, profile in self.principal_profiles.items():
-            if key.lower() == profile_key or (hasattr(profile, 'get') and profile.get('role', '').lower() == profile_key):
+            # First try to load from registry if not already loaded
+            if not self.principal_profiles:
+                await self._load_principal_profiles()
+                
+            # Map the input role to a valid PrincipalRole enum value
+            enum_role = self._map_role_to_enum(principal_role)
+            
+            # Get profile using case-insensitive lookup
+            profile = self._get_profile_case_insensitive(str(principal_role))
+            
+            if profile:
                 # Create and return PrincipalContext
                 business_processes = []
                 
@@ -223,7 +311,8 @@ class A9_Principal_Context_Agent:
                 
                 # Create context with defaults if values are missing
                 principal_context = PrincipalContext(
-                    role=principal_role,
+                    role=enum_role,  # Use the mapped enum value
+                    principal_id=profile.get('id', str(enum_role)),
                     business_processes=business_processes or list(BusinessProcess),
                     default_filters=profile.get('default_filters', {}) if hasattr(profile, 'get') else {},
                     decision_style=profile.get('decision_style', "Analytical") if hasattr(profile, 'get') else "Analytical",
@@ -233,16 +322,21 @@ class A9_Principal_Context_Agent:
                 
                 # Return as dictionary for JSON serialization
                 return principal_context.model_dump()
-        
-        # If no matching profile is found, return a default context
-        self.logger.warning(f"No principal profile found for role {principal_role}, using default")
-        principal_context = PrincipalContext(
-            role=principal_role,
-            business_processes=list(BusinessProcess),
-            default_filters={},
-            decision_style="Analytical",
-            communication_style="Concise",
-            preferred_timeframes=[TimeFrame.CURRENT_QUARTER, TimeFrame.YEAR_TO_DATE]
-        )
-        
-        return principal_context.model_dump()
+            
+            # If no matching profile is found, return a default context
+            self.logger.warning(f"No principal profile found for role {principal_role}, using default")
+            principal_context = PrincipalContext(
+                role=enum_role,  # Use the mapped enum value
+                principal_id=str(enum_role),
+                business_processes=list(BusinessProcess),
+                default_filters={},
+                decision_style="Analytical",
+                communication_style="Concise",
+                preferred_timeframes=[TimeFrame.CURRENT_QUARTER, TimeFrame.YEAR_TO_DATE]
+            )
+            
+            return principal_context.model_dump()
+            
+        except Exception as e:
+            self.logger.error(f"Error {id(e)[:8]} in get_principal_context: {str(e)}")
+            raise

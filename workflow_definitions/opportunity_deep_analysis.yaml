@@ -1,0 +1,74 @@
+workflow:
+  name: Opportunity Deep Analysis
+  category: data_driven
+  description: >
+    Triggered by the recognition of a positive anomaly in situation analysis, this workflow conducts in-depth analysis to discover,
+  steps:
+    - agent: A9_Orchestrator_Agent
+      entrypoint: orchestrate_workflow
+      input_model: OrchestratorWorkflowInput
+      output_model: OrchestratorWorkflowOutput
+      purpose: Oversee and coordinate the workflow execution, including step routing and monitoring.
+
+    - agent: A9_LLM_Service_Agent
+      entrypoint: process_text
+      input_model: LLMServiceInput
+      output_model: LLMServiceOutput
+      optional: true
+      purpose: Provide LLM-powered interpretation, summarization, or consensus-building for relevant TEXT fields.
+    understand, and frame the opportunity for potential duplication or scaling. It may include market analysis and prepares the
+    opportunity for follow-on solution finding or stakeholder engagement.
+
+  steps:
+    - agent: A9_Situation_Awareness_Agent
+      entrypoint: analyze_situation
+      input_model: A9_Situation_Awareness_Input
+      output_model: A9_Situation_Awareness_Output
+      purpose: Receive context and details about the positive anomaly for further analysis.
+
+    - agent: A9_Opportunity_Analysis_Agent
+      entrypoint: analyze_opportunities
+      input_model: A9_Opportunity_Analysis_Input
+      output_model: A9_Opportunity_Analysis_Output
+      purpose: Perform root cause and dimensional analysis to understand where and why the opportunity occurred.
+
+    - agent: A9_Data_Product_Agent
+      entrypoint: analyze_data_product_a2a
+      input_model: DataProductAnalysisInput
+      output_model: DataProductAnalysisOutput
+      repeatable: true
+      purpose: Query and re-query data products as needed to isolate drivers and validate the opportunity across dimensions.
+
+    - agent: A9_Market_Analysis_Agent
+      entrypoint: analyze_market_opportunity
+      input_model: MarketAnalysisInput
+      output_model: MarketAnalysisOutput
+      optional: true
+      purpose: Assess market context and potential for scaling or replicating the opportunity.
+
+    - agent: A9_Opportunity_Analysis_Agent
+      entrypoint: frame_opportunity
+      input_model: A9_Opportunity_Analysis_Input
+      output_model: A9_Opportunity_Analysis_Output
+      purpose: Frame the opportunity for follow-on solution finding or stakeholder engagement.
+
+    - agent: A9_Situation_Awareness_Agent
+      entrypoint: notify_principal
+      input_model: HITLNotificationInput
+      output_model: None
+      purpose: Notify principal (HITL) for next action: manual confirmation, stakeholder notification, or solution finding.
+
+  outputs:
+    - opportunity_dimensions: List[str]
+    - opportunity_summary: str
+    - market_context: str
+    - hitl_notification_sent: bool
+
+  validations:
+    - All agent entrypoints must use Pydantic models as specified.
+    - Data Product Agent queries must be repeatable and parameterized for different dimensions.
+    - HITL notification must be protocol-compliant and auditable.
+
+  notes:
+    - This workflow is typically triggered by a positive anomaly detected in Automated Situational Awareness.
+    - Further actions after HITL notification (e.g., solution finding, stakeholder engagement) are out-of-scope for this workflow but may trigger additional workflows.

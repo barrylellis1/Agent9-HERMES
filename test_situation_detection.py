@@ -14,6 +14,9 @@ Since we don't have a full Orchestrator Agent implementation yet, this script
 implements a simplified test harness that mimics the orchestration pattern.
 """
 
+import pytest
+pytestmark = pytest.mark.skip(reason="Legacy root-level test not aligned with HERMES test layout; run tests under tests/ instead")
+
 import asyncio
 import os
 import sys

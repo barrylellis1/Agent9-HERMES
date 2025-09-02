@@ -3,7 +3,7 @@ Data Governance Models
 
 This module defines Pydantic models for the Data Governance Agent protocol.
 These models are used for business-to-technical term translation, data access validation,
-data quality checks, and data lineage tracking.
+data quality checks, data lineage tracking, and KPI to data product mapping.
 """
 
 from typing import Dict, List, Optional, Any, Set, Union
@@ -126,3 +126,60 @@ class DataQualityCheckResponse(BaseModel):
         {}, description="Quality metrics by dimension"
     )
     issues: List[DataQualityIssue] = Field([], description="Data quality issues found")
+
+
+class KPIDataProductMappingRequest(BaseModel):
+    """Request for mapping KPIs to data products."""
+    kpi_names: List[str] = Field(
+        ..., description="List of KPI names to map to data products"
+    )
+    context: Optional[Dict[str, Any]] = Field(
+        None, description="Additional context for mapping (e.g., principal context)"
+    )
+
+
+class KPIDataProductMapping(BaseModel):
+    """Mapping of a KPI to a data product."""
+    kpi_name: str = Field(..., description="Name of the KPI")
+    data_product_id: str = Field(..., description="ID of the data product")
+    technical_name: Optional[str] = Field(
+        None, description="Technical name of the KPI in the data product"
+    )
+    metadata: Optional[Dict[str, Any]] = Field(
+        None, description="Additional metadata for the mapping"
+    )
+
+
+class KPIDataProductMappingResponse(BaseModel):
+    """Response for KPI to data product mapping."""
+    mappings: List[KPIDataProductMapping] = Field(
+        [], description="List of KPI to data product mappings"
+    )
+    unmapped_kpis: List[str] = Field(
+        [], description="KPIs that could not be mapped to data products"
+    )
+    human_action_required: bool = Field(
+        False, description="Flag indicating if human action is required"
+    )
+    human_action_context: Optional[Dict[str, Any]] = Field(
+        None, description="Context for human action"
+    )
+
+
+class DataAssetPathRequest(BaseModel):
+    """Request for resolving data asset paths."""
+    asset_name: str = Field(..., description="Name of the data asset")
+    context: Optional[Dict[str, Any]] = Field(
+        None, description="Additional context for resolution"
+    )
+
+
+class DataAssetPathResponse(BaseModel):
+    """Response for data asset path resolution."""
+    asset_name: str = Field(..., description="Name of the data asset")
+    data_product_id: str = Field(..., description="ID of the data product")
+    asset_path: str = Field(..., description="Path to the data asset")
+    access_type: str = Field("read", description="Type of access allowed")
+    metadata: Optional[Dict[str, Any]] = Field(
+        None, description="Additional metadata for the asset"
+    )

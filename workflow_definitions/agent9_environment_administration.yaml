@@ -1,0 +1,105 @@
+workflow:
+  name: Agent9 Environment Administration
+  category: operational_maintenance
+  description: >
+    Supports the implementation and ongoing maintenance of Agent9 in an enterprise environment, including onboarding new data products,
+    creating/managing data product contracts, data governance, stakeholder/principal onboarding, and HR system integration.
+    Leverages Solution Deployment workflow patterns (planning, risk, QA, stakeholder engagement, change management, follow-up)
+    to ensure robust, well-governed onboarding and operational integrity. May be executed via utilities or an Agent9 Admin UI.
+
+  steps:
+    - agent: A9_Data_Product_Agent
+      entrypoint: onboard_data_product
+      input_model: DataProductOnboardingInput
+      output_model: DataProductOnboardingOutput
+      purpose: Onboard new data products into the Agent9 environment.
+
+    - agent: A9_Data_Product_Agent
+      entrypoint: create_data_product_contract
+      input_model: DataProductContractInput
+      output_model: DataProductContractOutput
+      purpose: Create and manage data product contracts for compliance and governance.
+
+    - agent: A9_Data_Governance_Agent
+      entrypoint: analyze_data_quality
+      input_model: DataQualityAnalysisInput
+      output_model: DataQualityAnalysisOutput
+      purpose: Ensure data governance standards are met for all onboarded data products.
+
+    - agent: A9_Stakeholder_Analysis_Agent
+      entrypoint: onboard_stakeholder
+      input_model: StakeholderOnboardingInput
+      output_model: StakeholderOnboardingOutput
+      purpose: Onboard new stakeholders and associate them with relevant data products or business processes.
+
+    - agent: A9_Principal_Context_Agent
+      entrypoint: set_principal_context
+      input_model: A9_Principal_Context_Input
+      output_model: A9_Principal_Context_Output
+      purpose: Integrate with HR systems or manually set up principal context for new users.
+
+    # Solution Deployment workflow integration
+    - agent: A9_Risk_Management_Agent
+      entrypoint: manage_risk
+      input_model: A9_Risk_Management_Input
+      output_model: A9_Risk_Management_Output
+      optional: true
+      purpose: Assess and mitigate risks associated with onboarding and environment changes.
+
+    - agent: A9_Quality_Assurance_Agent
+      entrypoint: generate_test_cases
+      input_model: QAPlanInput
+      output_model: QAPlanOutput
+      optional: true
+      purpose: Develop and execute QA plans for onboarding/configuration steps.
+
+    - agent: A9_Stakeholder_Engagement_Agent
+      entrypoint: analyze_stakeholder_engagement
+      input_model: A9_Stakeholder_Engagement_Input
+      output_model: A9_Stakeholder_Engagement_Output
+      optional: true
+      purpose: Engage stakeholders for onboarding feedback and support.
+
+    - agent: A9_Change_Management_Agent
+      entrypoint: process_change_request_event
+      input_model: ChangeRequestEventInput
+      output_model: ChangeRequestEventOutput
+      optional: true
+      purpose: Manage change requests and coordinate organizational/process changes during onboarding.
+
+    - agent: A9_UI_Design_Agent
+      entrypoint: design_component
+      input_model: AdminUIComponentInput
+      output_model: AdminUIComponentOutput
+      optional: true
+      purpose: Support the design and implementation of an Agent9 Admin UI for onboarding, configuration, and monitoring.
+
+    - agent: A9_Orchestrator_Agent
+      entrypoint: orchestrate_workflow
+      input_model: OrchestratorWorkflowInput
+      output_model: OrchestratorWorkflowOutput
+      optional: true
+      purpose: Oversee and coordinate administrative and onboarding processes, including iterative follow-up.
+
+  outputs:
+    - data_products_onboarded: List[str]
+    - contracts_created: List[str]
+    - data_governance_status: str
+    - stakeholders_onboarded: List[str]
+    - principals_configured: List[str]
+    - risk_status: str
+    - qa_results: List[Dict[str, Any]]
+    - stakeholder_feedback: List[Dict[str, Any]]
+    - change_management_log: List[Dict[str, Any]]
+    - admin_ui_status: str
+
+  validations:
+    - All agent entrypoints must use Pydantic models as specified.
+    - Data product contracts and governance must be auditable.
+    - Stakeholder and principal onboarding must be tracked and reviewable.
+    - Risk, QA, and change management checks must be available for all onboarding processes.
+
+  notes:
+    - This workflow may be executed as a collection of utilities or via an Agent9 Admin UI.
+    - Ongoing monitoring and maintenance are essential for operational integrity and compliance.
+    - Solution Deployment workflow steps are reused for onboarding process rigor.

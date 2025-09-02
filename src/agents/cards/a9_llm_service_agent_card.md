@@ -1,3 +1,52 @@
+## 1. Agent Overview & Metadata
+- **A9-prefixed Name:** A9_LLM_Service_Agent
+- **Team / Agent Context Tags:** platform_team, llm_service
+- **Purpose:** Centralized gateway for all LLM operations, enforcing guardrails, prompt templates, and provider management.
+- **Owner:** <owner_or_squad>
+- **Version:** 1.0
+
+## 2. Configuration Schema
+```python
+from pydantic import BaseModel, ConfigDict
+
+class A9LLMServiceAgentConfig(BaseModel):
+    provider: str = "anthropic"
+    model_name: str = "claude-3-opus"
+    guardrails_path: str | None = None
+    prompt_templates_path: str | None = None
+    api_key_env_var: str = "ANTHROPIC_API_KEY"
+    model_config = ConfigDict(extra="allow")
+```
+- **Required secrets / external resources:** `${api_key_env_var}` env var with provider API key
+
+## 3. Protocol Entrypoints & Capabilities
+| Entrypoint | Description | Input Model | Output Model | Side-effects |
+|------------|-------------|-------------|--------------|--------------|
+| `generate` | Generate text from prompt | `A9_LLM_Request` | `A9_LLM_Response` | logs events |
+| `generate_with_template` | Generate using prompt template | `A9_LLM_TemplateRequest` | `A9_LLM_Response` | logs events |
+| `analyze` | Analyze text/data | `A9_LLM_AnalysisRequest` | `A9_LLM_AnalysisResponse` | logs events |
+| `summarize` | Summarize content | `A9_LLM_SummaryRequest` | `A9_LLM_SummaryResponse` | logs events |
+| `evaluate` | Evaluate options | `A9_LLM_EvaluationRequest` | `A9_LLM_EvaluationResponse` | logs events |
+
+Supported hand-off commands / state updates:
+- `reload_guardrails` – reload guardrails config
+
+## 4. Compliance, Testing & KPIs
+- **Design-Standards Checklist**
+  - Naming follows `A9_*`
+  - File size < 300 lines
+  - No hard-coded secrets
+  - Tests reference Agent9 standards
+- **Unit / Integration Test Targets**
+  - Unit coverage ≥ 90%
+  - Integration workflow test present
+- **Runtime KPIs & Monitoring Hooks**
+  - Avg latency target < 1 s
+  - Success-rate target ≥ 99 %
+  - Cost per call tracked via `A9_CostTracker`
+
+---
+
 # A9_LLM_Service_Agent Card
 
 ## Agent Overview

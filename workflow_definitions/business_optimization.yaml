@@ -1,0 +1,80 @@
+workflow:
+  name: Business Optimization
+  category: strategy_driven
+  description: >
+    Executive leadership-driven workflow to identify and implement optimizations across business operations in response to
+  steps:
+    - agent: A9_Orchestrator_Agent
+      entrypoint: orchestrate_workflow
+      input_model: OrchestratorWorkflowInput
+      output_model: OrchestratorWorkflowOutput
+      purpose: Oversee and coordinate the workflow execution, including step routing and monitoring.
+
+    - agent: A9_LLM_Service_Agent
+      entrypoint: process_text
+      input_model: LLMServiceInput
+      output_model: LLMServiceOutput
+      optional: true
+      purpose: Provide LLM-powered interpretation, summarization, or consensus-building for relevant TEXT fields.
+    economic, political-economic, or risk signals. Involves board input and considers a wide range of solution types,
+    including organizational, product, customer, or technical changes.
+
+  steps:
+    - agent: A9_Business_Optimization_Agent
+      entrypoint: analyze_optimization
+      input_model: A9_Business_Optimization_Input
+      output_model: A9_Business_Optimization_Output
+      purpose: Assess current operations, identify optimization signals, and generate initial recommendations.
+
+    - agent: A9_Market_Analysis_Agent
+      entrypoint: analyze_market_opportunity
+      input_model: MarketAnalysisInput
+      output_model: MarketAnalysisOutput
+      optional: true
+      purpose: Provide market context and identify external factors/opportunities.
+
+    - agent: A9_Risk_Analysis_Agent
+      entrypoint: analyze_risk
+      input_model: A9_Risk_Analysis_Input
+      output_model: A9_Risk_Analysis_Output
+      purpose: Evaluate risks associated with current operations and proposed optimizations.
+
+    - agent: A9_Stakeholder_Analysis_Agent
+      entrypoint: analyze_stakeholders
+      input_model: StakeholderAnalysisInput
+      output_model: StakeholderAnalysisResult
+      purpose: Assess stakeholder landscape, identify key influencers, and anticipate resistance/support.
+
+    - agent: A9_Solution_Finder_Agent
+      entrypoint: find_solutions
+      input_model: A9_Solution_Finder_Input
+      output_model: A9_Solution_Finder_Output
+      purpose: Generate and evaluate a broad set of potential solutions (organizational, product, customer, technical, etc.).
+
+    - agent: A9_Stakeholder_Engagement_Agent
+      entrypoint: analyze_stakeholder_engagement
+      input_model: A9_Stakeholder_Engagement_Input
+      output_model: A9_Stakeholder_Engagement_Output
+      purpose: Engage board and key stakeholders for feedback and buy-in on proposed optimizations.
+
+    - agent: A9_Orchestrator_Agent
+      entrypoint: orchestrate_workflow
+      input_model: OrchestratorWorkflowInput
+      output_model: OrchestratorWorkflowOutput
+      purpose: Oversee and coordinate the overall optimization process, including approval and implementation planning.
+
+  outputs:
+    - optimization_recommendations: List[Dict[str, Any]]
+    - market_context: str
+    - risk_assessment: Dict[str, Any]
+    - stakeholder_feedback: List[Dict[str, Any]]
+    - approved_solutions: List[Dict[str, Any]]
+
+  validations:
+    - All agent entrypoints must use Pydantic models as specified.
+    - Solutions considered must not be limited to technical changes.
+    - Stakeholder engagement and board input must be auditable and reviewable.
+
+  notes:
+    - This workflow is typically initiated by executive leadership or the board in response to strategic signals.
+    - May result in follow-on workflows for solution deployment, change management, or further analysis.

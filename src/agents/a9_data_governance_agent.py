@@ -28,7 +28,12 @@ from src.agents.models.data_governance_models import (
     DataQualityCheckRequest,
     DataQualityCheckResponse,
     DataLineageRequest,
-    DataLineageResponse
+    DataLineageResponse,
+    KPIDataProductMappingRequest,
+    KPIDataProductMappingResponse,
+    KPIDataProductMapping,
+    DataAssetPathRequest,
+    DataAssetPathResponse
 )
 
 # Setup logging
@@ -197,6 +202,192 @@ class A9_Data_Governance_Agent:
         # For MVP, implement a simple validation
         # In production, this would check against actual policies
         
+    async def map_kpis_to_data_products(
+        self, request: KPIDataProductMappingRequest
+    ) -> KPIDataProductMappingResponse:
+        """
+        Map KPIs to their corresponding data products.
+        
+        This method serves as the authoritative source for KPI to data product mappings,
+        ensuring consistent data access across the system.
+        
+        Args:
+            request: Contains KPI names to map and optional context
+            
+        Returns:
+            Response with KPI to data product mappings
+        """
+        if not self.business_glossary_provider:
+            self.logger.error("Business Glossary Provider not initialized")
+            return KPIDataProductMappingResponse(
+                mappings=[],
+                unmapped_kpis=request.kpi_names,
+                human_action_required=True,
+                human_action_context={
+                    "message": "Business Glossary Provider not available. Please contact your administrator."
+                }
+            )
+        
+        # Initialize response objects
+        mappings = []
+        unmapped_kpis = []
+        
+        # Process each KPI name
+        for kpi_name in request.kpi_names:
+            # First check if the KPI exists in the business glossary
+            kpi_term = self.business_glossary_provider.get_term(kpi_name)
+            
+            if kpi_term and hasattr(kpi_term, 'metadata') and kpi_term.metadata:
+                # If the KPI has a data_product_id in its metadata, use that
+                data_product_id = kpi_term.metadata.get('data_product_id')
+                if data_product_id:
+                    mappings.append(KPIDataProductMapping(
+                        kpi_name=kpi_name,
+                        data_product_id=data_product_id,
+                        technical_name=kpi_term.metadata.get('technical_name'),
+                        metadata=kpi_term.metadata
+                    ))
+                    continue
+            
+            # If we reach here, we couldn't find the mapping in the business glossary
+            # Try to infer from KPI name or context
+            inferred_data_product = self._infer_data_product_from_kpi(kpi_name, request.context)
+            
+            if inferred_data_product:
+                mappings.append(KPIDataProductMapping(
+                    kpi_name=kpi_name,
+                    data_product_id=inferred_data_product,
+                    technical_name=None,
+                    metadata={"source": "inferred"}
+                ))
+            else:
+                # If all else fails, use the default data product
+                default_data_product = "FI_Star_Schema"  # Default finance data product
+                mappings.append(KPIDataProductMapping(
+                    kpi_name=kpi_name,
+                    data_product_id=default_data_product,
+                    technical_name=None,
+                    metadata={"source": "default"}
+                ))
+                # Add to unmapped list for reporting
+                unmapped_kpis.append(kpi_name)
+        
+        # Determine if human action is required
+        human_action_required = len(unmapped_kpis) > 0
+        human_action_context = None
+        
+        if human_action_required:
+            human_action_context = {
+                "unmapped_kpis": unmapped_kpis,
+                "message": "These KPIs could not be mapped to specific data products and are using defaults."
+            }
+        
+        # Log the mapping operation for audit
+        self.logger.info(
+            f"KPI to data product mapping: {len(mappings)} mapped, "
+            f"{len(unmapped_kpis)} using default mapping"
+        )
+        
+        return KPIDataProductMappingResponse(
+            mappings=mappings,
+            unmapped_kpis=unmapped_kpis,
+            human_action_required=human_action_required,
+            human_action_context=human_action_context
+        )
+    
+    def _infer_data_product_from_kpi(self, kpi_name: str, context: Optional[Dict[str, Any]] = None) -> Optional[str]:
+        """
+        Infer the data product from KPI name or context.
+        
+        Args:
+            kpi_name: Name of the KPI
+            context: Additional context for inference
+            
+        Returns:
+            Inferred data product ID or None
+        """
+        kpi_name_lower = kpi_name.lower()
+        
+        # Finance KPIs
+        if any(term in kpi_name_lower for term in ['revenue', 'profit', 'margin', 'cost', 'expense', 'budget']):
+            return "FI_Star_Schema"
+        
+        # HR KPIs
+        if any(term in kpi_name_lower for term in ['employee', 'headcount', 'turnover', 'retention']):
+            return "HR_Data_Product"
+        
+        # Supply Chain KPIs
+        if any(term in kpi_name_lower for term in ['inventory', 'supply', 'logistics', 'warehouse']):
+            return "SC_Data_Product"
+        
+        # Use context if available
+        if context and 'business_domain' in context:
+            domain = context['business_domain'].lower()
+            if 'finance' in domain:
+                return "FI_Star_Schema"
+            elif 'hr' in domain or 'human resources' in domain:
+                return "HR_Data_Product"
+            elif 'supply' in domain or 'logistics' in domain:
+                return "SC_Data_Product"
+        
+        # No inference possible
+        return None
+        
+    async def get_data_asset_path(
+        self, request: DataAssetPathRequest
+    ) -> DataAssetPathResponse:
+        """
+        Resolve the path to a data asset.
+        
+        This method serves as the authoritative source for data asset locations,
+        ensuring consistent data access across the system.
+        
+        Args:
+            request: Contains asset name and optional context
+            
+        Returns:
+            Response with data asset path and metadata
+        """
+        # For MVP, implement a simple path resolution
+        # In production, this would query a metadata catalog or registry
+        
+        # Extract asset name and normalize
+        asset_name = request.asset_name.lower()
+        
+        # Default response values
+        data_product_id = "unknown"
+        asset_path = ""
+        access_type = "read"
+        metadata = {}
+        
+        # Map common assets to their locations
+        if "finance" in asset_name or "fi_" in asset_name:
+            data_product_id = "FI_Star_Schema"
+            asset_path = "data/agent9-hermes.duckdb"
+            metadata = {"schema": "finance", "type": "duckdb"}
+        elif "hr" in asset_name:
+            data_product_id = "HR_Data_Product"
+            asset_path = "data/agent9-athena.duckdb"
+            metadata = {"schema": "hr", "type": "duckdb"}
+        elif "apollo" in asset_name:
+            data_product_id = "Apollo_Data_Product"
+            asset_path = "data/agent9-apollo.duckdb"
+            metadata = {"schema": "apollo", "type": "duckdb"}
+        else:
+            # Default to the main data product
+            data_product_id = "FI_Star_Schema"
+            asset_path = "data/agent9-hermes.duckdb"
+            metadata = {"schema": "default", "type": "duckdb"}
+        
+        self.logger.info(f"Resolved asset path for {asset_name}: {asset_path}")
+        
+        return DataAssetPathResponse(
+            asset_name=request.asset_name,
+            data_product_id=data_product_id,
+            asset_path=asset_path,
+            access_type=access_type,
+            metadata=metadata
+        )
         # Log the access validation request for audit
         self.logger.info(
             f"Data access validation request: Principal {request.principal_id}, "

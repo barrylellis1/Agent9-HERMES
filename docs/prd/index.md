@@ -41,6 +41,22 @@ This document provides an index of all Product Requirement Documents (PRDs) for 
 
 | Data Product MCP Service | [services/a9_data_product_mcp_service_prd.md](services/a9_data_product_mcp_service_prd.md) | Provides data product capabilities as a microservice |
 
+## Workflow Definitions
+
+| Workflow | YAML Path |
+|----------|-----------|
+| Automated Situational Awareness | `workflow_definitions/automated_situational_awareness.yaml` |
+| Problem Deep Analysis | `workflow_definitions/problem_deep_analysis.yaml` |
+| Opportunity Deep Analysis | `workflow_definitions/opportunity_deep_analysis.yaml` |
+| Solution Finding | `workflow_definitions/solution_finding.yaml` |
+| Solution Deployment | `workflow_definitions/solution_deployment.yaml` |
+| Business Optimization | `workflow_definitions/business_optimization.yaml` |
+| Innovation Driver | `workflow_definitions/innovation_driver.yaml` |
+| Value Assurance | `workflow_definitions/value_assurance.yaml` |
+| Environment Administration | `workflow_definitions/agent9_environment_administration.yaml` |
+
+---
+
 ## Implementation Guidelines
 
 ### Agent Development

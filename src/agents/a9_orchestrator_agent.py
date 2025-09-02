@@ -143,6 +143,13 @@ class A9_Orchestrator_Agent:
         await agent.connect()
         return agent
     
+    @classmethod
+    async def create_from_registry(cls, config: Dict[str, Any] = None) -> 'A9_Orchestrator_Agent':
+        """
+        Alias for PRD-compliant factory naming. Delegates to create().
+        """
+        return await cls.create(config)
+    
     async def connect(self):
         """
         Connect to dependencies and initialize required resources.
@@ -319,7 +326,30 @@ class A9_Orchestrator_Agent:
             for agent_name, agent_class in agents.items():
                 try:
                     self.logger.info(f"Registering factory for {agent_name}")
-                    self.registry.register_agent_factory(agent_name, agent_class.create)
+                    # Prefer class.create when available
+                    factory = getattr(agent_class, 'create', None)
+                    if callable(factory):
+                        self.registry.register_agent_factory(agent_name, factory)
+                        continue
+
+                    # Fallback: support module-level factory functions following naming convention
+                    # Example: A9_Situation_Awareness_Agent -> create_situation_awareness_agent
+                    try:
+                        module = __import__(agent_class.__module__, fromlist=['*'])
+                        base = agent_name
+                        if base.startswith('A9_'):
+                            base = base[3:]
+                        if base.endswith('_Agent'):
+                            base = base[:-6]
+                        factory_name = f"create_{base.lower()}"
+                        module_level_factory = getattr(module, factory_name, None)
+                        if callable(module_level_factory):
+                            self.registry.register_agent_factory(agent_name, module_level_factory)
+                            self.logger.info(f"Registered module-level factory {factory_name} for {agent_name}")
+                        else:
+                            self.logger.warning(f"No factory found for {agent_name} (no class.create and missing {factory_name})")
+                    except Exception as inner_e:
+                        self.logger.warning(f"Fallback factory resolution failed for {agent_name}: {str(inner_e)}")
                 except Exception as e:
                     self.logger.warning(f"Failed to register factory for {agent_name}: {str(e)}")
             
@@ -353,13 +383,15 @@ async def initialize_agent_registry():
     """
     # Initialize agent registry with common agent factories
     from src.agents.a9_principal_context_agent import A9_Principal_Context_Agent
-    from src.agents.a9_situation_awareness_agent import A9_Situation_Awareness_Agent, create_situation_awareness_agent
+    from src.agents.a9_situation_awareness_agent import A9_Situation_Awareness_Agent
     from src.agents.a9_data_product_mcp_service_agent import A9_Data_Product_MCP_Service_Agent
     from src.agents.a9_data_governance_agent import A9_Data_Governance_Agent, create_data_governance_agent
     
     # Register agent factories
+    agent_registry.register_agent_factory("A9_Orchestrator_Agent", A9_Orchestrator_Agent.create)
     agent_registry.register_agent_factory("A9_Principal_Context_Agent", A9_Principal_Context_Agent.create)
-    agent_registry.register_agent_factory("A9_Situation_Awareness_Agent", create_situation_awareness_agent)
+    # Use async class factory to ensure connect() is awaited
+    agent_registry.register_agent_factory("A9_Situation_Awareness_Agent", A9_Situation_Awareness_Agent.create)
     agent_registry.register_agent_factory("A9_Data_Product_MCP_Service_Agent", A9_Data_Product_MCP_Service_Agent.create)
     agent_registry.register_agent_factory("A9_Data_Governance_Agent", A9_Data_Governance_Agent.create)
     

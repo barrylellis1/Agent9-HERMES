@@ -88,7 +88,12 @@ class RegistryFactory:
         """
         # Check if provider is replacing an existing one
         if name in self._providers:
-            logger.warning(f"Replacing existing {name} provider")
+            # If it's the same instance, don't replace and keep initialization status
+            if self._providers[name] is provider:
+                logger.info(f"Provider '{name}' already registered with same instance, skipping")
+                return
+            else:
+                logger.warning(f"Replacing existing {name} provider with new instance")
             
         self._providers[name] = provider
         self._provider_initialization_status[name] = False
@@ -125,8 +130,29 @@ class RegistryFactory:
         return self.get_provider('business_process')
     
     def get_kpi_provider(self) -> Optional[KPIProvider]:
-        """Get the KPI registry provider."""
-        return self.get_provider('kpi')
+        """
+        Get the KPI provider. If it doesn't exist, create and register a default one.
+        
+        Returns:
+            KPIProvider instance or None if creation fails
+        """
+        provider = self.get_provider("kpi")
+        
+        # If provider doesn't exist, create a default one
+        if provider is None:
+            try:
+                from src.registry.providers.kpi_provider import KPIProvider
+                logger.info("Creating default KPI provider since none exists")
+                provider = KPIProvider()  # Will use default KPIs
+                self.register_provider("kpi", provider)
+                # Mark as initialized
+                self._provider_initialization_status["kpi"] = True
+                logger.info("Default KPI provider created and registered successfully")
+            except Exception as e:
+                logger.error(f"Failed to create default KPI provider: {str(e)}")
+                return None
+                
+        return provider
     
     def get_principal_profile_provider(self) -> Optional[PrincipalProfileProvider]:
         """Get the principal profile registry provider."""

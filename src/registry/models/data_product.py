@@ -30,7 +30,7 @@ class TableDefinition(BaseModel):
     description: Optional[str] = Field(None, description="Description of the table")
     data_source_type: DataSourceType = Field(..., description="Type of data source")
     data_source_path: Optional[str] = Field(None, description="Path to the data source file/endpoint")
-    schema: Dict[str, str] = Field(default_factory=dict, description="Schema definition (column name to type)")
+    column_schema: Dict[str, str] = Field(default_factory=dict, description="Schema definition (column name to type)")
     primary_keys: List[str] = Field(default_factory=list, description="List of primary key columns")
     foreign_keys: Dict[str, str] = Field(default_factory=dict, description="Foreign key relationships")
     sample_data: Optional[List[Dict[str, Any]]] = Field(None, description="Sample data for this table")
@@ -142,12 +142,12 @@ class DataProduct(BaseModel):
         tables = {}
         for table_name, table_def in yaml_data.get("tables", {}).items():
             # Convert schema format to dict
-            schema = {}
+            schema_definition = {}
             for column in table_def.get("columns", []):
                 col_name = column.get("name")
                 col_type = column.get("type")
                 if col_name and col_type:
-                    schema[col_name] = col_type
+                    schema_definition[col_name] = col_type
             
             # Create table definition
             tables[table_name] = TableDefinition(
@@ -155,7 +155,7 @@ class DataProduct(BaseModel):
                 description=table_def.get("description", f"Table {table_name}"),
                 data_source_type=table_def.get("data_source_type", DataSourceType.CSV),
                 data_source_path=table_def.get("data_source_path"),
-                schema=schema,
+                column_schema=schema_definition,
                 primary_keys=table_def.get("primary_keys", []),
                 foreign_keys=table_def.get("foreign_keys", {})
             )

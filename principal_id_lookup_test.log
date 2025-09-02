@@ -1,0 +1,898 @@
+2025-09-01 15:01:01,682 - principal_id_lookup_test - INFO - Starting principal ID lookup tests
+2025-09-01 15:01:01,683 - principal_id_lookup_test - INFO - Starting ID-based principal lookup test
+2025-09-01 15:01:01,683 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Initializing A9_Principal_Context_Agent
+2025-09-01 15:01:01,683 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-01 15:01:01,684 - src.registry.factory - INFO - Registered principal_profile provider
+2025-09-01 15:01:01,684 - src.registry.providers.principal_provider - INFO - Loading principal profiles from C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\principal\principal_registry.yaml (yaml)
+2025-09-01 15:01:01,697 - src.registry.providers.principal_provider - INFO - Found 3 roles in YAML under 'roles' key
+2025-09-01 15:01:01,697 - src.registry.providers.principal_provider - INFO - Found 3 principal profiles in YAML under 'principals' key
+2025-09-01 15:01:01,698 - src.registry.providers.principal_provider - INFO - Registered principal: cfo_001 - Lars Mikkelsen
+2025-09-01 15:01:01,698 - src.registry.providers.principal_provider - INFO - Registered principal: ceo_001 - Alex Morgan
+2025-09-01 15:01:01,698 - src.registry.providers.principal_provider - INFO - Registered principal: coo_001 - Priya Desai
+2025-09-01 15:01:01,698 - src.registry.providers.principal_provider - INFO - Added role ID mapping: cfo_001 -> Lars Mikkelsen
+2025-09-01 15:01:01,699 - src.registry.providers.principal_provider - INFO - Added role ID mapping: ceo_001 -> Alex Morgan
+2025-09-01 15:01:01,700 - src.registry.providers.principal_provider - INFO - Added role ID mapping: coo_001 -> Priya Desai
+2025-09-01 15:01:01,700 - src.registry.providers.principal_provider - INFO - Loaded 3 principal profiles
+2025-09-01 15:01:01,700 - src.registry.bootstrap - INFO - Initialized principal provider with 3 profiles
+2025-09-01 15:01:01,701 - src.registry.factory - INFO - Registered data_product provider
+2025-09-01 15:01:01,701 - src.registry.providers.data_product_provider - INFO - Loading data products from C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\data_product\data_product_registry.yaml (yaml)
+2025-09-01 15:01:01,708 - src.registry.providers.data_product_provider - INFO - Loaded 1 data products
+2025-09-01 15:01:01,708 - src.registry.bootstrap - INFO - Initialized data product provider with 1 data products
+2025-09-01 15:01:01,709 - src.registry.bootstrap - INFO - Initializing agent bootstrap
+2025-09-01 15:01:01,718 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Governance_Agent but it lacks a create method
+2025-09-01 15:01:04,866 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:01:05,584 - src.agents.agent_bootstrap - WARNING - Found agent class A9_LLM_Service_Agent but it lacks a create method
+2025-09-01 15:01:05,584 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:01:05,585 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Principal_Context_Agent but it lacks a create method
+2025-09-01 15:01:05,590 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:01:05,590 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:01:05,591 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Situation_Awareness_Agent but it lacks a create method
+2025-09-01 15:01:05,596 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Governance_Agent but it lacks a create method
+2025-09-01 15:01:05,597 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:01:05,600 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Principal_Context_Agent but it lacks a create method
+2025-09-01 15:01:05,603 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:01:05,604 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:01:05,604 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Situation_Awareness_Agent but it lacks a create method
+2025-09-01 15:01:05,605 - src.agents.agent_bootstrap - WARNING - No agent implementations discovered
+2025-09-01 15:01:05,605 - src.registry.bootstrap - WARNING - Agent bootstrap initialization had issues, continuing with available agents
+2025-09-01 15:01:05,605 - src.registry.bootstrap - INFO - Registry providers and agent factories initialized successfully
+2025-09-01 15:01:05,606 - src.registry.factory - WARNING - Provider 'principal_profile' exists but may not be properly initialized
+2025-09-01 15:01:05,606 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - WARNING - No 'principals' key found in registry or no valid profiles, using defaults
+2025-09-01 15:01:05,626 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Loaded 3 principal profiles from registry file
+2025-09-01 15:01:05,627 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Connected to dependencies
+2025-09-01 15:01:05,629 - principal_id_lookup_test - INFO - Running test case 1: CFO by ID
+2025-09-01 15:01:05,629 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: cfo_001
+2025-09-01 15:01:05,630 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: cfo_001
+2025-09-01 15:01:05,631 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - ERROR - Error in get_principal_context: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': 'test-1', ...R: 'current_quarter'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing (ID: efb69fe9)
+2025-09-01 15:01:05,632 - principal_id_lookup_test - ERROR - Error running tests: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': 'test-1', ...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing
+Traceback (most recent call last):
+  File "C:\Users\barry\CascadeProjects\Agent9-HERMES\test_principal_id_lookup.py", line 91, in main
+    results = await test_id_based_lookup()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\barry\CascadeProjects\Agent9-HERMES\test_principal_id_lookup.py", line 63, in test_id_based_lookup
+    response = await agent.get_principal_context(request_data)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\barry\CascadeProjects\Agent9-HERMES\src\agents\a9_principal_context_agent.py", line 886, in get_principal_context
+    return PrincipalProfileResponse(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\barry\AppData\Local\Programs\Python\Python311\Lib\site-packages\pydantic\main.py", line 253, in __init__
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pydantic_core._pydantic_core.ValidationError: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': 'test-1', ...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing
+2025-09-01 15:01:39,008 - principal_id_lookup_test - INFO - Starting principal ID lookup tests
+2025-09-01 15:01:39,008 - principal_id_lookup_test - INFO - Starting ID-based principal lookup test
+2025-09-01 15:01:39,008 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Initializing A9_Principal_Context_Agent
+2025-09-01 15:01:39,009 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-01 15:01:39,009 - src.registry.factory - INFO - Registered principal_profile provider
+2025-09-01 15:01:39,010 - src.registry.providers.principal_provider - INFO - Loading principal profiles from C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\principal\principal_registry.yaml (yaml)
+2025-09-01 15:01:39,023 - src.registry.providers.principal_provider - INFO - Found 3 roles in YAML under 'roles' key
+2025-09-01 15:01:39,023 - src.registry.providers.principal_provider - INFO - Found 3 principal profiles in YAML under 'principals' key
+2025-09-01 15:01:39,023 - src.registry.providers.principal_provider - INFO - Registered principal: cfo_001 - Lars Mikkelsen
+2025-09-01 15:01:39,024 - src.registry.providers.principal_provider - INFO - Registered principal: ceo_001 - Alex Morgan
+2025-09-01 15:01:39,024 - src.registry.providers.principal_provider - INFO - Registered principal: coo_001 - Priya Desai
+2025-09-01 15:01:39,024 - src.registry.providers.principal_provider - INFO - Added role ID mapping: cfo_001 -> Lars Mikkelsen
+2025-09-01 15:01:39,025 - src.registry.providers.principal_provider - INFO - Added role ID mapping: ceo_001 -> Alex Morgan
+2025-09-01 15:01:39,025 - src.registry.providers.principal_provider - INFO - Added role ID mapping: coo_001 -> Priya Desai
+2025-09-01 15:01:39,025 - src.registry.providers.principal_provider - INFO - Loaded 3 principal profiles
+2025-09-01 15:01:39,025 - src.registry.bootstrap - INFO - Initialized principal provider with 3 profiles
+2025-09-01 15:01:39,025 - src.registry.factory - INFO - Registered data_product provider
+2025-09-01 15:01:39,026 - src.registry.providers.data_product_provider - INFO - Loading data products from C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\data_product\data_product_registry.yaml (yaml)
+2025-09-01 15:01:39,031 - src.registry.providers.data_product_provider - INFO - Loaded 1 data products
+2025-09-01 15:01:39,031 - src.registry.bootstrap - INFO - Initialized data product provider with 1 data products
+2025-09-01 15:01:39,031 - src.registry.bootstrap - INFO - Initializing agent bootstrap
+2025-09-01 15:01:39,043 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Governance_Agent but it lacks a create method
+2025-09-01 15:01:39,665 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:01:40,276 - src.agents.agent_bootstrap - WARNING - Found agent class A9_LLM_Service_Agent but it lacks a create method
+2025-09-01 15:01:40,277 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:01:40,277 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Principal_Context_Agent but it lacks a create method
+2025-09-01 15:01:40,282 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:01:40,282 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:01:40,282 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Situation_Awareness_Agent but it lacks a create method
+2025-09-01 15:01:40,286 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Governance_Agent but it lacks a create method
+2025-09-01 15:01:40,286 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:01:40,289 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Principal_Context_Agent but it lacks a create method
+2025-09-01 15:01:40,291 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:01:40,291 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:01:40,292 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Situation_Awareness_Agent but it lacks a create method
+2025-09-01 15:01:40,292 - src.agents.agent_bootstrap - WARNING - No agent implementations discovered
+2025-09-01 15:01:40,292 - src.registry.bootstrap - WARNING - Agent bootstrap initialization had issues, continuing with available agents
+2025-09-01 15:01:40,293 - src.registry.bootstrap - INFO - Registry providers and agent factories initialized successfully
+2025-09-01 15:01:40,293 - src.registry.factory - WARNING - Provider 'principal_profile' exists but may not be properly initialized
+2025-09-01 15:01:40,293 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - WARNING - No 'principals' key found in registry or no valid profiles, using defaults
+2025-09-01 15:01:40,304 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Loaded 3 principal profiles from registry file
+2025-09-01 15:01:40,305 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Connected to dependencies
+2025-09-01 15:01:40,305 - principal_id_lookup_test - INFO - Running test case 1: CFO by ID
+2025-09-01 15:01:40,305 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: cfo_001
+2025-09-01 15:01:40,307 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: cfo_001
+2025-09-01 15:01:40,309 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - ERROR - Error in get_principal_context: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': 'test-1', ...R: 'current_quarter'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing (ID: 63bf7351)
+2025-09-01 15:01:40,310 - principal_id_lookup_test - ERROR - Error running tests: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': 'test-1', ...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing
+Traceback (most recent call last):
+  File "C:\Users\barry\CascadeProjects\Agent9-HERMES\test_principal_id_lookup.py", line 92, in main
+    results = await test_id_based_lookup()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\barry\CascadeProjects\Agent9-HERMES\test_principal_id_lookup.py", line 64, in test_id_based_lookup
+    response = await agent.get_principal_context(request_data)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\barry\CascadeProjects\Agent9-HERMES\src\agents\a9_principal_context_agent.py", line 886, in get_principal_context
+    return PrincipalProfileResponse(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\barry\AppData\Local\Programs\Python\Python311\Lib\site-packages\pydantic\main.py", line 253, in __init__
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pydantic_core._pydantic_core.ValidationError: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': 'test-1', ...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing
+2025-09-01 15:02:45,719 - principal_id_lookup_test - INFO - Starting principal ID lookup tests
+2025-09-01 15:02:45,719 - principal_id_lookup_test - INFO - Starting ID-based principal lookup test
+2025-09-01 15:02:45,720 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Initializing A9_Principal_Context_Agent
+2025-09-01 15:02:45,720 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-01 15:02:45,720 - src.registry.factory - INFO - Registered principal_profile provider
+2025-09-01 15:02:45,721 - src.registry.providers.principal_provider - INFO - Loading principal profiles from C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\principal\principal_registry.yaml (yaml)
+2025-09-01 15:02:45,732 - src.registry.providers.principal_provider - INFO - Found 3 roles in YAML under 'roles' key
+2025-09-01 15:02:45,733 - src.registry.providers.principal_provider - INFO - Found 3 principal profiles in YAML under 'principals' key
+2025-09-01 15:02:45,733 - src.registry.providers.principal_provider - INFO - Registered principal: cfo_001 - Lars Mikkelsen
+2025-09-01 15:02:45,734 - src.registry.providers.principal_provider - INFO - Registered principal: ceo_001 - Alex Morgan
+2025-09-01 15:02:45,734 - src.registry.providers.principal_provider - INFO - Registered principal: coo_001 - Priya Desai
+2025-09-01 15:02:45,734 - src.registry.providers.principal_provider - INFO - Added role ID mapping: cfo_001 -> Lars Mikkelsen
+2025-09-01 15:02:45,735 - src.registry.providers.principal_provider - INFO - Added role ID mapping: ceo_001 -> Alex Morgan
+2025-09-01 15:02:45,735 - src.registry.providers.principal_provider - INFO - Added role ID mapping: coo_001 -> Priya Desai
+2025-09-01 15:02:45,736 - src.registry.providers.principal_provider - INFO - Loaded 3 principal profiles
+2025-09-01 15:02:45,736 - src.registry.bootstrap - INFO - Initialized principal provider with 3 profiles
+2025-09-01 15:02:45,736 - src.registry.factory - INFO - Registered data_product provider
+2025-09-01 15:02:45,736 - src.registry.providers.data_product_provider - INFO - Loading data products from C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\data_product\data_product_registry.yaml (yaml)
+2025-09-01 15:02:45,741 - src.registry.providers.data_product_provider - INFO - Loaded 1 data products
+2025-09-01 15:02:45,741 - src.registry.bootstrap - INFO - Initialized data product provider with 1 data products
+2025-09-01 15:02:45,741 - src.registry.bootstrap - INFO - Initializing agent bootstrap
+2025-09-01 15:02:45,751 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Governance_Agent but it lacks a create method
+2025-09-01 15:02:46,194 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:02:46,669 - src.agents.agent_bootstrap - WARNING - Found agent class A9_LLM_Service_Agent but it lacks a create method
+2025-09-01 15:02:46,669 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:02:46,669 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Principal_Context_Agent but it lacks a create method
+2025-09-01 15:02:46,673 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:02:46,674 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:02:46,674 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Situation_Awareness_Agent but it lacks a create method
+2025-09-01 15:02:46,676 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Governance_Agent but it lacks a create method
+2025-09-01 15:02:46,677 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:02:46,678 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Principal_Context_Agent but it lacks a create method
+2025-09-01 15:02:46,679 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:02:46,679 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:02:46,680 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Situation_Awareness_Agent but it lacks a create method
+2025-09-01 15:02:46,680 - src.agents.agent_bootstrap - WARNING - No agent implementations discovered
+2025-09-01 15:02:46,680 - src.registry.bootstrap - WARNING - Agent bootstrap initialization had issues, continuing with available agents
+2025-09-01 15:02:46,680 - src.registry.bootstrap - INFO - Registry providers and agent factories initialized successfully
+2025-09-01 15:02:46,680 - src.registry.factory - WARNING - Provider 'principal_profile' exists but may not be properly initialized
+2025-09-01 15:02:46,681 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - WARNING - No 'principals' key found in registry or no valid profiles, using defaults
+2025-09-01 15:02:46,691 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Loaded 3 principal profiles from registry file
+2025-09-01 15:02:46,692 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Connected to dependencies
+2025-09-01 15:02:46,692 - principal_id_lookup_test - INFO - Running test case 1: CFO by ID string
+2025-09-01 15:02:46,693 - principal_id_lookup_test - INFO - Calling get_principal_context with input: cfo_001
+2025-09-01 15:02:46,693 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: cfo_001
+2025-09-01 15:02:46,693 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: cfo_001
+2025-09-01 15:02:46,694 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - ERROR - Error in get_principal_context: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': 'fa5a1110-...R: 'current_quarter'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing (ID: 3888360e)
+2025-09-01 15:02:46,695 - principal_id_lookup_test - ERROR - Error running tests: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': 'fa5a1110-...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing
+Traceback (most recent call last):
+  File "C:\Users\barry\CascadeProjects\Agent9-HERMES\test_principal_id_lookup.py", line 98, in main
+    results = await test_id_based_lookup()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\barry\CascadeProjects\Agent9-HERMES\test_principal_id_lookup.py", line 70, in test_id_based_lookup
+    response = await agent.get_principal_context(input_value)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\barry\CascadeProjects\Agent9-HERMES\src\agents\a9_principal_context_agent.py", line 886, in get_principal_context
+    return PrincipalProfileResponse(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\barry\AppData\Local\Programs\Python\Python311\Lib\site-packages\pydantic\main.py", line 253, in __init__
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pydantic_core._pydantic_core.ValidationError: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': 'fa5a1110-...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing
+2025-09-01 15:04:13,581 - principal_id_lookup_test - INFO - Starting principal ID lookup tests
+2025-09-01 15:04:13,581 - principal_id_lookup_test - INFO - Starting ID-based principal lookup test
+2025-09-01 15:04:13,581 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Initializing A9_Principal_Context_Agent
+2025-09-01 15:04:13,582 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-01 15:04:13,582 - src.registry.factory - INFO - Registered principal_profile provider
+2025-09-01 15:04:13,582 - src.registry.providers.principal_provider - INFO - Loading principal profiles from C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\principal\principal_registry.yaml (yaml)
+2025-09-01 15:04:13,596 - src.registry.providers.principal_provider - INFO - Found 3 roles in YAML under 'roles' key
+2025-09-01 15:04:13,596 - src.registry.providers.principal_provider - INFO - Found 3 principal profiles in YAML under 'principals' key
+2025-09-01 15:04:13,597 - src.registry.providers.principal_provider - INFO - Registered principal: cfo_001 - Lars Mikkelsen
+2025-09-01 15:04:13,597 - src.registry.providers.principal_provider - INFO - Registered principal: ceo_001 - Alex Morgan
+2025-09-01 15:04:13,597 - src.registry.providers.principal_provider - INFO - Registered principal: coo_001 - Priya Desai
+2025-09-01 15:04:13,597 - src.registry.providers.principal_provider - INFO - Added role ID mapping: cfo_001 -> Lars Mikkelsen
+2025-09-01 15:04:13,598 - src.registry.providers.principal_provider - INFO - Added role ID mapping: ceo_001 -> Alex Morgan
+2025-09-01 15:04:13,598 - src.registry.providers.principal_provider - INFO - Added role ID mapping: coo_001 -> Priya Desai
+2025-09-01 15:04:13,598 - src.registry.providers.principal_provider - INFO - Loaded 3 principal profiles
+2025-09-01 15:04:13,598 - src.registry.bootstrap - INFO - Initialized principal provider with 3 profiles
+2025-09-01 15:04:13,599 - src.registry.factory - INFO - Registered data_product provider
+2025-09-01 15:04:13,599 - src.registry.providers.data_product_provider - INFO - Loading data products from C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\data_product\data_product_registry.yaml (yaml)
+2025-09-01 15:04:13,606 - src.registry.providers.data_product_provider - INFO - Loaded 1 data products
+2025-09-01 15:04:13,607 - src.registry.bootstrap - INFO - Initialized data product provider with 1 data products
+2025-09-01 15:04:13,607 - src.registry.bootstrap - INFO - Initializing agent bootstrap
+2025-09-01 15:04:13,617 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Governance_Agent but it lacks a create method
+2025-09-01 15:04:14,080 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:04:14,544 - src.agents.agent_bootstrap - WARNING - Found agent class A9_LLM_Service_Agent but it lacks a create method
+2025-09-01 15:04:14,545 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:04:14,545 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Principal_Context_Agent but it lacks a create method
+2025-09-01 15:04:14,548 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:04:14,549 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:04:14,549 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Situation_Awareness_Agent but it lacks a create method
+2025-09-01 15:04:14,551 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Governance_Agent but it lacks a create method
+2025-09-01 15:04:14,553 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:04:14,554 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Principal_Context_Agent but it lacks a create method
+2025-09-01 15:04:14,554 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:04:14,554 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:04:14,556 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Situation_Awareness_Agent but it lacks a create method
+2025-09-01 15:04:14,556 - src.agents.agent_bootstrap - WARNING - No agent implementations discovered
+2025-09-01 15:04:14,556 - src.registry.bootstrap - WARNING - Agent bootstrap initialization had issues, continuing with available agents
+2025-09-01 15:04:14,556 - src.registry.bootstrap - INFO - Registry providers and agent factories initialized successfully
+2025-09-01 15:04:14,556 - src.registry.factory - WARNING - Provider 'principal_profile' exists but may not be properly initialized
+2025-09-01 15:04:14,557 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - WARNING - No 'principals' key found in registry or no valid profiles, using defaults
+2025-09-01 15:04:14,566 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Loaded 3 principal profiles from registry file
+2025-09-01 15:04:14,567 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Connected to dependencies
+2025-09-01 15:04:14,567 - principal_id_lookup_test - INFO - Running test case 1: CFO by ID string
+2025-09-01 15:04:14,567 - principal_id_lookup_test - INFO - Calling get_principal_context with input: cfo_001
+2025-09-01 15:04:14,568 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: cfo_001
+2025-09-01 15:04:14,568 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: cfo_001
+2025-09-01 15:04:14,570 - principal_id_lookup_test - INFO - Test case 1 result: success - Principal context retrieved successfully
+2025-09-01 15:04:14,571 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:04:14,571 - principal_id_lookup_test - INFO - Running test case 2: CEO by ID string
+2025-09-01 15:04:14,571 - principal_id_lookup_test - INFO - Calling get_principal_context with input: ceo_001
+2025-09-01 15:04:14,571 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: ceo_001
+2025-09-01 15:04:14,572 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: ceo_001
+2025-09-01 15:04:14,572 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Mapped role 'ceo' to enum value 'PrincipalRole.CFO'
+2025-09-01 15:04:14,573 - principal_id_lookup_test - INFO - Test case 2 result: success - Principal context retrieved successfully
+2025-09-01 15:04:14,573 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: ceo_001
+2025-09-01 15:04:14,573 - principal_id_lookup_test - INFO - Running test case 3: COO by ID string
+2025-09-01 15:04:14,573 - principal_id_lookup_test - INFO - Calling get_principal_context with input: coo_001
+2025-09-01 15:04:14,573 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: coo_001
+2025-09-01 15:04:14,573 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: coo_001
+2025-09-01 15:04:14,575 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Mapped role 'coo' to enum value 'PrincipalRole.CFO'
+2025-09-01 15:04:14,575 - principal_id_lookup_test - INFO - Test case 3 result: success - Principal context retrieved successfully
+2025-09-01 15:04:14,575 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: coo_001
+2025-09-01 15:04:14,576 - principal_id_lookup_test - INFO - Running test case 4: CFO by role string
+2025-09-01 15:04:14,576 - principal_id_lookup_test - INFO - Calling get_principal_context with input: CFO
+2025-09-01 15:04:14,576 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: CFO
+2025-09-01 15:04:14,576 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: CFO
+2025-09-01 15:04:14,577 - principal_id_lookup_test - INFO - Test case 4 result: success - Principal context retrieved successfully
+2025-09-01 15:04:14,577 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:04:14,577 - principal_id_lookup_test - INFO - Running test case 5: CEO by role string
+2025-09-01 15:04:14,577 - principal_id_lookup_test - INFO - Calling get_principal_context with input: CEO
+2025-09-01 15:04:14,577 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: CEO
+2025-09-01 15:04:14,578 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: CEO
+2025-09-01 15:04:14,578 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Mapped role 'ceo' to enum value 'PrincipalRole.CFO'
+2025-09-01 15:04:14,579 - principal_id_lookup_test - INFO - Test case 5 result: success - Principal context retrieved successfully
+2025-09-01 15:04:14,579 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: ceo_001
+2025-09-01 15:04:14,579 - principal_id_lookup_test - INFO - Running test case 6: CFO by lowercase role string
+2025-09-01 15:04:14,579 - principal_id_lookup_test - INFO - Calling get_principal_context with input: cfo
+2025-09-01 15:04:14,579 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: cfo
+2025-09-01 15:04:14,580 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: cfo
+2025-09-01 15:04:14,580 - principal_id_lookup_test - INFO - Test case 6 result: success - Principal context retrieved successfully
+2025-09-01 15:04:14,580 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:04:14,581 - principal_id_lookup_test - INFO - Running test case 7: CFO by ID dict
+2025-09-01 15:04:14,581 - principal_id_lookup_test - INFO - Calling get_principal_context with input: {'principal_id': 'cfo_001', 'request_id': 'dict-id-1'}
+2025-09-01 15:04:14,581 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: cfo_001
+2025-09-01 15:04:14,581 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: cfo_001
+2025-09-01 15:04:14,582 - principal_id_lookup_test - INFO - Test case 7 result: success - Principal context retrieved successfully
+2025-09-01 15:04:14,582 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:04:14,582 - principal_id_lookup_test - INFO - Running test case 8: CFO by role dict
+2025-09-01 15:04:14,582 - principal_id_lookup_test - INFO - Calling get_principal_context with input: {'principal_role': 'CFO', 'request_id': 'dict-role-1'}
+2025-09-01 15:04:14,582 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: CFO
+2025-09-01 15:04:14,583 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: CFO
+2025-09-01 15:04:14,583 - principal_id_lookup_test - INFO - Test case 8 result: success - Principal context retrieved successfully
+2025-09-01 15:04:14,583 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:04:14,584 - principal_id_lookup_test - INFO - Running test case 9: CFO by lowercase role dict
+2025-09-01 15:04:14,584 - principal_id_lookup_test - INFO - Calling get_principal_context with input: {'principal_role': 'cfo', 'request_id': 'dict-role-2'}
+2025-09-01 15:04:14,584 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: cfo
+2025-09-01 15:04:14,585 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: cfo
+2025-09-01 15:04:14,585 - principal_id_lookup_test - INFO - Test case 9 result: success - Principal context retrieved successfully
+2025-09-01 15:04:14,586 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:04:14,587 - principal_id_lookup_test - INFO - Running test case 10: Nonexistent ID string
+2025-09-01 15:04:14,587 - principal_id_lookup_test - INFO - Calling get_principal_context with input: nonexistent_id
+2025-09-01 15:04:14,587 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: nonexistent_id
+2025-09-01 15:04:14,587 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - WARNING - Principal profile not found for ID: nonexistent_id
+2025-09-01 15:04:14,588 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - ERROR - Error in get_principal_context: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': 'c5be1a96-...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing (ID: 211866f5)
+2025-09-01 15:04:14,589 - principal_id_lookup_test - INFO - Test case 10 result: error - Error getting principal context: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': 'c5be1a96-...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing (error ID: 211866f5)
+2025-09-01 15:04:14,589 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: nonexistent_id
+2025-09-01 15:04:14,590 - principal_id_lookup_test - INFO - Running test case 11: Nonexistent role string
+2025-09-01 15:04:14,590 - principal_id_lookup_test - INFO - Calling get_principal_context with input: Nonexistent Role
+2025-09-01 15:04:14,590 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: Nonexistent Role
+2025-09-01 15:04:14,590 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - WARNING - Principal profile not found for role: Nonexistent Role
+2025-09-01 15:04:14,591 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Mapped role 'nonexistent role' to enum value 'PrincipalRole.CFO'
+2025-09-01 15:04:14,591 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Generated fallback principal ID: cfo_default
+2025-09-01 15:04:14,591 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - ERROR - Error in get_principal_context: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': 'a62156a0-...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing (ID: 0aa187ad)
+2025-09-01 15:04:14,592 - principal_id_lookup_test - INFO - Test case 11 result: error - Error getting principal context: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': 'a62156a0-...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing (error ID: 0aa187ad)
+2025-09-01 15:04:14,592 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_default
+2025-09-01 15:04:14,592 - principal_id_lookup_test - INFO - 
+===== TEST RESULTS SUMMARY =====
+2025-09-01 15:04:14,593 - principal_id_lookup_test - INFO - 1. CFO by ID string: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:04:14,593 - principal_id_lookup_test - INFO - 2. CEO by ID string: success - Role: PrincipalRole.CFO, ID: ceo_001
+2025-09-01 15:04:14,593 - principal_id_lookup_test - INFO - 3. COO by ID string: success - Role: PrincipalRole.CFO, ID: coo_001
+2025-09-01 15:04:14,593 - principal_id_lookup_test - INFO - 4. CFO by role string: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:04:14,593 - principal_id_lookup_test - INFO - 5. CEO by role string: success - Role: PrincipalRole.CFO, ID: ceo_001
+2025-09-01 15:04:14,594 - principal_id_lookup_test - INFO - 6. CFO by lowercase role string: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:04:14,594 - principal_id_lookup_test - INFO - 7. CFO by ID dict: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:04:14,594 - principal_id_lookup_test - INFO - 8. CFO by role dict: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:04:14,594 - principal_id_lookup_test - INFO - 9. CFO by lowercase role dict: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:04:14,594 - principal_id_lookup_test - INFO - 10. Nonexistent ID string: error - Role: PrincipalRole.CFO, ID: nonexistent_id
+2025-09-01 15:04:14,594 - principal_id_lookup_test - INFO - 11. Nonexistent role string: error - Role: PrincipalRole.CFO, ID: cfo_default
+2025-09-01 15:04:14,596 - principal_id_lookup_test - INFO - Tests completed successfully. Results saved to principal_id_lookup_results.json
+2025-09-01 15:05:36,354 - principal_id_lookup_test - INFO - Starting principal ID lookup tests
+2025-09-01 15:05:36,355 - principal_id_lookup_test - INFO - Starting ID-based principal lookup test
+2025-09-01 15:05:36,355 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Initializing A9_Principal_Context_Agent
+2025-09-01 15:05:36,359 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-01 15:05:36,362 - src.registry.factory - INFO - Registered principal_profile provider
+2025-09-01 15:05:36,362 - src.registry.providers.principal_provider - INFO - Loading principal profiles from C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\principal\principal_registry.yaml (yaml)
+2025-09-01 15:05:36,391 - src.registry.providers.principal_provider - INFO - Found 3 roles in YAML under 'roles' key
+2025-09-01 15:05:36,394 - src.registry.providers.principal_provider - INFO - Found 3 principal profiles in YAML under 'principals' key
+2025-09-01 15:05:36,395 - src.registry.providers.principal_provider - INFO - Registered principal: cfo_001 - Lars Mikkelsen
+2025-09-01 15:05:36,396 - src.registry.providers.principal_provider - INFO - Registered principal: ceo_001 - Alex Morgan
+2025-09-01 15:05:36,397 - src.registry.providers.principal_provider - INFO - Registered principal: coo_001 - Priya Desai
+2025-09-01 15:05:36,397 - src.registry.providers.principal_provider - INFO - Added role ID mapping: cfo_001 -> Lars Mikkelsen
+2025-09-01 15:05:36,398 - src.registry.providers.principal_provider - INFO - Added role ID mapping: ceo_001 -> Alex Morgan
+2025-09-01 15:05:36,399 - src.registry.providers.principal_provider - INFO - Added role ID mapping: coo_001 -> Priya Desai
+2025-09-01 15:05:36,399 - src.registry.providers.principal_provider - INFO - Loaded 3 principal profiles
+2025-09-01 15:05:36,400 - src.registry.bootstrap - INFO - Initialized principal provider with 3 profiles
+2025-09-01 15:05:36,400 - src.registry.factory - INFO - Registered data_product provider
+2025-09-01 15:05:36,401 - src.registry.providers.data_product_provider - INFO - Loading data products from C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\data_product\data_product_registry.yaml (yaml)
+2025-09-01 15:05:36,419 - src.registry.providers.data_product_provider - INFO - Loaded 1 data products
+2025-09-01 15:05:36,420 - src.registry.bootstrap - INFO - Initialized data product provider with 1 data products
+2025-09-01 15:05:36,420 - src.registry.bootstrap - INFO - Initializing agent bootstrap
+2025-09-01 15:05:36,448 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Governance_Agent but it lacks a create method
+2025-09-01 15:05:37,271 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:05:37,924 - src.agents.agent_bootstrap - WARNING - Found agent class A9_LLM_Service_Agent but it lacks a create method
+2025-09-01 15:05:37,925 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:05:37,926 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Principal_Context_Agent but it lacks a create method
+2025-09-01 15:05:37,930 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:05:37,931 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:05:37,931 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Situation_Awareness_Agent but it lacks a create method
+2025-09-01 15:05:37,935 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Governance_Agent but it lacks a create method
+2025-09-01 15:05:37,936 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:05:37,937 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Principal_Context_Agent but it lacks a create method
+2025-09-01 15:05:37,938 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:05:37,939 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:05:37,939 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Situation_Awareness_Agent but it lacks a create method
+2025-09-01 15:05:37,939 - src.agents.agent_bootstrap - WARNING - No agent implementations discovered
+2025-09-01 15:05:37,940 - src.registry.bootstrap - WARNING - Agent bootstrap initialization had issues, continuing with available agents
+2025-09-01 15:05:37,940 - src.registry.bootstrap - INFO - Registry providers and agent factories initialized successfully
+2025-09-01 15:05:37,941 - src.registry.factory - WARNING - Provider 'principal_profile' exists but may not be properly initialized
+2025-09-01 15:05:37,941 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - WARNING - No 'principals' key found in registry or no valid profiles, using defaults
+2025-09-01 15:05:37,954 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Loaded 3 principal profiles from registry file
+2025-09-01 15:05:37,955 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Connected to dependencies
+2025-09-01 15:05:37,956 - principal_id_lookup_test - INFO - Running test case 1: CFO by ID string
+2025-09-01 15:05:37,956 - principal_id_lookup_test - INFO - Calling get_principal_context with input: cfo_001
+2025-09-01 15:05:37,957 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: cfo_001
+2025-09-01 15:05:37,958 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: cfo_001
+2025-09-01 15:05:37,958 - principal_id_lookup_test - INFO - Test case 1 result: success - Principal context retrieved successfully
+2025-09-01 15:05:37,959 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:05:37,959 - principal_id_lookup_test - INFO - Running test case 2: CEO by ID string
+2025-09-01 15:05:37,959 - principal_id_lookup_test - INFO - Calling get_principal_context with input: ceo_001
+2025-09-01 15:05:37,960 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: ceo_001
+2025-09-01 15:05:37,960 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: ceo_001
+2025-09-01 15:05:37,961 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Mapped role 'ceo' to enum value 'PrincipalRole.CFO'
+2025-09-01 15:05:37,961 - principal_id_lookup_test - INFO - Test case 2 result: success - Principal context retrieved successfully
+2025-09-01 15:05:37,961 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: ceo_001
+2025-09-01 15:05:37,962 - principal_id_lookup_test - INFO - Running test case 3: COO by ID string
+2025-09-01 15:05:37,962 - principal_id_lookup_test - INFO - Calling get_principal_context with input: coo_001
+2025-09-01 15:05:37,962 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: coo_001
+2025-09-01 15:05:37,963 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: coo_001
+2025-09-01 15:05:37,963 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Mapped role 'coo' to enum value 'PrincipalRole.CFO'
+2025-09-01 15:05:37,964 - principal_id_lookup_test - INFO - Test case 3 result: success - Principal context retrieved successfully
+2025-09-01 15:05:37,964 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: coo_001
+2025-09-01 15:05:37,964 - principal_id_lookup_test - INFO - Running test case 4: CFO by role string
+2025-09-01 15:05:37,965 - principal_id_lookup_test - INFO - Calling get_principal_context with input: CFO
+2025-09-01 15:05:37,965 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: CFO
+2025-09-01 15:05:37,966 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: CFO
+2025-09-01 15:05:37,967 - principal_id_lookup_test - INFO - Test case 4 result: success - Principal context retrieved successfully
+2025-09-01 15:05:37,967 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:05:37,967 - principal_id_lookup_test - INFO - Running test case 5: CEO by role string
+2025-09-01 15:05:37,968 - principal_id_lookup_test - INFO - Calling get_principal_context with input: CEO
+2025-09-01 15:05:37,968 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: CEO
+2025-09-01 15:05:37,968 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: CEO
+2025-09-01 15:05:37,969 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Mapped role 'ceo' to enum value 'PrincipalRole.CFO'
+2025-09-01 15:05:37,970 - principal_id_lookup_test - INFO - Test case 5 result: success - Principal context retrieved successfully
+2025-09-01 15:05:37,970 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: ceo_001
+2025-09-01 15:05:37,970 - principal_id_lookup_test - INFO - Running test case 6: CFO by lowercase role string
+2025-09-01 15:05:37,970 - principal_id_lookup_test - INFO - Calling get_principal_context with input: cfo
+2025-09-01 15:05:37,970 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: cfo
+2025-09-01 15:05:37,971 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: cfo
+2025-09-01 15:05:37,971 - principal_id_lookup_test - INFO - Test case 6 result: success - Principal context retrieved successfully
+2025-09-01 15:05:37,971 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:05:37,972 - principal_id_lookup_test - INFO - Running test case 7: CFO by ID dict
+2025-09-01 15:05:37,972 - principal_id_lookup_test - INFO - Calling get_principal_context with input: {'principal_id': 'cfo_001', 'request_id': 'dict-id-1'}
+2025-09-01 15:05:37,972 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: cfo_001
+2025-09-01 15:05:37,973 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: cfo_001
+2025-09-01 15:05:37,973 - principal_id_lookup_test - INFO - Test case 7 result: success - Principal context retrieved successfully
+2025-09-01 15:05:37,974 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:05:37,974 - principal_id_lookup_test - INFO - Running test case 8: CFO by role dict
+2025-09-01 15:05:37,975 - principal_id_lookup_test - INFO - Calling get_principal_context with input: {'principal_role': 'CFO', 'request_id': 'dict-role-1'}
+2025-09-01 15:05:37,975 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: CFO
+2025-09-01 15:05:37,975 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: CFO
+2025-09-01 15:05:37,976 - principal_id_lookup_test - INFO - Test case 8 result: success - Principal context retrieved successfully
+2025-09-01 15:05:37,976 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:05:37,976 - principal_id_lookup_test - INFO - Running test case 9: CFO by lowercase role dict
+2025-09-01 15:05:37,977 - principal_id_lookup_test - INFO - Calling get_principal_context with input: {'principal_role': 'cfo', 'request_id': 'dict-role-2'}
+2025-09-01 15:05:37,977 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: cfo
+2025-09-01 15:05:37,977 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: cfo
+2025-09-01 15:05:37,978 - principal_id_lookup_test - INFO - Test case 9 result: success - Principal context retrieved successfully
+2025-09-01 15:05:37,978 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:05:37,979 - principal_id_lookup_test - INFO - Running test case 10: Nonexistent ID string
+2025-09-01 15:05:37,979 - principal_id_lookup_test - INFO - Calling get_principal_context with input: nonexistent_id
+2025-09-01 15:05:37,979 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: nonexistent_id
+2025-09-01 15:05:37,979 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - WARNING - Principal profile not found for ID: nonexistent_id
+2025-09-01 15:05:37,980 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - ERROR - Error in get_principal_context: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': '7dd26a4f-...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing (ID: 096d77a3)
+2025-09-01 15:05:37,982 - principal_id_lookup_test - INFO - Test case 10 result: error - Error getting principal context: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': '7dd26a4f-...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing (error ID: 096d77a3)
+2025-09-01 15:05:37,982 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: nonexistent_id
+2025-09-01 15:05:37,982 - principal_id_lookup_test - INFO - Running test case 11: Nonexistent role string
+2025-09-01 15:05:37,982 - principal_id_lookup_test - INFO - Calling get_principal_context with input: Nonexistent Role
+2025-09-01 15:05:37,982 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: Nonexistent Role
+2025-09-01 15:05:37,982 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - WARNING - Principal profile not found for role: Nonexistent Role
+2025-09-01 15:05:37,984 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Mapped role 'nonexistent role' to enum value 'PrincipalRole.CFO'
+2025-09-01 15:05:37,984 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Generated fallback principal ID: cfo_default
+2025-09-01 15:05:37,985 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - ERROR - Error in get_principal_context: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': '034f79fc-...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing (ID: 266dea3d)
+2025-09-01 15:05:37,985 - principal_id_lookup_test - INFO - Test case 11 result: error - Error getting principal context: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': '034f79fc-...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing (error ID: 266dea3d)
+2025-09-01 15:05:37,985 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_default
+2025-09-01 15:05:37,985 - principal_id_lookup_test - INFO - 
+===== TEST RESULTS SUMMARY =====
+2025-09-01 15:05:37,986 - principal_id_lookup_test - INFO - 1. CFO by ID string: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:05:37,986 - principal_id_lookup_test - INFO - 2. CEO by ID string: success - Role: PrincipalRole.CFO, ID: ceo_001
+2025-09-01 15:05:37,986 - principal_id_lookup_test - INFO - 3. COO by ID string: success - Role: PrincipalRole.CFO, ID: coo_001
+2025-09-01 15:05:37,986 - principal_id_lookup_test - INFO - 4. CFO by role string: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:05:37,987 - principal_id_lookup_test - INFO - 5. CEO by role string: success - Role: PrincipalRole.CFO, ID: ceo_001
+2025-09-01 15:05:37,987 - principal_id_lookup_test - INFO - 6. CFO by lowercase role string: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:05:37,987 - principal_id_lookup_test - INFO - 7. CFO by ID dict: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:05:37,987 - principal_id_lookup_test - INFO - 8. CFO by role dict: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:05:37,987 - principal_id_lookup_test - INFO - 9. CFO by lowercase role dict: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:05:37,988 - principal_id_lookup_test - INFO - 10. Nonexistent ID string: error - Role: PrincipalRole.CFO, ID: nonexistent_id
+2025-09-01 15:05:37,988 - principal_id_lookup_test - INFO - 11. Nonexistent role string: error - Role: PrincipalRole.CFO, ID: cfo_default
+2025-09-01 15:05:37,989 - principal_id_lookup_test - INFO - Tests completed successfully. Results saved to principal_id_lookup_results.json
+2025-09-01 15:07:01,122 - principal_id_lookup_test - INFO - Starting principal ID lookup tests
+2025-09-01 15:07:01,123 - principal_id_lookup_test - INFO - Starting ID-based principal lookup test
+2025-09-01 15:07:01,123 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Initializing A9_Principal_Context_Agent
+2025-09-01 15:07:01,124 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-01 15:07:01,124 - src.registry.factory - INFO - Registered principal_profile provider
+2025-09-01 15:07:01,125 - src.registry.providers.principal_provider - INFO - Loading principal profiles from C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\principal\principal_registry.yaml (yaml)
+2025-09-01 15:07:01,147 - src.registry.providers.principal_provider - INFO - Found 3 roles in YAML under 'roles' key
+2025-09-01 15:07:01,148 - src.registry.providers.principal_provider - INFO - Found 3 principal profiles in YAML under 'principals' key
+2025-09-01 15:07:01,148 - src.registry.providers.principal_provider - INFO - Registered principal: cfo_001 - Lars Mikkelsen
+2025-09-01 15:07:01,149 - src.registry.providers.principal_provider - INFO - Registered principal: ceo_001 - Alex Morgan
+2025-09-01 15:07:01,149 - src.registry.providers.principal_provider - INFO - Registered principal: coo_001 - Priya Desai
+2025-09-01 15:07:01,149 - src.registry.providers.principal_provider - INFO - Added role ID mapping: cfo_001 -> Lars Mikkelsen
+2025-09-01 15:07:01,150 - src.registry.providers.principal_provider - INFO - Added role ID mapping: ceo_001 -> Alex Morgan
+2025-09-01 15:07:01,150 - src.registry.providers.principal_provider - INFO - Added role ID mapping: coo_001 -> Priya Desai
+2025-09-01 15:07:01,150 - src.registry.providers.principal_provider - INFO - Loaded 3 principal profiles
+2025-09-01 15:07:01,151 - src.registry.bootstrap - INFO - Initialized principal provider with 3 profiles
+2025-09-01 15:07:01,151 - src.registry.factory - INFO - Registered data_product provider
+2025-09-01 15:07:01,151 - src.registry.providers.data_product_provider - INFO - Loading data products from C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\data_product\data_product_registry.yaml (yaml)
+2025-09-01 15:07:01,160 - src.registry.providers.data_product_provider - INFO - Loaded 1 data products
+2025-09-01 15:07:01,160 - src.registry.bootstrap - INFO - Initialized data product provider with 1 data products
+2025-09-01 15:07:01,161 - src.registry.bootstrap - INFO - Initializing agent bootstrap
+2025-09-01 15:07:01,178 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Governance_Agent but it lacks a create method
+2025-09-01 15:07:01,837 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:07:02,501 - src.agents.agent_bootstrap - WARNING - Found agent class A9_LLM_Service_Agent but it lacks a create method
+2025-09-01 15:07:02,502 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:07:02,502 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Principal_Context_Agent but it lacks a create method
+2025-09-01 15:07:02,507 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:07:02,507 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:07:02,508 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Situation_Awareness_Agent but it lacks a create method
+2025-09-01 15:07:02,510 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Governance_Agent but it lacks a create method
+2025-09-01 15:07:02,512 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:07:02,513 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Principal_Context_Agent but it lacks a create method
+2025-09-01 15:07:02,515 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:07:02,516 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:07:02,516 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Situation_Awareness_Agent but it lacks a create method
+2025-09-01 15:07:02,516 - src.agents.agent_bootstrap - WARNING - No agent implementations discovered
+2025-09-01 15:07:02,516 - src.registry.bootstrap - WARNING - Agent bootstrap initialization had issues, continuing with available agents
+2025-09-01 15:07:02,517 - src.registry.bootstrap - INFO - Registry providers and agent factories initialized successfully
+2025-09-01 15:07:02,517 - src.registry.factory - WARNING - Provider 'principal_profile' exists but may not be properly initialized
+2025-09-01 15:07:02,517 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - WARNING - No 'principals' key found in registry or no valid profiles, using defaults
+2025-09-01 15:07:02,531 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Loaded 3 principal profiles from registry file
+2025-09-01 15:07:02,531 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Connected to dependencies
+2025-09-01 15:07:02,532 - principal_id_lookup_test - INFO - Running test case 1: CFO by ID string
+2025-09-01 15:07:02,532 - principal_id_lookup_test - INFO - Calling get_principal_context with input: cfo_001
+2025-09-01 15:07:02,532 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: cfo_001
+2025-09-01 15:07:02,533 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: cfo_001
+2025-09-01 15:07:02,534 - principal_id_lookup_test - INFO - Test case 1 result: success - Principal context retrieved successfully
+2025-09-01 15:07:02,534 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:07:02,534 - principal_id_lookup_test - INFO - Running test case 2: CEO by ID string
+2025-09-01 15:07:02,534 - principal_id_lookup_test - INFO - Calling get_principal_context with input: ceo_001
+2025-09-01 15:07:02,535 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: ceo_001
+2025-09-01 15:07:02,535 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: ceo_001
+2025-09-01 15:07:02,536 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Mapped role 'ceo' to enum value 'PrincipalRole.CFO'
+2025-09-01 15:07:02,536 - principal_id_lookup_test - INFO - Test case 2 result: success - Principal context retrieved successfully
+2025-09-01 15:07:02,537 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: ceo_001
+2025-09-01 15:07:02,537 - principal_id_lookup_test - INFO - Running test case 3: COO by ID string
+2025-09-01 15:07:02,537 - principal_id_lookup_test - INFO - Calling get_principal_context with input: coo_001
+2025-09-01 15:07:02,537 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: coo_001
+2025-09-01 15:07:02,538 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: coo_001
+2025-09-01 15:07:02,538 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Mapped role 'coo' to enum value 'PrincipalRole.CFO'
+2025-09-01 15:07:02,539 - principal_id_lookup_test - INFO - Test case 3 result: success - Principal context retrieved successfully
+2025-09-01 15:07:02,539 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: coo_001
+2025-09-01 15:07:02,539 - principal_id_lookup_test - INFO - Running test case 4: CFO by role string
+2025-09-01 15:07:02,539 - principal_id_lookup_test - INFO - Calling get_principal_context with input: CFO
+2025-09-01 15:07:02,540 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: CFO
+2025-09-01 15:07:02,540 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: CFO
+2025-09-01 15:07:02,540 - principal_id_lookup_test - INFO - Test case 4 result: success - Principal context retrieved successfully
+2025-09-01 15:07:02,540 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:07:02,540 - principal_id_lookup_test - INFO - Running test case 5: CEO by role string
+2025-09-01 15:07:02,541 - principal_id_lookup_test - INFO - Calling get_principal_context with input: CEO
+2025-09-01 15:07:02,541 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: CEO
+2025-09-01 15:07:02,541 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: CEO
+2025-09-01 15:07:02,541 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Mapped role 'ceo' to enum value 'PrincipalRole.CFO'
+2025-09-01 15:07:02,542 - principal_id_lookup_test - INFO - Test case 5 result: success - Principal context retrieved successfully
+2025-09-01 15:07:02,542 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: ceo_001
+2025-09-01 15:07:02,542 - principal_id_lookup_test - INFO - Running test case 6: CFO by lowercase role string
+2025-09-01 15:07:02,542 - principal_id_lookup_test - INFO - Calling get_principal_context with input: cfo
+2025-09-01 15:07:02,542 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: cfo
+2025-09-01 15:07:02,543 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: cfo
+2025-09-01 15:07:02,543 - principal_id_lookup_test - INFO - Test case 6 result: success - Principal context retrieved successfully
+2025-09-01 15:07:02,543 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:07:02,544 - principal_id_lookup_test - INFO - Running test case 7: CFO by ID dict
+2025-09-01 15:07:02,545 - principal_id_lookup_test - INFO - Calling get_principal_context with input: {'principal_id': 'cfo_001', 'request_id': 'dict-id-1'}
+2025-09-01 15:07:02,546 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: cfo_001
+2025-09-01 15:07:02,547 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: cfo_001
+2025-09-01 15:07:02,547 - principal_id_lookup_test - INFO - Test case 7 result: success - Principal context retrieved successfully
+2025-09-01 15:07:02,547 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:07:02,547 - principal_id_lookup_test - INFO - Running test case 8: CFO by role dict
+2025-09-01 15:07:02,547 - principal_id_lookup_test - INFO - Calling get_principal_context with input: {'principal_role': 'CFO', 'request_id': 'dict-role-1'}
+2025-09-01 15:07:02,548 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: CFO
+2025-09-01 15:07:02,548 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: CFO
+2025-09-01 15:07:02,549 - principal_id_lookup_test - INFO - Test case 8 result: success - Principal context retrieved successfully
+2025-09-01 15:07:02,549 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:07:02,549 - principal_id_lookup_test - INFO - Running test case 9: CFO by lowercase role dict
+2025-09-01 15:07:02,549 - principal_id_lookup_test - INFO - Calling get_principal_context with input: {'principal_role': 'cfo', 'request_id': 'dict-role-2'}
+2025-09-01 15:07:02,550 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: cfo
+2025-09-01 15:07:02,550 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: cfo
+2025-09-01 15:07:02,550 - principal_id_lookup_test - INFO - Test case 9 result: success - Principal context retrieved successfully
+2025-09-01 15:07:02,551 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:07:02,551 - principal_id_lookup_test - INFO - Running test case 10: Nonexistent ID string
+2025-09-01 15:07:02,551 - principal_id_lookup_test - INFO - Calling get_principal_context with input: nonexistent_id
+2025-09-01 15:07:02,551 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: nonexistent_id
+2025-09-01 15:07:02,552 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - WARNING - Principal profile not found for ID: nonexistent_id
+2025-09-01 15:07:02,553 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - ERROR - Error in get_principal_context: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': '9da460dd-...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing (ID: fe183c98)
+2025-09-01 15:07:02,554 - principal_id_lookup_test - INFO - Test case 10 result: error - Error getting principal context: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': '9da460dd-...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing (error ID: fe183c98)
+2025-09-01 15:07:02,554 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: nonexistent_id
+2025-09-01 15:07:02,555 - principal_id_lookup_test - INFO - Running test case 11: Nonexistent role string
+2025-09-01 15:07:02,555 - principal_id_lookup_test - INFO - Calling get_principal_context with input: Nonexistent Role
+2025-09-01 15:07:02,555 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: Nonexistent Role
+2025-09-01 15:07:02,555 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - WARNING - Principal profile not found for role: Nonexistent Role
+2025-09-01 15:07:02,556 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Mapped role 'nonexistent role' to enum value 'PrincipalRole.CFO'
+2025-09-01 15:07:02,556 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Generated fallback principal ID: cfo_default
+2025-09-01 15:07:02,557 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - ERROR - Error in get_principal_context: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': '06202d5b-...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing (ID: 5e4ce07a)
+2025-09-01 15:07:02,558 - principal_id_lookup_test - INFO - Test case 11 result: error - Error getting principal context: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': '06202d5b-...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing (error ID: 5e4ce07a)
+2025-09-01 15:07:02,558 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_default
+2025-09-01 15:07:02,558 - principal_id_lookup_test - INFO - 
+===== TEST RESULTS SUMMARY =====
+2025-09-01 15:07:02,558 - principal_id_lookup_test - INFO - 1. CFO by ID string: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:07:02,559 - principal_id_lookup_test - INFO - 2. CEO by ID string: success - Role: PrincipalRole.CFO, ID: ceo_001
+2025-09-01 15:07:02,559 - principal_id_lookup_test - INFO - 3. COO by ID string: success - Role: PrincipalRole.CFO, ID: coo_001
+2025-09-01 15:07:02,559 - principal_id_lookup_test - INFO - 4. CFO by role string: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:07:02,559 - principal_id_lookup_test - INFO - 5. CEO by role string: success - Role: PrincipalRole.CFO, ID: ceo_001
+2025-09-01 15:07:02,560 - principal_id_lookup_test - INFO - 6. CFO by lowercase role string: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:07:02,560 - principal_id_lookup_test - INFO - 7. CFO by ID dict: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:07:02,560 - principal_id_lookup_test - INFO - 8. CFO by role dict: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:07:02,561 - principal_id_lookup_test - INFO - 9. CFO by lowercase role dict: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:07:02,561 - principal_id_lookup_test - INFO - 10. Nonexistent ID string: error - Role: PrincipalRole.CFO, ID: nonexistent_id
+2025-09-01 15:07:02,562 - principal_id_lookup_test - INFO - 11. Nonexistent role string: error - Role: PrincipalRole.CFO, ID: cfo_default
+2025-09-01 15:07:02,564 - principal_id_lookup_test - INFO - Tests completed successfully. Results saved to principal_id_lookup_results.json
+2025-09-01 15:08:38,892 - principal_id_lookup_test - INFO - Starting principal ID lookup tests
+2025-09-01 15:08:38,892 - principal_id_lookup_test - INFO - Starting ID-based principal lookup test
+2025-09-01 15:08:38,893 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Initializing A9_Principal_Context_Agent
+2025-09-01 15:08:38,893 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-01 15:08:38,894 - src.registry.factory - INFO - Registered principal_profile provider
+2025-09-01 15:08:38,894 - src.registry.providers.principal_provider - INFO - Loading principal profiles from C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\principal\principal_registry.yaml (yaml)
+2025-09-01 15:08:38,920 - src.registry.providers.principal_provider - INFO - Found 3 roles in YAML under 'roles' key
+2025-09-01 15:08:38,921 - src.registry.providers.principal_provider - INFO - Found 3 principal profiles in YAML under 'principals' key
+2025-09-01 15:08:38,922 - src.registry.providers.principal_provider - INFO - Registered principal: cfo_001 - Lars Mikkelsen
+2025-09-01 15:08:38,922 - src.registry.providers.principal_provider - INFO - Registered principal: ceo_001 - Alex Morgan
+2025-09-01 15:08:38,923 - src.registry.providers.principal_provider - INFO - Registered principal: coo_001 - Priya Desai
+2025-09-01 15:08:38,923 - src.registry.providers.principal_provider - INFO - Added role ID mapping: cfo_001 -> Lars Mikkelsen
+2025-09-01 15:08:38,924 - src.registry.providers.principal_provider - INFO - Added role ID mapping: ceo_001 -> Alex Morgan
+2025-09-01 15:08:38,924 - src.registry.providers.principal_provider - INFO - Added role ID mapping: coo_001 -> Priya Desai
+2025-09-01 15:08:38,925 - src.registry.providers.principal_provider - INFO - Loaded 3 principal profiles
+2025-09-01 15:08:38,925 - src.registry.bootstrap - INFO - Initialized principal provider with 3 profiles
+2025-09-01 15:08:38,925 - src.registry.factory - INFO - Registered data_product provider
+2025-09-01 15:08:38,926 - src.registry.providers.data_product_provider - INFO - Loading data products from C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\data_product\data_product_registry.yaml (yaml)
+2025-09-01 15:08:38,937 - src.registry.providers.data_product_provider - INFO - Loaded 1 data products
+2025-09-01 15:08:38,937 - src.registry.bootstrap - INFO - Initialized data product provider with 1 data products
+2025-09-01 15:08:38,937 - src.registry.bootstrap - INFO - Initializing agent bootstrap
+2025-09-01 15:08:38,952 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Governance_Agent but it lacks a create method
+2025-09-01 15:08:39,633 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:08:40,244 - src.agents.agent_bootstrap - WARNING - Found agent class A9_LLM_Service_Agent but it lacks a create method
+2025-09-01 15:08:40,245 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:08:40,245 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Principal_Context_Agent but it lacks a create method
+2025-09-01 15:08:40,249 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:08:40,251 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:08:40,251 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Situation_Awareness_Agent but it lacks a create method
+2025-09-01 15:08:40,253 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Governance_Agent but it lacks a create method
+2025-09-01 15:08:40,255 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:08:40,256 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Principal_Context_Agent but it lacks a create method
+2025-09-01 15:08:40,258 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:08:40,258 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:08:40,258 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Situation_Awareness_Agent but it lacks a create method
+2025-09-01 15:08:40,258 - src.agents.agent_bootstrap - WARNING - No agent implementations discovered
+2025-09-01 15:08:40,259 - src.registry.bootstrap - WARNING - Agent bootstrap initialization had issues, continuing with available agents
+2025-09-01 15:08:40,259 - src.registry.bootstrap - INFO - Registry providers and agent factories initialized successfully
+2025-09-01 15:08:40,259 - src.registry.factory - WARNING - Provider 'principal_profile' exists but may not be properly initialized
+2025-09-01 15:08:40,259 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - WARNING - No 'principals' key found in registry or no valid profiles, using defaults
+2025-09-01 15:08:40,272 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Loaded 3 principal profiles from registry file
+2025-09-01 15:08:40,273 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Connected to dependencies
+2025-09-01 15:08:40,273 - principal_id_lookup_test - INFO - Running test case 1: CFO by ID string
+2025-09-01 15:08:40,274 - principal_id_lookup_test - INFO - Calling get_principal_context with input: cfo_001
+2025-09-01 15:08:40,274 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: cfo_001
+2025-09-01 15:08:40,275 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: cfo_001
+2025-09-01 15:08:40,275 - principal_id_lookup_test - INFO - Test case 1 result: success - Principal context retrieved successfully
+2025-09-01 15:08:40,276 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:08:40,276 - principal_id_lookup_test - INFO - Running test case 2: CEO by ID string
+2025-09-01 15:08:40,276 - principal_id_lookup_test - INFO - Calling get_principal_context with input: ceo_001
+2025-09-01 15:08:40,276 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: ceo_001
+2025-09-01 15:08:40,277 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: ceo_001
+2025-09-01 15:08:40,278 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Mapped role 'ceo' to enum value 'PrincipalRole.CFO'
+2025-09-01 15:08:40,279 - principal_id_lookup_test - INFO - Test case 2 result: success - Principal context retrieved successfully
+2025-09-01 15:08:40,279 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: ceo_001
+2025-09-01 15:08:40,279 - principal_id_lookup_test - INFO - Running test case 3: COO by ID string
+2025-09-01 15:08:40,279 - principal_id_lookup_test - INFO - Calling get_principal_context with input: coo_001
+2025-09-01 15:08:40,280 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: coo_001
+2025-09-01 15:08:40,280 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: coo_001
+2025-09-01 15:08:40,281 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Mapped role 'coo' to enum value 'PrincipalRole.CFO'
+2025-09-01 15:08:40,282 - principal_id_lookup_test - INFO - Test case 3 result: success - Principal context retrieved successfully
+2025-09-01 15:08:40,282 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: coo_001
+2025-09-01 15:08:40,282 - principal_id_lookup_test - INFO - Running test case 4: CFO by role string
+2025-09-01 15:08:40,283 - principal_id_lookup_test - INFO - Calling get_principal_context with input: CFO
+2025-09-01 15:08:40,284 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: CFO
+2025-09-01 15:08:40,284 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: CFO
+2025-09-01 15:08:40,285 - principal_id_lookup_test - INFO - Test case 4 result: success - Principal context retrieved successfully
+2025-09-01 15:08:40,285 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:08:40,285 - principal_id_lookup_test - INFO - Running test case 5: CEO by role string
+2025-09-01 15:08:40,286 - principal_id_lookup_test - INFO - Calling get_principal_context with input: CEO
+2025-09-01 15:08:40,286 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: CEO
+2025-09-01 15:08:40,286 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: CEO
+2025-09-01 15:08:40,287 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Mapped role 'ceo' to enum value 'PrincipalRole.CFO'
+2025-09-01 15:08:40,287 - principal_id_lookup_test - INFO - Test case 5 result: success - Principal context retrieved successfully
+2025-09-01 15:08:40,287 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: ceo_001
+2025-09-01 15:08:40,288 - principal_id_lookup_test - INFO - Running test case 6: CFO by lowercase role string
+2025-09-01 15:08:40,288 - principal_id_lookup_test - INFO - Calling get_principal_context with input: cfo
+2025-09-01 15:08:40,288 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: cfo
+2025-09-01 15:08:40,289 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: cfo
+2025-09-01 15:08:40,289 - principal_id_lookup_test - INFO - Test case 6 result: success - Principal context retrieved successfully
+2025-09-01 15:08:40,289 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:08:40,289 - principal_id_lookup_test - INFO - Running test case 7: CFO by ID dict
+2025-09-01 15:08:40,290 - principal_id_lookup_test - INFO - Calling get_principal_context with input: {'principal_id': 'cfo_001', 'request_id': 'dict-id-1'}
+2025-09-01 15:08:40,290 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: cfo_001
+2025-09-01 15:08:40,290 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: cfo_001
+2025-09-01 15:08:40,291 - principal_id_lookup_test - INFO - Test case 7 result: success - Principal context retrieved successfully
+2025-09-01 15:08:40,291 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:08:40,291 - principal_id_lookup_test - INFO - Running test case 8: CFO by role dict
+2025-09-01 15:08:40,291 - principal_id_lookup_test - INFO - Calling get_principal_context with input: {'principal_role': 'CFO', 'request_id': 'dict-role-1'}
+2025-09-01 15:08:40,291 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: CFO
+2025-09-01 15:08:40,292 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: CFO
+2025-09-01 15:08:40,292 - principal_id_lookup_test - INFO - Test case 8 result: success - Principal context retrieved successfully
+2025-09-01 15:08:40,292 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:08:40,292 - principal_id_lookup_test - INFO - Running test case 9: CFO by lowercase role dict
+2025-09-01 15:08:40,293 - principal_id_lookup_test - INFO - Calling get_principal_context with input: {'principal_role': 'cfo', 'request_id': 'dict-role-2'}
+2025-09-01 15:08:40,293 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: cfo
+2025-09-01 15:08:40,293 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: cfo
+2025-09-01 15:08:40,294 - principal_id_lookup_test - INFO - Test case 9 result: success - Principal context retrieved successfully
+2025-09-01 15:08:40,294 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:08:40,294 - principal_id_lookup_test - INFO - Running test case 10: Nonexistent ID string
+2025-09-01 15:08:40,295 - principal_id_lookup_test - INFO - Calling get_principal_context with input: nonexistent_id
+2025-09-01 15:08:40,295 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: nonexistent_id
+2025-09-01 15:08:40,296 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - WARNING - Principal profile not found for ID: nonexistent_id
+2025-09-01 15:08:40,297 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - ERROR - Error in get_principal_context: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': '4620c2a1-...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing (ID: ecf0bf3e)
+2025-09-01 15:08:40,298 - principal_id_lookup_test - INFO - Test case 10 result: error - Error getting principal context: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': '4620c2a1-...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing (error ID: ecf0bf3e)
+2025-09-01 15:08:40,298 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: nonexistent_id
+2025-09-01 15:08:40,298 - principal_id_lookup_test - INFO - Running test case 11: Nonexistent role string
+2025-09-01 15:08:40,299 - principal_id_lookup_test - INFO - Calling get_principal_context with input: Nonexistent Role
+2025-09-01 15:08:40,299 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for role: Nonexistent Role
+2025-09-01 15:08:40,299 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - WARNING - Principal profile not found for role: Nonexistent Role
+2025-09-01 15:08:40,300 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Mapped role 'nonexistent role' to enum value 'PrincipalRole.CFO'
+2025-09-01 15:08:40,300 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Generated fallback principal ID: cfo_default
+2025-09-01 15:08:40,301 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - ERROR - Error in get_principal_context: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': 'd0161ea7-...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing (ID: e40679ea)
+2025-09-01 15:08:40,302 - principal_id_lookup_test - INFO - Test case 11 result: error - Error getting principal context: 1 validation error for PrincipalProfileResponse
+profile
+  Field required [type=missing, input_value={'request_id': 'd0161ea7-...DATE: 'year_to_date'>])}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing (error ID: e40679ea)
+2025-09-01 15:08:40,302 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_default
+2025-09-01 15:08:40,302 - principal_id_lookup_test - INFO - 
+===== TEST RESULTS SUMMARY =====
+2025-09-01 15:08:40,303 - principal_id_lookup_test - INFO - 1. CFO by ID string: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:08:40,303 - principal_id_lookup_test - INFO - 2. CEO by ID string: success - Role: PrincipalRole.CFO, ID: ceo_001
+2025-09-01 15:08:40,303 - principal_id_lookup_test - INFO - 3. COO by ID string: success - Role: PrincipalRole.CFO, ID: coo_001
+2025-09-01 15:08:40,303 - principal_id_lookup_test - INFO - 4. CFO by role string: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:08:40,304 - principal_id_lookup_test - INFO - 5. CEO by role string: success - Role: PrincipalRole.CFO, ID: ceo_001
+2025-09-01 15:08:40,304 - principal_id_lookup_test - INFO - 6. CFO by lowercase role string: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:08:40,304 - principal_id_lookup_test - INFO - 7. CFO by ID dict: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:08:40,304 - principal_id_lookup_test - INFO - 8. CFO by role dict: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:08:40,305 - principal_id_lookup_test - INFO - 9. CFO by lowercase role dict: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:08:40,305 - principal_id_lookup_test - INFO - 10. Nonexistent ID string: error - Role: PrincipalRole.CFO, ID: nonexistent_id
+2025-09-01 15:08:40,305 - principal_id_lookup_test - INFO - 11. Nonexistent role string: error - Role: PrincipalRole.CFO, ID: cfo_default
+2025-09-01 15:08:40,306 - principal_id_lookup_test - INFO - Tests completed successfully. Results saved to principal_id_lookup_results.json
+2025-09-01 15:26:02,803 - principal_id_lookup_test - INFO - Starting principal ID lookup tests
+2025-09-01 15:26:02,803 - principal_id_lookup_test - INFO - Starting ID-based principal lookup test
+2025-09-01 15:26:02,804 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Initializing A9_Principal_Context_Agent
+2025-09-01 15:26:02,804 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-01 15:26:02,805 - src.registry.factory - INFO - Registered principal_profile provider
+2025-09-01 15:26:02,805 - src.registry.providers.principal_provider - INFO - Loading principal profiles from C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\principal\principal_registry.yaml (yaml)
+2025-09-01 15:26:02,828 - src.registry.providers.principal_provider - INFO - Found 3 roles in YAML under 'roles' key
+2025-09-01 15:26:02,828 - src.registry.providers.principal_provider - INFO - Found 3 principal profiles in YAML under 'principals' key
+2025-09-01 15:26:02,829 - src.registry.providers.principal_provider - INFO - Registered principal: cfo_001 - Lars Mikkelsen
+2025-09-01 15:26:02,829 - src.registry.providers.principal_provider - INFO - Registered principal: ceo_001 - Alex Morgan
+2025-09-01 15:26:02,830 - src.registry.providers.principal_provider - INFO - Registered principal: coo_001 - Priya Desai
+2025-09-01 15:26:02,830 - src.registry.providers.principal_provider - INFO - Added role ID mapping: cfo_001 -> Lars Mikkelsen
+2025-09-01 15:26:02,831 - src.registry.providers.principal_provider - INFO - Added role ID mapping: ceo_001 -> Alex Morgan
+2025-09-01 15:26:02,831 - src.registry.providers.principal_provider - INFO - Added role ID mapping: coo_001 -> Priya Desai
+2025-09-01 15:26:02,831 - src.registry.providers.principal_provider - INFO - Loaded 3 principal profiles
+2025-09-01 15:26:02,832 - src.registry.bootstrap - INFO - Initialized principal provider with 3 profiles
+2025-09-01 15:26:02,832 - src.registry.factory - INFO - Registered data_product provider
+2025-09-01 15:26:02,832 - src.registry.providers.data_product_provider - INFO - Loading data products from C:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry\data_product\data_product_registry.yaml (yaml)
+2025-09-01 15:26:02,845 - src.registry.providers.data_product_provider - INFO - Loaded 1 data products
+2025-09-01 15:26:02,845 - src.registry.bootstrap - INFO - Initialized data product provider with 1 data products
+2025-09-01 15:26:02,845 - src.registry.bootstrap - INFO - Initializing agent bootstrap
+2025-09-01 15:26:02,864 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Governance_Agent but it lacks a create method
+2025-09-01 15:26:04,133 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:26:04,965 - src.agents.agent_bootstrap - WARNING - Found agent class A9_LLM_Service_Agent but it lacks a create method
+2025-09-01 15:26:04,965 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:26:04,966 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Principal_Context_Agent but it lacks a create method
+2025-09-01 15:26:04,971 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:26:04,971 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:26:04,971 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Situation_Awareness_Agent but it lacks a create method
+2025-09-01 15:26:04,975 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Governance_Agent but it lacks a create method
+2025-09-01 15:26:04,976 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:26:04,977 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Principal_Context_Agent but it lacks a create method
+2025-09-01 15:26:04,979 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Data_Product_MCP_Service_Agent but it lacks a create method
+2025-09-01 15:26:04,979 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Orchestrator_Agent but it lacks a create method
+2025-09-01 15:26:04,980 - src.agents.agent_bootstrap - WARNING - Found agent class A9_Situation_Awareness_Agent but it lacks a create method
+2025-09-01 15:26:04,980 - src.agents.agent_bootstrap - WARNING - No agent implementations discovered
+2025-09-01 15:26:04,980 - src.registry.bootstrap - WARNING - Agent bootstrap initialization had issues, continuing with available agents
+2025-09-01 15:26:04,980 - src.registry.bootstrap - INFO - Registry providers and agent factories initialized successfully
+2025-09-01 15:26:04,981 - src.registry.factory - WARNING - Provider 'principal_profile' exists but may not be properly initialized
+2025-09-01 15:26:04,981 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - WARNING - No 'principals' key found in registry or no valid profiles, using defaults
+2025-09-01 15:26:05,000 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Loaded 3 principal profiles from registry file
+2025-09-01 15:26:05,000 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Connected to dependencies
+2025-09-01 15:26:05,001 - principal_id_lookup_test - INFO - Running test case 1: CFO by ID string
+2025-09-01 15:26:05,001 - principal_id_lookup_test - INFO - Calling get_principal_context with input: cfo_001
+2025-09-01 15:26:05,001 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: cfo_001
+2025-09-01 15:26:05,001 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: cfo_001
+2025-09-01 15:26:05,002 - principal_id_lookup_test - INFO - Test case 1 result: success - Principal context retrieved successfully
+2025-09-01 15:26:05,002 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:26:05,003 - principal_id_lookup_test - INFO - Running test case 2: CEO by ID string
+2025-09-01 15:26:05,003 - principal_id_lookup_test - INFO - Calling get_principal_context with input: ceo_001
+2025-09-01 15:26:05,003 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: ceo_001
+2025-09-01 15:26:05,004 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: ceo_001
+2025-09-01 15:26:05,004 - principal_id_lookup_test - INFO - Test case 2 result: success - Principal context retrieved successfully
+2025-09-01 15:26:05,004 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: ceo_001
+2025-09-01 15:26:05,005 - principal_id_lookup_test - INFO - Running test case 3: COO by ID string
+2025-09-01 15:26:05,005 - principal_id_lookup_test - INFO - Calling get_principal_context with input: coo_001
+2025-09-01 15:26:05,005 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: coo_001
+2025-09-01 15:26:05,005 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: coo_001
+2025-09-01 15:26:05,006 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - ERROR - Error in get_principal_context: 'finance_expense_management' is not a valid BusinessProcess (ID: 4b4a16ed)
+2025-09-01 15:26:05,007 - principal_id_lookup_test - INFO - Test case 3 result: error - Error getting principal context: 'finance_expense_management' is not a valid BusinessProcess (error ID: 4b4a16ed)
+2025-09-01 15:26:05,007 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: coo_001
+2025-09-01 15:26:05,008 - principal_id_lookup_test - INFO - Running test case 4: CFO by role string
+2025-09-01 15:26:05,008 - principal_id_lookup_test - INFO - Calling get_principal_context with input: CFO
+2025-09-01 15:26:05,008 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: CFO
+2025-09-01 15:26:05,008 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Using principal ID from profile: cfo_001
+2025-09-01 15:26:05,008 - principal_id_lookup_test - INFO - Test case 4 result: success - Principal context retrieved successfully
+2025-09-01 15:26:05,009 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:26:05,009 - principal_id_lookup_test - INFO - Running test case 5: CEO by role string
+2025-09-01 15:26:05,009 - principal_id_lookup_test - INFO - Calling get_principal_context with input: CEO
+2025-09-01 15:26:05,009 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: CEO
+2025-09-01 15:26:05,010 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Using principal ID from profile: ceo_001
+2025-09-01 15:26:05,010 - principal_id_lookup_test - INFO - Test case 5 result: success - Principal context retrieved successfully
+2025-09-01 15:26:05,011 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: ceo_001
+2025-09-01 15:26:05,011 - principal_id_lookup_test - INFO - Running test case 6: CFO by lowercase role string
+2025-09-01 15:26:05,011 - principal_id_lookup_test - INFO - Calling get_principal_context with input: cfo
+2025-09-01 15:26:05,011 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: cfo
+2025-09-01 15:26:05,012 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Using principal ID from profile: cfo_001
+2025-09-01 15:26:05,012 - principal_id_lookup_test - INFO - Test case 6 result: success - Principal context retrieved successfully
+2025-09-01 15:26:05,013 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:26:05,013 - principal_id_lookup_test - INFO - Running test case 7: CFO by ID dict
+2025-09-01 15:26:05,013 - principal_id_lookup_test - INFO - Calling get_principal_context with input: {'principal_id': 'cfo_001', 'request_id': 'dict-id-1'}
+2025-09-01 15:26:05,013 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Getting principal context for ID: cfo_001
+2025-09-01 15:26:05,014 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by ID: cfo_001
+2025-09-01 15:26:05,015 - principal_id_lookup_test - INFO - Test case 7 result: success - Principal context retrieved successfully
+2025-09-01 15:26:05,015 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:26:05,015 - principal_id_lookup_test - INFO - Running test case 8: CFO by role dict
+2025-09-01 15:26:05,015 - principal_id_lookup_test - INFO - Calling get_principal_context with input: {'principal_role': 'CFO', 'request_id': 'dict-role-1'}
+2025-09-01 15:26:05,016 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: CFO
+2025-09-01 15:26:05,016 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Using principal ID from profile: cfo_001
+2025-09-01 15:26:05,017 - principal_id_lookup_test - INFO - Test case 8 result: success - Principal context retrieved successfully
+2025-09-01 15:26:05,017 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:26:05,017 - principal_id_lookup_test - INFO - Running test case 9: CFO by lowercase role dict
+2025-09-01 15:26:05,017 - principal_id_lookup_test - INFO - Calling get_principal_context with input: {'principal_role': 'cfo', 'request_id': 'dict-role-2'}
+2025-09-01 15:26:05,018 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Found profile by role: cfo
+2025-09-01 15:26:05,018 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Using principal ID from profile: cfo_001
+2025-09-01 15:26:05,018 - principal_id_lookup_test - INFO - Test case 9 result: success - Principal context retrieved successfully
+2025-09-01 15:26:05,019 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: cfo_001
+2025-09-01 15:26:05,019 - principal_id_lookup_test - INFO - Running test case 10: Nonexistent ID string
+2025-09-01 15:26:05,019 - principal_id_lookup_test - INFO - Calling get_principal_context with input: nonexistent_id
+2025-09-01 15:26:05,019 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - WARNING - Principal profile not found for role: nonexistent_id
+2025-09-01 15:26:05,020 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Using default principal ID: default_id
+2025-09-01 15:26:05,021 - principal_id_lookup_test - INFO - Test case 10 result: success - Principal context retrieved successfully
+2025-09-01 15:26:05,021 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: default_id
+2025-09-01 15:26:05,021 - principal_id_lookup_test - INFO - Running test case 11: Nonexistent role string
+2025-09-01 15:26:05,021 - principal_id_lookup_test - INFO - Calling get_principal_context with input: Nonexistent Role
+2025-09-01 15:26:05,022 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - WARNING - Principal profile not found for role: Nonexistent Role
+2025-09-01 15:26:05,022 - src.agents.a9_principal_context_agent.A9_Principal_Context_Agent - INFO - Using default principal ID: default_id
+2025-09-01 15:26:05,023 - principal_id_lookup_test - INFO - Test case 11 result: success - Principal context retrieved successfully
+2025-09-01 15:26:05,023 - principal_id_lookup_test - INFO -   Role: PrincipalRole.CFO, Principal ID: default_id
+2025-09-01 15:26:05,024 - principal_id_lookup_test - INFO - 
+===== TEST RESULTS SUMMARY =====
+2025-09-01 15:26:05,025 - principal_id_lookup_test - INFO - 1. CFO by ID string: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:26:05,025 - principal_id_lookup_test - INFO - 2. CEO by ID string: success - Role: PrincipalRole.CFO, ID: ceo_001
+2025-09-01 15:26:05,025 - principal_id_lookup_test - INFO - 3. COO by ID string: error - Role: PrincipalRole.CFO, ID: coo_001
+2025-09-01 15:26:05,026 - principal_id_lookup_test - INFO - 4. CFO by role string: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:26:05,026 - principal_id_lookup_test - INFO - 5. CEO by role string: success - Role: PrincipalRole.CFO, ID: ceo_001
+2025-09-01 15:26:05,026 - principal_id_lookup_test - INFO - 6. CFO by lowercase role string: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:26:05,027 - principal_id_lookup_test - INFO - 7. CFO by ID dict: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:26:05,027 - principal_id_lookup_test - INFO - 8. CFO by role dict: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:26:05,027 - principal_id_lookup_test - INFO - 9. CFO by lowercase role dict: success - Role: PrincipalRole.CFO, ID: cfo_001
+2025-09-01 15:26:05,027 - principal_id_lookup_test - INFO - 10. Nonexistent ID string: success - Role: PrincipalRole.CFO, ID: default_id
+2025-09-01 15:26:05,027 - principal_id_lookup_test - INFO - 11. Nonexistent role string: success - Role: PrincipalRole.CFO, ID: default_id
+2025-09-01 15:26:05,029 - principal_id_lookup_test - INFO - Tests completed successfully. Results saved to principal_id_lookup_results.json

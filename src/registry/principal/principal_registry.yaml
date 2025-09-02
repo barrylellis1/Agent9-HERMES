@@ -153,6 +153,55 @@ principals:
       format_preference: ["table", "visual"]
       emphasis: ["variances", "operational_metrics"]
 
+  - id: "finance_manager_001"
+    name: "Emily Chen"
+    title: "Finance Manager"
+    first_name: "Emily"
+    last_name: "Chen"
+    role: "Finance Manager"
+    department: "Finance"
+    responsibilities:
+      - "manage departmental budget"
+      - "analyze financial data"
+      - "prepare financial reports"
+    business_processes:
+      - "Finance: Expense Management"
+      - "Finance: Budget vs. Actuals"
+      - "Finance: Cash Flow Management"
+    default_filters:
+      profit_center_hierarchyid: ["Finance"]
+      customer_hierarchyid: ["Total"]
+    typical_timeframes:
+      - "Monthly"
+      - "Quarterly"
+    principal_groups:
+      - "Finance Team"
+      - "Budget Committee"
+    persona_profile:
+      decision_style: "analytical"
+      risk_tolerance: "low"
+      communication_style: "concise"
+      values:
+        - "accuracy"
+        - "timeliness"
+        - "efficiency"
+    preferences:
+      channel: "Email"
+      ui: "finance_dashboard"
+    permissions:
+      - "finance_read"
+      - "finance_write"
+    source: "HR Database"
+    description: "Finance Manager responsible for departmental financial analysis and reporting."
+    time_frame:
+      default_period: "MTD"
+      historical_periods: 6
+      forward_looking_periods: 3
+    communication:
+      detail_level: "high"
+      format_preference: ["table", "visual", "text"]
+      emphasis: ["variances", "trends", "forecasts"]
+
 # Role definitions
 roles:
   - id: "cfo_001"
@@ -176,3 +225,9 @@ roles:
       - "operations_read"
       - "operations_write"
       - "executive_read"
+  - id: "finance_manager_001"
+    name: "Finance Manager"
+    description: "Finance Manager"
+    permissions:
+      - "finance_read"
+      - "finance_write"

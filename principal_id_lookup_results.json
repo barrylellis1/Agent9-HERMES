@@ -1,0 +1,99 @@
+[
+  {
+    "test_case": "CFO by ID string",
+    "input": "cfo_001",
+    "status": "success",
+    "message": "Principal context retrieved successfully",
+    "role": "CFO",
+    "principal_id": "cfo_001"
+  },
+  {
+    "test_case": "CEO by ID string",
+    "input": "ceo_001",
+    "status": "success",
+    "message": "Principal context retrieved successfully",
+    "role": "CFO",
+    "principal_id": "ceo_001"
+  },
+  {
+    "test_case": "COO by ID string",
+    "input": "coo_001",
+    "status": "error",
+    "message": "Error getting principal context: 'finance_expense_management' is not a valid BusinessProcess (error ID: 4b4a16ed)",
+    "role": "CFO",
+    "principal_id": "coo_001"
+  },
+  {
+    "test_case": "CFO by role string",
+    "input": "CFO",
+    "status": "success",
+    "message": "Principal context retrieved successfully",
+    "role": "CFO",
+    "principal_id": "cfo_001"
+  },
+  {
+    "test_case": "CEO by role string",
+    "input": "CEO",
+    "status": "success",
+    "message": "Principal context retrieved successfully",
+    "role": "CFO",
+    "principal_id": "ceo_001"
+  },
+  {
+    "test_case": "CFO by lowercase role string",
+    "input": "cfo",
+    "status": "success",
+    "message": "Principal context retrieved successfully",
+    "role": "CFO",
+    "principal_id": "cfo_001"
+  },
+  {
+    "test_case": "CFO by ID dict",
+    "input": {
+      "principal_id": "cfo_001",
+      "request_id": "dict-id-1"
+    },
+    "status": "success",
+    "message": "Principal context retrieved successfully",
+    "role": "CFO",
+    "principal_id": "cfo_001"
+  },
+  {
+    "test_case": "CFO by role dict",
+    "input": {
+      "principal_role": "CFO",
+      "request_id": "dict-role-1"
+    },
+    "status": "success",
+    "message": "Principal context retrieved successfully",
+    "role": "CFO",
+    "principal_id": "cfo_001"
+  },
+  {
+    "test_case": "CFO by lowercase role dict",
+    "input": {
+      "principal_role": "cfo",
+      "request_id": "dict-role-2"
+    },
+    "status": "success",
+    "message": "Principal context retrieved successfully",
+    "role": "CFO",
+    "principal_id": "cfo_001"
+  },
+  {
+    "test_case": "Nonexistent ID string",
+    "input": "nonexistent_id",
+    "status": "success",
+    "message": "Principal context retrieved successfully",
+    "role": "CFO",
+    "principal_id": "default_id"
+  },
+  {
+    "test_case": "Nonexistent role string",
+    "input": "Nonexistent Role",
+    "status": "success",
+    "message": "Principal context retrieved successfully",
+    "role": "CFO",
+    "principal_id": "default_id"
+  }
+]

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="190" viewBox="0 0 640 190" font-family="Segoe UI, Roboto, Arial, sans-serif">
+  <style>
+    .label { font-size: 12px; fill: #1f2937; }
+    .value { font-size: 12px; fill: #374151; }
+    .title { font-size: 16px; font-weight: 600; fill: #111827; }
+    .bar { fill: #93c5fd; }
+    .axis { stroke: #e5e7eb; stroke-width: 1; }
+    .pct { font-size: 12px; fill: #111827; }
+  </style>
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <text x="20" y="28" class="title">Cascade Model Usage (Top 3)</text>
+  <!-- axis -->
+  <line x1="150" y1="40" x2="600" y2="40" class="axis"/>
+  <line x1="150" y1="160" x2="600" y2="160" class="axis"/>
+  <!-- scale marks -->
+  <text x="150" y="165" class="label">0%</text>
+  <text x="375" y="165" class="label">50%</text>
+  <text x="600" y="165" class="label" text-anchor="end">100%</text>
+
+  <!-- Bars (max width 450px from x=150 to x=600) -->
+  <!-- Helper to compute width: w = 4.5 * percent -->
+  <!-- Claude 3.7 Sonnet (Thinking) 49% -->
+  <text x="20" y="70" class="label">Claude 3.7 Sonnet (Thinking)</text>
+  <rect x="150" y="55" width="220.5" height="18" rx="4" class="bar"/>
+  <text x="380.5" y="69" class="pct">49%</text>
+
+  <!-- GPT-4.1 33% -->
+  <text x="20" y="105" class="label">GPT-4.1</text>
+  <rect x="150" y="90" width="148.5" height="18" rx="4" class="bar"/>
+  <text x="308.5" y="104" class="pct">33%</text>
+
+  <!-- Gemini 2.5 Pro 7% -->
+  <text x="20" y="140" class="label">Gemini 2.5 Pro</text>
+  <rect x="150" y="125" width="31.5" height="18" rx="4" class="bar"/>
+  <text x="191.5" y="139" class="pct">7%</text>
+
+  <text x="480" y="180" class="value">Data: 2025-08-21</text>
+</svg>

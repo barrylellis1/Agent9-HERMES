@@ -50,8 +50,8 @@ from src.agents.a9_data_product_mcp_service_agent import A9_Data_Product_MCP_Ser
 from src.agents.a9_data_governance_agent import A9_Data_Governance_Agent
 
 # Import necessary registry components
-from src.registry import registry_module
-from src.registry.models.registry_config import RegistryConfig
+from src.registry.bootstrap import RegistryBootstrap
+from src.registry.factory import RegistryFactory
 from src.registry.providers.principal_provider import PrincipalProfileProvider
 from src.registry.providers.kpi_provider import KPIProvider
 from src.registry.providers.business_glossary_provider import BusinessGlossaryProvider
@@ -80,38 +80,13 @@ async def test_real_data_situation_detection():
         }
     })
     
-    # Initialize registry providers using registry_module
-    registry_config = RegistryConfig(
-        providers={
-            "kpi": {
-                "enabled": True,
-                "source_path": "src/registry/kpi",
-                "storage_format": "yaml"
-            },
-            "principal_profile": {
-                "enabled": True,
-                "source_path": "src/registry/principal",
-                "storage_format": "yaml"
-            },
-            "business_process": {
-                "enabled": True,
-                "source_path": "src/registry/business_process",
-                "storage_format": "yaml"
-            },
-            "data_product": {
-                "enabled": True,
-                "source_path": "src/registry/data_product",
-                "storage_format": "yaml"
-            }
-        }
-    )
-    
-    # Initialize registry using the module (this registers all providers)
-    if not registry_module.is_initialized():
-        await registry_module.initialize_registry(registry_config)
-        logger.info("Registry initialized with all providers")
-    else:
-        logger.info("Registry already initialized")
+    # Initialize registry providers using RegistryBootstrap to avoid config schema issues
+    base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+    registry_path = os.path.join(base_path, "registry")
+    await RegistryBootstrap.initialize({
+        "base_path": base_path,
+        "registry_path": registry_path
+    })
         
     # Initialize agent registry with common agent factories
     # This loads and registers all required agent factories through the standard mechanism
@@ -218,9 +193,10 @@ async def test_real_data_situation_detection():
         # Get a principal context for testing
         principal_id = "CFO"  # Use CFO profile for testing
         
-        # Get the principal profile directly from the registry
-        principal_provider = PrincipalProfileProvider()
-        principal_profile = principal_provider.get(principal_id)
+        # Get the principal profile from the initialized RegistryFactory
+        registry_factory = RegistryFactory()
+        principal_provider = registry_factory.get_principal_profile_provider()
+        principal_profile = principal_provider.get(principal_id) if principal_provider else None
         
         if not principal_profile:
             logger.error(f"Principal profile not found for ID: {principal_id}")
@@ -375,10 +351,10 @@ async def test_real_data_situation_detection():
         # Test execution of actual SQL query directly
         logger.info("\nTesting direct SQL execution...")
         
-        # Get a sample KPI definition using registry_module
-        registry = registry_module.get_registry()
+        # Get a sample KPI definition using RegistryFactory
+        registry = RegistryFactory()
         kpi_provider = registry.get_kpi_provider()
-        kpi_definitions = kpi_provider.get_all_kpis() if kpi_provider else {}
+        kpi_definitions = {k.id: k for k in (kpi_provider.get_all() if kpi_provider else [])}
         
         if kpi_definitions:
             # Get the first KPI for testing

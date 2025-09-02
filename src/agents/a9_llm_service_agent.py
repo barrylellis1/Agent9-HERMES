@@ -188,6 +188,29 @@ class A9_LLM_Service_Agent:
         logger.info(f"A9_LLM_Service_Agent initialized with {self.config.provider} provider")
     
     @classmethod
+    async def create(cls, config: Dict[str, Any] = None) -> 'A9_LLM_Service_Agent':
+        """
+        Async factory method to create an LLM Service Agent instance.
+        This follows the A9 Agent Design Standards for orchestrator-driven lifecycle.
+        
+        Args:
+            config: Configuration dictionary for the agent
+            
+        Returns:
+            Initialized LLM Service Agent instance
+        """
+        try:
+            logger.info("Creating LLM Service Agent instance")
+            agent = cls(config)
+            # No async initialization needed for this agent
+            logger.info("LLM Service Agent instance created successfully")
+            return agent
+        except Exception as e:
+            error_msg = f"Failed to create LLM Service Agent: {str(e)}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg) from e
+    
+    @classmethod
     def create_from_registry(cls, config_dict: Dict[str, Any]) -> 'A9_LLM_Service_Agent':
         """
         Create an instance from registry configuration.

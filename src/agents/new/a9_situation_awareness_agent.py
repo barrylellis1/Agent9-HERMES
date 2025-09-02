@@ -31,7 +31,6 @@ from src.agents.shared.a9_agent_base_model import A9AgentBaseModel
 
 # Import registry and database components
 from src.registry.factory import RegistryFactory
-from src.registry import registry_module  # Import registry module for proper initialization
 from src.registry.models.kpi import KPI
 
 # Import other agents
@@ -52,6 +51,21 @@ class A9_Situation_Awareness_Agent:
     Detects situations based on KPI thresholds, trends, and principal context.
     Provides automated, personalized situation awareness for Finance KPIs.
     """
+    
+    @classmethod
+    async def create(cls, config: Dict[str, Any] = None) -> 'A9_Situation_Awareness_Agent':
+        """
+        Create a new instance of the Situation Awareness Agent.
+        
+        Args:
+            config: Configuration dictionary
+            
+        Returns:
+            A9_Situation_Awareness_Agent instance
+        """
+        agent = cls(config)
+        await agent.connect()
+        return agent
     
     def __init__(self, config: Dict[str, Any]):
         """
@@ -120,9 +134,12 @@ class A9_Situation_Awareness_Agent:
             self.orchestrator_agent = await A9_Orchestrator_Agent.create({})
             
             # Get the Data Product MCP Service Agent through the orchestrator
+            # Use contracts_path (a directory), not a single contract file path
+            import os
+            contracts_dir = os.path.dirname(self.contract_path) if self.contract_path else "src/registry_references/data_product_registry/data_products"
             self.data_product_agent = await self.orchestrator_agent.get_agent(
                 "A9_Data_Product_MCP_Service_Agent", 
-                {"contract_path": self.contract_path}
+                {"contracts_path": contracts_dir}
             )
             
             # Get the Data Governance Agent for term translation and access validation
@@ -189,12 +206,10 @@ class A9_Situation_Awareness_Agent:
                 logger.warning("Principal Context Agent not found in orchestrator")
                 return
             
-            # Define key roles we want to load
+            # Define key roles we want to load (remove invalid CEO/COO enum references)
             key_roles = {
                 "CFO": PrincipalRole.CFO,           # cfo
-                "FINANCE_MANAGER": PrincipalRole.FINANCE_MANAGER, # finance_manager
-                "CEO": PrincipalRole.CEO,           # ceo_001
-                "COO": PrincipalRole.COO            # coo_001
+                "FINANCE_MANAGER": PrincipalRole.FINANCE_MANAGER  # finance_manager
             }
             
             # Get principal profiles for key roles
@@ -611,25 +626,11 @@ class A9_Situation_Awareness_Agent:
         Converts from KPI model to our internal KPIDefinition model.
         """
         try:
-            # Initialize registry properly using registry_module
-            logger.info("Initializing registry using registry_module")
-            from src.registry import registry_module
-            
-            # Initialize the registry if not already done
-            if not registry_module.is_initialized():
-                logger.info("Registry not initialized, initializing now...")
-                import asyncio
-                asyncio.run(registry_module.initialize_registry())
-                logger.info("Registry initialization complete")
-            else:
-                logger.info("Registry already initialized")
-                
-            # Get the registry factory with providers already registered
-            registry_factory = registry_module.get_registry()
-            logger.info(f"Registry factory obtained from module: {registry_factory}")
-            
-            # Get KPI provider from registry factory - directly using helper method
-            logger.info("Getting KPI provider from registry factory")
+            # Use RegistryFactory singleton which RegistryBootstrap has already initialized
+            logger.info("Loading KPI provider via RegistryFactory singleton")
+            registry_factory = RegistryFactory()
+
+            # Try helper first, then generic provider getter
             kpi_provider = registry_factory.get_kpi_provider()
             
             if kpi_provider is None:
@@ -720,25 +721,41 @@ class A9_Situation_Awareness_Agent:
                         continue
                         
                     # Map contract KPI fields to internal KPIDefinition
+                    thresholds = kpi_data.get('thresholds')
+                    thresholds_dict = thresholds if isinstance(thresholds, dict) else None
+
+                    # Prefer explicit calculation; if missing, synthesize from aggregation/base_column/filter_type
+                    calc_value = kpi_data.get('calculation')
+                    if not calc_value:
+                        agg = kpi_data.get('aggregation')
+                        base_col = kpi_data.get('base_column')
+                        if agg and base_col:
+                            # Normalize base column quoting to match view aliases
+                            expr_col = base_col
+                            if isinstance(expr_col, str) and not expr_col.startswith('[') and ' ' in expr_col:
+                                expr_col = f"[{expr_col}]"
+                            calc_expr = f"{agg}({expr_col})"
+                            # Inline filter support for common pattern account_hierarchy_desc
+                            filter_type = kpi_data.get('filter_type')
+                            filter_value = kpi_data.get('filter_value')
+                            if filter_type and filter_value:
+                                if str(filter_type).lower() == 'account_hierarchy_desc':
+                                    calc_value = f"{calc_expr} WHERE \"Account Hierarchy Desc\" = '{filter_value}'"
+                                else:
+                                    # Generic inline filter using provided type as column name
+                                    calc_value = f"{calc_expr} WHERE {filter_type} = '{filter_value}'"
+                            else:
+                                calc_value = calc_expr
+                        # else leave as None
+
                     kpi_def = KPIDefinition(
                         name=kpi_name,
                         description=kpi_data.get('description', ''),
-                        business_processes=["Finance: " + bp for bp in kpi_data.get('business_processes', [])],
-                        data_source=kpi_data.get('data_source', ''),
-                        query_template=kpi_data.get('query_template', ''),
-                        thresholds=[
-                            {
-                                "level": "critical",
-                                "condition": ">",
-                                "value": 10.0
-                            },
-                            {
-                                "level": "warning",
-                                "condition": ">", 
-                                "value": 5.0
-                            }
-                        ],
-                        attributes=kpi_data.get('attributes', {})
+                        data_product_id=kpi_data.get('data_product_id') or contract_data.get('data_product', ''),
+                        calculation=calc_value,
+                        diagnostic_questions=kpi_data.get('diagnostic_questions'),
+                        business_processes=kpi_data.get('business_terms', []),
+                        thresholds=thresholds_dict,
                     )
                     
                     # Add to registry
@@ -1322,7 +1339,20 @@ class A9_Situation_Awareness_Agent:
         # In production, this would be more sophisticated
         
         # Start with the base query template from the KPI definition
-        base_query = kpi_definition.calculation.get("query_template", "")
+        base_query = ""
+        calc = getattr(kpi_definition, "calculation", None)
+        if isinstance(calc, dict):
+            base_query = calc.get("query_template", "")
+        elif isinstance(calc, str):
+            # Allow plain string expressions/templates
+            base_query = calc
+        elif calc is None:
+            self.logger.warning(f"KPI {kpi_definition.name} has no calculation; cannot generate SQL")
+            return ""
+        else:
+            # Unsupported type
+            self.logger.warning(f"KPI {kpi_definition.name} calculation has unsupported type {type(calc)}; cannot generate SQL")
+            return ""
         
         # Add timeframe filter
         timeframe_condition = self._get_timeframe_condition(timeframe)
@@ -1333,10 +1363,12 @@ class A9_Situation_Awareness_Agent:
             for column, value in filters.items():
                 filter_conditions.append(f'"{column}" = \'{value}\'')
         
-        # Add KPI-specific filters
-        if kpi_definition.calculation.get("filters"):
-            for filter_condition in kpi_definition.calculation.get("filters"):
-                filter_conditions.append(filter_condition)
+        # Add KPI-specific filters defined in calculation if present
+        if isinstance(calc, dict):
+            calc_filters = calc.get("filters")
+            if isinstance(calc_filters, list):
+                for filter_condition in calc_filters:
+                    filter_conditions.append(filter_condition)
         
         # Combine all conditions
         where_clause = ""
@@ -1351,7 +1383,27 @@ class A9_Situation_Awareness_Agent:
         
         # Construct the final query
         view_name = "FI_Star_View"  # From the contract
-        sql = f"SELECT {base_query} FROM {view_name} {where_clause}"
+        base_lower = base_query.strip().lower()
+        if base_lower.startswith("select "):
+            # Full query provided; use as-is
+            sql = base_query
+        else:
+            # Support inline WHERE in calculation strings like "SUM(col) WHERE ..."
+            expr = base_query
+            inline_where = None
+            if " where " in base_lower:
+                # Split only on first occurrence to preserve additional clauses
+                idx = base_lower.find(" where ")
+                expr = base_query[:idx]
+                inline_where = base_query[idx + len(" where "):]  # preserve original casing/content
+            # Merge WHERE clauses
+            merged_conditions = []
+            if inline_where:
+                merged_conditions.append(f"({inline_where.strip()})")
+            if where_clause.strip().startswith("WHERE "):
+                merged_conditions.append(where_clause.strip()[6:])
+            final_where = f" WHERE {' AND '.join(merged_conditions)}" if merged_conditions else ""
+            sql = f"SELECT {expr.strip()} FROM {view_name}{final_where}"
         
         return sql
     
