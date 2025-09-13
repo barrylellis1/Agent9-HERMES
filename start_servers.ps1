@@ -33,9 +33,9 @@ if (Test-Path $apiMainPath) {
 
 Start-Sleep -Seconds 3
 
-# Start Streamlit UI in new window (simple Decision Studio UI)
+# Start Streamlit UI in new window (Decision Studio)
 Write-Host "Starting Streamlit UI on port 8501..." -ForegroundColor Green
-$uiPath = Join-Path $PSScriptRoot 'src\views\decision_studio_ui.py'
+$uiPath = Join-Path $PSScriptRoot 'decision_studio.py'
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot'; & '$streamlitExe' run `"$uiPath`" --server.port 8501"
 
 Write-Host "Servers started successfully!" -ForegroundColor Magenta

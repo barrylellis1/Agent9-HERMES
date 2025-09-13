@@ -177,8 +177,9 @@ This document outlines the requirements for version 1.0 of the A9_NLP_Interface_
     3. **Principal Context Enhancement:** Combine extracted context with principal context from the orchestrator.
     4. **Data Product Resolution:** Identify the correct data product/view for the query using the Data Product Registry Provider.
     5. **Registry Access:** Use the appropriate registry providers through the Unified Registry Access Layer for all registry data access.
-  - **Query Generation**: Translate the parsed intent into a structured API call (HTTP GET with query parameters) to the MCP service. Optionally, support SQL query generation if the MCP exposes a SQL endpoint.
-  - **MCP Integration**: Call the MCP service endpoint, handle the response, and format it for the user or downstream agent.
+  - **Query Generation (MVP)**: Delegate SQL generation to the `A9_LLM_Service` Agent (`nl2sql` or `kpi_sql` operation) using registry-scoped YAML contract context. The output includes SQL (and rationale/safety notes). When configured to avoid SQL, translate the parsed intent into a structured execution request instead.
+  - **Execution (MVP)**: The `A9_Data_Product_Agent` executes validated SELECT-only SQL via the embedded MCP execution library (DuckDB backend). Principal filters are parameterized; identifier and dialect validation are enforced at execution.
+  - **MCP Integration (future remote mode)**: Optionally call a remote `/execute-sql` endpoint that wraps the same execution core.
   - **Synonym/Mapping Support**: Map business terms (e.g., "customer" or "revenue") to technical attribute names used in the data registry.
   - **Robust Error Handling**: Handle unmapped terms, unsupported queries, and MCP errors gracefully, providing actionable feedback.
 

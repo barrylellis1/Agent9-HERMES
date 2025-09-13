@@ -57,5 +57,5 @@ class ExtractFiltersResponse(BaseResponse):
     extracted_filters: List[ExtractedFilter] = Field(default_factory=list, description="Extracted filters")
     normalized_filters: Dict[str, str] = Field(default_factory=dict, description="Normalized filters as key-value pairs")
 
-# Update forward references after all models are defined
-PrincipalProfileResponse.update_forward_refs()
+# Update model schema after all models are defined (Pydantic v2)
+PrincipalProfileResponse.model_rebuild()

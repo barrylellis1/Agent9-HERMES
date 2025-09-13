@@ -3,7 +3,7 @@ Protocol definition for the Situation Awareness Agent.
 Defines the interface that must be implemented by any agent providing situation awareness capabilities.
 """
 
-from typing import Protocol, List, Dict, Any, Optional
+from typing import Protocol, List, Dict, Any, Optional, runtime_checkable
 from datetime import datetime
 
 from src.agents.models.situation_awareness_models import (
@@ -20,6 +20,7 @@ from src.agents.models.situation_awareness_models import (
     HITLResponse,
 )
 
+@runtime_checkable
 class SituationAwarenessProtocol(Protocol):
     """
     Protocol for Situation Awareness Agent.

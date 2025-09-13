@@ -1,3 +1,4 @@
+# arch-allow-direct-agent-construction
 """
 Test script for real data-driven situation detection.
 

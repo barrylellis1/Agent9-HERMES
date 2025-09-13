@@ -21,22 +21,25 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 # Import registry factory
 from src.registry.factory import RegistryFactory
-from src.registry.providers.principal_provider import PrincipalProfileProvider
 from src.registry.providers.kpi_provider import KPIProvider
 from src.registry.principal.principal_roles import PrincipalRole as RegistryPrincipalRole
 
 # Import situation awareness models
 from src.agents.models.situation_awareness_models import (
-    PrincipalRole, 
-    BusinessProcess, 
-    TimeFrame, 
-    ComparisonType,
     SituationDetectionRequest,
+    SituationDetectionResponse,
+    SituationSeverity,
+    Situation,
     KPIDefinition,
+    KPIValue,
     PrincipalContext,
-    NLQueryRequest,
-    NLQueryResponse
+    BusinessProcess,
+    TimeFrame,
+    ComparisonType
 )
+
+# Import registry models
+from src.registry.models.kpi import KPI
 
 # Import data governance models
 from src.agents.models.data_governance_models import (
@@ -48,10 +51,10 @@ from src.agents.models.data_governance_models import (
 import pytest
 
 # Import the agents
-from src.agents.a9_situation_awareness_agent import create_situation_awareness_agent
-from src.agents.a9_orchestrator_agent import A9_Orchestrator_Agent, AgentRegistry, initialize_agent_registry
-from src.agents.a9_data_product_mcp_service_agent import A9_Data_Product_MCP_Service_Agent
-from src.agents.a9_data_governance_agent import A9_Data_Governance_Agent
+from src.agents.new.a9_situation_awareness_agent import create_situation_awareness_agent
+from src.agents.new.a9_orchestrator_agent import A9_Orchestrator_Agent, AgentRegistry, initialize_agent_registry
+from src.agents.new.a9_data_product_agent import A9_Data_Product_Agent
+from src.agents.new.a9_data_governance_agent import A9_Data_Governance_Agent
 
 # Configure logging
 logging.basicConfig(
@@ -63,8 +66,8 @@ logger = logging.getLogger(__name__)
 # Add the parent directory to the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# Mock Data Product MCP Service Agent for testing
-class MockDataProductMCPServiceAgent:
+# Mock Data Product Agent for testing
+class MockDataProductAgent:
     def __init__(self):
         self.config = mock.MagicMock()
         # Add required attributes that are accessed during testing
@@ -74,6 +77,71 @@ class MockDataProductMCPServiceAgent:
             "general_ledger": {"tables": ["accounts", "cost_centers", "profit_centers"]}
         }
         # Mock KPIs with technical names that match business terms
+        self.kpi_registry = {
+            "revenue": {
+                "name": "revenue",
+                "description": "Total revenue",
+                "unit": "USD",
+                "business_process_ids": ["Finance: Revenue Growth Analysis"]
+            },
+            "profit_margin": {
+                "name": "profit_margin",
+                "description": "Profit margin percentage",
+                "unit": "%",
+                "business_process_ids": ["Finance: Profitability Analysis"]
+            }
+        }
+
+# Mock Principal Context Agent for testing
+class MockPrincipalContextAgent:
+    def __init__(self):
+        self.config = mock.MagicMock()
+        # Sample principal profiles for testing
+        self.principal_profiles = {
+            "CFO": {
+                "id": "CFO",
+                "name": "Chief Financial Officer",
+                "role": "CFO",
+                "business_processes": ["Finance: Financial Planning", "Finance: Financial Reporting"],
+                "kpis": ["revenue", "profit_margin", "cash_flow"]
+            },
+            "COO": {
+                "id": "COO",
+                "name": "Chief Operating Officer",
+                "role": "COO",
+                "business_processes": ["Operations: Supply Chain", "Operations: Manufacturing"],
+                "kpis": ["inventory_turnover", "production_efficiency"]
+            }
+        }
+        
+    @classmethod
+    async def create(cls, config=None):
+        """Factory method to create the agent"""
+        instance = cls()
+        if config:
+            instance.config = mock.MagicMock(**config)
+        return instance
+    
+    async def connect(self):
+        logger.info("Mock Principal Context Agent connected")
+        return True
+
+    async def disconnect(self):
+        logger.info("Mock Principal Context Agent disconnected")
+        return True
+        
+    def close(self):
+        logger.info("Mock Principal Context Agent closed")
+        return True
+        
+    async def get_all_principal_profiles(self):
+        """Return all principal profiles"""
+        logger.info(f"Returning {len(self.principal_profiles)} mock principal profiles")
+        return self.principal_profiles
+
+# Continue with the existing MockDataProductAgent implementation
+class MockDataProductAgentContinued:
+    def __init__(self):
         self.kpi_registry = {
             "revenue": {
                 "name": "revenue",
@@ -132,15 +200,15 @@ class MockDataProductMCPServiceAgent:
         return instance
     
     async def connect(self):
-        logger.info("Mock Data Product MCP Service Agent connected")
+        logger.info("Mock Data Product Agent connected")
         return True
 
     async def disconnect(self):
-        logger.info("Mock Data Product MCP Service Agent disconnected")
+        logger.info("Mock Data Product Agent disconnected")
         return True
         
     def close(self):
-        logger.info("Mock Data Product MCP Service Agent closed")
+        logger.info("Mock Data Product Agent closed")
         return True
 
     async def execute_query(self, query, parameters=None):
@@ -235,19 +303,37 @@ async def test_agent_initialization():
     # Define an async factory that properly awaits the agent creation
     async def async_data_product_agent_factory(config):
         if config.get("mock", False):
-            return MockDataProductMCPServiceAgent()
+            return MockDataProductAgent()
         else:
             # Await the async create method
-            return await A9_Data_Product_MCP_Service_Agent.create({
+            return await A9_Data_Product_Agent.create({
                 "contracts_path": "src/contracts",
                 "data_directory": "C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI",
                 "registry_path": "src/registry/data_product/data_product_registry.yaml"  # Use YAML-based registry
             })
     
-    # Override the Data Product MCP Service Agent factory with our async factory
+    # Define an async factory for the Principal Context Agent
+    async def async_principal_context_agent_factory(config):
+        if config.get("mock", False):
+            return MockPrincipalContextAgent()
+        else:
+            # Import the Principal Context Agent
+            from src.agents.new.a9_principal_context_agent import A9_Principal_Context_Agent
+            # Await the async create method
+            return await A9_Principal_Context_Agent.create({
+                "registry_path": "src/registry/principal/principal_registry.yaml"  # Use YAML-based registry
+            })
+    
+    # Override the Data Product Agent factory with our async factory
     AgentRegistry.register_agent_factory(
-        "A9_Data_Product_MCP_Service_Agent",
+        "A9_Data_Product_Agent",
         async_data_product_agent_factory
+    )
+    
+    # Register the Principal Context Agent factory
+    AgentRegistry.register_agent_factory(
+        "A9_Principal_Context_Agent",
+        async_principal_context_agent_factory
     )
     
     try:
@@ -309,10 +395,10 @@ async def test_metadata_alignment():
         contract = yaml.safe_load(f)
     
     # Create mock agent
-    mock_agent = MockDataProductMCPServiceAgent()
+    mock_agent = MockDataProductAgent()
     
-    # Patch the Data Product MCP Service Agent's create method
-    with mock.patch('src.agents.a9_data_product_mcp_service_agent.A9_Data_Product_MCP_Service_Agent.create', 
+    # Patch the Data Product Agent's create method
+    with mock.patch('src.agents.new.a9_data_product_agent.A9_Data_Product_Agent.create', 
                    return_value=mock_agent):
         
         # Create the agent
@@ -592,10 +678,10 @@ async def test_protocol_methods():
     
     # Create mock Data Product agent with enhanced data
     # We only mock the data product agent since we can use the real Data Governance Agent
-    mock_data_product_agent = MockDataProductMCPServiceAgent()
+    mock_data_product_agent = MockDataProductAgent()
     
     # Initialize the agent
-    with mock.patch('src.agents.a9_data_product_mcp_service_agent.A9_Data_Product_MCP_Service_Agent.create', 
+    with mock.patch('src.agents.new.a9_data_product_agent.A9_Data_Product_Agent.create', 
                    return_value=mock_data_product_agent):
         
         # Create the agent

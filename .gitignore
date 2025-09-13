@@ -35,3 +35,7 @@ logs/
 
 # macOS
 .DS_Store
+
+# Databases (DuckDB)
+data/*.duckdb
+data/*.duckdb.wal

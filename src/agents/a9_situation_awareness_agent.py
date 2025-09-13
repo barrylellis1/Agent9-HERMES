@@ -408,7 +408,7 @@ class A9_Situation_Awareness_Agent:
                         BusinessTermTranslationRequest(
                             business_terms=query_terms,
                             system="duckdb",
-                            context={"principal_context": request.principal_context.dict() if request.principal_context else {}}
+                            context={"principal_context": (request.principal_context.model_dump() if request.principal_context else {})}
                         )
                     )
                     

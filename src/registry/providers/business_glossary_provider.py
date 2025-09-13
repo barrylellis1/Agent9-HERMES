@@ -84,6 +84,28 @@ class BusinessGlossaryProvider:
             logger.error(f"Error loading business glossary: {e}")
             # Create a default empty glossary
             self._create_default_glossary()
+            
+    async def load(self) -> Dict[str, Any]:
+        """
+        Async load method to comply with RegistryProvider interface.
+        
+        Returns:
+            Dictionary with status information
+        """
+        try:
+            self._load_glossary()
+            return {
+                "success": True,
+                "message": f"Business glossary loaded successfully with {len(self.terms)} terms",
+                "count": len(self.terms)
+            }
+        except Exception as e:
+            logger.error(f"Error loading business glossary: {str(e)}")
+            return {
+                "success": False,
+                "message": f"Error loading business glossary: {str(e)}",
+                "error": str(e)
+            }
     
     def _create_default_glossary(self) -> None:
         """Create a default empty glossary file if none exists."""
@@ -130,6 +152,47 @@ class BusinessGlossaryProvider:
             List of all business terms
         """
         return list(self.terms.values())
+        
+    def get(self, id_or_name: str) -> Optional[BusinessTerm]:
+        """
+        Get a business term by ID or name.
+        
+        Args:
+            id_or_name: The ID or name of the business term to retrieve
+            
+        Returns:
+            The business term if found, None otherwise
+        """
+        return self.get_term(id_or_name)
+        
+    def find_by_attribute(self, attr_name: str, attr_value: Any) -> List[BusinessTerm]:
+        """
+        Find business terms by a specific attribute value.
+        
+        Args:
+            attr_name: The name of the attribute to search by
+            attr_value: The value to search for
+            
+        Returns:
+            List of matching business terms
+        """
+        results = []
+        for term in self.terms.values():
+            if hasattr(term, attr_name) and getattr(term, attr_name) == attr_value:
+                results.append(term)
+        return results
+        
+    def register(self, item: BusinessTerm) -> bool:
+        """
+        Register a new business term in the registry.
+        
+        Args:
+            item: The business term to register
+            
+        Returns:
+            True if registration succeeded, False otherwise
+        """
+        return self.add_term(item)
     
     def get_term(self, term_name: str) -> Optional[BusinessTerm]:
         """

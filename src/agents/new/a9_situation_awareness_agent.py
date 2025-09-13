@@ -14,7 +14,7 @@ import uuid
 import yaml
 import logging
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, Protocol, runtime_checkable
 
 # Import data models and enums
 from src.agents.models.situation_awareness_models import (
@@ -23,6 +23,7 @@ from src.agents.models.situation_awareness_models import (
     PrincipalContext, SituationDetectionRequest, SituationDetectionResponse,
     NLQueryRequest, NLQueryResponse, HITLRequest, HITLResponse, HITLDecision
 )
+from src.agents.models.principal_context_models import PrincipalProfileResponse
 
 # Import agent protocol and base classes
 from src.agents.protocols.situation_awareness_protocol import SituationAwarenessProtocol
@@ -39,8 +40,8 @@ from src.registry.providers.business_process_provider import BusinessProcessProv
 from src.registry.providers.kpi_provider import KPIProvider as KpiProvider
 from src.models.kpi_models import KPI, KPIThreshold, KPIComparisonMethod
 
-# Import the actual agent for data product interaction
-from src.agents.a9_data_product_mcp_service_agent import A9_Data_Product_MCP_Service_Agent
+# LLM Service models for SQL generation
+from src.agents.a9_llm_service_agent import A9_LLM_SQLGenerationRequest
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +49,9 @@ class A9_Situation_Awareness_Agent:
     """
     Agent9 Situation Awareness Agent
     
-    Detects situations based on KPI thresholds, trends, and principal context.
-    Provides automated, personalized situation awareness for Finance KPIs.
+    Implements SituationAwarenessProtocol to detect situations based on KPI thresholds, 
+    trends, and principal context. Provides automated, personalized situation 
+    awareness for Finance KPIs.
     """
     
     @classmethod
@@ -67,54 +69,185 @@ class A9_Situation_Awareness_Agent:
         await agent.connect()
         return agent
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any] = None):
         """
-        Initialize the Situation Awareness Agent with the provided configuration.
+        Initialize the Situation Awareness Agent.
         
         Args:
-            config: Configuration dictionary with required settings.
+            config: Configuration dictionary
         """
-        # Store the configuration
-        self.config = config or {}
-        
+        # Store configuration
+        if config is None:
+            config = {}
+            
+        # Store the config for later use
+        self.config = config 
         # Set up agent properties
         self.name = "A9_Situation_Awareness_Agent"
         self.version = "0.1.0"
         self.data_product_agent = None  # Will be loaded via orchestrator during connect
         self.orchestrator_agent = None  # Will be initialized during connect
+        self.principal_context_agent = None  # Will be loaded via orchestrator during connect
+        self.llm_service_agent = None  # Will be loaded via orchestrator during connect
         
         # Set up internal data structures
-        self.principal_profiles = {}
         self.business_processes = {}
         self.kpi_registry = {}
+        self.principal_profiles = {}  # Initialize principal_profiles to avoid AttributeError
         
         # Initialize logging
         self.logger = logging.getLogger(self.__class__.__name__)
         
         # Load contract and registries
-        self.contract_path = config.get("contract_path", "C:/Users/barry/CascadeProjects/Agent9-HERMES/src/contracts/fi_star_schema.yaml")
+        default_contract_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 
+                                          "contracts", "fi_star_schema.yaml")
+        self.contract_path = config.get("contract_path", default_contract_path)
         
         # Load the contract and KPI definitions
         self._load_contract()
         
-        # Initialize KPI registry
+        # Initialize KPI registry with empty registry to avoid errors
+        self.kpi_registry = {}
+    
+    async def connect(self):
+        """Initialize connections to dependent services."""
+        try:
+            # Initialize the orchestrator agent
+            if not hasattr(self, 'orchestrator_agent') or self.orchestrator_agent is None:
+                self.orchestrator_agent = await A9_Orchestrator_Agent.create({})
+                if self.orchestrator_agent is None:
+                    logger.error("Failed to create orchestrator agent")
+                    return False
+            
+            # Get the Data Product Agent via the orchestrator
+            if self.orchestrator_agent:
+                try:
+                    self.data_product_agent = await self.orchestrator_agent.get_agent("A9_Data_Product_Agent")
+                except Exception as e:
+                    logger.error(f"Error getting Data Product Agent from orchestrator: {e}")
+                    self.data_product_agent = None
+            if not self.data_product_agent:
+                # Fallback to direct instantiation if not available via orchestrator
+                logger.warning("Data Product Agent not available via orchestrator, using direct instantiation")
+                from src.agents.new.a9_data_product_agent import A9_Data_Product_Agent
+                self.data_product_agent = await A9_Data_Product_Agent.create({})
+                await self.data_product_agent.connect()
+                # Register the directly instantiated agent with the orchestrator
+                await self.orchestrator_agent.register_agent("A9_Data_Product_Agent", self.data_product_agent)
+            
+            # Get the Data Governance Agent via the orchestrator
+            if self.orchestrator_agent:
+                try:
+                    self.data_governance_agent = await self.orchestrator_agent.get_agent("A9_Data_Governance_Agent")
+                except Exception as e:
+                    logger.error(f"Error getting Data Governance Agent from orchestrator: {e}")
+                    self.data_governance_agent = None
+            if not self.data_governance_agent:
+                # Fallback to direct instantiation if not available via orchestrator
+                logger.warning("Data Governance Agent not available via orchestrator, using direct instantiation")
+                try:
+                    from src.agents.new.a9_data_governance_agent import A9_Data_Governance_Agent
+                    self.data_governance_agent = await A9_Data_Governance_Agent.create({})
+                    await self.data_governance_agent.connect()
+                    # Register the directly instantiated agent with the orchestrator
+                    await self.orchestrator_agent.register_agent("A9_Data_Governance_Agent", self.data_governance_agent)
+                except Exception as e:
+                    logger.error(f"Failed to instantiate Data Governance Agent directly: {e}")
+                    logger.warning("Data Governance Agent functionality will be limited")
+            
+            # Get the Principal Context Agent via the orchestrator
+            if self.orchestrator_agent:
+                try:
+                    self.principal_context_agent = await self.orchestrator_agent.get_agent("A9_Principal_Context_Agent")
+                except Exception as e:
+                    logger.error(f"Error getting Principal Context Agent from orchestrator: {e}")
+                    self.principal_context_agent = None
+            if not self.principal_context_agent:
+                # Fallback to direct instantiation if not available via orchestrator
+                logger.warning("Principal Context Agent not available via orchestrator, using direct instantiation")
+                try:
+                    from src.agents.new.a9_principal_context_agent import A9_Principal_Context_Agent
+                    self.principal_context_agent = await A9_Principal_Context_Agent.create({})
+                    await self.principal_context_agent.connect()
+                    # Register the directly instantiated agent with the orchestrator
+                    await self.orchestrator_agent.register_agent("A9_Principal_Context_Agent", self.principal_context_agent)
+                except Exception as e:
+                    logger.error(f"Failed to instantiate Principal Context Agent directly: {e}")
+                    logger.warning("Principal Context Agent functionality will be limited")
+            else:
+                # Load principal profiles from Principal Context Agent
+                try:
+                    # The Principal Context Agent doesn't have get_all_principal_profiles method
+                    # Instead, we'll use the principal_profiles attribute that's already loaded during connect
+                    if hasattr(self.principal_context_agent, 'principal_profiles'):
+                        self.principal_profiles = self.principal_context_agent.principal_profiles
+                        logger.info(f"Loaded {len(self.principal_profiles)} principal profiles from Principal Context Agent")
+                    else:
+                        # Fallback to empty dictionary
+                        logger.warning("Principal Context Agent doesn't have principal_profiles attribute")
+                        self.principal_profiles = {}
+                except Exception as e:
+                    logger.error(f"Error loading principal profiles: {e}")
+                    self.principal_profiles = {}
+            
+            # Get the LLM Service Agent via the orchestrator
+            if self.orchestrator_agent:
+                try:
+                    self.llm_service_agent = await self.orchestrator_agent.get_agent("A9_LLM_Service_Agent")
+                except Exception as e:
+                    logger.error(f"Error getting LLM Service Agent from orchestrator: {e}")
+                    self.llm_service_agent = None
+            if not self.llm_service_agent:
+                # Fallback to direct instantiation if not available via orchestrator
+                logger.warning("LLM Service Agent not available via orchestrator, using direct instantiation")
+                try:
+                    from src.agents.a9_llm_service_agent import A9_LLM_Service_Agent
+                    self.llm_service_agent = await A9_LLM_Service_Agent.create({})
+                    # Register the directly instantiated agent with the orchestrator
+                    await self.orchestrator_agent.register_agent("A9_LLM_Service_Agent", self.llm_service_agent)
+                except Exception as e:
+                    logger.error(f"Failed to instantiate LLM Service Agent directly: {e}")
+                    logger.warning("LLM-based SQL generation will be limited")
+            
+            # Load KPIs from registry
+            await self._load_kpi_registry()
+            
+            
+            logger.info("Connected to dependent services")
+            return True
+        except Exception as e:
+            logger.error(f"Error connecting to services: {e}")
+            return False
+    
+    async def _load_kpi_registry(self):
+        """
+        Load KPIs from the registry asynchronously.
+        """
         try:
             # Try to get the KPI registry from the registry factory
             from src.registry.factory import RegistryFactory
             registry_factory = RegistryFactory()
             
             try:
+                # Initialize registry factory if needed
+                if not registry_factory.is_initialized:
+                    await registry_factory.initialize()
+                    logger.info("Registry factory initialized successfully")
+                else:
+                    logger.info("Registry factory already initialized")
+                
+                # Now get the KPI provider
                 kpi_provider = registry_factory.get_provider("kpi")
                 if kpi_provider:
                     # Use get_all() which returns a list of KPI objects
-                    kpis = kpi_provider.get_all()
+                    kpis = kpi_provider.get_all() or []
                     for kpi in kpis:
                         # Convert registry KPI to internal KPI definition
                         kpi_def = self._convert_to_kpi_definition(kpi)
                         if kpi_def:
                             self.kpi_registry[kpi_def.name] = kpi_def
             except Exception as e:
-                self.logger.warning(f"Could not get KPI provider from registry factory")
+                self.logger.warning(f"Could not get KPI provider from registry factory: {str(e)}")
                 
             # Load KPIs from contract as backup or additional source
             if hasattr(self, 'contract') and self.contract and hasattr(self.contract, 'kpis'):
@@ -127,49 +260,9 @@ class A9_Situation_Awareness_Agent:
             # Initialize with empty registry to avoid errors
             self.kpi_registry = {}
     
-    async def connect(self):
-        """Initialize connections to dependent services."""
-        try:
-            # Initialize the orchestrator agent
-            self.orchestrator_agent = await A9_Orchestrator_Agent.create({})
-            
-            # Get the Data Product MCP Service Agent through the orchestrator
-            # Use contracts_path (a directory), not a single contract file path
-            import os
-            contracts_dir = os.path.dirname(self.contract_path) if self.contract_path else "src/registry_references/data_product_registry/data_products"
-            self.data_product_agent = await self.orchestrator_agent.get_agent(
-                "A9_Data_Product_MCP_Service_Agent", 
-                {"contracts_path": contracts_dir}
-            )
-            
-            # Get the Data Governance Agent for term translation and access validation
-            self.data_governance_agent = await self.orchestrator_agent.get_agent(
-                "A9_Data_Governance_Agent"
-            )
-            
-            # Load principal profiles through the orchestrator
-            await self._load_principal_profiles()
-            
-            # Load KPI registry (critical for situation detection and SQL generation)
-            self._load_kpi_registry()
-            
-            # Validate initialization state
-            if not self.kpi_registry:
-                logger.warning("KPI registry is empty after loading! This will prevent situation detection.")
-            else:
-                logger.info(f"Successfully loaded {len(self.kpi_registry)} KPIs into registry")
-                
-            logger.info("Connected to dependent services")
-            return True
-        except Exception as e:
-            logger.error(f"Error connecting to services: {e}")
-            return False
-    
     async def disconnect(self):
         """Disconnect from dependent services."""
-        if self.data_product_agent:
-            # Data Product MCP Service Agent uses close() method instead of disconnect()
-            self.data_product_agent.close()
+        # Data Product Agent doesn't need explicit disconnection as it's managed by the orchestrator
         
         logger.info(f"{self.name} disconnected from dependent services")
     
@@ -187,100 +280,60 @@ class A9_Situation_Awareness_Agent:
             self.business_processes = self.contract.get("supported_business_processes", [])
             
             # Load KPIs from the external registry
-            self._load_kpi_registry()
+            # Skip awaiting here as this is a synchronous method
+            # KPIs will be loaded during connect() which properly awaits the async method
             
             logger.info(f"Loaded {len(self.kpi_registry)} KPIs from registry and contract")
         except Exception as e:
             logger.error(f"Error loading contract or registry: {str(e)}")
             raise
     
-    async def _load_principal_profiles(self):
-        """
-        Load principal profiles for personalization by requesting them from the Principal Context Agent
-        """
-        try:
-            # Get PrincipalContextAgent from orchestrator
-            principal_context_agent = await self.orchestrator_agent.get_agent("A9_Principal_Context_Agent")
-            
-            if not principal_context_agent:
-                logger.warning("Principal Context Agent not found in orchestrator")
-                return
-            
-            # Define key roles we want to load (remove invalid CEO/COO enum references)
-            key_roles = {
-                "CFO": PrincipalRole.CFO,           # cfo
-                "FINANCE_MANAGER": PrincipalRole.FINANCE_MANAGER  # finance_manager
-            }
-            
-            # Get principal profiles for key roles
-            for display_role_name, role_enum in key_roles.items():
-                # Get exact registry ID from enum value
-                registry_id = role_enum.value
-                
-                # Try multiple approaches to find the profile
-                # 1. Try exact match with registry ID from enum
-                profile = await principal_context_agent.fetch_principal_profile(registry_id)
-                
-                # 2. If that fails, try with display name (legacy approach)
-                if not profile:
-                    profile = await principal_context_agent.fetch_principal_profile(display_role_name)
-                
-                # 3. If that fails, try with lowercase variant
-                if not profile:
-                    profile = await principal_context_agent.fetch_principal_profile(display_role_name.lower())
-                
-                if profile:
-                    # Add to internal profiles using the enum as key
-                    self.principal_profiles[role_enum] = profile
-                    logger.info(f"Loaded profile for {display_role_name} (ID: {registry_id})")
-                else:
-                    logger.warning(f"Principal profile not found: {display_role_name} (tried ID: {registry_id})")
-            
-            # Ensure we have at least CFO and Finance Manager roles with necessary business processes
-            for role in [PrincipalRole.CFO, PrincipalRole.FINANCE_MANAGER]:
-                if role not in self.principal_profiles:
-                    # Create default profile if missing
-                    role_name = role.name.replace('_', ' ').title()
-                    self.principal_profiles[role] = {
-                        "id": role.value,
-                        "name": role_name,
-                        "business_processes": [],
-                        "default_filters": {},
-                        "communication_style": "direct",
-                        "decision_timeframe": "monthly"
-                    }
-                
-                # Ensure we have all 5 Finance business processes for MVP
-                finance_bps = [
-                    "Finance: Profitability Analysis",
-                    "Finance: Revenue Growth Analysis",
-                    "Finance: Expense Management",
-                    "Finance: Cash Flow Management",
-                    "Finance: Budget vs. Actuals"
-                ]
-                
-                existing_bps = self.principal_profiles[role].get("business_processes", [])
-                missing_bps = [bp for bp in finance_bps if bp not in existing_bps]
-                
-                if missing_bps:
-                    self.principal_profiles[role]["business_processes"] = [
-                        *existing_bps,
-                        *missing_bps
-                    ]
-            
-            logger.info(f"Loaded {len(self.principal_profiles)} principal profiles from Principal Context Agent")
-            
-        except Exception as e:
-            import traceback
-            error_details = traceback.format_exc()
-            logger.error(f"Error loading principal profiles: {type(e).__name__}: {str(e)}\n{error_details}")
-            # Create minimal profiles for fallback
-            self.principal_profiles = {}
+    # Principal profile management has been moved to the Principal Context Agent
     
     async def detect_situations(
         self, 
-        request: SituationDetectionRequest
+        request=None, **kwargs
     ) -> SituationDetectionResponse:
+        """Handle both direct request object and dictionary with request key"""
+        # Store original request_id for response
+        original_request_id = str(uuid.uuid4())
+        
+        # Handle case where request is passed as a keyword argument
+        if request is None and 'request' in kwargs:
+            request = kwargs['request']
+            
+        # Convert dict to SituationDetectionRequest if needed
+        if isinstance(request, dict):
+            # Save the request_id if present
+            if 'request_id' in request:
+                original_request_id = request.get('request_id')
+                
+            # Ensure request has all required fields
+            if 'request_id' not in request:
+                request['request_id'] = original_request_id
+            if 'timestamp' not in request:
+                request['timestamp'] = datetime.now()
+            if 'principal_context' not in request:
+                self.logger.error("Missing principal_context in request")
+                return SituationDetectionResponse(
+                    request_id=original_request_id,
+                    status="error",
+                    message="Missing principal_context in request",
+                    situations=[]
+                )
+            if 'business_processes' not in request:
+                request['business_processes'] = []
+                
+            try:
+                request = SituationDetectionRequest(**request)
+            except Exception as e:
+                self.logger.error(f"Error converting request dict to SituationDetectionRequest: {str(e)}")
+                return SituationDetectionResponse(
+                    request_id=original_request_id,
+                    status="error",
+                    message=f"Invalid request format: {str(e)}",
+                    situations=[]
+                )
         """
         Detect situations across KPIs based on principal context and business processes.
         
@@ -291,6 +344,9 @@ class A9_Situation_Awareness_Agent:
             SituationDetectionResponse with detected situations
         """
         try:
+            # Ensure we have a valid request_id for the response
+            request_id = getattr(request, 'request_id', original_request_id)
+            
             self.logger.info(f"Detecting situations for {request.principal_context.role}")
             
             # Get relevant KPIs based on principal context and business processes
@@ -298,6 +354,14 @@ class A9_Situation_Awareness_Agent:
                 request.principal_context,
                 request.business_processes
             )
+            if not relevant_kpis:
+                self.logger.warning("No relevant KPIs found for principal context and business processes")
+                return SituationDetectionResponse(
+                    request_id=request_id,
+                    status="success",
+                    message="No relevant KPIs found for principal context and business processes",
+                    situations=[]
+                )
             
             self.logger.info(f"Found {len(relevant_kpis)} relevant KPIs for detection")
             
@@ -314,7 +378,8 @@ class A9_Situation_Awareness_Agent:
                         kpi_definition,
                         request.timeframe,
                         request.comparison_type,
-                        request.filters
+                        request.filters,
+                        request.principal_context
                     )
                     
                     if kpi_value:
@@ -339,14 +404,21 @@ class A9_Situation_Awareness_Agent:
             
             # Generate summary SQL for debugging/transparency
             sample_sql = ""
-            if kpi_values:
+            if kpi_values and self.data_product_agent:
                 first_kpi_def = relevant_kpis.get(kpi_values[0].kpi_name)
                 if first_kpi_def:
-                    sample_sql = self._generate_sql_for_kpi(
-                        first_kpi_def,
-                        request.timeframe,
-                        request.filters
-                    )
+                    try:
+                        # Use Data Product Agent to generate SQL for the KPI
+                        sql_response = await self.data_product_agent.generate_sql_for_kpi(
+                            kpi_definition=first_kpi_def,
+                            timeframe=request.timeframe,
+                            filters=request.filters
+                        )
+                        if sql_response.get('success', False) and sql_response.get('sql'):
+                            sample_sql = sql_response['sql']
+                    except Exception as e:
+                        logger.warning(f"Error generating sample SQL: {e}")
+                        sample_sql = ""
             
             return SituationDetectionResponse(
                 request_id=request.request_id,
@@ -358,8 +430,10 @@ class A9_Situation_Awareness_Agent:
         
         except Exception as e:
             self.logger.error(f"Error detecting situations: {str(e)}")
+            # Use the stored request_id in case request object is invalid
+            req_id = getattr(request, 'request_id', original_request_id) if hasattr(request, 'request_id') else original_request_id
             return SituationDetectionResponse(
-                request_id=request.request_id,
+                request_id=req_id,
                 status="error",
                 message=f"Error detecting situations: {str(e)}",
                 situations=[]
@@ -367,8 +441,50 @@ class A9_Situation_Awareness_Agent:
     
     async def process_nl_query(
         self,
-        request: NLQueryRequest
+        request=None, **kwargs
     ) -> NLQueryResponse:
+        """Handle both direct request object and dictionary with request key"""
+        # Store original request_id for response
+        original_request_id = str(uuid.uuid4())
+        
+        # Handle case where request is passed as a keyword argument
+        if request is None and 'request' in kwargs:
+            request = kwargs['request']
+            
+        # Convert dict to NLQueryRequest if needed
+        if isinstance(request, dict):
+            # Save the request_id if present
+            if 'request_id' in request:
+                original_request_id = request.get('request_id')
+                
+            # Ensure request has all required fields
+            if 'request_id' not in request:
+                request['request_id'] = original_request_id
+            if 'timestamp' not in request:
+                request['timestamp'] = datetime.now()
+            if 'query' not in request:
+                self.logger.error("Missing query in request")
+                return NLQueryResponse(
+                    request_id=original_request_id,
+                    status="error",
+                    answer="Missing query in request",
+                    kpi_values=[],
+                    sql_query=""
+                )
+            if 'principal_context' not in request:
+                self.logger.warning("Missing principal_context in request, using default")
+                
+            try:
+                request = NLQueryRequest(**request)
+            except Exception as e:
+                self.logger.error(f"Error converting request dict to NLQueryRequest: {str(e)}")
+                return NLQueryResponse(
+                    request_id=original_request_id,
+                    status="error",
+                    answer=f"Invalid request format: {str(e)}",
+                    kpi_values=[],
+                    sql_query=""
+                )
         """
         Process a natural language query about KPIs or situations.
         
@@ -395,9 +511,16 @@ class A9_Situation_Awareness_Agent:
                         BusinessTermTranslationRequest(
                             business_terms=query_terms,
                             system="duckdb",
-                            context={"principal_context": request.principal_context.model_dump() if request.principal_context else {}}
+                            context={
+                                "principal_context": request.principal_context.model_dump() if request.principal_context else {},
+                                "business_processes": getattr(request, 'business_processes', None) or (
+                                    request.principal_context.business_processes if request.principal_context else []
+                                )
+                            }
                         )
                     )
+                    # Persist for later checks in this method
+                    self.translation_result = translation_result
                     
                     # Check for unmapped terms that require human input
                     if translation_result.human_action_required:
@@ -414,26 +537,114 @@ class A9_Situation_Awareness_Agent:
             query_lower = request.query.lower()
             kpi_values = []
             
-            # First try to identify KPIs via translated business terms
+            # Try to map KPIs using Data Governance Agent first
             mapped_kpis = []
-            if self.data_governance_agent and hasattr(self, 'translation_result') and self.translation_result.resolved_terms:
-                for business_term, technical_name in self.translation_result.resolved_terms.items():
-                    # Check if the technical name matches a KPI name
-                    if technical_name in self.kpi_registry.keys():
-                        mapped_kpis.append(technical_name)
+            if self.data_governance_agent:
+                try:
+                    # Import the request model
+                    from src.agents.models.data_governance_models import KPIDataProductMappingRequest
+                    
+                    # Get potential KPI names from business terms and direct query text
+                    potential_kpi_names = []
+                    
+                    # Add translated business terms if available
+                    if hasattr(self, 'translation_result') and getattr(self.translation_result, 'resolved_terms', None):
+                        potential_kpi_names.extend(list(self.translation_result.resolved_terms.values()))
+                    
+                    # Add direct matches from query
+                    for kpi_name in self.kpi_registry.keys():
+                        if kpi_name.lower() in query_lower:
+                            potential_kpi_names.append(kpi_name)
+                    
+                    # Deduplicate
+                    potential_kpi_names = list(set(potential_kpi_names))
+                    
+                    if potential_kpi_names:
+                        # Use Data Governance Agent to map KPIs to data products with business process context
+                        mapping_response = await self.data_governance_agent.map_kpis_to_data_products(
+                            KPIDataProductMappingRequest(
+                                kpi_names=potential_kpi_names,
+                                context={
+                                    "principal_id": request.principal_context.principal_id if request.principal_context else "",
+                                    "business_processes": getattr(request, 'business_processes', None) or (
+                                        request.principal_context.business_processes if request.principal_context else []
+                                    )
+                                }
+                            )
+                        )
+                        
+                        # Process mapped KPIs
+                        for mapping in mapping_response.mappings:
+                            mapped_kpis.append(mapping.kpi_name)
+                            
+                        logger.info(f"Data Governance Agent mapped {len(mapping_response.mappings)} KPIs")
+                except Exception as e:
+                    logger.warning(f"Error using Data Governance Agent for KPI mapping: {e}")
             
-            # Then fall back to direct KPI name matching in the query
-            for kpi_name in self.kpi_registry.keys():
-                if kpi_name.lower() in query_lower or kpi_name in mapped_kpis:
+            # Process KPIs - first from Data Governance Agent mappings, then fall back to direct matching
+            processed_kpis = set()
+            
+            # First process mapped KPIs from Data Governance Agent
+            for kpi_name in mapped_kpis:
+                if kpi_name not in processed_kpis:
                     try:
+                        # Check if we have this KPI in our registry
+                        if kpi_name in self.kpi_registry:
+                            kpi_def = self.kpi_registry[kpi_name]
+                        else:
+                            # Try to get KPI definition from Data Governance Agent
+                            try:
+                                # Get the mapping for this KPI
+                                for mapping in mapping_response.mappings:
+                                    if mapping.kpi_name == kpi_name:
+                                        # Create a temporary KPI definition from the mapping
+                                        kpi_def = KPIDefinition(
+                                            name=mapping.kpi_name,
+                                            description=mapping.metadata.get("description", "") if mapping.metadata else "",
+                                            data_product_id=mapping.data_product_id,
+                                            calculation="",  # Will be generated by Data Product Agent
+                                            view_name=mapping.technical_name,
+                                            thresholds=mapping.metadata.get("thresholds", {}) if mapping.metadata else {},
+                                            dimensions=mapping.metadata.get("dimensions", []) if mapping.metadata else [],
+                                            business_processes=mapping.metadata.get("business_processes", []) if mapping.metadata else [],
+                                            positive_trend_is_good=mapping.metadata.get("positive_trend_is_good", True) if mapping.metadata else True
+                                        )
+                                        break
+                            except Exception as e:
+                                logger.warning(f"Error creating KPI definition from mapping: {e}")
+                                kpi_def = None
+                                
+                        # Get KPI value if we have a definition
+                        if kpi_def:
+                            kpi_value = await self._get_kpi_value(
+                                kpi_def,
+                                request.timeframe if request.timeframe else TimeFrame.CURRENT_QUARTER,  # Default timeframe
+                                request.comparison_type if request.comparison_type else ComparisonType.QUARTER_OVER_QUARTER,  # Default comparison
+                                request.filters if request.filters else {},
+                                request.principal_context
+                            )
+                            if kpi_value:
+                                kpi_values.append(kpi_value)
+                                processed_kpis.add(kpi_name)
+                    except Exception as kpi_error:
+                        logger.warning(f"Error retrieving KPI {kpi_name}: {str(kpi_error)}")
+                        # Continue with other KPIs
+                        
+            # Then fall back to direct KPI name matching in the query for any KPIs not already processed
+            for kpi_name in self.kpi_registry.keys():
+                if kpi_name.lower() in query_lower and kpi_name not in processed_kpis:
+                    try:
+                        kpi_def = self.kpi_registry[kpi_name]
                         kpi_value = await self._get_kpi_value(
-                            kpi_name,
+                            kpi_def,
                             request.timeframe if request.timeframe else TimeFrame.CURRENT_QUARTER,  # Default timeframe
                             request.comparison_type if request.comparison_type else ComparisonType.QUARTER_OVER_QUARTER,  # Default comparison
-                            request.filters if request.filters else {}
+                            request.filters if request.filters else {},
+                            request.principal_context
                         )
                         if kpi_value:
                             kpi_values.append(kpi_value)
+                            processed_kpis.add(kpi_name)
                     except Exception as kpi_error:
                         logger.warning(f"Error retrieving KPI {kpi_name}: {str(kpi_error)}")
                         # Continue with other KPIs
@@ -450,8 +661,10 @@ class A9_Situation_Awareness_Agent:
                     # Get first KPI
                     if relevant_kpis:
                         first_kpi_name = next(iter(relevant_kpis.keys()))
+                        # Use KPI definition (not name) when fetching KPI value
+                        first_kpi_def = relevant_kpis[first_kpi_name]
                         kpi_value = await self._get_kpi_value(
-                            first_kpi_name,
+                            first_kpi_def,
                             request.timeframe if request.timeframe else TimeFrame.CURRENT_QUARTER,
                             request.comparison_type if request.comparison_type else ComparisonType.QUARTER_OVER_QUARTER,
                             request.filters if request.filters else {}
@@ -461,8 +674,8 @@ class A9_Situation_Awareness_Agent:
                 except Exception as e:
                     logger.warning(f"Error getting default KPI: {str(e)}")
             
-            # Generate SQL for the query (simplified for MVP)
-            sql_query = self._generate_sql_for_query(request.query, kpi_values)
+            # Generate SQL for the query using Data Product Agent
+            sql_query = await self._generate_sql_for_query(request.query, kpi_values)
             
             # Check if we need HITL escalation due to unmapped terms
             human_action_required = False
@@ -496,8 +709,10 @@ class A9_Situation_Awareness_Agent:
             
         except Exception as e:
             logger.error(f"Error processing NL query: {str(e)}")
+            # Use the stored request_id in case request object is invalid
+            req_id = getattr(request, 'request_id', original_request_id) if hasattr(request, 'request_id') else original_request_id
             return NLQueryResponse(
-                request_id=request.request_id,
+                request_id=req_id,
                 status="error",
                 message=f"Error processing query: {str(e)}",
                 answer="I'm sorry, I couldn't process your query due to an error.",
@@ -526,50 +741,95 @@ class A9_Situation_Awareness_Agent:
             message=f"Processed {request.decision} feedback"
         )
     
-    async def get_principal_context(self, principal_role: PrincipalRole) -> PrincipalContext:
-        """
-        Get principal context for a given role.
+    async def get_principal_context(self, principal_role: PrincipalRole) -> PrincipalProfileResponse:
+        """Get principal context for the specified role.
         
         Args:
-            principal_role: Role of the principal
+            principal_role: The role to get context for
             
         Returns:
-            Principal context containing preferences and relevant business processes
+            PrincipalProfileResponse: The principal context response
         """
-        # Log the request
-        self.logger.info(f"Getting principal context for role: {principal_role}")
-        
-        # First try to load from registry if not already loaded
-        if not self.principal_profiles:
-            await self._load_principal_profiles()
+        try:
+            # Call Principal Context Agent to get principal context
+            context_response = await self.principal_context_agent.get_principal_context(principal_role)
             
-        # Try to find matching profile for the role
-        profile_key = principal_role.value.lower()
-        for key, profile in self.principal_profiles.items():
-            if key.lower() == profile_key or profile.get('role', '').lower() == profile_key:
-                # Create and return PrincipalContext
-                business_processes = []
-                for bp in profile.get('business_processes', []):
-                    # Try to map to BusinessProcess enum
-                    try:
-                        business_processes.append(BusinessProcess(bp))
-                    except ValueError:
-                        self.logger.warning(f"Unknown business process: {bp} for principal {principal_role}")
-                
-                # Create context with defaults if values are missing
-                return PrincipalContext(
-                    role=principal_role,
-                    business_processes=business_processes or list(BusinessProcess),
-                    default_filters=profile.get('default_filters', {}),
-                    decision_style=profile.get('decision_style', "Analytical"),
-                    communication_style=profile.get('communication_style', "Concise"),
-                    preferred_timeframes=[TimeFrame.CURRENT_QUARTER, TimeFrame.YEAR_TO_DATE]
-                )
+            # Check if response is a dictionary with the expected structure
+            if isinstance(context_response, dict) and 'principal_context' in context_response:
+                context_dict = context_response['principal_context']
+                # Create PrincipalContext from dictionary
+                principal_context = PrincipalContext(**context_dict)
+                return principal_context
+            # Check if response is directly a dictionary with PrincipalContext fields
+            elif isinstance(context_response, dict) and 'role' in context_response:
+                principal_context = PrincipalContext(**context_response)
+                return principal_context
+            else:
+                self.logger.warning(f"Unexpected principal context format for role {principal_role}, using default")
+                self.logger.debug(f"Received context: {context_response}")
+                return self._create_default_principal_context(principal_role)
+        except Exception as e:
+            self.logger.error(f"Error getting principal context: {str(e)}")
         
-        # If no matching profile is found, return a default context
-        self.logger.warning(f"No principal profile found for role {principal_role}, using default")
+        # Return default context as fallback
+        return self._create_default_principal_context(principal_role)
+        
+    async def get_principal_context_by_id(self, principal_id: str) -> PrincipalProfileResponse:
+        """Get principal context for the specified principal ID.
+        
+        Args:
+            principal_id: The principal ID to get context for
+            
+        Returns:
+            PrincipalProfileResponse: The principal context response
+        """
+        try:
+            # Check if Principal Context Agent is available
+            if not self.principal_context_agent:
+                self.logger.error("Principal Context Agent not available")
+                # Return default context as fallback
+                return self._create_default_principal_context("CFO")
+            
+            # Call Principal Context Agent to get principal context by ID
+            context_response = await self.principal_context_agent.get_principal_context_by_id(principal_id)
+            
+            # Check if response is a dictionary with the expected structure
+            if isinstance(context_response, dict) and 'principal_context' in context_response:
+                context_dict = context_response['principal_context']
+                # Create PrincipalContext from dictionary
+                principal_context = PrincipalContext(**context_dict)
+                return principal_context
+            # Check if response is directly a dictionary with PrincipalContext fields
+            elif isinstance(context_response, dict) and 'role' in context_response:
+                principal_context = PrincipalContext(**context_response)
+                return principal_context
+            else:
+                self.logger.warning(f"Unexpected principal context format for ID {principal_id}, using default")
+                self.logger.debug(f"Received context: {context_response}")
+                # Create default context with the provided ID
+                return self._create_default_principal_context_with_id(principal_id)
+        except Exception as e:
+            self.logger.error(f"Error getting principal context by ID: {str(e)}")
+        
+        # Return default context as fallback
+        return self._create_default_principal_context_with_id(principal_id)
+        
+    def _create_default_principal_context(self, principal_role) -> PrincipalContext:
+        """
+        Create a default principal context when the actual context cannot be retrieved.
+        
+        Args:
+            principal_role: Role of the principal (string or enum)
+            
+        Returns:
+            Default principal context
+        """
+        # Convert enum to string if needed
+        role_str = principal_role.value if hasattr(principal_role, 'value') else str(principal_role)
+        
         return PrincipalContext(
-            role=principal_role,
+            role=role_str,
+            principal_id=role_str.lower().replace(' ', '_').replace('_', '-') + "_001",
             business_processes=list(BusinessProcess),
             default_filters={},
             decision_style="Analytical",
@@ -619,19 +879,159 @@ class A9_Situation_Awareness_Agent:
             Dictionary of KPI definitions
         """
         return self._get_relevant_kpis(principal_context, [business_process] if business_process else None)
-    
-    def _load_kpi_registry(self):
+        
+    async def detect_situation(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Load KPIs from the external KPI registry.
-        Converts from KPI model to our internal KPIDefinition model.
+        Detect situation from signals (agent card entrypoint).
+        This is an alias for detect_situations to maintain compatibility with the agent card.
+        
+        Args:
+            request: SituationDetectionRequest as a dictionary
+            
+        Returns:
+            DetectedSituation as a dictionary
+        """
+        # Convert dictionary to SituationDetectionRequest if needed
+        if isinstance(request, dict):
+            from src.agents.models.situation_awareness_models import SituationDetectionRequest
+            try:
+                # Try to convert dict to proper request object
+                request_obj = SituationDetectionRequest(**request)
+            except Exception as e:
+                logger.error(f"Error converting dict to SituationDetectionRequest: {str(e)}")
+                return {"status": "error", "message": f"Invalid request format: {str(e)}"}
+        else:
+            request_obj = request
+            
+        # Call the protocol-compliant method
+        response = await self.detect_situations(request_obj)
+        
+        # Return as dict for A2A compliance
+        if hasattr(response, "model_dump"):
+            return response.model_dump()
+        else:
+            return response
+            
+    async def summarize_situation(self, request: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Summarize situation for stakeholders (agent card entrypoint).
+        
+        Args:
+            request: SituationSummaryRequest as a dictionary
+            
+        Returns:
+            SituationSummary as a dictionary
+        """
+        # Extract situation ID and principal context from request
+        situation_id = request.get("situation_id")
+        principal_context = request.get("principal_context")
+        
+        if not situation_id:
+            return {"status": "error", "message": "Missing situation_id in request"}
+            
+        # For MVP, generate a simple summary
+        summary = {
+            "situation_id": situation_id,
+            "summary": f"Situation {situation_id} requires attention",
+            "stakeholders": ["CFO", "Finance Manager"],
+            "priority": "high",
+            "status": "success"
+        }
+        
+        # Log the event
+        logger.info(f"Summarized situation {situation_id} for stakeholders")
+        
+        return summary
+        
+    async def aggregate_agent_outputs(self, request: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Combine outputs from specialized agents (agent card entrypoint).
+        
+        Args:
+            request: AggregationRequest as a dictionary
+            
+        Returns:
+            AggregatedInsight as a dictionary
+        """
+        # Extract agent outputs from request
+        agent_outputs = request.get("agent_outputs", [])
+        context = request.get("context", {})
+        
+        if not agent_outputs:
+            return {"status": "error", "message": "No agent outputs provided"}
+            
+        # For MVP, simply combine the outputs with minimal processing
+        aggregated_insight = {
+            "status": "success",
+            "aggregated_output": {
+                "insights": [],
+                "recommendations": [],
+                "combined_confidence": 0.0
+            }
+        }
+        
+        # Process each agent output
+        insights = []
+        recommendations = []
+        confidence_sum = 0.0
+        confidence_count = 0
+        
+        for output in agent_outputs:
+            # Extract insights if available
+            if "insights" in output:
+                insights.extend(output["insights"] if isinstance(output["insights"], list) else [output["insights"]])
+                
+            # Extract recommendations if available
+            if "recommendations" in output:
+                recommendations.extend(output["recommendations"] if isinstance(output["recommendations"], list) else [output["recommendations"]])
+                
+            # Extract confidence if available
+            if "confidence" in output and isinstance(output["confidence"], (int, float)):
+                confidence_sum += float(output["confidence"])
+                confidence_count += 1
+                
+        # Calculate average confidence
+        avg_confidence = confidence_sum / confidence_count if confidence_count > 0 else 0.0
+        
+        # Update the aggregated insight
+        aggregated_insight["aggregated_output"]["insights"] = insights
+        aggregated_insight["aggregated_output"]["recommendations"] = recommendations
+        aggregated_insight["aggregated_output"]["combined_confidence"] = avg_confidence
+        
+        # Update context
+        logger.info(f"Aggregated outputs from {len(agent_outputs)} agents")
+        
+        return aggregated_insight
+    
+    async def _load_kpi_registry(self):
+        """
+        Load KPIs from the canonical KPI registry.
+        Converts from canonical KPI model to our internal KPIDefinition model.
         """
         try:
             # Use RegistryFactory singleton which RegistryBootstrap has already initialized
             logger.info("Loading KPI provider via RegistryFactory singleton")
             registry_factory = RegistryFactory()
+            
+            # Ensure registry is initialized
+            try:
+                # Use the proper async initialize method if not already initialized
+                if not registry_factory.is_initialized:
+                    await registry_factory.initialize()
+                    logger.info("Registry factory initialized successfully")
+                else:
+                    logger.info("Registry factory already initialized")
+            except Exception as e:
+                logger.warning(f"Error initializing registry factory: {str(e)}")
 
             # Try helper first, then generic provider getter
-            kpi_provider = registry_factory.get_kpi_provider()
+            kpi_provider = None
+            try:
+                kpi_provider = registry_factory.get_kpi_provider()
+                if kpi_provider:
+                    logger.info(f"Successfully got KPI provider via get_kpi_provider: {kpi_provider}")
+            except Exception as e:
+                logger.warning(f"Error getting KPI provider via get_kpi_provider: {str(e)}")
             
             if kpi_provider is None:
                 logger.warning("KPI provider is None - trying alternate methods")
@@ -654,21 +1054,59 @@ class A9_Situation_Awareness_Agent:
             # Get all KPIs - use get_all() which returns a list of KPI objects
             kpis = kpi_provider.get_all() or []
             if not kpis:
-                logger.warning("No KPIs found in registry")
-                return
+                logger.warning("No KPIs found in registry, attempting to load from file")
+                # Try to load from file
+                try:
+                    import yaml
+                    import os
+                    
+                    # Try to load from the standard registry location
+                    registry_path = os.path.join("src", "registry", "kpi", "kpi_registry.yaml")
+                    if os.path.exists(registry_path):
+                        with open(registry_path, 'r') as file:
+                            yaml_data = yaml.safe_load(file)
+                            if yaml_data and "kpis" in yaml_data and isinstance(yaml_data["kpis"], list):
+                                # Register KPIs with provider
+                                for kpi in yaml_data["kpis"]:
+                                    kpi_provider.register(kpi)
+                                
+                                # Try to get KPIs again
+                                kpis = kpi_provider.get_all() or []
+                                if kpis:
+                                    logger.info(f"Successfully loaded {len(kpis)} KPIs from file")
+                except Exception as e:
+                    logger.error(f"Error loading KPIs from file: {str(e)}")
+                
+                # If still no KPIs, return
+                if not kpis:
+                    logger.warning("Still no KPIs found, using empty KPI registry")
+                    return
                 
             logger.info(f"Loaded {len(kpis)} KPIs from registry")
                 
-            # Filter KPIs to only include Finance KPIs for MVP
+            # Filter KPIs to only include those matching target domains (default: Finance)
+            target_domains = self.config.get("target_domains", ["Finance"])
+            logger.info(f"Filtering KPIs for domains: {target_domains}")
+            
+            # Clear existing registry before loading new KPIs
+            self.kpi_registry = {}
+            
             for kpi in kpis:
-                # Only include Finance KPIs for MVP
-                if self._kpi_matches_domains(kpi, ["Finance"]):
-                    # Convert from registry KPI to internal model
+                # Check if KPI matches any target domain
+                if self._kpi_matches_domains(kpi, target_domains):
+                    # Convert from canonical KPI model to internal KPIDefinition model
                     kpi_def = self._convert_to_kpi_definition(kpi)
                     if kpi_def:
                         self.kpi_registry[kpi_def.name] = kpi_def
+                        logger.debug(f"Added KPI to registry: {kpi_def.name}")
                         
-            logger.info(f"Added {len(self.kpi_registry)} Finance KPIs to registry")
+            logger.info(f"Added {len(self.kpi_registry)} KPIs to registry for domains: {target_domains}")
+            
+            # If no KPIs were loaded from registry, try fallback to contract
+            if not self.kpi_registry:
+                logger.warning("No matching KPIs found in registry, trying contract fallback")
+                self._load_kpis_from_contract()
+                
         except Exception as e:
             logger.error(f"Error loading KPI registry: {str(e)}")
             # Create minimal registry for fallback
@@ -720,7 +1158,7 @@ class A9_Situation_Awareness_Agent:
                     if not kpi_name:
                         continue
                         
-                    # Map contract KPI fields to internal KPIDefinition
+                    # Map contract KPI fields to internal KPI definition
                     thresholds = kpi_data.get('thresholds')
                     thresholds_dict = thresholds if isinstance(thresholds, dict) else None
 
@@ -776,191 +1214,363 @@ class A9_Situation_Awareness_Agent:
         """
         Check if a KPI is relevant to any of the specified target domains.
         
-        This method is domain-agnostic and works with any business process prefix.
-        Handles KPIs without business_processes attribute or with domain in other attributes.
-        """
-        # Handle case where business_processes attribute doesn't exist
-        if not hasattr(kpi, 'business_processes') or not kpi.business_processes:
-            # For MVP, include all Finance KPIs if target domain is Finance
-            if 'Finance' in target_domains:
-                # Try to determine if it's a Finance KPI from other attributes
-                if hasattr(kpi, 'domain') and isinstance(kpi.domain, str):
-                    return kpi.domain == 'Finance' or 'finance' in kpi.domain.lower()
-                if hasattr(kpi, 'name') and isinstance(kpi.name, str):
-                    return 'finance' in kpi.name.lower()
-                # Default to including the KPI if we can't determine its domain
-                return True
-            return False
+        This method works with the canonical KPI model structure and handles
+        different ways domains might be specified.
+        
+        Args:
+            kpi: The canonical KPI model instance
+            target_domains: List of domain names to match against
             
-        # Normal case with business_processes attribute
-        for process in kpi.business_processes:
+        Returns:
+            True if the KPI matches any of the target domains, False otherwise
+        """
+        # First check the canonical 'domain' attribute
+        if hasattr(kpi, 'domain') and isinstance(kpi.domain, str):
+            # Direct domain match
             for domain in target_domains:
-                if isinstance(process, str) and process.startswith(f"{domain}:"):
+                if domain.lower() == kpi.domain.lower():
                     return True
+                    
+        # Check business_process_ids (canonical model)
+        if hasattr(kpi, 'business_process_ids') and kpi.business_process_ids:
+            for bp_id in kpi.business_process_ids:
+                # Check if business process ID starts with any target domain
+                for domain in target_domains:
+                    if bp_id.lower().startswith(domain.lower() + '_'):
+                        return True
+        
+        # Check business_processes (backward compatibility)
+        if hasattr(kpi, 'business_processes') and kpi.business_processes:
+            for process in kpi.business_processes:
+                for domain in target_domains:
+                    # Check for "Domain: Process" format
+                    if isinstance(process, str) and process.lower().startswith(f"{domain.lower()}:"):
+                        return True
+        
+        # Check tags for domain references
+        if hasattr(kpi, 'tags') and kpi.tags:
+            for tag in kpi.tags:
+                for domain in target_domains:
+                    if domain.lower() in tag.lower():
+                        return True
+        
+        # For MVP, include Finance KPIs based on name if Finance is a target domain
+        if 'Finance' in target_domains and hasattr(kpi, 'name'):
+            if 'finance' in kpi.name.lower():
+                return True
+                
         return False
             
     def _convert_to_kpi_definition(self, kpi: KPI) -> Optional[KPIDefinition]:
         """
-        Convert from registry KPI model to our internal KPIDefinition model.
+        Convert from canonical KPI model to our internal KPIDefinition model.
+        
+        Args:
+            kpi: The canonical KPI model instance from the registry
+            
+        Returns:
+            KPIDefinition instance or None if conversion fails
         """
+        # First, validate that kpi is a valid object
+        if not kpi or not hasattr(kpi, '__dict__'):
+            logger.warning(f"Invalid KPI object received: {type(kpi)}")
+            return KPIDefinition(
+                name="unknown",
+                description="",
+                unit="",
+                calculation="",
+                thresholds={SituationSeverity.HIGH: 0.0},
+                dimensions=[],
+                business_processes=["Finance: General"],
+                data_product_id="FI_Star_Schema",
+                positive_trend_is_good=True,
+                attributes=["value"]  # Add default attribute
+            )
+        
         try:
-            if not hasattr(kpi, 'name') or not kpi.name:
-                logger.warning("KPI missing name, skipping conversion")
-                return None
-            
-            # Map thresholds to our format - YAML structure uses specific fields
-            thresholds = {}
-            if hasattr(kpi, 'thresholds') and kpi.thresholds:
-                for threshold in kpi.thresholds:
-                    # Check if using new structure with comparison_type, green/yellow/red_threshold
-                    if hasattr(threshold, 'comparison_type'):
-                        # Using the green threshold as a representative value
-                        # In production, would implement full threshold logic
-                        if hasattr(threshold, 'green_threshold'):
-                            severity = SituationSeverity.INFORMATION  # Using INFORMATION instead of POSITIVE which doesn't exist
-                            thresholds[severity] = threshold.green_threshold
-                        # Also add warning threshold if available
-                        if hasattr(threshold, 'yellow_threshold'):
-                            severity = SituationSeverity.WARNING
-                            thresholds[severity] = threshold.yellow_threshold
-                        # Also add critical threshold if available
-                        if hasattr(threshold, 'red_threshold'):
-                            severity = SituationSeverity.CRITICAL
-                            thresholds[severity] = threshold.red_threshold
-                    else:
-                        # Fallback to old structure (level/type/severity)
-                        severity = None
-                        threshold_type = None
-                        
-                        if hasattr(threshold, 'level'):
-                            threshold_type = threshold.level
-                        elif hasattr(threshold, 'type'):
-                            threshold_type = threshold.type
-                        elif hasattr(threshold, 'severity'):
-                            threshold_type = threshold.severity
-                        
-                        if threshold_type:
-                            if threshold_type.lower() in ["warning", "warn", "yellow"]:
-                                severity = SituationSeverity.WARNING
-                            elif threshold_type.lower() in ["critical", "error", "red", "alert"]:
-                                severity = SituationSeverity.CRITICAL
-                        else:
-                            severity = SituationSeverity.WARNING
-                        
-                        # Get threshold value
-                        threshold_value = None
-                        if hasattr(threshold, 'value'):
-                            threshold_value = threshold.value
-                        
-                        if severity and threshold_value is not None:
-                            thresholds[severity] = threshold_value
-            
-            # Extract dimensions
+            # Initialize variables with safe defaults
             dimensions = []
-            if hasattr(kpi, 'dimensions') and kpi.dimensions:
-                dimensions = kpi.dimensions
-            
-            # Map business processes - handle business_process_ids attribute in YAML
             business_processes = []
-            
-            # Check for business_process_ids first (new structure in YAML)
-            if hasattr(kpi, 'business_process_ids') and kpi.business_process_ids:
-                for bp_id in kpi.business_process_ids:
-                    # Convert snake_case to format needed by BusinessProcess enum
-                    try:
-                        bp_name = bp_id.replace("finance_", "").upper()
-                        bp = getattr(BusinessProcess, bp_name)
-                        business_processes.append(bp)
-                    except (AttributeError, ValueError):
-                        # Add as string for compatibility
-                        finance_bp = f"Finance: {bp_id.replace('finance_', '').replace('_', ' ').title()}"
-                        business_processes.append(finance_bp)
-            
-            # Also check business_processes for backward compatibility
-            elif hasattr(kpi, 'business_processes') and kpi.business_processes:
-                for bp_str in kpi.business_processes:
-                    if isinstance(bp_str, str) and bp_str.startswith("Finance: "):
-                        try:
-                            bp_name = bp_str.replace("Finance: ", "").upper().replace(" ", "_")
-                            bp = getattr(BusinessProcess, bp_name)
-                            business_processes.append(bp)
-                        except (AttributeError, ValueError):
-                            # Keep as string for compatibility
-                            business_processes.append(bp_str)
-            
-            # For testing purposes, use a default business process if none found
-            if not business_processes:
-                try:
-                    # Add default Finance business processes
-                    business_processes = [BusinessProcess.PROFITABILITY_ANALYSIS]
-                except:
-                    # Keep as string if enum not available
-                    business_processes = ["Finance: Profitability Analysis"]
-            
-            # Get SQL query for KPI calculation
+            thresholds = {}
+            positive_trend = True
+            diagnostic_questions = []
+            kpi_dp_id = "FI_Star_Schema"  # Default
             sql_query = ""
-            if hasattr(kpi, 'sql_query') and kpi.sql_query:
-                sql_query = kpi.sql_query
             
-            # Determine positive_trend value based on KPI name or override
-            positive_trend = True  # Default to positive trend is good
-            if hasattr(kpi, 'positive_trend_is_good'):
-                # Use the provided value from registry/YAML if available
-                positive_trend = kpi.positive_trend_is_good
-            else:
-                # Otherwise infer from KPI name: cost and expense KPIs should have False
-                kpi_name_lower = kpi.name.lower()
-                if kpi_name_lower.startswith('cost') or 'expense' in kpi_name_lower or 'debt' in kpi_name_lower:
-                    positive_trend = False
+            # Extract dimensions with safe access
+            try:
+                if hasattr(kpi, 'dimensions') and kpi.dimensions:
+                    # Convert KPIDimension objects to dimension names
+                    for dimension in kpi.dimensions:
+                        if hasattr(dimension, 'name'):
+                            dimensions.append(dimension.name)
+                        elif isinstance(dimension, str):
+                            dimensions.append(dimension)
+            except Exception as e:
+                logger.warning(f"Error accessing dimensions for KPI {kpi.name if hasattr(kpi, 'name') else 'unknown'}: {str(e)}")
+                
+            # Extract business processes with safe access
+            try:
+                if hasattr(kpi, 'business_processes') and kpi.business_processes:
+                    business_processes = kpi.business_processes
+                    
+                # Also check business_process_ids (canonical model)
+                if hasattr(kpi, 'business_process_ids') and kpi.business_process_ids:
+                    for bp_id in kpi.business_process_ids:
+                        # Format: domain_process_name
+                        parts = bp_id.split('_', 1)
+                        if len(parts) > 1:
+                            domain, process = parts
+                            # Format for display: "Domain: Process Name"
+                            formatted_bp = f"{domain.capitalize()}: {process.replace('_', ' ').title()}"
+                            business_processes.append(formatted_bp)
+            except Exception as e:
+                logger.warning(f"Error accessing business_processes for KPI {kpi.name if hasattr(kpi, 'name') else 'unknown'}: {str(e)}")
+                
+            # Extract thresholds with safe access
+            try:
+                if hasattr(kpi, 'thresholds') and kpi.thresholds:
+                    for threshold in kpi.thresholds:
+                        if hasattr(threshold, 'severity') and hasattr(threshold, 'value'):
+                            # Map severity string to enum
+                            severity_str = threshold.severity.lower()
+                            if severity_str == 'warning':
+                                thresholds[SituationSeverity.HIGH] = threshold.value
+                            elif severity_str == 'critical':
+                                thresholds[SituationSeverity.CRITICAL] = threshold.value
+                                
+                            # Store inverse logic flag if available
+                            if hasattr(threshold, 'inverse_logic') and threshold.inverse_logic:
+                                # Store in a special key for reference
+                                thresholds['_inverse_logic'] = threshold.inverse_logic
+            except Exception as e:
+                logger.warning(f"Error accessing thresholds for KPI {kpi.name if hasattr(kpi, 'name') else 'unknown'}: {str(e)}")
+                            
+            # Determine if positive trend is good with safe access
+            try:
+                if hasattr(kpi, 'positive_trend_is_good'):
+                    positive_trend = kpi.positive_trend_is_good
+                elif hasattr(kpi, 'metadata') and isinstance(kpi.metadata, dict):
+                    if 'positive_trend_is_good' in kpi.metadata:
+                        # Parse boolean value from metadata
+                        value = kpi.metadata['positive_trend_is_good']
+                        if isinstance(value, bool):
+                            positive_trend = value
+                        elif isinstance(value, str):
+                            positive_trend = value.lower() == 'true'
+                elif hasattr(kpi, 'name'):
+                    # Infer from name for common financial metrics
+                    kpi_name_lower = kpi.name.lower()
+                    if ('cost' in kpi_name_lower or 'expense' in kpi_name_lower or 
+                        'debt' in kpi_name_lower or 'deficit' in kpi_name_lower):
+                        positive_trend = False
+            except Exception as e:
+                logger.warning(f"Error determining positive_trend for KPI {kpi.name if hasattr(kpi, 'name') else 'unknown'}: {str(e)}")
+                    
+            # Get SQL query with safe access
+            try:
+                if hasattr(kpi, 'sql_query') and kpi.sql_query:
+                    sql_query = kpi.sql_query
+            except Exception as e:
+                logger.warning(f"Error accessing sql_query for KPI {kpi.name if hasattr(kpi, 'name') else 'unknown'}: {str(e)}")
+                
+            # Get diagnostic questions with safe access
+            try:
+                if hasattr(kpi, 'diagnostic_questions') and kpi.diagnostic_questions:
+                    diagnostic_questions = kpi.diagnostic_questions
+                elif hasattr(kpi, 'metadata') and isinstance(kpi.metadata, dict):
+                    if 'diagnostic_questions' in kpi.metadata:
+                        questions = kpi.metadata['diagnostic_questions']
+                        if isinstance(questions, list):
+                            diagnostic_questions = questions
+                        elif isinstance(questions, str):
+                            # Split by newlines or semicolons if it's a string
+                            diagnostic_questions = [q.strip() for q in re.split(r'[\n;]', questions) if q.strip()]
+            except Exception as e:
+                logger.warning(f"Error accessing diagnostic_questions for KPI {kpi.name if hasattr(kpi, 'name') else 'unknown'}: {str(e)}")
+                
+            # Get data product ID with safe access
+            try:
+                if hasattr(kpi, 'data_product_id') and kpi.data_product_id:
+                    kpi_dp_id = kpi.data_product_id
+            except Exception as e:
+                logger.warning(f"Error accessing data_product_id for KPI {kpi.name if hasattr(kpi, 'name') else 'unknown'}: {str(e)}")
             
-            # Create KPI definition with all required fields
+            # Create KPI definition with all mapped fields
+            # First safely get all required attributes
+            kpi_name = kpi.name if hasattr(kpi, 'name') else "unknown"
+            kpi_desc = kpi.description if hasattr(kpi, 'description') and kpi.description else ""
+            kpi_unit = kpi.unit if hasattr(kpi, 'unit') and kpi.unit else ""
+            
             kpi_def = KPIDefinition(
-                name=kpi.name,
-                description=kpi.description if hasattr(kpi, 'description') and kpi.description else "",
-                unit=kpi.unit if hasattr(kpi, 'unit') and kpi.unit else "",
-                # Use sql_query as calculation for now
-                calculation=sql_query, 
+                name=kpi_name,
+                description=kpi_desc,
+                unit=kpi_unit,
+                calculation=sql_query,
                 thresholds=thresholds,
                 dimensions=dimensions,
                 business_processes=business_processes,
-                # Ensure data_product_id is set
-                data_product_id=kpi.data_product_id if hasattr(kpi, 'data_product_id') and kpi.data_product_id else "FI_Star_Schema",
-                # Include the positive_trend_is_good flag
-                positive_trend_is_good=positive_trend
+                data_product_id=kpi_dp_id,
+                positive_trend_is_good=positive_trend,
+                diagnostic_questions=diagnostic_questions
             )
+            # Map registry KPIThreshold (comparison-based) into variance thresholds metadata for downstream evaluation
+            try:
+                if hasattr(kpi, 'thresholds') and kpi.thresholds:
+                    variance_thresholds = {}
+                    for t in kpi.thresholds:
+                        try:
+                            comp = getattr(t, 'comparison_type', None)
+                            comp_val = comp.value if hasattr(comp, 'value') else (str(comp) if comp is not None else None)
+                            if not comp_val:
+                                continue
+                            ct = str(comp_val).strip().lower()
+                            # Normalize keys commonly used in registry
+                            if ct in ("qoq", "quarter_over_quarter", "quarter-over-quarter"):
+                                key = "qoq"
+                            elif ct in ("yoy", "year_over_year", "year-over-year"):
+                                key = "yoy"
+                            elif ct in ("mom", "month_over_month", "month-over-month"):
+                                key = "mom"
+                            elif "budget" in ct:
+                                key = "budget"
+                            elif "target" in ct:
+                                key = "target"
+                            else:
+                                key = ct
+                            entry = {}
+                            gv = getattr(t, 'green_threshold', None)
+                            yv = getattr(t, 'yellow_threshold', None)
+                            rv = getattr(t, 'red_threshold', None)
+                            inv = getattr(t, 'inverse_logic', False)
+                            if gv is not None:
+                                entry['green'] = float(gv)
+                            if yv is not None:
+                                entry['yellow'] = float(yv)
+                            if rv is not None:
+                                entry['red'] = float(rv)
+                            entry['inverse_logic'] = bool(inv)
+                            variance_thresholds[key] = entry
+                        except Exception:
+                            continue
+                    if variance_thresholds:
+                        if not getattr(kpi_def, 'metadata', None):
+                            kpi_def.metadata = {}
+                        kpi_def.metadata['variance_thresholds'] = variance_thresholds
+            except Exception as _vt_err:
+                logger.warning(f"Error mapping variance thresholds for KPI {kpi_name}: {_vt_err}")
+            # Inject contract-level filters and metadata (GL accounts, timeframe hints, base column, etc.)
+            try:
+                if hasattr(self, 'contract') and isinstance(self.contract, dict):
+                    kpis_data = self.contract.get('kpis', []) or []
+                    for kpi_entry in kpis_data:
+                        try:
+                            if not isinstance(kpi_entry, dict):
+                                continue
+                            entry_name = kpi_entry.get('name')
+                            if not isinstance(entry_name, str):
+                                continue
+                            if entry_name.strip().lower() != kpi_name.strip().lower():
+                                continue
+                            # Found matching KPI in contract
+                            calc = kpi_entry.get('calculation')
+                            if isinstance(calc, dict):
+                                # Merge static filters (e.g., GL account restrictions)
+                                if isinstance(calc.get('filters'), dict):
+                                    kpi_def.filters = {
+                                        **(kpi_def.filters or {}),
+                                        **(calc.get('filters') or {})
+                                    }
+                                # Try to derive base_column from query_template if not explicitly set later
+                                qt = calc.get('query_template') or calc.get('template')
+                                if (not getattr(kpi_def, 'base_column', None)) and isinstance(qt, str):
+                                    # Extract first quoted or bracketed column
+                                    m = re.search(r'"([^\"]+)"', qt)
+                                    if m and m.group(1):
+                                        kpi_def.base_column = m.group(1)
+                                    else:
+                                        m2 = re.search(r'\[([^\]]+)\]', qt)
+                                        if m2 and m2.group(1):
+                                            kpi_def.base_column = m2.group(1)
+                            # Explicit base_column at top level takes precedence
+                            if isinstance(kpi_entry.get('base_column'), str) and kpi_entry.get('base_column').strip():
+                                kpi_def.base_column = kpi_entry.get('base_column')
+
+                            # Simple mapping for grouping/ordering/limit when present
+                            if isinstance(kpi_entry.get('partition_by'), list):
+                                kpi_def.group_by = kpi_entry.get('partition_by')
+                            if isinstance(kpi_entry.get('order_by'), list):
+                                kpi_def.order_by = kpi_entry.get('order_by')
+                            if kpi_entry.get('top_n') is not None:
+                                try:
+                                    kpi_def.limit = int(kpi_entry.get('top_n'))
+                                except Exception:
+                                    pass
+
+                            # View resolution hint from contract (will still be resolved by DPA/Governance)
+                            join_tables = kpi_entry.get('join_tables')
+                            if isinstance(join_tables, list) and join_tables:
+                                jt0 = join_tables[0]
+                                if isinstance(jt0, str) and jt0.strip():
+                                    kpi_def.view_name = jt0.strip()
+                            elif isinstance(self.contract.get('views'), list) and self.contract['views']:
+                                v0 = self.contract['views'][0]
+                                if isinstance(v0, dict) and isinstance(v0.get('name'), str):
+                                    kpi_def.view_name = v0.get('name')
+
+                            # Timeframe hints (date column)
+                            # In FI Star View, the canonical alias is "Transaction Date"
+                            if not getattr(kpi_def, 'date_column', None):
+                                # Allow override via contract if present
+                                if isinstance(kpi_entry.get('date_column'), str) and kpi_entry.get('date_column').strip():
+                                    kpi_def.date_column = kpi_entry.get('date_column').strip()
+                                else:
+                                    kpi_def.date_column = "Transaction Date"
+
+                            # Optional explicit time_filter injection if contract provides one later
+                            if isinstance(kpi_entry.get('time_filter'), dict):
+                                kpi_def.time_filter = kpi_entry.get('time_filter')
+
+                            break  # done with matching entry
+                        except Exception as _inj_err:
+                            self.logger.warning(f"Error injecting contract filters for KPI {kpi_name}: {_inj_err}")
+            except Exception as inj_err:
+                self.logger.warning(f"Contract injection step failed for KPI {kpi_name}: {inj_err}")
+            
+            # Add KPI ID as a reference
+            try:
+                if hasattr(kpi, 'id') and kpi.id:
+                    kpi_def.kpi_id = kpi.id
+            except Exception as e:
+                logger.warning(f"Error accessing id for KPI {kpi.name if hasattr(kpi, 'name') else 'unknown'}: {str(e)}")
             
             return kpi_def
+            
         except Exception as e:
-            logger.error(f"Error converting KPI {kpi.name if hasattr(kpi, 'name') else 'unknown'}: {type(e).__name__}: {str(e)}")
-            # Even with errors, try to return a basic KPI definition rather than None
+            # Safely log the error without risking attribute errors
             try:
-                # Determine if this KPI name suggests a positive trend is good
-                is_positive_good = True
-                if hasattr(kpi, 'name'):
-                    kpi_name_lower = kpi.name.lower()
-                    if kpi_name_lower.startswith('cost') or 'expense' in kpi_name_lower or 'debt' in kpi_name_lower:
-                        is_positive_good = False
+                kpi_name = kpi.name if hasattr(kpi, 'name') else 'unknown'
+                logger.error(f"Error converting KPI {kpi_name}: {type(e).__name__}: {str(e)}")
+            except Exception:
+                logger.error(f"Error converting KPI: {type(e).__name__}: {str(e)}")
                 
-                # Create fallback KPI definition with required fields
-                return KPIDefinition(
-                    name=kpi.name if hasattr(kpi, 'name') else "unknown",
-                    description=kpi.description if hasattr(kpi, 'description') and kpi.description else "",
-                    unit=kpi.unit if hasattr(kpi, 'unit') and kpi.unit else "",
-                    calculation="",
-                    thresholds={"warning": 0.0},  # Add a default threshold as string key instead of enum
-                    dimensions=[],
-                    business_processes=["Finance: Profitability Analysis"],  # Add a default business process as string
-                    data_product_id="FI_Star_Schema",  # Use default data product ID
-                    positive_trend_is_good=is_positive_good  # Include the positive trend flag
-                )
-            except Exception as inner_e:
-                logger.error(f"Failed to create fallback KPI definition: {str(inner_e)}")
-                return None
+            # Return an absolute minimal KPI definition that won't fail
+            return KPIDefinition(
+                name="unknown",
+                description="",
+                unit="",
+                calculation="",
+                thresholds={SituationSeverity.HIGH: 0.0},
+                dimensions=[],
+                business_processes=["Finance: General"],
+                data_product_id="FI_Star_Schema",
+                positive_trend_is_good=True
+            )
     
     def _get_relevant_kpis(
         self,
         principal_context: PrincipalContext,
-        business_processes: Optional[List[BusinessProcess]] = None
+        business_processes: Optional[List[str]] = None
     ) -> Dict[str, KPIDefinition]:
         """
         Get KPIs relevant to the principal's business processes.
@@ -971,20 +1581,33 @@ class A9_Situation_Awareness_Agent:
             
         Returns:
             Dictionary of relevant KPI definitions
+            
         """
+        # This functionality has been moved to the Data Governance Agent
         relevant_kpis = {}
         
         # Use provided business processes or fall back to principal's
         processes = business_processes or principal_context.business_processes
         
-        # Convert business processes to string format used in KPI definitions
-        # Use target domains from config or default to all domains
-        domains = self.config.get("target_domains", ["Finance"])
+        # For domain-level business processes, we just use the processes directly
+        # since they're already at the domain level (e.g., "Finance")
         process_strings = []
         
-        for domain in domains:
-            for bp in processes:
-                process_strings.append(f"{domain}: {bp.value.replace('_', ' ').title()}")
+        # Handle both domain-level strings and more specific business processes
+        for bp in processes:
+            # If it's already a domain name (e.g., "Finance"), use it directly
+            if isinstance(bp, str) and ":" not in bp:
+                process_strings.append(bp)
+            # If it has a domain prefix (e.g., "Finance: Profitability Analysis"), use it as is
+            elif isinstance(bp, str) and ":" in bp:
+                process_strings.append(bp)
+            # Handle enum values or objects
+            elif hasattr(bp, 'value'):
+                process_name = bp.value.replace('_', ' ').title()
+                process_strings.append(process_name)
+            else:
+                # For any other string business processes
+                process_strings.append(str(bp))
         
         # Filter KPIs by business process
         for kpi_name, kpi_def in self.kpi_registry.items():
@@ -997,8 +1620,29 @@ class A9_Situation_Awareness_Agent:
                 continue
                 
             # Check if KPI matches any of the relevant business processes
-            if any(bp in kpi_def.business_processes for bp in process_strings):
-                relevant_kpis[kpi_name] = kpi_def
+            for bp in process_strings:
+                # Domain-level matching (e.g., "Finance" matches any "Finance: *" or "finance_*")
+                if isinstance(bp, str) and ":" not in bp:
+                    # Check if any KPI business process starts with this domain
+                    for kpi_bp in kpi_def.business_processes:
+                        if isinstance(kpi_bp, str) and (kpi_bp.startswith(f"{bp}:") or 
+                                                      kpi_bp.lower().startswith(f"{bp.lower()}_")):
+                            relevant_kpis[kpi_name] = kpi_def
+                            break
+                    # Also check business_process_ids if available
+                    if hasattr(kpi_def, 'business_process_ids'):
+                        for kpi_bp_id in kpi_def.business_process_ids:
+                            if isinstance(kpi_bp_id, str) and kpi_bp_id.lower().startswith(f"{bp.lower()}_"):
+                                relevant_kpis[kpi_name] = kpi_def
+                                break
+                # Exact matching for fully qualified business processes
+                elif bp in kpi_def.business_processes:
+                    relevant_kpis[kpi_name] = kpi_def
+                    break
+                # Also check business_process_ids for exact matches
+                elif hasattr(kpi_def, 'business_process_ids') and bp in kpi_def.business_process_ids:
+                    relevant_kpis[kpi_name] = kpi_def
+                    break
         
         logger.debug(f"Found {len(relevant_kpis)} KPIs relevant to {len(processes)} business processes")
         return relevant_kpis
@@ -1008,10 +1652,12 @@ class A9_Situation_Awareness_Agent:
         kpi_definition: KPIDefinition,
         timeframe: TimeFrame,
         comparison_type: Optional[ComparisonType],
-        filters: Optional[Dict[str, Any]]
+        filters: Optional[Dict[str, Any]],
+        principal_context: Optional[PrincipalContext] = None
     ) -> Optional[KPIValue]:
         """
         Get KPI value from the Data Product MCP Service Agent.
+        Uses Data Governance Agent for view name resolution when available.
         
         Args:
             kpi_name: Name of the KPI
@@ -1023,6 +1669,8 @@ class A9_Situation_Awareness_Agent:
             KPI value with comparison if applicable
         """
         try:
+            # View resolution is owned by the Data Product Agent. Do not resolve here.
+            
             # Get KPI name from definition for logging
             kpi_name = kpi_definition.name
                 
@@ -1035,63 +1683,27 @@ class A9_Situation_Awareness_Agent:
                 logger.error(f"Data Product MCP Service Agent not initialized for KPI {kpi_name}")
                 return None
             
-            # Generate SQL for the KPI based on definition, timeframe, and filters
-            sql_query = self._generate_sql_for_kpi(kpi_definition, timeframe, filters)
-            if not sql_query:
-                self.logger.error(f"Failed to generate SQL query for KPI {kpi_name}")
-                return None
-                
-            self.logger.info(f"Generated KPI query for {kpi_name}: {sql_query[:100]}...")
-            
-            # Create SQL execution request following the pattern from test_llm_sql_generation.py
-            from src.agents.a9_data_product_mcp_service_agent import SQLExecutionRequest
-            from datetime import datetime
-            
-            sql_exec_request = SQLExecutionRequest(
-                request_id=f"kpi_{kpi_name}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                timestamp=datetime.now().isoformat(),
-                principal_id="system",  # Using system as the principal for automated KPI queries
-                sql_query=sql_query
-            )
-            
-            # Execute the query via the Data Product MCP Service Agent
+            # Delegate KPI data retrieval to Data Product Agent (SQL generation + execution inside DPA)
             try:
-                self.logger.info(f"Executing SQL query for KPI {kpi_name}")
-                sql_exec_response = await self.data_product_agent.execute_sql(sql_exec_request)
-                
-                # Check response status
-                if sql_exec_response.status != "success":
-                    self.logger.error(f"SQL execution failed for KPI {kpi_name}: {sql_exec_response.error_message}")
+                kpi_data_resp = await self.data_product_agent.get_kpi_data(
+                    kpi_definition=kpi_definition,
+                    timeframe=timeframe,
+                    filters=filters,
+                    principal_context=principal_context
+                )
+                if kpi_data_resp.get('status') != 'success':
+                    self.logger.error(f"Error getting KPI data for {kpi_name}: {kpi_data_resp.get('message', 'Unknown error')}")
                     return None
-                    
-                # Check for empty results
-                if not sql_exec_response.results or len(sql_exec_response.results) == 0:
-                    self.logger.warning(f"No data returned for KPI {kpi_name}")
-                    return None
-                
-                # Extract the KPI value from the result
+
+                # Extract numeric KPI value
                 try:
-                    # Get first row, which should contain our KPI value
-                    first_row = sql_exec_response.results[0]
-                    
-                    # Get the first column value (typically the KPI value)
-                    if isinstance(first_row, dict):
-                        # If result is a dict with column names
-                        current_value = float(next(iter(first_row.values())))
-                    elif isinstance(first_row, list):
-                        # If result is a list of values
-                        current_value = float(first_row[0])
-                    else:
-                        # Direct value
-                        current_value = float(first_row)
-                        
+                    current_value = float(kpi_data_resp.get('kpi_value'))
                     self.logger.info(f"Extracted KPI value for {kpi_name}: {current_value}")
-                except (ValueError, TypeError, IndexError) as e:
-                    self.logger.error(f"Error parsing KPI value: {str(e)}, raw value: {sql_exec_response.results[0]}")
+                except (ValueError, TypeError) as e:
+                    self.logger.error(f"Error parsing KPI value for {kpi_name}: {str(e)} - raw: {kpi_data_resp.get('kpi_value')} ")
                     return None
-                    
             except Exception as query_error:
-                self.logger.error(f"Error executing query for KPI {kpi_name}: {str(query_error)}")
+                self.logger.error(f"Error retrieving KPI data for {kpi_name}: {str(query_error)}")
                 return None
             
             # For testing/MVP when comparison not available, return basic KPI value
@@ -1109,46 +1721,21 @@ class A9_Situation_Awareness_Agent:
             # If comparison is requested, get the comparison value
             comparison_value = None
             try:
-                comparison_sql = self._generate_sql_for_kpi_comparison(
-                    kpi_definition, 
-                    timeframe, 
-                    comparison_type, 
-                    filters
+                comp_resp = await self.data_product_agent.get_kpi_comparison_data(
+                    kpi_definition=kpi_definition,
+                    timeframe=timeframe,
+                    comparison_type=comparison_type,
+                    filters=filters,
+                    principal_context=principal_context
                 )
-                if comparison_sql:
-                    self.logger.info(f"Generated comparison query for {kpi_name}: {comparison_sql[:100]}...")
-                    
-                    # Create comparison SQL execution request
-                    comparison_exec_request = SQLExecutionRequest(
-                        request_id=f"kpi_comp_{kpi_name}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                        timestamp=datetime.now().isoformat(),
-                        principal_id="system",  # Using system as the principal for automated KPI queries
-                        sql_query=comparison_sql
-                    )
-                    
-                    # Execute the comparison query
-                    self.logger.info(f"Executing comparison SQL for KPI {kpi_name}")
-                    comparison_exec_response = await self.data_product_agent.execute_sql(comparison_exec_request)
-                    
-                    # Check response status
-                    if comparison_exec_response.status == "success" and comparison_exec_response.results:
-                        try:
-                            # Get first row with comparison value
-                            first_comp_row = comparison_exec_response.results[0]
-                            
-                            # Extract comparison value based on result format
-                            if isinstance(first_comp_row, dict):
-                                comparison_value = float(next(iter(first_comp_row.values())))
-                            elif isinstance(first_comp_row, list):
-                                comparison_value = float(first_comp_row[0])
-                            else:
-                                comparison_value = float(first_comp_row)
-                                
-                            self.logger.info(f"Extracted comparison value for {kpi_name}: {comparison_value}")
-                        except (ValueError, TypeError, IndexError) as e:
-                            self.logger.error(f"Error parsing comparison value: {str(e)}")
-                    else:
-                        self.logger.warning(f"No comparison data available for KPI {kpi_name}")
+                if comp_resp.get('status') == 'success':
+                    try:
+                        comparison_value = float(comp_resp.get('comparison_value'))
+                        self.logger.info(f"Extracted comparison value for {kpi_name}: {comparison_value}")
+                    except (ValueError, TypeError) as e:
+                        self.logger.error(f"Error parsing comparison value for {kpi_name}: {str(e)} - raw: {comp_resp.get('comparison_value')}")
+                else:
+                    self.logger.warning(f"No comparison data available for KPI {kpi_name}: {comp_resp.get('message', 'unknown')}")
             except Exception as comp_error:
                 self.logger.warning(f"Error getting comparison value for {kpi_name}: {str(comp_error)}")
                 # Continue without comparison value
@@ -1181,9 +1768,12 @@ class A9_Situation_Awareness_Agent:
         """
         Detect situations for a KPI based on its value and thresholds.
         
+        This method uses the canonical KPI model thresholds structure and
+        evaluates KPI values against defined thresholds to detect situations.
+        
         Args:
-            kpi_definition: KPI definition
-            kpi_value: Current KPI value with comparison
+            kpi_definition: KPI definition with thresholds
+            kpi_value: Current KPI value
             principal_context: Principal context for personalization
             
         Returns:
@@ -1191,69 +1781,157 @@ class A9_Situation_Awareness_Agent:
         """
         situations = []
         
-        # Check for thresholds if defined
+        # Check if we have thresholds defined
         if kpi_definition.thresholds:
-            for threshold_type, threshold_value in kpi_definition.thresholds.items():
-                if threshold_type == "critical_high" and kpi_value.value > threshold_value:
-                    situations.append(self._create_threshold_situation(
-                        kpi_definition,
-                        kpi_value,
-                        SituationSeverity.CRITICAL,
-                        f"{kpi_definition.name} exceeds critical threshold",
-                        principal_context
-                    ))
+            # Get the current value for comparison
+            current_value = kpi_value.value
+            
+            # Check if we have inverse logic flag (lower values are better)
+            inverse_logic = False
+            if '_inverse_logic' in kpi_definition.thresholds:
+                inverse_logic = kpi_definition.thresholds['_inverse_logic']
+            elif not kpi_definition.positive_trend_is_good:
+                # If positive trend is not good, then lower values are better
+                inverse_logic = True
                 
-                elif threshold_type == "high" and kpi_value.value > threshold_value:
-                    situations.append(self._create_threshold_situation(
-                        kpi_definition,
-                        kpi_value,
-                        SituationSeverity.HIGH,
-                        f"{kpi_definition.name} exceeds high threshold",
-                        principal_context
-                    ))
-                
-                elif threshold_type == "critical_low" and kpi_value.value < threshold_value:
-                    situations.append(self._create_threshold_situation(
-                        kpi_definition,
-                        kpi_value,
-                        SituationSeverity.CRITICAL,
-                        f"{kpi_definition.name} below critical threshold",
-                        principal_context
-                    ))
-                
-                elif threshold_type == "low" and kpi_value.value < threshold_value:
-                    situations.append(self._create_threshold_situation(
-                        kpi_definition,
-                        kpi_value,
-                        SituationSeverity.HIGH,
-                        f"{kpi_definition.name} below threshold",
-                        principal_context
-                    ))
+            # Process thresholds based on severity
+            for threshold_key, threshold_value in kpi_definition.thresholds.items():
+                # Skip special keys
+                if threshold_key == '_inverse_logic':
+                    continue
+                    
+                # Handle different threshold types based on severity
+                if threshold_key == SituationSeverity.CRITICAL or threshold_key == "critical":
+                    if (inverse_logic and current_value > threshold_value) or \
+                       (not inverse_logic and current_value < threshold_value):
+                        situations.append(self._create_threshold_situation(
+                            kpi_definition,
+                            kpi_value,
+                            SituationSeverity.CRITICAL,
+                            f"{kpi_definition.name} is at a critical level",
+                            principal_context
+                        ))
+                        
+                elif threshold_key == SituationSeverity.HIGH or threshold_key == "warning" or threshold_key == "high":
+                    if (inverse_logic and current_value > threshold_value) or \
+                       (not inverse_logic and current_value < threshold_value):
+                        situations.append(self._create_threshold_situation(
+                            kpi_definition,
+                            kpi_value,
+                            SituationSeverity.HIGH,
+                            f"{kpi_definition.name} requires attention",
+                            principal_context
+                        ))
+                        
+                elif threshold_key == SituationSeverity.INFORMATION or threshold_key == "information" or threshold_key == "low":
+                    if (inverse_logic and current_value > threshold_value) or \
+                       (not inverse_logic and current_value < threshold_value):
+                        situations.append(self._create_threshold_situation(
+                            kpi_definition,
+                            kpi_value,
+                            SituationSeverity.INFORMATION,
+                            f"{kpi_definition.name} is outside normal range",
+                            principal_context
+                        ))
         
         # Check for significant changes if comparison value exists
-        if kpi_value.comparison_value is not None:
+        if kpi_value.comparison_value is not None and kpi_value.comparison_value != 0:
             # Calculate percent change
-            if kpi_value.comparison_value != 0:
-                percent_change = (kpi_value.value - kpi_value.comparison_value) / abs(kpi_value.comparison_value) * 100
-                
-                # Determine severity based on percent change
-                if abs(percent_change) >= 20:
-                    severity = SituationSeverity.CRITICAL
-                elif abs(percent_change) >= 10:
-                    severity = SituationSeverity.HIGH
-                elif abs(percent_change) >= 5:
-                    severity = SituationSeverity.MEDIUM
+            percent_change = (kpi_value.value - kpi_value.comparison_value) / abs(kpi_value.comparison_value) * 100
+
+            # Prefer registry-defined variance thresholds when available
+            vt_cfg = None
+            try:
+                meta = getattr(kpi_definition, 'metadata', None) or {}
+                vt_all = meta.get('variance_thresholds') or {}
+                comp_key = None
+                ct = getattr(kpi_value, 'comparison_type', None)
+                if ct is not None:
+                    ct_val = ct.value if hasattr(ct, 'value') else str(ct)
+                    ct_l = str(ct_val).lower()
+                    if 'year' in ct_l or ct_l == 'yoy':
+                        comp_key = 'yoy'
+                    elif 'quarter' in ct_l or ct_l == 'qoq':
+                        comp_key = 'qoq'
+                    elif 'month' in ct_l or ct_l == 'mom':
+                        comp_key = 'mom'
+                    elif 'budget' in ct_l:
+                        comp_key = 'budget'
+                    elif 'target' in ct_l:
+                        comp_key = 'target'
+                vt_cfg = vt_all.get(comp_key) if comp_key else None
+            except Exception:
+                vt_cfg = None
+
+            if vt_cfg:
+                inv = bool(vt_cfg.get('inverse_logic', False))
+                g = vt_cfg.get('green')
+                y = vt_cfg.get('yellow')
+                r = vt_cfg.get('red')
+
+                # Emulate registry KPI.evaluate() semantics
+                evaluation = 'red'
+                if not inv:
+                    if g is not None and percent_change >= g:
+                        evaluation = 'green'
+                    elif y is not None and percent_change >= y:
+                        evaluation = 'yellow'
+                    elif r is not None and percent_change >= r:
+                        evaluation = 'red'
+                    else:
+                        evaluation = 'red'
                 else:
-                    severity = SituationSeverity.INFORMATION
-                
-                # Create situation for significant change
-                if abs(percent_change) >= 5:  # Only create situations for changes >= 5%
+                    if g is not None and percent_change <= g:
+                        evaluation = 'green'
+                    elif y is not None and percent_change <= y:
+                        evaluation = 'yellow'
+                    elif r is not None and percent_change <= r:
+                        evaluation = 'red'
+                    else:
+                        evaluation = 'red'
+
+                if evaluation in ('yellow', 'red'):
+                    severity = SituationSeverity.HIGH if evaluation == 'yellow' else SituationSeverity.CRITICAL
                     change_direction = "increased" if percent_change > 0 else "decreased"
                     situations.append(self._create_threshold_situation(
                         kpi_definition,
                         kpi_value,
                         severity,
-                        f"{kpi_definition.name} {change_direction} by {abs(percent_change):.1f}%",
+                        f"{kpi_definition.name} {change_direction} by {abs(percent_change):.1f}% vs baseline (threshold={evaluation})",
+                        principal_context
+                    ))
+                else:
+                    # Optionally record informational improvement within green band
+                    change_direction = "increased" if percent_change > 0 else "decreased"
+                    situations.append(self._create_threshold_situation(
+                        kpi_definition,
+                        kpi_value,
+                        SituationSeverity.INFORMATION,
+                        f"{kpi_definition.name} {change_direction} by {abs(percent_change):.1f}% (within green threshold)",
+                        principal_context
+                    ))
+            else:
+                # Fallback: heuristic severity based on magnitude and trend direction
+                is_positive_change = percent_change > 0
+                is_good_change = (is_positive_change and kpi_definition.positive_trend_is_good) or \
+                                 (not is_positive_change and not kpi_definition.positive_trend_is_good)
+                if abs(percent_change) >= 20:
+                    severity = SituationSeverity.CRITICAL if not is_good_change else SituationSeverity.INFORMATION
+                elif abs(percent_change) >= 10:
+                    severity = SituationSeverity.HIGH if not is_good_change else SituationSeverity.INFORMATION
+                elif abs(percent_change) >= 5:
+                    severity = SituationSeverity.MEDIUM if not is_good_change else SituationSeverity.INFORMATION
+                else:
+                    severity = SituationSeverity.INFORMATION
+
+                if abs(percent_change) >= 5:
+                    change_direction = "increased" if percent_change > 0 else "decreased"
+                    change_quality = "worsened" if not is_good_change else "improved"
+                    situations.append(self._create_threshold_situation(
+                        kpi_definition,
+                        kpi_value,
+                        severity,
+                        f"{kpi_definition.name} {change_direction} by {abs(percent_change):.1f}% ({change_quality})",
                         principal_context
                     ))
         
@@ -1318,173 +1996,7 @@ class A9_Situation_Awareness_Agent:
             timestamp=datetime.now()
         )
     
-    def _generate_sql_for_kpi(
-        self,
-        kpi_definition: KPIDefinition,
-        timeframe: TimeFrame,
-        filters: Optional[Dict[str, Any]] = None
-    ) -> str:
-        """
-        Generate SQL for a KPI based on its definition, timeframe, and filters.
-        
-        Args:
-            kpi_definition: KPI definition
-            timeframe: Time frame for analysis
-            filters: Additional filters
-            
-        Returns:
-            SQL query string
-        """
-        # For MVP, we'll use a simplified approach
-        # In production, this would be more sophisticated
-        
-        # Start with the base query template from the KPI definition
-        base_query = ""
-        calc = getattr(kpi_definition, "calculation", None)
-        if isinstance(calc, dict):
-            base_query = calc.get("query_template", "")
-        elif isinstance(calc, str):
-            # Allow plain string expressions/templates
-            base_query = calc
-        elif calc is None:
-            self.logger.warning(f"KPI {kpi_definition.name} has no calculation; cannot generate SQL")
-            return ""
-        else:
-            # Unsupported type
-            self.logger.warning(f"KPI {kpi_definition.name} calculation has unsupported type {type(calc)}; cannot generate SQL")
-            return ""
-        
-        # Add timeframe filter
-        timeframe_condition = self._get_timeframe_condition(timeframe)
-        
-        # Add any additional filters
-        filter_conditions = []
-        if filters:
-            for column, value in filters.items():
-                filter_conditions.append(f'"{column}" = \'{value}\'')
-        
-        # Add KPI-specific filters defined in calculation if present
-        if isinstance(calc, dict):
-            calc_filters = calc.get("filters")
-            if isinstance(calc_filters, list):
-                for filter_condition in calc_filters:
-                    filter_conditions.append(filter_condition)
-        
-        # Combine all conditions
-        where_clause = ""
-        all_conditions = []
-        if timeframe_condition:
-            all_conditions.append(timeframe_condition)
-        if filter_conditions:
-            all_conditions.extend(filter_conditions)
-        
-        if all_conditions:
-            where_clause = f"WHERE {' AND '.join(all_conditions)}"
-        
-        # Construct the final query
-        view_name = "FI_Star_View"  # From the contract
-        base_lower = base_query.strip().lower()
-        if base_lower.startswith("select "):
-            # Full query provided; use as-is
-            sql = base_query
-        else:
-            # Support inline WHERE in calculation strings like "SUM(col) WHERE ..."
-            expr = base_query
-            inline_where = None
-            if " where " in base_lower:
-                # Split only on first occurrence to preserve additional clauses
-                idx = base_lower.find(" where ")
-                expr = base_query[:idx]
-                inline_where = base_query[idx + len(" where "):]  # preserve original casing/content
-            # Merge WHERE clauses
-            merged_conditions = []
-            if inline_where:
-                merged_conditions.append(f"({inline_where.strip()})")
-            if where_clause.strip().startswith("WHERE "):
-                merged_conditions.append(where_clause.strip()[6:])
-            final_where = f" WHERE {' AND '.join(merged_conditions)}" if merged_conditions else ""
-            sql = f"SELECT {expr.strip()} FROM {view_name}{final_where}"
-        
-        return sql
-    
-    def _generate_sql_for_kpi_comparison(
-        self,
-        kpi_definition: KPIDefinition,
-        timeframe: TimeFrame,
-        comparison_type: ComparisonType,
-        filters: Optional[Dict[str, Any]] = None
-    ) -> str:
-        """
-        Generate SQL for a KPI comparison.
-        
-        Args:
-            kpi_definition: KPI definition
-            timeframe: Current time frame
-            comparison_type: Type of comparison
-            filters: Additional filters
-            
-        Returns:
-            SQL query string for comparison
-        """
-        # For MVP, we'll use a simplified approach
-        # In production, this would be more sophisticated
-        
-        # Determine the comparison timeframe based on the comparison type
-        comparison_timeframe = timeframe
-        if comparison_type == ComparisonType.YEAR_OVER_YEAR:
-            # Use same timeframe but previous year
-            comparison_timeframe = self._get_previous_year_timeframe(timeframe)
-        elif comparison_type == ComparisonType.QUARTER_OVER_QUARTER:
-            # Use previous quarter
-            comparison_timeframe = self._get_previous_quarter_timeframe(timeframe)
-        elif comparison_type == ComparisonType.MONTH_OVER_MONTH:
-            # Use previous month
-            comparison_timeframe = self._get_previous_month_timeframe(timeframe)
-        
-        # Generate SQL with the comparison timeframe
-        return self._generate_sql_for_kpi(kpi_definition, comparison_timeframe, filters)
-    
-    def _get_timeframe_condition(self, timeframe: TimeFrame) -> str:
-        """
-        Get SQL condition for a timeframe.
-        
-        Args:
-            timeframe: Time frame enum
-            
-        Returns:
-            SQL condition string
-        """
-        # For MVP, we'll use a simplified approach with fiscal flags
-        if timeframe == TimeFrame.CURRENT_MONTH:
-            return '"Fiscal MTD Flag" = 1'
-        elif timeframe == TimeFrame.CURRENT_QUARTER:
-            return '"Fiscal QTD Flag" = 1'
-        elif timeframe == TimeFrame.CURRENT_YEAR:
-            return '"Fiscal YTD Flag" = 1'
-        elif timeframe == TimeFrame.YEAR_TO_DATE:
-            return '"Fiscal YTD Flag" = 1'
-        elif timeframe == TimeFrame.QUARTER_TO_DATE:
-            return '"Fiscal QTD Flag" = 1'
-        elif timeframe == TimeFrame.MONTH_TO_DATE:
-            return '"Fiscal MTD Flag" = 1'
-        else:
-            # Default to current quarter
-            return '"Fiscal QTD Flag" = 1'
-    
-    def _get_previous_year_timeframe(self, current_timeframe: TimeFrame) -> TimeFrame:
-        """Get equivalent timeframe for previous year."""
-        # For MVP, simplistic implementation
-        return current_timeframe
-    
-    def _get_previous_quarter_timeframe(self, current_timeframe: TimeFrame) -> TimeFrame:
-        """Get equivalent timeframe for previous quarter."""
-        # For MVP, simplistic implementation
-        return current_timeframe
-    
-    def _get_previous_month_timeframe(self, current_timeframe: TimeFrame) -> TimeFrame:
-        """Get equivalent timeframe for previous month."""
-        # For MVP, simplistic implementation
-        return current_timeframe
+    # SQL generation methods have been moved to the Data Product Agent
         
     async def _detect_situations_from_kpi_values(
         self,
@@ -1536,13 +2048,14 @@ class A9_Situation_Awareness_Agent:
         self.logger.info(f"Total situations detected: {len(all_situations)}")
         return all_situations
     
-    def _generate_sql_for_query(
+    async def _generate_sql_for_query(
         self,
         query: str,
         kpi_values: List[KPIValue]
     ) -> Optional[str]:
         """
-        Generate SQL for a natural language query.
+        Generate SQL for a natural language query using the LLM Service Agent.
+        Falls back to Data Product Agent only if LLM path fails and A9_FORCE_LLM_SQL is not set.
         
         Args:
             query: Natural language query
@@ -1551,78 +2064,66 @@ class A9_Situation_Awareness_Agent:
         Returns:
             SQL query string or None
         """
-        # For MVP, we'll return a simplified SQL
-        # In production, this would use the NLP Interface Agent
+        self.logger.info(f"Generating SQL via LLM Service for query: {query}")
         
-        if not kpi_values:
+        # Feature flag to enforce LLM-only path
+        force_llm = str(os.environ.get('A9_FORCE_LLM_SQL', 'false')).lower() in ('1','true','yes','y','on')
+        
+        # Attempt LLM SQL generation first
+        if self.llm_service_agent is not None:
+            try:
+                # Derive data_product_id from contract filename (e.g., 'fi_star_schema')
+                dp_id = os.path.splitext(os.path.basename(self.contract_path))[0] if hasattr(self, 'contract_path') else "fi_star_schema"
+                
+                # Read YAML contract text if available
+                yaml_contract_text = None
+                try:
+                    if hasattr(self, 'contract_path') and os.path.exists(self.contract_path):
+                        with open(self.contract_path, 'r') as _f:
+                            yaml_contract_text = _f.read()
+                except Exception as _yaml_err:
+                    self.logger.warning(f"Could not read YAML contract for LLM SQL generation: {_yaml_err}")
+                
+                req = A9_LLM_SQLGenerationRequest(
+                    request_id=str(uuid.uuid4()),
+                    timestamp=datetime.utcnow().isoformat(),
+                    principal_id='sa_agent',
+                    natural_language_query=query,
+                    data_product_id=dp_id,
+                    yaml_contract=yaml_contract_text,
+                    include_explain=False
+                )
+                
+                llm_resp = await self.llm_service_agent.generate_sql(req)
+                if getattr(llm_resp, 'status', '') == 'success' and getattr(llm_resp, 'sql_query', ''):
+                    self.logger.info("SQL generated successfully via LLM Service")
+                    return llm_resp.sql_query
+                else:
+                    warn = getattr(llm_resp, 'error_message', None) or 'Unknown error'
+                    self.logger.warning(f"LLM Service SQL generation returned no SQL: {warn}")
+            except Exception as e:
+                self.logger.warning(f"LLM Service SQL generation failed: {e}")
+            
+            if force_llm:
+                self.logger.error("A9_FORCE_LLM_SQL is enabled; refusing to fall back to Data Product Agent SQL generation")
+                return None
+        
+        # Fallback: delegate to Data Product Agent (legacy path)
+        try:
+            if not self.data_product_agent:
+                self.logger.warning("Data Product Agent not available for SQL fallback")
+                return None
+            
+            self.logger.info("Falling back to Data Product Agent for SQL generation")
+            context = {'kpi_values': kpi_values} if kpi_values else {}
+            dp_resp = await self.data_product_agent.generate_sql(query, context)
+            if isinstance(dp_resp, dict) and dp_resp.get('success') and dp_resp.get('sql'):
+                return dp_resp['sql']
+            self.logger.warning(f"Data Product Agent fallback failed: {dp_resp}")
             return None
-        
-        # Get the first KPI for simplicity
-        kpi_value = kpi_values[0]
-        kpi_def = self.kpi_registry.get(kpi_value.kpi_name)
-        
-        if not kpi_def:
+        except Exception as e:
+            self.logger.error(f"Fallback SQL generation via Data Product Agent failed: {e}")
             return None
-        
-        # Generate a simple SQL query for the KPI
-        return self._generate_sql_for_kpi(
-            kpi_def,
-            kpi_value.timeframe,
-            kpi_value.dimensions
-        )
-    
-    def _generate_answer_for_query(
-        self,
-        query: str,
-        kpi_values: List[KPIValue]
-    ) -> str:
-        """
-        Generate an answer for a natural language query.
-        
-        Args:
-            query: Natural language query
-            kpi_values: KPI values related to the query
-            
-        Returns:
-            Answer string
-        """
-        # For MVP, we'll generate a simple answer
-        # In production, this would use the LLM Service Agent
-        
-        if not kpi_values:
-            return "I don't have enough information to answer your question."
-        
-        # Format the KPI values in the answer
-        kpi_descriptions = []
-        for kpi_value in kpi_values:
-            kpi_def = self.kpi_registry.get(kpi_value.kpi_name)
-            if not kpi_def:
-                continue
-                
-            description = f"{kpi_value.kpi_name} is {kpi_value.value}"
-            
-            if kpi_value.comparison_value is not None:
-                percent_change = 0
-                if kpi_value.comparison_value != 0:
-                    percent_change = (kpi_value.value - kpi_value.comparison_value) / abs(kpi_value.comparison_value) * 100
-                
-                comparison_desc = f"compared to {kpi_value.comparison_value} "
-                if kpi_value.comparison_type:
-                    comparison_desc += f"({kpi_value.comparison_type.value}), "
-                
-                change_direction = "up" if percent_change > 0 else "down"
-                comparison_desc += f"which is {change_direction} {abs(percent_change):.1f}%"
-                
-                description += f", {comparison_desc}"
-            
-            kpi_descriptions.append(description)
-        
-        if query.lower().startswith("what is"):
-            return f"Based on the current data, {'. '.join(kpi_descriptions)}."
-        elif query.lower().startswith("how"):
-            return f"Based on my analysis, {'. '.join(kpi_descriptions)}."
-        else:
-            return f"Here's what I found: {'. '.join(kpi_descriptions)}."
 
 
 def create_situation_awareness_agent(config: Dict[str, Any]) -> "A9_Situation_Awareness_Agent":

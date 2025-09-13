@@ -86,7 +86,7 @@ class PrincipalProfileProvider(RegistryProvider[PrincipalProfile]):
                         try:
                             # Try to convert to PrincipalProfile if it's not already
                             if not isinstance(item, PrincipalProfile):
-                                profile = PrincipalProfile(**item.dict() if hasattr(item, 'dict') else vars(item))
+                                profile = PrincipalProfile(**(item.model_dump() if hasattr(item, 'model_dump') else vars(item)))
                             else:
                                 profile = item
                             self._add_profile(profile)
@@ -100,7 +100,7 @@ class PrincipalProfileProvider(RegistryProvider[PrincipalProfile]):
                             if hasattr(value, 'id') and hasattr(value, 'name'):
                                 # Try to convert to PrincipalProfile if it's not already
                                 if not isinstance(value, PrincipalProfile):
-                                    profile = PrincipalProfile(**value.dict() if hasattr(value, 'dict') else vars(value))
+                                    profile = PrincipalProfile(**(value.model_dump() if hasattr(value, 'model_dump') else vars(value)))
                                 else:
                                     profile = value
                                 self._add_profile(profile)
@@ -229,7 +229,7 @@ class PrincipalProfileProvider(RegistryProvider[PrincipalProfile]):
                         
                         if profile:
                             # Clone the profile with the role ID to allow lookup by role ID
-                            role_profile_data = profile.dict()
+                            role_profile_data = profile.model_dump()
                             role_profile_data['id'] = role_id
                             role_profile = PrincipalProfile(**role_profile_data)
                             self._add_profile(role_profile)

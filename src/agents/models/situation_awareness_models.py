@@ -87,14 +87,14 @@ class BaseResponse(BaseModel):
 # Principal Context Models
 class PrincipalContextRequest(BaseRequest):
     """Request for principal context."""
-    principal_role: PrincipalRole = Field(description="Role of the principal")
+    principal_role: Optional[str] = Field(None, description="Role of the principal")
     principal_id: Optional[str] = Field(None, description="Optional identifier for specific principal")
 
 class PrincipalContext(BaseModel):
     """Principal context for personalization."""
-    role: PrincipalRole = Field(description="Role of the principal")
+    role: str = Field(description="Role of the principal")
     principal_id: str = Field(description="Unique identifier for the principal")
-    business_processes: List[BusinessProcess] = Field(description="Business processes relevant to the principal")
+    business_processes: List[str] = Field(description="Business processes relevant to the principal")
     default_filters: Dict[str, Any] = Field(description="Default filters for the principal")
     decision_style: str = Field(description="Decision-making style of the principal") 
     communication_style: str = Field(description="Communication style of the principal")
@@ -116,6 +116,19 @@ class KPIDefinition(BaseModel):
     business_processes: Optional[List[str]] = Field(None, description="Related business processes")
     unit: Optional[str] = Field(None, description="Unit of measurement")
     positive_trend_is_good: Optional[bool] = Field(None, description="Whether a positive trend is good for this KPI")
+    kpi_id: Optional[str] = Field(None, description="Unique identifier for the KPI")
+    dimensions: Optional[List[str]] = Field(None, description="Dimensions for the KPI")
+    attributes: Optional[List[str]] = Field(None, description="Attributes for the KPI")
+    # Optional filtering and metadata fields used by the Data Product Agent for SQL generation
+    filters: Optional[Dict[str, Any]] = Field(None, description="Static filters to apply for this KPI (e.g., GL account restrictions)")
+    time_filter: Optional[Dict[str, Any]] = Field(None, description="Time filter metadata with 'column' and optional 'start'/'end'")
+    base_column: Optional[str] = Field(None, description="Primary measure column used for aggregation")
+    date_column: Optional[str] = Field(None, description="Date column name used for timeframe filtering")
+    view_name: Optional[str] = Field(None, description="Preferred view name for this KPI (optional, governance agent is authoritative)")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional KPI metadata for downstream resolution")
+    group_by: Optional[List[Any]] = Field(None, description="Group by columns or expressions for aggregation")
+    order_by: Optional[List[Any]] = Field(None, description="Order by columns or expressions")
+    limit: Optional[int] = Field(None, description="Optional LIMIT for result set")
 
 class KPIValue(BaseModel):
     """KPI value with context."""
@@ -144,7 +157,7 @@ class Situation(BaseModel):
 class SituationDetectionRequest(BaseRequest):
     """Request for situation detection."""
     principal_context: PrincipalContext = Field(description="Principal context for personalization")
-    business_processes: List[BusinessProcess] = Field(description="Business processes to analyze")
+    business_processes: List[str] = Field(description="Business processes to analyze")
     timeframe: TimeFrame = Field(description="Time frame for analysis")
     comparison_type: Optional[ComparisonType] = Field(None, description="Type of comparison")
     filters: Optional[Dict[str, Any]] = Field(None, description="Additional filters")

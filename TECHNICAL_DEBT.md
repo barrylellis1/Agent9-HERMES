@@ -64,3 +64,54 @@ This document tracks known technical debt and planned enhancements for the Agent
 ## Other Technical Debt
 
 *Add other items as they are identified*
+
+## Deprecation & Removal Plan (MCP Service Alignment)
+
+This section tracks deprecations related to consolidating SQL generation/execution in the Data Product MCP Service and preventing functional drift.
+
+### Deprecation Banner Template
+
+Add this banner at the top of any legacy/shim module that is being phased out. It should log a clear warning on import and direct contributors to the replacement path. Set a firm removal date.
+
+```python
+# DEPRECATION WARNING
+# This module is deprecated and will be removed after {REMOVAL_DATE}.
+# Reason: SQL generation/execution must occur exclusively in the MCP Service per PRD.
+# Replacement: Use MCP client `src/agents/clients/a9_mcp_client.py` (embedded/remote) or
+# call the MCP Service API. For shared logic, use `src/services/mcp_core/`.
+import warnings as _warnings
+_warnings.warn(
+    "[DEPRECATED] {MODULE_NAME} is deprecated and will be removed after {REMOVAL_DATE}. "
+    "Use MCP client/service instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+```
+
+### Targets and Deadlines
+
+- [ ] `src/agents/a9_data_product_mcp_service_agent.py`
+  - Action: Extract shared logic to `src/services/mcp_core/`; replace agent-internal DB calls with MCP client.
+  - Status: Pending extraction
+  - Deprecation banner added: Pending
+  - Removal date: YYYY-MM-DD (set after two-week deprecation window)
+
+- [ ] Any direct CSV/DB access under `src/agents/**`
+  - Action: Replace with MCP client usage; add inline `# arch-allow-*` only in justified cases.
+  - Status: Enforced by architecture tests and pre-commit hook
+  - Removal date: Continuous enforcement (N/A)
+
+### Process and Criteria
+
+1. Add deprecation banner to target file(s)
+2. Ensure all callers are migrated to MCP client/service (embedded for unit tests, remote for integration/prod)
+3. Confirm no remaining references via repo-wide search (CI architecture tests must pass)
+4. Wait for deprecation window to elapse (2–4 weeks, based on release cadence)
+5. Remove file(s) and update docs/PRDs accordingly
+
+### Compliance Signals
+
+- Architecture tests pass with no banned patterns in `src/agents/**`
+- No direct agent construction in `tests/**`
+- MCP client is the only data access path in agents
+- PR template checkboxes affirmed for PRDs, cards, and config sync

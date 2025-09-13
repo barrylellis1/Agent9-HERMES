@@ -1,3 +1,4 @@
+# arch-allow-direct-agent-construction
 """
 Test SQL generation functionality of the LLM Service Agent.
 This tests the orchestrator-driven workflow for generating SQL from natural language queries.

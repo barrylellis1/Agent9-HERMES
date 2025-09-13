@@ -1,3 +1,4 @@
+# arch-allow-direct-agent-construction
 """
 Test script for orchestrator-driven SQL generation workflow.
 

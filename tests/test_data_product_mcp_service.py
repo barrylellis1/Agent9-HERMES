@@ -1,3 +1,4 @@
+# arch-allow-direct-agent-construction
 """
 Test script for A9_Data_Product_MCP_Service_Agent.
 

@@ -180,3 +180,67 @@ class A9_Data_Product_MCP_Service_Config(BaseModel):
         False, 
         description="Whether to include query results in logs (could expose sensitive data)"
     )
+
+
+class A9_Data_Product_Agent_Config(BaseModel):
+    """
+    Configuration for the A9_Data_Product_Agent.
+    Controls data product access, SQL generation and execution, and view creation.
+    """
+    model_config = ConfigDict(extra="allow")
+    
+    # Data source settings
+    data_directory: str = Field(
+        "data", 
+        description="Directory containing database files"
+    )
+    
+    # Database settings
+    database: Dict[str, Any] = Field(
+        {"type": "duckdb", "path": "data/agent9-hermes.duckdb"},
+        description="Database configuration"
+    )
+    
+    # Registry settings
+    registry_path: Optional[str] = Field(
+        None, 
+        description="Path to registry data files"
+    )
+    data_product_registry: Optional[str] = Field(
+        None, 
+        description="Path to data product registry file relative to registry_path"
+    )
+    
+    # Security settings
+    allow_custom_sql: bool = Field(
+        True, 
+        description="Whether to allow custom SQL execution"
+    )
+    validate_sql: bool = Field(
+        True, 
+        description="Whether to validate SQL statements for security (only SELECT allowed)"
+    )
+    
+    # Logging settings
+    log_level: str = Field(
+        "INFO",
+        description="Log level for the agent"
+    )
+    log_queries: bool = Field(
+        True, 
+        description="Whether to log all executed SQL queries"
+    )
+
+    # MCP client settings (embedded by default for unit tests)
+    mcp_mode: str = Field(
+        "embedded",
+        description="MCP client mode: 'embedded' for in-process, 'remote' for HTTP calls"
+    )
+    mcp_base_url: Optional[str] = Field(
+        None,
+        description="Base URL of MCP service when mcp_mode='remote' (e.g., http://localhost:8000)"
+    )
+    mcp_timeout_ms: int = Field(
+        10000,
+        description="Timeout budget in milliseconds for remote MCP calls"
+    )

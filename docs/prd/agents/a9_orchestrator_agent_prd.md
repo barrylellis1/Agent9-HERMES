@@ -22,6 +22,41 @@ Last updated: 2025-07-17
 **Agent Type:** Core Agent
 **Version:** 1.0
 
+## Orchestration Architecture
+
+The Orchestrator Agent is the central coordinator for the Agent9 system, designed to drive autonomous workflows without human intervention. While tools like Decision Studio provide UI for demonstration and testing, the core architecture is built around orchestrator-driven agent registration and communication.
+
+### Architectural Principles
+
+1. **Orchestrator-Driven Registration**
+   - All agents register with the Orchestrator Agent
+   - The Orchestrator maintains a registry of available agents
+   - Agents discover each other through the Orchestrator
+
+2. **Protocol-Based Communication**
+   - Agents communicate through well-defined protocol interfaces
+   - The Orchestrator routes messages between agents based on protocols
+   - Protocol interfaces ensure consistent method signatures and return values
+
+3. **Lifecycle Management**
+   - The Orchestrator manages agent lifecycle (creation, connection, disconnection)
+   - Agents implement standard lifecycle methods (create, connect, disconnect)
+   - Proper initialization sequence ensures dependencies are satisfied
+
+### Correct Agent Initialization Sequence
+
+For proper agent initialization, the following sequence should be followed:
+
+1. Initialize Registry Factory and providers
+2. Create and connect the Orchestrator Agent
+3. Create and register the Data Governance Agent
+4. Create and register the Principal Context Agent
+5. Create and register the Data Product Agent
+6. Create and register the Situation Awareness Agent
+7. Connect agents in the same order as registration
+
+This sequence ensures that dependencies between agents are properly satisfied, particularly for the Data Product Agent which depends on the Data Governance Agent for view name resolution.
+
 ## Functional Requirements
 
 ### Core Capabilities

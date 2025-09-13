@@ -130,7 +130,7 @@ class KPIProvider(RegistryProvider[KPI]):
                         try:
                             # Try to convert to KPI if it's not already
                             if not isinstance(item, KPI):
-                                kpi = KPI(**item.dict() if hasattr(item, 'dict') else vars(item))
+                                kpi = KPI(**(item.model_dump() if hasattr(item, 'model_dump') else vars(item)))
                             else:
                                 kpi = item
                             self._add_kpi(kpi)
@@ -144,7 +144,7 @@ class KPIProvider(RegistryProvider[KPI]):
                             if hasattr(value, 'id') and hasattr(value, 'name'):
                                 # Try to convert to KPI if it's not already
                                 if not isinstance(value, KPI):
-                                    kpi = KPI(**value.dict() if hasattr(value, 'dict') else vars(value))
+                                    kpi = KPI(**(value.model_dump() if hasattr(value, 'model_dump') else vars(value)))
                                 else:
                                     kpi = value
                                 self._add_kpi(kpi)
@@ -201,7 +201,7 @@ class KPIProvider(RegistryProvider[KPI]):
                         kpi = KPI.from_enum_value(item)
                         self._add_kpi(kpi)
                     elif hasattr(item, 'id') and hasattr(item, 'name'):
-                        kpi_data = item.dict() if hasattr(item, 'dict') else vars(item)
+                        kpi_data = item.model_dump() if hasattr(item, 'model_dump') else vars(item)
                         kpi = KPI(**kpi_data)
                         self._add_kpi(kpi)
                 except Exception as e:

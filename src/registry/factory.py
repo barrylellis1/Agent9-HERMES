@@ -57,8 +57,18 @@ class RegistryFactory:
         This method should be called at application startup to ensure
         all registry data is loaded and ready for use.
         """
+        # Check if we have any providers to initialize
+        if not self._providers:
+            logger.warning("No providers registered for initialization")
+            return
+            
         # Load all providers and their data
         for provider_name, provider in self._providers.items():
+            # Skip already initialized providers
+            if self._provider_initialization_status.get(provider_name, False):
+                logger.info(f"Provider '{provider_name}' already initialized, skipping")
+                continue
+                
             try:
                 logger.info(f"Loading registry data for {provider_name}")
                 await provider.load()
@@ -73,6 +83,7 @@ class RegistryFactory:
                     try:
                         provider._load_default_data()
                         logger.info(f"Loaded default data for {provider_name} provider")
+                        self._provider_initialization_status[provider_name] = True
                     except Exception as default_err:
                         logger.error(f"Failed to load default data for {provider_name}: {str(default_err)}")
         
@@ -91,6 +102,10 @@ class RegistryFactory:
             # If it's the same instance, don't replace and keep initialization status
             if self._providers[name] is provider:
                 logger.info(f"Provider '{name}' already registered with same instance, skipping")
+                return
+            # If the existing provider is already initialized, don't replace it
+            elif self._provider_initialization_status.get(name, False):
+                logger.info(f"Provider '{name}' already initialized, keeping existing instance")
                 return
             else:
                 logger.warning(f"Replacing existing {name} provider with new instance")
@@ -126,8 +141,32 @@ class RegistryFactory:
         return self._provider_initialization_status.copy()
     
     def get_business_process_provider(self) -> Optional[BusinessProcessProvider]:
-        """Get the business process registry provider."""
-        return self.get_provider('business_process')
+        """
+        Get the business process provider. If it doesn't exist, create and register a default one.
+        
+        Returns:
+            BusinessProcessProvider instance or None if creation fails
+        """
+        provider = self.get_provider("business_process")
+        
+        # If provider doesn't exist, create a default one
+        if provider is None:
+            try:
+                from src.registry.providers.business_process_provider import BusinessProcessProvider
+                logger.info("Creating default business process provider since none exists")
+                provider = BusinessProcessProvider(
+                    source_path="src/registry/business_process/business_process_registry.yaml",
+                    storage_format="yaml"
+                )
+                self.register_provider("business_process", provider)
+                # Mark as initialized
+                self._provider_initialization_status["business_process"] = True
+                logger.info("Default business process provider created and registered successfully")
+            except Exception as e:
+                logger.error(f"Failed to create default business process provider: {str(e)}")
+                return None
+                
+        return provider
     
     def get_kpi_provider(self) -> Optional[KPIProvider]:
         """

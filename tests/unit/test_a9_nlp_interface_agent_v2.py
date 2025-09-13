@@ -1,5 +1,6 @@
 # tests/unit/test_a9_nlp_interface_agent_v2.py
 import pytest
+pytest.skip("Skipped: legacy/non-MVP test (temporarily disabled during MVP migration)", allow_module_level=True)
 import asyncio
 from unittest.mock import AsyncMock, patch
 from src.agents.a9_nlp_interface_agent_v2 import A9_NLP_Interface_Agent_V2

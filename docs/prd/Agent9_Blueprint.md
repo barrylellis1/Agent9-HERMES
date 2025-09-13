@@ -67,6 +67,18 @@ All orchestrated by `A9_Orchestrator_Agent` using **async `create_from_registry`
 
 Each YAML defines nodes, edges, validations and outputs; the orchestrator loads it at runtime to build a LangGraph DAG.
 
+## 3.2 Data Access Architecture (MVP)
+- SQL generation is performed exclusively by the `A9_LLM_Service` Agent using registry-scoped YAML contract context (schema-constrained prompts).
+- SQL execution is performed exclusively by the `A9_Data_Product_Agent`, which calls an embedded MCP execution backend (DuckDB) in-process for MVP.
+- The MCP "Service" in MVP is an internal execution/validation library (embedded). A remote `/execute-sql` wrapper is optional for future integration/E2E/prod modes.
+- Guardrails are enforced end-to-end:
+  - SELECT-only validation (reject DDL/DML)
+  - Identifier validation against contract-scoped schema
+  - Parameterization of principal filters (no string concatenation)
+  - Timeouts, row limits, and structured audit logging (`A9_SharedLogger`)
+- The `A9_Situation_Awareness_Agent` never generates SQL; it orchestrates: NLP Interface → LLM Service (nl2sql/kpi_sql) → Data Product (execute).
+- CSV/pandas are permitted for test fixtures only; never in dev/prod runtime paths.
+
 ## 4. Design-Standards Checklist (CI-Enforced)
 | Rule | Target | Notes |
 |------|--------|-------|

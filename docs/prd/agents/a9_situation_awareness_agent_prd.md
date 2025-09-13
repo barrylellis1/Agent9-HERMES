@@ -91,13 +91,6 @@ This document outlines the requirements for version 1.0 of the A9_Situation_Awar
 - Implement create class method for instance creation
 
 ### 3.7 Error Types
-- ConfigurationError: Invalid configuration
-- RegistrationError: Failed to register with registry
-- ProcessingError: Failed to process data
-- ValidationError: Invalid input data
-- ConnectionError: Connection failures
-
-## 4. Functional Requirements
 
 ### 4.0 Registry-Driven Operation
 - Must use the Unified Registry Access Layer for all business data access
@@ -106,6 +99,13 @@ This document outlines the requirements for version 1.0 of the A9_Situation_Awar
 - Must retrieve data product information from the Data Product Provider
 - Must retrieve principal profiles from the Principal Profile Provider
 - Must support legacy integration for backward compatibility
+
+### 4.0.1 Runtime Data Access (MVP)
+- The A9_Situation_Awareness_Agent never generates SQL.
+- Natural language intent and KPI/view mapping are handled via the NLP Interface Agent with LLM delegation.
+- SQL generation is performed by the `A9_LLM_Service` Agent (`nl2sql` or `kpi_sql` operation) using registry-scoped YAML contract context.
+- SQL execution is performed by the `A9_Data_Product_Agent` via the embedded MCP execution library (DuckDB backend) with SELECT-only and identifier validation.
+- Principal filters are parameterized and enforced at execution time; structured audit logs are emitted with a transaction_id.
 
 ### 4.1 Situation Analysis
 

@@ -48,6 +48,15 @@ Centralize and standardize all LLM (Large Language Model) operations for Agent9 
 - **Input:** LLMRequest (Pydantic model: prompt, context, operation, etc.)
 - **Output:** LLMResponse (Pydantic model: response, confidence, timestamp, etc.)
 
+### SQL Generation Operations (MVP)
+- The LLM Service is the single source of dynamic SQL generation in Agent9.
+- New operation endpoints (orchestrator-routed, protocol-compliant):
+  - `parse_business_query` → returns structured intent from NLQ
+  - `nl2sql` (or `kpi_sql`) → returns SQL with rationale + safety notes
+- Requests must include registry-scoped context (e.g., YAML contract slice) to constrain prompts.
+- Responses must include `source="llm"`, `operation` metadata, model id, and timestamps.
+- SELECT-only generation is enforced via prompt constraints; final validation occurs at execution.
+
 ## Acceptance Criteria
 1. All LLM operations in Agent9 are performed via A9_LLM_Service.
 2. No agent directly calls LLM APIs.
@@ -56,6 +65,8 @@ Centralize and standardize all LLM (Large Language Model) operations for Agent9 
 5. The service supports configuration for multiple providers/models and future ensemble features.
 6. The LLM service can select or accept a model per task/operation, using the `model` field in LLMRequest.
 7. The Solution Finder Agent produces a trade-off analysis deliverable at decision points, presenting options, criteria (time, confidence, risk, business impact, cost), and capturing the principal's choice for audit and learning.
+
+8. SQL generation endpoints (`parse_business_query`, `nl2sql`/`kpi_sql`) are implemented with strict Pydantic request/response models and orchestrator logging.
 
 
 

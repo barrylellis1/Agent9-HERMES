@@ -1,0 +1,616 @@
+2025-09-02 19:31:54,944 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 19:31:54,950 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 19:31:54,950 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 19:31:54,951 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 19:31:54,951 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 19:32:20,973 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 19:32:20,974 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 19:32:20,975 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 19:32:20,975 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 19:32:20,975 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 19:36:41,305 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 19:36:41,307 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 19:36:41,308 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 19:36:41,308 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 19:36:41,308 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 19:58:05,083 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 19:58:05,087 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 19:58:05,088 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 19:58:05,089 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 19:58:05,089 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 20:01:04,175 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 20:01:04,177 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 20:01:04,177 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:01:04,177 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:01:04,178 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 20:01:27,996 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 20:01:27,998 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 20:01:27,998 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:01:27,998 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:01:27,999 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 20:01:28,000 - src.agents.new.a9_data_product_agent - INFO - Data Product Agent initialized with data_directory: data and registry path: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:03:41,684 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 20:03:41,686 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 20:03:41,686 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:03:41,686 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:03:41,687 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 20:03:41,687 - sql_delegation_test - INFO - Creating Data Product Agent instance
+2025-09-02 20:03:41,687 - sql_delegation_test - INFO - Data Product Agent initialized with data_directory: data and registry path: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:03:41,688 - sql_delegation_test - INFO - Initializing Data Product Agent
+2025-09-02 20:03:41,688 - sql_delegation_test - INFO - Initializing database connection with type: duckdb, path: data/agent9-hermes.duckdb
+2025-09-02 20:03:41,688 - root - INFO - Created database manager for type: duckdb
+2025-09-02 20:03:41,688 - sql_delegation_test - INFO - Database connection initialized successfully
+2025-09-02 20:03:41,689 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-02 20:03:41,689 - sql_delegation_test - INFO - Registry providers initialized successfully
+2025-09-02 20:03:41,690 - sql_delegation_test - INFO - [TXN:d91c2dd5-818e-43a3-84b5-b56ab6edbb08] Loading data product registry from: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:03:41,690 - sql_delegation_test - INFO - [TXN:d91c2dd5-818e-43a3-84b5-b56ab6edbb08] Attempting to load from YAML registry: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:03:41,704 - sql_delegation_test - WARNING - [TXN:d91c2dd5-818e-43a3-84b5-b56ab6edbb08] Invalid YAML registry format or missing data_products section
+2025-09-02 20:03:41,704 - sql_delegation_test - WARNING - [TXN:062f649a-1055-4d80-aeed-9cd989803f71] Loading default data products
+2025-09-02 20:03:41,705 - sql_delegation_test - INFO - [TXN:062f649a-1055-4d80-aeed-9cd989803f71] Loaded default data product
+2025-09-02 20:03:41,705 - sql_delegation_test - INFO - [TXN:d91c2dd5-818e-43a3-84b5-b56ab6edbb08] Registry status: registry=<class 'dict'>, has_data_products=True
+2025-09-02 20:03:41,706 - sql_delegation_test - INFO - Data Product Agent initialized with 1 data products
+2025-09-02 20:03:41,706 - sql_delegation_test - INFO - Async initialization for Data Product Agent completed successfully
+2025-09-02 20:03:41,706 - sql_delegation_test - INFO - Data Product Agent instance created successfully
+2025-09-02 20:03:41,707 - sql_delegation_test - INFO - Created Data Product Agent
+2025-09-02 20:03:41,707 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Data_Product_Agent registered with the registry
+2025-09-02 20:03:41,708 - sql_delegation_test - INFO - Registered Data Product Agent with orchestrator
+2025-09-02 20:04:02,646 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 20:04:02,648 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 20:04:02,649 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:04:02,649 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:04:02,649 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 20:04:02,649 - sql_delegation_test - INFO - Creating Data Product Agent instance
+2025-09-02 20:04:02,650 - sql_delegation_test - INFO - Data Product Agent initialized with data_directory: data and registry path: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:04:02,650 - sql_delegation_test - INFO - Initializing Data Product Agent
+2025-09-02 20:04:02,650 - sql_delegation_test - INFO - Initializing database connection with type: duckdb, path: data/agent9-hermes.duckdb
+2025-09-02 20:04:02,650 - root - INFO - Created database manager for type: duckdb
+2025-09-02 20:04:02,651 - sql_delegation_test - INFO - Database connection initialized successfully
+2025-09-02 20:04:02,651 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-02 20:04:02,651 - sql_delegation_test - INFO - Registry providers initialized successfully
+2025-09-02 20:04:02,651 - sql_delegation_test - INFO - [TXN:e5b8e429-c20c-4a90-866b-247fb93e7246] Loading data product registry from: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:04:02,652 - sql_delegation_test - INFO - [TXN:e5b8e429-c20c-4a90-866b-247fb93e7246] Attempting to load from YAML registry: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:04:02,668 - sql_delegation_test - WARNING - [TXN:e5b8e429-c20c-4a90-866b-247fb93e7246] Invalid YAML registry format or missing data_products section
+2025-09-02 20:04:02,668 - sql_delegation_test - WARNING - [TXN:17509fab-2129-4130-9b08-ec88734c2164] Loading default data products
+2025-09-02 20:04:02,669 - sql_delegation_test - INFO - [TXN:17509fab-2129-4130-9b08-ec88734c2164] Loaded default data product
+2025-09-02 20:04:02,669 - sql_delegation_test - INFO - [TXN:e5b8e429-c20c-4a90-866b-247fb93e7246] Registry status: registry=<class 'dict'>, has_data_products=True
+2025-09-02 20:04:02,669 - sql_delegation_test - INFO - Data Product Agent initialized with 1 data products
+2025-09-02 20:04:02,670 - sql_delegation_test - INFO - Async initialization for Data Product Agent completed successfully
+2025-09-02 20:04:02,670 - sql_delegation_test - INFO - Data Product Agent instance created successfully
+2025-09-02 20:04:02,670 - sql_delegation_test - INFO - Created Data Product Agent
+2025-09-02 20:04:02,670 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Data_Product_Agent registered with the registry
+2025-09-02 20:04:02,670 - sql_delegation_test - INFO - Registered Data Product Agent with orchestrator
+2025-09-02 20:04:45,007 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 20:04:45,010 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 20:04:45,011 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:04:45,011 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:04:45,011 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 20:04:45,011 - sql_delegation_test - INFO - Creating Data Product Agent instance
+2025-09-02 20:04:45,011 - sql_delegation_test - INFO - Data Product Agent initialized with data_directory: data and registry path: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:04:45,012 - sql_delegation_test - INFO - Initializing Data Product Agent
+2025-09-02 20:04:45,012 - sql_delegation_test - INFO - Initializing database connection with type: duckdb, path: data/agent9-hermes.duckdb
+2025-09-02 20:04:45,012 - root - INFO - Created database manager for type: duckdb
+2025-09-02 20:04:45,012 - sql_delegation_test - INFO - Database connection initialized successfully
+2025-09-02 20:04:45,013 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-02 20:04:45,013 - sql_delegation_test - INFO - Registry providers initialized successfully
+2025-09-02 20:04:45,014 - sql_delegation_test - INFO - [TXN:766a010d-2397-4aef-8dcb-b2001dd6a1dd] Loading data product registry from: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:04:45,014 - sql_delegation_test - INFO - [TXN:766a010d-2397-4aef-8dcb-b2001dd6a1dd] Attempting to load from YAML registry: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:04:45,024 - sql_delegation_test - WARNING - [TXN:766a010d-2397-4aef-8dcb-b2001dd6a1dd] Invalid YAML registry format or missing data_products section
+2025-09-02 20:04:45,025 - sql_delegation_test - WARNING - [TXN:3777ef68-c86e-4db3-9b08-103ddbeddcf3] Loading default data products
+2025-09-02 20:04:45,026 - sql_delegation_test - INFO - [TXN:3777ef68-c86e-4db3-9b08-103ddbeddcf3] Loaded default data product
+2025-09-02 20:04:45,026 - sql_delegation_test - INFO - [TXN:766a010d-2397-4aef-8dcb-b2001dd6a1dd] Registry status: registry=<class 'dict'>, has_data_products=True
+2025-09-02 20:04:45,027 - sql_delegation_test - INFO - Data Product Agent initialized with 1 data products
+2025-09-02 20:04:45,027 - sql_delegation_test - INFO - Async initialization for Data Product Agent completed successfully
+2025-09-02 20:04:45,028 - sql_delegation_test - INFO - Data Product Agent instance created successfully
+2025-09-02 20:04:45,028 - sql_delegation_test - INFO - Created Data Product Agent
+2025-09-02 20:04:45,028 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Data_Product_Agent registered with the registry
+2025-09-02 20:04:45,028 - sql_delegation_test - INFO - Registered Data Product Agent with orchestrator
+2025-09-02 20:04:45,090 - src.agents.new.a9_situation_awareness_agent - WARNING - DEPRECATED: _load_kpi_registry is being phased out. Use Data Governance Agent for KPI mapping instead.
+2025-09-02 20:04:45,091 - src.agents.new.a9_situation_awareness_agent - INFO - Loading KPI provider via RegistryFactory singleton
+2025-09-02 20:04:45,091 - src.registry.factory - WARNING - Provider 'kpi' not found in registry factory
+2025-09-02 20:04:45,092 - src.registry.factory - INFO - Creating default KPI provider since none exists
+2025-09-02 20:04:45,092 - src.registry.factory - INFO - Registered kpi provider
+2025-09-02 20:04:45,093 - src.registry.factory - INFO - Default KPI provider created and registered successfully
+2025-09-02 20:04:45,093 - src.agents.new.a9_situation_awareness_agent - WARNING - No KPIs found in registry
+2025-09-02 20:04:45,094 - src.agents.new.a9_situation_awareness_agent - INFO - Loaded 0 KPIs from registry and contract
+2025-09-02 20:04:45,094 - A9_Situation_Awareness_Agent - INFO - Loaded 0 KPIs from registry and contract
+2025-09-02 20:04:45,094 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:04:45,094 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:04:45,094 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Situation_Awareness_Agent registered with the registry
+2025-09-02 20:04:45,095 - src.agents.new.a9_orchestrator_agent - INFO - Requesting agent 'A9_Principal_Context_Agent'. Registered factories: []
+2025-09-02 20:04:45,095 - src.agents.new.a9_orchestrator_agent - ERROR - Agent A9_Principal_Context_Agent not found in registry and no factory available
+2025-09-02 20:04:45,095 - src.agents.new.a9_situation_awareness_agent - WARNING - Principal Context Agent not available via orchestrator
+2025-09-02 20:04:45,095 - src.agents.new.a9_orchestrator_agent - INFO - Requesting agent 'A9_Data_Governance_Agent'. Registered factories: []
+2025-09-02 20:04:45,096 - src.agents.new.a9_orchestrator_agent - ERROR - Agent A9_Data_Governance_Agent not found in registry and no factory available
+2025-09-02 20:04:45,097 - src.agents.new.a9_situation_awareness_agent - WARNING - Data Governance Agent not available via orchestrator
+2025-09-02 20:04:45,097 - src.agents.new.a9_situation_awareness_agent - INFO - Connected to dependent services
+2025-09-02 20:04:45,097 - sql_delegation_test - INFO - Created Situation Awareness Agent
+2025-09-02 20:06:20,537 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 20:06:20,538 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 20:06:20,539 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:06:20,539 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:06:20,539 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 20:06:20,539 - sql_delegation_test - INFO - Creating Data Product Agent instance
+2025-09-02 20:06:20,540 - sql_delegation_test - INFO - Data Product Agent initialized with data_directory: data and registry path: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:06:20,540 - sql_delegation_test - INFO - Initializing Data Product Agent
+2025-09-02 20:06:20,540 - sql_delegation_test - INFO - Initializing database connection with type: duckdb, path: data/agent9-hermes.duckdb
+2025-09-02 20:06:20,540 - root - INFO - Created database manager for type: duckdb
+2025-09-02 20:06:20,540 - sql_delegation_test - INFO - Database connection initialized successfully
+2025-09-02 20:06:20,541 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-02 20:06:20,541 - sql_delegation_test - INFO - Registry providers initialized successfully
+2025-09-02 20:06:20,541 - sql_delegation_test - INFO - [TXN:e447d869-5f59-48e1-8dcc-3cab2773f1f0] Loading data product registry from: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:06:20,542 - sql_delegation_test - INFO - [TXN:e447d869-5f59-48e1-8dcc-3cab2773f1f0] Attempting to load from YAML registry: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:06:20,553 - sql_delegation_test - WARNING - [TXN:e447d869-5f59-48e1-8dcc-3cab2773f1f0] Invalid YAML registry format or missing data_products section
+2025-09-02 20:06:20,553 - sql_delegation_test - WARNING - [TXN:ceca3f4f-abf7-4074-b6f3-3bd271488249] Loading default data products
+2025-09-02 20:06:20,554 - sql_delegation_test - INFO - [TXN:ceca3f4f-abf7-4074-b6f3-3bd271488249] Loaded default data product
+2025-09-02 20:06:20,554 - sql_delegation_test - INFO - [TXN:e447d869-5f59-48e1-8dcc-3cab2773f1f0] Registry status: registry=<class 'dict'>, has_data_products=True
+2025-09-02 20:06:20,554 - sql_delegation_test - INFO - Data Product Agent initialized with 1 data products
+2025-09-02 20:06:20,554 - sql_delegation_test - INFO - Async initialization for Data Product Agent completed successfully
+2025-09-02 20:06:20,555 - sql_delegation_test - INFO - Data Product Agent instance created successfully
+2025-09-02 20:06:20,555 - sql_delegation_test - INFO - Created Data Product Agent
+2025-09-02 20:06:20,555 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Data_Product_Agent registered with the registry
+2025-09-02 20:06:20,555 - sql_delegation_test - INFO - Registered Data Product Agent with orchestrator
+2025-09-02 20:06:20,597 - src.agents.new.a9_situation_awareness_agent - WARNING - DEPRECATED: _load_kpi_registry is being phased out. Use Data Governance Agent for KPI mapping instead.
+2025-09-02 20:06:20,597 - src.agents.new.a9_situation_awareness_agent - INFO - Loading KPI provider via RegistryFactory singleton
+2025-09-02 20:06:20,598 - src.registry.factory - WARNING - Provider 'kpi' not found in registry factory
+2025-09-02 20:06:20,598 - src.registry.factory - INFO - Creating default KPI provider since none exists
+2025-09-02 20:06:20,598 - src.registry.factory - INFO - Registered kpi provider
+2025-09-02 20:06:20,598 - src.registry.factory - INFO - Default KPI provider created and registered successfully
+2025-09-02 20:06:20,598 - src.agents.new.a9_situation_awareness_agent - WARNING - No KPIs found in registry
+2025-09-02 20:06:20,599 - src.agents.new.a9_situation_awareness_agent - INFO - Loaded 0 KPIs from registry and contract
+2025-09-02 20:06:20,599 - A9_Situation_Awareness_Agent - INFO - Loaded 0 KPIs from registry and contract
+2025-09-02 20:06:20,599 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:06:20,600 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:06:20,600 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Situation_Awareness_Agent registered with the registry
+2025-09-02 20:06:20,600 - src.agents.new.a9_orchestrator_agent - INFO - Requesting agent 'A9_Principal_Context_Agent'. Registered factories: []
+2025-09-02 20:06:20,601 - src.agents.new.a9_orchestrator_agent - ERROR - Agent A9_Principal_Context_Agent not found in registry and no factory available
+2025-09-02 20:06:20,601 - src.agents.new.a9_situation_awareness_agent - WARNING - Principal Context Agent not available via orchestrator
+2025-09-02 20:06:20,601 - src.agents.new.a9_orchestrator_agent - INFO - Requesting agent 'A9_Data_Governance_Agent'. Registered factories: []
+2025-09-02 20:06:20,601 - src.agents.new.a9_orchestrator_agent - ERROR - Agent A9_Data_Governance_Agent not found in registry and no factory available
+2025-09-02 20:06:20,601 - src.agents.new.a9_situation_awareness_agent - WARNING - Data Governance Agent not available via orchestrator
+2025-09-02 20:06:20,602 - src.agents.new.a9_situation_awareness_agent - INFO - Connected to dependent services
+2025-09-02 20:06:20,602 - sql_delegation_test - INFO - Created Situation Awareness Agent
+2025-09-02 20:06:20,602 - sql_delegation_test - INFO - Added test KPI to registry
+2025-09-02 20:06:20,602 - sql_delegation_test - INFO - Testing SQL generation delegation with query: Show me the revenue for this quarter
+2025-09-02 20:06:20,602 - A9_Situation_Awareness_Agent - INFO - Delegating SQL generation for query to Data Product Agent: Show me the revenue for this quarter
+2025-09-02 20:06:20,603 - sql_delegation_test - INFO - [TXN:0ea93a00-bf96-48db-b78e-586cf718f8ef] Generating SQL for query: Show me the revenue for this quarter
+2025-09-02 20:06:20,603 - sql_delegation_test - INFO - [TXN:0ea93a00-bf96-48db-b78e-586cf718f8ef] Using KPI values for SQL generation
+2025-09-02 20:06:20,604 - sql_delegation_test - ERROR - [TXN:0ea93a00-bf96-48db-b78e-586cf718f8ef] Error generating SQL: 'KPIProvider' object has no attribute 'get_kpi_by_name'
+Traceback (most recent call last):
+  File "C:\Users\barry\CascadeProjects\Agent9-HERMES\src\agents\new\a9_data_product_agent.py", line 1177, in generate_sql
+    kpi_def = self.kpi_provider.get_kpi_by_name(kpi_value.kpi_name)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'KPIProvider' object has no attribute 'get_kpi_by_name'
+
+2025-09-02 20:06:20,606 - A9_Situation_Awareness_Agent - WARNING - Data Product Agent failed to generate SQL: Error generating SQL: 'KPIProvider' object has no attribute 'get_kpi_by_name'
+2025-09-02 20:06:20,606 - sql_delegation_test - ERROR - SQL generation returned None
+2025-09-02 20:06:20,606 - sql_delegation_test - INFO - SQL generation delegation test FAILED
+2025-09-02 20:12:44,275 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 20:12:44,275 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 20:12:44,277 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:12:44,277 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:12:44,277 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 20:12:44,277 - sql_delegation_test - INFO - Creating Data Product Agent instance
+2025-09-02 20:12:44,277 - sql_delegation_test - INFO - Data Product Agent initialized with data_directory: data and registry path: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:12:44,277 - sql_delegation_test - INFO - Initializing Data Product Agent
+2025-09-02 20:12:44,277 - sql_delegation_test - INFO - Initializing database connection with type: duckdb, path: data/agent9-hermes.duckdb
+2025-09-02 20:12:44,277 - root - INFO - Created database manager for type: duckdb
+2025-09-02 20:12:44,278 - sql_delegation_test - INFO - Database connection initialized successfully
+2025-09-02 20:12:44,278 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-02 20:12:44,279 - sql_delegation_test - INFO - Registry providers initialized successfully
+2025-09-02 20:12:44,280 - sql_delegation_test - INFO - [TXN:9b285b03-43f9-480f-948c-45a7955f82d7] Loading data product registry from: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:12:44,280 - sql_delegation_test - INFO - [TXN:9b285b03-43f9-480f-948c-45a7955f82d7] Attempting to load from YAML registry: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:12:44,293 - sql_delegation_test - WARNING - [TXN:9b285b03-43f9-480f-948c-45a7955f82d7] Invalid YAML registry format or missing data_products section
+2025-09-02 20:12:44,293 - sql_delegation_test - WARNING - [TXN:452c0da2-c9f5-460b-88bd-d278c7e083d1] Loading default data products
+2025-09-02 20:12:44,294 - sql_delegation_test - INFO - [TXN:452c0da2-c9f5-460b-88bd-d278c7e083d1] Loaded default data product
+2025-09-02 20:12:44,294 - sql_delegation_test - INFO - [TXN:9b285b03-43f9-480f-948c-45a7955f82d7] Registry status: registry=<class 'dict'>, has_data_products=True
+2025-09-02 20:12:44,294 - sql_delegation_test - INFO - Data Product Agent initialized with 1 data products
+2025-09-02 20:12:44,294 - sql_delegation_test - INFO - Async initialization for Data Product Agent completed successfully
+2025-09-02 20:12:44,294 - sql_delegation_test - INFO - Data Product Agent instance created successfully
+2025-09-02 20:12:44,294 - sql_delegation_test - INFO - Created Data Product Agent
+2025-09-02 20:12:44,295 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Data_Product_Agent registered with the registry
+2025-09-02 20:12:44,295 - sql_delegation_test - INFO - Registered Data Product Agent with orchestrator
+2025-09-02 20:12:44,338 - src.agents.new.a9_situation_awareness_agent - WARNING - DEPRECATED: _load_kpi_registry is being phased out. Use Data Governance Agent for KPI mapping instead.
+2025-09-02 20:12:44,338 - src.agents.new.a9_situation_awareness_agent - INFO - Loading KPI provider via RegistryFactory singleton
+2025-09-02 20:12:44,338 - src.registry.factory - WARNING - Provider 'kpi' not found in registry factory
+2025-09-02 20:12:44,339 - src.registry.factory - INFO - Creating default KPI provider since none exists
+2025-09-02 20:12:44,339 - src.registry.factory - INFO - Registered kpi provider
+2025-09-02 20:12:44,339 - src.registry.factory - INFO - Default KPI provider created and registered successfully
+2025-09-02 20:12:44,339 - src.agents.new.a9_situation_awareness_agent - WARNING - No KPIs found in registry
+2025-09-02 20:12:44,340 - src.agents.new.a9_situation_awareness_agent - INFO - Loaded 0 KPIs from registry and contract
+2025-09-02 20:12:44,340 - A9_Situation_Awareness_Agent - INFO - Loaded 0 KPIs from registry and contract
+2025-09-02 20:12:44,340 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:12:44,341 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:12:44,341 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Situation_Awareness_Agent registered with the registry
+2025-09-02 20:12:44,341 - src.agents.new.a9_orchestrator_agent - INFO - Requesting agent 'A9_Principal_Context_Agent'. Registered factories: []
+2025-09-02 20:12:44,341 - src.agents.new.a9_orchestrator_agent - ERROR - Agent A9_Principal_Context_Agent not found in registry and no factory available
+2025-09-02 20:12:44,342 - src.agents.new.a9_situation_awareness_agent - WARNING - Principal Context Agent not available via orchestrator
+2025-09-02 20:12:44,342 - src.agents.new.a9_orchestrator_agent - INFO - Requesting agent 'A9_Data_Governance_Agent'. Registered factories: []
+2025-09-02 20:12:44,342 - src.agents.new.a9_orchestrator_agent - ERROR - Agent A9_Data_Governance_Agent not found in registry and no factory available
+2025-09-02 20:12:44,342 - src.agents.new.a9_situation_awareness_agent - WARNING - Data Governance Agent not available via orchestrator
+2025-09-02 20:12:44,342 - src.agents.new.a9_situation_awareness_agent - INFO - Connected to dependent services
+2025-09-02 20:12:44,343 - sql_delegation_test - INFO - Created Situation Awareness Agent
+2025-09-02 20:12:44,343 - sql_delegation_test - INFO - Added test KPI to registry
+2025-09-02 20:12:44,343 - sql_delegation_test - INFO - Testing SQL generation delegation with query: Show me the revenue for this quarter
+2025-09-02 20:12:44,343 - A9_Situation_Awareness_Agent - INFO - Delegating SQL generation for query to Data Product Agent: Show me the revenue for this quarter
+2025-09-02 20:12:44,343 - sql_delegation_test - INFO - [TXN:d669b9e3-4101-4a1a-96fe-74aa84237823] Generating SQL for query: Show me the revenue for this quarter
+2025-09-02 20:12:44,344 - sql_delegation_test - INFO - [TXN:d669b9e3-4101-4a1a-96fe-74aa84237823] Using KPI values for SQL generation
+2025-09-02 20:12:44,345 - sql_delegation_test - ERROR - [TXN:d669b9e3-4101-4a1a-96fe-74aa84237823] Error generating SQL: 'KPIProvider' object has no attribute 'get_kpi_by_name'
+Traceback (most recent call last):
+  File "C:\Users\barry\CascadeProjects\Agent9-HERMES\src\agents\new\a9_data_product_agent.py", line 1177, in generate_sql
+    kpi_def = self.kpi_provider.get_kpi_by_name(kpi_value.kpi_name)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'KPIProvider' object has no attribute 'get_kpi_by_name'
+
+2025-09-02 20:12:44,346 - A9_Situation_Awareness_Agent - WARNING - Data Product Agent failed to generate SQL: Error generating SQL: 'KPIProvider' object has no attribute 'get_kpi_by_name'
+2025-09-02 20:12:44,347 - sql_delegation_test - ERROR - SQL generation returned None
+2025-09-02 20:12:44,347 - sql_delegation_test - INFO - SQL generation delegation test FAILED
+2025-09-02 20:20:57,734 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 20:20:57,736 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 20:20:57,736 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:20:57,736 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:20:57,736 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 20:20:57,736 - sql_delegation_test - INFO - Creating Data Product Agent instance
+2025-09-02 20:20:57,736 - sql_delegation_test - INFO - Data Product Agent initialized with data_directory: data and registry path: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:20:57,737 - sql_delegation_test - INFO - Initializing Data Product Agent
+2025-09-02 20:20:57,737 - sql_delegation_test - INFO - Initializing database connection with type: duckdb, path: data/agent9-hermes.duckdb
+2025-09-02 20:20:57,737 - root - INFO - Created database manager for type: duckdb
+2025-09-02 20:20:57,737 - sql_delegation_test - INFO - Database connection initialized successfully
+2025-09-02 20:20:57,738 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-02 20:20:57,738 - sql_delegation_test - INFO - Registry providers initialized successfully
+2025-09-02 20:20:57,738 - sql_delegation_test - INFO - [TXN:895fb09e-021a-4d45-8f26-e57c0e446a18] Loading data product registry from: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:20:57,738 - sql_delegation_test - INFO - [TXN:895fb09e-021a-4d45-8f26-e57c0e446a18] Attempting to load from YAML registry: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:20:57,748 - sql_delegation_test - WARNING - [TXN:895fb09e-021a-4d45-8f26-e57c0e446a18] Invalid YAML registry format or missing data_products section
+2025-09-02 20:20:57,749 - sql_delegation_test - WARNING - [TXN:8cee44ce-266f-44d7-b310-f273f5db2c51] Loading default data products
+2025-09-02 20:20:57,750 - sql_delegation_test - INFO - [TXN:8cee44ce-266f-44d7-b310-f273f5db2c51] Loaded default data product
+2025-09-02 20:20:57,750 - sql_delegation_test - INFO - [TXN:895fb09e-021a-4d45-8f26-e57c0e446a18] Registry status: registry=<class 'dict'>, has_data_products=True
+2025-09-02 20:20:57,751 - sql_delegation_test - INFO - Data Product Agent initialized with 1 data products
+2025-09-02 20:20:57,751 - sql_delegation_test - INFO - Async initialization for Data Product Agent completed successfully
+2025-09-02 20:20:57,751 - sql_delegation_test - INFO - Data Product Agent instance created successfully
+2025-09-02 20:20:57,751 - sql_delegation_test - INFO - Created Data Product Agent
+2025-09-02 20:20:57,751 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Data_Product_Agent registered with the registry
+2025-09-02 20:20:57,752 - sql_delegation_test - INFO - Registered Data Product Agent with orchestrator
+2025-09-02 20:20:57,789 - src.agents.new.a9_situation_awareness_agent - WARNING - DEPRECATED: _load_kpi_registry is being phased out. Use Data Governance Agent for KPI mapping instead.
+2025-09-02 20:20:57,789 - src.agents.new.a9_situation_awareness_agent - INFO - Loading KPI provider via RegistryFactory singleton
+2025-09-02 20:20:57,790 - src.registry.factory - WARNING - Provider 'kpi' not found in registry factory
+2025-09-02 20:20:57,790 - src.registry.factory - INFO - Creating default KPI provider since none exists
+2025-09-02 20:20:57,790 - src.registry.factory - INFO - Registered kpi provider
+2025-09-02 20:20:57,791 - src.registry.factory - INFO - Default KPI provider created and registered successfully
+2025-09-02 20:20:57,791 - src.agents.new.a9_situation_awareness_agent - WARNING - No KPIs found in registry
+2025-09-02 20:20:57,791 - src.agents.new.a9_situation_awareness_agent - INFO - Loaded 0 KPIs from registry and contract
+2025-09-02 20:20:57,791 - A9_Situation_Awareness_Agent - INFO - Loaded 0 KPIs from registry and contract
+2025-09-02 20:20:57,792 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:20:57,792 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:20:57,792 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Situation_Awareness_Agent registered with the registry
+2025-09-02 20:20:57,792 - src.agents.new.a9_orchestrator_agent - INFO - Requesting agent 'A9_Principal_Context_Agent'. Registered factories: []
+2025-09-02 20:20:57,793 - src.agents.new.a9_orchestrator_agent - ERROR - Agent A9_Principal_Context_Agent not found in registry and no factory available
+2025-09-02 20:20:57,793 - src.agents.new.a9_situation_awareness_agent - WARNING - Principal Context Agent not available via orchestrator
+2025-09-02 20:20:57,793 - src.agents.new.a9_orchestrator_agent - INFO - Requesting agent 'A9_Data_Governance_Agent'. Registered factories: []
+2025-09-02 20:20:57,793 - src.agents.new.a9_orchestrator_agent - ERROR - Agent A9_Data_Governance_Agent not found in registry and no factory available
+2025-09-02 20:20:57,793 - src.agents.new.a9_situation_awareness_agent - WARNING - Data Governance Agent not available via orchestrator
+2025-09-02 20:20:57,795 - src.agents.new.a9_situation_awareness_agent - INFO - Connected to dependent services
+2025-09-02 20:20:57,795 - sql_delegation_test - INFO - Created Situation Awareness Agent
+2025-09-02 20:20:57,796 - sql_delegation_test - INFO - Added test KPI to registry
+2025-09-02 20:20:57,796 - sql_delegation_test - INFO - Testing SQL generation delegation with query: Show me the revenue for this quarter
+2025-09-02 20:20:57,796 - A9_Situation_Awareness_Agent - INFO - Delegating SQL generation for query to Data Product Agent: Show me the revenue for this quarter
+2025-09-02 20:20:57,796 - sql_delegation_test - INFO - [TXN:54f28279-584e-41fe-8c48-55e1cbfa83f6] Generating SQL for query: Show me the revenue for this quarter
+2025-09-02 20:20:57,797 - sql_delegation_test - INFO - [TXN:54f28279-584e-41fe-8c48-55e1cbfa83f6] Using KPI values for SQL generation
+2025-09-02 20:20:57,797 - sql_delegation_test - WARNING - KPI Test Kpi has no calculation; cannot generate SQL
+2025-09-02 20:20:57,797 - sql_delegation_test - ERROR - SQL generation returned None
+2025-09-02 20:20:57,797 - sql_delegation_test - INFO - SQL generation delegation test FAILED
+2025-09-02 20:20:57,797 - src.agents.new.a9_situation_awareness_agent - INFO - A9_Situation_Awareness_Agent disconnected from dependent services
+2025-09-02 20:20:57,797 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent disconnected from dependencies
+2025-09-02 20:20:57,798 - sql_delegation_test - INFO - Disconnected all agents
+2025-09-02 20:20:57,798 - sql_delegation_test - INFO - Test completed
+2025-09-02 20:27:10,246 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 20:27:10,247 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 20:27:10,247 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:27:10,247 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:27:10,248 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 20:27:10,248 - sql_delegation_test - INFO - Creating Data Product Agent instance
+2025-09-02 20:27:10,248 - sql_delegation_test - INFO - Data Product Agent initialized with data_directory: data and registry path: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:27:10,249 - sql_delegation_test - INFO - Initializing Data Product Agent
+2025-09-02 20:27:10,249 - sql_delegation_test - INFO - Initializing database connection with type: duckdb, path: data/agent9-hermes.duckdb
+2025-09-02 20:27:10,249 - root - INFO - Created database manager for type: duckdb
+2025-09-02 20:27:10,249 - sql_delegation_test - INFO - Database connection initialized successfully
+2025-09-02 20:27:10,250 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-02 20:27:10,250 - sql_delegation_test - INFO - Registry providers initialized successfully
+2025-09-02 20:27:10,250 - sql_delegation_test - INFO - [TXN:df017f54-8705-4cc2-9d6a-cbdd3e641ced] Loading data product registry from: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:27:10,251 - sql_delegation_test - INFO - [TXN:df017f54-8705-4cc2-9d6a-cbdd3e641ced] Attempting to load from YAML registry: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:27:10,265 - sql_delegation_test - WARNING - [TXN:df017f54-8705-4cc2-9d6a-cbdd3e641ced] Invalid YAML registry format or missing data_products section
+2025-09-02 20:27:10,266 - sql_delegation_test - WARNING - [TXN:9a014037-3045-4758-aad6-0164577c6876] Loading default data products
+2025-09-02 20:27:10,267 - sql_delegation_test - INFO - [TXN:9a014037-3045-4758-aad6-0164577c6876] Loaded default data product
+2025-09-02 20:27:10,267 - sql_delegation_test - INFO - [TXN:df017f54-8705-4cc2-9d6a-cbdd3e641ced] Registry status: registry=<class 'dict'>, has_data_products=True
+2025-09-02 20:27:10,268 - sql_delegation_test - INFO - Data Product Agent initialized with 1 data products
+2025-09-02 20:27:10,268 - sql_delegation_test - INFO - Async initialization for Data Product Agent completed successfully
+2025-09-02 20:27:10,268 - sql_delegation_test - INFO - Data Product Agent instance created successfully
+2025-09-02 20:27:10,269 - sql_delegation_test - INFO - Created Data Product Agent
+2025-09-02 20:27:10,269 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Data_Product_Agent registered with the registry
+2025-09-02 20:27:10,269 - sql_delegation_test - INFO - Registered Data Product Agent with orchestrator
+2025-09-02 20:27:10,310 - src.agents.new.a9_situation_awareness_agent - WARNING - DEPRECATED: _load_kpi_registry is being phased out. Use Data Governance Agent for KPI mapping instead.
+2025-09-02 20:27:10,310 - src.agents.new.a9_situation_awareness_agent - INFO - Loading KPI provider via RegistryFactory singleton
+2025-09-02 20:27:10,311 - src.registry.factory - WARNING - Provider 'kpi' not found in registry factory
+2025-09-02 20:27:10,311 - src.registry.factory - INFO - Creating default KPI provider since none exists
+2025-09-02 20:27:10,311 - src.registry.factory - INFO - Registered kpi provider
+2025-09-02 20:27:10,311 - src.registry.factory - INFO - Default KPI provider created and registered successfully
+2025-09-02 20:27:10,311 - src.agents.new.a9_situation_awareness_agent - WARNING - No KPIs found in registry
+2025-09-02 20:27:10,312 - src.agents.new.a9_situation_awareness_agent - INFO - Loaded 0 KPIs from registry and contract
+2025-09-02 20:27:10,312 - A9_Situation_Awareness_Agent - INFO - Loaded 0 KPIs from registry and contract
+2025-09-02 20:27:10,312 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:27:10,313 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:27:10,313 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Situation_Awareness_Agent registered with the registry
+2025-09-02 20:27:10,313 - src.agents.new.a9_orchestrator_agent - INFO - Requesting agent 'A9_Principal_Context_Agent'. Registered factories: []
+2025-09-02 20:27:10,313 - src.agents.new.a9_orchestrator_agent - ERROR - Agent A9_Principal_Context_Agent not found in registry and no factory available
+2025-09-02 20:27:10,313 - src.agents.new.a9_situation_awareness_agent - WARNING - Principal Context Agent not available via orchestrator
+2025-09-02 20:27:10,314 - src.agents.new.a9_orchestrator_agent - INFO - Requesting agent 'A9_Data_Governance_Agent'. Registered factories: []
+2025-09-02 20:27:10,314 - src.agents.new.a9_orchestrator_agent - ERROR - Agent A9_Data_Governance_Agent not found in registry and no factory available
+2025-09-02 20:27:10,314 - src.agents.new.a9_situation_awareness_agent - WARNING - Data Governance Agent not available via orchestrator
+2025-09-02 20:27:10,314 - src.agents.new.a9_situation_awareness_agent - INFO - Connected to dependent services
+2025-09-02 20:27:10,314 - sql_delegation_test - INFO - Created Situation Awareness Agent
+2025-09-02 20:27:10,314 - sql_delegation_test - INFO - Added test KPI to registry
+2025-09-02 20:27:10,315 - sql_delegation_test - INFO - Testing SQL generation delegation with query: Show me the revenue for this quarter
+2025-09-02 20:27:10,315 - A9_Situation_Awareness_Agent - INFO - Delegating SQL generation for query to Data Product Agent: Show me the revenue for this quarter
+2025-09-02 20:27:10,315 - sql_delegation_test - INFO - [TXN:fe4cd52b-717a-41a8-b44a-57d5f8084d00] Generating SQL for query: Show me the revenue for this quarter
+2025-09-02 20:27:10,315 - sql_delegation_test - INFO - [TXN:fe4cd52b-717a-41a8-b44a-57d5f8084d00] Using KPI values for SQL generation
+2025-09-02 20:27:10,315 - sql_delegation_test - WARNING - KPI Test Kpi has no calculation; cannot generate SQL
+2025-09-02 20:27:10,316 - sql_delegation_test - ERROR - SQL generation returned None
+2025-09-02 20:27:10,316 - sql_delegation_test - INFO - SQL generation delegation test FAILED
+2025-09-02 20:27:10,316 - src.agents.new.a9_situation_awareness_agent - INFO - A9_Situation_Awareness_Agent disconnected from dependent services
+2025-09-02 20:27:10,316 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent disconnected from dependencies
+2025-09-02 20:27:10,316 - sql_delegation_test - INFO - Disconnected all agents
+2025-09-02 20:27:10,317 - sql_delegation_test - INFO - Test completed
+2025-09-02 20:28:13,104 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 20:28:13,106 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 20:28:13,106 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:28:13,106 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:28:13,107 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 20:28:13,107 - sql_delegation_test - INFO - Creating Data Product Agent instance
+2025-09-02 20:28:13,107 - sql_delegation_test - INFO - Data Product Agent initialized with data_directory: data and registry path: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:28:13,108 - sql_delegation_test - INFO - Initializing Data Product Agent
+2025-09-02 20:28:13,108 - sql_delegation_test - INFO - Initializing database connection with type: duckdb, path: data/agent9-hermes.duckdb
+2025-09-02 20:28:13,108 - root - INFO - Created database manager for type: duckdb
+2025-09-02 20:28:13,108 - sql_delegation_test - INFO - Database connection initialized successfully
+2025-09-02 20:28:13,108 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-02 20:28:13,108 - sql_delegation_test - INFO - Registry providers initialized successfully
+2025-09-02 20:28:13,109 - sql_delegation_test - INFO - [TXN:d9238c50-bea2-47ca-8024-0f539715ccf7] Loading data product registry from: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:28:13,109 - sql_delegation_test - INFO - [TXN:d9238c50-bea2-47ca-8024-0f539715ccf7] Attempting to load from YAML registry: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:28:13,123 - sql_delegation_test - WARNING - [TXN:d9238c50-bea2-47ca-8024-0f539715ccf7] Invalid YAML registry format or missing data_products section
+2025-09-02 20:28:13,123 - sql_delegation_test - WARNING - [TXN:231bd53b-84de-4bae-8a1b-6122af6a9a36] Loading default data products
+2025-09-02 20:28:13,124 - sql_delegation_test - INFO - [TXN:231bd53b-84de-4bae-8a1b-6122af6a9a36] Loaded default data product
+2025-09-02 20:28:13,124 - sql_delegation_test - INFO - [TXN:d9238c50-bea2-47ca-8024-0f539715ccf7] Registry status: registry=<class 'dict'>, has_data_products=True
+2025-09-02 20:28:13,124 - sql_delegation_test - INFO - Data Product Agent initialized with 1 data products
+2025-09-02 20:28:13,124 - sql_delegation_test - INFO - Async initialization for Data Product Agent completed successfully
+2025-09-02 20:28:13,125 - sql_delegation_test - INFO - Data Product Agent instance created successfully
+2025-09-02 20:28:13,125 - sql_delegation_test - INFO - Created Data Product Agent
+2025-09-02 20:28:13,125 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Data_Product_Agent registered with the registry
+2025-09-02 20:28:13,125 - sql_delegation_test - INFO - Registered Data Product Agent with orchestrator
+2025-09-02 20:28:13,170 - src.agents.new.a9_situation_awareness_agent - WARNING - DEPRECATED: _load_kpi_registry is being phased out. Use Data Governance Agent for KPI mapping instead.
+2025-09-02 20:28:13,171 - src.agents.new.a9_situation_awareness_agent - INFO - Loading KPI provider via RegistryFactory singleton
+2025-09-02 20:28:13,171 - src.registry.factory - WARNING - Provider 'kpi' not found in registry factory
+2025-09-02 20:28:13,171 - src.registry.factory - INFO - Creating default KPI provider since none exists
+2025-09-02 20:28:13,171 - src.registry.factory - INFO - Registered kpi provider
+2025-09-02 20:28:13,172 - src.registry.factory - INFO - Default KPI provider created and registered successfully
+2025-09-02 20:28:13,172 - src.agents.new.a9_situation_awareness_agent - WARNING - No KPIs found in registry
+2025-09-02 20:28:13,172 - src.agents.new.a9_situation_awareness_agent - INFO - Loaded 0 KPIs from registry and contract
+2025-09-02 20:28:13,172 - A9_Situation_Awareness_Agent - INFO - Loaded 0 KPIs from registry and contract
+2025-09-02 20:28:13,172 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:28:13,173 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:28:13,173 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Situation_Awareness_Agent registered with the registry
+2025-09-02 20:28:13,173 - src.agents.new.a9_orchestrator_agent - INFO - Requesting agent 'A9_Principal_Context_Agent'. Registered factories: []
+2025-09-02 20:28:13,173 - src.agents.new.a9_orchestrator_agent - ERROR - Agent A9_Principal_Context_Agent not found in registry and no factory available
+2025-09-02 20:28:13,173 - src.agents.new.a9_situation_awareness_agent - WARNING - Principal Context Agent not available via orchestrator
+2025-09-02 20:28:13,173 - src.agents.new.a9_orchestrator_agent - INFO - Requesting agent 'A9_Data_Governance_Agent'. Registered factories: []
+2025-09-02 20:28:13,174 - src.agents.new.a9_orchestrator_agent - ERROR - Agent A9_Data_Governance_Agent not found in registry and no factory available
+2025-09-02 20:28:13,174 - src.agents.new.a9_situation_awareness_agent - WARNING - Data Governance Agent not available via orchestrator
+2025-09-02 20:28:13,174 - src.agents.new.a9_situation_awareness_agent - INFO - Connected to dependent services
+2025-09-02 20:28:13,174 - sql_delegation_test - INFO - Created Situation Awareness Agent
+2025-09-02 20:28:13,174 - sql_delegation_test - INFO - Added test KPI to registry
+2025-09-02 20:28:13,174 - sql_delegation_test - INFO - Testing SQL generation delegation with query: Show me the revenue for this quarter
+2025-09-02 20:28:13,175 - A9_Situation_Awareness_Agent - INFO - Delegating SQL generation for query to Data Product Agent: Show me the revenue for this quarter
+2025-09-02 20:28:13,175 - sql_delegation_test - INFO - [TXN:008ea1c7-07b0-469e-912a-4a0eba73cb41] Generating SQL for query: Show me the revenue for this quarter
+2025-09-02 20:28:13,175 - sql_delegation_test - INFO - [TXN:008ea1c7-07b0-469e-912a-4a0eba73cb41] Using KPI values for SQL generation
+2025-09-02 20:28:13,175 - sql_delegation_test - WARNING - KPI Test Kpi has no calculation; cannot generate SQL
+2025-09-02 20:28:13,175 - sql_delegation_test - ERROR - SQL generation returned None
+2025-09-02 20:28:13,176 - sql_delegation_test - INFO - SQL generation delegation test FAILED
+2025-09-02 20:28:13,176 - src.agents.new.a9_situation_awareness_agent - INFO - A9_Situation_Awareness_Agent disconnected from dependent services
+2025-09-02 20:28:13,176 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent disconnected from dependencies
+2025-09-02 20:28:13,176 - sql_delegation_test - INFO - Disconnected all agents
+2025-09-02 20:28:13,176 - sql_delegation_test - INFO - Test completed
+2025-09-02 20:30:11,301 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 20:30:11,303 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 20:30:11,303 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:30:11,303 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:30:11,304 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 20:30:11,304 - sql_delegation_test - INFO - Creating Data Product Agent instance
+2025-09-02 20:30:11,304 - sql_delegation_test - INFO - Data Product Agent initialized with data_directory: data and registry path: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:30:11,305 - sql_delegation_test - INFO - Initializing Data Product Agent
+2025-09-02 20:30:11,305 - sql_delegation_test - INFO - Initializing database connection with type: duckdb, path: data/agent9-hermes.duckdb
+2025-09-02 20:30:11,305 - root - INFO - Created database manager for type: duckdb
+2025-09-02 20:30:11,306 - sql_delegation_test - INFO - Database connection initialized successfully
+2025-09-02 20:30:11,307 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-02 20:30:11,307 - sql_delegation_test - INFO - Registry providers initialized successfully
+2025-09-02 20:30:11,307 - sql_delegation_test - INFO - [TXN:582d9742-e55c-4064-8646-fadd89753910] Loading data product registry from: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:30:11,308 - sql_delegation_test - INFO - [TXN:582d9742-e55c-4064-8646-fadd89753910] Attempting to load from YAML registry: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:30:11,321 - sql_delegation_test - WARNING - [TXN:582d9742-e55c-4064-8646-fadd89753910] Invalid YAML registry format or missing data_products section
+2025-09-02 20:30:11,322 - sql_delegation_test - WARNING - [TXN:0d6ce5a6-4143-4277-bdea-f0401adaf401] Loading default data products
+2025-09-02 20:30:11,324 - sql_delegation_test - INFO - [TXN:0d6ce5a6-4143-4277-bdea-f0401adaf401] Loaded default data product
+2025-09-02 20:30:11,325 - sql_delegation_test - INFO - [TXN:582d9742-e55c-4064-8646-fadd89753910] Registry status: registry=<class 'dict'>, has_data_products=True
+2025-09-02 20:30:11,325 - sql_delegation_test - INFO - Data Product Agent initialized with 1 data products
+2025-09-02 20:30:11,326 - sql_delegation_test - INFO - Async initialization for Data Product Agent completed successfully
+2025-09-02 20:30:11,327 - sql_delegation_test - INFO - Data Product Agent instance created successfully
+2025-09-02 20:30:11,328 - sql_delegation_test - INFO - Created Data Product Agent
+2025-09-02 20:30:11,329 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Data_Product_Agent registered with the registry
+2025-09-02 20:30:11,329 - sql_delegation_test - INFO - Registered Data Product Agent with orchestrator
+2025-09-02 20:30:11,390 - src.agents.new.a9_situation_awareness_agent - WARNING - DEPRECATED: _load_kpi_registry is being phased out. Use Data Governance Agent for KPI mapping instead.
+2025-09-02 20:30:11,392 - src.agents.new.a9_situation_awareness_agent - INFO - Loading KPI provider via RegistryFactory singleton
+2025-09-02 20:30:11,393 - src.registry.factory - WARNING - Provider 'kpi' not found in registry factory
+2025-09-02 20:30:11,393 - src.registry.factory - INFO - Creating default KPI provider since none exists
+2025-09-02 20:30:11,393 - src.registry.factory - INFO - Registered kpi provider
+2025-09-02 20:30:11,393 - src.registry.factory - INFO - Default KPI provider created and registered successfully
+2025-09-02 20:30:11,393 - src.agents.new.a9_situation_awareness_agent - WARNING - No KPIs found in registry
+2025-09-02 20:30:11,394 - src.agents.new.a9_situation_awareness_agent - INFO - Loaded 0 KPIs from registry and contract
+2025-09-02 20:30:11,394 - A9_Situation_Awareness_Agent - INFO - Loaded 0 KPIs from registry and contract
+2025-09-02 20:30:11,394 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:30:11,394 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:30:11,395 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Situation_Awareness_Agent registered with the registry
+2025-09-02 20:30:11,395 - src.agents.new.a9_orchestrator_agent - INFO - Requesting agent 'A9_Principal_Context_Agent'. Registered factories: []
+2025-09-02 20:30:11,395 - src.agents.new.a9_orchestrator_agent - ERROR - Agent A9_Principal_Context_Agent not found in registry and no factory available
+2025-09-02 20:30:11,395 - src.agents.new.a9_situation_awareness_agent - WARNING - Principal Context Agent not available via orchestrator
+2025-09-02 20:30:11,396 - src.agents.new.a9_orchestrator_agent - INFO - Requesting agent 'A9_Data_Governance_Agent'. Registered factories: []
+2025-09-02 20:30:11,396 - src.agents.new.a9_orchestrator_agent - ERROR - Agent A9_Data_Governance_Agent not found in registry and no factory available
+2025-09-02 20:30:11,396 - src.agents.new.a9_situation_awareness_agent - WARNING - Data Governance Agent not available via orchestrator
+2025-09-02 20:30:11,396 - src.agents.new.a9_situation_awareness_agent - INFO - Connected to dependent services
+2025-09-02 20:30:11,397 - sql_delegation_test - INFO - Created Situation Awareness Agent
+2025-09-02 20:30:11,397 - sql_delegation_test - INFO - Added test KPI to registry
+2025-09-02 20:30:11,397 - sql_delegation_test - INFO - Testing SQL generation delegation with query: Show me the revenue for this quarter
+2025-09-02 20:30:11,397 - A9_Situation_Awareness_Agent - INFO - Delegating SQL generation for query to Data Product Agent: Show me the revenue for this quarter
+2025-09-02 20:30:11,398 - sql_delegation_test - INFO - [TXN:1fea39bf-acc5-4ad5-b555-3ce55a969916] Generating SQL for query: Show me the revenue for this quarter
+2025-09-02 20:30:11,398 - sql_delegation_test - INFO - [TXN:1fea39bf-acc5-4ad5-b555-3ce55a969916] Using KPI values for SQL generation
+2025-09-02 20:30:11,398 - sql_delegation_test - WARNING - KPI Test Kpi has no calculation; cannot generate SQL
+2025-09-02 20:30:11,398 - sql_delegation_test - ERROR - SQL generation returned None
+2025-09-02 20:30:11,399 - sql_delegation_test - INFO - SQL generation delegation test FAILED
+2025-09-02 20:30:11,399 - src.agents.new.a9_situation_awareness_agent - INFO - A9_Situation_Awareness_Agent disconnected from dependent services
+2025-09-02 20:30:11,400 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent disconnected from dependencies
+2025-09-02 20:30:11,400 - sql_delegation_test - INFO - Disconnected all agents
+2025-09-02 20:30:11,400 - sql_delegation_test - INFO - Test completed
+2025-09-02 20:48:44,380 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 20:48:44,382 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 20:48:44,383 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:48:44,383 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:48:44,384 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 20:48:44,384 - sql_delegation_test - INFO - Creating Data Product Agent instance
+2025-09-02 20:48:44,385 - sql_delegation_test - INFO - Data Product Agent initialized with data_directory: data and registry path: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:48:44,385 - sql_delegation_test - INFO - Initializing Data Product Agent
+2025-09-02 20:48:44,385 - sql_delegation_test - INFO - Initializing database connection with type: duckdb, path: data/agent9-hermes.duckdb
+2025-09-02 20:48:44,386 - root - INFO - Created database manager for type: duckdb
+2025-09-02 20:48:44,386 - sql_delegation_test - INFO - Database connection initialized successfully
+2025-09-02 20:48:44,387 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-02 20:48:44,387 - sql_delegation_test - INFO - Registry providers initialized successfully
+2025-09-02 20:48:44,387 - sql_delegation_test - INFO - [TXN:01905012-10af-4000-abe1-c2ce90b572db] Loading data product registry from: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:48:44,388 - sql_delegation_test - INFO - [TXN:01905012-10af-4000-abe1-c2ce90b572db] Attempting to load from YAML registry: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 20:48:44,404 - sql_delegation_test - WARNING - [TXN:01905012-10af-4000-abe1-c2ce90b572db] Invalid YAML registry format or missing data_products section
+2025-09-02 20:48:44,404 - sql_delegation_test - WARNING - [TXN:cfaca09a-3cde-4694-b66a-259918d4f75b] Loading default data products
+2025-09-02 20:48:44,405 - sql_delegation_test - INFO - [TXN:cfaca09a-3cde-4694-b66a-259918d4f75b] Loaded default data product
+2025-09-02 20:48:44,405 - sql_delegation_test - INFO - [TXN:01905012-10af-4000-abe1-c2ce90b572db] Registry status: registry=<class 'dict'>, has_data_products=True
+2025-09-02 20:48:44,405 - sql_delegation_test - INFO - Data Product Agent initialized with 1 data products
+2025-09-02 20:48:44,406 - sql_delegation_test - INFO - Async initialization for Data Product Agent completed successfully
+2025-09-02 20:48:44,406 - sql_delegation_test - INFO - Data Product Agent instance created successfully
+2025-09-02 20:48:44,406 - sql_delegation_test - INFO - Created Data Product Agent
+2025-09-02 20:48:44,407 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Data_Product_Agent registered with the registry
+2025-09-02 20:48:44,408 - sql_delegation_test - INFO - Registered Data Product Agent with orchestrator
+2025-09-02 20:48:44,455 - src.agents.new.a9_situation_awareness_agent - WARNING - DEPRECATED: _load_kpi_registry is being phased out. Use Data Governance Agent for KPI mapping instead.
+2025-09-02 20:48:44,455 - src.agents.new.a9_situation_awareness_agent - INFO - Loading KPI provider via RegistryFactory singleton
+2025-09-02 20:48:44,456 - src.registry.factory - WARNING - Provider 'kpi' not found in registry factory
+2025-09-02 20:48:44,456 - src.registry.factory - INFO - Creating default KPI provider since none exists
+2025-09-02 20:48:44,456 - src.registry.factory - INFO - Registered kpi provider
+2025-09-02 20:48:44,456 - src.registry.factory - INFO - Default KPI provider created and registered successfully
+2025-09-02 20:48:44,457 - src.agents.new.a9_situation_awareness_agent - WARNING - No KPIs found in registry
+2025-09-02 20:48:44,457 - src.agents.new.a9_situation_awareness_agent - INFO - Loaded 0 KPIs from registry and contract
+2025-09-02 20:48:44,457 - A9_Situation_Awareness_Agent - INFO - Loaded 0 KPIs from registry and contract
+2025-09-02 20:48:44,457 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 20:48:44,457 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 20:48:44,458 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Situation_Awareness_Agent registered with the registry
+2025-09-02 20:48:44,458 - src.agents.new.a9_orchestrator_agent - INFO - Requesting agent 'A9_Principal_Context_Agent'. Registered factories: []
+2025-09-02 20:48:44,458 - src.agents.new.a9_orchestrator_agent - ERROR - Agent A9_Principal_Context_Agent not found in registry and no factory available
+2025-09-02 20:48:44,459 - src.agents.new.a9_situation_awareness_agent - WARNING - Principal Context Agent not available via orchestrator
+2025-09-02 20:48:44,459 - src.agents.new.a9_orchestrator_agent - INFO - Requesting agent 'A9_Data_Governance_Agent'. Registered factories: []
+2025-09-02 20:48:44,459 - src.agents.new.a9_orchestrator_agent - ERROR - Agent A9_Data_Governance_Agent not found in registry and no factory available
+2025-09-02 20:48:44,459 - src.agents.new.a9_situation_awareness_agent - WARNING - Data Governance Agent not available via orchestrator
+2025-09-02 20:48:44,459 - src.agents.new.a9_situation_awareness_agent - INFO - Connected to dependent services
+2025-09-02 20:48:44,460 - sql_delegation_test - INFO - Created Situation Awareness Agent
+2025-09-02 20:48:44,461 - sql_delegation_test - INFO - Added test KPI to registry
+2025-09-02 20:48:44,462 - sql_delegation_test - INFO - Testing SQL generation delegation with query: Show me the revenue for this quarter
+2025-09-02 20:48:44,463 - A9_Situation_Awareness_Agent - INFO - Delegating SQL generation for query to Data Product Agent: Show me the revenue for this quarter
+2025-09-02 20:48:44,463 - sql_delegation_test - INFO - [TXN:e63ac742-32f3-4d57-be76-6e50ad6e77ef] Generating SQL for query: Show me the revenue for this quarter
+2025-09-02 20:48:44,464 - sql_delegation_test - INFO - [TXN:e63ac742-32f3-4d57-be76-6e50ad6e77ef] Using KPI values for SQL generation
+2025-09-02 20:48:44,464 - sql_delegation_test - WARNING - KPI Test Kpi has no calculation; cannot generate SQL
+2025-09-02 20:48:44,465 - sql_delegation_test - ERROR - SQL generation returned None
+2025-09-02 20:48:44,465 - sql_delegation_test - INFO - SQL generation delegation test FAILED
+2025-09-02 20:48:44,466 - src.agents.new.a9_situation_awareness_agent - INFO - A9_Situation_Awareness_Agent disconnected from dependent services
+2025-09-02 20:48:44,466 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent disconnected from dependencies
+2025-09-02 20:48:44,466 - sql_delegation_test - INFO - Disconnected all agents
+2025-09-02 20:48:44,467 - sql_delegation_test - INFO - Test completed
+2025-09-02 21:08:09,111 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 21:08:09,115 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 21:08:09,115 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 21:08:09,115 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 21:08:09,115 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 21:08:09,117 - sql_delegation_test - INFO - Creating Data Product Agent instance
+2025-09-02 21:08:09,118 - sql_delegation_test - INFO - Data Product Agent initialized with data_directory: data and registry path: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 21:08:09,119 - sql_delegation_test - INFO - Initializing Data Product Agent
+2025-09-02 21:08:09,119 - sql_delegation_test - INFO - Initializing database connection with type: duckdb, path: data/agent9-hermes.duckdb
+2025-09-02 21:08:09,119 - root - INFO - Created database manager for type: duckdb
+2025-09-02 21:08:09,119 - sql_delegation_test - INFO - Database connection initialized successfully
+2025-09-02 21:08:09,121 - src.registry.factory - INFO - Registry Factory initialized
+2025-09-02 21:08:09,121 - sql_delegation_test - INFO - Registry providers initialized successfully
+2025-09-02 21:08:09,121 - sql_delegation_test - INFO - [TXN:0a8d5fd2-83bc-49bf-b139-afc08f20a542] Loading data product registry from: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 21:08:09,122 - sql_delegation_test - INFO - [TXN:0a8d5fd2-83bc-49bf-b139-afc08f20a542] Attempting to load from YAML registry: src/contracts\dp_fi_20250516_001_prejoined.yaml
+2025-09-02 21:08:09,134 - sql_delegation_test - WARNING - [TXN:0a8d5fd2-83bc-49bf-b139-afc08f20a542] Invalid YAML registry format or missing data_products section
+2025-09-02 21:08:09,135 - sql_delegation_test - WARNING - [TXN:23f36106-a3e2-4d24-b6b1-99c3c7946527] Loading default data products
+2025-09-02 21:08:09,135 - sql_delegation_test - INFO - [TXN:23f36106-a3e2-4d24-b6b1-99c3c7946527] Loaded default data product
+2025-09-02 21:08:09,136 - sql_delegation_test - INFO - [TXN:0a8d5fd2-83bc-49bf-b139-afc08f20a542] Registry status: registry=<class 'dict'>, has_data_products=True
+2025-09-02 21:08:09,136 - sql_delegation_test - INFO - Data Product Agent initialized with 1 data products
+2025-09-02 21:08:09,136 - sql_delegation_test - INFO - Async initialization for Data Product Agent completed successfully
+2025-09-02 21:08:09,136 - sql_delegation_test - INFO - Data Product Agent instance created successfully
+2025-09-02 21:08:09,137 - sql_delegation_test - INFO - Created Data Product Agent
+2025-09-02 21:08:09,137 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Data_Product_Agent registered with the registry
+2025-09-02 21:08:09,137 - sql_delegation_test - INFO - Registered Data Product Agent with orchestrator
+2025-09-02 21:08:09,177 - src.agents.new.a9_situation_awareness_agent - WARNING - DEPRECATED: _load_kpi_registry is being phased out. Use Data Governance Agent for KPI mapping instead.
+2025-09-02 21:08:09,177 - src.agents.new.a9_situation_awareness_agent - INFO - Loading KPI provider via RegistryFactory singleton
+2025-09-02 21:08:09,178 - src.registry.factory - WARNING - Provider 'kpi' not found in registry factory
+2025-09-02 21:08:09,178 - src.registry.factory - INFO - Creating default KPI provider since none exists
+2025-09-02 21:08:09,178 - src.registry.factory - INFO - Registered kpi provider
+2025-09-02 21:08:09,179 - src.registry.factory - INFO - Default KPI provider created and registered successfully
+2025-09-02 21:08:09,179 - src.agents.new.a9_situation_awareness_agent - WARNING - No KPIs found in registry
+2025-09-02 21:08:09,179 - src.agents.new.a9_situation_awareness_agent - INFO - Loaded 0 KPIs from registry and contract
+2025-09-02 21:08:09,180 - A9_Situation_Awareness_Agent - INFO - Loaded 0 KPIs from registry and contract
+2025-09-02 21:08:09,180 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 21:08:09,180 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 21:08:09,180 - src.agents.new.a9_orchestrator_agent - INFO - Agent A9_Situation_Awareness_Agent registered with the registry
+2025-09-02 21:08:09,180 - src.agents.new.a9_orchestrator_agent - INFO - Requesting agent 'A9_Principal_Context_Agent'. Registered factories: []
+2025-09-02 21:08:09,180 - src.agents.new.a9_orchestrator_agent - ERROR - Agent A9_Principal_Context_Agent not found in registry and no factory available
+2025-09-02 21:08:09,180 - src.agents.new.a9_situation_awareness_agent - WARNING - Principal Context Agent not available via orchestrator
+2025-09-02 21:08:09,180 - src.agents.new.a9_orchestrator_agent - INFO - Requesting agent 'A9_Data_Governance_Agent'. Registered factories: []
+2025-09-02 21:08:09,180 - src.agents.new.a9_orchestrator_agent - ERROR - Agent A9_Data_Governance_Agent not found in registry and no factory available
+2025-09-02 21:08:09,181 - src.agents.new.a9_situation_awareness_agent - WARNING - Data Governance Agent not available via orchestrator
+2025-09-02 21:08:09,181 - src.agents.new.a9_situation_awareness_agent - INFO - Connected to dependent services
+2025-09-02 21:08:09,181 - sql_delegation_test - INFO - Created Situation Awareness Agent
+2025-09-02 21:08:09,182 - sql_delegation_test - INFO - Added test KPI to registry
+2025-09-02 21:08:09,182 - sql_delegation_test - INFO - Testing SQL generation delegation with query: Show me the revenue for this quarter
+2025-09-02 21:08:09,183 - A9_Situation_Awareness_Agent - INFO - Delegating SQL generation for query to Data Product Agent: Show me the revenue for this quarter
+2025-09-02 21:08:09,183 - sql_delegation_test - INFO - [TXN:9855c9f0-0795-40f1-a8f2-b9436d3ee77c] Generating SQL for query: Show me the revenue for this quarter
+2025-09-02 21:08:09,183 - sql_delegation_test - INFO - [TXN:9855c9f0-0795-40f1-a8f2-b9436d3ee77c] Using KPI values for SQL generation
+2025-09-02 21:08:09,183 - sql_delegation_test - WARNING - KPI Test Kpi has no calculation; cannot generate SQL
+2025-09-02 21:08:09,184 - sql_delegation_test - ERROR - SQL generation returned None
+2025-09-02 21:08:09,184 - sql_delegation_test - INFO - SQL generation delegation test FAILED
+2025-09-02 21:08:09,184 - src.agents.new.a9_situation_awareness_agent - INFO - A9_Situation_Awareness_Agent disconnected from dependent services
+2025-09-02 21:08:09,185 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent disconnected from dependencies
+2025-09-02 21:08:09,185 - sql_delegation_test - INFO - Disconnected all agents
+2025-09-02 21:08:09,185 - sql_delegation_test - INFO - Test completed
+2025-09-02 21:13:11,416 - sql_delegation_test - ERROR - Error importing modules: No module named 'src.database.db_manager'
+2025-09-02 21:15:19,606 - sql_delegation_test - ERROR - Error importing modules: No module named 'src.registry.providers.view_provider'
+2025-09-02 21:16:20,293 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 21:16:20,297 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 21:16:20,298 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 21:16:20,298 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 21:16:20,299 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 21:24:34,666 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 21:24:34,669 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 21:24:34,670 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 21:24:34,670 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 21:24:34,671 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 21:26:04,895 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 21:26:04,896 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 21:26:04,896 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 21:26:04,896 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 21:26:04,897 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 21:39:52,581 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 21:39:52,583 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 21:39:52,583 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 21:39:52,584 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 21:39:52,584 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 21:41:39,307 - sql_delegation_test - INFO - Successfully imported required modules
+2025-09-02 21:41:39,308 - sql_delegation_test - INFO - Starting SQL delegation test
+2025-09-02 21:41:39,309 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - Initializing A9_Orchestrator_Agent
+2025-09-02 21:41:39,309 - src.agents.new.a9_orchestrator_agent.A9_Orchestrator_Agent - INFO - A9_Orchestrator_Agent connected to dependencies
+2025-09-02 21:41:39,309 - sql_delegation_test - INFO - Connected to orchestrator
+2025-09-02 21:49:12,955 - sql_delegation_test - ERROR - Error importing modules: No module named 'src.models.kpi'

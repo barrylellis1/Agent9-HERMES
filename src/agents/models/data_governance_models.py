@@ -183,3 +183,21 @@ class DataAssetPathResponse(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(
         None, description="Additional metadata for the asset"
     )
+
+
+class KPIViewNameRequest(BaseModel):
+    """Request for retrieving the view name for a KPI."""
+    kpi_name: str = Field(..., description="Name of the KPI")
+    context: Optional[Dict[str, Any]] = Field(
+        None, description="Additional context for resolution"
+    )
+
+
+class KPIViewNameResponse(BaseModel):
+    """Response for KPI view name resolution."""
+    kpi_name: str = Field(..., description="Name of the KPI")
+    view_name: str = Field(..., description="Name of the view for the KPI")
+    data_product_id: Optional[str] = Field(None, description="ID of the data product")
+    metadata: Optional[Dict[str, Any]] = Field(
+        None, description="Additional metadata for the view"
+    )

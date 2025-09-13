@@ -1,0 +1,15 @@
+repos:
+  - repo: local
+    hooks:
+      - id: architecture-lint
+        name: Architecture Compliance Lint
+        entry: python scripts/architecture_lint.py
+        language: system
+        pass_filenames: false
+        stages: [commit]
+      - id: pydantic-v1-lint
+        name: Pydantic v1 API Lint
+        entry: python scripts/pydantic_v1_lint.py
+        language: system
+        pass_filenames: false
+        stages: [commit]

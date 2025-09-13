@@ -1,0 +1,7 @@
+[server]
+fileWatcherType = "watchdog"
+# Prevent reruns due to log file updates inside the project folder
+folderWatchBlacklist = ["logs", "data", "test-output", "test-results"]
+
+[logger]
+level = "debug"

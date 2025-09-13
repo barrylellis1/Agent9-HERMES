@@ -384,7 +384,7 @@ async def initialize_agent_registry():
     # Initialize agent registry with common agent factories
     from src.agents.a9_principal_context_agent import A9_Principal_Context_Agent
     from src.agents.a9_situation_awareness_agent import A9_Situation_Awareness_Agent
-    from src.agents.a9_data_product_mcp_service_agent import A9_Data_Product_MCP_Service_Agent
+    from src.agents.new.a9_data_product_agent import A9_Data_Product_Agent
     from src.agents.a9_data_governance_agent import A9_Data_Governance_Agent, create_data_governance_agent
     
     # Register agent factories
@@ -392,7 +392,7 @@ async def initialize_agent_registry():
     agent_registry.register_agent_factory("A9_Principal_Context_Agent", A9_Principal_Context_Agent.create)
     # Use async class factory to ensure connect() is awaited
     agent_registry.register_agent_factory("A9_Situation_Awareness_Agent", A9_Situation_Awareness_Agent.create)
-    agent_registry.register_agent_factory("A9_Data_Product_MCP_Service_Agent", A9_Data_Product_MCP_Service_Agent.create)
+    agent_registry.register_agent_factory("A9_Data_Product_Agent", A9_Data_Product_Agent.create)
     agent_registry.register_agent_factory("A9_Data_Governance_Agent", A9_Data_Governance_Agent.create)
     
     logger.info("Agent registry initialized with common agent factories")

@@ -18,6 +18,8 @@ from pydantic import BaseModel, Field
 # Import registry providers
 from src.registry.factory import RegistryFactory
 from src.registry.providers.business_glossary_provider import BusinessGlossaryProvider, BusinessTerm
+from src.registry.providers.kpi_provider import KPIProvider
+from src.registry.models.kpi import KPI
 
 # Import shared models
 from src.agents.models.data_governance_models import (
@@ -28,7 +30,14 @@ from src.agents.models.data_governance_models import (
     DataQualityCheckRequest,
     DataQualityCheckResponse,
     DataLineageRequest,
-    DataLineageResponse
+    DataLineageResponse,
+    KPIDataProductMappingRequest,
+    KPIDataProductMappingResponse,
+    KPIDataProductMapping,
+    DataAssetPathRequest,
+    DataAssetPathResponse,
+    KPIViewNameRequest,
+    KPIViewNameResponse
 )
 
 # Setup logging
@@ -60,6 +69,7 @@ class A9_Data_Governance_Agent:
         # Initialize registry providers
         self.registry_factory = None
         self.business_glossary_provider = None
+        self.kpi_provider = None
         
         # Setup logging
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -102,6 +112,15 @@ class A9_Data_Governance_Agent:
                 self.business_glossary_provider = BusinessGlossaryProvider(
                     glossary_path=self.glossary_path
                 )
+                
+            # Get the KPI Provider
+            try:
+                self.kpi_provider = self.registry_factory.get_kpi_provider()
+                if not self.kpi_provider:
+                    # Try alternate method
+                    self.kpi_provider = self.registry_factory.get_provider("kpi")
+            except Exception as e:
+                self.logger.warning(f"Could not get KPI Provider from registry factory: {e}")
             
             self.logger.info("Connected to dependent services and registries")
             return True
@@ -117,6 +136,73 @@ class A9_Data_Governance_Agent:
         except Exception as e:
             self.logger.error(f"Error disconnecting from services: {e}")
             return False
+    
+    def _get_kpi_provider(self) -> Optional[KPIProvider]:
+        """
+        Get the KPI provider from the registry factory.
+        
+        Returns:
+            KPIProvider instance or None if not available
+        """
+        try:
+            registry_factory = RegistryFactory()
+            return registry_factory.get_provider('kpi')
+        except Exception as e:
+            self.logger.error(f"Error getting KPI provider: {e}")
+            return None
+            
+    def _get_view_name_for_kpi(self, kpi: KPI) -> str:
+        """
+        Get the view name for a KPI.
+        
+        Args:
+            kpi: KPI object
+            
+        Returns:
+            View name for the KPI
+        """
+        try:
+            # Check if the KPI has a view_name attribute
+            if hasattr(kpi, 'view_name') and kpi.view_name:
+                return kpi.view_name
+                
+            # Check if the KPI has metadata with view_name
+            if hasattr(kpi, 'metadata') and isinstance(kpi.metadata, dict) and 'view_name' in kpi.metadata:
+                return kpi.metadata['view_name']
+                
+            # Generate a view name based on KPI name
+            if hasattr(kpi, 'name'):
+                return f"view_{kpi.name.lower().replace(' ', '_')}"
+                
+            return "unknown_view"
+        except Exception as e:
+            self.logger.error(f"Error getting view name for KPI: {e}")
+            return "unknown_view"
+            
+    def _get_data_product_id_for_kpi(self, kpi: KPI) -> Optional[str]:
+        """
+        Get the data product ID for a KPI.
+        
+        Args:
+            kpi: KPI object
+            
+        Returns:
+            Data product ID for the KPI
+        """
+        try:
+            # Check if the KPI has a data_product_id attribute
+            if hasattr(kpi, 'data_product_id') and kpi.data_product_id:
+                return kpi.data_product_id
+                
+            # Check if the KPI has metadata with data_product_id
+            if hasattr(kpi, 'metadata') and isinstance(kpi.metadata, dict) and 'data_product_id' in kpi.metadata:
+                return kpi.metadata['data_product_id']
+                
+            # Default to FI_Star_Schema
+            return "FI_Star_Schema"
+        except Exception as e:
+            self.logger.error(f"Error getting data product ID for KPI: {e}")
+            return "FI_Star_Schema"
     
     async def translate_business_terms(
         self, request: BusinessTermTranslationRequest
@@ -254,6 +340,241 @@ class A9_Data_Governance_Agent:
             },
             issues=[]
         )
+        
+    async def map_kpis_to_data_products(
+        self, request: KPIDataProductMappingRequest
+    ) -> KPIDataProductMappingResponse:
+        """
+        Map KPIs to data products.
+        
+        Args:
+            request: Contains KPI names to map and context
+            
+        Returns:
+            Response with KPI to data product mappings
+        """
+        if not self.kpi_provider:
+            self.logger.error("KPI Provider not initialized")
+            return KPIDataProductMappingResponse(
+                mappings=[],
+                unmapped_kpis=request.kpi_names,
+                human_action_required=True,
+                human_action_context={
+                    "message": "KPI Provider not available. Please contact your administrator."
+                }
+            )
+        
+        mappings = []
+        unmapped_kpis = []
+        
+        # Get all KPIs from the registry
+        try:
+            all_kpis = self.kpi_provider.get_all() or []
+            kpi_dict = {kpi.name: kpi for kpi in all_kpis if hasattr(kpi, 'name')}
+            
+            for kpi_name in request.kpi_names:
+                if kpi_name in kpi_dict:
+                    kpi = kpi_dict[kpi_name]
+                    data_product_id = self._get_data_product_id_for_kpi(kpi)
+                    technical_name = self._get_technical_name_for_kpi(kpi)
+                    
+                    mappings.append(KPIDataProductMapping(
+                        kpi_name=kpi_name,
+                        data_product_id=data_product_id,
+                        technical_name=technical_name,
+                        metadata=self._get_kpi_metadata(kpi)
+                    ))
+                else:
+                    unmapped_kpis.append(kpi_name)
+        except Exception as e:
+            self.logger.error(f"Error mapping KPIs to data products: {e}")
+            return KPIDataProductMappingResponse(
+                mappings=[],
+                unmapped_kpis=request.kpi_names,
+                human_action_required=True,
+                human_action_context={
+                    "message": f"Error mapping KPIs: {str(e)}"
+                }
+            )
+        
+        # Determine if human action is required
+        human_action_required = len(unmapped_kpis) > 0
+        human_action_context = None
+        
+        if human_action_required:
+            human_action_context = {
+                "unmapped_kpis": unmapped_kpis,
+                "message": "Please map these KPIs to data products before proceeding."
+            }
+        
+        # Log the mapping operation for audit
+        self.logger.info(
+            f"KPI to data product mapping: {len(mappings)} mapped, "
+            f"{len(unmapped_kpis)} unmapped"
+        )
+        
+        return KPIDataProductMappingResponse(
+            mappings=mappings,
+            unmapped_kpis=unmapped_kpis,
+            human_action_required=human_action_required,
+            human_action_context=human_action_context
+        )
+    
+    async def get_view_name_for_kpi(
+        self, request: KPIViewNameRequest
+    ) -> KPIViewNameResponse:
+        """
+        Get the view name for a KPI.
+        
+        Args:
+            request: KPIViewNameRequest containing the KPI name and context
+            
+        Returns:
+            KPIViewNameResponse with the view name
+        """
+        try:
+            kpi_name = request.kpi_name
+            # Get the KPI provider
+            kpi_provider = self._get_kpi_provider()
+            if not kpi_provider:
+                self.logger.error("KPI provider not available")
+                return KPIViewNameResponse(
+                    kpi_name=kpi_name,
+                    view_name="unknown",
+                    data_product_id=None
+                )
+            
+            # Get the KPI definition
+            kpi = kpi_provider.get(kpi_name)
+            
+            if kpi:
+                data_product_id = self._get_data_product_id_for_kpi(kpi)
+                view_name = self._get_view_name_for_kpi(kpi)
+                
+                return KPIViewNameResponse(
+                    kpi_name=kpi_name,
+                    view_name=view_name,
+                    data_product_id=data_product_id
+                )
+            else:
+                self.logger.warning(f"KPI {kpi_name} not found in registry")
+                return KPIViewNameResponse(
+                    kpi_name=kpi_name,
+                    view_name="unknown",
+                    data_product_id=None
+                )
+        except Exception as e:
+            # Use request.kpi_name to avoid UnboundLocalError if exception occurs before kpi_name is assigned
+            error_kpi_name = getattr(request, 'kpi_name', 'unknown')
+            self.logger.error(f"Error getting view name for KPI {error_kpi_name}: {e}")
+            return KPIViewNameResponse(
+                kpi_name=error_kpi_name,
+                view_name="unknown",
+                data_product_id=None
+            )
+    
+    def _get_data_product_id_for_kpi(self, kpi: KPI) -> str:
+        """
+        Get the data product ID for a KPI.
+        
+        Args:
+            kpi: KPI object
+            
+        Returns:
+            Data product ID
+        """
+        # Try to get data_product_id attribute
+        if hasattr(kpi, 'data_product_id') and kpi.data_product_id:
+            return kpi.data_product_id
+        
+        # Try to get data_product attribute
+        if hasattr(kpi, 'data_product') and kpi.data_product:
+            return kpi.data_product
+        
+        # Default to FI_Star_Schema for Finance KPIs
+        return "FI_Star_Schema"
+    
+    def _get_technical_name_for_kpi(self, kpi: KPI) -> str:
+        """
+        Get the technical name for a KPI.
+        
+        Args:
+            kpi: KPI object
+            
+        Returns:
+            Technical name
+        """
+        # Try to get technical_name attribute
+        if hasattr(kpi, 'technical_name') and kpi.technical_name:
+            return kpi.technical_name
+        
+        # Default to KPI name with spaces replaced by underscores
+        if hasattr(kpi, 'name'):
+            return kpi.name.lower().replace(' ', '_')
+        
+        return "unknown"
+    
+    def _get_view_name_for_kpi(self, kpi: KPI) -> str:
+        """
+        Get the view name for a KPI.
+        
+        Args:
+            kpi: KPI object
+            
+        Returns:
+            View name
+        """
+        # 1) Explicit attribute wins
+        if hasattr(kpi, 'view_name') and kpi.view_name:
+            return kpi.view_name
+        # 2) Metadata-defined view_name
+        if hasattr(kpi, 'metadata') and isinstance(getattr(kpi, 'metadata'), dict):
+            vn = kpi.metadata.get('view_name')
+            if vn:
+                return vn
+        # 3) If KPI maps to FI_Star_Schema, use canonical FI_Star_View
+        try:
+            dp_id = self._get_data_product_id_for_kpi(kpi)
+            if isinstance(dp_id, str) and dp_id.strip().lower() == 'fi_star_schema':
+                return 'FI_Star_View'
+        except Exception:
+            pass
+        # 4) Default to view_{technical_name}
+        technical_name = self._get_technical_name_for_kpi(kpi)
+        return f"view_{technical_name}"
+    
+    def _get_kpi_metadata(self, kpi: KPI) -> Dict[str, Any]:
+        """
+        Get metadata for a KPI.
+        
+        Args:
+            kpi: KPI object
+            
+        Returns:
+            Metadata dictionary
+        """
+        metadata = {}
+        
+        # Add common metadata fields
+        if hasattr(kpi, 'description'):
+            metadata['description'] = kpi.description
+        
+        if hasattr(kpi, 'unit'):
+            metadata['unit'] = kpi.unit
+        
+        if hasattr(kpi, 'business_processes'):
+            metadata['business_processes'] = kpi.business_processes
+        
+        if hasattr(kpi, 'dimensions'):
+            metadata['dimensions'] = kpi.dimensions
+        
+        if hasattr(kpi, 'thresholds'):
+            metadata['thresholds'] = kpi.thresholds
+        
+        if hasattr(kpi, 'positive_trend_is_good'):
+            metadata['positive_trend_is_good'] = kpi.positive_trend_is_good
+        
+        return metadata
 
 
 def create_data_governance_agent(config: Dict[str, Any] = None) -> A9_Data_Governance_Agent:

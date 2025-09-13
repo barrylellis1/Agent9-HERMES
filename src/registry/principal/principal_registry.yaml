@@ -66,11 +66,11 @@ principals:
       - "oversee company performance"
       - "lead executive team"
     business_processes:
-      - "Finance: Profitability Analysis"
-      - "Finance: Revenue Growth Analysis"
-      - "Finance: Expense Management"
-      - "Finance: Cash Flow Management"
-      - "Finance: Budget vs. Actuals"
+      - "Strategy: Market Share Analysis"
+      - "Strategy: EBITDA Growth Tracking"
+      - "Strategy: Capital Allocation Efficiency"
+      - "Operations: Global Performance Oversight"
+      - "Finance: Investor Relations Reporting"
     default_filters:
       profit_center_hierarchyid: ["#"]
     typical_timeframes:
@@ -116,9 +116,10 @@ principals:
       - "reduce operational costs"
       - "improve process efficiency"
     business_processes:
-      - "finance_expense_management"
-      - "finance_cash_flow"
-      - "finance_budget_vs_actuals"
+      - "Operations: Order-to-Cash Cycle Optimization"
+      - "Operations: Inventory Turnover Analysis"
+      - "Operations: Production Cost Management"
+      - "Supply Chain: Logistics Efficiency"
     default_filters:
       profit_center_hierarchyid: ["Best Run U"]
       customer_hierarchyid: ["17100001"]
@@ -165,9 +166,11 @@ principals:
       - "analyze financial data"
       - "prepare financial reports"
     business_processes:
+      - "Finance: Profitability Analysis"
+      - "Finance: Revenue Growth Analysis"
       - "Finance: Expense Management"
-      - "Finance: Budget vs. Actuals"
       - "Finance: Cash Flow Management"
+      - "Finance: Budget vs. Actuals"
     default_filters:
       profit_center_hierarchyid: ["Finance"]
       customer_hierarchyid: ["Total"]

@@ -131,7 +131,7 @@ class DataProductProvider(RegistryProvider[DataProduct]):
                         try:
                             # Try to convert to DataProduct if it's not already
                             if not isinstance(item, DataProduct):
-                                data_product = DataProduct(**item.dict() if hasattr(item, 'dict') else vars(item))
+                                data_product = DataProduct(**(item.model_dump() if hasattr(item, 'model_dump') else vars(item)))
                             else:
                                 data_product = item
                             self._add_data_product(data_product)
@@ -145,7 +145,7 @@ class DataProductProvider(RegistryProvider[DataProduct]):
                             if hasattr(value, 'id') and hasattr(value, 'name'):
                                 # Try to convert to DataProduct if it's not already
                                 if not isinstance(value, DataProduct):
-                                    data_product = DataProduct(**value.dict() if hasattr(value, 'dict') else vars(value))
+                                    data_product = DataProduct(**(value.model_dump() if hasattr(value, 'model_dump') else vars(value)))
                                 else:
                                     data_product = value
                                 self._add_data_product(data_product)
@@ -154,6 +154,39 @@ class DataProductProvider(RegistryProvider[DataProduct]):
                 
         except (ImportError, AttributeError) as e:
             logger.error(f"Error loading data products from {self.source_path}: {e}")
+            self._load_default_data_products()
+    
+    def load_from_yaml(self, yaml_path: str) -> None:
+        """
+        Load data products from a YAML file.
+        
+        Args:
+            yaml_path: Path to the YAML file or directory
+        """
+        try:
+            import yaml
+            
+            # Save the original source path
+            original_source_path = self.source_path
+            
+            # Set the new source path
+            self.source_path = yaml_path
+            
+            # If the source path is a directory, load all YAML files in it
+            if os.path.isdir(yaml_path):
+                for filename in os.listdir(yaml_path):
+                    if filename.endswith('.yaml') or filename.endswith('.yml'):
+                        file_path = os.path.join(yaml_path, filename)
+                        self._load_yaml_file_sync(file_path, yaml)
+            else:
+                # Load a single YAML file
+                self._load_yaml_file_sync(yaml_path, yaml)
+            
+            # Restore the original source path
+            self.source_path = original_source_path
+                
+        except (ImportError, FileNotFoundError) as e:
+            logger.error(f"Error loading data products from {yaml_path}: {e}")
             self._load_default_data_products()
     
     async def _load_from_yaml(self) -> None:
@@ -178,6 +211,29 @@ class DataProductProvider(RegistryProvider[DataProduct]):
         except (ImportError, FileNotFoundError) as e:
             logger.error(f"Error loading data products from {self.source_path}: {e}")
             self._load_default_data_products()
+    
+    def _load_yaml_file_sync(self, file_path: str, yaml_module) -> None:
+        """
+        Load a single YAML file as a data product (synchronous version).
+        
+        Args:
+            file_path: Path to the YAML file
+            yaml_module: The imported yaml module
+        """
+        try:
+            with open(file_path, "r") as file:
+                data = yaml_module.safe_load(file)
+                
+                if data:
+                    # Use filename without extension as data product ID if not specified
+                    data_product_id = os.path.splitext(os.path.basename(file_path))[0]
+                    
+                    # Create data product from YAML contract
+                    data_product = DataProduct.from_yaml_contract(data, data_product_id)
+                    self._add_data_product(data_product)
+                    
+        except (yaml_module.YAMLError, Exception) as e:
+            logger.error(f"Error loading data product from {file_path}: {e}")
     
     async def _load_yaml_file(self, file_path: str, yaml_module) -> None:
         """
@@ -299,16 +355,39 @@ class DataProductProvider(RegistryProvider[DataProduct]):
             logger.error(f"Error loading data products from {self.source_path}: {e}")
             self._load_default_data_products()
     
-    def _add_data_product(self, data_product: DataProduct) -> None:
+    def _add_data_product(self, data_product) -> None:
         """
         Add a data product to the internal dictionaries.
         
         Args:
-            data_product: The data product to add
+            data_product: The data product to add (DataProduct object or dict)
         """
-        self._data_products[data_product.id] = data_product
-        self._data_products_by_name[data_product.name] = data_product
-        self._data_products_by_legacy_id[data_product.legacy_id] = data_product
+        # Handle both DataProduct objects and dictionaries
+        if isinstance(data_product, dict):
+            # For dictionaries, create a simple wrapper that mimics DataProduct
+            class DictWrapper:
+                def __init__(self, data):
+                    self.__dict__.update(data)
+                    # Ensure required attributes exist
+                    if not hasattr(self, 'id') and 'product_id' in data:
+                        self.id = data['product_id']
+                    if not hasattr(self, 'legacy_id'):
+                        self.legacy_id = getattr(self, 'id', '')
+                    if not hasattr(self, 'name'):
+                        self.name = f"Product {getattr(self, 'id', 'unknown')}"
+            
+            # Create a wrapper object
+            wrapper = DictWrapper(data_product)
+            
+            # Add to dictionaries
+            self._data_products[wrapper.id] = data_product
+            self._data_products_by_name[wrapper.name] = data_product
+            self._data_products_by_legacy_id[wrapper.legacy_id] = data_product
+        else:
+            # For DataProduct objects
+            self._data_products[data_product.id] = data_product
+            self._data_products_by_name[data_product.name] = data_product
+            self._data_products_by_legacy_id[data_product.legacy_id] = data_product
     
     def get(self, id_or_name: str) -> Optional[DataProduct]:
         """
@@ -442,8 +521,9 @@ class DataProductProvider(RegistryProvider[DataProduct]):
             True if registration succeeded, False otherwise
         """
         if item.id in self._data_products:
-            logger.warning(f"Data product with ID {item.id} already exists")
-            return False
+            # Instead of warning, just log at debug level since this is expected during reloads
+            logger.debug(f"Data product with ID {item.id} already exists, skipping registration")
+            return True  # Return True to indicate no error occurred
         
         self._add_data_product(item)
         logger.info(f"Registered data product: {item.id} - {item.name}")

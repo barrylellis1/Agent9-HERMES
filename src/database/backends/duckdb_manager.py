@@ -143,15 +143,20 @@ class DuckDBManager(DatabaseManager):
                     self.logger.info(f"[TXN:{tx_id}] View {view_name} already exists and replace_existing is False")
                     return False
             
-            # Create or replace the view
-            create_sql = f"CREATE OR REPLACE VIEW {view_name} AS {sql}"
-            self.duckdb_conn.execute(create_sql)
-            
-            # Also create lowercase version for case-insensitive access
+            # Drop any old alias/base to avoid lingering recursive definitions
             lowercase_view_name = view_name.lower()
-            if view_name != lowercase_view_name:
-                self.duckdb_conn.execute(f"CREATE OR REPLACE VIEW {lowercase_view_name} AS SELECT * FROM {view_name}")
-                self.logger.info(f"[TXN:{tx_id}] Created lowercase alias view: {lowercase_view_name}")
+            try:
+                self.duckdb_conn.execute(f'DROP VIEW IF EXISTS {lowercase_view_name}')
+            except Exception:
+                pass
+            try:
+                self.duckdb_conn.execute(f'DROP VIEW IF EXISTS "{view_name}"')
+            except Exception:
+                pass
+
+            # Create or replace only the quoted base view (no alias) to avoid ambiguity
+            create_sql = f'CREATE OR REPLACE VIEW "{view_name}" AS {sql}'
+            self.duckdb_conn.execute(create_sql)
             
             self.logger.info(f"[TXN:{tx_id}] Created view: {view_name}")
             return True

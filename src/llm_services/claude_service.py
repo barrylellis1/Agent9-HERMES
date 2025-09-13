@@ -22,13 +22,23 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+class BehaviorRule(BaseModel):
+    """Behavior rule for guardrails with explicit boolean 'required'"""
+    model_config = ConfigDict(extra="allow")
+    
+    id: str
+    description: str = ""
+    pattern: str = ""
+    required: bool = False
+
+
 class GuardrailConfig(BaseModel):
     """Configuration for Claude guardrails"""
     model_config = ConfigDict(extra="allow")
     
     system_prompt: str
     prohibited_patterns: List[Dict[str, str]] = []
-    required_behaviors: List[Dict[str, str]] = []
+    required_behaviors: List[BehaviorRule] = []
 
 
 class PromptTemplate(BaseModel):
@@ -124,7 +134,7 @@ class ClaudeService:
     def _load_guardrails(self) -> GuardrailConfig:
         """Load guardrails configuration from YAML file"""
         try:
-            with open(self.config.guardrails_path, 'r') as f:
+            with open(self.config.guardrails_path, 'r', encoding='utf-8') as f:
                 guardrail_data = yaml.safe_load(f)
                 
             # Extract system prompt from guardrails
@@ -135,15 +145,17 @@ class ClaudeService:
             prohibited_patterns = guardrail_data.get('prohibited_patterns', [])
             
             # Extract required behaviors
-            required_behaviors = []
+            required_behaviors: List[BehaviorRule] = []
             behaviors_data = guardrail_data.get('behaviors', {})
             for behavior_id, behavior in behaviors_data.items():
-                required_behaviors.append({
-                    'id': behavior_id,
-                    'description': behavior.get('description', ''),
-                    'pattern': behavior.get('pattern', ''),
-                    'required': behavior.get('required', False)
-                })
+                required_behaviors.append(
+                    BehaviorRule(
+                        id=str(behavior_id),
+                        description=str(behavior.get('description', '')),
+                        pattern=str(behavior.get('pattern', '')),
+                        required=bool(behavior.get('required', False))
+                    )
+                )
             
             logger.info(f"Loaded guardrails from {self.config.guardrails_path}")
             return GuardrailConfig(
@@ -162,7 +174,7 @@ class ClaudeService:
         """Load prompt templates from markdown file"""
         templates = {}
         try:
-            with open(self.config.prompt_templates_path, 'r') as f:
+            with open(self.config.prompt_templates_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             
             # Simple parsing of markdown code blocks with titles

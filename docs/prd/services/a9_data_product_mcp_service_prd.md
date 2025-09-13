@@ -18,9 +18,9 @@ Not all numeric columns are additive. In the future, the registry and MCP servic
 - This enables future-proof, standardized analytics for all users and easy adoption of new analytics engines.
 
 ## Overview
-The A9_Data_Product_MCP_Service (Managed Compute Platform for Data Products) is now the single authoritative layer for all dynamic SQL generation for Agent9 data products. All logic for registry-driven SELECT, JOIN, GROUP BY, and aggregation SQL has been migrated here from the agent layer. The legacy DynamicSQLBuilder in agent utilities has been fully removed to avoid duplication and confusion.
+The A9_Data_Product_MCP_Service (Managed Compute Platform for Data Products) is the single authoritative layer for SQL execution and validation for Agent9 data products. Dynamic SQL generation is performed exclusively by the A9_LLM_Service Agent. All logic for registry-scoped validation (SELECT-only, identifier checks, parameterization) and execution (dialect transform + query run) has been migrated here from the agent layer. The legacy DynamicSQLBuilder in agent utilities has been fully removed to avoid duplication and confusion.
 
-This service provides business-ready, summarized, filtered, and pre-joined data products to Agent9 agents and orchestrators. It is initially enabled with tools for SAP Sample CSV test data, but is designed to be extensible to other data source types and platforms (e.g., SAP DataSphere, Snowflake, Google BigQuery).
+This service (embedded as an execution backend library for MVP) provides business-ready, summarized, filtered, and pre-joined data products to Agent9 agents and orchestrators. It is initially enabled with tools for SAP Sample CSV test data (test-mode only), and is designed to be extensible to other data source types and platforms (e.g., SAP DataSphere, Snowflake, Google BigQuery).
 **Note:** Other MCP services may be created in the future to serve different specialized functions (e.g., workflow orchestration, analytics, or ML serving). This PRD covers only the Data Product MCP Service.
 
 
@@ -33,9 +33,10 @@ This service provides business-ready, summarized, filtered, and pre-joined data 
 - Configure environment variables in .env file based on .env.template
 
 ### Key Files and Entry Points
-- Main agent implementation: `src/agents/new/A9_Data_Product_MCP_Service_Agent.py`
+- MVP execution core is an embedded library invoked by `A9_Data_Product_Agent`; no standalone MCP "agent" is required in MVP.
+- Optional future remote wrapper: REST endpoint `/execute-sql` that delegates to the same embedded core.
 - Configuration model: `src/agents/new/agent_config_models.py`
-- Agent card: `src/agents/new/cards/a9_data_product_mcp_service_agent_card.py`
+- Agent card: `src/agents/new/cards/a9_data_product_mcp_service_agent_card.py` (deprecated in MVP; retained for documentation)
 
 ### Test Data Location
 - Sample data available in `test-data/` directory
@@ -123,7 +124,7 @@ This service provides business-ready, summarized, filtered, and pre-joined data 
 ---
 
 ## Technical Requirements
-- **Single Source of SQL Logic:** All dynamic SQL query generation (including SELECT, JOIN, GROUP BY, aggregation, and KPI logic) is handled exclusively in the MCP service. There is no dynamic SQL generation in the agent layer; the old DynamicSQLBuilder has been fully removed.
+- **Single Source of SQL Execution & Validation:** All SQL validation and execution (including SELECT-only enforcement, identifier validation, parameterization, and dialect transform) is handled exclusively by the MCP execution library. SQL generation is handled exclusively by the A9_LLM_Service Agent. There is no dynamic SQL generation in the Data Product Agent.
 - Registry-driven: All data product metadata, joins, and KPIs defined in the Agent9 registry
 - Modular connectors for each supported data source type
 - Secure API endpoints with RBAC and audit logging
@@ -140,12 +141,14 @@ This service provides business-ready, summarized, filtered, and pre-joined data 
 ---
 
 ## API Contract (MVP, as of 2025-06-22)
-- **POST /execute-sql**
-  - Accepts: protocol-compliant LLM/user-supplied SQL (DuckDB backend only)
-  - Input model: `SQLExecutionRequest` (fields: `sql: str`, `context: Optional[dict]`, `user: str`)
-  - Output model: `SQLExecutionResult` (fields: `columns: List[str]`, `rows: List[List[Any]]`, `row_count: int`, `error: Optional[str]`)
-  - Security: Only `SELECT` statements allowed (DDL/DML rejected), RBAC stub, audit logging via `A9_SharedLogger`
-  - Returns: query result rows and columns, or error if invalid
+- Embedded mode (default for MVP): the Data Product Agent calls the MCP execution library in-process using `SQLExecutionRequest`/`SQLExecutionResponse` models.
+- Optional remote mode (future):
+  - **POST /execute-sql**
+    - Accepts: protocol-compliant LLM-generated SQL (DuckDB backend only for MVP)
+    - Input model: `SQLExecutionRequest` (fields: `sql: str`, `context: Optional[dict]`, `principal_id: str`, `limit?: int`, `timeout_ms?: int`)
+    - Output model: `SQLExecutionResponse` (fields: `columns: List[str]`, `rows: List[List[Any]]` or `List[Dict]`, `row_count: int`, `query_time_ms: int`, `transaction_id: str`, `status: str`, `message?: str`, `error?: str`, `metadata?: dict`)
+    - Security: Only `SELECT` statements allowed (DDL/DML rejected), RBAC stub, audit logging via `A9_SharedLogger`
+    - Returns: query result rows and columns, or error if invalid
 
 - (Legacy/Planned) **GET /data-product/{product_id}**
   - Registry-driven, summarized, filtered, pre-joined business-ready data (CSV, JSON, or DataFrame)
@@ -244,6 +247,7 @@ The MCP service follows all applicable Agent9 standards for logging, registry-dr
 - Handles measure validation against available data sources
 
 ### CSV-Based Dynamic Column Extraction
+- Note: Test-mode only; not used in dev/prod runtime paths.
 - Implements CSV-based dynamic column extraction for the `select_fields` method
 - Supports flexible field selection based on user queries
 - Handles CSV file format variations and encoding issues
@@ -256,6 +260,7 @@ The MCP service follows all applicable Agent9 standards for logging, registry-dr
 - Supports graceful degradation when errors occur
 
 ### Pandas Integration
+- Note: Test-mode only; not used in dev/prod runtime paths.
 - Uses pandas for registry and CSV operations
 - Provides DataFrame-based intermediate representations
 - Supports efficient data transformation and manipulation
@@ -266,3 +271,38 @@ The MCP service follows all applicable Agent9 standards for logging, registry-dr
 - Maintains consistent behavior across different API versions
 - Includes deprecation warnings for legacy endpoint usage
 - Provides migration path for clients using older API versions
+
+---
+
+## LLM-first SQL Generation (MVP Contract)
+
+The A9_LLM_Service Agent is the single source of dynamic SQL generation. The MCP execution library validates and executes SQL with strict guardrails and scope control.
+
+### Guardrails
+- Schema-scoped prompts only: the LLM service builds prompts from the registry/contract-defined schema for the requested product and view(s). No extra schema is exposed to the LLM.
+- SELECT-only: SQL must be validated as a single SELECT statement. DDL/DML is rejected. Enforced by `db_manager.validate_sql()` and code-level checks.
+- Parameterization: principal filters and user-provided constraints are passed as parameters, never string-concatenated.
+- Identifier validation: parse/normalize identifiers (e.g., via sqlglot or backend parser) and ensure all identifiers exist in the allowed schema subset.
+- Optional dry-run: PREPARE/EXPLAIN checks may be used before execution to surface errors early.
+- Timeouts and budgets: wrap generation/execution in timeouts; set token/compute budgets per environment.
+- Auditability: persist prompt, model, SQL output, and transaction_id via `A9_SharedLogger`.
+
+### Principal Context Injection
+- MCP receives principal context in the request and injects required filters as validated parameters into the generated SQL.
+- Presentation preferences (currency, number formatting) are handled at the explainability layer (optional LLM summarize pass), not inside SQL.
+
+### Multi-backend Strategy
+- Generate ANSI SQL from the LLM.
+- Transform dialect as needed via `DatabaseManager.transform_sql()` (e.g., DuckDB, BigQuery, HANA, Snowflake, Databricks).
+- Keep schema canonical in contracts/registry so prompts remain consistent across backends.
+
+### Modes of Operation
+- Embedded mode (dev/unit tests): agents call MCP core in-process to avoid HTTP and keep tests fast and stable.
+- Remote mode (integration/E2E/prod): agents call the REST endpoint (POST `/execute-sql`). Both modes share the same core and request/response models.
+
+### Acceptance Criteria (Additions)
+- SELECT-only enforcement with schema-scoped prompting is mandatory.
+- Principal filters are parameterized and validated server-side.
+- Identifier validation against provided schema; unknown identifiers cause a structured error.
+- Structured audit logs (prompt/model/sql/transaction_id) emitted for every request.
+- Dialect transform is applied per configured backend.

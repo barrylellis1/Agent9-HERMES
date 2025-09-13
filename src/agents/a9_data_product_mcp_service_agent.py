@@ -801,9 +801,9 @@ class A9_Data_Product_MCP_Service_Agent:
             # Convert config to dictionary for database manager factory
             # This is required as the factory expects a Dict[str, Any]
             config_dict = {}
-            if hasattr(self.config, "dict"):
-                # If the config has a dict() method (Pydantic model)
-                config_dict = self.config.dict()
+            if hasattr(self.config, "model_dump"):
+                # Pydantic v2 model
+                config_dict = self.config.model_dump()
             elif hasattr(self.config, "__dict__"):
                 # Fallback to __dict__ if no dict() method
                 config_dict = self.config.__dict__
@@ -1133,48 +1133,6 @@ class A9_Data_Product_MCP_Service_Agent:
             self.logger.warning(f"[TXN:{tx_id}] Failed to create some or all views from registry")
             
         return success
-        # If no views were created from registry, create fallback test views for tests to pass
-        if created_views == 0:
-            self.logger.warning("No views created from registry. Creating fallback test views.")
-                
-            # Create fallback fi_sales_by_customer_type_view
-            try:
-                self.logger.info("Creating fallback fi_sales_by_customer_type_view")
-                self.duckdb_conn.execute("""
-                        CREATE OR REPLACE VIEW fi_sales_by_customer_type_view AS
-                        SELECT 
-                            'Type ' || CAST(ABS(RANDOM()) % 5 + 1 AS VARCHAR) AS customertypeid,
-                            ABS(RANDOM() % 1000000) / 100.0 AS value,
-                            DATE_SUB(CURRENT_DATE, INTERVAL (ABS(RANDOM()) % 365 * 2) DAY) AS date
-                        FROM range(0, 100)
-                """)
-                self.logger.info("Fallback fi_sales_by_customer_type_view created successfully")
-            except Exception as e:
-                self.logger.error(f"Error creating fallback fi_sales_by_customer_type_view: {str(e)}")
-                
-            # Create fallback fi_financial_transactions_view
-            try:
-                self.logger.info("Creating fallback fi_financial_transactions_view")
-                self.duckdb_conn.execute("""
-                        CREATE OR REPLACE VIEW fi_financial_transactions_view AS
-                        SELECT 
-                            'TX' || CAST(i AS VARCHAR) AS transaction_id,
-                            DATE_SUB(CURRENT_DATE, INTERVAL (ABS(RANDOM()) % 365) DAY) AS transaction_date,
-                            'Account' || CAST(ABS(RANDOM()) % 10 + 1 AS VARCHAR) AS account_id,
-                            (ABS(RANDOM()) % 20000) + 5000 AS value,
-                            CASE WHEN ABS(RANDOM()) % 2 = 0 THEN 'Debit' ELSE 'Credit' END AS type
-                        FROM range(0, 100) t(i)
-                """)
-                self.logger.info("Fallback fi_financial_transactions_view created successfully")
-            except Exception as e:
-                self.logger.error(f"Error creating fallback fi_financial_transactions_view: {str(e)}")
-            
-            # Get list of views after creating
-            try:
-                views_after = self.duckdb_conn.execute("SHOW VIEWS").fetchall()
-                self.logger.info(f"Views after creation: {[v[0] for v in views_after if v and len(v) > 0]}")
-            except Exception as e:
-                self.logger.warning(f"Could not list views after creation: {str(e)}")
                 
     async def _create_views(self, transaction_id: str = None, source: str = 'all') -> bool:
         """
@@ -1196,437 +1154,54 @@ class A9_Data_Product_MCP_Service_Agent:
         self.logger.info(f"[TXN:{tx_id}] Creating views from source: {source}")
         
         try:
-            # 1. Ensure DuckDB connection is initialized
-            if self.duckdb_conn is None:
-                self.logger.warning(f"[TXN:{tx_id}] DuckDB connection was None, initializing now")
-                self._initialize_duckdb_connection()
-                if self.duckdb_conn is None:
-                    self.logger.error(f"[TXN:{tx_id}] Failed to initialize DuckDB connection")
-                    return False
-                    
-            # Log starting state
-            try:
-                test_query = self.duckdb_conn.execute("SELECT 1").fetchone()
-                self.logger.info(f"[TXN:{tx_id}] DuckDB connection is working: {test_query}")
-                
-                existing_views = self.duckdb_conn.execute("SELECT table_name FROM information_schema.views").fetchall()
-                self.logger.info(f"[TXN:{tx_id}] Views before creation: {[v[0] for v in existing_views if v and len(v) > 0]}")
-            except Exception as e:
-                self.logger.warning(f"[TXN:{tx_id}] Could not list current views: {str(e)}")
-            
-            views_created = 0
-            
-            # 2. Create views from YAML contract
-            if source in ['all', 'contract']:
-                yaml_contract_path = "src/contracts/fi_star_schema.yaml"
-                
-                if os.path.exists(yaml_contract_path):
-                    # Load contract YAML
-                    with open(yaml_contract_path, 'r') as f:
-                        yaml_data = yaml.safe_load(f)
-                    
-                    if yaml_data and 'views' in yaml_data and isinstance(yaml_data['views'], list):
-                        self.logger.info(f"[TXN:{tx_id}] Creating {len(yaml_data['views'])} views from YAML contract")
-                        
-                        for view_def in yaml_data['views']:
-                            view_name = view_def.get('name', '')
-                            view_sql = view_def.get('sql', '')
-                            
-                            if not view_name or not view_sql:
-                                self.logger.warning(f"[TXN:{tx_id}] Skipping view with missing name or SQL: {view_def}")
-                                continue
-                            
-                            # Create the view in DuckDB
-                            try:
-                                # Convert view_name to lowercase for consistency
-                                safe_view_name = view_name.lower().strip()
-                                create_view_sql = f"CREATE OR REPLACE VIEW {safe_view_name} AS {view_sql}"
-                                
-                                self.logger.info(f"[TXN:{tx_id}] Creating contract view: {safe_view_name}")
-                                self.duckdb_conn.execute(create_view_sql)
-                                views_created += 1
-                                
-                                # Map view to data product
-                                self.data_product_views[safe_view_name] = 'dp_fi_20250516_001'
-                                
-                                # Also create original case view if different
-                                if view_name != safe_view_name:
-                                    try:
-                                        self.duckdb_conn.execute(f"CREATE OR REPLACE VIEW \"{view_name}\" AS SELECT * FROM {safe_view_name}")
-                                        self.data_product_views[view_name] = 'dp_fi_20250516_001'
-                                        views_created += 1
-                                    except Exception as case_error:
-                                        self.logger.warning(f"[TXN:{tx_id}] Could not create original case view {view_name}: {str(case_error)}")
-                                
-                            except Exception as view_error:
-                                self.logger.error(f"[TXN:{tx_id}] Error creating view {view_name}: {str(view_error)}\n{traceback.format_exc()}")
-                    else:
-                        self.logger.warning(f"[TXN:{tx_id}] No views found in YAML contract or invalid format")
-                else:
-                    self.logger.warning(f"[TXN:{tx_id}] YAML contract not found at {yaml_contract_path}")
-            
-            # 3. Create views from registry data
-            if source in ['all', 'registry']:
-                registry_views = self.registry.get('views', [])
-                
-                if registry_views:
-                    self.logger.info(f"[TXN:{tx_id}] Creating {len(registry_views)} views from registry")
-                    
-                    for view in registry_views:
-                        view_name = view.get('name')
-                        view_sql = view.get('sql')
-                        
-                        if not view_name or not view_sql:
-                            self.logger.warning(f"[TXN:{tx_id}] Skipping registry view with missing name or SQL: {view}")
-                            continue
-                        
-                        # Check if this view already exists (to avoid duplicates)
-                        try:
-                            exists_result = self.duckdb_conn.execute(
-                                f"SELECT COUNT(*) FROM information_schema.views WHERE table_name='{view_name.lower()}'").fetchone()
-                            
-                            if exists_result and exists_result[0] > 0:
-                                self.logger.info(f"[TXN:{tx_id}] Registry view {view_name} already exists, skipping")
-                                continue
-                                
-                            self.logger.info(f"[TXN:{tx_id}] Creating registry view: {view_name}")
-                            self.duckdb_conn.execute(view_sql)
-                            views_created += 1
-                            
-                            # Map view to data product
-                            self.data_product_views[view_name.lower()] = 'dp_fi_20250516_001'
-                            
-                        except Exception as view_error:
-                            self.logger.error(f"[TXN:{tx_id}] Error creating registry view {view_name}: {str(view_error)}")
-                else:
-                    self.logger.info(f"[TXN:{tx_id}] No views found in registry")
-            
-            # 4. Create/ensure required base view exists
-            if source in ['all', 'test']:
-                # Ensure fi_star_view exists (this is the base view for derived views)
-                base_view_exists = False
-                
+            # 1. Ensure DatabaseManager is initialized (no direct duckdb usage here)
+            if not getattr(self, 'db_manager', None):
                 try:
-                    # Check if base view exists by querying it
-                    try:
-                        self.duckdb_conn.execute("SELECT 1 FROM fi_star_view LIMIT 1").fetchone()
-                        base_view_exists = True
-                        self.logger.info(f"[TXN:{tx_id}] Base fi_star_view already exists")
-                    except Exception:
-                        # Try with original capitalization
-                        try:
-                            self.duckdb_conn.execute("SELECT 1 FROM \"FI_Star_View\" LIMIT 1").fetchone()
-                            # Create lowercase alias
-                            self.duckdb_conn.execute("CREATE OR REPLACE VIEW fi_star_view AS SELECT * FROM \"FI_Star_View\"")
-                            base_view_exists = True
-                            self.data_product_views['fi_star_view'] = 'dp_fi_20250516_001'
-                            self.logger.info(f"[TXN:{tx_id}] Created lowercase fi_star_view from FI_Star_View")
-                        except Exception:
-                            self.logger.warning(f"[TXN:{tx_id}] Neither fi_star_view nor FI_Star_View exist")
-                    
-                    # If base view doesn't exist, create from FinancialTransactions table
-                    if not base_view_exists:
-                        try:
-                            # Check if source table exists
-                            fin_trans_exists = self.duckdb_conn.execute(
-                                "SELECT count(*) FROM information_schema.tables WHERE table_schema='sap' AND table_name='FinancialTransactions'"
-                            ).fetchone()
-                            
-                            if fin_trans_exists and fin_trans_exists[0] > 0:
-                                # Create from FinancialTransactions
-                                self.logger.info(f"[TXN:{tx_id}] Creating fi_star_view from sap.FinancialTransactions")
-                                self.duckdb_conn.execute("""
-                                    CREATE OR REPLACE VIEW fi_star_view AS 
-                                    SELECT * FROM sap.FinancialTransactions
-                                """)
-                                base_view_exists = True
-                                self.data_product_views['fi_star_view'] = 'dp_fi_20250516_001'
-                                views_created += 1
-                            else:
-                                # Create emergency placeholder with mock data
-                                self.logger.warning(f"[TXN:{tx_id}] No source table found. Creating emergency placeholder view")
-                                self.duckdb_conn.execute("""
-                                    CREATE OR REPLACE VIEW fi_star_view AS 
-                                    SELECT 1 as transactionid, 2023 as fiscal_year, 1 as fiscal_quarter, 1 as fiscal_month,
-                                           '2023-01' as fiscal_year_month, 1 as fiscal_week, 1 as customer_id, 'A' as customer_type,
-                                           100.0 as amount, 'Test' as description
-                                """)
-                                base_view_exists = True
-                                self.data_product_views['fi_star_view'] = 'dp_fi_20250516_001'
-                                views_created += 1
-                        except Exception as create_error:
-                            self.logger.error(f"[TXN:{tx_id}] Error creating base view: {str(create_error)}")
-                except Exception as base_view_error:
-                    self.logger.error(f"[TXN:{tx_id}] Failed to ensure fi_star_view exists: {str(base_view_error)}")
-                
-                # 5. Create test views based on fi_star_view
-                required_views = [
-                    'fi_sales_by_customer_type_view',
-                    'fi_financial_transactions_view',
-                    'fi_customer_transactions_view'
-                ]
-                
-                # Verify fi_star_view exists before creating dependent views
-                try:
-                    check_result = self.duckdb_conn.execute(
-                        "SELECT count(*) FROM information_schema.views WHERE table_name='fi_star_view'"
-                    ).fetchone()
-                    
-                    if check_result and check_result[0] > 0:
-                        self.logger.info(f"[TXN:{tx_id}] Verified fi_star_view exists for derived views")
-                        
-                        # Create each required view
-                        for required_view in required_views:
-                            try:
-                                # Check if view exists
-                                exists_result = self.duckdb_conn.execute(
-                                    f"SELECT COUNT(*) FROM information_schema.views WHERE table_name='{required_view}'"
-                                ).fetchone()
-                                
-                                # Create view if it doesn't exist
-                                if exists_result and exists_result[0] == 0:
-                                    view_sql = f"CREATE OR REPLACE VIEW {required_view} AS SELECT * FROM fi_star_view"
-                                    self.logger.info(f"[TXN:{tx_id}] Creating required test view: {required_view}")
-                                    self.duckdb_conn.execute(view_sql)
-                                    views_created += 1
-                                else:
-                                    self.logger.info(f"[TXN:{tx_id}] Test view {required_view} already exists")
-                                
-                                # Map view to data product (whether created or not)
-                                self.data_product_views[required_view] = 'dp_fi_20250516_001'
-                                
-                            except Exception as view_error:
-                                self.logger.error(f"[TXN:{tx_id}] Error creating test view {required_view}: {str(view_error)}")
+                    loop = asyncio.get_running_loop()
+                    if loop.is_running():
+                        loop.create_task(self._initialize_database_connection())
                     else:
-                        self.logger.error(f"[TXN:{tx_id}] fi_star_view not found, cannot create derived views")
-                        
-                        # Create standalone test views if base view doesn't exist
-                        self.logger.warning(f"[TXN:{tx_id}] Creating standalone test views as fallback")
-                        
-                        # Create fallback views for each required view
-                        self._create_fallback_test_views(tx_id, required_views)
-                        
-                except Exception as check_error:
-                    self.logger.error(f"[TXN:{tx_id}] Error checking for fi_star_view: {str(check_error)}")
+                        asyncio.run(self._initialize_database_connection())
+                except RuntimeError:
+                    asyncio.run(self._initialize_database_connection())
             
-            # 6. Log final view status
-            try:
-                final_views = self.duckdb_conn.execute("SELECT table_name FROM information_schema.views").fetchall()
-                self.logger.info(f"[TXN:{tx_id}] Created {views_created} views. Total views: {len(final_views)}")
-                
-                # Verify key views
-                required_views = [
-                    'fi_sales_by_customer_type_view',
-                    'fi_financial_transactions_view',
-                    'fi_customer_transactions_view',
-                    'fi_star_view'
-                ]
-                
-                for req_view in required_views:
-                    try:
-                        count_result = self.duckdb_conn.execute(f"SELECT COUNT(*) FROM {req_view} LIMIT 1").fetchone()
-                        self.logger.info(f"[TXN:{tx_id}] ✅ View {req_view} exists and has {count_result[0]} rows")
-                    except Exception as view_check_error:
-                        self.logger.error(f"[TXN:{tx_id}] ❌ View {req_view} could not be queried: {str(view_check_error)}")
-            except Exception as e:
-                self.logger.warning(f"[TXN:{tx_id}] Could not get final view status: {str(e)}")
-                
-            return views_created > 0
+            # Expose underlying connection for legacy tests if available
+            if hasattr(self, 'db_manager') and hasattr(self.db_manager, 'connection'):
+                self.duckdb_conn = self.db_manager.connection
             
-        except Exception as e:
-            self.logger.error(f"[TXN:{tx_id}] Error in _create_views: {str(e)}\n{traceback.format_exc()}")
-            return False
-    
-    def _create_fallback_test_views(self, tx_id: str, required_views: list):
-        """Create fallback test views when base view doesn't exist"""
-        for view_name in required_views:
+            # Optionally create views from YAML contract using consolidated method
             try:
-                if view_name == 'fi_sales_by_customer_type_view':
-                    self.logger.info(f"[TXN:{tx_id}] Creating fallback {view_name}")
-                    self.duckdb_conn.execute("""
-                        CREATE OR REPLACE VIEW fi_sales_by_customer_type_view AS
-                        SELECT 
-                            'Type ' || CAST(ABS(RANDOM()) % 5 + 1 AS VARCHAR) AS customertypeid,
-                            ABS(RANDOM() % 1000000) / 100.0 AS value,
-                            DATE_SUB(CURRENT_DATE, INTERVAL (ABS(RANDOM()) % 365 * 2) DAY) AS date
-                        FROM range(0, 100)
-                    """)
-                elif view_name == 'fi_financial_transactions_view':
-                    self.logger.info(f"[TXN:{tx_id}] Creating fallback {view_name}")
-                    self.duckdb_conn.execute("""
-                        CREATE OR REPLACE VIEW fi_financial_transactions_view AS
-                        SELECT 
-                            'TX' || CAST(i AS VARCHAR) AS transaction_id,
-                            DATE_SUB(CURRENT_DATE, INTERVAL (ABS(RANDOM()) % 365) DAY) AS transaction_date,
-                            'Account' || CAST(ABS(RANDOM()) % 10 + 1 AS VARCHAR) AS account_id,
-                            (ABS(RANDOM()) % 20000) + 5000 AS value,
-                            CASE WHEN ABS(RANDOM()) % 2 = 0 THEN 'Debit' ELSE 'Credit' END AS type
-                        FROM range(0, 100) t(i)
-                    """)
-                elif view_name == 'fi_customer_transactions_view':
-                    self.logger.info(f"[TXN:{tx_id}] Creating fallback {view_name}")
-                    self.duckdb_conn.execute("""
-                        CREATE OR REPLACE VIEW fi_customer_transactions_view AS
-                        SELECT 
-                            'TX' || CAST(i AS VARCHAR) AS transaction_id,
-                            'CUST' || CAST(ABS(RANDOM()) % 100 + 1 AS VARCHAR) AS customer_id,
-                            DATE_SUB(CURRENT_DATE, INTERVAL (ABS(RANDOM()) % 365) DAY) AS transaction_date,
-                            (ABS(RANDOM()) % 10000) + 1000 AS amount,
-                            'Type ' || CAST(ABS(RANDOM()) % 5 + 1 AS VARCHAR) AS customer_type
-                        FROM range(0, 100) t(i)
-                    """)
-                
-                # Map view to data product
-                self.data_product_views[view_name] = 'dp_fi_20250516_001'
-                
-            except Exception as e:
-                self.logger.error(f"[TXN:{tx_id}] Error creating fallback view {view_name}: {str(e)}")
-    
-    def _ensure_duckdb_connection(self):
-        """
-        Ensure DuckDB connection is established and properly configured.
-        Initializes the connection if not already done.
-        """
-        try:
-            if self.duckdb_conn is None:
-                import duckdb
-                self.logger.info("Initializing DuckDB connection")
-                
-                # Create a new in-memory DuckDB connection
-                self.duckdb_conn = duckdb.connect(":memory:")
-                
-                # Configure DuckDB settings for proper decimal handling and other optimizations
-                # Note: 'format' is not a valid DuckDB configuration parameter
-                # self.duckdb_conn.execute("SET format='EUROPEAN'")
-                
-                # Register CSV files if data directory is provided
-                if hasattr(self.config, 'data_directory') and self.config.data_directory:
-                    self._register_csv_files()
+                loop = asyncio.get_running_loop()
+                if loop.is_running():
+                    loop.create_task(self._create_views(source='yaml_contract'))
                 else:
-                    self.logger.warning("No data directory configured, CSV files will not be registered")
-                
-                # Create views from YAML contract using consolidated method
+                    asyncio.run(self._create_views(source='yaml_contract'))
+            except RuntimeError:
                 asyncio.run(self._create_views(source='yaml_contract'))
-                    
-                self.logger.info("DuckDB connection initialized successfully")
-            else:
-                self.logger.debug("DuckDB connection already initialized")
-                
+            
+            self.logger.info("Database connection ensured via DatabaseManager")
+        
         except Exception as e:
             self.logger.error(f"Error ensuring DuckDB connection: {str(e)}")
             raise RuntimeError(f"Failed to initialize DuckDB connection: {str(e)}") from e
             
     def _create_views_from_yaml_contract(self):
         """
-        Create DuckDB views based on the definitions in the YAML contract.
-        This ensures all required views are available for SQL execution.
+        Create views based on the YAML contract using the consolidated async method.
+        This avoids direct DB calls in the agent and delegates to the DatabaseManager.
         """
         try:
-            if not self.registry or not self.duckdb_conn:
-                self.logger.warning("Registry or DuckDB connection not available, cannot create views")
-                return
-                
-            # Check if schema is available in registry
-            if 'schema' not in self.registry:
-                self.logger.warning("No schema available in registry, cannot create views")
-                return
-                
-            schema = self.registry['schema']
-            
-            # Check if views are defined in the schema
-            if 'views' not in schema or not schema['views']:
-                self.logger.warning("No views defined in schema, skipping view creation")
-                return
-                
-            # Create each view defined in the schema
-            views_created = []
-            for view_def in schema['views']:
-                if 'name' not in view_def or 'sql' not in view_def:
-                    self.logger.warning(f"Incomplete view definition, skipping: {view_def}")
-                    continue
-                    
-                view_name = view_def['name']
-                view_sql = view_def['sql']
-                
-                try:
-                    # Create the view
-                    self.logger.info(f"Creating view: {view_name}")
-                    # Also create lowercase version for case-insensitive access
-                    lowercase_view_name = view_name.lower()
-                    
-                    # Execute the view creation SQL
-                    self.duckdb_conn.execute(f"CREATE OR REPLACE VIEW {view_name} AS {view_sql}")
-                    
-                    # If the view name has mixed case, create an alias with lowercase
-                    if view_name != lowercase_view_name:
-                        self.duckdb_conn.execute(f"CREATE OR REPLACE VIEW {lowercase_view_name} AS SELECT * FROM {view_name}")
-                        self.logger.info(f"Created lowercase alias view: {lowercase_view_name}")
-                    
-                    views_created.append(view_name)
-                    
-                    # Also create _view suffix versions for common naming patterns in SQL queries
-                    view_suffix_name = f"{view_name}_view"
-                    lowercase_view_suffix = f"{lowercase_view_name}_view"
-                    
-                    self.duckdb_conn.execute(f"CREATE OR REPLACE VIEW {view_suffix_name} AS SELECT * FROM {view_name}")
-                    self.logger.info(f"Created view with _view suffix: {view_suffix_name}")
-                    
-                    if lowercase_view_suffix != view_suffix_name:
-                        self.duckdb_conn.execute(f"CREATE OR REPLACE VIEW {lowercase_view_suffix} AS SELECT * FROM {view_name}")
-                        self.logger.info(f"Created lowercase view with _view suffix: {lowercase_view_suffix}")
-                except Exception as view_error:
-                    self.logger.error(f"Error creating view {view_name}: {str(view_error)}")
-            
-            # Create additional views for each data product for common naming patterns
-            # This covers the case where LLM might generate SQL with product_id as table name
-            if 'data_products' in self.registry and isinstance(self.registry['data_products'], pd.DataFrame):
-                for _, product in self.registry['data_products'].iterrows():
-                    if 'product_id' not in product:
-                        continue
-                        
-                    product_id = product['product_id']
-                    if not product_id or not isinstance(product_id, str):
-                        continue
-                        
-                    # If the view already exists in the created views, don't duplicate
-                    if product_id in views_created or product_id.lower() in [v.lower() for v in views_created]:
-                        continue
-                        
-                    # Create a basic view for the product if primary table is defined
-                    if 'primary_table' in product and product['primary_table']:
-                        primary_table = product['primary_table']
-                        
-                        try:
-                            # Check if primary table exists before creating view
-                            table_check = self.duckdb_conn.execute("SHOW TABLES").fetchall()
-                            table_names = [t[0].lower() for t in table_check]
-                            
-                            if primary_table.lower() in table_names:
-                                # Create view based on product_id
-                                self.duckdb_conn.execute(f"CREATE OR REPLACE VIEW {product_id} AS SELECT * FROM {primary_table}")
-                                self.logger.info(f"Created view for data product: {product_id} -> {primary_table}")
-                                
-                                # Create view with _view suffix
-                                product_view = f"{product_id}_view"
-                                self.duckdb_conn.execute(f"CREATE OR REPLACE VIEW {product_view} AS SELECT * FROM {primary_table}")
-                                self.logger.info(f"Created view with _view suffix: {product_view}")
-                            else:
-                                self.logger.warning(f"Primary table {primary_table} not found for product {product_id}, skipping view creation")
-                        except Exception as prod_view_error:
-                            self.logger.error(f"Error creating view for product {product_id}: {str(prod_view_error)}")
-            
-            # Check and log all views created
             try:
-                views = self.duckdb_conn.execute("SHOW VIEWS").fetchall()
-                view_names = [v[0] for v in views]
-                self.logger.info(f"Created/available views in DuckDB: {view_names}")
-            except Exception as view_list_error:
-                self.logger.error(f"Error listing views: {str(view_list_error)}")
-                
+                loop = asyncio.get_running_loop()
+                if loop.is_running():
+                    loop.create_task(self._create_views(source='yaml_contract'))
+                else:
+                    asyncio.run(self._create_views(source='yaml_contract'))
+            except RuntimeError:
+                asyncio.run(self._create_views(source='yaml_contract'))
         except Exception as e:
             self.logger.error(f"Error creating views from YAML contract: {str(e)}")
-            # Do not raise here, as this is called during initialization
-            # Allow the agent to continue operation even if view creation fails
+            # Do not raise here; allow agent to continue even if view creation fails
             
     # _validate_sql_statement method implementation is now consolidated at line ~1624
     
@@ -1667,14 +1242,39 @@ class A9_Data_Product_MCP_Service_Agent:
             
             # Execute SQL with DuckDB through async wrapper
             # Since DuckDB doesn't support async natively, we'll use a wrapper
-            result_df = await self._execute_sql_async(request.sql, transaction_id)
-            query_time_ms = (time.time() - start_time) * 1000
+            import asyncio as _asyncio
+            self.logger.info(f"[TXN:{transaction_id}] [MCP] Starting DB execution via DuckDBManager")
+            try:
+                result_df = await _asyncio.wait_for(
+                    self._execute_sql_async(request.sql, transaction_id),
+                    timeout=4
+                )
+                query_time_ms = (time.time() - start_time) * 1000
+                self.logger.info(f"[TXN:{transaction_id}] [MCP] DB execution finished in {query_time_ms:.2f}ms")
+            except _asyncio.TimeoutError:
+                self.logger.warning(f"[TXN:{transaction_id}] [MCP] DB execution timeout after 4s")
+                return SQLExecutionResponse.error(
+                    request_id=request.request_id,
+                    error_message="MCP DB execution timeout",
+                    transaction_id=transaction_id
+                )
             
             # Convert result to list format
             columns = list(result_df.columns)
             rows = result_df.values.tolist() if not result_df.empty else []
             
             self.logger.info(f"[TXN:{transaction_id}] SQL executed successfully: {len(rows)} rows returned in {query_time_ms:.2f}ms")
+            # Extra visibility: log columns and first row if available
+            try:
+                if columns:
+                    self.logger.info(f"[TXN:{transaction_id}] Columns: {columns}")
+                if rows:
+                    first_row_preview = rows[0]
+                    self.logger.info(f"[TXN:{transaction_id}] First row: {first_row_preview}")
+                else:
+                    self.logger.info(f"[TXN:{transaction_id}] No rows returned for SQL result")
+            except Exception:
+                pass
             
             # Create structured result dict for response helper with metadata
             result_dict = {

@@ -14,7 +14,7 @@ project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(project_root)
 
 # Run the Streamlit app
-streamlit_path = os.path.join(project_root, "src", "views", "decision_studio_ui.py")
+streamlit_path = os.path.join(project_root, "decision_studio.py")
 
 if __name__ == "__main__":
     print(f"Starting Decision Studio UI from {streamlit_path}")

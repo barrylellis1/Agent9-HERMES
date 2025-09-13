@@ -117,7 +117,7 @@ class UIOrchestrator:
         required_agents = [
             "A9_Situation_Awareness_Agent",
             "A9_Principal_Context_Agent",
-            "A9_Data_Product_MCP_Service_Agent"
+            "A9_Data_Product_Agent"
         ]
 
         for agent_name in required_agents:
