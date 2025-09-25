@@ -847,6 +847,52 @@ Also include an overall "rationale" field explaining your reasoning process.
                      for field, details in schema_fields.items()]
                 )
             
+            # Build optional llm_profile guidance if provided via yaml_contract
+            profile_guidance = ""
+            try:
+                if yaml_context:
+                    ydoc = yaml.safe_load(yaml_context)
+                    if isinstance(ydoc, dict):
+                        view_name = ydoc.get('view_name') or request.data_product_id
+                        llm_profile = ydoc.get('llm_profile')
+                        if isinstance(llm_profile, dict):
+                            # Exposed columns
+                            exp_cols = llm_profile.get('exposed_columns', [])
+                            exp_cols_text = "\n".join([f"- {c}" for c in exp_cols]) if isinstance(exp_cols, list) else ""
+                            # Forbidden aliases
+                            forb = llm_profile.get('forbidden_aliases', [])
+                            forb_text = ", ".join([str(a) for a in forb]) if isinstance(forb, list) else ""
+                            # Measure semantics
+                            meas = llm_profile.get('measure_semantics', {})
+                            default_measure = meas.get('default_measure', 'Transaction Value Amount') if isinstance(meas, dict) else 'Transaction Value Amount'
+                            default_agg = meas.get('default_aggregation', 'SUM') if isinstance(meas, dict) else 'SUM'
+                            # Allowed outer joins
+                            joins = llm_profile.get('allowed_outer_joins', [])
+                            join_lines = []
+                            if isinstance(joins, list):
+                                for j in joins:
+                                    if isinstance(j, dict) and j.get('table') and j.get('alias') and isinstance(j.get('on'), dict):
+                                        left = j['on'].get('left', '"date"')
+                                        right = j['on'].get('right', 't."date"')
+                                        join_lines.append(f"You MAY JOIN {j['table']} {j['alias']} ON {right} = {left} when time filtering is needed.")
+                            join_text = "\n".join(join_lines)
+                            # Guidance block
+                            profile_guidance = f"""
+LLM Profile for view '{view_name}':
+- Use ONLY these columns from the view (do not access base tables):
+{exp_cols_text}
+- Do NOT reference internal aliases (if any) like: {forb_text}
+- Treat '{default_measure}' as the primary measure. Use {default_agg}({default_measure}) for totals across rows.
+- When asked for "top", "highest", or ranking across categories:
+  - Aggregate the measure by the requested dimensions using {default_agg}(...)
+  - Include GROUP BY for the dimension columns you select
+  - ORDER BY the aggregated measure DESC
+  - Include LIMIT N when the user asks for top N
+{join_text}
+"""
+            except Exception:
+                profile_guidance = ""
+
             # Construct the prompt for SQL generation
             prompt = f"""Generate a SQL query for the following natural language request. 
             The query should target the Data Product view '{request.data_product_id}'.
@@ -856,10 +902,10 @@ Natural language query: "{request.natural_language_query}"
 Data Product ID: {request.data_product_id}
 
 {schema_context}
-
-"""
+{profile_guidance}
             
-            # Add YAML contract if available
+"""
+            # Add YAML contract if available (note: may contain only llm_profile summary)
             if yaml_context:
                 prompt += f"\nData Product Contract YAML:\n```yaml\n{yaml_context}\n```\n"
                 
@@ -886,6 +932,10 @@ Important guidelines:
 - Avoid complex joins as they are already handled in the view definition
 - Use standard SQL syntax compatible with DuckDB
 - Start the query with SELECT
+- Quoting: Use double quotes (") for identifiers (column and table names) exactly as listed; use single quotes (') only for string literal values. Never wrap column names in single quotes.
+- Do not output constant string literals as columns; return the actual column values from the view.
+- If comparing or ranking categories (e.g., top profit centers by revenue), aggregate the primary measure by category using SUM and include GROUP BY, ORDER BY aggregated measure DESC, and LIMIT
+- When the user asks for revenue totals and no other measure is specified, interpret the measure as the view's default measure
 """
 
             # Create a standard request

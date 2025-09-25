@@ -1,4 +1,5 @@
 data_product: FI_Star_Schema
+# TODO: All data product contracts must include an llm_profile for each queryable view (onboarding requirement)
 supported_business_processes:
   - "Finance: Profitability Analysis"
   - "Finance: Revenue Growth Analysis"
@@ -91,6 +92,153 @@ views:
       LEFT JOIN ProfitCenterTexts pct ON pc.profitcenterid = pct.PROFITCENTERID
       LEFT JOIN ProfitCenterHierarchy pch ON pc.profitcenterid = pch.HIERARCHYID
       LEFT JOIN ProfitCenterHierarchy pch_parent ON pch.LEVEL = pch_parent.HIERARCHYID
+
+    llm_profile:
+      description: >
+        Query this view directly. Do not reference internal aliases defined inside the view SQL
+        (e.g., ft, ga, gat, gah, pch, pct, ph, ch, ctt). Use only the columns listed below.
+      forbidden_aliases:
+        - ft
+        - ga
+        - gat
+        - gah
+        - pch
+        - pct
+        - ph
+        - ch
+        - ctt
+      exposed_columns:
+        # Identifiers and versioning
+        - "Transaction ID"
+        - "Version"
+
+        # Time and timeframe
+        - "Transaction Date"
+        - "Fiscal Year"
+        - "Fiscal Quarter"
+        - "Fiscal Month"
+        - "Fiscal Year-Month"
+        - "Fiscal Week"
+        - "Fiscal YTD Flag"
+        - "Fiscal QTD Flag"
+        - "Fiscal MTD Flag"
+        - "Rolling 12 Months Flag"
+        - "Rolling 4 Quarters Flag"
+
+        # Account
+        - "Account ID"
+        - "Account Type ID"
+        - "Account Hierarchy Desc"
+        - "Account Long Description"
+        - "Account/Group Description"
+        - "Parent Account/Group Hierarchy ID"
+        - "Parent Account/Group Description"
+
+        # Customer
+        - "Customer ID"
+        - "Customer Name"
+        - "Customer/Group Description"
+        - "Parent Customer Hierarchy ID"
+        - "Customer Hierarchyid"
+        - "Customer Type ID"
+        - "Customer Type Name"
+
+        # Product
+        - "Product ID"
+        - "Product Category ID"
+        - "Product Name"
+        - "Parent Product Hierarchy ID"
+        - "Parent Product/Group Description"
+
+        # Profit Center
+        - "Profit Center ID"
+        - "Profit Center Name"
+        - "Profit Center Hierarchyid"
+        - "Parent Profit Center Hierarchy ID"
+        - "Profit Center/Group Description"
+
+        # Measure
+        - "Transaction Value Amount"
+
+      measure_semantics:
+        default_measure: "Transaction Value Amount"
+        default_aggregation: SUM
+
+      dimension_semantics:
+        - "Version"
+        - "Transaction Date"
+        - "Fiscal Year"
+        - "Fiscal Quarter"
+        - "Fiscal Month"
+        - "Fiscal Year-Month"
+        - "Fiscal Week"
+        - "Fiscal YTD Flag"
+        - "Fiscal QTD Flag"
+        - "Fiscal MTD Flag"
+        - "Rolling 12 Months Flag"
+        - "Rolling 4 Quarters Flag"
+
+        - "Account ID"
+        - "Account Type ID"
+        - "Account Hierarchy Desc"
+        - "Account Long Description"
+        - "Account/Group Description"
+        - "Parent Account/Group Hierarchy ID"
+        - "Parent Account/Group Description"
+
+        - "Customer ID"
+        - "Customer Name"
+        - "Customer/Group Description"
+        - "Parent Customer Hierarchy ID"
+        - "Customer Hierarchyid"
+        - "Customer Type ID"
+        - "Customer Type Name"
+
+        - "Product ID"
+        - "Product Category ID"
+        - "Product Name"
+        - "Parent Product Hierarchy ID"
+        - "Parent Product/Group Description"
+
+        - "Profit Center ID"
+        - "Profit Center Name"
+        - "Profit Center Hierarchyid"
+        - "Parent Profit Center Hierarchy ID"
+        - "Profit Center/Group Description"
+
+      allowed_outer_joins:
+        - table: time_dim
+          alias: t
+          on:
+            left: '"Transaction Date"'
+            right: 't."date"'
+
+      synonyms:
+        profit_center:
+          - "Profit Center Name"
+          - "Profit Center ID"
+        account:
+          - "Account Hierarchy Desc"
+          - "Account Long Description"
+        customer:
+          - "Customer Name"
+          - "Customer ID"
+        product:
+          - "Product Name"
+          - "Product ID"
+
+      examples:
+        - nl: "Show top 5 profit centers by Gross Revenue"
+          sql: |
+            SELECT
+              "Profit Center ID",
+              "Profit Center Name",
+              SUM("Transaction Value Amount") AS total_value
+            FROM "FI_Star_View"
+            WHERE "Account Hierarchy Desc" = 'Gross Revenue' AND "Version" = 'Actual'
+            GROUP BY "Profit Center ID", "Profit Center Name"
+            ORDER BY total_value DESC
+            LIMIT 5;
 
 tables:
   - name: GLAccountsHierarchy

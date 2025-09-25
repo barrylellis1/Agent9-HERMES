@@ -26,6 +26,7 @@ import time
 import traceback
 import uuid
 from typing import Dict, Any, List, Optional, Union, Tuple, ClassVar, Set
+from dotenv import load_dotenv
 import yaml
 
 from src.agents.agent_config_models import A9_Data_Product_Agent_Config
@@ -42,8 +43,16 @@ from src.agents.models.sql_models import SQLExecutionRequest, SQLExecutionRespon
 # Business glossary (neutral term mapping)
 from src.registry.providers.business_glossary_provider import BusinessGlossaryProvider
 from src.agents.models.data_governance_models import KPIViewNameRequest
+from src.agents.a9_llm_service_agent import A9_LLM_SQLGenerationRequest
 
 logger = logging.getLogger(__name__)
+
+# Ensure .env is loaded so runtime feature flags are available (e.g., A9_ENABLE_LLM_SQL)
+try:
+    load_dotenv()
+except Exception:
+    # Non-fatal if dotenv is missing; env vars may still be set by the host
+    pass
 
 class A9_Data_Product_Agent(DataProductProtocol):
     """
@@ -149,6 +158,12 @@ class A9_Data_Product_Agent(DataProductProtocol):
             if success:
                 self.is_connected = True
                 self.logger.info(f"Connected to database at {self.db_path}")
+                # Ensure shared Time Dimension exists for consistent timeframe handling
+                try:
+                    await self._ensure_time_dimension()
+                    self.logger.info("Time Dimension ensured (table: time_dim)")
+                except Exception as td_err:
+                    self.logger.warning(f"Failed to ensure Time Dimension: {td_err}")
                 # Load registry after successful connection
                 await self._load_registry()
             else:
@@ -177,6 +192,88 @@ class A9_Data_Product_Agent(DataProductProtocol):
             self.logger.warning("Will use fallback view name resolution")
             # Ensure the attribute exists even if connection failed
             self.data_governance_agent = None
+
+        # Initialize LLM Service Agent connection (optional)
+        try:
+            self.logger.info("Initializing LLM Service Agent connection")
+            if hasattr(self, 'orchestrator') and self.orchestrator:
+                try:
+                    # Request LLM Service Agent with OpenAI config so factory creates it with the right provider
+                    self.llm_service_agent = await self.orchestrator.get_agent(
+                        "A9_LLM_Service_Agent",
+                        {"provider": "openai", "model_name": "gpt-4-turbo", "api_key_env_var": "OPENAI_API_KEY"}
+                    )
+                except Exception:
+                    self.llm_service_agent = None
+                if not getattr(self, 'llm_service_agent', None):
+                    try:
+                        from src.agents.a9_llm_service_agent import A9_LLM_Service_Agent
+                        # Switch provider to OpenAI and use OPENAI_API_KEY
+                        self.llm_service_agent = await A9_LLM_Service_Agent.create({
+                            "provider": "openai",
+                            "model_name": "gpt-4-turbo",
+                            "api_key_env_var": "OPENAI_API_KEY"
+                        })
+                        try:
+                            await self.orchestrator.register_agent("A9_LLM_Service_Agent", self.llm_service_agent)
+                        except Exception:
+                            pass
+                        self.logger.info("Successfully created and registered LLM Service Agent (OpenAI)")
+                    except Exception as create_err:
+                        self.logger.warning(f"LLM Service Agent unavailable: {str(create_err)}")
+                        self.llm_service_agent = None
+            else:
+                self.logger.warning("Orchestrator not available for LLM Service Agent connection")
+        except Exception as e:
+            self.logger.error(f"Error connecting to LLM Service Agent: {str(e)}")
+    async def _ensure_time_dimension(self) -> None:
+        """
+        Create and populate a shared Time Dimension table (time_dim) for consistent timeframe handling.
+        Range: 2021-01-01 through 2026-12-31.
+        Fiscal attributes are computed using configurable fiscal_year_start_month (default January).
+        """
+        try:
+            # Read fiscal start month from config (default 1)
+            try:
+                fsm = int(getattr(self.config, 'fiscal_year_start_month', 1) or 1)
+            except Exception:
+                fsm = 1
+            if fsm < 1 or fsm > 12:
+                fsm = 1
+
+            create_sql = f"""
+                CREATE TABLE IF NOT EXISTS time_dim AS
+                WITH bounds AS (
+                    SELECT DATE '2021-01-01' AS start_date, DATE '2026-12-31' AS end_date
+                ), series AS (
+                    SELECT start_date + gs*INTERVAL 1 DAY AS dt
+                    FROM bounds, generate_series(0, DATEDIFF('day', start_date, end_date)) AS s(gs)
+                )
+                SELECT
+                    dt AS "date",
+                    EXTRACT(year FROM dt) AS year,
+                    EXTRACT(quarter FROM dt) AS quarter,
+                    EXTRACT(month FROM dt) AS month,
+                    EXTRACT(isodow FROM dt) AS day_of_week,
+                    DATE_TRUNC('quarter', dt) AS quarter_start,
+                    DATE_TRUNC('month', dt) AS month_start,
+                    DATE_TRUNC('quarter', dt) + INTERVAL '3 months' - INTERVAL '1 day' AS quarter_end,
+                    DATE_TRUNC('month', dt) + INTERVAL '1 month' - INTERVAL '1 day' AS month_end,
+                    -- Fiscal attributes derived from configured start month
+                    CASE WHEN EXTRACT(month FROM dt) >= {fsm}
+                         THEN EXTRACT(year FROM dt)
+                         ELSE EXTRACT(year FROM dt) - 1 END AS fiscal_year,
+                    CAST(FLOOR(((( (CAST(EXTRACT(month FROM dt) AS INTEGER) - {fsm} + 12) % 12) + 1 ) - 1) / 3.0) + 1 AS INTEGER) AS fiscal_quarter
+                FROM series;
+            """
+            await self.db_manager.execute_query(create_sql, {}, str(uuid.uuid4()))
+            # Create an index for faster joins
+            try:
+                await self.db_manager.execute_query("CREATE INDEX IF NOT EXISTS idx_time_dim_date ON time_dim(\"date\");", {}, str(uuid.uuid4()))
+            except Exception:
+                pass
+        except Exception as e:
+            self.logger.warning(f"_ensure_time_dimension failed: {e}")
     
     async def _load_registry(self):
         """Load data product registry metadata only, not all products."""
@@ -558,8 +655,12 @@ class A9_Data_Product_Agent(DataProductProtocol):
 
     async def generate_sql(self, query: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        Generic SQL generation endpoint. For MVP, only echo pass-through SQL when it looks like SQL.
-        Returns a protocol-compliant dict: { success, sql, message }.
+        Generic SQL generation endpoint.
+        Behavior:
+        - If the input already looks like SQL, return it (pass-through)
+        - Otherwise, attempt LLM-based SQL generation via LLM Service Agent (if available)
+        - On failure or if disabled, return a standard error response
+        Returns a protocol-compliant dict: { success, sql, message, transaction_id }.
         """
         transaction_id = str(uuid.uuid4())
         try:
@@ -568,7 +669,136 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 # naive detection: if the string appears to be SQL already, echo it back
                 if re.match(r"^\s*(with|select|from|create|explain)\b", q, flags=re.IGNORECASE):
                     return {"success": True, "sql": q, "message": "Pass-through SQL", "transaction_id": transaction_id}
-            return {"success": False, "sql": "", "message": "LLM-based SQL generation not enabled in MVP", "transaction_id": transaction_id}
+
+            # Attempt LLM-based SQL generation for natural language queries
+            # Feature flag to enforce LLM-only path (no fallback here other than pass-through already handled)
+            force_llm = str(os.environ.get('A9_FORCE_LLM_SQL', 'false')).lower() in ('1','true','yes','y','on')
+
+            # Resolve auxiliary context
+            ctx = context or {}
+            dp_id = ctx.get('data_product_id') or 'fi_star_schema'
+            yaml_contract_text = None
+            cpath = ctx.get('contract_path')
+            if isinstance(cpath, str):
+                try:
+                    if os.path.exists(cpath):
+                        with open(cpath, 'r', encoding='utf-8') as _f:
+                            yaml_contract_text = _f.read()
+                except Exception:
+                    yaml_contract_text = None
+            filters = ctx.get('filters') if isinstance(ctx.get('filters'), dict) else None
+            include_explain = bool(ctx.get('include_explain', False))
+            
+            # Prefer a minimal LLM profile over full contract YAML to avoid alias leakage
+            target_view_label = dp_id  # default text for prompt
+            profile_yaml_text = None
+            schema_fields: Dict[str, Dict[str, str]] = {}
+            exposed_columns_list: List[str] = []
+            default_measure_name = None
+            default_agg = 'SUM'
+            try:
+                if yaml_contract_text:
+                    ydoc = yaml.safe_load(yaml_contract_text)
+                    # Find a view with an llm_profile; otherwise use the first view name
+                    views = ydoc.get('views', []) if isinstance(ydoc, dict) else []
+                    chosen_view = None
+                    if isinstance(views, list):
+                        for v in views:
+                            if isinstance(v, dict) and v.get('llm_profile'):
+                                chosen_view = v
+                                break
+                        if not chosen_view and views:
+                            first = views[0]
+                            chosen_view = first if isinstance(first, dict) else None
+                    if chosen_view:
+                        view_name = chosen_view.get('name') or 'FI_Star_View'
+                        target_view_label = view_name
+                        llm_profile = chosen_view.get('llm_profile')
+                        if isinstance(llm_profile, dict):
+                            # Build a trimmed YAML with only the llm_profile and view name
+                            profile_yaml_text = yaml.safe_dump(
+                                {'view_name': view_name, 'llm_profile': llm_profile},
+                                sort_keys=False, allow_unicode=True
+                            )
+                            # Build fields map for the LLM service's schema_context
+                            exp_cols = llm_profile.get('exposed_columns', [])
+                            if isinstance(exp_cols, list):
+                                for col in exp_cols:
+                                    if isinstance(col, str):
+                                        schema_fields[col] = {"description": "", "type": ""}
+                                        exposed_columns_list.append(col)
+                            # Capture default measure/agg if provided
+                            meas = llm_profile.get('measure_semantics') if isinstance(llm_profile, dict) else None
+                            if isinstance(meas, dict):
+                                default_measure_name = meas.get('default_measure') or default_measure_name
+                                default_agg = str(meas.get('default_aggregation') or default_agg).upper()
+            except Exception:
+                # If profile extraction fails, fall back silently
+                profile_yaml_text = None
+
+            enable_llm = str(os.environ.get('A9_ENABLE_LLM_SQL', 'false')).lower() in ('1','true','yes','y','on')
+            if enable_llm and getattr(self, 'llm_service_agent', None) is not None:
+                try:
+                    req = A9_LLM_SQLGenerationRequest(
+                        request_id=transaction_id,
+                        timestamp=datetime.datetime.utcnow().isoformat(),
+                        principal_id=ctx.get('principal_id', 'dpa_agent'),
+                        natural_language_query=q,
+                        data_product_id=target_view_label,
+                        yaml_contract=profile_yaml_text or yaml_contract_text,
+                        schema_details={'fields': schema_fields} if schema_fields else None,
+                        filters=filters,
+                        include_explain=include_explain
+                    )
+                    llm_resp = await self.llm_service_agent.generate_sql(req)
+                    if getattr(llm_resp, 'status', '') == 'success' and getattr(llm_resp, 'sql_query', ''):
+                        sql_out = llm_resp.sql_query
+                        # Fix common LLM mistakes
+                        try:
+                            if profile_yaml_text and exposed_columns_list and isinstance(sql_out, str):
+                                # 1) single-quoted identifiers for exposed columns -> convert to proper identifiers
+                                for col in exposed_columns_list:
+                                    bad = f"'{col}'"
+                                    good = f'"{col}"'
+                                    if bad in sql_out:
+                                        sql_out = sql_out.replace(bad, good)
+                                # 2) constant alias for total_revenue -> replace with aggregate on default measure when available
+                                if default_measure_name:
+                                    import re
+                                    pattern = r"'total_revenue'\s+AS\s+total_revenue"
+                                    repl = f'{default_agg}("{default_measure_name}") AS total_revenue'
+                                    sql_out = re.sub(pattern, repl, sql_out, flags=re.IGNORECASE)
+                                # 3) When LLM emits "'Col' AS \"Col\"", collapse to just the column identifier
+                                for col in exposed_columns_list:
+                                    import re
+                                    pattern = rf"'{re.escape(col)}'\s+AS\s+\"{re.escape(col)}\""
+                                    repl = f'"{col}"'
+                                    sql_out = re.sub(pattern, repl, sql_out, flags=re.IGNORECASE)
+                        except Exception:
+                            pass
+                        return {
+                            "success": True,
+                            "sql": sql_out,
+                            "message": "SQL generated via LLM Service",
+                            "transaction_id": transaction_id
+                        }
+                    else:
+                        warn = getattr(llm_resp, 'error_message', None) or 'Unknown LLM error'
+                        self.logger.warning(f"LLM Service returned no SQL: {warn}")
+                except Exception as e:
+                    self.logger.warning(f"LLM Service SQL generation failed: {e}")
+                    # fall through to error unless we can do other deterministic fallback here
+            elif not enable_llm:
+                self.logger.info("A9_ENABLE_LLM_SQL is disabled; skipping LLM SQL generation")
+            else:
+                self.logger.info("LLM Service Agent not available for SQL generation")
+
+            # If we reach here, LLM path did not produce SQL
+            if force_llm:
+                return {"success": False, "sql": "", "message": "A9_FORCE_LLM_SQL enabled; LLM did not return SQL", "transaction_id": transaction_id}
+
+            # Final fallback: return error (deterministic SQL for NL requires LLM or explicit KPI context)
+            return {"success": False, "sql": "", "message": "Unable to generate SQL from natural language without LLM", "transaction_id": transaction_id}
         except Exception as e:
             return {"success": False, "sql": "", "message": str(e), "transaction_id": transaction_id}
 
@@ -578,7 +808,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
         """
         return await self.generate_sql(query, context)
 
-    async def _generate_sql_for_kpi(self, kpi_definition: Any, timeframe: Any = None, filters: Dict[str, Any] = None) -> str:
+    async def _generate_sql_for_kpi(self, kpi_definition: Any, timeframe: Any = None, filters: Dict[str, Any] = None, topn: Any = None) -> str:
         """
         Generate SQL for a KPI definition.
         
@@ -623,6 +853,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
         
         # Add attributes to select clause
         select_items = []
+        measure_alias: Optional[str] = None
         
         # Handle attributes if present; otherwise derive a measure and build SUM(...)
         if not hasattr(kpi_definition, 'attributes') or not kpi_definition.attributes:
@@ -637,7 +868,8 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 except Exception:
                     derived = None
             if derived:
-                select_items.append(f"SUM({derived}) as total_value")
+                select_items.append(f"COALESCE(SUM({derived}), 0) as total_value")
+                measure_alias = "total_value"
             else:
                 self.logger.warning("KPI definition has no attributes and no resolvable measure")
                 return "SELECT 1 WHERE 1=0 -- Invalid KPI definition (no attributes or measure)"
@@ -663,7 +895,8 @@ class A9_Data_Product_Agent(DataProductProtocol):
                             derived = self._resolve_measure_from_kpi(kpi_definition)
                             if derived:
                                 resolved = derived
-                        select_items.append(f"SUM({resolved}) as total_value")
+                        select_items.append(f"COALESCE(SUM({resolved}), 0) as total_value")
+                        measure_alias = "total_value"
                     else:
                         select_items.append(resolved)
         
@@ -698,19 +931,44 @@ class A9_Data_Product_Agent(DataProductProtocol):
         # Now construct the SELECT clause including any grouping columns
         base_query += ", ".join(select_items)
         
+        # Interim default: ensure Version filter defaults to 'Actual' for FI Star Schema if unspecified
+        try:
+            dp_id = getattr(kpi_definition, 'data_product_id', None)
+            has_version = any(str(k).strip().lower() == 'version' for k in kpi_filters.keys()) if isinstance(kpi_filters, dict) else False
+            if isinstance(dp_id, str) and dp_id.strip().lower() == 'fi_star_schema' and not has_version:
+                kpi_filters['Version'] = 'Actual'
+        except Exception:
+            pass
+
         # Build where clause from filters (map keys to actual view columns)
         all_conditions = []
+        join_time_dim = False
+        join_on_col: Optional[str] = None
         for key, value in kpi_filters.items():
             # Resolve attribute/column name against the target view
             resolved_col = self._resolve_attribute_name(str(key), kpi_definition, view_name)
             
+            # Treat special "all" sentinel tokens as no-op filters
+            def _is_all_token(v: Any) -> bool:
+                try:
+                    return str(v).strip().lower() in {"total", "#", "all"}
+                except Exception:
+                    return False
+
             if isinstance(value, str):
+                if _is_all_token(value):
+                    continue
                 safe_value = value.replace("'", "''")
+                # Direct equality for string filters, including Version
                 all_conditions.append(f"{resolved_col} = '{safe_value}'")
             elif isinstance(value, (int, float)):
                 all_conditions.append(f"{resolved_col} = {value}")
             elif isinstance(value, list):
                 if all(isinstance(item, str) for item in value):
+                    # Filter out sentinel tokens representing the total/all bucket
+                    value = [item for item in value if not _is_all_token(item)]
+                    if not value:
+                        continue
                     formatted_values = []
                     for item in value:
                         escaped_item = item.replace("'", "''")
@@ -726,8 +984,10 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 self.logger.warning(f"Skipping unsupported filter type: {key} = {type(value)}")
                 continue
         
-        # Add time filter if present
-        if hasattr(kpi_definition, 'time_filter') and kpi_definition.time_filter:
+        # Add time filter if present and no explicit timeframe is provided
+        # If a timeframe is provided, we will apply conditions via time_dim (t."date") only,
+        # to avoid mixing transaction-date filters with time-dimension filters.
+        if (not timeframe) and hasattr(kpi_definition, 'time_filter') and kpi_definition.time_filter:
             time_filter = kpi_definition.time_filter
             if isinstance(time_filter, dict):
                 if 'column' in time_filter and 'start' in time_filter:
@@ -773,10 +1033,11 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     resolved_date_col = None
 
                 if resolved_date_col:
-                    # Safely quote date column and substitute the generic placeholder
+                    # Safely quote date column; timeframe condition already references time_dim alias 't'
                     safe_date_col = '"' + resolved_date_col.replace('"', '""') + '"'
-                    timeframe_condition = timeframe_condition.replace('"date"', safe_date_col)
                     all_conditions.append(timeframe_condition)
+                    join_time_dim = True
+                    join_on_col = safe_date_col
                 else:
                     self.logger.warning("Timeframe provided but no date column resolvable; skipping timeframe condition")
         
@@ -791,6 +1052,8 @@ class A9_Data_Product_Agent(DataProductProtocol):
             # Ensure view name is properly quoted for SQL syntax
             safe_view_name = view_name.replace('"', '""')  # Escape quotes if present
             base_query += f" FROM \"{safe_view_name}\" "
+            if join_time_dim and join_on_col:
+                base_query += f" JOIN time_dim t ON t.\"date\" = {join_on_col} "
             
         if where_clause:
             base_query += f" {where_clause}"
@@ -802,21 +1065,71 @@ class A9_Data_Product_Agent(DataProductProtocol):
             except Exception:
                 base_query += f" GROUP BY {', '.join(group_by_items)}"
             
+        # Apply Top/Bottom N ordering and limit when provided (takes precedence over KPI order_by/limit)
+        applied_order = False
+        try:
+            tn = topn
+            # Support dict-like or object with attributes
+            limit_type = None
+            limit_n = None
+            limit_field = None
+            if tn is not None:
+                if isinstance(tn, dict):
+                    limit_type = tn.get('limit_type') or tn.get('type')
+                    limit_n = tn.get('limit_n') or tn.get('n')
+                    limit_field = tn.get('limit_field') or tn.get('field')
+                else:
+                    limit_type = getattr(tn, 'limit_type', None)
+                    limit_n = getattr(tn, 'limit_n', None)
+                    limit_field = getattr(tn, 'limit_field', None)
+            if isinstance(limit_type, str) and isinstance(limit_n, int) and limit_n > 0:
+                direction = 'DESC' if limit_type.lower() == 'top' else 'ASC'
+                # Determine order expression
+                order_expr = None
+                if isinstance(limit_field, str) and limit_field.strip():
+                    try:
+                        resolved_rank_col = self._resolve_attribute_name(str(limit_field), kpi_definition, view_name)
+                        # If a specific rank field is provided, order by its aggregated value
+                        order_expr = f"COALESCE(SUM({resolved_rank_col}), 0)"
+                    except Exception:
+                        pass
+                if not order_expr:
+                    # Fallback to primary measure alias if present
+                    if measure_alias:
+                        order_expr = measure_alias
+                    else:
+                        # Last resort: use first numeric-looking select item or position 1
+                        try:
+                            order_expr = measure_alias or '1'
+                        except Exception:
+                            order_expr = '1'
+                # Append ORDER BY and LIMIT only if not already present
+                lower_sql = base_query.lower()
+                if ' order by ' not in lower_sql:
+                    base_query += f" ORDER BY {order_expr} {direction}"
+                if f" limit {limit_n}" not in lower_sql:
+                    base_query += f" LIMIT {limit_n}"
+                applied_order = True
+        except Exception:
+            # Non-fatal; simply skip TopN ordering if parsing fails
+            pass
+
         # Add order by if present
         if hasattr(kpi_definition, 'order_by') and kpi_definition.order_by:
-            order_items = []
-            for order_item in kpi_definition.order_by:
-                if isinstance(order_item, str):
-                    order_items.append(order_item)
-                elif isinstance(order_item, dict) and 'name' in order_item:
-                    direction = order_item.get('direction', 'ASC').upper()
-                    order_items.append(f"{order_item['name']} {direction}")
-                    
-            if order_items:
-                base_query += f" ORDER BY {', '.join(order_items)}"
+            # Do not override TopN ordering if already applied
+            if not applied_order:
+                order_items = []
+                for order_item in kpi_definition.order_by:
+                    if isinstance(order_item, str):
+                        order_items.append(order_item)
+                    elif isinstance(order_item, dict) and 'name' in order_item:
+                        direction = order_item.get('direction', 'ASC').upper()
+                        order_items.append(f"{order_item['name']} {direction}")
+                if order_items:
+                    base_query += f" ORDER BY {', '.join(order_items)}"
                 
-        # Add limit if present
-        if hasattr(kpi_definition, 'limit') and kpi_definition.limit:
+        # Add limit if present (do not override TopN limit)
+        if hasattr(kpi_definition, 'limit') and kpi_definition.limit and not applied_order:
             base_query += f" LIMIT {kpi_definition.limit}"
         
         # Final validation to ensure we have a valid SELECT statement
@@ -995,15 +1308,15 @@ class A9_Data_Product_Agent(DataProductProtocol):
     
     def _get_timeframe_condition(self, timeframe: Any) -> Optional[str]:
         """
-        Generate a SQL condition string for a given timeframe. Uses a generic "date" column
-        which calling code can remap to the actual column name (e.g., "Transaction Date").
-
-        Returns a string like: "date" >= <start_expr> AND "date" < <end_expr>
+        Generate a SQL condition for a given timeframe using time_dim attributes.
+        Returns a string that references:
+        - t.fiscal_year / t.fiscal_quarter for fiscal-aware frames
+        - t.year / t.quarter / t.month for calendar frames
+        - t."date" for day-based ranges
         """
         if not timeframe:
             return None
-        
-        date_col = '"date"'
+
         # Normalize timeframe from string or enum-like
         tf: Optional[str] = None
         if isinstance(timeframe, str):
@@ -1014,32 +1327,63 @@ class A9_Data_Product_Agent(DataProductProtocol):
             except Exception:
                 tf = None
 
+        # Compute fiscal expressions (match time_dim derivation) for CURRENT_DATE and shifted dates
+        def fiscal_exprs(date_sql: str) -> Tuple[str, str]:
+            try:
+                fsm = int(getattr(self.config, 'fiscal_year_start_month', 1) or 1)
+                if fsm < 1 or fsm > 12:
+                    fsm = 1
+            except Exception:
+                fsm = 1
+            fy = (
+                f"(CASE WHEN EXTRACT(month FROM {date_sql}) >= {fsm} "
+                f"THEN EXTRACT(year FROM {date_sql}) ELSE EXTRACT(year FROM {date_sql}) - 1 END)"
+            )
+            fq = (
+                "CAST(FLOOR(((( (CAST(EXTRACT(month FROM "
+                f"{date_sql}) AS INTEGER) - {fsm} + 12) % 12) + 1 ) - 1) / 3.0) + 1 AS INTEGER)"
+            )
+            return fy, fq
+
         if isinstance(tf, str):
+            # Fiscal-aware periods
             if tf in ("this_quarter", "current_quarter"):
-                return f"{date_col} >= date_trunc('quarter', CURRENT_DATE) AND {date_col} < date_trunc('quarter', CURRENT_DATE) + INTERVAL '3 months'"
+                fy, fq = fiscal_exprs("CURRENT_DATE")
+                return f"t.fiscal_year = {fy} AND t.fiscal_quarter = {fq}"
             if tf == "last_quarter":
-                return f"{date_col} >= date_trunc('quarter', CURRENT_DATE) - INTERVAL '3 months' AND {date_col} < date_trunc('quarter', CURRENT_DATE)"
+                fy, fq = fiscal_exprs("(CURRENT_DATE - INTERVAL '3 months')")
+                return f"t.fiscal_year = {fy} AND t.fiscal_quarter = {fq}"
             if tf in ("this_year", "current_year"):
-                return f"{date_col} >= date_trunc('year', CURRENT_DATE) AND {date_col} < date_trunc('year', CURRENT_DATE) + INTERVAL '1 year'"
+                fy, _ = fiscal_exprs("CURRENT_DATE")
+                return f"t.fiscal_year = {fy}"
             if tf == "last_year":
-                return f"{date_col} >= date_trunc('year', CURRENT_DATE) - INTERVAL '1 year' AND {date_col} < date_trunc('year', CURRENT_DATE)"
+                fy, _ = fiscal_exprs("(CURRENT_DATE - INTERVAL '1 year')")
+                return f"t.fiscal_year = {fy}"
+
+            # Calendar periods
             if tf in ("this_month", "current_month"):
-                return f"{date_col} >= date_trunc('month', CURRENT_DATE) AND {date_col} < date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'"
+                return "t.year = EXTRACT(year FROM CURRENT_DATE) AND t.month = EXTRACT(month FROM CURRENT_DATE)"
             if tf == "last_month":
-                return f"{date_col} >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month' AND {date_col} < date_trunc('month', CURRENT_DATE)"
+                return "t.year = EXTRACT(year FROM (CURRENT_DATE - INTERVAL '1 month')) AND t.month = EXTRACT(month FROM (CURRENT_DATE - INTERVAL '1 month'))"
+
+            # Day-based ranges referenced to time_dim date
             if tf == "last_7_days":
-                return f"{date_col} >= CURRENT_DATE - INTERVAL '7 days' AND {date_col} <= CURRENT_DATE"
+                return "t.\"date\" >= CURRENT_DATE - INTERVAL '7 days' AND t.\"date\" <= CURRENT_DATE"
             if tf == "last_30_days":
-                return f"{date_col} >= CURRENT_DATE - INTERVAL '30 days' AND {date_col} <= CURRENT_DATE"
+                return "t.\"date\" >= CURRENT_DATE - INTERVAL '30 days' AND t.\"date\" <= CURRENT_DATE"
             if tf == "last_90_days":
-                return f"{date_col} >= CURRENT_DATE - INTERVAL '90 days' AND {date_col} <= CURRENT_DATE"
+                return "t.\"date\" >= CURRENT_DATE - INTERVAL '90 days' AND t.\"date\" <= CURRENT_DATE"
+
+            # To-date periods combine fiscal/calendar attribute with date upper bound
             if tf == "year_to_date":
-                return f"{date_col} >= date_trunc('year', CURRENT_DATE) AND {date_col} <= CURRENT_DATE"
+                fy, _ = fiscal_exprs("CURRENT_DATE")
+                return f"t.fiscal_year = {fy} AND t.\"date\" <= CURRENT_DATE"
             if tf == "quarter_to_date":
-                return f"{date_col} >= date_trunc('quarter', CURRENT_DATE) AND {date_col} <= CURRENT_DATE"
+                fy, fq = fiscal_exprs("CURRENT_DATE")
+                return f"t.fiscal_year = {fy} AND t.fiscal_quarter = {fq} AND t.\"date\" <= CURRENT_DATE"
             if tf == "month_to_date":
-                return f"{date_col} >= date_trunc('month', CURRENT_DATE) AND {date_col} <= CURRENT_DATE"
-        
+                return "t.year = EXTRACT(year FROM CURRENT_DATE) AND t.month = EXTRACT(month FROM CURRENT_DATE) AND t.\"date\" <= CURRENT_DATE"
+
         # Unsupported timeframe type
         return None
 
@@ -1054,35 +1398,68 @@ class A9_Data_Product_Agent(DataProductProtocol):
         self.logger.info(f"[TXN:{transaction_id}] Generating comparison SQL for KPI: {kpi_name}, type: {comparison_type}")
 
         try:
-            # Base SQL for KPI
+            # Base SQL for KPI (with current timeframe condition embedded via time_dim)
             base_sql_resp = await self.generate_sql_for_kpi(kpi_definition, timeframe=timeframe, filters=filters)
             if not base_sql_resp.get('success'):
                 return base_sql_resp
             base_sql = base_sql_resp['sql']
 
-            # Derive start/end bounds
-            start_date = None
-            end_date = None
-            if isinstance(timeframe, dict):
-                start_date = timeframe.get('start_date') or timeframe.get('start')
-                end_date = timeframe.get('end_date') or timeframe.get('end')
+            # Determine comparison type string
+            comp_str = None
+            ct = comparison_type
+            if hasattr(ct, 'value'):
+                try:
+                    comp_str = str(ct.value).strip().lower()
+                except Exception:
+                    comp_str = None
+            if not comp_str and isinstance(ct, str):
+                comp_str = ct.strip().lower()
 
-            if (not start_date or not end_date) and isinstance(timeframe, str):
-                cond = self._get_timeframe_condition(timeframe)
-                if cond and 'AND' in cond:
-                    try:
-                        ge_part, le_part = cond.split('AND', 1)
-                        start_date = ge_part.split('>=', 1)[1].strip()
-                        # prefer '<' bound if present, else '<='
-                        if '<=' in le_part:
-                            end_date = le_part.split('<=', 1)[1].strip()
+            # Handle Budget vs Actual by switching Version filter to 'Budget' while keeping the same timeframe
+            if comp_str and 'budget' in comp_str:
+                try:
+                    # Replace any explicit Version='Actual' (case-insensitive) with Version='Budget'
+                    pattern = r'(\"Version\"\s*=\s*\')Actual(\')'
+                    comparison_sql = re.sub(pattern, r'\1Budget\2', base_sql, flags=re.IGNORECASE)
+                    # If no Version filter existed, append one
+                    if comparison_sql == base_sql:
+                        if ' where ' in base_sql.lower():
+                            comparison_sql = base_sql + " AND \"Version\" = 'Budget'"
                         else:
-                            end_date = le_part.split('<', 1)[1].strip()
-                    except Exception:
-                        pass
+                            comparison_sql = base_sql + " WHERE \"Version\" = 'Budget'"
+                    return {
+                        'sql': comparison_sql,
+                        'kpi_name': kpi_name,
+                        'comparison_type': comparison_type,
+                        'transaction_id': transaction_id,
+                        'success': True,
+                        'message': f"Comparison SQL (Budget vs Actual) generated successfully for KPI: {kpi_name}"
+                    }
+                except Exception as _budget_err:
+                    self.logger.warning(f"Budget vs Actual comparison SQL generation fallback to base due to: {_budget_err}")
+                    return {
+                        'sql': base_sql,
+                        'kpi_name': kpi_name,
+                        'comparison_type': comparison_type,
+                        'transaction_id': transaction_id,
+                        'success': True,
+                        'message': f"Budget comparison fallback: returning base SQL for KPI: {kpi_name}"
+                    }
 
-            if not start_date or not end_date:
-                self.logger.warning("Cannot derive start/end dates; returning base SQL for comparison")
+            # Compute the original timeframe condition and a target comparison timeframe
+            orig_cond = self._get_timeframe_condition(timeframe) if timeframe else None
+            target_tf = None
+            if comp_str:
+                if 'month' in comp_str:
+                    target_tf = 'last_month'
+                elif 'quarter' in comp_str:
+                    target_tf = 'last_quarter'
+                elif 'year' in comp_str:
+                    target_tf = 'last_year'
+
+            # If we cannot determine a target timeframe or original condition, return base SQL
+            if not target_tf or not orig_cond:
+                self.logger.warning("Comparison timeframe mapping not available; returning base SQL for comparison")
                 return {
                     'sql': base_sql,
                     'kpi_name': kpi_name,
@@ -1092,26 +1469,124 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     'message': f"Comparison SQL generated successfully for KPI: {kpi_name}"
                 }
 
-            comparison_sql = self._replace_date_conditions(base_sql, start_date, end_date)
-            # If automatic replacement failed (e.g., function-based dates), try a simple CURRENT_DATE shift fallback
-            try:
-                comp_l = str(comparison_type or '').lower()
-                needs_fallback = (comparison_sql.startswith("-- Unable to automatically modify date conditions") or comparison_sql.strip() == base_sql.strip())
-                if needs_fallback and 'CURRENT_DATE' in base_sql:
-                    if 'year' in comp_l or 'yoy' in comp_l:
-                        interval = "1 year"
-                    elif 'quarter' in comp_l or 'qoq' in comp_l:
-                        interval = "3 months"
-                    elif 'month' in comp_l or 'mom' in comp_l:
-                        interval = "1 month"
-                    else:
-                        interval = None
-                    if interval:
-                        shifted_sql = base_sql.replace('CURRENT_DATE', f"CURRENT_DATE - INTERVAL '{interval}'")
-                        comparison_sql = f"-- Fallback: shifted CURRENT_DATE by {interval} for comparison\n{shifted_sql}"
-                        self.logger.warning("Applied fallback CURRENT_DATE shift for comparison SQL")
-            except Exception:
-                pass
+            # Build replacement timeframe condition using time_dim attributes
+            # Handle comparison types relative to the selected base timeframe
+            replacement_cond = None
+
+            # Normalize base timeframe string (used in all branches below)
+            base_tf_str: Optional[str] = None
+            if isinstance(timeframe, str):
+                base_tf_str = timeframe.strip().lower()
+            elif hasattr(timeframe, 'value'):
+                try:
+                    base_tf_str = str(getattr(timeframe, 'value')).strip().lower()
+                except Exception:
+                    base_tf_str = None
+
+            # Helper to build fiscal expressions consistent with _get_timeframe_condition
+            def _fiscal_exprs(date_sql: str) -> Tuple[str, str]:
+                try:
+                    fsm = int(getattr(self.config, 'fiscal_year_start_month', 1) or 1)
+                    if fsm < 1 or fsm > 12:
+                        fsm = 1
+                except Exception:
+                    fsm = 1
+                fy = (
+                    f"(CASE WHEN EXTRACT(month FROM {date_sql}) >= {fsm} "
+                    f"THEN EXTRACT(year FROM {date_sql}) ELSE EXTRACT(year FROM {date_sql}) - 1 END)"
+                )
+                fq = (
+                    "CAST(FLOOR(((( (CAST(EXTRACT(month FROM "
+                    f"{date_sql}) AS INTEGER) - {fsm} + 12) % 12) + 1 ) - 1) / 3.0) + 1 AS INTEGER)"
+                )
+                return fy, fq
+
+            # Year-over-year: compare to same unit in prior year
+            if comp_str and 'year' in comp_str:
+                # Normalize base timeframe string
+                # Choose anchor date for prior-year same unit
+                if base_tf_str in ("last_quarter", "current_quarter", "this_quarter"):
+                    # Anchor quarter = (CURRENT_DATE - 1 year) for current quarter, and (-1 year - 3 months) for last quarter
+                    anchor = "(CURRENT_DATE - INTERVAL '1 year')" if base_tf_str in ("current_quarter", "this_quarter") else "(CURRENT_DATE - INTERVAL '1 year' - INTERVAL '3 months')"
+                    fy, fq = _fiscal_exprs(anchor)
+                    replacement_cond = f"t.fiscal_year = {fy} AND t.fiscal_quarter = {fq}"
+                elif base_tf_str in ("last_month", "current_month", "this_month"):
+                    # Anchor month = (CURRENT_DATE - 1 year) or (CURRENT_DATE - 1 year - 1 month)
+                    anchor = "(CURRENT_DATE - INTERVAL '1 year')" if base_tf_str in ("current_month", "this_month") else "(CURRENT_DATE - INTERVAL '1 year' - INTERVAL '1 month')"
+                    replacement_cond = (
+                        f"t.year = EXTRACT(year FROM {anchor}) AND "
+                        f"t.month = EXTRACT(month FROM {anchor})"
+                    )
+                elif base_tf_str in ("quarter_to_date", "year_to_date", "month_to_date"):
+                    # To-date YOY: mirror the same to-date cutoff in the prior year
+                    if base_tf_str == "quarter_to_date":
+                        fy, fq = _fiscal_exprs("(CURRENT_DATE - INTERVAL '1 year')")
+                        replacement_cond = f"t.fiscal_year = {fy} AND t.fiscal_quarter = {fq} AND t.\"date\" <= (CURRENT_DATE - INTERVAL '1 year')"
+                    elif base_tf_str == "year_to_date":
+                        fy, _ = _fiscal_exprs("(CURRENT_DATE - INTERVAL '1 year')")
+                        replacement_cond = f"t.fiscal_year = {fy} AND t.\"date\" <= (CURRENT_DATE - INTERVAL '1 year')"
+                    else:  # month_to_date
+                        replacement_cond = (
+                            "t.year = EXTRACT(year FROM (CURRENT_DATE - INTERVAL '1 year')) "
+                            "AND t.month = EXTRACT(month FROM (CURRENT_DATE - INTERVAL '1 year')) "
+                            "AND t.\"date\" <= (CURRENT_DATE - INTERVAL '1 year')"
+                        )
+
+                # Fallback if base timeframe not recognized
+                if not replacement_cond:
+                    replacement_cond = self._get_timeframe_condition('last_year')
+            # Quarter-over-quarter: previous quarter relative to base timeframe
+            elif comp_str and 'quarter' in comp_str:
+                if base_tf_str in ("current_quarter", "this_quarter"):
+                    replacement_cond = self._get_timeframe_condition('last_quarter')
+                elif base_tf_str == "last_quarter":
+                    # Two quarters ago
+                    fy, fq = _fiscal_exprs("(CURRENT_DATE - INTERVAL '6 months')")
+                    replacement_cond = f"t.fiscal_year = {fy} AND t.fiscal_quarter = {fq}"
+                elif base_tf_str == "quarter_to_date":
+                    fy, fq = _fiscal_exprs("(CURRENT_DATE - INTERVAL '3 months')")
+                    replacement_cond = f"t.fiscal_year = {fy} AND t.fiscal_quarter = {fq} AND t.\"date\" <= (CURRENT_DATE - INTERVAL '3 months')"
+                else:
+                    replacement_cond = self._get_timeframe_condition('last_quarter')
+            # Month-over-month: previous month relative to base timeframe
+            elif comp_str and 'month' in comp_str:
+                if base_tf_str in ("current_month", "this_month"):
+                    replacement_cond = self._get_timeframe_condition('last_month')
+                elif base_tf_str == "last_month":
+                    # Two months ago
+                    replacement_cond = (
+                        "t.year = EXTRACT(year FROM (CURRENT_DATE - INTERVAL '2 months')) "
+                        "AND t.month = EXTRACT(month FROM (CURRENT_DATE - INTERVAL '2 months'))"
+                    )
+                elif base_tf_str == "month_to_date":
+                    replacement_cond = (
+                        "t.year = EXTRACT(year FROM (CURRENT_DATE - INTERVAL '1 month')) "
+                        "AND t.month = EXTRACT(month FROM (CURRENT_DATE - INTERVAL '1 month')) "
+                        "AND t.\"date\" <= (CURRENT_DATE - INTERVAL '1 month')"
+                    )
+                else:
+                    replacement_cond = self._get_timeframe_condition('last_month')
+            else:
+                # Non-YOY mappings use the simple previous unit mapping above
+                replacement_cond = self._get_timeframe_condition(target_tf)
+            if not replacement_cond:
+                return {
+                    'sql': base_sql,
+                    'kpi_name': kpi_name,
+                    'comparison_type': comparison_type,
+                    'transaction_id': transaction_id,
+                    'success': True,
+                    'message': f"Comparison SQL generated successfully for KPI: {kpi_name}"
+                }
+
+            # Replace only the first occurrence of the current timeframe condition with the comparison one
+            if orig_cond in base_sql:
+                comparison_sql = base_sql.replace(orig_cond, replacement_cond, 1)
+            else:
+                # If not found verbatim (spacing differences), return base SQL as a safe fallback
+                self.logger.warning("Original timeframe condition not found for replacement; returning base SQL")
+                comparison_sql = base_sql
+
             return {
                 'sql': comparison_sql,
                 'kpi_name': kpi_name,
@@ -1241,7 +1716,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 "data": []
             }
 
-    async def generate_sql_for_kpi(self, kpi_definition: Any, timeframe: Any = None, filters: Dict[str, Any] = None) -> Dict[str, Any]:
+    async def generate_sql_for_kpi(self, kpi_definition: Any, timeframe: Any = None, filters: Dict[str, Any] = None, topn: Any = None) -> Dict[str, Any]:
         """
         Wrapper that generates SQL for a KPI definition using _generate_sql_for_kpi and returns
         a protocol-compliant response.
@@ -1250,7 +1725,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
         kpi_name = getattr(kpi_definition, "name", "unknown")
         self.logger.info(f"[TXN:{transaction_id}] Generating SQL for KPI: {kpi_name}")
         try:
-            sql = await self._generate_sql_for_kpi(kpi_definition, timeframe=timeframe, filters=filters)
+            sql = await self._generate_sql_for_kpi(kpi_definition, timeframe=timeframe, filters=filters, topn=topn)
             if not isinstance(sql, str) or not sql.strip():
                 return {"sql": "", "kpi_name": kpi_name, "transaction_id": transaction_id, "success": False, "message": "No SQL generated"}
             return {"sql": sql, "kpi_name": kpi_name, "transaction_id": transaction_id, "success": True, "message": f"SQL generated successfully for KPI: {kpi_name}"}
@@ -1403,7 +1878,19 @@ class A9_Data_Product_Agent(DataProductProtocol):
         self.logger.info(f"[TXN:{transaction_id}] get_kpi_comparison_data start for KPI: {kpi_name}, type: {comparison_type}")
 
         try:
-            # 1) Generate comparison SQL
+            # 1) Merge principal default filters with provided filters
+            try:
+                pc_defaults = {}
+                if principal_context is not None:
+                    if isinstance(getattr(principal_context, 'default_filters', None), dict):
+                        pc_defaults = getattr(principal_context, 'default_filters') or {}
+                    elif hasattr(principal_context, 'model_dump'):
+                        pc_defaults = (principal_context.model_dump() or {}).get('default_filters', {}) or {}
+                filters = {**(pc_defaults or {}), **(filters or {})}
+            except Exception:
+                filters = filters or {}
+
+            # 2) Generate comparison SQL
             gen = await self.generate_sql_for_kpi_comparison(
                 kpi_definition=kpi_definition,
                 timeframe=timeframe,
@@ -1419,7 +1906,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 }
             sql = gen["sql"]
 
-            # 2) Execute SQL
+            # 3) Execute SQL
             exec_resp = await self.execute_sql(sql, principal_context=principal_context)
             if not exec_resp.get("success") and not exec_resp.get("status") == "success":
                 msg = exec_resp.get("message") or exec_resp.get("error") or "SQL execution failed"

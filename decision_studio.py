@@ -130,9 +130,14 @@ def init_session_state():
     
     if "business_processes" not in st.session_state:
         st.session_state.business_processes = ["Finance: Profitability Analysis"]  # Use specific business processes
+    # Track previous selections to auto-trigger detection on change
+    if "prev_business_processes" not in st.session_state:
+        st.session_state.prev_business_processes = list(st.session_state.business_processes)
     
     if "timeframe" not in st.session_state:
-        st.session_state.timeframe = TimeFrame.CURRENT_QUARTER
+        st.session_state.timeframe = TimeFrame.LAST_QUARTER
+    if "prev_timeframe" not in st.session_state:
+        st.session_state.prev_timeframe = st.session_state.timeframe
     
     if "comparison_type" not in st.session_state:
         st.session_state.comparison_type = ComparisonType.QUARTER_OVER_QUARTER
@@ -154,6 +159,20 @@ def init_session_state():
     
     if "debug_mode" not in st.session_state:
         st.session_state.debug_mode = False
+    # Seed minimal principal selector scaffolding so UI shows immediately
+    if "principal_ids" not in st.session_state:
+        st.session_state.principal_ids = [st.session_state.default_principal_id]
+    if "principal_id_to_name" not in st.session_state:
+        # Provide a friendly default display name
+        st.session_state.principal_id_to_name = {st.session_state.default_principal_id: "Chief Financial Officer (CFO)"}
+    if "selected_principal_id" not in st.session_state:
+        st.session_state.selected_principal_id = st.session_state.default_principal_id
+    # Ensure the principal selector widget state starts in sync with selected_principal_id
+    if "principal_id_select" not in st.session_state:
+        st.session_state.principal_id_select = st.session_state.selected_principal_id
+    # Track previously selected principal to reset filters on change
+    if "prev_selected_principal_id" not in st.session_state:
+        st.session_state.prev_selected_principal_id = st.session_state.selected_principal_id
     # Flags to control one-time reruns/loading
     if "profiles_loaded" not in st.session_state:
         st.session_state.profiles_loaded = False
@@ -179,6 +198,13 @@ def init_session_state():
     # Unified detection status: idle | queued | running | done | error
     if "detect_status" not in st.session_state:
         st.session_state.detect_status = "idle"
+    # Per-KPI SQL debug flags/results
+    if "show_per_kpi_sql" not in st.session_state:
+        st.session_state.show_per_kpi_sql = False
+    if "trigger_per_kpi_sql" not in st.session_state:
+        st.session_state.trigger_per_kpi_sql = False
+    if "per_kpi_sql_results" not in st.session_state:
+        st.session_state.per_kpi_sql_results = []
 
 # Initialize the Situation Awareness Agent using orchestrator-driven registration
 async def initialize_agent():
@@ -414,20 +440,28 @@ async def detect_situations():
 
     # Prepare the situation detection request
     # Require a selected principal once profiles are loaded to avoid accidental defaults
+    # Log current selection vs widget for diagnostics
+    try:
+        logging.info(f"[DecisionStudio] detect_situations using selected_principal_id={st.session_state.get('selected_principal_id')}, widget_principal_id={st.session_state.get('principal_id_select')}")
+    except Exception:
+        pass
     if "selected_principal_id" in st.session_state and st.session_state.selected_principal_id:
         principal_profile_response = await get_principal_context(principal_id=st.session_state.selected_principal_id)
     else:
         st.info("Principal profiles not loaded yet. Please wait a moment and click 'Detect Situations' again.")
         return
     
-    # Extract the PrincipalContext object from the response
-    # Check if the response has a context field
-    if hasattr(principal_profile_response, 'context') and principal_profile_response.context is not None:
+    # Extract the PrincipalContext object from the response (robust to dicts)
+    # If dict with 'context', use it directly
+    if isinstance(principal_profile_response, dict) and principal_profile_response.get('context') is not None:
+        principal_context = principal_profile_response.get('context')
+    # If object with attribute 'context'
+    elif hasattr(principal_profile_response, 'context') and principal_profile_response.context is not None:
         principal_context = principal_profile_response.context
-    # Check if it has a profile field
-    elif hasattr(principal_profile_response, 'profile') and principal_profile_response.profile is not None:
+    # Else if dict with 'profile', construct from profile
+    elif isinstance(principal_profile_response, dict) and principal_profile_response.get('profile') is not None:
         # Get the profile data
-        profile_data = principal_profile_response.profile
+        profile_data = principal_profile_response.get('profile')
         
         # Create a PrincipalContext object from the profile data
         from src.agents.models.situation_awareness_models import PrincipalContext, TimeFrame
@@ -474,11 +508,59 @@ async def detect_situations():
         principal_context_dict = principal_context.model_dump()
     else:
         principal_context_dict = principal_context
-    
+
     # Log the principal context for debugging
     import logging
     logging.info(f"Using principal context: {principal_context_dict}")
-    
+
+    # If principal changed, reset UI filters to the principal's default filters to prevent stale overrides
+    try:
+        current_pid = st.session_state.get("selected_principal_id") or st.session_state.default_principal_id
+        prev_pid = st.session_state.get("prev_selected_principal_id")
+        if current_pid != prev_pid:
+            defaults = {}
+            # Try to extract defaults from the richer response we already fetched above
+            if isinstance(principal_profile_response, dict):
+                ctx = principal_profile_response.get('context')
+                if isinstance(ctx, dict):
+                    defaults = ctx.get('default_filters', {}) or {}
+                if not defaults:
+                    prof = principal_profile_response.get('profile') or {}
+                    if isinstance(prof, dict):
+                        defaults = prof.get('default_filters', {}) or {}
+            else:
+                # Object with attributes
+                try:
+                    ctx = getattr(principal_profile_response, 'context', None)
+                    if ctx is not None:
+                        defaults = getattr(ctx, 'default_filters', {}) or {}
+                    if not defaults:
+                        prof = getattr(principal_profile_response, 'profile', None)
+                        if isinstance(prof, dict):
+                            defaults = prof.get('default_filters', {}) or {}
+                except Exception:
+                    defaults = {}
+
+            # Assign defaults (DPA will ignore sentinel values like 'Total'/'#'/'all')
+            st.session_state.filters = defaults or {}
+            st.session_state.prev_selected_principal_id = current_pid
+            logging.info(f"[DecisionStudio] Principal changed to {current_pid}; filters reset to defaults: {st.session_state.filters}")
+    except Exception:
+        pass
+
+    # If user hasn't explicitly selected business processes, default to those from the principal context
+    try:
+        if not st.session_state.business_processes:
+            # Ensure list of strings
+            pc_bps = []
+            if isinstance(principal_context, dict):
+                pc_bps = principal_context.get('business_processes', []) or []
+            else:
+                pc_bps = getattr(principal_context, 'business_processes', []) or []
+            st.session_state.business_processes = [str(bp) for bp in pc_bps] if pc_bps else st.session_state.business_processes
+    except Exception:
+        pass
+
     # Create situation detection request
     request = SituationDetectionRequest(
         request_id=str(uuid.uuid4()),
@@ -522,6 +604,126 @@ async def detect_situations():
                 st.session_state.debug_trace.append("detect_situations: orchestrator returned")
             except Exception:
                 pass
+
+        # Generate per-KPI SQL on demand
+        try:
+            if st.session_state.get("trigger_per_kpi_sql"):
+                results = []
+                situations = st.session_state.get("situations", []) or []
+                if situations and st.session_state.orchestrator:
+                    # Fetch KPI definitions once so we can request comparison SQL from Data Product Agent
+                    kpi_defs_by_name = {}
+                    try:
+                        kpi_defs_resp = await st.session_state.orchestrator.execute_agent_method(
+                            "A9_Situation_Awareness_Agent",
+                            "get_kpi_definitions",
+                            {"principal_context": principal_context_dict}
+                        )
+                        if isinstance(kpi_defs_resp, dict):
+                            kpi_defs_by_name = kpi_defs_resp
+                    except Exception:
+                        kpi_defs_by_name = {}
+
+                    for s in situations:
+                        # Normalize KPI name from dict or model
+                        try:
+                            kpi_name = s.get('kpi_name') if isinstance(s, dict) else getattr(s, 'kpi_name', '')
+                        except Exception:
+                            kpi_name = ''
+                        if not kpi_name:
+                            continue
+                        # Resolve KPI definition (from SA-provided defs) to avoid SA registry dependency
+                        kpi_def = None
+                        try:
+                            if isinstance(kpi_defs_by_name, dict):
+                                # exact match first
+                                kpi_def = kpi_defs_by_name.get(kpi_name)
+                                if not kpi_def:
+                                    # case-insensitive fallback
+                                    kn = (kpi_name or "").strip().lower()
+                                    for n, kd in kpi_defs_by_name.items():
+                                        try:
+                                            if str(n).strip().lower() == kn:
+                                                kpi_def = kd
+                                                break
+                                        except Exception:
+                                            continue
+                        except Exception:
+                            kpi_def = None
+                        base_sql_val = ""
+                        comp_sql_val = ""
+                        error_msg = None
+                        try:
+                            # Base SQL via SA delegator (keeps architecture clean)
+                            try:
+                                logging.info(f"[DecisionStudio] Requesting base SQL via SA for KPI='{kpi_name}', timeframe={st.session_state.get('timeframe')}")
+                            except Exception:
+                                pass
+                            sql_text = await st.session_state.orchestrator.execute_agent_method(
+                                "A9_Situation_Awareness_Agent",
+                                "_get_sql_for_kpi",
+                                {
+                                    "kpi": (kpi_def or kpi_name),
+                                    # Pass only explicit UI filters; SA will merge principal defaults
+                                    "filters": st.session_state.get("filters", {}) or {},
+                                    "principal_context": principal_context_dict,
+                                    "timeframe": st.session_state.get("timeframe")
+                                }
+                            )
+                            if isinstance(sql_text, dict) and 'sql' in sql_text:
+                                base_sql_val = sql_text.get('sql') or ""
+                            else:
+                                base_sql_val = sql_text or ""
+                            try:
+                                logging.info(f"[DecisionStudio] Base SQL received for KPI='{kpi_name}', length={len(base_sql_val or '')}")
+                            except Exception:
+                                pass
+                        except Exception as e:
+                            error_msg = str(e)
+
+                        # Comparison SQL via Situation Awareness Agent delegator (preferred)
+                        try:
+                            try:
+                                logging.info(f"[DecisionStudio] Requesting comparison SQL via SA for KPI='{kpi_name}', comparison_type={st.session_state.get('comparison_type')}, timeframe={st.session_state.get('timeframe')}")
+                            except Exception:
+                                pass
+                            comp_sql_resp = await st.session_state.orchestrator.execute_agent_method(
+                                "A9_Situation_Awareness_Agent",
+                                "_get_comparison_sql_for_kpi",
+                                {
+                                    "kpi": (kpi_def or kpi_name),
+                                    "comparison_type": st.session_state.get("comparison_type"),
+                                    # Pass only explicit UI filters; SA will merge principal defaults
+                                    "filters": st.session_state.get("filters", {}) or {},
+                                    "principal_context": principal_context_dict,
+                                    "timeframe": st.session_state.get("timeframe")
+                                }
+                            )
+                            if isinstance(comp_sql_resp, dict) and 'sql' in comp_sql_resp:
+                                comp_sql_val = comp_sql_resp.get('sql') or ""
+                            elif isinstance(comp_sql_resp, str):
+                                comp_sql_val = comp_sql_resp or ""
+                            try:
+                                logging.info(f"[DecisionStudio] Comparison SQL via SA received for KPI='{kpi_name}', length={len(comp_sql_val or '')}")
+                            except Exception:
+                                pass
+                        except Exception as e:
+                            if not error_msg:
+                                error_msg = str(e)
+
+                        # No fallback: rely solely on SA path which caches the exact SQL used during execution
+
+                        rec = {"kpi_name": kpi_name, "sql": base_sql_val}
+                        if comp_sql_val:
+                            rec["comparison_sql"] = comp_sql_val
+                        if error_msg:
+                            rec["error"] = error_msg
+                        results.append(rec)
+                st.session_state.per_kpi_sql_results = results
+                st.session_state.trigger_per_kpi_sql = False
+        except Exception:
+            # Non-fatal; UI will show no SQL
+            pass
             logging.info("[DecisionStudio] SA.detect_situations returned")
 
         # Normalize response across dict and Pydantic (v1/v2) objects
@@ -553,6 +755,12 @@ async def detect_situations():
         if resp.get('status') == "success":
             st.session_state.situations = resp.get('situations', [])
             st.success(f"Detected {len(st.session_state.situations)} situations")
+            # Request a UI rerun so that the main panel reflects the new situations immediately
+            try:
+                st.session_state.post_detect_rerun = True
+                st.session_state.detect_status = "done"
+            except Exception:
+                pass
 
             # DEBUG: Fetch Data Governance mappings for detected KPIs
             try:
@@ -621,7 +829,19 @@ async def detect_situations():
                         st.session_state.dg_kpi_mappings = mapping_rows
             except Exception as dbg_err:
                 logging.info(f"[DecisionStudio] DG mapping debug skipped: {dbg_err}")
-        st.session_state.last_detect_result = {"status": "success", "count": len(st.session_state.situations)}
+        # Persist last detection summary with optional KPI evaluated fields
+        last_summary = {"status": "success", "count": len(st.session_state.situations)}
+        try:
+            if isinstance(resp, dict):
+                if 'kpi_evaluated_count' in resp:
+                    last_summary['kpi_evaluated_count'] = resp.get('kpi_evaluated_count')
+                if 'kpis_evaluated' in resp:
+                    last_summary['kpis_evaluated'] = resp.get('kpis_evaluated')
+                if 'sql_query' in resp:
+                    last_summary['sql_query'] = resp.get('sql_query')
+        except Exception:
+            pass
+        st.session_state.last_detect_result = last_summary
     except _asyncio.TimeoutError:
         st.error("Timeout while detecting situations. Please try again.")
         try:
@@ -723,6 +943,22 @@ async def process_query():
                 st.session_state.nl_response = nl_response
             else:
                 st.session_state.nl_response = response
+
+            # If this NL query was initiated from a follow-up within a situation, store a sid-scoped copy
+            try:
+                sid = st.session_state.get("current_followup_sid")
+                if sid:
+                    st.session_state[f"{sid}_nl_response"] = st.session_state.nl_response
+                    # Clear the pointer so subsequent main NL queries don't get misattributed
+                    st.session_state.current_followup_sid = None
+                # Debug trace for diagnostics
+                try:
+                    _sql_len = len(getattr(st.session_state.nl_response, 'sql_query', '') or '')
+                    st.session_state.debug_trace.append(f"process_query: response received (sql_len={_sql_len}, sid={sid})")
+                except Exception:
+                    pass
+            except Exception:
+                pass
         except Exception as e:
             st.error(f"Error processing query: {str(e)}")
             import traceback
@@ -748,33 +984,74 @@ def main():
         # Principal role selector
         st.header("Principal Context")
         
-        # Get principal profiles from registry
+        # Ensure principal profile containers exist without wiping any pre-seeded values
         if "principal_profiles" not in st.session_state:
-            # Initialize with empty dict, will be populated in async section
             st.session_state.principal_profiles = {}
-            st.session_state.principal_ids = []
+        if "principal_ids" not in st.session_state:
+            st.session_state.principal_ids = [st.session_state.default_principal_id]
+        if "principal_id_to_role" not in st.session_state:
             st.session_state.principal_id_to_role = {}
-            st.session_state.principal_id_to_name = {}
+        if "principal_id_to_name" not in st.session_state:
+            st.session_state.principal_id_to_name = {st.session_state.default_principal_id: "Chief Financial Officer (CFO)"}
+        # Synchronous preload of principal profiles from YAML for immediate selector population
+        try:
+            if st.session_state.principal_ids == [st.session_state.default_principal_id]:
+                import yaml as _yaml
+                _ppath = os.path.join(project_root, "src", "registry", "principal", "principal_registry.yaml")
+                if os.path.exists(_ppath):
+                    with open(_ppath, "r", encoding="utf-8") as _f:
+                        _pdata = _yaml.safe_load(_f) or {}
+                    _plist = _pdata.get("principal_profiles") or _pdata.get("profiles") or []
+                    p_ids = []
+                    p_id_to_name = {}
+                    p_id_to_role = {}
+                    for p in _plist:
+                        try:
+                            if isinstance(p, dict):
+                                pid = p.get("id") or p.get("principal_id")
+                                name = p.get("name") or p.get("display_name") or pid
+                                role = p.get("role") or p.get("title") or name
+                                if pid:
+                                    p_ids.append(pid)
+                                    p_id_to_name[pid] = f"{name} ({role})" if name and role else (name or pid)
+                                    p_id_to_role[pid] = role
+                        except Exception:
+                            continue
+                    if p_ids:
+                        st.session_state.principal_ids = p_ids
+                        st.session_state.principal_id_to_name.update(p_id_to_name)
+                        st.session_state.principal_id_to_role.update(p_id_to_role)
+                        # Keep current selection if still valid, else choose CFO if available, else first
+                        cur = st.session_state.get("selected_principal_id", st.session_state.default_principal_id)
+                        if cur not in p_ids:
+                            preferred = None
+                            try:
+                                if "cfo_001" in p_ids:
+                                    preferred = "cfo_001"
+                                else:
+                                    # Try resolve by role name mapping
+                                    preferred = next((pid for pid, role in p_id_to_role.items() if str(role).strip().lower() in ("cfo", "chief financial officer")), None)
+                            except Exception:
+                                preferred = None
+                            chosen = preferred or p_ids[0]
+                            st.session_state.selected_principal_id = chosen
+                            logging.info(f"[DecisionStudio] Principal selection fallback: cur='{cur}' not in list; set to '{chosen}'")
+        except Exception:
+            pass
         
-        # If we have profiles, use them for the dropdown
-        if st.session_state.principal_profiles:
-            # Use principal IDs for the dropdown
-            options = st.session_state.principal_ids
-            default_id = st.session_state.get("selected_principal_id")
-            safe_index = options.index(default_id) if (default_id in options) else 0
-            principal_id = st.selectbox(
-                "Select Principal",
-                options=options,
-                index=safe_index,
-                format_func=lambda x: st.session_state.principal_id_to_name.get(x, x),
-                key="principal_id_select"
-            )
-            # Store the selected ID
-            st.session_state.selected_principal_id = principal_id
-        else:
-            # Fallback to a simple dropdown with default CFO ID if profiles aren't loaded yet
-            st.warning("Principal profiles not loaded yet. Using default CFO profile.")
-            st.session_state.selected_principal_id = "cfo_001"
+        # Show principal selector immediately; upgrade options once profiles load
+        options = st.session_state.principal_ids if st.session_state.principal_ids else [st.session_state.default_principal_id]
+        default_id = st.session_state.get("selected_principal_id", st.session_state.default_principal_id)
+        safe_index = options.index(default_id) if (default_id in options) else 0
+        principal_id = st.selectbox(
+            "Select Principal",
+            options=options,
+            index=safe_index,
+            format_func=lambda x: st.session_state.principal_id_to_name.get(x, x),
+            key="principal_id_select"
+        )
+        # Store the selected ID
+        st.session_state.selected_principal_id = principal_id
         
         # Business process selector
         st.header("Business Processes")
@@ -815,7 +1092,15 @@ def main():
                    else ["Finance: Profitability Analysis"],
             key="business_processes_select"
         )
-        st.session_state.business_processes = selected_processes
+        # Normalize to sorted unique list for stable comparison
+        new_bps = sorted(list(set(selected_processes)))
+        old_bps = sorted(list(set(st.session_state.business_processes))) if isinstance(st.session_state.business_processes, list) else []
+        st.session_state.business_processes = new_bps
+        if new_bps != old_bps:
+            # Auto-trigger detection on BP change
+            st.session_state.trigger_detect = True
+            st.session_state.detect_status = "queued"
+            st.toast("Business Processes changed — detecting situations...", icon="🔄")
         
         # Timeframe selector
         st.header("Time Frame")
@@ -826,7 +1111,15 @@ def main():
             format_func=lambda x: x.replace("_", " ").title(),
             key="timeframe_select"
         )
-        st.session_state.timeframe = TimeFrame(timeframe)
+        new_tf = TimeFrame(timeframe)
+        old_tf = st.session_state.timeframe
+        st.session_state.timeframe = new_tf
+        if new_tf != old_tf:
+            # Auto-trigger detection on timeframe change
+            st.session_state.trigger_detect = True
+            st.session_state.detect_status = "queued"
+            st.session_state.prev_timeframe = new_tf
+            st.toast("Timeframe changed — detecting situations...", icon="⏱️")
         
         # Comparison type selector
         comparison_type = st.selectbox(
@@ -873,8 +1166,8 @@ def main():
             else:
                 st.info("Debug info not populated yet. Click 'Detect Situations' or interact with the app to trigger loading.")
         
-        # Run situation detection (disabled until profiles are loaded)
-        detect_disabled = not st.session_state.get("profiles_loaded", False)
+        # Run situation detection (always enabled; uses selected principal context at runtime)
+        detect_disabled = False
         if st.button("Detect Situations", disabled=detect_disabled):
             # Set a flag to trigger detection in the async section
             st.session_state.trigger_detect = True
@@ -887,8 +1180,7 @@ def main():
             except Exception:
                 pass
             st.info("Detection requested. Running in background...")
-        if detect_disabled:
-            st.caption("Loading principal profiles... the button will enable automatically.")
+        # No extra caption; button is always available
     
     # Main content area
     st.title("Finance KPI Situation Awareness")
@@ -904,6 +1196,41 @@ def main():
     st.header("Detected Situations")
     
     if st.session_state.situations:
+        # Optional summary from SA: number of KPIs evaluated and list
+        if isinstance(st.session_state.get("last_detect_result"), dict):
+            ldr = st.session_state.get("last_detect_result")
+            evaluated_count = ldr.get("kpi_evaluated_count")
+            evaluated_list = ldr.get("kpis_evaluated")
+            if evaluated_count is not None:
+                st.caption(f"KPIs evaluated: {evaluated_count}")
+            if evaluated_list:
+                with st.expander("Show evaluated KPIs"):
+                    try:
+                        st.write("\n".join(f"- {name}" for name in evaluated_list))
+                    except Exception:
+                        st.write(evaluated_list)
+            # Show current timeframe and comparison context
+            try:
+                tf = st.session_state.timeframe
+                ct = st.session_state.comparison_type
+                tf_label = tf.value.replace('_', ' ').title() if hasattr(tf, 'value') else str(tf)
+                ct_label = ct.value.replace('_', ' ').title() if hasattr(ct, 'value') else str(ct)
+                st.caption(f"Timeframe: {tf_label} • Comparison: {ct_label}")
+            except Exception:
+                pass
+
+        # Optional: Toggle to show SQL in KPI Details panel
+        st.session_state.show_per_kpi_sql = st.checkbox("Show SQL in KPI Details (debug)", value=st.session_state.show_per_kpi_sql)
+        # If enabled and no cached SQL results yet, trigger async generation
+        try:
+            # removed stray placeholder introduced during previous edit
+            if st.session_state.show_per_kpi_sql:
+                _has_results = bool(st.session_state.get("per_kpi_sql_results"))
+                if not _has_results:
+                    st.session_state.trigger_per_kpi_sql = True
+                    st.toast("Generating per-KPI SQL for details...", icon="🧩")
+        except Exception:
+            pass
         # Group situations by severity (support both dict and Pydantic objects)
         severity_groups = {}
         for situation in st.session_state.situations:
@@ -1131,6 +1458,151 @@ def display_situation(situation, severity_class):
                     if st.button(question, key=f"{sid}_{question[:20]}"):
                         apply_question(question)
 
+            # Follow-up NL question (inline) – triggers SA.process_nl_query and shows generated SQL
+            try:
+                # Use a STABLE key so that reruns can find the stored results
+                _sid = _get(situation, 'situation_id', None)
+                if _sid:
+                    local_sid = str(_sid)
+                else:
+                    # Derive from KPI name and description as a stable fallback
+                    base_name = (kpi_name or '').strip().lower().replace(' ', '_')
+                    desc_key = (desc or '').strip().lower().replace(' ', '_')[:50]
+                    local_sid = f"sid_{base_name or 'kpi'}_{desc_key or 'desc'}"
+                q_placeholder = f"Ask about {kpi_name} (e.g., Why did it change?)" if kpi_name else "Ask a follow-up question"
+                followup_key = f"{local_sid}_followup_input"
+                submit_key = f"{local_sid}_submit_followup"
+                followup_text = st.text_input("Follow-up question", key=followup_key, placeholder=q_placeholder)
+                if st.button("Ask", key=submit_key) and isinstance(followup_text, str) and followup_text.strip():
+                    # Ensure NL UI processing is enabled and trigger query via existing handler
+                    st.session_state.enable_nl_ui = True
+                    # Remember which situation initiated this NL query so we can route the response
+                    st.session_state.current_followup_sid = local_sid
+                    st.session_state[f"{local_sid}_last_question"] = followup_text.strip()
+                    apply_question(followup_text.strip())
+                    st.toast("Processing your question...", icon="💬")
+
+                # If we have a situation-scoped response, trust it and display directly; else fall back to request_id match
+                sid_resp = st.session_state.get(f"{local_sid}_nl_response")
+                nl_resp = sid_resp or st.session_state.get("nl_response")
+                last_q = st.session_state.get(f"{local_sid}_last_question")
+                matched = False
+                if sid_resp and nl_resp:
+                    matched = True
+                    try:
+                        st.session_state.debug_trace.append(f"display_situation: using sid-scoped NL response for {local_sid}")
+                    except Exception:
+                        pass
+                else:
+                    # Robust match: normalize whitespace/case for request_id vs last question
+                    _rq = str(getattr(nl_resp, "request_id", "") or "").strip().lower() if nl_resp else ""
+                    _lq = str(last_q or "").strip().lower() if last_q else ""
+                    matched = bool(nl_resp and last_q and _rq == _lq)
+                if matched and nl_resp:
+                    st.subheader("Follow-up Answer")
+                    try:
+                        st.write(getattr(nl_resp, "answer", "") or "")
+                    except Exception:
+                        pass
+                    sql_txt = getattr(nl_resp, "sql_query", "") or ""
+                    if sql_txt:
+                        st.markdown("**Generated SQL**")
+                        try:
+                            st.code(sql_txt, language='sql')
+                        except Exception:
+                            st.text(sql_txt)
+                        # Allow user to execute the generated SQL and view results inline
+                        run_key = f"{local_sid}_run_sql"
+                        if st.button("Run SQL", key=run_key):
+                            # Queue execution for async handler
+                            st.session_state.nl_sql_to_run = {"sid": local_sid, "sql": sql_txt}
+                            st.session_state.trigger_run_nl_sql = True
+                            st.toast("Executing SQL...", icon="⏳")
+                            try:
+                                st.session_state.debug_trace.append(f"UI: queued NL SQL for {local_sid} (len={len(sql_txt)})")
+                            except Exception:
+                                pass
+                            # Trigger a rerun so run_async picks up the queued execution immediately
+                            try:
+                                if hasattr(st, "rerun"):
+                                    st.rerun()
+                                elif hasattr(st, "experimental_rerun"):
+                                    st.experimental_rerun()
+                            except Exception:
+                                pass
+                        # If results are available for this situation, display them
+                        res_key = f"{local_sid}_sql_result"
+                        res_obj = st.session_state.get(res_key)
+                        if isinstance(res_obj, dict):
+                            rows = res_obj.get("rows", []) or []
+                            cols = res_obj.get("columns", []) or []
+                            success = res_obj.get("success", True)
+                            msg = res_obj.get("message")
+                            if rows:
+                                st.markdown("**Results**")
+                                try:
+                                    # If rows are already list-of-dicts (records), display directly
+                                    if isinstance(rows, list) and rows and isinstance(rows[0], dict):
+                                        st.table(rows[:50])
+                                    else:
+                                        # Safely map row values to provided column names when available
+                                        if cols:
+                                            def _row_to_record(r):
+                                                rec = {}
+                                                for i, col in enumerate(cols):
+                                                    if isinstance(r, (list, tuple)):
+                                                        rec[str(col)] = r[i] if i < len(r) else None
+                                                    elif isinstance(r, dict):
+                                                        rec[str(col)] = r.get(col)
+                                                    else:
+                                                        # Fallback: single scalar or unknown structure
+                                                        rec[str(col)] = r
+                                                return rec
+                                            formatted = [_row_to_record(r) for r in rows[:50]]
+                                            st.table(formatted)
+                                        else:
+                                            st.table(rows[:50])
+                                except Exception:
+                                    st.write(rows[:50])
+                            else:
+                                # Show helpful status if no data
+                                if success is False and msg:
+                                    st.caption(f"SQL Error: {msg}")
+                                elif msg:
+                                    st.caption(msg)
+            except Exception:
+                pass
+
+            # Optional: Show SQL for this KPI when enabled
+            try:
+                if st.session_state.get("show_per_kpi_sql"):
+                    kname = kpi_name
+                    sql_items = st.session_state.get("per_kpi_sql_results", []) or []
+                    for item in sql_items:
+                        if str(item.get("kpi_name")) == str(kname):
+                            base_sql_text = item.get("sql")
+                            comp_sql_text = item.get("comparison_sql")
+                            err_text = item.get("error")
+                            if base_sql_text or comp_sql_text or err_text:
+                                st.subheader("SQL")
+                            if base_sql_text:
+                                st.markdown("**Base SQL**")
+                                try:
+                                    st.code(base_sql_text, language='sql')
+                                except Exception:
+                                    st.text(base_sql_text)
+                            if comp_sql_text:
+                                st.markdown("**Comparison SQL**")
+                                try:
+                                    st.code(comp_sql_text, language='sql')
+                                except Exception:
+                                    st.text(comp_sql_text)
+                            if err_text and not (base_sql_text or comp_sql_text):
+                                st.caption(f"SQL Error: {err_text}")
+                            break
+            except Exception:
+                pass
+
 # Run the async functions
 async def run_async():
     """Run the async functions required for the app."""
@@ -1204,24 +1676,31 @@ async def run_async():
                                     role = profile.get('role') or profile.get('title') or profile.get('name')
                                     principal_ids.append(principal_id)
                                     principal_id_to_role[principal_id] = role
-                                    name = profile.get('name', role)
-                                    principal_id_to_name[principal_id] = f"{name} ({role})"
-                                    principal_profiles[principal_id] = profile
-                            
-                            # Update session state
-                            st.session_state.principal_profiles = principal_profiles
-                            st.session_state.principal_ids = principal_ids
-                            st.session_state.principal_id_to_role = principal_id_to_role
-                            st.session_state.principal_id_to_name = principal_id_to_name
-                            st.session_state.profiles_loaded = True
-                            
-                            # Set default selected ID if not already set
-                            if not st.session_state.principal_ids:
-                                st.warning("No principal profiles found in registry")
-                            elif "selected_principal_id" not in st.session_state:
+
+                            # Persist loaded profiles and maps into session state for UI and gating
+                            try:
+                                if principal_ids:
+                                    st.session_state.principal_ids = principal_ids
+                                if principal_id_to_name:
+                                    st.session_state.principal_id_to_name.update(principal_id_to_name)
+                                if principal_id_to_role:
+                                    st.session_state.principal_id_to_role.update(principal_id_to_role)
+                                if principal_profiles:
+                                    # Ensure container exists
+                                    if "principal_profiles" not in st.session_state:
+                                        st.session_state.principal_profiles = {}
+                                    st.session_state.principal_profiles.update(principal_profiles)
+                                # Signal that profiles are now available so detection can proceed
+                                st.session_state.profiles_loaded = bool(principal_ids)
+                            except Exception:
+                                # Do not block on session updates
+                                pass
+
+                            # Set default principal selection if not already set
+                            if "selected_principal_id" not in st.session_state and principal_ids:
                                 # Find CFO profile if available
-                                cfo_id = next((pid for pid, role in principal_id_to_role.items() 
-                                              if isinstance(role, str) and role.lower() == 'chief financial officer' or role.lower() == 'cfo'), None)
+                                cfo_id = next((pid for pid, role in principal_id_to_role.items()
+                                               if isinstance(role, str) and (role.lower() == 'chief financial officer' or role.lower() == 'cfo')), None)
                                 if cfo_id:
                                     st.session_state.selected_principal_id = cfo_id
                                 else:
@@ -1242,8 +1721,16 @@ async def run_async():
                             # Force a rerun so the sidebar selector updates immediately (support old/new Streamlit)
                             # Only do this once to avoid infinite rerun loops
                             if not st.session_state.get("profiles_rerun_done", False):
-                                # Mark rerun handled, but avoid explicit rerun to prevent refresh loops
+                                # Mark rerun handled then trigger a one-time rerun to refresh selectors
                                 st.session_state.profiles_rerun_done = True
+                                try:
+                                    import streamlit as _st
+                                    if hasattr(_st, "rerun"):
+                                        _st.rerun()
+                                    elif hasattr(_st, "experimental_rerun"):
+                                        _st.experimental_rerun()
+                                except Exception:
+                                    pass
                             
                             # Fetch recommended questions for the current principal
                             try:
@@ -1285,11 +1772,116 @@ async def run_async():
                 if st.session_state.get("trigger_query"):
                     st.session_state.trigger_query = False
                     await process_query()
+                    # Mark NL ready to force a one-time rerun for inline display
+                    try:
+                        st.session_state._nl_ready = True
+                    except Exception:
+                        pass
             except Exception as e:
                 st.error(f"Error during query processing: {str(e)}")
         else:
             # Ensure we don't accidentally process NL queries when disabled
             st.session_state.trigger_query = False
+        
+        # Execute any queued NL SQL (from Follow-up panels) and store results for inline display
+        try:
+            if st.session_state.get("trigger_run_nl_sql") and st.session_state.orchestrator:
+                req = st.session_state.get("nl_sql_to_run")
+                if isinstance(req, dict) and req.get("sql"):
+                    raw_sql = req.get("sql")
+                    # Sanitize: handle cases where LLM returned JSON with metadata
+                    sql_to_run = raw_sql
+                    try:
+                        s = str(raw_sql or "").strip()
+                        # Remove markdown fences if present
+                        if s.startswith("```"):
+                            # Strip the first fence line
+                            s = s.split("\n", 1)[1] if "\n" in s else s.replace("```", "")
+                        if s.endswith("```"):
+                            s = s[: -3]
+                        # Unescape common JSON-escaped sequences
+                        s = s.replace("\\n", "\n").replace("\\t", "\t").replace("\\r", "\r")
+                        s = s.replace("\\\"", '"')
+                        s = s.replace("\\'", "'")
+                        # Try JSON parse
+                        if s.startswith("{") or s.startswith("["):
+                            import json as _json
+                            obj = _json.loads(s)
+                            if isinstance(obj, dict):
+                                sql_to_run = obj.get("sql_query") or obj.get("sql") or s
+                            else:
+                                sql_to_run = s
+                        else:
+                            # Truncate before known metadata markers if present
+                            for marker in ['"confidence"', '"warnings"', '"explanation"', '\nconfidence', '\nwarnings', '\nexplanation']:
+                                idx = s.find(marker)
+                                if idx != -1:
+                                    s = s[:idx]
+                                    break
+                            sql_to_run = s.strip()
+                    except Exception:
+                        sql_to_run = raw_sql
+
+                    # Execute with a visible spinner and debug trace
+                    try:
+                        st.session_state.debug_trace.append("run_async: executing NL SQL via DP Agent")
+                    except Exception:
+                        pass
+                    with st.spinner("Running SQL..."):
+                        exec_resp = await st.session_state.orchestrator.execute_agent_method(
+                            "A9_Data_Product_Agent",
+                            "execute_sql",
+                            {"sql_query": sql_to_run}
+                        )
+                    # Normalize exec_resp to a dict
+                    if hasattr(exec_resp, "model_dump"):
+                        exec_obj = exec_resp.model_dump()
+                    elif isinstance(exec_resp, dict):
+                        exec_obj = exec_resp
+                    else:
+                        exec_obj = {
+                            "columns": getattr(exec_resp, "columns", []),
+                            "rows": getattr(exec_resp, "rows", []),
+                            "row_count": getattr(exec_resp, "row_count", 0)
+                        }
+                    sid = req.get("sid", "nl")
+                    result_obj = {
+                        "columns": exec_obj.get("columns", []),
+                        "rows": exec_obj.get("rows", []),
+                        "row_count": exec_obj.get("row_count", len(exec_obj.get("rows", []) or [])),
+                        "success": exec_obj.get("success", True),
+                        "message": exec_obj.get("message") or exec_obj.get("error")
+                    }
+                    st.session_state[f"{sid}_sql_result"] = result_obj
+                    st.session_state.trigger_run_nl_sql = False
+                    try:
+                        st.session_state._nl_ready = True
+                    except Exception:
+                        pass
+                    try:
+                        import logging as _logging
+                        _logging.info("[DecisionStudio] Executed NL SQL and updated session state with results")
+                    except Exception:
+                        pass
+                    # User feedback toast
+                    try:
+                        rc = result_obj.get("row_count", 0)
+                        if result_obj.get("success", True):
+                            st.toast(f"SQL executed: {rc} rows", icon="✅")
+                        else:
+                            st.toast("SQL execution failed. See details below.", icon="⚠️")
+                    except Exception:
+                        pass
+                    try:
+                        st.session_state.debug_trace.append(f"run_async: NL SQL done (success={result_obj.get('success', True)}, rows={result_obj.get('row_count', 0)})")
+                    except Exception:
+                        pass
+        except Exception as _nl_exec_err:
+            try:
+                import logging as _logging
+                _logging.info(f"[DecisionStudio] NL SQL execution failed: {_nl_exec_err}")
+            except Exception:
+                pass
         
         # Ensure FI environment via Orchestrator (headless-compliant)
         try:
@@ -1347,6 +1939,133 @@ async def run_async():
             except Exception:
                 pass
             await detect_situations()
+
+        # Generate per-KPI SQL asynchronously when requested by UI
+        if agent and st.session_state.get("trigger_per_kpi_sql") and st.session_state.get("profiles_loaded", False):
+            # Reset trigger first to avoid re-entry
+            st.session_state.trigger_per_kpi_sql = False
+            try:
+                st.session_state.debug_trace.append("run_async: generating per-kpi SQL")
+            except Exception:
+                pass
+            try:
+                # 1) Principal context
+                pc_resp = await get_principal_context(
+                    principal_id=st.session_state.selected_principal_id if st.session_state.get("selected_principal_id") else st.session_state.default_principal_id
+                )
+                principal_context = extract_principal_context(pc_resp)
+
+                # 2) KPI definitions relevant to the principal
+                kpi_defs_resp = await st.session_state.orchestrator.execute_agent_method(
+                    "A9_Situation_Awareness_Agent",
+                    "get_kpi_definitions",
+                    {"principal_context": principal_context}
+                )
+                kpi_defs = {}
+                if isinstance(kpi_defs_resp, dict):
+                    kpi_defs = kpi_defs_resp
+                elif hasattr(kpi_defs_resp, 'model_dump'):
+                    kpi_defs = kpi_defs_resp.model_dump()
+
+                # 3) Determine KPI names to generate SQL for
+                eval_list = []
+                ldr = st.session_state.get("last_detect_result")
+                if isinstance(ldr, dict):
+                    eval_list = ldr.get("kpis_evaluated") or []
+                if not eval_list:
+                    try:
+                        eval_list = list({(s.get('kpi_name') if isinstance(s, dict) else getattr(s, 'kpi_name', None)) for s in st.session_state.get('situations', [])})
+                    except Exception:
+                        eval_list = []
+
+                # 4) Merge filters (principal defaults + UI filters)
+                merged_filters = {}
+                try:
+                    if hasattr(principal_context, 'default_filters') and isinstance(principal_context.default_filters, dict):
+                        merged_filters.update(principal_context.default_filters)
+                except Exception:
+                    pass
+                try:
+                    if isinstance(st.session_state.get('filters'), dict):
+                        merged_filters.update(st.session_state.filters)
+                except Exception:
+                    pass
+
+                # 5) Generate per-KPI SQL via Data Product Agent (base + comparison)
+                results = []
+                for kpi_name in sorted([k for k in eval_list if k]):
+                    kpi_def = None
+                    if kpi_name in kpi_defs:
+                        kpi_def = kpi_defs[kpi_name]
+                    else:
+                        try:
+                            for v in (kpi_defs.values() if isinstance(kpi_defs, dict) else []):
+                                try:
+                                    name_v = v.get('name') if isinstance(v, dict) else getattr(v, 'name', None)
+                                except Exception:
+                                    name_v = None
+                                if name_v == kpi_name:
+                                    kpi_def = v
+                                    break
+                        except Exception:
+                            pass
+                    if not kpi_def:
+                        results.append({"kpi_name": kpi_name, "sql": "", "error": "KPI definition not found"})
+                        continue
+                    try:
+                        # Base SQL via Data Product Agent
+                        resp_sql = await st.session_state.orchestrator.execute_agent_method(
+                            "A9_Data_Product_Agent",
+                            "generate_sql_for_kpi",
+                            {
+                                "kpi_definition": kpi_def,
+                                "timeframe": st.session_state.timeframe,
+                                "filters": merged_filters
+                            }
+                        )
+                        base_sql = resp_sql.get('sql', '') if isinstance(resp_sql, dict) else ''
+
+                        # Comparison SQL via Data Product Agent
+                        comp_sql = ''
+                        try:
+                            comp_resp = await st.session_state.orchestrator.execute_agent_method(
+                                "A9_Data_Product_Agent",
+                                "generate_sql_for_kpi_comparison",
+                                {
+                                    "kpi_definition": kpi_def,
+                                    "timeframe": st.session_state.timeframe,
+                                    "comparison_type": st.session_state.get('comparison_type'),
+                                    "filters": merged_filters
+                                }
+                            )
+                            if isinstance(comp_resp, dict) and comp_resp.get('sql'):
+                                comp_sql = comp_resp.get('sql') or ''
+                        except Exception as _comp_err:
+                            # Non-fatal for UI display
+                            pass
+
+                        # Assemble record for UI
+                        if base_sql:
+                            rec = {"kpi_name": kpi_name, "sql": base_sql}
+                            if comp_sql:
+                                rec["comparison_sql"] = comp_sql
+                            results.append(rec)
+                        else:
+                            err_msg = resp_sql.get('message', 'Unknown error') if isinstance(resp_sql, dict) else 'Unknown error'
+                            results.append({"kpi_name": kpi_name, "sql": "", "error": err_msg})
+                    except Exception as gen_err:
+                        results.append({"kpi_name": kpi_name, "sql": "", "error": str(gen_err)})
+
+                st.session_state.per_kpi_sql_results = results
+                st.toast("Per-KPI SQL ready.", icon="✅")
+                # Mark ready so we can rerun once to display SQL without extra toggles
+                try:
+                    st.session_state._per_kpi_sql_ready = True
+                except Exception:
+                    pass
+            except Exception as gen_all_err:
+                st.session_state.per_kpi_sql_results = [{"kpi_name": "(all)", "sql": "", "error": str(gen_all_err)}]
+                st.toast("Per-KPI SQL generation failed.", icon="⚠️")
         
         # Process natural language query if needed and enabled
         if st.session_state.get("enable_nl_ui", False):
@@ -1363,7 +2082,20 @@ async def run_async():
         # Preserve orchestrator and agents across Streamlit reruns to keep
         # registry providers and principal profiles available for selectors.
         # Disconnection should be handled explicitly on app shutdown if needed.
-        pass
+        # If detection or per-KPI SQL just completed, trigger a one-time rerun
+        try:
+            import streamlit as _st
+            if st.session_state.get("post_detect_rerun") or st.session_state.get("_per_kpi_sql_ready") or st.session_state.get("_nl_ready"):
+                # reset flags before rerun to avoid loops
+                st.session_state.post_detect_rerun = False
+                st.session_state._per_kpi_sql_ready = False
+                st.session_state._nl_ready = False
+                if hasattr(_st, "rerun"):
+                    _st.rerun()
+                elif hasattr(_st, "experimental_rerun"):
+                    _st.experimental_rerun()
+        except Exception:
+            pass
 
 # Streamlit doesn't natively support asyncio, so we need to handle it
 if __name__ == "__main__":
