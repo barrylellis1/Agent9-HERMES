@@ -45,6 +45,8 @@ flowchart LR
 - SQL is generated and executed only by the Data Product Agent (DP); SA never generates SQL.
 - Principal Context (PC) resolves ownership/assignment from enterprise context.
 - Data Governance (DG) resolves KPI definitions and dimension mappings.
+ - Data Governance (DG) manages KPI thresholds and severity rules; SA/UI do not hardcode thresholds.
+ - Principal Context (PC) proposes assignment candidates using the HR/identity provider when available (with fallback to `business_context.yaml`); the UI never computes candidates directly.
 
 ---
 
@@ -78,6 +80,21 @@ Situation:
       type: string        # ActionType enum (NOTIFY, ASSIGN, ESCALATE, SNOOZE, OPEN_VIEW, EXPORT)
       params: object      # optional structured params
   assignee_id: string|null    # principal_id (from PC)
+  assignment_candidates:      # proposed by PC; UI does not compute
+    - principal_id: string
+      display_name: string
+      role: string|null
+      score: number           # confidence/fit score 0.0-1.0
+      rationale: string|null
+      source: string          # e.g., "HR", "config"
+  assignment_decision:        # HITL decision record (executive delegation)
+    decided_assignee_id: string|null
+    decided_by_principal_id: string|null
+    decided_by_role: string|null
+    decision_type: string     # ASSIGN | DELEGATE
+    decided_at: string|null   # ISO8601
+    rationale: string|null
+  hitl_required: boolean      # if true, block auto-assign until approved
   provenance:
     orchestrator_txn_id: string
     dg_mapping_id: string|null
@@ -98,7 +115,7 @@ Situation:
 BusinessScope: [ENTERPRISE, DIVISION, BUSINESS_UNIT, REGION, PRODUCT, CUSTOMER]
 Severity: [MINOR, MODERATE, MAJOR, CRITICAL]
 Status: [OPEN, ACKNOWLEDGED, ASSIGNED, IN_PROGRESS, RESOLVED, SNOOZED]
-ActionType: [NOTIFY, ASSIGN, ESCALATE, SNOOZE, OPEN_VIEW, EXPORT]
+ActionType: [NOTIFY, ASSIGN, DELEGATE, ESCALATE, SNOOZE, OPEN_VIEW, EXPORT]
 ```
 
 ### Notes
@@ -143,12 +160,12 @@ Response:
 
 Request:
 ```json
-{ "situation_id": "a6f2..." }
+{ "situation_id": "a6f2...", "include_children": true, "include_candidates": true }
 ```
 
 Response:
 ```json
-{ "situation": { /* Situation with lineage, recommended_actions, children if any */ } }
+{ "situation": { /* Situation with lineage, recommended_actions, children (if any), assignment_candidates */ } }
 ```
 
 ### 3) Analyze situation (run detectors)
@@ -202,6 +219,18 @@ Response:
 { "questions": ["What are the top regions driving the variance?", "How does QoQ compare?"] }
 ```
 
+### 6) Propose assignment candidates (SA↔PC via Orchestrator)
+
+Request:
+```json
+{ "situation_id": "a6f2..." }
+```
+
+Response:
+```json
+{ "assignment_candidates": [ { "principal_id": "regional_mgr_23", "display_name": "J. Smith", "role": "Regional Manager", "score": 0.92, "source": "HR" } ] }
+```
+
 ---
 
 ## Data Product: Grouped KPI Queries (supporting child situations)
@@ -236,9 +265,10 @@ Response (DP → SA):
 
 ## Ownership and Routing
 
-- Ownership is resolved by Principal Context using enterprise mappings (e.g., Region → Regional Manager).
-- Configuration source: `src/config/enterprise/example/business_context.yaml` via `src/agents/shared/business_context_loader.py`.
-- Actions supported: ASSIGN, ESCALATE, SNOOZE, NOTIFY, OPEN_VIEW, EXPORT.
+- Ownership is resolved by Principal Context using enterprise identity/HR mappings when available (data-driven), with a configuration fallback (`src/config/enterprise/example/business_context.yaml`).
+- The UI never computes assignment: it calls SA, which calls PC to return `assignment_candidates` attached to the Situation.
+- HITL delegation is supported: executives can make an assignment/ delegation decision, which SA records via PC (`assignment_decision`).
+- Actions supported: ASSIGN, DELEGATE, ESCALATE, SNOOZE, NOTIFY, OPEN_VIEW, EXPORT.
 
 ---
 
@@ -253,9 +283,9 @@ Response (DP → SA):
 - Source of truth: `business_context.yaml` (registry provider in future)
 
 3) Thresholds, severity & SLAs
-- Draft defaults: MAJOR if |delta_pct| ≥ 10%, CRITICAL if ≥ 20%
-- Cooldown 24h per key; escalate if unresolved after 48h for MAJOR/CRITICAL
-- KPI-specific overrides via DG metadata
+- Thresholds and severity rules are managed by Data Governance (KPI Registry). SA/UI must not hardcode thresholds.
+- SA applies DG-provided rules to DP results to derive severity; or DG can return a computed severity where implemented.
+- SLA and cooldown policy remain configurable at SA-level (e.g., cooldown per `dedupe_key`, escalation windows). We should agree on initial SLA/cooldown values while keeping thresholds in DG.
 
 ---
 
@@ -267,6 +297,7 @@ Response (DP → SA):
 - Tests:
   - Component: SA emits parent/child situations given DP grouped results
   - Integration: SA→DP→DG→PC orchestration for assignment
+  - Component/Integration: PC returns assignment candidates; SA records HITL assignment decisions
   - E2E: UI Inbox shows hierarchical situations; actions update state & audit
 
 ## Next Steps
