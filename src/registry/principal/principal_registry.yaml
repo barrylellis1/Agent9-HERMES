@@ -121,8 +121,8 @@ principals:
       - "Operations: Production Cost Management"
       - "Supply Chain: Logistics Efficiency"
     default_filters:
-      profit_center_hierarchyid: ["Best Run U"]
-      customer_hierarchyid: ["17100001"]
+      "Profit Center Name": ["Production"]
+      "Parent Customer Hierarchy ID": ["Z2", "Z3"]
     typical_timeframes:
       - "Monthly"
       - "Quarterly"
@@ -172,8 +172,8 @@ principals:
       - "Finance: Cash Flow Management"
       - "Finance: Budget vs. Actuals"
     default_filters:
-      profit_center_hierarchyid: ["Finance"]
-      customer_hierarchyid: ["Total"]
+      "Profit Center/Group Description": ["US Holding Company"]
+      "Parent Customer Hierarchy ID": ["Z1"]
     typical_timeframes:
       - "Monthly"
       - "Quarterly"

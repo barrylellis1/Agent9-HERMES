@@ -669,6 +669,40 @@ def main():
             for situation in sorted_situations:
                 severity_class = situation.severity.name.lower()
                 display_situation(situation, severity_class)
+
+            # Comparison SQL Debug Panel
+            st.markdown("---")
+            st.subheader("Per-KPI SQL (Base vs Comparison)")
+            with st.spinner("Fetching SQL statements..."):
+                try:
+                    sql_map = asyncio.run(
+                        st.session_state.orchestrator.get_kpi_sqls(
+                            principal_role=st.session_state.principal_role,
+                            business_processes=st.session_state.business_processes,
+                            timeframe=st.session_state.timeframe,
+                            comparison_type=st.session_state.comparison_type,
+                            filters=st.session_state.filters
+                        )
+                    )
+                    if sql_map:
+                        for kpi_name, sqls in sql_map.items():
+                            with st.expander(f"{kpi_name}"):
+                                base_sql = sqls.get("base_sql", "")
+                                comp_sql = sqls.get("comparison_sql", "")
+                                if base_sql:
+                                    st.markdown("**Base SQL**")
+                                    st.code(base_sql, language="sql")
+                                else:
+                                    st.info("No base SQL available")
+                                if comp_sql:
+                                    st.markdown("**Comparison SQL**")
+                                    st.code(comp_sql, language="sql")
+                                else:
+                                    st.info("No comparison SQL available for selected comparison type")
+                    else:
+                        st.info("No KPIs available for the selected filters.")
+                except Exception as _sql_err:
+                    st.warning(f"Unable to fetch per-KPI SQL statements: {_sql_err}")
         else:
             st.info("No situations detected yet. Click 'Refresh Situations' to detect situations.")
     

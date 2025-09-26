@@ -5,6 +5,12 @@ All agent configuration models must be defined here for centralized validation.
 
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, ConfigDict, Field
+from src.agents.models.nlp_models import (
+    NLPBusinessQueryInput,
+    NLPBusinessQueryResult,
+    EntityExtractionInput,
+    EntityExtractionResult,
+)
 
 
 class A9_LLM_Service_Agent_Config(BaseModel):
@@ -231,6 +237,16 @@ class A9_Data_Product_Agent_Config(BaseModel):
         description="Whether to log all executed SQL queries"
     )
 
+    # Fiscal/time settings
+    fiscal_year_start_month: int = Field(
+        1,
+        description="Fiscal year start month (1-12). Default is 1 (January)."
+    )
+    timezone: str = Field(
+        "UTC",
+        description="Timezone identifier for date computations (informational for DuckDB in MVP)."
+    )
+
     # MCP client settings (embedded by default for unit tests)
     mcp_mode: str = Field(
         "embedded",
@@ -244,3 +260,45 @@ class A9_Data_Product_Agent_Config(BaseModel):
         10000,
         description="Timeout budget in milliseconds for remote MCP calls"
     )
+
+
+class A9_NLP_Interface_Agent_Config(BaseModel):
+    """
+    Configuration for the A9_NLP_Interface_Agent.
+    Controls parsing behavior, HITL, and orchestrator-driven integration.
+    """
+    model_config = ConfigDict(extra="allow")
+
+    # Core behavior
+    hitl_enabled: bool = Field(
+        False, description="Enable HITL escalation for ambiguous/unmapped terms"
+    )
+    llm_parsing_enabled: bool = Field(
+        False, description="Enable LLM-assisted parsing; deterministic fallback otherwise"
+    )
+
+    # Orchestration & logging
+    require_orchestrator: bool = Field(
+        True, description="All calls must be orchestrator-driven"
+    )
+    log_all_requests: bool = Field(
+        True, description="Log structured inputs/outputs for audit"
+    )
+
+    # Parsing defaults
+    default_topn_n: int = Field(
+        10, description="Default N when user asks for 'top'/'bottom' without a number"
+    )
+
+
+# Protocol model references for compliance checks and documentation
+NLP_PROTOCOL_MODELS: Dict[str, Dict[str, Any]] = {
+    "parse_business_query": {
+        "input": NLPBusinessQueryInput,
+        "output": NLPBusinessQueryResult,
+    },
+    "entity_extraction": {
+        "input": EntityExtractionInput,
+        "output": EntityExtractionResult,
+    },
+}

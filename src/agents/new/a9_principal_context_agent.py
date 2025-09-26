@@ -680,8 +680,9 @@ class A9_Principal_Context_Agent:
                         self.logger.warning(f"No business process provider available, using string directly: {bp}")
                         business_processes.append(bp)
                 
-                # Get role string from profile
-                role_str = profile_data.get('role', 'CFO')
+                # Get role string from profile; YAML to model conversion may omit 'role'
+                # Fallback to 'title' or 'name' before defaulting to 'CFO'
+                role_str = profile_data.get('role') or profile_data.get('title') or profile_data.get('name') or 'CFO'
                 
                 # Convert business process objects to string values directly
                 string_business_processes = []
@@ -712,6 +713,25 @@ class A9_Principal_Context_Agent:
                     communication_style=profile_data.get('communication_style', "Concise"),
                     preferred_timeframes=[TimeFrame.CURRENT_QUARTER, TimeFrame.YEAR_TO_DATE]
                 )
+                # Build and return a protocol-compliant response immediately
+                try:
+                    import uuid as _uuid
+                    from src.agents.models.principal_context_models import PrincipalProfileResponse as _PPR
+                    response = _PPR(
+                        request_id=str(_uuid.uuid4()),
+                        status="success",
+                        profile=profile_data,
+                        context=principal_context.model_dump()
+                    )
+                    return response.model_dump()
+                except Exception:
+                    # Fallback to dict if model construction fails
+                    return {
+                        "request_id": str(_uuid.uuid4()) if '_uuid' in locals() else "",
+                        "status": "success",
+                        "profile": profile_data,
+                        "context": principal_context.model_dump()
+                    }
             
             # Create a default profile
             default_profile = {
@@ -746,7 +766,7 @@ class A9_Principal_Context_Agent:
                 request_id=str(uuid.uuid4()),
                 status="success",
                 profile=default_profile,
-                context=principal_context
+                context=principal_context.model_dump()
             )
             
             return response.model_dump()

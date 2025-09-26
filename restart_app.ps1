@@ -71,14 +71,9 @@ if (Test-PortInUse -Port 8000) {
     Start-Sleep -Seconds 2
 }
 
-# Prepare logs directory and file BEFORE starting so we can tee output
+# Prepare logs directory BEFORE starting so we can tee output
 if (-not (Test-Path .\logs)) {
     New-Item -ItemType Directory -Path .\logs | Out-Null
-}
-if (Test-Path .\logs\streamlit.log) {
-    Clear-Content .\logs\streamlit.log
-} else {
-    New-Item -ItemType File -Path .\logs\streamlit.log | Out-Null
 }
 
 # Start the Streamlit server and tee output to logs
@@ -94,10 +89,12 @@ try {
         Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot'; & '$pythonExe' -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000"
     }
 
-    # Activate the virtual environment and run the Streamlit app, teeing stdout/stderr to log
+    # Build a unique log file path to avoid file locking across restarts
+    $logFilePath = Join-Path $PSScriptRoot ("logs\\streamlit_{0}.log" -f (Get-Date -Format "yyyyMMdd_HHmmss"))
+    # Activate the virtual environment in current shell (optional for current script scope)
     . .\.venv\Scripts\Activate.ps1
-    # Ensure unbuffered Python output; set Streamlit log level to info and tee to file for offline inspection
-    $cmd = "$env:PYTHONUNBUFFERED=1; $env:STREAMLIT_LOG_LEVEL='info'; . .\\.venv\\Scripts\\Activate.ps1; streamlit run decision_studio.py --logger.level=info *>&1 | Tee-Object -FilePath .\\logs\\streamlit.log -Append"
+    # Compose the command to run in a new PowerShell process. Use single quotes to prevent premature variable expansion.
+    $cmd = '$env:PYTHONUNBUFFERED=1; $env:STREAMLIT_LOG_LEVEL="info"; . .\.venv\Scripts\Activate.ps1; streamlit run decision_studio.py --logger.level=info *>&1 | Tee-Object -FilePath ' + ('"' + $logFilePath + '"') + ' -Append'
     Start-Process powershell -ArgumentList "-NoExit", "-Command", $cmd
 } catch {
     Write-Host "Error starting Decision Studio: $_"
@@ -111,12 +108,12 @@ Start-Sleep -Seconds 3
 
 # Show a message that the app is running
 Write-Host "Decision Studio is running at http://localhost:8501"
-Write-Host "Log file is available at .\logs\streamlit.log"
+Write-Host "Log file is available at $logFilePath"
 Write-Host "Press Ctrl+C to stop viewing logs"
 
 # Tail the streamlit log file to show real-time output
 try {
-    Get-Content .\logs\streamlit.log -Wait
+    Get-Content $logFilePath -Wait
 } catch {
     Write-Host "Stopped viewing logs"
 }

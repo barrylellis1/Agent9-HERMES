@@ -182,7 +182,11 @@ class RegistryFactory:
             try:
                 from src.registry.providers.kpi_provider import KPIProvider
                 logger.info("Creating default KPI provider since none exists")
-                provider = KPIProvider()  # Will use default KPIs
+                # Load from YAML so that kpi_defaults and registry-driven semantics are applied
+                provider = KPIProvider(
+                    source_path="src/registry/kpi/kpi_registry.yaml",
+                    storage_format="yaml"
+                )
                 self.register_provider("kpi", provider)
                 # Mark as initialized
                 self._provider_initialization_status["kpi"] = True

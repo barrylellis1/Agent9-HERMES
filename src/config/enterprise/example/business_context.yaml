@@ -1,0 +1,24 @@
+enterprise_name: Acme Cycle Co.
+industry: Sporting Goods
+subindustry: Bicycle Manufacturing & Retail
+revenue_band: "$500M-$1B"
+employee_band: "2k-5k"
+regions: [United States, Canada]
+go_to_market: ["B2B via retailers", "Wholesale"]
+products_services:
+  - Cruise bikes
+  - Mountain bikes
+  - Racing bikes
+primary_systems:
+  ERP: SAP S/4HANA
+  CRM: Salesforce
+  DWH: Snowflake
+data_maturity: medium
+risk_posture: medium
+compliance_requirements: [SOX, PIPEDA]
+strategic_priorities:
+  - Improve gross margin
+  - Reduce returns
+  - Retailer sell-through growth
+operating_model: hybrid
+notes: "FI sample shows US/CA focus; customer segments include Specialty/Medium/Large."

@@ -216,11 +216,57 @@ class KPIProvider(RegistryProvider[KPI]):
                 
                 # Handle the specific structure of our KPI registry YAML
                 if isinstance(data, dict) and "kpis" in data and isinstance(data["kpis"], list):
+                    # Extract defaults (optional)
+                    defaults = data.get("kpi_defaults", {}) if isinstance(data, dict) else {}
+                    dp_defaults = (defaults.get("by_data_product_id") or {}) if isinstance(defaults, dict) else {}
+
+                    def _merge_defaults(item: dict) -> dict:
+                        """Return a new KPI dict merged with defaults by data_product_id.
+                        - Merges 'filters' (shallow) and 'dimensions' (by 'name' dedupe)
+                        """
+                        try:
+                            if not isinstance(item, dict):
+                                return item
+                            dp_id = item.get("data_product_id")
+                            if not (isinstance(dp_id, str) and dp_id in dp_defaults):
+                                return item
+                            dflt = dp_defaults.get(dp_id) or {}
+                            merged = dict(item)
+                            # Merge filters
+                            dflt_filters = dflt.get("filters") or {}
+                            if dflt_filters:
+                                mf = dict(dflt_filters)
+                                if isinstance(merged.get("filters"), dict):
+                                    mf.update(merged["filters"])  # KPI-specific overrides take precedence
+                                merged["filters"] = mf
+                            # Merge dimensions
+                            dflt_dims = dflt.get("dimensions") or []
+                            if dflt_dims:
+                                existing = merged.get("dimensions") or []
+                                # Build map by lowercased name for dedupe
+                                def _norm_name(d):
+                                    if isinstance(d, dict):
+                                        n = d.get("name") or d.get("field") or str(d)
+                                    else:
+                                        n = str(d)
+                                    return str(n).strip().lower()
+                                emap = { _norm_name(d): d for d in existing }
+                                for d in dflt_dims:
+                                    key = _norm_name(d)
+                                    if key not in emap:
+                                        existing.append(d)
+                                merged["dimensions"] = existing
+                            return merged
+                        except Exception:
+                            return item
+
                     # Process the list of KPIs under the 'kpis' key
                     for item in data["kpis"]:
                         if isinstance(item, dict):
                             try:
-                                kpi = KPI(**item)
+                                # Apply defaults before model creation
+                                merged_item = _merge_defaults(item)
+                                kpi = KPI(**merged_item)
                                 self._add_kpi(kpi)
                             except Exception as e:
                                 logger.warning(f"Failed to create KPI from YAML item: {e}")

@@ -108,6 +108,8 @@ class A9_Situation_Awareness_Agent:
         
         # Initialize KPI registry with empty registry to avoid errors
         self.kpi_registry = {}
+        # Cache for last generated SQL per KPI to avoid regenerating for UI display
+        self._last_sql_cache: Dict[str, Dict[str, str]] = {}
     
     async def connect(self):
         """Initialize connections to dependent services."""
@@ -370,8 +372,8 @@ class A9_Situation_Awareness_Agent:
             situations = []
             kpi_values = []
             
-            # Process each relevant KPI to fetch actual values from database
-            for kpi_name, kpi_definition in list(relevant_kpis.items())[:5]:  # Limit to 5 KPIs for MVP
+            # Process each relevant KPI to fetch actual values from database (no cap)
+            for kpi_name, kpi_definition in relevant_kpis.items():
                 try:
                     # Get actual KPI value from database using Data Product Agent
                     kpi_value = await self._get_kpi_value(
@@ -409,10 +411,27 @@ class A9_Situation_Awareness_Agent:
                 if first_kpi_def:
                     try:
                         # Use Data Product Agent to generate SQL for the KPI
+                        merged_filters = {}
+                        try:
+                            pc_df = getattr(request.principal_context, 'default_filters', None)
+                            if isinstance(pc_df, dict):
+                                merged_filters.update(pc_df)
+                        except Exception:
+                            pass
+                        try:
+                            if isinstance(request.filters, dict):
+                                merged_filters.update(request.filters)
+                        except Exception:
+                            pass
+                        # Debug: log merged filters so we can verify principal defaults are present
+                        try:
+                            self.logger.info(f"[SA SQL-DEBUG] merged_filters for sample SQL: {merged_filters}")
+                        except Exception:
+                            pass
                         sql_response = await self.data_product_agent.generate_sql_for_kpi(
                             kpi_definition=first_kpi_def,
                             timeframe=request.timeframe,
-                            filters=request.filters
+                            filters=merged_filters
                         )
                         if sql_response.get('success', False) and sql_response.get('sql'):
                             sample_sql = sql_response['sql']
@@ -425,7 +444,9 @@ class A9_Situation_Awareness_Agent:
                 status="success",
                 message=f"Detected {len(situations)} situations across {len(kpi_values)} KPIs",
                 situations=situations,
-                sql_query=sample_sql
+                sql_query=sample_sql,
+                kpi_evaluated_count=len(kpi_values),
+                kpis_evaluated=[kv.kpi_name for kv in kpi_values]
             )
         
         except Exception as e:
@@ -676,6 +697,45 @@ class A9_Situation_Awareness_Agent:
             
             # Generate SQL for the query using Data Product Agent
             sql_query = await self._generate_sql_for_query(request.query, kpi_values)
+            # Fallback: if NL->SQL did not return SQL but we have a KPI, generate base KPI SQL for display
+            if (not sql_query) and kpi_values and self.data_product_agent:
+                try:
+                    first_kpi_name = getattr(kpi_values[0], 'kpi_name', None)
+                    kpi_def = None
+                    # Try to resolve KPI definition from registry
+                    if first_kpi_name and isinstance(self.kpi_registry, dict):
+                        kpi_def = self.kpi_registry.get(first_kpi_name)
+                    # Merge principal default filters with explicit request filters
+                    merged_filters = {}
+                    try:
+                        if getattr(request.principal_context, 'default_filters', None):
+                            df = request.principal_context.default_filters
+                            if isinstance(df, dict):
+                                merged_filters.update(df)
+                    except Exception:
+                        pass
+                    try:
+                        if isinstance(request.filters, dict):
+                            merged_filters.update(request.filters)
+                    except Exception:
+                        pass
+                    if kpi_def:
+                        dp_resp_fallback = await self.data_product_agent.generate_sql_for_kpi(
+                            kpi_definition=kpi_def,
+                            timeframe=request.timeframe if request.timeframe else TimeFrame.CURRENT_QUARTER,
+                            filters=merged_filters
+                        )
+                        if isinstance(dp_resp_fallback, dict) and dp_resp_fallback.get('success') and dp_resp_fallback.get('sql'):
+                            sql_query = dp_resp_fallback['sql']
+                            try:
+                                logger.info("[SA] Using KPI SQL fallback for NL response display")
+                            except Exception:
+                                pass
+                except Exception as _fallback_err:
+                    try:
+                        logger.warning(f"KPI SQL fallback failed: {_fallback_err}")
+                    except Exception:
+                        pass
             
             # Check if we need HITL escalation due to unmapped terms
             human_action_required = False
@@ -1585,10 +1645,41 @@ class A9_Situation_Awareness_Agent:
         """
         # This functionality has been moved to the Data Governance Agent
         relevant_kpis = {}
-        
-        # Use provided business processes or fall back to principal's
-        processes = business_processes or principal_context.business_processes
-        
+
+        # Use explicit business processes if provided, otherwise from principal context
+        processes = business_processes if business_processes else (
+            principal_context.business_processes if hasattr(principal_context, 'business_processes') else []
+        )
+
+        # Normalize selected processes: handle both display names (e.g., "Finance: Expense Management")
+        # and canonical IDs (e.g., "finance_expense_management") for robust matching.
+        def _to_bp_id(bp_str: str) -> str:
+            try:
+                s = (bp_str or "").strip().lower()
+                # If already looks like an id (no colon and contains underscores), use as-is
+                if ':' not in s and '_' in s:
+                    return s
+                # Drop domain prefix like "finance:" if present
+                if ':' in s:
+                    s = s.split(':', 1)[1]
+                # Replace non-alphanum with spaces, then collapse to underscores
+                import re as _re
+                s = _re.sub(r"[^a-z0-9]+", " ", s).strip()
+                s = "_".join([tok for tok in s.split() if tok])
+                # Prepend domain when known from original input
+                domain_prefix = None
+                if isinstance(bp_str, str) and ':' in bp_str:
+                    domain_prefix = bp_str.split(':', 1)[0].strip().lower()
+                if domain_prefix:
+                    return f"{domain_prefix}_{s}"
+                # Fallback to finance domain for MVP if no domain present
+                return f"finance_{s}" if not s.startswith("finance_") else s
+            except Exception:
+                return (bp_str or "").strip().lower()
+
+        selected_bp_names = set(str(bp).strip() for bp in processes if isinstance(bp, str))
+        selected_bp_ids = set(_to_bp_id(str(bp)) for bp in selected_bp_names)
+
         # For domain-level business processes, we just use the processes directly
         # since they're already at the domain level (e.g., "Finance")
         process_strings = []
@@ -1643,6 +1734,10 @@ class A9_Situation_Awareness_Agent:
                 elif hasattr(kpi_def, 'business_process_ids') and bp in kpi_def.business_process_ids:
                     relevant_kpis[kpi_name] = kpi_def
                     break
+                # Check for normalized business process IDs
+                elif hasattr(kpi_def, 'business_process_ids') and _to_bp_id(bp) in kpi_def.business_process_ids:
+                    relevant_kpis[kpi_name] = kpi_def
+                    break
         
         logger.debug(f"Found {len(relevant_kpis)} KPIs relevant to {len(processes)} business processes")
         return relevant_kpis
@@ -1683,29 +1778,67 @@ class A9_Situation_Awareness_Agent:
                 logger.error(f"Data Product MCP Service Agent not initialized for KPI {kpi_name}")
                 return None
             
-            # Delegate KPI data retrieval to Data Product Agent (SQL generation + execution inside DPA)
+            # Merge principal default filters with provided filters
+            merged_filters: Dict[str, Any] = {}
             try:
-                kpi_data_resp = await self.data_product_agent.get_kpi_data(
+                if principal_context and hasattr(principal_context, 'default_filters') and isinstance(principal_context.default_filters, dict):
+                    merged_filters.update(principal_context.default_filters)
+            except Exception:
+                pass
+            try:
+                if isinstance(filters, dict):
+                    merged_filters.update(filters)
+            except Exception:
+                pass
+
+            # Single-source SQL generation (for both execution and later UI display)
+            # 1) Generate Base SQL via DPA
+            base_sql = ""
+            try:
+                gen_resp = await self.data_product_agent.generate_sql_for_kpi(
                     kpi_definition=kpi_definition,
                     timeframe=timeframe,
-                    filters=filters,
-                    principal_context=principal_context
+                    filters=merged_filters
                 )
-                if kpi_data_resp.get('status') != 'success':
-                    self.logger.error(f"Error getting KPI data for {kpi_name}: {kpi_data_resp.get('message', 'Unknown error')}")
+                if isinstance(gen_resp, dict) and gen_resp.get('success') and isinstance(gen_resp.get('sql', ''), str):
+                    base_sql = gen_resp['sql']
+                else:
+                    self.logger.error(f"Failed to generate base SQL for KPI {kpi_name}: {gen_resp}")
                     return None
-
-                # Extract numeric KPI value
-                try:
-                    current_value = float(kpi_data_resp.get('kpi_value'))
-                    self.logger.info(f"Extracted KPI value for {kpi_name}: {current_value}")
-                except (ValueError, TypeError) as e:
-                    self.logger.error(f"Error parsing KPI value for {kpi_name}: {str(e)} - raw: {kpi_data_resp.get('kpi_value')} ")
-                    return None
-            except Exception as query_error:
-                self.logger.error(f"Error retrieving KPI data for {kpi_name}: {str(query_error)}")
+            except Exception as ge:
+                self.logger.error(f"Error generating base SQL for KPI {kpi_name}: {ge}")
                 return None
-            
+
+            # Cache base SQL for UI
+            try:
+                if kpi_name not in self._last_sql_cache:
+                    self._last_sql_cache[kpi_name] = {}
+                self._last_sql_cache[kpi_name]['base_sql'] = base_sql
+                self.logger.info(f"[SA SQL-DEBUG] cached base_sql for '{kpi_name}', length={len(base_sql)}")
+            except Exception:
+                pass
+
+            # 2) Execute Base SQL via DPA to obtain current KPI value
+            current_value = None
+            try:
+                exec_resp = await self.data_product_agent.execute_sql(base_sql, parameters=None, principal_context=principal_context)
+                rows = exec_resp.get('rows') or exec_resp.get('data') or []
+                if rows:
+                    first = rows[0]
+                    if isinstance(first, (list, tuple)) and len(first) > 0:
+                        current_value = float(first[0])
+                    elif isinstance(first, dict):
+                        # Prefer common alias if present
+                        if 'total_value' in first:
+                            current_value = float(first['total_value'])
+                        elif len(first.values()) > 0:
+                            current_value = float(list(first.values())[0])
+                if current_value is None:
+                    current_value = 0.0
+                self.logger.info(f"Extracted KPI value for {kpi_name}: {current_value}")
+            except Exception as e:
+                self.logger.error(f"Error executing base SQL for {kpi_name}: {e}")
+                return None
             # For testing/MVP when comparison not available, return basic KPI value
             if not comparison_type:
                 return KPIValue(
@@ -1714,51 +1847,257 @@ class A9_Situation_Awareness_Agent:
                     comparison_value=None,
                     comparison_type=None,
                     timeframe=timeframe,
-                    dimensions=filters,
+                    dimensions=merged_filters,
                     percent_change=None
                 )
             
-            # If comparison is requested, get the comparison value
+            # If comparison is requested, generate comparison SQL once and execute it
             comparison_value = None
             try:
-                comp_resp = await self.data_product_agent.get_kpi_comparison_data(
+                comp_sql = ""
+                comp_sql_resp = await self.data_product_agent.generate_sql_for_kpi_comparison(
                     kpi_definition=kpi_definition,
                     timeframe=timeframe,
                     comparison_type=comparison_type,
-                    filters=filters,
-                    principal_context=principal_context
+                    filters=merged_filters
                 )
-                if comp_resp.get('status') == 'success':
+                if isinstance(comp_sql_resp, dict) and comp_sql_resp.get('success') and isinstance(comp_sql_resp.get('sql', ''), str):
+                    comp_sql = comp_sql_resp['sql']
+                    # Cache comparison SQL for UI
                     try:
-                        comparison_value = float(comp_resp.get('comparison_value'))
-                        self.logger.info(f"Extracted comparison value for {kpi_name}: {comparison_value}")
-                    except (ValueError, TypeError) as e:
-                        self.logger.error(f"Error parsing comparison value for {kpi_name}: {str(e)} - raw: {comp_resp.get('comparison_value')}")
+                        if kpi_name not in self._last_sql_cache:
+                            self._last_sql_cache[kpi_name] = {}
+                        self._last_sql_cache[kpi_name]['comparison_sql'] = comp_sql
+                        self.logger.info(f"[SA SQL-DEBUG] cached comparison_sql for '{kpi_name}', length={len(comp_sql)}")
+                    except Exception:
+                        pass
+                    # Execute comparison SQL
+                    exec_comp = await self.data_product_agent.execute_sql(comp_sql, parameters=None, principal_context=principal_context)
+                    crows = exec_comp.get('rows') or exec_comp.get('data') or []
+                    if crows:
+                        cfirst = crows[0]
+                        if isinstance(cfirst, (list, tuple)) and len(cfirst) > 0:
+                            comparison_value = float(cfirst[0])
+                        elif isinstance(cfirst, dict):
+                            if 'total_value' in cfirst:
+                                comparison_value = float(cfirst['total_value'])
+                            elif len(cfirst.values()) > 0:
+                                comparison_value = float(list(cfirst.values())[0])
                 else:
-                    self.logger.warning(f"No comparison data available for KPI {kpi_name}: {comp_resp.get('message', 'unknown')}")
+                    self.logger.warning(f"No comparison SQL generated for KPI {kpi_name}: {comp_sql_resp}")
             except Exception as comp_error:
-                self.logger.warning(f"Error getting comparison value for {kpi_name}: {str(comp_error)}")
+                self.logger.warning(f"Error generating/executing comparison SQL for {kpi_name}: {str(comp_error)}")
                 # Continue without comparison value
             
             # Calculate percent change if we have both values
             percent_change = None
             if comparison_value is not None and comparison_value != 0:
                 percent_change = ((current_value - comparison_value) / abs(comparison_value)) * 100
-            
+
             return KPIValue(
                 kpi_name=kpi_name,
                 value=current_value,
                 comparison_value=comparison_value,
                 comparison_type=comparison_type,
                 timeframe=timeframe,
-                dimensions=filters,
+                dimensions=merged_filters,
                 percent_change=percent_change
             )
-        
         except Exception as e:
             logger.error(f"Error getting KPI value for {kpi_name}: {str(e)}")
             return None
-    
+
+    async def _get_sql_for_kpi(
+        self,
+        kpi: Any,
+        filters: Optional[Dict[str, Any]] = None,
+        principal_context: Optional[PrincipalContext] = None,
+        timeframe: Optional[TimeFrame] = None
+    ) -> str:
+        """
+        Delegator that returns SQL for a KPI by calling the Data Product Agent.
+
+        Args:
+            kpi: KPI name/id (str), dict payload, or a `KPIDefinition` instance
+            filters: Optional filter dict
+            timeframe: Optional `TimeFrame`
+
+        Returns:
+            SQL string if generated, else empty string
+        """
+        try:
+            # Resolve KPI definition
+            kpi_def: Optional[KPIDefinition] = None
+            if hasattr(kpi, '__dict__'):
+                kpi_def = kpi
+            elif isinstance(kpi, dict):
+                try:
+                    kpi_def = KPIDefinition(**kpi)
+                except Exception:
+                    kpi_def = None
+            elif isinstance(kpi, str):
+                if kpi in self.kpi_registry:
+                    kpi_def = self.kpi_registry[kpi]
+                else:
+                    k_lower = kpi.strip().lower()
+                    for name, kd in self.kpi_registry.items():
+                        if str(name).strip().lower() == k_lower:
+                            kpi_def = kd
+                            break
+
+            if not kpi_def:
+                self.logger.warning("_get_sql_for_kpi: KPI definition not found")
+                return ""
+
+            if not self.data_product_agent:
+                self.logger.error("_get_sql_for_kpi: Data Product Agent not available")
+                return ""
+
+            # If available, serve the cached SQL used during detection (avoids re-generation)
+            try:
+                kpi_name = getattr(kpi_def, 'name', None)
+                if isinstance(kpi_name, str) and kpi_name in getattr(self, '_last_sql_cache', {}):
+                    cached = self._last_sql_cache[kpi_name].get('base_sql')
+                    if isinstance(cached, str) and cached.strip():
+                        return cached
+            except Exception:
+                pass
+
+            # Merge principal default filters with provided filters for SQL generation
+            merged_filters: Dict[str, Any] = {}
+            try:
+                if principal_context is not None:
+                    if isinstance(principal_context, dict):
+                        pc_df = principal_context.get('default_filters', {})
+                    else:
+                        pc_df = getattr(principal_context, 'default_filters', {})
+                    if isinstance(pc_df, dict):
+                        merged_filters.update(pc_df)
+            except Exception:
+                pass
+            try:
+                if isinstance(filters, dict):
+                    merged_filters.update(filters)
+            except Exception:
+                pass
+
+            # Debug: log merged filters for per-KPI base SQL
+            try:
+                self.logger.info(f"[SA SQL-DEBUG] merged_filters for per-KPI base SQL: {merged_filters}")
+            except Exception:
+                pass
+
+            resp = await self.data_product_agent.generate_sql_for_kpi(
+                kpi_definition=kpi_def,
+                timeframe=timeframe,
+                filters=merged_filters
+            )
+            if isinstance(resp, dict) and resp.get('success') and isinstance(resp.get('sql', ''), str):
+                return resp['sql']
+            if hasattr(self.data_product_agent, 'generate_sql_for_query') and isinstance(resp, dict):
+                alt = await self.data_product_agent.generate_sql_for_query(resp.get('sql', ''))
+                if isinstance(alt, dict) and alt.get('success') and isinstance(alt.get('sql', ''), str):
+                    return alt['sql']
+            return ""
+        except Exception as e:
+            self.logger.warning(f"_get_sql_for_kpi error: {e}")
+            return ""
+
+    async def _get_comparison_sql_for_kpi(
+        self,
+        kpi: Any,
+        comparison_type: Optional[ComparisonType] = None,
+        filters: Optional[Dict[str, Any]] = None,
+        principal_context: Optional[PrincipalContext] = None,
+        timeframe: Optional[TimeFrame] = None
+    ) -> str:
+        """
+        Delegator that returns Comparison SQL for a KPI by calling the Data Product Agent.
+
+        Args:
+            kpi: KPI name/id (str), dict payload, or a `KPIDefinition` instance
+            comparison_type: Comparison type (e.g., Budget Vs Actual, QoQ, YoY)
+            filters: Optional filter dict
+            timeframe: Optional `TimeFrame`
+
+        Returns:
+            SQL string if generated, else empty string
+        """
+        try:
+            # Resolve KPI definition
+            kpi_def: Optional[KPIDefinition] = None
+            if hasattr(kpi, '__dict__'):
+                kpi_def = kpi
+            elif isinstance(kpi, dict):
+                try:
+                    kpi_def = KPIDefinition(**kpi)
+                except Exception:
+                    kpi_def = None
+            elif isinstance(kpi, str):
+                if kpi in self.kpi_registry:
+                    kpi_def = self.kpi_registry[kpi]
+                else:
+                    k_lower = kpi.strip().lower()
+                    for name, kd in self.kpi_registry.items():
+                        if str(name).strip().lower() == k_lower:
+                            kpi_def = kd
+                            break
+
+            if not kpi_def:
+                self.logger.warning("_get_comparison_sql_for_kpi: KPI definition not found")
+                return ""
+
+            if not self.data_product_agent:
+                self.logger.error("_get_comparison_sql_for_kpi: Data Product Agent not available")
+                return ""
+
+            # If available, serve the cached comparison SQL used during detection
+            try:
+                kpi_name = getattr(kpi_def, 'name', None)
+                if isinstance(kpi_name, str) and kpi_name in getattr(self, '_last_sql_cache', {}):
+                    cached = self._last_sql_cache[kpi_name].get('comparison_sql')
+                    if isinstance(cached, str) and cached.strip():
+                        return cached
+            except Exception:
+                pass
+
+            # Merge principal default filters with provided filters for SQL generation
+            merged_filters: Dict[str, Any] = {}
+            try:
+                if principal_context is not None:
+                    if isinstance(principal_context, dict):
+                        pc_df = principal_context.get('default_filters', {})
+                    else:
+                        pc_df = getattr(principal_context, 'default_filters', {})
+                    if isinstance(pc_df, dict):
+                        merged_filters.update(pc_df)
+            except Exception:
+                pass
+            try:
+                if isinstance(filters, dict):
+                    merged_filters.update(filters)
+            except Exception:
+                pass
+
+            # Debug: log merged filters for per-KPI comparison SQL
+            try:
+                self.logger.info(f"[SA SQL-DEBUG] merged_filters for per-KPI comparison SQL: {merged_filters}")
+            except Exception:
+                pass
+
+            resp = await self.data_product_agent.generate_sql_for_kpi_comparison(
+                kpi_definition=kpi_def,
+                timeframe=timeframe,
+                comparison_type=comparison_type,
+                filters=merged_filters
+            )
+            if isinstance(resp, dict) and isinstance(resp.get('sql', ''), str) and resp.get('sql'):
+                return resp['sql']
+            return ""
+        except Exception as e:
+            self.logger.warning(f"_get_comparison_sql_for_kpi error: {e}")
+            return ""
+
     def _detect_kpi_situations(
         self,
         kpi_definition: KPIDefinition,
@@ -1927,6 +2266,17 @@ class A9_Situation_Awareness_Agent:
                 if abs(percent_change) >= 5:
                     change_direction = "increased" if percent_change > 0 else "decreased"
                     change_quality = "worsened" if not is_good_change else "improved"
+                    # Business-specific phrasing rule:
+                    # For COGS-like KPIs, when the situation is assessed as worsened
+                    # but the numeric change is negative ("decreased"), prefer the
+                    # display term "increased" per stakeholder phrasing request.
+                    try:
+                        kpi_name_lower = (getattr(kpi_definition, 'name', '') or '').lower()
+                    except Exception:
+                        kpi_name_lower = ''
+                    if kpi_name_lower in ("cost of goods sold", "cogs", "cost of sales"):
+                        if change_quality == "worsened" and change_direction == "decreased":
+                            change_direction = "increased"
                     situations.append(self._create_threshold_situation(
                         kpi_definition,
                         kpi_value,
@@ -2054,76 +2404,91 @@ class A9_Situation_Awareness_Agent:
         kpi_values: List[KPIValue]
     ) -> Optional[str]:
         """
-        Generate SQL for a natural language query using the LLM Service Agent.
-        Falls back to Data Product Agent only if LLM path fails and A9_FORCE_LLM_SQL is not set.
-        
-        Args:
-            query: Natural language query
-            kpi_values: KPI values related to the query
-            
-        Returns:
-            SQL query string or None
+        Generate SQL for a natural language query by delegating to the Data Product Agent.
+        Centralizes all SQL generation paths (LLM and deterministic) in the Data Product Agent.
         """
-        self.logger.info(f"Generating SQL via LLM Service for query: {query}")
-        
-        # Feature flag to enforce LLM-only path
-        force_llm = str(os.environ.get('A9_FORCE_LLM_SQL', 'false')).lower() in ('1','true','yes','y','on')
-        
-        # Attempt LLM SQL generation first
-        if self.llm_service_agent is not None:
-            try:
-                # Derive data_product_id from contract filename (e.g., 'fi_star_schema')
-                dp_id = os.path.splitext(os.path.basename(self.contract_path))[0] if hasattr(self, 'contract_path') else "fi_star_schema"
-                
-                # Read YAML contract text if available
-                yaml_contract_text = None
-                try:
-                    if hasattr(self, 'contract_path') and os.path.exists(self.contract_path):
-                        with open(self.contract_path, 'r') as _f:
-                            yaml_contract_text = _f.read()
-                except Exception as _yaml_err:
-                    self.logger.warning(f"Could not read YAML contract for LLM SQL generation: {_yaml_err}")
-                
-                req = A9_LLM_SQLGenerationRequest(
-                    request_id=str(uuid.uuid4()),
-                    timestamp=datetime.utcnow().isoformat(),
-                    principal_id='sa_agent',
-                    natural_language_query=query,
-                    data_product_id=dp_id,
-                    yaml_contract=yaml_contract_text,
-                    include_explain=False
-                )
-                
-                llm_resp = await self.llm_service_agent.generate_sql(req)
-                if getattr(llm_resp, 'status', '') == 'success' and getattr(llm_resp, 'sql_query', ''):
-                    self.logger.info("SQL generated successfully via LLM Service")
-                    return llm_resp.sql_query
-                else:
-                    warn = getattr(llm_resp, 'error_message', None) or 'Unknown error'
-                    self.logger.warning(f"LLM Service SQL generation returned no SQL: {warn}")
-            except Exception as e:
-                self.logger.warning(f"LLM Service SQL generation failed: {e}")
-            
-            if force_llm:
-                self.logger.error("A9_FORCE_LLM_SQL is enabled; refusing to fall back to Data Product Agent SQL generation")
-                return None
-        
-        # Fallback: delegate to Data Product Agent (legacy path)
         try:
             if not self.data_product_agent:
-                self.logger.warning("Data Product Agent not available for SQL fallback")
+                self.logger.warning("Data Product Agent not available for SQL generation")
                 return None
-            
-            self.logger.info("Falling back to Data Product Agent for SQL generation")
-            context = {'kpi_values': kpi_values} if kpi_values else {}
+            # Build a minimal context for DPA (let DPA decide how to use LLM/deterministic paths)
+            dp_id = os.path.splitext(os.path.basename(self.contract_path))[0] if hasattr(self, 'contract_path') else "fi_star_schema"
+            context = {
+                'data_product_id': dp_id,
+                'contract_path': getattr(self, 'contract_path', None),
+                'kpi_values': [kv.model_dump() if hasattr(kv, 'model_dump') else kv.__dict__ for kv in (kpi_values or [])]
+            }
             dp_resp = await self.data_product_agent.generate_sql(query, context)
             if isinstance(dp_resp, dict) and dp_resp.get('success') and dp_resp.get('sql'):
                 return dp_resp['sql']
-            self.logger.warning(f"Data Product Agent fallback failed: {dp_resp}")
+            self.logger.warning(f"Data Product Agent returned no SQL: {dp_resp}")
             return None
         except Exception as e:
-            self.logger.error(f"Fallback SQL generation via Data Product Agent failed: {e}")
+            self.logger.error(f"Error delegating SQL generation to Data Product Agent: {e}")
             return None
+
+
+    def _generate_answer_for_query(self, query: str, kpi_values: List[KPIValue]) -> str:
+        """
+        Deterministic, lightweight answer generator for NL queries.
+        Produces a concise summary from available KPI values without LLMs.
+        """
+        try:
+            if not kpi_values:
+                return (
+                    "I couldn't map your question to a specific KPI. "
+                    "Please refine the question or select a KPI from the card."
+                )
+
+            def _fmt_timeframe(tf: Any) -> str:
+                try:
+                    if hasattr(tf, 'name'):
+                        return str(tf.name).replace('_', ' ').title()
+                    if hasattr(tf, 'value'):
+                        return str(tf.value)
+                    return str(tf) if tf else "current period"
+                except Exception:
+                    return "current period"
+
+            lines: List[str] = []
+            for kv in kpi_values[:3]:
+                name = getattr(kv, 'kpi_name', 'KPI')
+                val = getattr(kv, 'value', None)
+                tf = _fmt_timeframe(getattr(kv, 'timeframe', None))
+
+                # Optional unit lookup from registry
+                unit = ""
+                try:
+                    if hasattr(self, 'kpi_registry') and isinstance(self.kpi_registry, dict) and name in self.kpi_registry:
+                        unit_str = getattr(self.kpi_registry[name], 'unit', None)
+                        if unit_str:
+                            unit = f" {unit_str}"
+                except Exception:
+                    unit = ""
+
+                if isinstance(val, (int, float)):
+                    val_str = f"{val:,.2f}"
+                else:
+                    val_str = str(val)
+                lines.append(f"{name} for {tf}: {val_str}{unit}")
+
+            if len(kpi_values) > 3:
+                lines.append(f"...and {len(kpi_values) - 3} more.")
+            return " | ".join(lines)
+        except Exception as e:
+            # Fail-safe fallback
+            try:
+                self.logger.warning(f"_generate_answer_for_query fallback due to: {e}")
+            except Exception:
+                pass
+            if kpi_values:
+                try:
+                    return "; ".join(
+                        [f"{getattr(kv, 'kpi_name', 'KPI')}: {getattr(kv, 'value', 'N/A')}" for kv in kpi_values[:3]]
+                    )
+                except Exception:
+                    return "Answer available, but formatting failed."
+            return "No KPI values available to answer."
 
 
 def create_situation_awareness_agent(config: Dict[str, Any]) -> "A9_Situation_Awareness_Agent":

@@ -37,3 +37,26 @@ terms:
     technical_mappings:
       sap: CUST_SATISFACTION
       duckdb: customer_satisfaction
+
+  - name: Version
+    synonyms:
+      - scenario
+    description: Version dimension such as Actual or Budget
+    technical_mappings:
+      duckdb: Version
+
+  - name: Profit Center Hierarchyid
+    synonyms:
+      - profit_center_hierarchyid
+      - profit center hierarchyid
+    description: Profit Center hierarchy identifier
+    technical_mappings:
+      duckdb: "Profit Center Hierarchyid"
+
+  - name: Customer Hierarchyid
+    synonyms:
+      - customer_hierarchyid
+      - customer hierarchyid
+    description: Customer hierarchy identifier
+    technical_mappings:
+      duckdb: "Customer Hierarchyid"

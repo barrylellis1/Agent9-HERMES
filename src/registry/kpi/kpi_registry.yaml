@@ -3,6 +3,18 @@
 # Format follows the src.registry.models.kpi model structure
 # MVP scope is limited to Finance KPIs only
 
+# Defaults applied to KPIs at load time (by KPIProvider) to avoid per-KPI duplication
+kpi_defaults:
+  by_data_product_id:
+    FI_Star_Schema:
+      filters:
+        Version: "Actual"
+      dimensions:
+        - name: "Version"
+          field: "version"
+          values: ["Actual", "Budget"]
+          description: "Version dimension"
+
 # List of KPIs
 kpis:
   - id: gross_revenue

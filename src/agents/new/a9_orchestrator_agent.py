@@ -10,6 +10,8 @@ import time
 import logging
 from typing import Dict, Any, List, Optional, Callable, Type, Union, Set
 import inspect
+from src.agents.shared.business_context_loader import try_load_business_context
+from src.agents.shared.a9_debate_protocol_models import A9_ProblemStatement, A9_PS_BusinessContext
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +218,43 @@ class A9_Orchestrator_Agent:
         Disconnect from dependencies and clean up resources.
         """
         self.logger.info(f"{self.name} disconnected from dependencies")
+    
+    def inject_business_context(self, problem_statement: Any, default_path: Optional[str] = None) -> Any:
+        """
+        Inject a stable Business Context into an A9_ProblemStatement if missing.
+
+        - Accepts either a dict (serialized problem statement) or an A9_ProblemStatement instance.
+        - Attempts to load context via env var A9_BUSINESS_CONTEXT_YAML, else uses default_path.
+        - Returns the same type as provided (dict in, dict out; model in, model out).
+
+        This is a minimal, opt-in helper that keeps existing patterns intact.
+        """
+        try:
+            bc = try_load_business_context(default_path)
+            if not bc:
+                return problem_statement
+
+            # Pydantic model path
+            if isinstance(problem_statement, A9_ProblemStatement):
+                if getattr(problem_statement, "business_context", None) is None:
+                    problem_statement.business_context = bc
+                return problem_statement
+
+            # Dict path (serialized request)
+            if isinstance(problem_statement, dict):
+                if not problem_statement.get("business_context"):
+                    try:
+                        problem_statement["business_context"] = bc.serialize()
+                    except Exception:
+                        # Fallback to model_dump for safety
+                        problem_statement["business_context"] = bc.model_dump()
+                return problem_statement
+
+            # Unknown type: no-op
+            return problem_statement
+        except Exception:
+            # Non-intrusive: never raise from injector
+            return problem_statement
     
     async def register_agent(self, agent_name: str, agent_instance: Any, dependencies: List[str] = None) -> None:
         """
@@ -497,6 +536,7 @@ async def initialize_agent_registry():
     from src.agents.new.a9_situation_awareness_agent import A9_Situation_Awareness_Agent, create_situation_awareness_agent
     from src.agents.new.a9_data_product_agent import A9_Data_Product_Agent
     from src.agents.new.a9_data_governance_agent import A9_Data_Governance_Agent, create_data_governance_agent
+    from src.agents.new.a9_nlp_interface_agent import A9_NLP_Interface_Agent
     from src.agents.a9_llm_service_agent import A9_LLM_Service_Agent
     
     # Register agent factories
@@ -504,6 +544,7 @@ async def initialize_agent_registry():
     agent_registry.register_agent_factory("A9_Situation_Awareness_Agent", create_situation_awareness_agent)
     agent_registry.register_agent_factory("A9_Data_Product_Agent", A9_Data_Product_Agent.create)
     agent_registry.register_agent_factory("A9_Data_Governance_Agent", A9_Data_Governance_Agent.create)
+    agent_registry.register_agent_factory("A9_NLP_Interface_Agent", A9_NLP_Interface_Agent.create)
     agent_registry.register_agent_factory("A9_LLM_Service_Agent", A9_LLM_Service_Agent.create)
     
     # Register agent dependencies

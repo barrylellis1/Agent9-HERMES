@@ -268,6 +268,98 @@ class UIOrchestrator:
         
         return response.situations
     
+    async def get_kpi_sqls(
+        self,
+        principal_role: PrincipalRole,
+        business_processes: List[BusinessProcess],
+        timeframe: TimeFrame,
+        comparison_type: ComparisonType,
+        filters: Dict[str, Any] = None,
+        principal_id: str = None
+    ) -> Dict[str, Dict[str, str]]:
+        """
+        Retrieve base and comparison SQL for relevant KPIs via the orchestrator.
+        Returns a mapping: { kpi_name: { 'base_sql': str, 'comparison_sql': str } }
+        """
+        # Ensure orchestrator is initialized
+        if self.orchestrator is None:
+            raise ValueError("Orchestrator is not initialized. Call initialize() first.")
+
+        # Resolve principal context
+        principal_context = await self.get_principal_context(principal_role, principal_id)
+
+        # Merge KPI definitions across requested business processes
+        merged_kpis: Dict[str, Any] = {}
+        for bp in (business_processes or []):
+            try:
+                resp = await self.orchestrator.execute_agent_method(
+                    "A9_Situation_Awareness_Agent",
+                    "get_kpi_definitions",
+                    {"principal_context": principal_context, "business_process": bp}
+                )
+                if isinstance(resp, dict):
+                    merged_kpis.update(resp)
+            except Exception as e:
+                self.logger.warning(f"get_kpi_sqls: unable to fetch KPI defs for {bp}: {e}")
+
+        # If no BPs provided or empty result, attempt domain-level fallback using the role's default context
+        if not merged_kpis:
+            try:
+                resp = await self.orchestrator.execute_agent_method(
+                    "A9_Situation_Awareness_Agent",
+                    "get_kpi_definitions",
+                    {"principal_context": principal_context}
+                )
+                if isinstance(resp, dict):
+                    merged_kpis.update(resp)
+            except Exception as e:
+                self.logger.warning(f"get_kpi_sqls: fallback fetch of KPI defs failed: {e}")
+
+        results: Dict[str, Dict[str, str]] = {}
+        # Fetch base and comparison SQL for each KPI
+        for kpi_name, kpi_def in merged_kpis.items():
+            try:
+                base_resp = await self.orchestrator.execute_agent_method(
+                    "A9_Data_Product_Agent",
+                    "generate_sql_for_kpi",
+                    {"kpi_definition": kpi_def, "timeframe": timeframe, "filters": (filters or {})}
+                )
+                base_sql = base_resp.get("sql", "") if isinstance(base_resp, dict) else ""
+
+                comp_resp = await self.orchestrator.execute_agent_method(
+                    "A9_Data_Product_Agent",
+                    "generate_sql_for_kpi_comparison",
+                    {
+                        "kpi_definition": kpi_def,
+                        "timeframe": timeframe,
+                        "comparison_type": comparison_type,
+                        "filters": (filters or {})
+                    }
+                )
+                comp_sql = comp_resp.get("sql", "") if isinstance(comp_resp, dict) else ""
+
+                results[kpi_name] = {"base_sql": base_sql, "comparison_sql": comp_sql}
+
+                # Record for debug metrics panel
+                if base_sql:
+                    self.debug_metrics["sql_statements"].append({
+                        "query": base_sql,
+                        "execution_time_ms": 0.0,
+                        "timestamp": datetime.now().isoformat(),
+                        "note": f"base:{kpi_name}"
+                    })
+                if comp_sql:
+                    self.debug_metrics["sql_statements"].append({
+                        "query": comp_sql,
+                        "execution_time_ms": 0.0,
+                        "timestamp": datetime.now().isoformat(),
+                        "note": f"comparison:{kpi_name}"
+                    })
+            except Exception as e:
+                self.logger.warning(f"get_kpi_sqls: error fetching SQL for KPI {kpi_name}: {e}")
+
+        return results
+    
     async def process_nl_query(self, 
                                principal_role: PrincipalRole,
                                query: str,
