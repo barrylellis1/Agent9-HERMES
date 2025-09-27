@@ -915,6 +915,25 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 elif isinstance(group_item, dict) and 'name' in group_item:
                     group_by_items.append(group_item['name'])
 
+        # If no explicit group_by provided, apply fallbacks (dimensions or DP-level metadata)
+        if not group_by_items:
+            try:
+                # 1) KPI metadata-provided fallback dims
+                meta = getattr(kpi_definition, 'metadata', {}) or {}
+                fgbd = meta.get('fallback_group_by_dimensions')
+                if isinstance(fgbd, list) and fgbd:
+                    group_by_items = [str(x) for x in fgbd if isinstance(x, (str, int, float))]
+            except Exception:
+                pass
+            # 2) KPI-level dimensions field as a pragmatic fallback
+            if not group_by_items:
+                try:
+                    dims = getattr(kpi_definition, 'dimensions', None)
+                    if isinstance(dims, list) and dims:
+                        group_by_items = [str(x) for x in dims if isinstance(x, (str, int, float))]
+                except Exception:
+                    pass
+
         # If grouping is requested, include the grouping columns in the SELECT list
         if group_by_items:
             for gb in group_by_items:

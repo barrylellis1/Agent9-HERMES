@@ -128,6 +128,14 @@ class DataProduct(BaseModel):
         """
         # Extract metadata
         metadata = yaml_data.get("metadata", {})
+        # Surface top-level fallback_group_by_dimensions into metadata for downstream use
+        try:
+            fgbd = yaml_data.get("fallback_group_by_dimensions")
+            if isinstance(fgbd, list):
+                # Keep existing metadata entries and add fallback dims
+                metadata = {**metadata, "fallback_group_by_dimensions": fgbd}
+        except Exception:
+            pass
         name = metadata.get("name", "Unnamed Data Product")
         domain = metadata.get("domain", "Finance")
         owner = metadata.get("owner", f"{domain} Team")
