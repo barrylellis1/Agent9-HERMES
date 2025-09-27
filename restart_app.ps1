@@ -3,12 +3,15 @@
 
 param(
     [ValidateSet("stable", "next")]
-    [string]$Channel = "stable"
+    [string]$Channel = "stable",
+    [string]$Version = "dev"
 )
 
-# Set runtime channel env var for child processes (without touching .env)
+# Set runtime channel/version env vars for child processes (without touching .env)
 $env:A9_DS_CHANNEL = $Channel
+$env:A9_DS_VERSION = $Version
 Write-Host "Decision Studio channel: $Channel" -ForegroundColor Cyan
+Write-Host "Decision Studio version: $Version" -ForegroundColor Cyan
 
 # Function to check if a port is in use
 function Test-PortInUse {
