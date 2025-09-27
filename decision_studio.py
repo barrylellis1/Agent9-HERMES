@@ -116,6 +116,21 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Release channel and version banner (env-driven, no .env changes)
+try:
+    CHANNEL = os.environ.get("A9_DS_CHANNEL", "stable").strip().lower()
+except Exception:
+    CHANNEL = "stable"
+VERSION = os.environ.get("A9_DS_VERSION", "").strip() or "dev"
+try:
+    st.sidebar.info(f"Decision Studio ({VERSION}) • Channel: {CHANNEL}")
+except Exception:
+    pass
+try:
+    logging.info(f"[DecisionStudio] Running channel={CHANNEL}, version={VERSION}")
+except Exception:
+    pass
+
 # Initialize session state for our application
 def init_session_state():
     """Initialize session state variables."""
@@ -189,6 +204,14 @@ def init_session_state():
     # Feature flag to enable/disable NL Q&A UI
     if "enable_nl_ui" not in st.session_state:
         st.session_state.enable_nl_ui = False
+    # Channel-based defaults for experimental features
+    try:
+        if CHANNEL == "next":
+            st.session_state.enable_nl_ui = True
+            # Enable SQL debug panel by default on next channel
+            st.session_state.show_per_kpi_sql = True
+    except Exception:
+        pass
     # Rolling debug trace for diagnostics
     if "debug_trace" not in st.session_state:
         st.session_state.debug_trace = []

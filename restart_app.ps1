@@ -1,6 +1,15 @@
 # This script automates the process of restarting the Streamlit application.
 # It first forcefully terminates any running Streamlit processes and then starts the app again.
 
+param(
+    [ValidateSet("stable", "next")]
+    [string]$Channel = "stable"
+)
+
+# Set runtime channel env var for child processes (without touching .env)
+$env:A9_DS_CHANNEL = $Channel
+Write-Host "Decision Studio channel: $Channel" -ForegroundColor Cyan
+
 # Function to check if a port is in use
 function Test-PortInUse {
     param(
