@@ -27,6 +27,12 @@ description: >
   SAP FI Star Schema with explicit schema, kpis:
   # KPIs / Restricted Key Figures) definitions, and table relationships for NLQ/LLM use.
 
+# Default child breakdown dimensions to use when a caller does not specify groupings.
+# These business terms are resolved by Data Governance to technical columns.
+fallback_group_by_dimensions:
+  - region
+  - profit_center
+
 views:
   - name: FI_Star_View
     sql: |

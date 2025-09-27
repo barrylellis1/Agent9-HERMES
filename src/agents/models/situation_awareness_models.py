@@ -67,6 +67,26 @@ class HITLDecision(str, Enum):
     MODIFIED = "modified"
     ESCALATED = "escalated"
 
+# Additional enums for situation lifecycle and actions
+class SituationStatus(str, Enum):
+    """Lifecycle status of a situation."""
+    OPEN = "open"
+    ACKNOWLEDGED = "acknowledged"
+    ASSIGNED = "assigned"
+    IN_PROGRESS = "in_progress"
+    RESOLVED = "resolved"
+    SNOOZED = "snoozed"
+
+class ActionType(str, Enum):
+    """Supported action types for situations (UI-driven via SA)."""
+    NOTIFY = "notify"
+    ASSIGN = "assign"
+    DELEGATE = "delegate"
+    ESCALATE = "escalate"
+    SNOOZE = "snooze"
+    OPEN_VIEW = "open_view"
+    EXPORT = "export"
+
 # Base models for requests and responses
 class BaseRequest(BaseModel):
     """Base model for all requests."""
@@ -139,19 +159,55 @@ class KPIValue(BaseModel):
     unit: Optional[str] = Field(None, description="Unit of measurement")
     timeframe: TimeFrame = Field(description="Time frame of the KPI")
     dimensions: Optional[Dict[str, Any]] = Field(None, description="Dimensions of the KPI")
-    
+
+# Assignment models
+class AssignmentCandidate(BaseModel):
+    """Potential assignee proposed by Principal Context/HR provider."""
+    principal_id: str = Field(description="Candidate principal ID")
+    display_name: Optional[str] = Field(None, description="Human-readable name")
+    role: Optional[str] = Field(None, description="Role or title")
+    score: Optional[float] = Field(None, description="Confidence score (0-1)")
+    source: Optional[str] = Field(None, description="Source of candidate (e.g., HR, config)")
+    rationale: Optional[str] = Field(None, description="Why this candidate was proposed")
+
+class AssignmentDecision(BaseModel):
+    """Recorded human or automated assignment decision."""
+    decided_assignee_id: Optional[str] = Field(None, description="Chosen assignee principal ID")
+    decided_by_principal_id: Optional[str] = Field(None, description="Who made the decision")
+    decided_by_role: Optional[str] = Field(None, description="Role of decision maker")
+    decision_type: Optional[str] = Field(None, description="manual|auto|delegate")
+    decided_at: Optional[datetime] = Field(None, description="Timestamp of decision")
+    rationale: Optional[str] = Field(None, description="Reason for the decision")
+
 # Situation Models
 class Situation(BaseModel):
     """Detected situation for a KPI."""
     situation_id: str = Field(description="Unique ID for the situation")
+    parent_id: Optional[str] = Field(None, description="Parent situation ID if this is a child")
     kpi_name: str = Field(description="Name of the KPI")
     kpi_value: KPIValue = Field(description="Value of the KPI")
     severity: SituationSeverity = Field(description="Severity of the situation")
+    status: SituationStatus = Field(default=SituationStatus.OPEN, description="Lifecycle status of the situation")
     description: str = Field(description="Description of the situation")
     business_impact: str = Field(description="Business impact of the situation")
     suggested_actions: Optional[List[str]] = Field(None, description="Suggested actions")
     diagnostic_questions: Optional[List[str]] = Field(None, description="Diagnostic questions")
     timestamp: datetime = Field(default_factory=datetime.now, description="Detection timestamp")
+    # Optional HITL/assignment fields (UI never computes candidates directly)
+    hitl_required: bool = Field(default=False, description="Whether human review is required")
+    assignee_id: Optional[str] = Field(None, description="Assigned principal ID (if any)")
+    assignment_candidates: Optional[List[AssignmentCandidate]] = Field(
+        default=None, description="Proposed candidates from Principal Context/HR"
+    )
+    assignment_decision: Optional[AssignmentDecision] = Field(
+        default=None, description="Recorded assignment decision metadata"
+    )
+    # Operational metadata
+    dedupe_key: Optional[str] = Field(None, description="Key used for deduplication")
+    cooldown_until: Optional[datetime] = Field(None, description="Cooldown expiry timestamp")
+    tags: Optional[List[str]] = Field(None, description="Free-form tags for filtering")
+    provenance: Optional[Dict[str, Any]] = Field(None, description="Upstream txns and references")
+    lineage: Optional[List[Dict[str, Any]]] = Field(None, description="Data lineage references")
 
 # Situation Detection Request/Response
 class SituationDetectionRequest(BaseRequest):

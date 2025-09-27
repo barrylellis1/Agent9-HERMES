@@ -74,6 +74,18 @@ class NLQueryResponse(BaseResponse):
 - A9_Data_Governance_Agent: For business term mapping (future)
 - A9_NLP_Interface_Agent: For advanced natural language processing (future)
 
+## Assignment & HITL
+- Delayed assignment until Deep Analysis completes; ownership mapping can be more precise once scope is identified across dimensions.
+- Fallback child breakdown dimensions are defined in the Data Product YAML (e.g., `fallback_group_by_dimensions`).
+- Action types supported: `notify`, `assign`, `delegate`, `escalate`, `snooze`, `open_view`, `export`.
+- Situation model fields extended:
+  - `parent_id`, `status`, `hitl_required`, `assignee_id`
+  - `assignment_candidates[]`, `assignment_decision{}`
+  - `dedupe_key`, `cooldown_until`, `tags`, `provenance`, `lineage`
+- Entrypoints (orchestrated):
+  - `propose_assignment_candidates(situation_id)` – delegates to Principal Context/HR; fallback to Process Owner from Business Process registry when HR mapping is unavailable.
+  - `apply_action(situation_id, action)` – applies `ActionType` (including `DELEGATE`) and updates situation state.
+
 ## Compliance Status
 - [x] Follows A9 Agent naming convention (A9_Situation_Awareness_Agent)
 - [x] Implements required protocol methods
