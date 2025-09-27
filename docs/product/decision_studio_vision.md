@@ -119,21 +119,22 @@ ActionType: [NOTIFY, ASSIGN, DELEGATE, ESCALATE, SNOOZE, OPEN_VIEW, EXPORT]
 ```
 
 ### Notes
-- Parent situations typically use a broader `scope` (e.g., ENTERPRISE) and children a more granular one (e.g., REGION or PRODUCT).
 - `assignee_id` is resolved by Principal Context using enterprise context config (e.g., `src/config/enterprise/example/business_context.yaml`).
 - Severity may be derived from KPI criticality, absolute/percent deltas, and quality/confidence signals.
 
 ---
 
-## UI ↔ SA API Contract (via Orchestrator)
+ ## UI ↔ SA API Contract (via Orchestrator)
+ 
+ > Serialization note: The JSON snippets below are illustrative of HTTP-serializable payloads. Internally, Decision Studio and agents exchange Pydantic models and Python dicts; YAML remains the canonical format for registries and data product contracts. We are not introducing JSON as a new config or storage layer. The JSON examples below are for illustration purposes only and should not be used as-is in production code.
 
-All calls are orchestrator-routed to SA and downstream agents, returning serializable dicts/JSON compatible with the UI. Method names align with Agent9 protocol entries and agent cards.
+All calls are Orchestrator-routed to SA and downstream agents, returning serializable dicts/JSON compatible with the UI. Method names align with Agent9 protocol entries and agent cards.
 
 ### 1) List situations
 
 Request:
 ```json
-{
+{{ ... }}
   "principal_context": { "principal_id": "ceo_001" },
   "filters": {
     "status": ["OPEN", "ASSIGNED"],
