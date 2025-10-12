@@ -106,7 +106,8 @@ class OpenAIService:
             raise ValueError(f"API key not found - checked direct config and environment variable {self.config.api_key_env_var}")
         
         # Mask for logging (security)
-        masked_key = api_key[:4] + "*" * (len(api_key) - 8) + api_key[-4:] if len(api_key) > 8 else "****"
+        mask_body = "*" * max(len(api_key) - 4, 0)
+        masked_key = (api_key[:4] + mask_body) if len(api_key) >= 4 else "****"
         logger.info(f"Initializing OpenAI client with API key: {masked_key}")
         
         # Initialize OpenAI client
@@ -126,7 +127,7 @@ class OpenAIService:
     def _load_guardrails(self) -> GuardrailConfig:
         """Load guardrails configuration from YAML file"""
         try:
-            with open(self.config.guardrails_path, 'r') as f:
+            with open(self.config.guardrails_path, 'r', encoding='utf-8') as f:
                 guardrail_data = yaml.safe_load(f)
                 
             # Extract system prompt from guardrails
@@ -156,7 +157,7 @@ class OpenAIService:
         """Load prompt templates from markdown file"""
         templates = {}
         try:
-            with open(self.config.prompt_templates_path, 'r') as f:
+            with open(self.config.prompt_templates_path, 'r', encoding='utf-8') as f:
                 content = f.read()
                 
             # Parse markdown content to extract templates

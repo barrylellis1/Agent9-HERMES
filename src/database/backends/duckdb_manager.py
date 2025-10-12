@@ -58,14 +58,18 @@ class DuckDBManager(DatabaseManager):
             # If a database_path is provided, use it, otherwise use in-memory
             database_path = connection_params.get('database_path', ':memory:')
             self.logger.info(f"Connecting to DuckDB at {database_path}")
-            
+
+            if database_path not in (":memory:", ""):
+                db_path = Path(database_path)
+                db_path.parent.mkdir(parents=True, exist_ok=True)
+
             # Create a new DuckDB connection
             self.duckdb_conn = duckdb.connect(database_path)
-            
+
             # Configure DuckDB settings for proper decimal handling and other optimizations
             # Note: 'format' is not a valid DuckDB configuration parameter
             # self.duckdb_conn.execute("SET format='EUROPEAN'")
-            
+
             return True
         except Exception as e:
             self.logger.error(f"Error connecting to DuckDB: {str(e)}")

@@ -233,8 +233,10 @@ class A9_LLM_Service_Agent:
                 api_key = os.environ.get(self.config.api_key_env_var)
             
             # Log API key presence (masked)
+            masked_key = "****"
             if api_key:
-                masked_key = api_key[:4] + "*" * (len(api_key) - 8) + api_key[-4:] if len(api_key) > 8 else "****"
+                mask_body = "*" * max(len(api_key) - 4, 0)
+                masked_key = (api_key[:4] + mask_body) if len(api_key) >= 4 else "****"
                 logger.info(f"Using {self.config.provider} API key: {masked_key}")
             else:
                 logger.warning(f"No API key found in config or environment var {self.config.api_key_env_var}")
@@ -255,9 +257,11 @@ class A9_LLM_Service_Agent:
             # Initialize the appropriate service based on provider
             provider = self.config.provider.lower()
             logger.info(f"Initializing LLM service for provider: {provider}")
-            
-            # Debug service config
-            logger.info(f"Service config: {service_config}")
+
+            # Debug service config without exposing secrets
+            sanitized_config = service_config.copy()
+            sanitized_config["api_key"] = "***redacted***" if api_key else "MISSING"
+            logger.info(f"Service config: {sanitized_config}")
             
             if provider == "anthropic":
                 logger.info("Initializing Claude service with config...")
@@ -328,7 +332,7 @@ class A9_LLM_Service_Agent:
         """Load prompt templates from markdown file"""
         templates = {}
         try:
-            with open(self.config.prompt_templates_path, 'r') as f:
+            with open(self.config.prompt_templates_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             
             # Simple parsing of markdown code blocks with titles

@@ -1,8 +1,8 @@
 # Windsurf Cascade Prompt Templates for Agent9
 
-## 🎯 Use These Exact Prompts to Control Cascade Behavior
+## Use These Exact Prompts to Control Cascade Behavior
 
-### 📖 PRD Reading Prompt
+### PRD Reading Prompt
 ```
 STEP 1 - PRD ANALYSIS REQUIRED:
 
@@ -17,7 +17,7 @@ DO NOT write any code until I approve your PRD analysis.
 REFERENCE: Agent9_Agent_Design_Standards.md for compliance requirements.
 ```
 
-### 🏗️ Implementation Planning Prompt  
+### Implementation Planning Prompt  
 ```
 STEP 2 - IMPLEMENTATION PLAN REQUIRED:
 
@@ -37,7 +37,7 @@ CONSTRAINTS:
 DO NOT write implementation code until plan is approved.
 ```
 
-### ⚡ Single Agent Implementation Prompt
+### Single Agent Implementation Prompt
 ```
 STEP 3 - IMPLEMENT SINGLE AGENT:
 
@@ -60,7 +60,7 @@ CRITICAL CONSTRAINTS:
 REFERENCE: Windsurf Cascade Guardrails document for all patterns.
 ```
 
-### 🧪 Testing Prompt (Separate Request)
+### Testing Prompt (Separate Request)
 ```
 STEP 4 - TESTING VIA ORCHESTRATOR:
 
@@ -84,7 +84,7 @@ REQUIRED:
 - Assert on workflow outputs and events
 ```
 
-### 🔧 Debugging/Fix Prompt
+### Debugging/Fix Prompt
 ```
 DEBUG MODE - FIX SPECIFIC ISSUE:
 
@@ -102,61 +102,61 @@ Show ONLY the specific lines that need changing.
 Reference Agent9_Agent_Design_Standards.md for compliance.
 ```
 
-## 🎭 Cascade Behavior Control Phrases
+## ðŸŽ­ Cascade Behavior Control Phrases
 
-### ✅ Use These Phrases:
+### âœ… Use These Phrases:
 - "Following the Agent9 template exactly..."
 - "Using existing HybridWorkflowOrchestrator patterns..."
 - "Referencing the PRD document for requirements..."
 - "Maintaining Pydantic v2 compliance with ConfigDict..."
 - "Integrating via create_from_registry factory method..."
 
-### ❌ Stop These Phrases:
+### âŒ Stop These Phrases:
 - "I'll create a new orchestration pattern..."
 - "Let me build the complete system..."
 - "I'll add some helper functions..."
 - "Here's a more flexible approach..."
 - "I'll improve the architecture..."
 
-## 🔄 Progressive Development Workflow
+## ðŸ”„ Progressive Development Workflow
 
 ### Workflow 1: New Agent Development
 ```
 Request 1: "Use PRD Reading Prompt for Principal Context Agent"
-├── Wait for PRD analysis
-├── Review and approve analysis
+- Wait for PRD analysis
+- Review and approve analysis
 Request 2: "Use Implementation Planning Prompt"
-├── Wait for implementation plan  
-├── Review and approve plan
+- Wait for implementation plan  
+- Review and approve plan
 Request 3: "Use Single Agent Implementation Prompt"
-├── Wait for agent code
-├── Test integration
+- Wait for agent code
+- Test integration
 Request 4: "Use Testing Prompt"
-├── Wait for test implementation
-├── Verify all tests pass
+- Wait for test implementation
+- Verify all tests pass
 ```
 
 ### Workflow 2: Bug Fixing
 ```
 Request 1: "Use Debugging/Fix Prompt with specific error"
-├── Wait for root cause analysis
-├── Review proposed fix
+- Wait for root cause analysis
+- Review proposed fix
 Request 2: "Apply the minimal fix only"
-├── Verify fix works
-├── Run full test suite
+- Verify fix works
+- Run full test suite
 ```
 
 ### Workflow 3: Integration Testing
 ```
-Request 1: "Test {Agent_A} → {Agent_B} handoff via orchestrator"
-├── Use existing workflow patterns only
-├── Assert on event logs and outputs
-Request 2: "Test complete workflow: Situation → Analysis → Solution"
-├── End-to-end orchestrator testing
-├── Verify KPI metrics update
+Request 1: "Test {Agent_A} -> {Agent_B} handoff via orchestrator"
+- Use existing workflow patterns only
+- Assert on event logs and outputs
+Request 2: "Test complete workflow: Situation -> Analysis -> Solution"
+- End-to-end orchestrator testing
+- Verify KPI metrics update
 ```
 
-## 🚨 Emergency Stop Commands
+## ðŸš¨ Emergency Stop Commands
 
 ### When Cascade Goes Off-Track:
 ```
@@ -198,7 +198,7 @@ Your code violates Agent9 protocols:
 Fix the protocol violations only, no other changes.
 ```
 
-## 📝 Response Format Requirements
+## ðŸ“ Response Format Requirements
 
 ### Required Response Structure:
 ```markdown
@@ -228,7 +228,7 @@ Fix the protocol violations only, no other changes.
 
 ---
 
-## 🎯 Quick Reference Card
+## ðŸŽ¯ Quick Reference Card
 
 **Before Every Cascade Request:**
 1. Specify which prompt template to use
@@ -248,3 +248,4 @@ Fix the protocol violations only, no other changes.
 - Uses existing orchestrator patterns
 - No duplicate code generation
 - Pydantic v2 compliance maintained
+
