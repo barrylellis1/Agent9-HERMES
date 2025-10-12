@@ -182,12 +182,12 @@ const Dashboard = () => {
         <Toolbar />
         <Container maxWidth="xl">
           <Grid container spacing={3}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="h4" gutterBottom>
                 Dashboard
               </Typography>
             </Grid>
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <Card elevation={3} sx={{ p: 2, height: '100%' }}>
                 <Box display="flex" alignItems="center" gap={2}>
                   <DashboardIcon color="primary" />
@@ -202,7 +202,7 @@ const Dashboard = () => {
                 </Box>
                 <Grid container spacing={3} mt={2}>
                   {teamStats.map((team, index) => (
-                    <Grid item xs={12} sm={6} md={4} key={index}>
+                    <Grid key={index} size={{ xs: 12, sm: 6, md: 4 }}>
                       <Card elevation={3} sx={{ p: 2, height: '100%' }}>
                         <Box display="flex" alignItems="center" gap={2}>
                           {team.icon}
@@ -236,7 +236,7 @@ const Dashboard = () => {
                 </Grid>
               </Card>
             </Grid>
-            <Grid item xs={12} sm={6} md={8}>
+            <Grid size={{ xs: 12, sm: 6, md: 8 }}>
               <Card>
                 <CardHeader
                   title="Quick Actions"
@@ -294,7 +294,7 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Card>
                 <CardHeader title="Innovation Dashboard" />
                 <CardContent>
@@ -302,7 +302,7 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <CeoSituationsFeed />
             </Grid>
           </Grid>

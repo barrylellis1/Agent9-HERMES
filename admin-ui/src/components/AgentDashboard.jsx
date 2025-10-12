@@ -41,7 +41,7 @@ function AgentDashboard() {
   return (
     <Grid container spacing={2}>
       {agents.map(agent => (
-        <Grid item xs={12} md={4} key={agent.name}>
+        <Grid key={agent.name} size={{ xs: 12, md: 4 }}>
           <Card>
             <CardContent>
               <Typography variant="h6">{agent.name}</Typography>
