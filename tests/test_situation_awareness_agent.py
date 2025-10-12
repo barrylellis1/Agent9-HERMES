@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 # Import registry factory
 from src.registry.factory import RegistryFactory
 from src.registry.providers.kpi_provider import KPIProvider
+from src.registry.providers.principal_provider import PrincipalProfileProvider
 from src.registry.principal.principal_roles import PrincipalRole as RegistryPrincipalRole
 
 # Import situation awareness models
@@ -32,10 +33,12 @@ from src.agents.models.situation_awareness_models import (
     Situation,
     KPIDefinition,
     KPIValue,
+    PrincipalRole,
     PrincipalContext,
     BusinessProcess,
     TimeFrame,
-    ComparisonType
+    ComparisonType,
+    NLQueryRequest,
 )
 
 # Import registry models
@@ -495,7 +498,8 @@ def check_kpi_completeness(kpi_registry: Dict[str, KPIDefinition]):
         registry_factory = RegistryFactory()
         kpi_provider = registry_factory.get_kpi_provider()
         if kpi_provider:
-            kpi_registry = kpi_provider.get_all_kpis()
+            # Use canonical provider API
+            kpi_registry = kpi_provider.get_all()
     
     # Check each KPI for required metadata
     incomplete_kpis = []
@@ -702,6 +706,7 @@ async def test_protocol_methods():
         
         # Create a complete PrincipalContext with all required fields
         principal_context = PrincipalContext(
+            principal_id="CFO_001",
             role=PrincipalRole.CFO,  # Using CFO as a default role
             business_processes=[BusinessProcess.PROFITABILITY_ANALYSIS, BusinessProcess.REVENUE_GROWTH],
             default_filters={},

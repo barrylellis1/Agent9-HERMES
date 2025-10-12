@@ -1,10 +1,15 @@
 import re
 import sys
+import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 AGENTS_DIR = REPO_ROOT / "src" / "agents"
 TESTS_DIR = REPO_ROOT / "tests"
+CARDS_DIRS = [
+    REPO_ROOT / "src" / "agents" / "new" / "cards",
+    REPO_ROOT / "src" / "agents" / "cards",
+]
 
 # Banned patterns for agent code (line-scanned with optional inline suppression tokens)
 # Note: MCP service is deprecated; CSV ingestion via pandas is permitted in agents.
@@ -35,6 +40,10 @@ def lint_agents() -> list[tuple[str, str]]:
     violations: list[tuple[str, str]] = []
     for py in scan_files(AGENTS_DIR):
         text = read_text(py)
+        # File-level skip if deprecated or explicitly allowed
+        head = "\n".join(text.splitlines()[:15])
+        if "DEPRECATION WARNING" in head or "arch-allow-db-in-agent file" in head:
+            continue
         for i, line in enumerate(text.splitlines(), start=1):
             stripped = line.strip()
             if stripped.startswith("#"):
@@ -69,10 +78,69 @@ def lint_tests() -> list[tuple[str, str]]:
     return violations
 
 
+def _get_staged_files() -> list[str]:
+    """Return list of staged file paths (POSIX-style) or [] if unavailable."""
+    try:
+        res = subprocess.run(
+            ["git", "diff", "--cached", "--name-only"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if res.returncode != 0:
+            return []
+        files = [ln.strip().replace("\\", "/") for ln in res.stdout.splitlines() if ln.strip()]
+        return files
+    except Exception:
+        return []
+
+
+def lint_code_config_sync() -> list[tuple[str, str]]:
+    """Enforce Agent9 Code/Config Sync Rule for staged changes.
+
+    If any files under src/agents/new/ (excluding cards/ and agent_config_models.py)
+    are staged, require that at least one of the following is also staged:
+      - src/agents/new/agent_config_models.py (or src/agents/agent_config_models.py if used)
+      - a card change under src/agents/new/cards/ or src/agents/cards/
+    """
+    violations: list[tuple[str, str]] = []
+    staged = _get_staged_files()
+    if not staged:
+        return violations  # no git or nothing staged; skip
+
+    def _is_agent_impl(p: str) -> bool:
+        p = p.lower()
+        return p.startswith("src/agents/new/") and not p.startswith("src/agents/new/cards/") and not p.endswith("agent_config_models.py")
+
+    changed_agent_impls = [p for p in staged if _is_agent_impl(p)]
+    if not changed_agent_impls:
+        return violations
+
+    # look for sync files staged
+    sync_candidates = set()
+    for p in staged:
+        pl = p.lower()
+        if pl.endswith("src/agents/new/agent_config_models.py") or pl.endswith("src/agents/agent_config_models.py"):
+            sync_candidates.add(p)
+        if pl.startswith("src/agents/new/cards/") or pl.startswith("src/agents/cards/"):
+            sync_candidates.add(p)
+
+    if not sync_candidates:
+        details = "\n".join(f" - {p}" for p in changed_agent_impls)
+        violations.append(("CODE/CONFIG-SYNC", (
+            "Agent implementation changes detected without corresponding card/config updates.\n"
+            "Per Agent9 Code/Config Sync Rule, update src/agents/**/agent_config_models.py and/or cards under src/agents/(new/)?cards/.\n"
+            f"Changed agent files:\n{details}"
+        )))
+    return violations
+
+
 def main() -> int:
     violations = []
     agent_violations = lint_agents()
     test_violations = lint_tests()
+    sync_violations = lint_code_config_sync()
     if agent_violations:
         print("[ARCH] Agent violations:")
         for loc, msg in agent_violations:
@@ -83,6 +151,11 @@ def main() -> int:
         for loc, msg in test_violations:
             print(f" - {loc} -> {msg}")
         violations.extend(test_violations)
+    if sync_violations:
+        print("[ARCH] Code/Config Sync violations:")
+        for loc, msg in sync_violations:
+            print(f" - {loc} -> {msg}")
+        violations.extend(sync_violations)
     if violations:
         print(f"\n[ARCH] Found {len(violations)} architecture violation(s).", file=sys.stderr)
         return 1

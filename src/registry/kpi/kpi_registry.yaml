@@ -23,7 +23,7 @@ kpis:
     description: "Total gross revenue recognized in the period."
     unit: "$"
     data_product_id: "FI_Star_Schema"
-    business_process_ids: 
+    business_process_ids:
       - "finance_revenue_growth_analysis"
       - "finance_profitability_analysis"
     sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Gross Revenue'"
@@ -39,10 +39,6 @@ kpis:
         red_threshold: -0.03
         inverse_logic: false
     dimensions:
-      - name: "Region"
-        field: "region"
-        values: ["EMEA", "AMERICAS", "APAC"]
-        description: "Geographic region"
       - name: "Profit Center"
         field: "profit_center"
         description: "Business profit center"
@@ -63,7 +59,7 @@ kpis:
     unit: "$"
     data_product_id: "FI_Star_Schema"
     business_process_ids:
-      - "finance_profitability_analysis" 
+      - "finance_profitability_analysis"
       - "finance_expense_management"
     sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Cost of Goods Sold'"
     thresholds:
@@ -78,10 +74,6 @@ kpis:
         red_threshold: 0.10
         inverse_logic: true
     dimensions:
-      - name: "Region"
-        field: "region"
-        values: ["EMEA", "AMERICAS", "APAC"]
-        description: "Geographic region"
       - name: "Profit Center"
         field: "profit_center"
         description: "Business profit center"
@@ -116,10 +108,6 @@ kpis:
         red_threshold: -0.10
         inverse_logic: false
     dimensions:
-      - name: "Region"
-        field: "region"
-        values: ["EMEA", "AMERICAS", "APAC"]
-        description: "Geographic region"
       - name: "Profit Center"
         field: "profit_center"
         description: "Business profit center"
@@ -155,10 +143,6 @@ kpis:
         red_threshold: 0.10
         inverse_logic: true
     dimensions:
-      - name: "Region"
-        field: "region"
-        values: ["EMEA", "AMERICAS", "APAC"]
-        description: "Geographic region"
       - name: "Profit Center"
         field: "profit_center"
         description: "Business profit center"
@@ -193,10 +177,6 @@ kpis:
         red_threshold: 0.10
         inverse_logic: true
     dimensions:
-      - name: "Region"
-        field: "region"
-        values: ["EMEA", "AMERICAS", "APAC"]
-        description: "Geographic region"
       - name: "Profit Center"
         field: "profit_center"
         description: "Business profit center"
@@ -231,10 +211,6 @@ kpis:
         red_threshold: 0.10
         inverse_logic: true
     dimensions:
-      - name: "Region"
-        field: "region"
-        values: ["EMEA", "AMERICAS", "APAC"]
-        description: "Geographic region"
       - name: "Profit Center"
         field: "profit_center"
         description: "Business profit center"
@@ -247,4 +223,4 @@ kpis:
     stakeholder_roles:
       - "Finance Manager"
       - "CHRO"
-      - "CFO"
+

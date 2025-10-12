@@ -30,7 +30,7 @@ description: >
 # Default child breakdown dimensions to use when a caller does not specify groupings.
 # These business terms are resolved by Data Governance to technical columns.
 fallback_group_by_dimensions:
-  - region
+  - product
   - profit_center
 
 views:
@@ -314,7 +314,7 @@ kpis:
     base_column: "[Transaction Value Amount]"
     join_tables: ["FI_Star_View"]
     dimensions:
-      - "region"
+      - "product"
       - "profit_center"
     llm_hints: "Analyzes top-line revenue performance across different business segments."
     business_terms:
@@ -337,7 +337,7 @@ kpis:
     base_column: "[Transaction Value Amount]"
     join_tables: ["FI_Star_View"]
     dimensions:
-      - "region"
+      - "product"
       - "profit_center"
     business_terms:
       - "Finance: Expense Management"
@@ -355,7 +355,7 @@ kpis:
       - "Cost of Goods Sold"
     join_tables: ["FI_Star_View"]
     dimensions:
-      - "region"
+      - "product"
       - "profit_center"
     business_terms:
       - "Finance: Profitability Analysis"

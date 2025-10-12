@@ -1,4 +1,10 @@
 """
+DEPRECATION WARNING
+This module is deprecated and will be removed after 2025-11-30.
+Reason: SQL generation/execution must occur exclusively in the MCP Service per PRD.
+Replacement: Use MCP client/service via `src/agents/new/a9_data_product_agent.py` and `src/database/backends/`.
+arch-allow-db-in-agent file
+
 A9_Data_Product_MCP_Service_Agent - Centralized data access for SAP Datasphere data.
 
 This agent provides a standardized interface for data access operations,

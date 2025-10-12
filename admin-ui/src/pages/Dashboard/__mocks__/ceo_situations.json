@@ -1,0 +1,202 @@
+[
+  {
+    "id": 1,
+    "title": "Missed EBIT Target in Q2",
+    "description": "EBIT was 12% below forecast in EMEA.",
+    "business_value": 500000,
+    "urgency": "High",
+    "recommendation": "Initiate cost review in EMEA.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-04-15T09:00:00"
+  },
+  {
+    "id": 2,
+    "title": "Emerging APAC Opportunity",
+    "description": "APAC market growth exceeded expectations.",
+    "business_value": 750000,
+    "urgency": "Medium",
+    "recommendation": "Allocate more resources to APAC sales.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-04-12T09:00:00"
+  },
+  {
+    "id": 3,
+    "title": "Leadership Gap in EMEA",
+    "description": "Key leadership vacancy impacting performance in EMEA.",
+    "business_value": 300000,
+    "urgency": "High",
+    "recommendation": "Accelerate executive search.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-04-10T09:00:00"
+  },
+  {
+    "id": 4,
+    "title": "Regulatory Risk: New Compliance Rule",
+    "description": "New EU compliance rule requires immediate attention.",
+    "business_value": 200000,
+    "urgency": "High",
+    "recommendation": "Commission compliance audit.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-04-08T09:00:00"
+  },
+  {
+    "id": 5,
+    "title": "Potential M&A Target Identified",
+    "description": "Suitable acquisition candidate found in LATAM region.",
+    "business_value": 1200000,
+    "urgency": "Medium",
+    "recommendation": "Begin M&A due diligence.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-04-05T09:00:00"
+  },
+  {
+    "id": 6,
+    "title": "Innovation Pipeline Delay",
+    "description": "Product launch delayed due to R&D bottleneck.",
+    "business_value": 600000,
+    "urgency": "Medium",
+    "recommendation": "Accelerate R&D efforts.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-04-03T09:00:00"
+  },
+  {
+    "id": 7,
+    "title": "Supply Chain Disruption",
+    "description": "Supplier issue in Asia affecting delivery timelines.",
+    "business_value": 400000,
+    "urgency": "High",
+    "recommendation": "Activate contingency plan.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-03-30T09:00:00"
+  },
+  {
+    "id": 8,
+    "title": "Cybersecurity Incident",
+    "description": "Detected unauthorized access to sensitive systems.",
+    "business_value": 900000,
+    "urgency": "High",
+    "recommendation": "Conduct security review.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-03-28T09:00:00"
+  },
+  {
+    "id": 9,
+    "title": "Talent Attrition Spike",
+    "description": "Unusual increase in voluntary departures in Q2.",
+    "business_value": 350000,
+    "urgency": "Medium",
+    "recommendation": "Launch retention program.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-03-25T09:00:00"
+  },
+  {
+    "id": 10,
+    "title": "Customer Churn Rising",
+    "description": "Churn rate increased by 2% in North America.",
+    "business_value": 450000,
+    "urgency": "Medium",
+    "recommendation": "Deploy win-back campaign.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-03-22T09:00:00"
+  },
+  {
+    "id": 11,
+    "title": "Market Share Loss in NA",
+    "description": "Competitor gains eroding our NA market share.",
+    "business_value": 800000,
+    "urgency": "High",
+    "recommendation": "Analyze competitive moves.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-03-20T09:00:00"
+  },
+  {
+    "id": 12,
+    "title": "IT Infrastructure Upgrade Needed",
+    "description": "Aging IT systems causing operational inefficiency.",
+    "business_value": 250000,
+    "urgency": "Low",
+    "recommendation": "Plan phased IT upgrade.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-03-18T09:00:00"
+  },
+  {
+    "id": 13,
+    "title": "Brand Reputation at Risk",
+    "description": "Negative press coverage in EU market.",
+    "business_value": 700000,
+    "urgency": "Medium",
+    "recommendation": "Initiate PR response.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-03-15T09:00:00"
+  },
+  {
+    "id": 14,
+    "title": "Sustainability Target Missed",
+    "description": "Fell short of 2025 carbon reduction goal.",
+    "business_value": 300000,
+    "urgency": "Medium",
+    "recommendation": "Review sustainability initiatives.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-03-12T09:00:00"
+  },
+  {
+    "id": 15,
+    "title": "Legal Dispute in APAC",
+    "description": "Pending litigation could impact APAC operations.",
+    "business_value": 650000,
+    "urgency": "High",
+    "recommendation": "Consult legal team.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-03-10T09:00:00"
+  },
+  {
+    "id": 16,
+    "title": "Product Recall Alert",
+    "description": "Defective batch identified in Q1 shipments.",
+    "business_value": 550000,
+    "urgency": "High",
+    "recommendation": "Initiate recall procedures.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-03-08T09:00:00"
+  },
+  {
+    "id": 17,
+    "title": "Data Privacy Regulation Update",
+    "description": "Upcoming changes to GDPR in EU.",
+    "business_value": 200000,
+    "urgency": "Medium",
+    "recommendation": "Update privacy policies.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-03-05T09:00:00"
+  },
+  {
+    "id": 18,
+    "title": "Vendor Contract Expiry",
+    "description": "Key vendor contract expires next quarter.",
+    "business_value": 100000,
+    "urgency": "Low",
+    "recommendation": "Review and renegotiate contract.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-03-02T09:00:00"
+  },
+  {
+    "id": 19,
+    "title": "Interest Rate Fluctuations",
+    "description": "Recent rate hikes impacting financing costs.",
+    "business_value": 400000,
+    "urgency": "Medium",
+    "recommendation": "Review financial strategy.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-02-28T09:00:00"
+  },
+  {
+    "id": 20,
+    "title": "Strategic Partnership Opportunity",
+    "description": "Potential alliance with leading tech firm.",
+    "business_value": 950000,
+    "urgency": "Medium",
+    "recommendation": "Initiate partnership talks.",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-02-25T09:00:00"
+  }
+]

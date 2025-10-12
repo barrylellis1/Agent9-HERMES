@@ -176,21 +176,34 @@ class A9_Situation_Awareness_Agent:
                 except Exception as e:
                     logger.error(f"Failed to instantiate Principal Context Agent directly: {e}")
                     logger.warning("Principal Context Agent functionality will be limited")
-            else:
-                # Load principal profiles from Principal Context Agent
-                try:
-                    # The Principal Context Agent doesn't have get_all_principal_profiles method
-                    # Instead, we'll use the principal_profiles attribute that's already loaded during connect
-                    if hasattr(self.principal_context_agent, 'principal_profiles'):
-                        self.principal_profiles = self.principal_context_agent.principal_profiles
-                        logger.info(f"Loaded {len(self.principal_profiles)} principal profiles from Principal Context Agent")
-                    else:
-                        # Fallback to empty dictionary
-                        logger.warning("Principal Context Agent doesn't have principal_profiles attribute")
-                        self.principal_profiles = {}
-                except Exception as e:
-                    logger.error(f"Error loading principal profiles: {e}")
+            # Load principal profiles from Principal Context Agent (both orchestrator and fallback paths)
+            try:
+                if hasattr(self.principal_context_agent, 'principal_profiles'):
+                    self.principal_profiles = self.principal_context_agent.principal_profiles
+                    # Normalize to dict for downstream code/tests expecting a dict-like structure
+                    if isinstance(self.principal_profiles, list):
+                        normalized = {}
+                        for idx, profile in enumerate(self.principal_profiles):
+                            if isinstance(profile, dict):
+                                key = profile.get('id') or profile.get('role') or profile.get('name') or f"profile_{idx+1}"
+                                normalized[key] = profile
+                            else:
+                                # Convert model-like objects to dict
+                                try:
+                                    pdata = profile.model_dump() if hasattr(profile, 'model_dump') else (vars(profile) if hasattr(profile, '__dict__') else {})
+                                except Exception:
+                                    pdata = {}
+                                key = pdata.get('id') or pdata.get('role') or pdata.get('name') or f"profile_{idx+1}"
+                                normalized[key] = pdata
+                        self.principal_profiles = normalized
+                    logger.info(f"Loaded {len(self.principal_profiles)} principal profiles from Principal Context Agent")
+                else:
+                    # Fallback to empty dictionary
+                    logger.warning("Principal Context Agent doesn't have principal_profiles attribute")
                     self.principal_profiles = {}
+            except Exception as e:
+                logger.error(f"Error loading principal profiles: {e}")
+                self.principal_profiles = {}
             
             # Get the LLM Service Agent via the orchestrator
             if self.orchestrator_agent:
@@ -697,7 +710,7 @@ class A9_Situation_Awareness_Agent:
             
             # Generate SQL for the query using Data Product Agent
             sql_query = await self._generate_sql_for_query(request.query, kpi_values)
-            # Fallback: if NL->SQL did not return SQL but we have a KPI, generate base KPI SQL for display
+            # Fallback: if NL->SQL did not return SQL but we have a KPI, generate deterministic SQL
             if (not sql_query) and kpi_values and self.data_product_agent:
                 try:
                     first_kpi_name = getattr(kpi_values[0], 'kpi_name', None)
@@ -719,16 +732,96 @@ class A9_Situation_Awareness_Agent:
                             merged_filters.update(request.filters)
                     except Exception:
                         pass
+
+                    # Minimal NL intent extraction for Top/Bottom N breakdowns (e.g., "top 5 profit centers")
+                    # Prefer simple, robust patterns for MVP
+                    def _parse_topn_and_dims(q: str):
+                        try:
+                            import re as _re
+                            ql = (q or "").strip().lower()
+                            limit_type = None
+                            limit_n = None
+                            # Numeric N (e.g., "top 5", "bottom 10")
+                            m_top = _re.search(r"\btop\s+(\d+)\b", ql)
+                            m_bot = _re.search(r"\bbottom\s+(\d+)\b", ql)
+                            if m_top:
+                                limit_type = 'top'
+                                limit_n = int(m_top.group(1))
+                            elif m_bot:
+                                limit_type = 'bottom'
+                                limit_n = int(m_bot.group(1))
+                            else:
+                                # Spelled-out small numbers (e.g., "top five") and default when just 'top'/'bottom'
+                                words_map = {
+                                    'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+                                    'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10, 'twelve': 12
+                                }
+                                m_word = _re.search(r"\b(top|bottom)\s+(one|two|three|four|five|six|seven|eight|nine|ten|twelve)\b", ql)
+                                if m_word:
+                                    limit_type = m_word.group(1)
+                                    limit_n = words_map.get(m_word.group(2))
+                                else:
+                                    if _re.search(r"\btop\b", ql):
+                                        limit_type, limit_n = 'top', 10
+                                    elif _re.search(r"\bbottom\b", ql):
+                                        limit_type, limit_n = 'bottom', 10
+                            # Dimension detection (extendable): map common phrases to canonical business terms
+                            # Prefer more specific patterns before generic ones (e.g., Product Type before Product)
+                            dim_map = [
+                                (r"\bproduct\s*type(s)?\b|\bproduct\s*category(ies)?\b|\bcategory(ies)?\b", "Product Type"),
+                                (r"\bproduct(s)?\b", "Product"),
+                                (r"\bprofit\s*center(s)?\b", "Profit Center"),
+                                (r"\bcustomer\s*type(s)?\b", "Customer Type"),
+                                (r"\bregion(s)?\b", "Region"),
+                                (r"\bcountr(y|ies)\b", "Country"),
+                                (r"\bchannel(s)?\b", "Channel"),
+                            ]
+                            dims = []
+                            for pat, canon in dim_map:
+                                if _re.search(pat, ql):
+                                    dims.append(canon)
+                            return limit_type, limit_n, dims
+                        except Exception:
+                            return None, None, []
+
+                    # If the question asks for a Top/Bottom breakdown on a known dimension, request grouped SQL
+                    breakdown = False
+                    override_group_by = None
+                    topn_spec = None
+                    lt, ln, dims = _parse_topn_and_dims(request.query)
+                    # Keep SA neutral: do not reorder detected dimensions post hoc; dim_map order already prefers specificity
+                    # Detect growth intent (fastest growing vs previous period)
+                    try:
+                        import re as _re
+                        ql = (request.query or "").strip().lower()
+                        growth_metric = bool(_re.search(r"\b(fastest\s+growing|growth|increase|vs\s+previous|versus\s+previous|delta|variance)\b", ql))
+                    except Exception:
+                        growth_metric = False
+
+                    if dims:
+                        breakdown = True
+                        override_group_by = dims[:1]  # Single-dimension breakdown for MVP
+                        # Build TopN spec; if growth intent but no N specified, default to 5
+                        if not (lt and isinstance(ln, int) and ln > 0) and growth_metric:
+                            lt, ln = 'top', 5
+                        if lt and isinstance(ln, int) and ln > 0:
+                            topn_spec = {"limit_type": lt, "limit_n": ln}
+                            if growth_metric:
+                                topn_spec["metric"] = "delta_prev"
+
                     if kpi_def:
                         dp_resp_fallback = await self.data_product_agent.generate_sql_for_kpi(
                             kpi_definition=kpi_def,
                             timeframe=request.timeframe if request.timeframe else TimeFrame.CURRENT_QUARTER,
-                            filters=merged_filters
+                            filters=merged_filters,
+                            breakdown=breakdown,
+                            override_group_by=override_group_by,
+                            topn=topn_spec,
                         )
                         if isinstance(dp_resp_fallback, dict) and dp_resp_fallback.get('success') and dp_resp_fallback.get('sql'):
                             sql_query = dp_resp_fallback['sql']
                             try:
-                                logger.info("[SA] Using KPI SQL fallback for NL response display")
+                                logger.info("[SA] Using KPI SQL fallback for NL response display (breakdown=%s, group_by=%s, topn=%s)", breakdown, override_group_by, topn_spec)
                             except Exception:
                                 pass
                 except Exception as _fallback_err:
@@ -1113,6 +1206,13 @@ class A9_Situation_Awareness_Agent:
                 
             # Get all KPIs - use get_all() which returns a list of KPI objects
             kpis = kpi_provider.get_all() or []
+            # If provider has not yet loaded data, attempt to load explicitly
+            if not kpis:
+                try:
+                    await kpi_provider.load()
+                    kpis = kpi_provider.get_all() or []
+                except Exception as e:
+                    logger.warning(f"KPI provider load attempt failed: {e}")
             if not kpis:
                 logger.warning("No KPIs found in registry, attempting to load from file")
                 # Try to load from file
@@ -1126,9 +1226,20 @@ class A9_Situation_Awareness_Agent:
                         with open(registry_path, 'r') as file:
                             yaml_data = yaml.safe_load(file)
                             if yaml_data and "kpis" in yaml_data and isinstance(yaml_data["kpis"], list):
-                                # Register KPIs with provider
-                                for kpi in yaml_data["kpis"]:
-                                    kpi_provider.register(kpi)
+                                # Register KPIs with provider (convert dict -> registry KPI model)
+                                try:
+                                    from src.registry.models.kpi import KPI as RegistryKPI
+                                except Exception:
+                                    RegistryKPI = None
+                                for kpi_item in yaml_data["kpis"]:
+                                    try:
+                                        if RegistryKPI and isinstance(kpi_item, dict):
+                                            kpi_obj = RegistryKPI(**kpi_item)
+                                            kpi_provider.register(kpi_obj)
+                                        else:
+                                            logger.warning("Skipping KPI item from YAML: invalid format or model unavailable")
+                                    except Exception as reg_err:
+                                        logger.warning(f"Failed to register KPI from YAML item: {reg_err}")
                                 
                                 # Try to get KPIs again
                                 kpis = kpi_provider.get_all() or []

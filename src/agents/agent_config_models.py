@@ -291,6 +291,79 @@ class A9_NLP_Interface_Agent_Config(BaseModel):
     )
 
 
+class A9_Deep_Analysis_Agent_Config(BaseModel):
+    """
+    Configuration for the A9_Deep_Analysis_Agent.
+    Controls planning limits, percent growth computation, and orchestration/logging flags.
+    """
+    model_config = ConfigDict(extra="allow")
+
+    # Core behavior
+    hitl_enabled: bool = Field(
+        False, description="HITL disabled for Deep Analysis (per PRD; narrative only via LLM)."
+    )
+    max_dimensions: int = Field(
+        5, description="Maximum number of dimensions to enumerate in analysis planning"
+    )
+    max_groups_per_dim: int = Field(
+        10, description="Maximum groups per dimension to materialize for summaries"
+    )
+    enable_percent_growth: bool = Field(
+        False, description="Include percent growth alongside delta comparisons when true"
+    )
+
+    # Orchestration & logging
+    require_orchestrator: bool = Field(
+        True, description="All calls must be orchestrator-driven"
+    )
+    log_all_requests: bool = Field(
+        True, description="Log structured inputs/outputs for audit"
+    )
+
+
+class A9_Solution_Finder_Agent_Config(BaseModel):
+    """
+    Configuration for the A9_Solution_Finder_Agent.
+    Controls scoring weights, HITL, and orchestration/logging flags.
+    """
+    model_config = ConfigDict(extra="allow")
+
+    # Core behavior
+    hitl_enabled: bool = Field(
+        True, description="HITL is required for recommendation approval (single HITL event per cycle)"
+    )
+    enable_llm_debate: bool = Field(
+        False, description="Enable LLM-driven expert persona debate and consensus synthesis"
+    )
+    expert_personas: List[str] = Field(
+        [
+            "QA Lead",
+            "Operations Manager",
+            "Finance Controller",
+            "Management/Strategy Consultant",
+            "Big 4 Consultant",
+        ],
+        description="Default expert personas to include in debate prompts when enabled"
+    )
+    weight_impact: float = Field(
+        0.5, description="Weight for expected business impact in option scoring"
+    )
+    weight_cost: float = Field(
+        0.25, description="Weight for cost in option scoring (lower cost preferred)"
+    )
+    weight_risk: float = Field(
+        0.25, description="Weight for risk in option scoring (lower risk preferred)"
+    )
+
+    # Orchestration & logging
+    require_orchestrator: bool = Field(
+        True, description="All calls must be orchestrator-driven"
+    )
+    log_all_requests: bool = Field(
+        True, description="Log structured inputs/outputs for audit"
+    )
+
+
 # Protocol model references for compliance checks and documentation
 NLP_PROTOCOL_MODELS: Dict[str, Dict[str, Any]] = {
     "parse_business_query": {

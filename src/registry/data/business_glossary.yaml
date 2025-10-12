@@ -45,6 +45,44 @@ terms:
     technical_mappings:
       duckdb: Version
 
+  - name: Product
+    synonyms:
+      - product
+      - product_id
+      - product id
+      - sku
+      - item
+      - product name
+    description: Product identifier used for grouping and filtering
+    technical_mappings:
+      duckdb: "Product Name"
+
+  - name: Product Type
+    synonyms:
+      - product_type
+      - product category
+      - category
+    description: Product category/type identifier used for grouping and filtering
+    technical_mappings:
+      duckdb: "Product Category ID"
+
+  - name: Customer Type
+    synonyms:
+      - customer_type
+      - customer type
+    description: Customer type identifier used for grouping and filtering
+    technical_mappings:
+      duckdb: "Customer Type ID"
+
+  - name: Profit Center
+    synonyms:
+      - profit_center
+      - profit center
+      - pc
+    description: Profit center identifier used for grouping and filtering
+    technical_mappings:
+      duckdb: "Profit Center ID"
+
   - name: Profit Center Hierarchyid
     synonyms:
       - profit_center_hierarchyid

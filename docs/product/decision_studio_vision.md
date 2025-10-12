@@ -5,7 +5,7 @@ This document defines the product vision for Decision Studio, the hierarchical s
 - Source agents: `src/agents/new/`
 - Config models: `src/agents/agent_config_models.py`
 - Agent cards: `src/agents/new/cards/`
-- UI: `src/views/decision_studio_debug_ui.py`, `src/views/ui_orchestrator.py`
+- UI: `decision_studio.py`
 
 ## Vision and Positioning
 
@@ -49,6 +49,21 @@ flowchart LR
  - Principal Context (PC) proposes assignment candidates using the HR/identity provider when available (with fallback to `business_context.yaml`); the UI never computes candidates directly.
 
 ---
+
+## MVP UI Experience (Decision Studio)
+
+- Focus on a single KPI at a time within each situation’s `Details` panel; avoid top-level tabs for MVP.
+- Inline HITL actions under the selected situation:
+  - Initiate Deep Analysis → Orchestrator calls `A9_Deep_Analysis_Agent.plan_deep_analysis()` then `execute_deep_analysis()`; render `scqa_summary` and any `change_points` inline.
+  - View Solutions → Orchestrator calls `A9_Solution_Finder_Agent.recommend_actions()`; render ranked options and a recommendation inline.
+- KPI evaluation summary in the "Detected Situations" header area:
+  - Caption: “KPIs evaluated: N” and a “Show details” expander listing evaluated KPI names.
+- Orchestrator-driven, architecture-aligned interactions:
+  - SA delegates KPI→Data Product mappings to DG.
+  - SQL generation and execution are delegated to the Data Product Agent; SA never generates SQL.
+- Optional audit/logging:
+  - Record HITL actions using `A9_Situation_Awareness_Agent.process_hitl_feedback()` for traceability (optional for MVP).
+
 
 ## Situation Model (Proposed)
 

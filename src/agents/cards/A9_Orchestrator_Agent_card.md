@@ -2,7 +2,7 @@
 configuration:
   name: A9_Orchestrator_Agent
   version: ''
-  capabilities: []
+  capabilities: [data_product_onboarding]
   config: {}
   hitl_enabled: false
 ---
@@ -34,6 +34,7 @@ class A9OrchestratorConfig(BaseModel):
 | `orchestrate_workflow` | Execute multi-step workflow | `OrchestratorWorkflowInput` | `OrchestratorWorkflowOutput` | logs + audit |
 | `register_agent` | Register agent class & config | `AgentRegistrationRequest` | `Dict` | updates registry |
 | `run_workflow` (deprecated) | Legacy wrapper | `OrchestratorWorkflowInput` | `Dict` | logs events |
+| `onboard_data_product` | Orchestrated onboarding: register tables, create view, validate registry integrity, compute KPI enrichment | kwargs dict | `{success, steps, artifacts}` | writes `src/registry/kpi/kpi_enrichment.yaml` |
 
 Supported hand-off commands / state updates:
 - `propagate_yaml_contract` – inject `yaml_contract_text` into downstream context

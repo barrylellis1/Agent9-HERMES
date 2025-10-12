@@ -1,8 +1,14 @@
 ---
 configuration:
   name: A9_Data_Governance_Agent
-  version: ''
-  capabilities: []
+  version: '1.0'
+  capabilities:
+    - term_translation
+    - kpi_mapping
+    - registry_validation
+    - data_quality_stub
+    - data_lineage_stub
+    - top_dimension_enrichment
   config: {}
   hitl_enabled: false
 ---
@@ -28,8 +34,14 @@ class A9DataGovernanceAgentConfig(BaseModel):
 ## 3. Protocol Entrypoints & Capabilities
 | Entrypoint | Description | Input Model | Output Model | Side-effects |
 |------------|-------------|-------------|--------------|--------------|
-| `get_data_asset_path` | Resolve asset path | `DataAssetPathRequest` | `DataAssetPathResponse` | logs events |
-| `validate_kpi` | Validate KPI definition | `KPIDefinition` | `ValidationResult` | logs validation |
+| `translate_business_terms` | Translate business terms to technical attributes | `BusinessTermTranslationRequest` | `BusinessTermTranslationResponse` | audit log |
+| `get_view_name_for_kpi` | Resolve the view name for a KPI | `KPIViewNameRequest` | `KPIViewNameResponse` | none |
+| `map_kpis_to_data_products` | Map KPIs to data products | `KPIDataProductMappingRequest` | `KPIDataProductMappingResponse` | audit log |
+| `validate_registry_integrity` | Cross-registry drift check (dev/test) | n/a | dict report `{success, issues, summary}` | none |
+| `validate_data_access` | Validate principal access (MVP) | `DataAccessValidationRequest` | `DataAccessValidationResponse` | audit log |
+| `get_data_lineage` | Return lineage (MVP stub) | `DataLineageRequest` | `DataLineageResponse` | none |
+| `check_data_quality` | Return quality metrics (MVP stub) | `DataQualityCheckRequest` | `DataQualityCheckResponse` | none |
+| `compute_and_persist_top_dimensions` | Analyze and persist top dimensions per KPI to kpi_enrichment.yaml | orchestrated call (uses Data Product Agent) | `{success, written, path, kpis_analyzed, failures}` | writes `src/registry/kpi/kpi_enrichment.yaml` |
 
 Supported hand-off commands / state updates:
 - `refresh_governance_cache` – triggers background cache update
@@ -53,33 +65,14 @@ Supported hand-off commands / state updates:
 # Error Handling
 Standard error handling via AgentExecutionError and AgentInitializationError.
 
-# Example Usage
-# Registration is orchestrator-controlled; do not instantiate directly except via orchestrator.
-# All event logging must be async and awaited (A9_SharedLogger).
-# YAML contract context is always propagated via the context kwarg.
+# Example Usage (dev/test)
 ```python
-from src.agents.new.A9_Data_Governance_Agent import A9_Data_Governance_Agent
-from src.agents.new.data_governance_models import DataAssetPathRequest
-config = {
-    "name": "A9_Data_Governance_Agent",
-    "version": "1.0",
-    "capabilities": [
-        "kpi_validation",
-        "data_source_validation",
-        "term_translation",
-        "data_asset_path_resolution"
-    ],
-    "config": {},
-    "hitl_enabled": False
-}
-agent = A9_Data_Governance_Agent(config)
-# Example: Dynamic asset path resolution
-# To access the propagated YAML contract context in a protocol-compliant method:
-# def some_method(self, input_model, context=None):
-#     yaml_contract = context.get('yaml_contract_text') if context else None
-request = DataAssetPathRequest(asset_name="example_asset")
-response = await agent.get_data_asset_path(request)
-print(response)
+from src.agents.new.a9_data_governance_agent import A9_Data_Governance_Agent
+
+agent = await A9_Data_Governance_Agent.create({})
+# Run cross-registry validation against FI_Star_View
+report = await agent.validate_registry_integrity(view_name="FI_Star_View")
+print(report)
 ```
 
 # LLM Settings

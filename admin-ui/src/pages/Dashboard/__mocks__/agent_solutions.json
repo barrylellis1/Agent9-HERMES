@@ -1,0 +1,52 @@
+[
+  {
+    "id": 201,
+    "agent": "SolutionEvolutionAgent",
+    "situation_id": 1,
+    "solution": "Implement dynamic pricing for EMEA market to recover EBIT shortfall.",
+    "rationale": "Dynamic pricing can quickly improve margins without major fixed cost changes.",
+    "selected": true,
+    "stage": "Selected",
+    "timestamp": "2025-04-16T09:00:00"
+  },
+  {
+    "id": 202,
+    "agent": "ImplementationValidator",
+    "situation_id": 4,
+    "solution": "Automate compliance reporting workflows.",
+    "rationale": "Reduces manual errors and accelerates response to new EU rules.",
+    "selected": false,
+    "stage": "Evaluated",
+    "timestamp": "2025-04-09T09:00:00"
+  },
+  {
+    "id": 203,
+    "agent": "UXValidator",
+    "situation_id": 14,
+    "solution": "Redesign sustainability dashboard for improved user engagement.",
+    "rationale": "Current UI is confusing; improved design will boost adoption.",
+    "selected": false,
+    "stage": "Proposed",
+    "timestamp": "2025-03-13T09:00:00"
+  },
+  {
+    "id": 204,
+    "agent": "MarketAnalysisAgent",
+    "situation_id": 11,
+    "solution": "Launch counter-marketing campaign in NA region.",
+    "rationale": "Addresses competitor's aggressive pricing and market share loss.",
+    "selected": true,
+    "stage": "Selected",
+    "timestamp": "2025-03-21T09:00:00"
+  },
+  {
+    "id": 205,
+    "agent": "ImpactAnalysisAgent",
+    "situation_id": 20,
+    "solution": "Negotiate exclusivity in strategic partnership.",
+    "rationale": "Limits risk of product overlap and increases strategic value.",
+    "selected": false,
+    "stage": "Under Review",
+    "timestamp": "2025-02-26T09:00:00"
+  }
+]

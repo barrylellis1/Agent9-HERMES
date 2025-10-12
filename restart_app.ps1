@@ -106,7 +106,15 @@ try {
     # Activate the virtual environment in current shell (optional for current script scope)
     . .\.venv\Scripts\Activate.ps1
     # Compose the command to run in a new PowerShell process. Use single quotes to prevent premature variable expansion.
-    $cmd = '$env:PYTHONUNBUFFERED=1; $env:STREAMLIT_LOG_LEVEL="info"; . .\.venv\Scripts\Activate.ps1; streamlit run decision_studio.py --logger.level=info *>&1 | Tee-Object -FilePath ' + ('"' + $logFilePath + '"') + ' -Append'
+    # Explicitly set channel/version env vars inside the child so the UI banner reflects them reliably.
+    $cmd = '$env:PYTHONUNBUFFERED=1; '
+    $cmd += '$env:STREAMLIT_LOG_LEVEL="info"; '
+    $cmd += ('$env:A9_DS_CHANNEL="' + $Channel + '"; ')
+    $cmd += ('$env:A9_DS_VERSION="' + $Version + '"; ')
+    $cmd += '. .\.venv\Scripts\Activate.ps1; '
+    $cmd += 'streamlit run decision_studio.py --logger.level=info *>&1 | Tee-Object -FilePath '
+    $cmd += ('"' + $logFilePath + '"')
+    $cmd += ' -Append'
     Start-Process powershell -ArgumentList "-NoExit", "-Command", $cmd
 } catch {
     Write-Host "Error starting Decision Studio: $_"

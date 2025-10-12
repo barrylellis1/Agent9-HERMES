@@ -1,0 +1,52 @@
+[
+  {
+    "id": 401,
+    "agent": "ChangeManagementAgent",
+    "situation_id": 1,
+    "change_task": "Communicate pricing change to EMEA sales force.",
+    "owner": "HR/Comms",
+    "status": "Pending",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-04-19T12:00:00"
+  },
+  {
+    "id": 402,
+    "agent": "ChangeManagementAgent",
+    "situation_id": 4,
+    "change_task": "Train compliance team on new reporting system.",
+    "owner": "Compliance IT",
+    "status": "Scheduled",
+    "current_state": "In Process",
+    "timestamp": "2025-04-13T13:00:00"
+  },
+  {
+    "id": 403,
+    "agent": "ChangeManagementAgent",
+    "situation_id": 14,
+    "change_task": "Announce dashboard redesign to all users.",
+    "owner": "UX Team",
+    "status": "Completed",
+    "current_state": "Completed",
+    "timestamp": "2025-03-20T12:00:00"
+  },
+  {
+    "id": 404,
+    "agent": "ChangeManagementAgent",
+    "situation_id": 11,
+    "change_task": "Roll out counter-marketing messaging to NA region.",
+    "owner": "NA Marketing",
+    "status": "In Progress",
+    "current_state": "In Process",
+    "timestamp": "2025-03-28T12:00:00"
+  },
+  {
+    "id": 405,
+    "agent": "ChangeManagementAgent",
+    "situation_id": 20,
+    "change_task": "Negotiate new partnership terms with tech firm.",
+    "owner": "Legal Team",
+    "status": "Pending",
+    "current_state": "Awaiting Action",
+    "timestamp": "2025-03-03T12:00:00"
+  }
+]

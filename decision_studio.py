@@ -15,6 +15,7 @@ from datetime import datetime
 import uuid
 from enum import Enum
 import logging
+import yaml as _yaml
 
 # Add the project root and 'src' directory to the Python path for imports
 project_root = os.path.dirname(os.path.abspath(__file__))
@@ -39,6 +40,11 @@ from src.agents.models.situation_awareness_models import (
 # Import PrincipalContext from both models to ensure it's available
 from src.agents.models.situation_awareness_models import PrincipalContext
 from src.agents.models.principal_context_models import PrincipalProfileResponse
+# Deep Analysis and Solution Finder models for orchestrated HITL actions
+from src.agents.models.deep_analysis_models import DeepAnalysisRequest, DeepAnalysisPlan
+from src.agents.models.solution_finder_models import SolutionFinderRequest
+# HITL audit request model
+from src.agents.models.situation_awareness_models import HITLRequest
 # Import Data Governance request models for debug mapping panel
 from src.agents.models.data_governance_models import KPIDataProductMappingRequest, KPIViewNameRequest
 # Import the agents from new implementation path
@@ -116,12 +122,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Release channel and version banner (env-driven, no .env changes)
+# Release channel and version banner (env-driven, with sensible default)
 try:
     CHANNEL = os.environ.get("A9_DS_CHANNEL", "stable").strip().lower()
 except Exception:
     CHANNEL = "stable"
-VERSION = os.environ.get("A9_DS_VERSION", "").strip() or "dev"
+# Prefer env; default to semantic version when missing
+try:
+    VERSION = (os.environ.get("A9_DS_VERSION") or "").strip()
+except Exception:
+    VERSION = ""
+if not VERSION:
+    VERSION = "0.2.0"
 try:
     st.sidebar.info(f"Decision Studio ({VERSION}) • Channel: {CHANNEL}")
 except Exception:
@@ -292,6 +304,11 @@ async def initialize_agent():
                     # Store agents in session state
                     st.session_state.agent = agents["A9_Situation_Awareness_Agent"]
                     st.success("Agent9 system initialized successfully!")
+                    # Mark profiles as loaded for gating of detection/deep analysis flows
+                    try:
+                        st.session_state.profiles_loaded = True
+                    except Exception:
+                        pass
                 
                 # One-time ensure FI Star views/tables are created from contract
                 try:
@@ -1019,7 +1036,6 @@ def main():
         # Synchronous preload of principal profiles from YAML for immediate selector population
         try:
             if st.session_state.principal_ids == [st.session_state.default_principal_id]:
-                import yaml as _yaml
                 _ppath = os.path.join(project_root, "src", "registry", "principal", "principal_registry.yaml")
                 if os.path.exists(_ppath):
                     with open(_ppath, "r", encoding="utf-8") as _f:
@@ -1214,7 +1230,923 @@ def main():
         st.header(f"Principal: {principal_name}")
     else:
         st.header("Principal: CFO")
+
+    # Situation Worklist (single active situation)
+    try:
+        sits = st.session_state.get("situations") or []
+        if sits:
+            st.subheader("Situation Worklist")
+            # Helper for safe attribute/dict access
+            def _sx(obj, name, default=None):
+                if isinstance(obj, dict):
+                    return obj.get(name, default)
+                return getattr(obj, name, default)
+            # Build choices
+            choices = []
+            for s in sits:
+                sid = _sx(s, 'situation_id', None)
+                kpi = _sx(s, 'kpi_name', '')
+                sev = _sx(s, 'severity', '')
+                sev_str = sev.value if hasattr(sev, 'value') else (str(sev).title() if sev else '')
+                desc = _sx(s, 'description', '')
+                label = f"{kpi or 'KPI'} • {sev_str or 'Info'}" + (f" — {desc}" if desc else "")
+                if sid:
+                    choices.append((sid, label))
+            if choices:
+                ids = [c[0] for c in choices]
+                labels = [c[1] for c in choices]
+                active_default = st.session_state.get("active_situation_id") or (ids[0] if ids else None)
+                sel = st.radio("Select active situation", options=ids, format_func=lambda v: labels[ids.index(v)] if v in ids else str(v), index=(ids.index(active_default) if active_default in ids else 0), key="worklist_active_sid")
+                if sel and sel != st.session_state.get("active_situation_id"):
+                    st.session_state.active_situation_id = sel
+                st.caption("Solutions Studio operates on the active situation only.")
+    except Exception:
+        pass
     
+    # Helper: Render an executive-friendly summary of LLM analysis payload
+    def _render_llm_payload_exec_summary(ev_req: dict):
+        try:
+            content = (ev_req or {}).get("content") or {}
+            problem = (content.get("problem") or "").strip()
+            da = content.get("deep_analysis_context") or {}
+            scqa = (da.get("scqa_summary") or "").strip() if isinstance(da, dict) else ""
+            plan = da.get("plan") if isinstance(da, dict) else None
+            kpi = None
+            timeframe = None
+            if isinstance(plan, dict):
+                kpi = plan.get("kpi_name")
+                timeframe = plan.get("timeframe")
+            # Fallback to situation_context when plan is absent or incomplete
+            try:
+                if (not kpi) or (not timeframe):
+                    sctx = ev_req.get("situation_context")
+                    if isinstance(sctx, dict):
+                        if not kpi:
+                            kpi = sctx.get("kpi_name") or kpi
+                        if not timeframe:
+                            timeframe = sctx.get("timeframe") or timeframe
+            except Exception:
+                pass
+            try:
+                if not timeframe and isinstance(da, dict):
+                    tfm = da.get("timeframe_mapping") or {}
+                    timeframe = tfm.get("current")
+            except Exception:
+                pass
+            spec = content.get("debate_spec") or ""
+            personas = None
+            try:
+                if "(" in spec and ")" in spec:
+                    personas = spec.split("(", 1)[1].split(")", 1)[0]
+            except Exception:
+                personas = None
+            user_ctx = content.get("user_context")
+            # Optional: show a couple of change points if present
+            cp_lines = []
+            try:
+                cps = da.get("change_points") if isinstance(da, dict) else []
+                if isinstance(cps, list):
+                    for cp in cps[:2]:
+                        try:
+                            dim = cp.get("dimension")
+                            key = cp.get("key")
+                            delta = cp.get("delta")
+                            cp_lines.append(f"- Change: {dim or ''} {key or ''} delta={delta}")
+                        except Exception:
+                            continue
+            except Exception:
+                pass
+            # Render
+            st.markdown("**Executive Summary**")
+            if problem:
+                st.write(f"- Problem: {problem}")
+            if kpi:
+                st.write(f"- KPI: {kpi}")
+            if timeframe:
+                st.write(f"- Timeframe: {timeframe}")
+            if personas:
+                st.write(f"- Debate participants: {personas}")
+            if user_ctx:
+                st.write(f"- Additional context: {user_ctx}")
+            if scqa:
+                st.caption(scqa)
+            if cp_lines:
+                st.markdown("**Signals**")
+                for line in cp_lines:
+                    st.write(line)
+        except Exception:
+            pass
+
+    def render_solutions_studio():
+        st.header("Solutions Studio")
+        with st.container():
+            # Bind problem statement to active situation: when active SID changes, refresh derived problem
+            try:
+                active_sid = st.session_state.get("active_situation_id")
+                bound_sid = st.session_state.get("solutions_studio_bound_sid")
+                needs_refresh = False
+                if active_sid and (bound_sid != active_sid):
+                    needs_refresh = True
+                if not st.session_state.get("solutions_studio_problem"):
+                    needs_refresh = True
+
+                if needs_refresh:
+                    derived_problem = None
+                    # Prefer active situation SCQA summary if available
+                    if active_sid:
+                        try:
+                            _da_active = st.session_state.get(f"{active_sid}_deep_analysis_result")
+                            if isinstance(_da_active, dict):
+                                derived_problem = _da_active.get("scqa_summary") or None
+                        except Exception:
+                            pass
+                        if not derived_problem:
+                            # Fallback to active situation description or KPI name
+                            try:
+                                sits = st.session_state.get("situations") or []
+                                s_active = next((x for x in sits if (x.get('situation_id') if isinstance(x, dict) else getattr(x, 'situation_id', None)) == active_sid), None)
+                                if s_active is not None:
+                                    desc0 = s_active.get('description') if isinstance(s_active, dict) else getattr(s_active, 'description', '')
+                                    kpi0 = s_active.get('kpi_name') if isinstance(s_active, dict) else getattr(s_active, 'kpi_name', '')
+                                    derived_problem = desc0 or (f"KPI: {kpi0}" if kpi0 else None)
+                            except Exception:
+                                pass
+                    # Else fallback to last Deep Analysis
+                    if not derived_problem:
+                        last_da_sid = st.session_state.get("last_da_sid")
+                        if last_da_sid:
+                            _da_last = st.session_state.get(f"{last_da_sid}_deep_analysis_result")
+                            if isinstance(_da_last, dict):
+                                derived_problem = _da_last.get("scqa_summary") or None
+                    # Else fallback to first situation
+                    if not derived_problem:
+                        sits = st.session_state.get("situations") or []
+                        if sits:
+                            s0 = sits[0]
+                            try:
+                                desc0 = s0.get('description') if isinstance(s0, dict) else getattr(s0, 'description', '')
+                            except Exception:
+                                desc0 = ''
+                            try:
+                                kpi0 = s0.get('kpi_name') if isinstance(s0, dict) else getattr(s0, 'kpi_name', '')
+                            except Exception:
+                                kpi0 = ''
+                            derived_problem = desc0 or (f"KPI: {kpi0}" if kpi0 else None)
+                    if derived_problem is not None:
+                        st.session_state.solutions_studio_problem = str(derived_problem)
+                    if active_sid:
+                        st.session_state.solutions_studio_bound_sid = active_sid
+            except Exception:
+                pass
+            # Defaults for personas loaded asynchronously from the agent; fallback to config-like list
+            persona_defaults = st.session_state.get(
+                "sf_persona_defaults",
+                [
+                    "QA Lead",
+                    "Operations Manager",
+                    "Finance Controller",
+                    "Management/Strategy Consultant",
+                    "Big 4 Consultant",
+                ],
+            )
+            # Criteria weights (Impact/Cost/Risk)
+            w_default = {"impact": 0.5, "cost": 0.25, "risk": 0.25}
+            w_current = st.session_state.get("solutions_studio_weights") or w_default.copy()
+            cols_w = st.columns(3)
+            with cols_w[0]:
+                wi = st.slider("Impact weight", 0.0, 1.0, float(w_current.get("impact", 0.5)), 0.05)
+            with cols_w[1]:
+                wc = st.slider("Cost weight", 0.0, 1.0, float(w_current.get("cost", 0.25)), 0.05)
+            with cols_w[2]:
+                wr = st.slider("Risk weight", 0.0, 1.0, float(w_current.get("risk", 0.25)), 0.05)
+            _sum_w = (wi or 0.0) + (wc or 0.0) + (wr or 0.0)
+            if _sum_w <= 0:
+                wi, wc, wr = 0.5, 0.25, 0.25
+            else:
+                wi, wc, wr = wi / _sum_w, wc / _sum_w, wr / _sum_w
+            st.session_state.solutions_studio_weights = {"impact": wi, "cost": wc, "risk": wr}
+            st.caption(f"Weights normalized to: impact={wi:.2f}, cost={wc:.2f}, risk={wr:.2f}")
+            # Inputs
+            problem_text = st.text_area(
+                "Problem statement",
+                key="solutions_studio_problem",
+                placeholder="Describe the business problem to solve",
+                value=st.session_state.get("solutions_studio_problem", ""),
+            )
+            user_ctx = st.text_area(
+                "Additional context to LLM (optional)",
+                key="solutions_studio_user_context",
+                placeholder="Any constraints, preferences, KPIs of interest, or background",
+            )
+            selected_personas = st.multiselect(
+                "Debate participants",
+                options=persona_defaults,
+                default=persona_defaults,
+                key="solutions_studio_personas",
+            )
+            cols_ss = st.columns(2)
+            with cols_ss[0]:
+                if st.button("Run Debate", key="solutions_studio_run"):
+                    pid_val = (
+                        st.session_state.get("selected_principal_id")
+                        or st.session_state.get("default_principal_id")
+                        or "cfo_001"
+                    )
+                    principal_name = None
+                    try:
+                        principal_name = st.session_state.principal_id_to_name.get(pid_val, pid_val)
+                    except Exception:
+                        principal_name = pid_val
+                    active_sid = st.session_state.get("active_situation_id")
+                    # If the text is empty, attempt to derive from last Deep Analysis again
+                    prob_final = (problem_text or "").strip()
+                    if not prob_final:
+                        try:
+                            sid_try = active_sid or st.session_state.get("last_da_sid")
+                            if sid_try:
+                                _da_last = st.session_state.get(f"{sid_try}_deep_analysis_result")
+                                if isinstance(_da_last, dict):
+                                    prob_final = (_da_last.get("scqa_summary") or "").strip()
+                        except Exception:
+                            pass
+                    if not prob_final:
+                        # Fallback to first situation
+                        try:
+                            sits = st.session_state.get("situations") or []
+                            if sits:
+                                s0 = next((x for x in sits if (x.get('situation_id') if isinstance(x, dict) else getattr(x, 'situation_id', None)) == active_sid), None) or sits[0]
+                                desc0 = s0.get('description') if isinstance(s0, dict) else getattr(s0, 'description', '')
+                                kpi0 = s0.get('kpi_name') if isinstance(s0, dict) else getattr(s0, 'kpi_name', '')
+                                prob_final = (desc0 or (f"KPI: {kpi0}" if kpi0 else "")).strip()
+                        except Exception:
+                            pass
+                    # Align problem with the active situation to avoid KPI mismatch
+                    try:
+                        if active_sid:
+                            prob_active = None
+                            # Prefer SCQA from latest Deep Analysis for the active SID
+                            try:
+                                _da_a2 = st.session_state.get(f"{active_sid}_deep_analysis_result")
+                                if isinstance(_da_a2, dict):
+                                    prob_active = (_da_a2.get("scqa_summary") or "").strip() or None
+                            except Exception:
+                                prob_active = None
+                            # Fallback to active situation description or KPI name
+                            if not prob_active:
+                                try:
+                                    sits2 = st.session_state.get("situations") or []
+                                    s_active2 = next((x for x in sits2 if (x.get('situation_id') if isinstance(x, dict) else getattr(x, 'situation_id', None)) == active_sid), None)
+                                    if s_active2 is not None:
+                                        desc_a2 = s_active2.get('description') if isinstance(s_active2, dict) else getattr(s_active2, 'description', None)
+                                        kpi_a2 = s_active2.get('kpi_name') if isinstance(s_active2, dict) else getattr(s_active2, 'kpi_name', None)
+                                        prob_active = (desc_a2 or (f"KPI: {kpi_a2}" if kpi_a2 else None))
+                                except Exception:
+                                    pass
+                            if prob_active and (prob_final != prob_active):
+                                prob_final = prob_active
+                                # Keep UI text area in sync and remember binding
+                                st.session_state.solutions_studio_problem = str(prob_final)
+                                st.session_state.solutions_studio_bound_sid = active_sid
+                    except Exception:
+                        pass
+
+                    # Gather contexts
+                    # principal_context
+                    pctx = {"principal_id": pid_val, "principal_name": principal_name}
+                    # situation_context
+                    sctx = None
+                    try:
+                        if active_sid:
+                            sits2 = st.session_state.get("situations") or []
+                            s_active = next((x for x in sits2 if (x.get('situation_id') if isinstance(x, dict) else getattr(x, 'situation_id', None)) == active_sid), None)
+                            if s_active is not None:
+                                kpi_name = s_active.get('kpi_name') if isinstance(s_active, dict) else getattr(s_active, 'kpi_name', None)
+                                desc_a = s_active.get('description') if isinstance(s_active, dict) else getattr(s_active, 'description', None)
+                                # Try timeframe from latest DA plan for this sid
+                                timeframe = None
+                                try:
+                                    _da_a = st.session_state.get(f"{active_sid}_deep_analysis_result")
+                                    if isinstance(_da_a, dict):
+                                        plan_a = _da_a.get('plan') or {}
+                                        timeframe = plan_a.get('timeframe') if isinstance(plan_a, dict) else None
+                                except Exception:
+                                    pass
+                                sctx = {"situation_id": active_sid, "kpi_name": kpi_name, "description": desc_a, "timeframe": timeframe}
+                    except Exception:
+                        sctx = None
+                    # Criteria weights
+                    _w = st.session_state.get("solutions_studio_weights") or {}
+                    _wi = float(_w.get("impact", 0.5))
+                    _wc = float(_w.get("cost", 0.25))
+                    _wr = float(_w.get("risk", 0.25))
+                    sf_req = {
+                        "request_id": str(uuid.uuid4()),
+                        "problem_statement": prob_final or "Problem statement not provided",
+                        "principal_id": pid_val,
+                        "principal_context": pctx,
+                        "situation_context": sctx,
+                        "evaluation_criteria": [
+                            {"name": "impact", "weight": _wi},
+                            {"name": "cost", "weight": _wc},
+                            {"name": "risk", "weight": _wr},
+                        ],
+                        "preferences": {
+                            "personas": selected_personas or persona_defaults,
+                            "user_context": (user_ctx or "").strip() or None,
+                        },
+                    }
+                    st.session_state.sf_to_run = {"sid": "solutions_studio", "request": sf_req}
+                    st.session_state.trigger_solution_finder = True
+                    st.toast("Running Solution Finder...", icon="🧩")
+            with cols_ss[1]:
+                if st.button("Approve Recommendation", key="solutions_studio_approve"):
+                    # Queue a HITL approval using existing audit flow
+                    try:
+                        hitl = {
+                            "request_id": str(uuid.uuid4()),
+                            "situation_id": "solutions_studio",
+                            "decision": "approved",
+                            "comment": "user_approved_solution",
+                        }
+                        st.session_state.pending_hitl_feedback = (
+                            st.session_state.get("pending_hitl_feedback") or []
+                        ) + [hitl]
+                        st.toast("Approval submitted.", icon="✅")
+                    except Exception:
+                        st.toast("Could not queue approval.", icon="⚠️")
+
+            # Render latest Solutions Studio result (sid='solutions_studio')
+            ss_res = st.session_state.get("solutions_studio_solutions_result")
+            if isinstance(ss_res, dict):
+                rec = ss_res.get("recommendation")
+                opts = ss_res.get("options_ranked") or []
+                matrix = ss_res.get("tradeoff_matrix") or {}
+                rationale = ss_res.get("recommendation_rationale")
+                # Light debug: show status/error when Debug Mode enabled
+                if st.session_state.get("debug_mode"):
+                    _status = ss_res.get("status")
+                    _err = ss_res.get("error_message")
+                    if _status:
+                        st.caption(f"Status: {_status}")
+                    if _err:
+                        st.caption(f"Error: {_err}")
+                if rec or opts or rationale:
+                    st.subheader("Results")
+                else:
+                    st.info("Solutions response received but contains no options/recommendation. Enable Debug Mode to inspect raw result below.")
+                if rec:
+                    try:
+                        _title = rec.get("title") or rec.get("id")
+                        _desc = rec.get("description")
+                        st.write(f"Recommendation: {_title}")
+                        if _desc:
+                            st.caption(_desc)
+                    except Exception:
+                        st.write("Recommendation available")
+                if isinstance(rationale, str) and rationale.strip():
+                    st.caption(rationale.strip())
+
+                # Compute and display scores from criteria weights if available
+                try:
+                    criteria = matrix.get("criteria") or []
+                    weights = {str(c.get("name")).lower(): float(c.get("weight")) for c in criteria if isinstance(c, dict)}
+                except Exception:
+                    weights = {}
+                # Fallback to UI-selected weights when agent didn't return matrix
+                if not weights:
+                    _w = st.session_state.get("solutions_studio_weights") or {}
+                    weights = {
+                        "impact": float(_w.get("impact", 0.5)),
+                        "cost": float(_w.get("cost", 0.25)),
+                        "risk": float(_w.get("risk", 0.25)),
+                    }
+                rows = []
+                for o in (opts[:10] if isinstance(opts, list) else []):
+                    try:
+                        impact = float(o.get("expected_impact") or 0)
+                    except Exception:
+                        impact = 0.0
+                    try:
+                        cost = float(o.get("cost") or 0)
+                    except Exception:
+                        cost = 0.0
+                    try:
+                        risk = float(o.get("risk") or 0)
+                    except Exception:
+                        risk = 0.0
+                    # Default to config-like weights if not provided by agent
+                    w_imp = weights.get("impact", 0.5)
+                    w_cost = weights.get("cost", 0.25)
+                    w_risk = weights.get("risk", 0.25)
+                    score = (w_imp * impact) - (w_cost * cost) - (w_risk * risk)
+                    rows.append(
+                        {
+                            "option": o.get("title", o.get("id")),
+                            "expected_impact": impact,
+                            "cost": cost,
+                            "risk": risk,
+                            "score": round(score, 4),
+                        }
+                    )
+                if rows:
+                    st.markdown("**Options (with scores)**")
+                    st.table(rows)
+
+                # Detailed debate argumentation (if provided)
+                try:
+                    audit = ss_res.get("audit_log") or []
+                    # Render detailed transcript first, when present
+                    try:
+                        det = None
+                        for ev in audit:
+                            if ev.get("event") == "llm_debate_transcript_detailed" and isinstance(ev.get("transcript_detailed"), list):
+                                det = ev.get("transcript_detailed")
+                                break
+                        if det:
+                            with st.expander("Debate argumentation (detailed)"):
+                                for turn in det:
+                                    try:
+                                        persona = turn.get("persona")
+                                        claim = turn.get("claim")
+                                        st.write(f"- **{persona}** — {claim}")
+                                        ro = turn.get("reasoning_outline")
+                                        if ro:
+                                            st.caption("Reasoning:")
+                                            if isinstance(ro, list):
+                                                for r in ro[:6]:
+                                                    st.write(f"  • {r}")
+                                            else:
+                                                st.write(ro)
+                                        cnt = turn.get("counters")
+                                        if cnt:
+                                            st.caption("Counters:")
+                                            if isinstance(cnt, list):
+                                                for c in cnt[:6]:
+                                                    st.write(f"  • {c}")
+                                            else:
+                                                st.write(cnt)
+                                        cons = turn.get("concession")
+                                        if cons:
+                                            st.caption(f"Concession: {cons}")
+                                        rev = turn.get("revised_position")
+                                        if rev:
+                                            st.caption(f"Revised: {rev}")
+                                        vote = turn.get("vote")
+                                        if vote is not None:
+                                            st.caption(f"Vote: {vote}")
+                                    except Exception:
+                                        st.write(turn)
+                    except Exception:
+                        pass
+
+                    # Debate transcript (one-liners)
+                    transcript = None
+                    # Prefer full transcript if available
+                    for ev in audit:
+                        if ev.get("event") == "llm_debate_transcript_full" and isinstance(ev.get("transcript"), list):
+                            transcript = ev.get("transcript")
+                            break
+                    if not transcript:
+                        for ev in audit:
+                            if ev.get("event") == "llm_debate_transcript" and isinstance(ev.get("sample"), list):
+                                transcript = ev.get("sample")
+                                break
+                    if transcript:
+                        with st.expander("Debate transcript"):
+                            for turn in transcript:
+                                try:
+                                    st.write(f"- {turn.get('persona')}: {turn.get('opinion')}")
+                                except Exception:
+                                    st.write(turn)
+                    # Executive summary derived from the LLM analysis payload
+                    if audit:
+                        ev_req = None
+                        for ev in audit:
+                            try:
+                                if ev.get("event") == "llm_debate_analysis_req":
+                                    ev_req = ev
+                                    break
+                            except Exception:
+                                pass
+                        if ev_req:
+                            with st.expander("Executive Summary"):
+                                _render_llm_payload_exec_summary(ev_req)
+
+                    # Analysis request components sent to LLM (safe JSON rendering)
+                    if audit:
+                        ev_req = None
+                        for ev in audit:
+                            try:
+                                if ev.get("event") == "llm_debate_analysis_req":
+                                    ev_req = ev
+                                    break
+                            except Exception:
+                                pass
+                        if ev_req:
+                            with st.expander("LLM Analysis Request"):
+                                try:
+                                    st.markdown("**principal_context**")
+                                    pcv = ev_req.get("principal_context")
+                                    if isinstance(pcv, (dict, list)):
+                                        st.json(pcv)
+                                    elif pcv is None:
+                                        st.caption("No principal_context provided.")
+                                    else:
+                                        st.code(str(pcv))
+                                except Exception:
+                                    pass
+                                try:
+                                    st.markdown("**situation_context**")
+                                    scv = ev_req.get("situation_context")
+                                    if isinstance(scv, (dict, list)):
+                                        st.json(scv)
+                                    elif scv is None:
+                                        st.caption("No situation_context provided.")
+                                    else:
+                                        st.code(str(scv))
+                                except Exception:
+                                    pass
+                                try:
+                                    bc = ev_req.get("business_context")
+                                    if bc:
+                                        st.markdown("**business_context**")
+                                        if isinstance(bc, (dict, list)):
+                                            st.json(bc)
+                                        else:
+                                            st.code(str(bc))
+                                except Exception:
+                                    pass
+                                try:
+                                    st.markdown("**content (analysis payload)**")
+                                    cv = ev_req.get("content")
+                                    if isinstance(cv, (dict, list)):
+                                        st.json(cv)
+                                    else:
+                                        st.code(str(cv))
+                                except Exception:
+                                    pass
+                except Exception:
+                    pass
+
+    if False:
+        """
+    # Solutions Studio: Dedicated panel for Solution Finder
+    st.header("Solutions Studio")
+    with st.container():
+        # Prefill problem statement from active situation (prefer), then last Deep Analysis, then first situation
+        try:
+            if not st.session_state.get("solutions_studio_problem"):
+                derived_problem = None
+                # Prefer active situation SCQA summary if available
+                active_sid = st.session_state.get("active_situation_id")
+                if active_sid:
+                    try:
+                        _da_active = st.session_state.get(f"{active_sid}_deep_analysis_result")
+                        if isinstance(_da_active, dict):
+                            derived_problem = _da_active.get("scqa_summary") or None
+                    except Exception:
+                        pass
+                    if not derived_problem:
+                        # Fallback to active situation description or KPI name
+                        try:
+                            sits = st.session_state.get("situations") or []
+                            s_active = next((x for x in sits if (x.get('situation_id') if isinstance(x, dict) else getattr(x, 'situation_id', None)) == active_sid), None)
+                            if s_active is not None:
+                                desc0 = s_active.get('description') if isinstance(s_active, dict) else getattr(s_active, 'description', '')
+                                kpi0 = s_active.get('kpi_name') if isinstance(s_active, dict) else getattr(s_active, 'kpi_name', '')
+                                derived_problem = desc0 or (f"KPI: {kpi0}" if kpi0 else None)
+                        except Exception:
+                            pass
+                # Else fallback to last Deep Analysis
+                if not derived_problem:
+                    last_da_sid = st.session_state.get("last_da_sid")
+                    if last_da_sid:
+                        _da_last = st.session_state.get(f"{last_da_sid}_deep_analysis_result")
+                        if isinstance(_da_last, dict):
+                            derived_problem = _da_last.get("scqa_summary") or None
+                # Else fallback to first situation
+                if not derived_problem:
+                    sits = st.session_state.get("situations") or []
+                    if sits:
+                        s0 = sits[0]
+                        try:
+                            desc0 = s0.get('description') if isinstance(s0, dict) else getattr(s0, 'description', '')
+                        except Exception:
+                            desc0 = ''
+                        try:
+                            kpi0 = s0.get('kpi_name') if isinstance(s0, dict) else getattr(s0, 'kpi_name', '')
+                        except Exception:
+                            kpi0 = ''
+                        derived_problem = desc0 or (f"KPI: {kpi0}" if kpi0 else None)
+                if derived_problem:
+                    st.session_state.solutions_studio_problem = str(derived_problem)
+        except Exception:
+            pass
+        # Defaults for personas loaded asynchronously from the agent; fallback to config-like list
+        persona_defaults = st.session_state.get(
+            "sf_persona_defaults",
+            [
+                "QA Lead",
+                "Operations Manager",
+                "Finance Controller",
+                "Management/Strategy Consultant",
+                "Big 4 Consultant",
+            ],
+        )
+        # Criteria weights (Impact/Cost/Risk)
+        w_default = {"impact": 0.5, "cost": 0.25, "risk": 0.25}
+        w_current = st.session_state.get("solutions_studio_weights") or w_default.copy()
+        cols_w = st.columns(3)
+        with cols_w[0]:
+            wi = st.slider("Impact weight", 0.0, 1.0, float(w_current.get("impact", 0.5)), 0.05)
+        with cols_w[1]:
+            wc = st.slider("Cost weight", 0.0, 1.0, float(w_current.get("cost", 0.25)), 0.05)
+        with cols_w[2]:
+            wr = st.slider("Risk weight", 0.0, 1.0, float(w_current.get("risk", 0.25)), 0.05)
+        _sum_w = (wi or 0.0) + (wc or 0.0) + (wr or 0.0)
+        if _sum_w <= 0:
+            wi, wc, wr = 0.5, 0.25, 0.25
+        else:
+            wi, wc, wr = wi / _sum_w, wc / _sum_w, wr / _sum_w
+        st.session_state.solutions_studio_weights = {"impact": wi, "cost": wc, "risk": wr}
+        st.caption(f"Weights normalized to: impact={wi:.2f}, cost={wc:.2f}, risk={wr:.2f}")
+        # Inputs
+        problem_text = st.text_area(
+            "Problem statement",
+            key="solutions_studio_problem",
+            placeholder="Describe the business problem to solve",
+            value=st.session_state.get("solutions_studio_problem", ""),
+        )
+        user_ctx = st.text_area(
+            "Additional context to LLM (optional)",
+            key="solutions_studio_user_context",
+            placeholder="Any constraints, preferences, KPIs of interest, or background",
+        )
+        selected_personas = st.multiselect(
+            "Debate participants",
+            options=persona_defaults,
+            default=persona_defaults,
+            key="solutions_studio_personas",
+        )
+        cols_ss = st.columns(2)
+        with cols_ss[0]:
+            if st.button("Run Debate", key="solutions_studio_run"):
+                pid_val = (
+                    st.session_state.get("selected_principal_id")
+                    or st.session_state.get("default_principal_id")
+                    or "cfo_001"
+                )
+                principal_name = None
+                try:
+                    principal_name = st.session_state.principal_id_to_name.get(pid_val, pid_val)
+                except Exception:
+                    principal_name = pid_val
+                active_sid = st.session_state.get("active_situation_id")
+                # If the text is empty, attempt to derive from last Deep Analysis again
+                prob_final = (problem_text or "").strip()
+                if not prob_final:
+                    try:
+                        sid_try = active_sid or st.session_state.get("last_da_sid")
+                        if sid_try:
+                            _da_last = st.session_state.get(f"{sid_try}_deep_analysis_result")
+                            if isinstance(_da_last, dict):
+                                prob_final = (_da_last.get("scqa_summary") or "").strip()
+                    except Exception:
+                        pass
+                if not prob_final:
+                    # Fallback to first situation
+                    try:
+                        sits = st.session_state.get("situations") or []
+                        if sits:
+                            s0 = next((x for x in sits if (x.get('situation_id') if isinstance(x, dict) else getattr(x, 'situation_id', None)) == active_sid), None) or sits[0]
+                            desc0 = s0.get('description') if isinstance(s0, dict) else getattr(s0, 'description', '')
+                            kpi0 = s0.get('kpi_name') if isinstance(s0, dict) else getattr(s0, 'kpi_name', '')
+                            prob_final = (desc0 or (f"KPI: {kpi0}" if kpi0 else "")).strip()
+                    except Exception:
+                        pass
+                # Gather contexts
+                # principal_context
+                pctx = {"principal_id": pid_val, "principal_name": principal_name}
+                # situation_context
+                sctx = None
+                try:
+                    if active_sid:
+                        sits2 = st.session_state.get("situations") or []
+                        s_active = next((x for x in sits2 if (x.get('situation_id') if isinstance(x, dict) else getattr(x, 'situation_id', None)) == active_sid), None)
+                        if s_active is not None:
+                            kpi_name = s_active.get('kpi_name') if isinstance(s_active, dict) else getattr(s_active, 'kpi_name', None)
+                            desc_a = s_active.get('description') if isinstance(s_active, dict) else getattr(s_active, 'description', None)
+                            # Try timeframe from latest DA plan for this sid
+                            timeframe = None
+                            try:
+                                _da_a = st.session_state.get(f"{active_sid}_deep_analysis_result")
+                                if isinstance(_da_a, dict):
+                                    plan_a = _da_a.get('plan') or {}
+                                    timeframe = plan_a.get('timeframe') if isinstance(plan_a, dict) else None
+                            except Exception:
+                                pass
+                            sctx = {"situation_id": active_sid, "kpi_name": kpi_name, "description": desc_a, "timeframe": timeframe}
+                except Exception:
+                    sctx = None
+                # Criteria weights
+                _w = st.session_state.get("solutions_studio_weights") or {}
+                _wi = float(_w.get("impact", 0.5))
+                _wc = float(_w.get("cost", 0.25))
+                _wr = float(_w.get("risk", 0.25))
+                sf_req = {
+                    "request_id": str(uuid.uuid4()),
+                    "problem_statement": prob_final or "Problem statement not provided",
+                    "principal_id": pid_val,
+                    "principal_context": pctx,
+                    "situation_context": sctx,
+                    "evaluation_criteria": [
+                        {"name": "impact", "weight": _wi},
+                        {"name": "cost", "weight": _wc},
+                        {"name": "risk", "weight": _wr},
+                    ],
+                    "preferences": {
+                        "personas": selected_personas or persona_defaults,
+                        "user_context": (user_ctx or "").strip() or None,
+                    },
+                }
+                st.session_state.sf_to_run = {"sid": "solutions_studio", "request": sf_req}
+                st.session_state.trigger_solution_finder = True
+                st.toast("Running Solution Finder...", icon="🧩")
+        with cols_ss[1]:
+            if st.button("Approve Recommendation", key="solutions_studio_approve"):
+                # Queue a HITL approval using existing audit flow
+                try:
+                    hitl = {
+                        "request_id": str(uuid.uuid4()),
+                        "situation_id": "solutions_studio",
+                        "decision": "approved",
+                        "comment": "user_approved_solution",
+                    }
+                    st.session_state.pending_hitl_feedback = (
+                        st.session_state.get("pending_hitl_feedback") or []
+                    ) + [hitl]
+                    st.toast("Approval submitted.", icon="✅")
+                except Exception:
+                    st.toast("Could not queue approval.", icon="⚠️")
+
+        # Render latest Solutions Studio result (sid='solutions_studio')
+        ss_res = st.session_state.get("solutions_studio_solutions_result")
+        if isinstance(ss_res, dict):
+            rec = ss_res.get("recommendation")
+            opts = ss_res.get("options_ranked") or []
+            matrix = ss_res.get("tradeoff_matrix") or {}
+            rationale = ss_res.get("recommendation_rationale")
+            if rec or opts or rationale:
+                st.subheader("Results")
+            if rec:
+                try:
+                    title = rec.get("title") or rec.get("id")
+                    desc = rec.get("description")
+                    st.write(f"Recommendation: {title}")
+                    if desc:
+                        st.caption(desc)
+                except Exception:
+                    st.write("Recommendation available")
+            if isinstance(rationale, str) and rationale.strip():
+                st.caption(rationale.strip())
+
+            # Compute and display scores from criteria weights if available
+            try:
+                criteria = matrix.get("criteria") or []
+                weights = {str(c.get("name")).lower(): float(c.get("weight")) for c in criteria if isinstance(c, dict)}
+            except Exception:
+                weights = {}
+            # Fallback to UI-selected weights when agent didn't return matrix
+            if not weights:
+                _w = st.session_state.get("solutions_studio_weights") or {}
+                weights = {
+                    "impact": float(_w.get("impact", 0.5)),
+                    "cost": float(_w.get("cost", 0.25)),
+                    "risk": float(_w.get("risk", 0.25)),
+                }
+            rows = []
+            for o in (opts[:10] if isinstance(opts, list) else []):
+                try:
+                    impact = float(o.get("expected_impact") or 0)
+                except Exception:
+                    impact = 0.0
+                try:
+                    cost = float(o.get("cost") or 0)
+                except Exception:
+                    cost = 0.0
+                try:
+                    risk = float(o.get("risk") or 0)
+                except Exception:
+                    risk = 0.0
+                # Default to config-like weights if not provided by agent
+                w_imp = weights.get("impact", 0.5)
+                w_cost = weights.get("cost", 0.25)
+                w_risk = weights.get("risk", 0.25)
+                score = (w_imp * impact) - (w_cost * cost) - (w_risk * risk)
+                rows.append(
+                    {
+                        "option": o.get("title", o.get("id")),
+                        "expected_impact": impact,
+                        "cost": cost,
+                        "risk": risk,
+                        "score": round(score, 4),
+                    }
+                )
+            if rows:
+                st.markdown("**Options (with scores)**")
+                st.table(rows)
+
+            # Debate transcript
+            try:
+                audit = ss_res.get("audit_log") or []
+                transcript = None
+                # Prefer full transcript if available
+                for ev in audit:
+                    if ev.get("event") == "llm_debate_transcript_full" and isinstance(ev.get("transcript"), list):
+                        transcript = ev.get("transcript")
+                        break
+                if not transcript:
+                    for ev in audit:
+                        if ev.get("event") == "llm_debate_transcript" and isinstance(ev.get("sample"), list):
+                            transcript = ev.get("sample")
+                            break
+                if transcript:
+                    with st.expander("Debate transcript"):
+                        for turn in transcript:
+                            try:
+                                st.write(f"- {turn.get('persona')}: {turn.get('opinion')}")
+                            except Exception:
+                                st.write(turn)
+                # Executive summary derived from the LLM analysis payload
+                if audit:
+                    ev_req = None
+                    for ev in audit:
+                        try:
+                            if ev.get("event") == "llm_debate_analysis_req":
+                                ev_req = ev
+                                break
+                        except Exception:
+                            pass
+                    if ev_req:
+                        with st.expander("Executive Summary"):
+                            _render_llm_payload_exec_summary(ev_req)
+
+                # Analysis request components sent to LLM
+                if audit:
+                    ev_req = None
+                    for ev in audit:
+                        try:
+                            if ev.get("event") == "llm_debate_analysis_req":
+                                ev_req = ev
+                                break
+                        except Exception:
+                            pass
+                    if ev_req:
+                        with st.expander("LLM Analysis Request"):
+                            try:
+                                st.markdown("**principal_context**")
+                                pcv = ev_req.get("principal_context")
+                                if isinstance(pcv, (dict, list)):
+                                    st.json(pcv)
+                                elif pcv is None:
+                                    st.caption("No principal_context provided.")
+                                else:
+                                    st.code(str(pcv))
+                            except Exception:
+                                pass
+                            try:
+                                st.markdown("**situation_context**")
+                                scv = ev_req.get("situation_context")
+                                if isinstance(scv, (dict, list)):
+                                    st.json(scv)
+                                elif scv is None:
+                                    st.caption("No situation_context provided.")
+                                else:
+                                    st.code(str(scv))
+                            except Exception:
+                                pass
+                            try:
+                                bc = ev_req.get("business_context")
+                                if bc:
+                                    st.markdown("**business_context**")
+                                    if isinstance(bc, (dict, list)):
+                                        st.json(bc)
+                                    else:
+                                        st.code(str(bc))
+                            except Exception:
+                                pass
+                            try:
+                                st.markdown("**content (analysis payload)**")
+                                cv = ev_req.get("content")
+                                if isinstance(cv, (dict, list)):
+                                    st.json(cv)
+                                else:
+                                    st.code(str(cv))
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+        """
     # Display detected situations
     st.header("Detected Situations")
     
@@ -1226,8 +2158,26 @@ def main():
             evaluated_list = ldr.get("kpis_evaluated")
             if evaluated_count is not None:
                 st.caption(f"KPIs evaluated: {evaluated_count}")
+                # Concise severity summary for quick glance
+                try:
+                    _sits = st.session_state.get("situations", []) or []
+                    if _sits:
+                        _sev_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "information": 0}
+                        for _s in _sits:
+                            try:
+                                _sev = _s.get('severity') if isinstance(_s, dict) else getattr(_s, 'severity', None)
+                                _sev_str = _sev.value if hasattr(_sev, 'value') else (str(_sev).lower() if _sev is not None else '')
+                                if _sev_str in _sev_counts:
+                                    _sev_counts[_sev_str] += 1
+                            except Exception:
+                                continue
+                        st.caption(
+                            f"Situations: {len(_sits)} • Critical: {_sev_counts['critical']} • High: {_sev_counts['high']} • Medium: {_sev_counts['medium']}"
+                        )
+                except Exception:
+                    pass
             if evaluated_list:
-                with st.expander("Show evaluated KPIs"):
+                with st.expander("Show details"):
                     try:
                         st.write("\n".join(f"- {name}" for name in evaluated_list))
                     except Exception:
@@ -1274,17 +2224,37 @@ def main():
                 # Fallback bucket
                 severity_groups.setdefault(SituationSeverity.INFORMATION, []).append(situation)
         
-        # Display situations by severity
-        for severity in [SituationSeverity.CRITICAL, SituationSeverity.HIGH, 
-                         SituationSeverity.MEDIUM, SituationSeverity.LOW, 
-                         SituationSeverity.INFORMATION]:
-            if severity in severity_groups:
-                st.subheader(f"{severity.value.capitalize()} Situations")
-                
-                for situation in severity_groups[severity]:
-                    # Map severity to CSS class
-                    severity_class = severity.value.lower()
-                    display_situation(situation, severity_class)
+        # Display only the active situation per worklist selection
+        active_sid = st.session_state.get("active_situation_id")
+        s_active = None
+        sits_all = st.session_state.get("situations") or []
+        if active_sid:
+            for _s in sits_all:
+                try:
+                    sid_val = _s.get('situation_id') if isinstance(_s, dict) else getattr(_s, 'situation_id', None)
+                except Exception:
+                    sid_val = None
+                if str(sid_val) == str(active_sid):
+                    s_active = _s
+                    break
+        if not s_active and sits_all:
+            s_active = sits_all[0]
+        if s_active:
+            # Determine severity for styling
+            try:
+                _sev = s_active.get('severity') if isinstance(s_active, dict) else getattr(s_active, 'severity', None)
+                if isinstance(_sev, str):
+                    try:
+                        _sev_enum = SituationSeverity(_sev)
+                    except Exception:
+                        _sev_enum = SituationSeverity.INFORMATION
+                else:
+                    _sev_enum = _sev or SituationSeverity.INFORMATION
+                severity_class = _sev_enum.value.lower() if hasattr(_sev_enum, 'value') else str(_sev_enum).lower()
+            except Exception:
+                severity_class = "information"
+            st.subheader("Active Situation")
+            display_situation(s_active, severity_class)
     else:
         st.info("No situations detected yet. Click 'Detect Situations' to begin.")
 
@@ -1385,6 +2355,9 @@ def main():
                 with st.expander("SQL Query"):
                     st.code(st.session_state.nl_response.sql_query, language="sql")
 
+    # Solutions Studio (moved to bottom)
+    render_solutions_studio()
+
 # Function to display a situation card
 def display_situation(situation, severity_class):
     """Display a situation card in the UI (supports dict or Pydantic model)."""
@@ -1466,6 +2439,44 @@ def display_situation(situation, severity_class):
                 if timestamp:
                     st.write(f"**Detected:** {timestamp}")
 
+            # KPI Thresholds from registry (if available)
+            try:
+                if kpi_name:
+                    _kpath = os.path.join(project_root, "src", "registry", "kpi", "kpi_registry.yaml")
+                    if os.path.exists(_kpath):
+                        with open(_kpath, "r", encoding="utf-8") as _f:
+                            _kdoc = _yaml.safe_load(_f) or {}
+                        _kpis = _kdoc.get("kpis") or []
+                        _thr_list = None
+                        _knorm = str(kpi_name).strip().lower()
+                        for _k in _kpis:
+                            try:
+                                if not isinstance(_k, dict):
+                                    continue
+                                _name = str(_k.get("name") or "").strip().lower()
+                                _id = str(_k.get("id") or "").strip().lower()
+                                if _knorm and (_knorm == _name or _knorm == _id):
+                                    _thr_list = _k.get("thresholds") or []
+                                    break
+                            except Exception:
+                                continue
+                        if _thr_list:
+                            st.subheader("KPI Thresholds")
+                            _rows = []
+                            for t in _thr_list:
+                                if isinstance(t, dict):
+                                    _rows.append({
+                                        "comparison_type": t.get("comparison_type"),
+                                        "green": t.get("green_threshold"),
+                                        "yellow": t.get("yellow_threshold"),
+                                        "red": t.get("red_threshold"),
+                                        "inverse_logic": t.get("inverse_logic"),
+                                    })
+                            if _rows:
+                                st.table(_rows)
+            except Exception:
+                pass
+
             # Suggested actions
             if suggested_actions:
                 st.subheader("Suggested Actions")
@@ -1480,6 +2491,274 @@ def display_situation(situation, severity_class):
                     sid = _get(situation, 'situation_id', str(uuid.uuid4()))
                     if st.button(question, key=f"{sid}_{question[:20]}"):
                         apply_question(question)
+
+            # Inline Actions: Deep Analysis and Solutions
+            try:
+                # Compute a stable local SID (reuse pattern from follow-up section)
+                _sid = _get(situation, 'situation_id', None)
+                if _sid:
+                    local_sid_da = str(_sid)
+                else:
+                    base_name_da = (kpi_name or '').strip().lower().replace(' ', '_')
+                    desc_key_da = (desc or '').strip().lower().replace(' ', '_')[:50]
+                    local_sid_da = f"sid_{base_name_da or 'kpi'}_{desc_key_da or 'desc'}"
+
+                st.subheader("Analysis & Solutions")
+                cols_actions = st.columns(2)
+                with cols_actions[0]:
+                    if st.button("Initiate Deep Analysis", key=f"{local_sid_da}_deep_analysis_btn"):
+                        # Build DeepAnalysisRequest (dict) and trigger async execution
+                        tf_val = getattr(st.session_state.timeframe, 'value', str(st.session_state.timeframe))
+                        pid_val = st.session_state.get("selected_principal_id") or st.session_state.get("default_principal_id") or "cfo_001"
+                        da_req = {
+                            "request_id": str(uuid.uuid4()),
+                            "kpi_name": kpi_name or "",
+                            "timeframe": tf_val,
+                            "filters": st.session_state.get("filters", {}) or {},
+                            "principal_id": pid_val,
+                        }
+                        st.session_state.da_to_run = {"sid": local_sid_da, "request": da_req}
+                        st.session_state.trigger_deep_analysis = True
+                        # Optional audit trail via SA
+                        try:
+                            _hitl = {
+                                "request_id": str(uuid.uuid4()),
+                                "situation_id": _get(situation, 'situation_id', local_sid_da),
+                                "decision": "approved",
+                                "comment": "user_initiated_deep_analysis"
+                            }
+                            st.session_state.pending_hitl_feedback = (st.session_state.get("pending_hitl_feedback") or []) + [_hitl]
+                        except Exception:
+                            pass
+                        st.toast("Planning deep analysis...", icon="🧠")
+                with cols_actions[1]:
+                    try:
+                        _da_res_present = bool(st.session_state.get(f"{local_sid_da}_deep_analysis_result"))
+                    except Exception:
+                        _da_res_present = False
+                    if st.button("View Solutions", key=f"{local_sid_da}_solutions_btn", disabled=not _da_res_present):
+                        # Build SolutionFinderRequest (dict) and trigger async execution
+                        pid_val = st.session_state.get("selected_principal_id") or st.session_state.get("default_principal_id") or "cfo_001"
+                        # Prefer Deep Analysis SCQA summary when available; fall back to situation description/KPI
+                        problem_stmt = None
+                        try:
+                            _da_res0 = st.session_state.get(f"{local_sid_da}_deep_analysis_result")
+                            if isinstance(_da_res0, dict):
+                                problem_stmt = _da_res0.get("scqa_summary")
+                        except Exception:
+                            problem_stmt = None
+                        if not problem_stmt:
+                            problem_stmt = desc or (f"KPI: {kpi_name}" if kpi_name else "")
+                        sf_req = {
+                            "request_id": str(uuid.uuid4()),
+                            "problem_statement": problem_stmt or "Problem statement not provided",
+                            "principal_id": pid_val,
+                        }
+                        # If DA results already present, include as context
+                        try:
+                            da_res = st.session_state.get(f"{local_sid_da}_deep_analysis_result")
+                            if da_res:
+                                sf_req["deep_analysis_output"] = da_res
+                        except Exception:
+                            pass
+                        st.session_state.sf_to_run = {"sid": local_sid_da, "request": sf_req}
+                        st.session_state.trigger_solution_finder = True
+                        # Optional audit trail
+                        try:
+                            _hitl2 = {
+                                "request_id": str(uuid.uuid4()),
+                                "situation_id": _get(situation, 'situation_id', local_sid_da),
+                                "decision": "approved",
+                                "comment": "user_requested_solutions"
+                            }
+                            st.session_state.pending_hitl_feedback = (st.session_state.get("pending_hitl_feedback") or []) + [_hitl2]
+                        except Exception:
+                            pass
+                        st.toast("Fetching solutions...", icon="🧩")
+                    if not _da_res_present:
+                        st.caption("Run Deep Analysis first to enable Solutions.")
+
+                # Render Deep Analysis results if available
+                try:
+                    _da_res = st.session_state.get(f"{local_sid_da}_deep_analysis_result")
+                    if isinstance(_da_res, dict):
+                        scqa = _da_res.get("scqa_summary")
+                        chg = _da_res.get("change_points") or []
+                        plan = _da_res.get("plan") or {}
+                        dims = []
+                        steps = []
+                        try:
+                            dims = plan.get("dimensions") or []
+                        except Exception:
+                            pass
+                        try:
+                            steps = plan.get("steps") or []
+                        except Exception:
+                            pass
+                        # Fallbacks: if agent returned minimal plan, use suggested dims and synthesize steps
+                        try:
+                            if not dims:
+                                dims = _da_res.get("dimensions_suggested") or []
+                        except Exception:
+                            pass
+                        if not steps and dims:
+                            try:
+                                steps = [{"type": "group_compare", "dimension": d} for d in dims]
+                            except Exception:
+                                pass
+                        if scqa or chg or dims or steps:
+                            st.markdown("**Deep Analysis**")
+                        if scqa:
+                            st.write(scqa)
+                        # Compact summary line
+                        try:
+                            st.caption(f"Dimensions considered: {len(dims)} • Queries planned: {len(steps)} • Change points: {len(chg)}")
+                        except Exception:
+                            pass
+                        # KT Is/Is-Not table (if available)
+                        try:
+                            kt = _da_res.get("kt_is_is_not")
+                            # Normalize KT to dict
+                            if hasattr(kt, "model_dump"):
+                                kt = kt.model_dump()
+                            if isinstance(kt, dict) and any(kt.get(k) for k in [
+                                "what_is","what_is_not","where_is","where_is_not","when_is","when_is_not","extent_is","extent_is_not"
+                            ]):
+                                st.caption("KT Is / Is Not")
+                                c_is, c_is_not = st.columns(2)
+                                with c_is:
+                                    if kt.get("what_is"):
+                                        st.markdown("_What is_")
+                                        for row in kt.get("what_is")[:6]:
+                                            st.write(f"- {row}")
+                                    if kt.get("where_is"):
+                                        st.markdown("_Where is_")
+                                        for row in kt.get("where_is")[:6]:
+                                            st.write(f"- {row}")
+                                    if kt.get("when_is"):
+                                        st.markdown("_When is_")
+                                        for row in kt.get("when_is")[:6]:
+                                            st.write(f"- {row}")
+                                    if kt.get("extent_is"):
+                                        st.markdown("_Extent is_")
+                                        for row in kt.get("extent_is")[:6]:
+                                            st.write(f"- {row}")
+                                with c_is_not:
+                                    if kt.get("what_is_not"):
+                                        st.markdown("_What is not_")
+                                        for row in kt.get("what_is_not")[:6]:
+                                            st.write(f"- {row}")
+                                    if kt.get("where_is_not"):
+                                        st.markdown("_Where is not_")
+                                        for row in kt.get("where_is_not")[:6]:
+                                            st.write(f"- {row}")
+                                    if kt.get("when_is_not"):
+                                        st.markdown("_When is not_")
+                                        for row in kt.get("when_is_not")[:6]:
+                                            st.write(f"- {row}")
+                                    if kt.get("extent_is_not"):
+                                        st.markdown("_Extent is not_")
+                                        for row in kt.get("extent_is_not")[:6]:
+                                            st.write(f"- {row}")
+                        except Exception:
+                            pass
+                        # Change points list (if provided)
+                        if chg:
+                            for cp in chg[:10]:
+                                try:
+                                    st.write(f"- {cp}")
+                                except Exception:
+                                    st.write(cp)
+                except Exception:
+                    pass
+
+                # Render Solutions results if available
+                try:
+                    _sf_res = st.session_state.get(f"{local_sid_da}_solutions_result")
+                    # Fallback: if local SID mismatched due to rerun, try the last requested SID
+                    if not isinstance(_sf_res, dict):
+                        _last_sf = st.session_state.get("sf_to_run") or {}
+                        _last_sid = _last_sf.get("sid")
+                        if _last_sid:
+                            _sf_res = st.session_state.get(f"{_last_sid}_solutions_result")
+                    if isinstance(_sf_res, dict):
+                        rec = _sf_res.get("recommendation")
+                        opts = _sf_res.get("options_ranked") or []
+                        rationale = _sf_res.get("recommendation_rationale")
+                        if rec or opts or rationale:
+                            st.markdown("**Solutions**")
+                        if rec:
+                            try:
+                                title = rec.get("title") or rec.get("id")
+                                st.write(f"Recommendation: {title}")
+                            except Exception:
+                                st.write("Recommendation available")
+                        if isinstance(rationale, str) and rationale.strip():
+                            st.caption(rationale.strip())
+                        if opts:
+                            st.caption("Top options:")
+                            for o in opts[:5]:
+                                try:
+                                    st.write(f"- {o.get('title', o.get('id'))}")
+                                except Exception:
+                                    st.write(o)
+                        # Executive summary of analysis payload (if present)
+                        try:
+                            audit = _sf_res.get("audit_log") or []
+                            ev_req = None
+                            for ev in audit:
+                                try:
+                                    if ev.get("event") == "llm_debate_analysis_req":
+                                        ev_req = ev
+                                        break
+                                except Exception:
+                                    pass
+                            if ev_req:
+                                with st.expander("Executive Summary"):
+                                    _render_llm_payload_exec_summary(ev_req)
+                        except Exception:
+                            pass
+                        # Also show LLM Analysis Request (if present) for transparency
+                        try:
+                            audit = _sf_res.get("audit_log") or []
+                            ev_req = None
+                            for ev in audit:
+                                try:
+                                    if ev.get("event") == "llm_debate_analysis_req":
+                                        ev_req = ev
+                                        break
+                                except Exception:
+                                    pass
+                            if ev_req:
+                                with st.expander("LLM Analysis Request"):
+                                    try:
+                                        st.markdown("**principal_context**")
+                                        st.json(ev_req.get("principal_context"))
+                                    except Exception:
+                                        pass
+                                    try:
+                                        st.markdown("**situation_context**")
+                                        st.json(ev_req.get("situation_context"))
+                                    except Exception:
+                                        pass
+                                    try:
+                                        bc = ev_req.get("business_context")
+                                        if bc:
+                                            st.markdown("**business_context**")
+                                            st.json(bc)
+                                    except Exception:
+                                        pass
+                                    try:
+                                        st.markdown("**content (analysis payload)**")
+                                        st.json(ev_req.get("content"))
+                                    except Exception:
+                                        pass
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+            except Exception:
+                pass
 
             # Follow-up NL question (inline) – triggers SA.process_nl_query and shows generated SQL
             try:
@@ -1782,6 +3061,19 @@ async def run_async():
                                     pass
                             except Exception as rq_err:
                                 logging.info(f"[DecisionStudio] Could not fetch recommended questions: {rq_err}")
+                
+                # Fetch Solution Finder default personas once for Solutions Studio
+                try:
+                    sf_agent = await st.session_state.orchestrator.get_agent("A9_Solution_Finder_Agent")
+                    if sf_agent and not st.session_state.get("sf_persona_defaults"):
+                        try:
+                            personas = list(getattr(getattr(sf_agent, "config", object()), "expert_personas", []))
+                        except Exception:
+                            personas = []
+                        if personas:
+                            st.session_state.sf_persona_defaults = personas
+                except Exception as _sf_cfg_err:
+                    logging.info(f"[DecisionStudio] Could not load SF persona defaults: {_sf_cfg_err}")
             except Exception as e:
                 st.error(f"Error loading principal profiles: {str(e)}")
                 import traceback
@@ -1962,6 +3254,183 @@ async def run_async():
             except Exception:
                 pass
             await detect_situations()
+
+        # Execute Deep Analysis when requested
+        if agent and st.session_state.get("trigger_deep_analysis") and st.session_state.get("profiles_loaded", False):
+            st.session_state.trigger_deep_analysis = False
+            try:
+                req_obj = st.session_state.get("da_to_run") or {}
+                sid = req_obj.get("sid") or "da"
+                da_req = req_obj.get("request") or {}
+                if st.session_state.orchestrator and da_req.get("kpi_name"):
+                    import asyncio as _asyncio
+                    # Ensure request is a model
+                    try:
+                        # Enrich with principal_id if missing
+                        if "principal_id" not in da_req:
+                            da_req["principal_id"] = st.session_state.get("selected_principal_id") or st.session_state.get("default_principal_id") or "cfo_001"
+                        da_request_model = DeepAnalysisRequest(**da_req)
+                    except Exception:
+                        # Minimal fallback
+                        da_request_model = DeepAnalysisRequest(request_id=str(uuid.uuid4()), principal_id=(st.session_state.get("selected_principal_id") or st.session_state.get("default_principal_id") or "cfo_001"), kpi_name=str(da_req.get("kpi_name", "")), timeframe=da_req.get("timeframe"), filters=da_req.get("filters") or {})
+                    # Plan
+                    plan_resp = await _asyncio.wait_for(
+                        st.session_state.orchestrator.execute_agent_method(
+                            "A9_Deep_Analysis_Agent",
+                            "plan_deep_analysis",
+                            {"request": da_request_model}
+                        ),
+                        timeout=20
+                    )
+                    # Normalize plan to model
+                    try:
+                        if hasattr(plan_resp, 'plan') and plan_resp.plan is not None:
+                            plan_model = plan_resp.plan
+                        elif isinstance(plan_resp, dict):
+                            _p = plan_resp.get("plan") or plan_resp
+                            plan_model = DeepAnalysisPlan(**_p)
+                        else:
+                            plan_model = DeepAnalysisPlan(kpi_name=da_request_model.kpi_name, timeframe=da_request_model.timeframe, filters=da_request_model.filters, steps=[], dimensions=[])
+                    except Exception:
+                        plan_model = DeepAnalysisPlan(kpi_name=da_request_model.kpi_name, timeframe=da_request_model.timeframe, filters=da_request_model.filters, steps=[], dimensions=[])
+                    # Execute with model
+                    exec_resp = await _asyncio.wait_for(
+                        st.session_state.orchestrator.execute_agent_method(
+                            "A9_Deep_Analysis_Agent",
+                            "execute_deep_analysis",
+                            {"plan": plan_model}
+                        ),
+                        timeout=25
+                    )
+                    if hasattr(exec_resp, 'model_dump'):
+                        exec_obj = exec_resp.model_dump()
+                    elif isinstance(exec_resp, dict):
+                        exec_obj = exec_resp
+                    else:
+                        exec_obj = {"status": "success"}
+                    st.session_state[f"{sid}_deep_analysis_result"] = exec_obj
+                    # Remember last Deep Analysis SID to prefill Solutions Studio problem
+                    try:
+                        st.session_state.last_da_sid = sid
+                    except Exception:
+                        pass
+                    try:
+                        st.session_state.debug_trace.append(f"run_async: deep analysis done for sid={sid}")
+                    except Exception:
+                        pass
+                    st.toast("Deep Analysis ready.", icon="✅")
+                    # Force a one-time rerun so inline UI can render results immediately
+                    try:
+                        flag_key = f"{sid}_da_rerun_done"
+                        if not st.session_state.get(flag_key, False):
+                            st.session_state[flag_key] = True
+                            import streamlit as _st
+                            if hasattr(_st, "rerun"):
+                                _st.rerun()
+                            elif hasattr(_st, "experimental_rerun"):
+                                _st.experimental_rerun()
+                    except Exception:
+                        pass
+            except Exception as _da_err:
+                st.toast("Deep Analysis failed.", icon="⚠️")
+                try:
+                    st.session_state.debug_trace.append(f"run_async: deep analysis error: {_da_err}")
+                except Exception:
+                    pass
+
+        # Execute Solution Finder when requested
+        if agent and st.session_state.get("trigger_solution_finder") and st.session_state.get("profiles_loaded", False):
+            st.session_state.trigger_solution_finder = False
+            try:
+                req_obj = st.session_state.get("sf_to_run") or {}
+                sid = req_obj.get("sid") or "sf"
+                sf_req = req_obj.get("request") or {}
+                if st.session_state.orchestrator:
+                    # Gate on Deep Analysis presence
+                    try:
+                        _da_res = st.session_state.get(f"{sid}_deep_analysis_result")
+                    except Exception:
+                        _da_res = None
+                    # Allow Solutions Studio to run without Deep Analysis; other sids still require DA
+                    if not _da_res and sid != "solutions_studio":
+                        st.toast("Run Deep Analysis first to enable Solutions.", icon="⚠️")
+                    else:
+                        import asyncio as _asyncio
+                        # Ensure DA output is included
+                        if isinstance(sf_req, dict) and "deep_analysis_output" not in sf_req:
+                            sf_req["deep_analysis_output"] = _da_res
+                        # Ensure request is a model
+                        try:
+                            if "principal_id" not in sf_req:
+                                sf_req["principal_id"] = st.session_state.get("selected_principal_id") or st.session_state.get("default_principal_id") or "cfo_001"
+                            sf_request_model = SolutionFinderRequest(**sf_req)
+                        except Exception:
+                            sf_request_model = SolutionFinderRequest(request_id=str(uuid.uuid4()), principal_id=(st.session_state.get("selected_principal_id") or st.session_state.get("default_principal_id") or "cfo_001"), problem_statement=str(sf_req.get("problem_statement", "")), deep_analysis_output=_da_res)
+                        sf_resp = await _asyncio.wait_for(
+                            st.session_state.orchestrator.execute_agent_method(
+                                "A9_Solution_Finder_Agent",
+                                "recommend_actions",
+                                {"request": sf_request_model}
+                            ),
+                            timeout=20
+                        )
+                        if hasattr(sf_resp, 'model_dump'):
+                            sf_obj = sf_resp.model_dump()
+                        elif isinstance(sf_resp, dict):
+                            sf_obj = sf_resp
+                        else:
+                            sf_obj = {"status": "success"}
+                        st.session_state[f"{sid}_solutions_result"] = sf_obj
+                        try:
+                            st.session_state.debug_trace.append(f"run_async: solutions done for sid={sid}")
+                        except Exception:
+                            pass
+                        st.toast("Solutions ready.", icon="✅")
+                        # Force a one-time rerun so inline UI can render results immediately
+                        try:
+                            flag_key2 = f"{sid}_sf_rerun_done"
+                            if not st.session_state.get(flag_key2, False):
+                                st.session_state[flag_key2] = True
+                                import streamlit as _st
+                                if hasattr(_st, "rerun"):
+                                    _st.rerun()
+                                elif hasattr(_st, "experimental_rerun"):
+                                    _st.experimental_rerun()
+                        except Exception:
+                            pass
+            except Exception as _sf_err:
+                st.toast("Solutions fetch failed.", icon="⚠️")
+                try:
+                    st.session_state.debug_trace.append(f"run_async: solutions error: {_sf_err}")
+                except Exception:
+                    pass
+
+        # Send any pending HITL audit feedback (optional)
+        try:
+            _queue = st.session_state.get("pending_hitl_feedback") or []
+            if agent and _queue and st.session_state.orchestrator:
+                new_q = []
+                for item in _queue:
+                    try:
+                        _req = item.copy()
+                        if "request_id" not in _req:
+                            _req["request_id"] = str(uuid.uuid4())
+                        # Normalize to HITLRequest model
+                        try:
+                            _hitl_model = HITLRequest(**_req)
+                        except Exception:
+                            _hitl_model = HITLRequest(request_id=_req.get("request_id"), situation_id=str(_req.get("situation_id")), decision=str(_req.get("decision", "approved")))
+                        await st.session_state.orchestrator.execute_agent_method(
+                            "A9_Situation_Awareness_Agent",
+                            "process_hitl_feedback",
+                            {"request": _hitl_model}
+                        )
+                    except Exception:
+                        # Keep failed item for retry
+                        new_q.append(item)
+                st.session_state.pending_hitl_feedback = new_q
+        except Exception:
+            pass
 
         # Generate per-KPI SQL asynchronously when requested by UI
         if agent and st.session_state.get("trigger_per_kpi_sql") and st.session_state.get("profiles_loaded", False):

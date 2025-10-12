@@ -227,6 +227,18 @@ views:
           - "Product Name"
           - "Product ID"
 
+      # Dimensional drill paths for hierarchical analysis
+      dimension_hierarchies:
+        customer:
+          - "Customer Type Name"
+          - "Customer Name"
+        product:
+          - "Parent Product/Group Description"
+          - "Product Name"
+        profit_center:
+          - "Parent Profit Center/Group Description"
+          - "Profit Center Name"
+
       examples:
         - nl: "Show top 5 profit centers by Gross Revenue"
           sql: |

@@ -7,6 +7,7 @@ and provides a unified API for accessing them.
 """
 
 import importlib
+import os
 import logging
 from typing import Any, Dict, List, Optional, Type
 
@@ -213,6 +214,20 @@ class KPIProvider(RegistryProvider[KPI]):
             import yaml
             with open(self.source_path, "r") as file:
                 data = yaml.safe_load(file)
+                # Load optional enrichment file from same directory
+                enrichment_top_dims: Dict[str, Any] = {}
+                enrichment_dim_scores: Dict[str, Any] = {}
+                try:
+                    if isinstance(self.source_path, str):
+                        enrich_path = os.path.join(os.path.dirname(self.source_path), "kpi_enrichment.yaml")
+                        if os.path.exists(enrich_path):
+                            with open(enrich_path, "r", encoding="utf-8") as ef:
+                                enrich_doc = yaml.safe_load(ef) or {}
+                                enrichment_top_dims = (enrich_doc.get("top_dimensions") or {})
+                                enrichment_dim_scores = (enrich_doc.get("dimension_scores") or {})
+                except Exception:
+                    # Non-fatal; continue without enrichment
+                    enrichment_top_dims, enrichment_dim_scores = {}, {}
                 
                 # Handle the specific structure of our KPI registry YAML
                 if isinstance(data, dict) and "kpis" in data and isinstance(data["kpis"], list):
@@ -267,6 +282,35 @@ class KPIProvider(RegistryProvider[KPI]):
                                 # Apply defaults before model creation
                                 merged_item = _merge_defaults(item)
                                 kpi = KPI(**merged_item)
+                                # Merge enrichment into KPI.metadata (non-destructive)
+                                try:
+                                    if not isinstance(kpi.metadata, dict):
+                                        kpi.metadata = {}
+                                    # by name, id, or legacy id
+                                    td = (
+                                        enrichment_top_dims.get(kpi.name)
+                                        or enrichment_top_dims.get(kpi.id)
+                                        or enrichment_top_dims.get(getattr(kpi, "legacy_id", None))
+                                    )
+                                    if td is not None:
+                                        # ensure string
+                                        td_str = ", ".join(td) if isinstance(td, list) else str(td)
+                                        kpi.metadata.setdefault("top_dimensions", td_str)
+                                    ds = (
+                                        enrichment_dim_scores.get(kpi.name)
+                                        or enrichment_dim_scores.get(kpi.id)
+                                        or enrichment_dim_scores.get(getattr(kpi, "legacy_id", None))
+                                    )
+                                    if ds is not None:
+                                        # ensure JSON string for scores
+                                        try:
+                                            import json as _json
+                                            ds_str = ds if isinstance(ds, str) else _json.dumps(ds)
+                                        except Exception:
+                                            ds_str = str(ds)
+                                        kpi.metadata.setdefault("dimension_scores", ds_str)
+                                except Exception:
+                                    pass
                                 self._add_kpi(kpi)
                             except Exception as e:
                                 logger.warning(f"Failed to create KPI from YAML item: {e}")

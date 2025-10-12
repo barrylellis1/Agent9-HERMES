@@ -7,6 +7,9 @@ import asyncio
 import logging
 import sys
 import os
+import pytest
+
+pytestmark = pytest.mark.asyncio
 
 # Configure logging
 logging.basicConfig(

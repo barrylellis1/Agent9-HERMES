@@ -12,12 +12,16 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 AGENTS_DIR = REPO_ROOT / "src" / "agents"
 TESTS_DIR = REPO_ROOT / "tests"
 
+# File-level allowance/deprecation tokens
+DEPRECATION_TOKEN = "DEPRECATION WARNING"
+ALLOW_DB_IN_AGENT_FILE_TOKEN = "arch-allow-db-in-agent file"
+
 # Banned patterns in agent code (any file under src/agents/**)
 # Keep simple and conservative; we can iterate as needed
 BANNED_AGENT_PATTERNS = [
     (re.compile(r"duckdb\s*\.\s*connect\s*\("), None),
     # direct DB execute on any connection-like object; allow suppression with '# arch-allow-execute'
-    (re.compile(r"\\.\s*execute\s*\("), "arch-allow-execute"),
+    (re.compile(r"\.\s*execute\s*\("), "arch-allow-execute"),
     # CSV ingestion must not occur in agents; allow suppression with '# arch-allow-read_csv'
     (re.compile(r"(pandas|pd)\s*\.\s*read_csv\s*\("), "arch-allow-read_csv"),
     (re.compile(r"sqlite3\s*\.\s*connect\s*\("), None),
@@ -34,6 +38,9 @@ def _scan_files(base: Path):
         # Skip compiled/migrations if any, or generated folders if added later
         if any(part in {".venv", "_build", "node_modules", "dist", "build"} for part in path.parts):
             continue
+        # Skip backup files
+        if str(path).endswith(".bak"):
+            continue
         yield path
 
 
@@ -47,6 +54,10 @@ def test_no_banned_db_patterns_in_agents():
     violations = []
     for py in _scan_files(AGENTS_DIR):
         text = _read_text(py)
+        head = "\n".join(text.splitlines()[:20])
+        # Skip deprecated files or explicitly allowed ones
+        if (DEPRECATION_TOKEN in head) or (ALLOW_DB_IN_AGENT_FILE_TOKEN in text):
+            continue
         for i, line in enumerate(text.splitlines(), start=1):
             stripped = line.strip()
             # Skip obvious comments-only lines

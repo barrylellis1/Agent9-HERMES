@@ -149,6 +149,8 @@ class A9_Data_Product_Agent(DataProductProtocol):
             self.bypass_mcp = False
 
         # Registry will be loaded in _async_init after database connection is established
+        # Cache for exposed columns per view (to avoid repeated YAML reads)
+        self._view_exposed_columns_cache: Dict[str, Set[str]] = {}
     
     async def _async_init(self):
         """Initialize async resources."""
@@ -808,7 +810,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
         """
         return await self.generate_sql(query, context)
 
-    async def _generate_sql_for_kpi(self, kpi_definition: Any, timeframe: Any = None, filters: Dict[str, Any] = None, topn: Any = None) -> str:
+    async def _generate_sql_for_kpi(self, kpi_definition: Any, timeframe: Any = None, filters: Dict[str, Any] = None, topn: Any = None, breakdown: bool = False, override_group_by: Optional[List[str]] = None) -> str:
         """
         Generate SQL for a KPI definition.
         
@@ -816,6 +818,9 @@ class A9_Data_Product_Agent(DataProductProtocol):
             kpi_definition: KPI definition object
             timeframe: Optional timeframe filter
             filters: Optional additional filters
+            topn: Optional Top/Bottom N spec
+            breakdown: When True, allow grouping via GROUP BY precedence; when False, return a single aggregated value (no grouping)
+            override_group_by: Optional explicit list of group-by terms to use when breakdown=True (bypasses precedence)
             
         Returns:
             SQL query string
@@ -906,33 +911,12 @@ class A9_Data_Product_Agent(DataProductProtocol):
             
         # Defer constructing the SELECT clause until after grouping columns are added
         
-        # Add group by clause if needed
-        group_by_items = []
-        if hasattr(kpi_definition, 'group_by') and kpi_definition.group_by:
-            for group_item in kpi_definition.group_by:
-                if isinstance(group_item, str):
-                    group_by_items.append(group_item)
-                elif isinstance(group_item, dict) and 'name' in group_item:
-                    group_by_items.append(group_item['name'])
-
-        # If no explicit group_by provided, apply fallbacks (dimensions or DP-level metadata)
-        if not group_by_items:
-            try:
-                # 1) KPI metadata-provided fallback dims
-                meta = getattr(kpi_definition, 'metadata', {}) or {}
-                fgbd = meta.get('fallback_group_by_dimensions')
-                if isinstance(fgbd, list) and fgbd:
-                    group_by_items = [str(x) for x in fgbd if isinstance(x, (str, int, float))]
-            except Exception:
-                pass
-            # 2) KPI-level dimensions field as a pragmatic fallback
-            if not group_by_items:
-                try:
-                    dims = getattr(kpi_definition, 'dimensions', None)
-                    if isinstance(dims, list) and dims:
-                        group_by_items = [str(x) for x in dims if isinstance(x, (str, int, float))]
-                except Exception:
-                    pass
+        # Determine group by items using centralized precedence only when breakdown mode is requested
+        # For initial situation awareness, no grouping is recommended to avoid per-row threshold evaluation
+        if breakdown and isinstance(override_group_by, list) and override_group_by:
+            group_by_items = [str(x) for x in override_group_by if isinstance(x, (str, int, float))]
+        else:
+            group_by_items = self._collect_group_by_items(kpi_definition) if breakdown else []
 
         # If grouping is requested, include the grouping columns in the SELECT list
         if group_by_items:
@@ -1051,6 +1035,16 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 except Exception:
                     resolved_date_col = None
 
+                # Product-aware fallback: if KPI belongs to FI_Star_Schema and no explicit date column,
+                # use the canonical view column "Transaction Date" from FI_Star_View.
+                if not resolved_date_col:
+                    try:
+                        dp_id = getattr(kpi_definition, 'data_product_id', None)
+                        if isinstance(dp_id, str) and dp_id.strip().lower() == 'fi_star_schema':
+                            resolved_date_col = 'Transaction Date'
+                    except Exception:
+                        resolved_date_col = None
+
                 if resolved_date_col:
                     # Safely quote date column; timeframe condition already references time_dim alias 't'
                     safe_date_col = '"' + resolved_date_col.replace('"', '""') + '"'
@@ -1092,15 +1086,80 @@ class A9_Data_Product_Agent(DataProductProtocol):
             limit_type = None
             limit_n = None
             limit_field = None
+            metric = None
             if tn is not None:
                 if isinstance(tn, dict):
                     limit_type = tn.get('limit_type') or tn.get('type')
                     limit_n = tn.get('limit_n') or tn.get('n')
                     limit_field = tn.get('limit_field') or tn.get('field')
+                    metric = tn.get('metric')
                 else:
                     limit_type = getattr(tn, 'limit_type', None)
                     limit_n = getattr(tn, 'limit_n', None)
                     limit_field = getattr(tn, 'limit_field', None)
+                    metric = getattr(tn, 'metric', None)
+
+            # Special metric: rank by growth vs previous timeframe (delta between current and previous totals)
+            # Only when grouping is present and timeframe is provided
+            if (
+                isinstance(metric, str) and metric.strip().lower() == 'delta_prev'
+                and group_by_items and timeframe and isinstance(limit_n, int) and limit_n > 0
+            ):
+                try:
+                    # Re-resolve group-by columns for join and projection
+                    try:
+                        resolved_group_by = [self._resolve_attribute_name(str(gb), kpi_definition, view_name) for gb in group_by_items]
+                    except Exception:
+                        resolved_group_by = group_by_items[:]
+
+                    # Use the Decision UI timeframe as CURRENT, and compute PREVIOUS relative to it
+                    curr_cond = self._get_timeframe_condition(timeframe)
+                    prev_cond = self._get_previous_timeframe_condition(timeframe)
+
+                    # Start from base_query which likely already includes the timeframe condition
+                    curr_sql = base_query.strip()
+                    if curr_cond and curr_cond not in curr_sql:
+                        lower_sql = curr_sql.lower()
+                        if ' where ' in lower_sql:
+                            curr_sql = curr_sql + f" AND {curr_cond}"
+                        else:
+                            curr_sql = curr_sql + f" WHERE {curr_cond}"
+
+                    # Build PREVIOUS sql by replacing CURRENT with PREVIOUS (or append if not found)
+                    prev_sql = curr_sql
+                    if curr_cond and prev_cond and (curr_cond in prev_sql):
+                        prev_sql = prev_sql.replace(curr_cond, prev_cond, 1)
+                    elif prev_cond:
+                        lower_sql = prev_sql.lower()
+                        if ' where ' in lower_sql:
+                            prev_sql = prev_sql + f" AND {prev_cond}"
+                        else:
+                            prev_sql = prev_sql + f" WHERE {prev_cond}"
+
+                    # Build join predicate across all grouping columns
+                    try:
+                        join_pred = ' AND '.join([f"curr.{col} = prev.{col}" for col in resolved_group_by])
+                    except Exception:
+                        # Fallback: use the first group-by column only
+                        col = resolved_group_by[0] if resolved_group_by else '1'
+                        join_pred = f"curr.{col} = prev.{col}"
+
+                    # Construct final ranked query using CTEs
+                    direction = 'DESC' if (isinstance(limit_type, str) and limit_type.lower() == 'top') else 'ASC'
+                    gb_select = ', '.join([f"curr.{c}" for c in resolved_group_by])
+                    ranked_sql = (
+                        f"WITH curr AS ({curr_sql}), prev AS ({prev_sql}) "
+                        f"SELECT {gb_select}, curr.{measure_alias or 'total_value'} AS current_value, "
+                        f"COALESCE(prev.{measure_alias or 'total_value'}, 0) AS previous_value, "
+                        f"(curr.{measure_alias or 'total_value'} - COALESCE(prev.{measure_alias or 'total_value'}, 0)) AS delta_prev "
+                        f"FROM curr LEFT JOIN prev ON {join_pred} "
+                        f"ORDER BY delta_prev {direction} LIMIT {int(limit_n)}"
+                    )
+                    base_query = ranked_sql
+                    applied_order = True
+                except Exception:
+                    # If growth ranking fails, fall back to standard ordering below
+                    pass
             if isinstance(limit_type, str) and isinstance(limit_n, int) and limit_n > 0:
                 direction = 'DESC' if limit_type.lower() == 'top' else 'ASC'
                 # Determine order expression
@@ -1151,14 +1210,156 @@ class A9_Data_Product_Agent(DataProductProtocol):
         if hasattr(kpi_definition, 'limit') and kpi_definition.limit and not applied_order:
             base_query += f" LIMIT {kpi_definition.limit}"
         
-        # Final validation to ensure we have a valid SELECT statement
+        # Final validation to ensure we have a valid SQL statement (SELECT or CTE WITH)
         base_query = base_query.strip()
-        if not base_query.upper().startswith("SELECT "):
-            self.logger.warning("Invalid SQL statement (not a SELECT): " + base_query)
+        head = base_query.lstrip().upper()
+        if not (head.startswith("SELECT ") or head.startswith("WITH ")):
+            self.logger.warning("Invalid SQL statement (neither SELECT nor WITH): " + base_query)
             return "SELECT 1 WHERE 1=0 -- Invalid SQL generated"
             
         self.logger.info(f"[SQL] Generated KPI SQL for '{getattr(kpi_definition, 'name', 'unknown')}': {base_query}")
         return base_query
+
+    def _collect_group_by_items(self, kpi_definition: Any) -> List[str]:
+        """
+        Centralized GROUP BY resolution precedence:
+        1) KPI.group_by
+        2) KPI.metadata['fallback_group_by_dimensions']
+        3) KPI.dimensions
+        4) DataProduct.metadata['fallback_group_by_dimensions'] for KPI.data_product_id
+        Returns a list of raw attribute names (not yet resolved to technical columns).
+        """
+        items: List[str] = []
+        # 1) KPI.group_by
+        try:
+            if hasattr(kpi_definition, 'group_by') and kpi_definition.group_by:
+                for group_item in kpi_definition.group_by:
+                    if isinstance(group_item, str):
+                        items.append(group_item)
+                    elif isinstance(group_item, dict) and 'name' in group_item:
+                        items.append(group_item['name'])
+        except Exception:
+            pass
+        # 2) KPI.metadata fallback
+        if not items:
+            try:
+                meta = getattr(kpi_definition, 'metadata', {}) or {}
+                fgbd = meta.get('fallback_group_by_dimensions')
+                if isinstance(fgbd, list) and fgbd:
+                    items = [str(x) for x in fgbd if isinstance(x, (str, int, float))]
+            except Exception:
+                pass
+        # 3) KPI.dimensions
+        if not items:
+            try:
+                dims = getattr(kpi_definition, 'dimensions', None)
+                if isinstance(dims, list) and dims:
+                    items = [str(x) for x in dims if isinstance(x, (str, int, float))]
+            except Exception:
+                pass
+        # 4) DataProduct.metadata fallback
+        if not items:
+            try:
+                dp_id = getattr(kpi_definition, 'data_product_id', None)
+                if isinstance(dp_id, str) and dp_id.strip() and getattr(self, 'data_product_provider', None):
+                    dp = self.data_product_provider.get(dp_id)
+                    dp_meta = None
+                    if dp is not None:
+                        try:
+                            dp_meta = getattr(dp, 'metadata', None)
+                        except Exception:
+                            dp_meta = None
+                        if dp_meta is None and isinstance(dp, dict):
+                            dp_meta = dp.get('metadata')
+                    if isinstance(dp_meta, dict):
+                        fgbd = dp_meta.get('fallback_group_by_dimensions')
+                        if isinstance(fgbd, list) and fgbd:
+                            items = [str(x) for x in fgbd if isinstance(x, (str, int, float))]
+            except Exception:
+                pass
+        # Deduplicate while preserving order
+        try:
+            seen: Set[str] = set()
+            deduped: List[str] = []
+            for it in items:
+                s = str(it)
+                if s not in seen:
+                    seen.add(s)
+                    deduped.append(s)
+            return deduped
+        except Exception:
+            return items or []
+
+    def _contract_path(self) -> str:
+        """Resolve the FI Star contract path similarly to Deep Analysis Agent."""
+        try:
+            here = os.path.dirname(__file__)
+            # From src/agents/new -> src
+            src_dir = os.path.abspath(os.path.join(here, "..", ".."))
+            candidate = os.path.join(src_dir, "contracts", "fi_star_schema.yaml")
+            if os.path.exists(candidate):
+                return candidate
+            # Fallback: from project root -> src/contracts/...
+            proj_root = os.path.abspath(os.path.join(here, "..", "..", ".."))
+            alt2 = os.path.join(proj_root, "contracts", "fi_star_schema.yaml")
+            if os.path.exists(alt2):
+                return alt2
+            # Fallback: CWD-based absolute
+            cwd_alt = os.path.abspath(os.path.join(os.getcwd(), "src", "contracts", "fi_star_schema.yaml"))
+            if os.path.exists(cwd_alt):
+                return cwd_alt
+            # Last resort: repo-relative string (may still work if cwd = project root)
+            return "src/contracts/fi_star_schema.yaml"
+        except Exception:
+            return "src/contracts/fi_star_schema.yaml"
+
+    def _get_exposed_columns(self, view_name: Optional[str]) -> Optional[Set[str]]:
+        """
+        Return the set of exposed column labels for a given view from the contract.
+        Uses an in-memory cache keyed by lowercase view name.
+        """
+        try:
+            if not isinstance(view_name, str) or not view_name.strip():
+                return None
+            key = view_name.strip().lower()
+            if key in self._view_exposed_columns_cache:
+                return self._view_exposed_columns_cache.get(key)
+            cpath = self._contract_path()
+            if not os.path.exists(cpath):
+                return None
+            with open(cpath, "r", encoding="utf-8") as f:
+                doc = yaml.safe_load(f)
+            views = (doc or {}).get("views", [])
+            target = None
+            for v in views:
+                if isinstance(v, dict) and str(v.get("name", "")).strip().lower() == key:
+                    target = v
+                    break
+            # Fallback to FI_Star_View if the requested name isn't present
+            if target is None:
+                for v in views:
+                    if isinstance(v, dict) and v.get("name") == "FI_Star_View":
+                        target = v
+                        break
+            if not isinstance(target, dict):
+                return None
+            llm_profile = target.get("llm_profile", {}) or {}
+            cols = llm_profile.get("exposed_columns") or []
+            out: Set[str] = set()
+            for c in cols:
+                try:
+                    s = str(c).strip()
+                    # Normalize quotes for comparison/storage, but keep original label
+                    if s.startswith('"') and s.endswith('"') and len(s) > 1:
+                        s = s[1:-1]
+                    if s:
+                        out.add(s)
+                except Exception:
+                    continue
+            self._view_exposed_columns_cache[key] = out
+            return out
+        except Exception:
+            return None
 
     def _resolve_attribute_name(self, attr: str, kpi_definition: Any, view_name: Optional[str]) -> str:
         """
@@ -1170,6 +1371,21 @@ class A9_Data_Product_Agent(DataProductProtocol):
             raw_attr = (attr or "").strip().strip('"')
             if not raw_attr:
                 return '""'
+
+            # Label-first short-circuit: if attr matches a contract-exposed label for the view, use it unchanged
+            try:
+                if isinstance(view_name, str) and view_name.strip():
+                    allowed = self._get_exposed_columns(view_name)
+                    if allowed:
+                        # Case-insensitive lookup to restore canonical label casing
+                        lower_map = {s.lower(): s for s in allowed}
+                        canon = lower_map.get(raw_attr.lower())
+                        if isinstance(canon, str) and canon:
+                            safe = canon.replace('"', '""')
+                            return f'"{safe}"'
+            except Exception:
+                # If contract lookup fails, continue to glossary fallback
+                pass
 
             # Try neutral business glossary mapping first
             try:
@@ -1405,6 +1621,87 @@ class A9_Data_Product_Agent(DataProductProtocol):
 
         # Unsupported timeframe type
         return None
+
+    def _get_previous_timeframe_condition(self, timeframe: Any) -> Optional[str]:
+        """
+        Compute the previous timeframe condition relative to the provided timeframe.
+        Examples:
+        - this/current_quarter -> last_quarter
+        - last_quarter -> two quarters ago
+        - this/current_month -> last_month
+        - last_month -> two months ago
+        - this/current_year -> last_year
+        - last_year -> two years ago
+        - *_to_date -> same to-date cutoff but shifted to the prior unit
+        Returns a condition referencing the same time_dim alias 't'.
+        """
+        # Normalize timeframe to string
+        tf: Optional[str] = None
+        if isinstance(timeframe, str):
+            tf = timeframe.strip().lower()
+        elif hasattr(timeframe, 'value'):
+            try:
+                tf = str(getattr(timeframe, 'value')).strip().lower()
+            except Exception:
+                tf = None
+
+        # Helper for fiscal expressions (must mirror _get_timeframe_condition)
+        def fiscal_exprs(date_sql: str) -> Tuple[str, str]:
+            try:
+                fsm = int(getattr(self.config, 'fiscal_year_start_month', 1) or 1)
+                if fsm < 1 or fsm > 12:
+                    fsm = 1
+            except Exception:
+                fsm = 1
+            fy = (
+                f"(CASE WHEN EXTRACT(month FROM {date_sql}) >= {fsm} "
+                f"THEN EXTRACT(year FROM {date_sql}) ELSE EXTRACT(year FROM {date_sql}) - 1 END)"
+            )
+            fq = (
+                "CAST(FLOOR(((( (CAST(EXTRACT(month FROM "
+                f"{date_sql}) AS INTEGER) - {fsm} + 12) % 12) + 1 ) - 1) / 3.0) + 1 AS INTEGER)"
+            )
+            return fy, fq
+
+        if not tf:
+            return None
+
+        # Quarters
+        if tf in ("this_quarter", "current_quarter"):
+            return self._get_timeframe_condition('last_quarter')
+        if tf == "last_quarter":
+            fy, fq = fiscal_exprs("(CURRENT_DATE - INTERVAL '6 months')")
+            return f"t.fiscal_year = {fy} AND t.fiscal_quarter = {fq}"
+        if tf == "quarter_to_date":
+            fy, fq = fiscal_exprs("(CURRENT_DATE - INTERVAL '3 months')")
+            return f"t.fiscal_year = {fy} AND t.fiscal_quarter = {fq} AND t.\"date\" <= (CURRENT_DATE - INTERVAL '3 months')"
+
+        # Months
+        if tf in ("this_month", "current_month"):
+            return self._get_timeframe_condition('last_month')
+        if tf == "last_month":
+            return (
+                "t.year = EXTRACT(year FROM (CURRENT_DATE - INTERVAL '2 months')) "
+                "AND t.month = EXTRACT(month FROM (CURRENT_DATE - INTERVAL '2 months'))"
+            )
+        if tf == "month_to_date":
+            return (
+                "t.year = EXTRACT(year FROM (CURRENT_DATE - INTERVAL '1 month')) "
+                "AND t.month = EXTRACT(month FROM (CURRENT_DATE - INTERVAL '1 month')) "
+                "AND t.\"date\" <= (CURRENT_DATE - INTERVAL '1 month')"
+            )
+
+        # Years
+        if tf in ("this_year", "current_year"):
+            return self._get_timeframe_condition('last_year')
+        if tf == "last_year":
+            return "t.year = EXTRACT(year FROM (CURRENT_DATE - INTERVAL '2 years'))"
+        if tf == "year_to_date":
+            fy, _ = fiscal_exprs("(CURRENT_DATE - INTERVAL '1 year')")
+            return f"t.fiscal_year = {fy} AND t.\"date\" <= (CURRENT_DATE - INTERVAL '1 year')"
+
+        # Fallback
+        return self._get_timeframe_condition('last_quarter')
 
     async def generate_sql_for_kpi_comparison(self, kpi_definition: Any, timeframe: Any = None, comparison_type: str = "previous_period", filters: Dict[str, Any] = None) -> Dict[str, Any]:
         """
@@ -1735,7 +2032,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 "data": []
             }
 
-    async def generate_sql_for_kpi(self, kpi_definition: Any, timeframe: Any = None, filters: Dict[str, Any] = None, topn: Any = None) -> Dict[str, Any]:
+    async def generate_sql_for_kpi(self, kpi_definition: Any, timeframe: Any = None, filters: Dict[str, Any] = None, topn: Any = None, breakdown: bool = False, override_group_by: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         Wrapper that generates SQL for a KPI definition using _generate_sql_for_kpi and returns
         a protocol-compliant response.
@@ -1744,7 +2041,14 @@ class A9_Data_Product_Agent(DataProductProtocol):
         kpi_name = getattr(kpi_definition, "name", "unknown")
         self.logger.info(f"[TXN:{transaction_id}] Generating SQL for KPI: {kpi_name}")
         try:
-            sql = await self._generate_sql_for_kpi(kpi_definition, timeframe=timeframe, filters=filters, topn=topn)
+            sql = await self._generate_sql_for_kpi(
+                kpi_definition,
+                timeframe=timeframe,
+                filters=filters,
+                topn=topn,
+                breakdown=breakdown,
+                override_group_by=override_group_by,
+            )
             if not isinstance(sql, str) or not sql.strip():
                 return {"sql": "", "kpi_name": kpi_name, "transaction_id": transaction_id, "success": False, "message": "No SQL generated"}
             return {"sql": sql, "kpi_name": kpi_name, "transaction_id": transaction_id, "success": True, "message": f"SQL generated successfully for KPI: {kpi_name}"}

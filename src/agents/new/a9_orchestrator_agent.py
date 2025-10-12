@@ -491,6 +491,108 @@ class A9_Orchestrator_Agent:
             results["error"] = str(e)
         return results
 
+    async def onboard_data_product(
+        self,
+        data_product_id: Optional[str] = None,
+        contract_path: Optional[str] = None,
+        view_name: str = "FI_Star_View",
+        schema: str = "main",
+        timeframe: Optional[str] = "rolling_12_months",
+        max_dimensions_per_kpi: int = 5,
+        dry_run: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Orchestrated data product onboarding (MVP):
+        - Initialize agent registry factories
+        - Register tables & create view via Data Product Agent
+        - Validate registry integrity via Data Governance Agent
+        - Compute & persist KPI top-dimension enrichment via Data Governance Agent
+
+        Returns: { success, steps: [...], artifacts: { view_name, kpi_enrichment_path? } }
+        """
+        steps: List[Dict[str, Any]] = []
+        artifacts: Dict[str, Any] = {}
+        try:
+            # Ensure factories are registered (orchestrator-driven)
+            try:
+                await initialize_agent_registry()
+                steps.append({"name": "initialize_agent_registry", "status": "success"})
+            except Exception as e:
+                steps.append({"name": "initialize_agent_registry", "status": "error", "message": str(e)})
+                if not self.config.get("continue_on_error", False):
+                    return {"success": False, "steps": steps, "artifacts": artifacts}
+
+            # Resolve default contract path from DPA where possible (avoid hardcoding)
+            if not contract_path:
+                try:
+                    dp_agent = await self.get_agent("A9_Data_Product_Agent")
+                    contract_path = dp_agent._contract_path()
+                except Exception:
+                    pass
+
+            if not dry_run:
+                # Prepare environment (tables + view)
+                env = await self.prepare_environment(contract_path=contract_path, view_name=view_name, schema=schema)
+                steps.append({
+                    "name": "prepare_environment",
+                    "status": env.get("status", "unknown"),
+                    "message": env.get("message"),
+                    "details": {
+                        "table_registration": env.get("table_registration"),
+                        "view_creation": env.get("view_creation"),
+                    },
+                })
+                artifacts["view_name"] = view_name
+
+                # Governance validation
+                try:
+                    gov = await self.execute_agent_method(
+                        "A9_Data_Governance_Agent",
+                        "validate_registry_integrity",
+                        {"view_name": view_name},
+                    )
+                    steps.append({
+                        "name": "validate_registry_integrity",
+                        "status": "success" if bool(gov.get("success")) else "warning",
+                        "details": gov,
+                    })
+                except Exception as e:
+                    steps.append({"name": "validate_registry_integrity", "status": "error", "message": str(e)})
+                    if not self.config.get("continue_on_error", False):
+                        return {"success": False, "steps": steps, "artifacts": artifacts}
+
+                # Compute KPI enrichment
+                try:
+                    dp_agent = await self.get_agent("A9_Data_Product_Agent")
+                    enr = await self.execute_agent_method(
+                        "A9_Data_Governance_Agent",
+                        "compute_and_persist_top_dimensions",
+                        {
+                            "data_product_agent": dp_agent,
+                            "timeframe": timeframe,
+                            "max_dimensions_per_kpi": max_dimensions_per_kpi,
+                        },
+                    )
+                    steps.append({
+                        "name": "compute_and_persist_top_dimensions",
+                        "status": "success" if bool(enr.get("success")) else "error",
+                        "details": enr,
+                    })
+                    if enr.get("path"):
+                        artifacts["kpi_enrichment_path"] = enr.get("path")
+                except Exception as e:
+                    steps.append({"name": "compute_and_persist_top_dimensions", "status": "error", "message": str(e)})
+                    if not self.config.get("continue_on_error", False):
+                        return {"success": False, "steps": steps, "artifacts": artifacts}
+            else:
+                steps.append({"name": "dry_run", "status": "skipped", "message": "No actions performed"})
+
+            overall_success = all(s.get("status") in ("success", "warning", "skipped") for s in steps)
+            return {"success": overall_success, "steps": steps, "artifacts": artifacts}
+        except Exception as e:
+            steps.append({"name": "onboard_data_product", "status": "error", "message": str(e)})
+            return {"success": False, "steps": steps, "artifacts": artifacts}
+
     async def detect_situations_batch(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """
         Headless/batch entrypoint to run situation detection via the SA Agent.
@@ -538,6 +640,8 @@ async def initialize_agent_registry():
     from src.agents.new.a9_data_governance_agent import A9_Data_Governance_Agent, create_data_governance_agent
     from src.agents.new.a9_nlp_interface_agent import A9_NLP_Interface_Agent
     from src.agents.a9_llm_service_agent import A9_LLM_Service_Agent
+    from src.agents.new.a9_deep_analysis_agent import A9_Deep_Analysis_Agent, create_deep_analysis_agent
+    from src.agents.new.a9_solution_finder_agent import A9_Solution_Finder_Agent, create_solution_finder_agent
     
     # Register agent factories
     agent_registry.register_agent_factory("A9_Principal_Context_Agent", A9_Principal_Context_Agent.create)
@@ -546,10 +650,14 @@ async def initialize_agent_registry():
     agent_registry.register_agent_factory("A9_Data_Governance_Agent", A9_Data_Governance_Agent.create)
     agent_registry.register_agent_factory("A9_NLP_Interface_Agent", A9_NLP_Interface_Agent.create)
     agent_registry.register_agent_factory("A9_LLM_Service_Agent", A9_LLM_Service_Agent.create)
+    agent_registry.register_agent_factory("A9_Deep_Analysis_Agent", create_deep_analysis_agent)
+    agent_registry.register_agent_factory("A9_Solution_Finder_Agent", create_solution_finder_agent)
     
     # Register agent dependencies
     agent_registry.register_agent_dependency("A9_Data_Product_Agent", ["A9_Data_Governance_Agent"])
     agent_registry.register_agent_dependency("A9_Situation_Awareness_Agent", ["A9_Data_Product_Agent", "A9_Principal_Context_Agent"])
+    agent_registry.register_agent_dependency("A9_Deep_Analysis_Agent", ["A9_Data_Product_Agent", "A9_Data_Governance_Agent", "A9_LLM_Service_Agent"])
+    agent_registry.register_agent_dependency("A9_Solution_Finder_Agent", ["A9_Deep_Analysis_Agent", "A9_LLM_Service_Agent"])
     
     logger.info("Agent registry initialized with common agent factories and dependencies")
 
@@ -619,6 +727,24 @@ async def create_and_connect_agents(orchestrator: A9_Orchestrator_Agent, registr
     sa_agent = await orchestrator.create_agent_with_dependencies("A9_Situation_Awareness_Agent", sa_agent_config)
     agents["A9_Situation_Awareness_Agent"] = sa_agent
     
+    # 5. Deep Analysis Agent
+    logger.info("Creating Deep Analysis Agent")
+    da_agent_config = {
+        "orchestrator": orchestrator,
+        "registry_factory": registry_factory,
+    }
+    da_agent = await orchestrator.create_agent_with_dependencies("A9_Deep_Analysis_Agent", da_agent_config)
+    agents["A9_Deep_Analysis_Agent"] = da_agent
+    
+    # 6. Solution Finder Agent
+    logger.info("Creating Solution Finder Agent")
+    sf_agent_config = {
+        "orchestrator": orchestrator,
+        "registry_factory": registry_factory,
+    }
+    sf_agent = await orchestrator.create_agent_with_dependencies("A9_Solution_Finder_Agent", sf_agent_config)
+    agents["A9_Solution_Finder_Agent"] = sf_agent
+    
     # Connect agents in the same order
     logger.info("Connecting agents in dependency order")
     
@@ -649,6 +775,20 @@ async def create_and_connect_agents(orchestrator: A9_Orchestrator_Agent, registr
         await sa_agent.connect(orchestrator)
     except TypeError:
         await sa_agent.connect()
+    
+    # 5. Connect Deep Analysis Agent
+    logger.info("Connecting Deep Analysis Agent")
+    try:
+        await da_agent.connect(orchestrator)
+    except TypeError:
+        await da_agent.connect()
+    
+    # 6. Connect Solution Finder Agent
+    logger.info("Connecting Solution Finder Agent")
+    try:
+        await sf_agent.connect(orchestrator)
+    except TypeError:
+        await sf_agent.connect()
     
     logger.info("All agents created and connected successfully")
     return agents

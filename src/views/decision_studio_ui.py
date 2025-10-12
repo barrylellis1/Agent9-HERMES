@@ -309,6 +309,9 @@ def main():
         
         if [business_process] != st.session_state.business_processes:
             st.session_state.business_processes = [business_process]
+            st.session_state.situations = []
+            st.session_state.recommended_questions = []
+            st.session_state.nl_response = None
             # This will trigger a rerun with the new business process
         
         # Timeframe selector
@@ -328,6 +331,9 @@ def main():
         
         if timeframe != st.session_state.timeframe:
             st.session_state.timeframe = timeframe
+            st.session_state.situations = []
+            st.session_state.recommended_questions = []
+            st.session_state.nl_response = None
         
         # Comparison type selector
         st.subheader("Comparison")
@@ -345,6 +351,9 @@ def main():
         
         if comparison_type != st.session_state.comparison_type:
             st.session_state.comparison_type = comparison_type
+            st.session_state.situations = []
+            st.session_state.recommended_questions = []
+            st.session_state.nl_response = None
         
         # Additional filters
         st.subheader("Additional Filters")

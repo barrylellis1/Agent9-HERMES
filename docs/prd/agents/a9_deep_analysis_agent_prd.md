@@ -366,15 +366,3 @@ Reduce the risk of LLM hallucinations in critical business outputs by leveraging
 
 **Description:**
 - For principal-facing or high-stakes queries, the same prompt will be sent to three or more inexpensive LLM instances.
-- Responses will be aggregated using consensus or semantic similarity methods.
-- If the ensemble agrees, the consensus response is returned. If not, escalate to a stronger model or human review.
-- All ensemble responses and aggregation logic will be logged for transparency and auditability.
-- This feature will be considered and potentially implemented after initial single-LLM testing and evaluation.
-
-**Benefits:**
-- Reduces hallucination risk
-- Improves trust and transparency
-- Enables cost-effective, robust LLM-based insights
-
-**Status:**
-- Not in MVP. To be revisited after single-LLM solution is tested and evaluated.
