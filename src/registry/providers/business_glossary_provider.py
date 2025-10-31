@@ -293,6 +293,65 @@ class BusinessGlossaryProvider:
             logger.error(f"Error adding business term {term.name}: {e}")
             return False
     
+    def upsert_term(self, term: BusinessTerm) -> bool:
+        """
+        Upsert a business term in the glossary.
+        
+        Args:
+            term: BusinessTerm to upsert
+            
+        Returns:
+            True if term was upserted, False otherwise
+        """
+        try:
+            term_key = term.name.lower()
+            existing_term = self.terms.get(term_key)
+            if existing_term:
+                # Update existing term
+                existing_term.update(term)
+                self.terms[term_key] = existing_term
+            else:
+                # Add new term
+                self.terms[term_key] = term
+                
+                # Update synonym map
+                for synonym in term.synonyms:
+                    self.synonym_map[synonym.lower()] = term_key
+            
+            # Save to file
+            self._save_glossary()
+            return True
+        except Exception as e:
+            logger.error(f"Error upserting business term {term.name}: {e}")
+            return False
+    
+    def delete_term(self, term_name: str) -> bool:
+        """
+        Delete a business term from the glossary.
+        
+        Args:
+            term_name: Name of the business term to delete
+            
+        Returns:
+            True if term was deleted, False otherwise
+        """
+        try:
+            term_key = term_name.lower()
+            if term_key in self.terms:
+                del self.terms[term_key]
+                
+                # Remove from synonym map
+                for synonym, canonical_term in list(self.synonym_map.items()):
+                    if canonical_term == term_key:
+                        del self.synonym_map[synonym]
+            
+            # Save to file
+            self._save_glossary()
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting business term {term_name}: {e}")
+            return False
+    
     def _save_glossary(self) -> bool:
         """
         Save the business glossary to the YAML file.

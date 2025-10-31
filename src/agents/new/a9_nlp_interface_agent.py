@@ -355,28 +355,32 @@ class A9_NLP_Interface_Agent:
         return [" ".join(candidates[:2])]
 
     def _resolve_kpi_name(self, query_text: str) -> Optional[str]:
-        if not query_text or not self.kpi_provider:
+        if not query_text:
             return None
+
         q = query_text.lower()
-        try:
-            kpis = self.kpi_provider.get_all() or []
-            # Attempt simple name/synonym containment match
-            for k in kpis:
-                name = getattr(k, "name", None)
-                if isinstance(name, str) and name.lower() in q:
-                    return name
-                # optional synonyms list
-                syns = None
-                for cand_attr in ("synonyms", "alias", "aliases"):
-                    syns = getattr(k, cand_attr, None)
-                    if syns:
-                        break
-                if isinstance(syns, (list, tuple)):
-                    for s in syns:
-                        if isinstance(s, str) and s.lower() in q:
-                            return name or s
-        except Exception as e:
-            self.logger.warning(f"Error resolving KPI name: {e}")
+
+        if self.kpi_provider:
+            try:
+                kpis = self.kpi_provider.get_all() or []
+                # Attempt simple name/synonym containment match
+                for k in kpis:
+                    name = getattr(k, "name", None)
+                    if isinstance(name, str) and name.lower() in q:
+                        return name
+                    # optional synonyms list
+                    syns = None
+                    for cand_attr in ("synonyms", "alias", "aliases"):
+                        syns = getattr(k, cand_attr, None)
+                        if syns:
+                            break
+                    if isinstance(syns, (list, tuple)):
+                        for s in syns:
+                            if isinstance(s, str) and s.lower() in q:
+                                return name or s
+            except Exception as e:
+                self.logger.warning(f"Error resolving KPI name: {e}")
+
         # Deterministic fallback for common KPI phrases (keeps NLP deterministic for MVP)
         if "gross revenue" in q or ("revenue" in q and "growth" not in q):
             return "Gross Revenue"

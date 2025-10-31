@@ -202,6 +202,10 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             except Exception:
                 target_count = self.config.max_dimensions
             dimensions: List[str] = self._dims_from_contract(limit=target_count)
+            try:
+                self.logger.info(f"plan_deep_analysis: kpi={request.kpi_name} timeframe={request.timeframe} dims_from_contract={len(dimensions)}")
+            except Exception:
+                pass
             # Fallback to DG metadata if contract not available
             if not dimensions:
                 try:
@@ -232,6 +236,10 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 steps=steps,
                 notes="KT core with SCQA/MECE framing (auto-derived dimensions from data product contract)."
             )
+            try:
+                self.logger.info(f"plan_deep_analysis: selected_dims={len(dimensions)} steps={len(steps)}")
+            except Exception:
+                pass
             return DeepAnalysisResponse.success(
                 request_id=req_id,
                 plan=plan,
@@ -245,6 +253,10 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
     async def execute_deep_analysis(self, plan: DeepAnalysisPlan) -> DeepAnalysisResponse:
         req_id = str(uuid.uuid4())
         try:
+            try:
+                self.logger.info(f"execute_deep_analysis: kpi={getattr(plan, 'kpi_name', None)} timeframe={getattr(plan, 'timeframe', None)} dims_in={len(getattr(plan, 'dimensions', []) or [])}")
+            except Exception:
+                pass
             kt = KTIsIsNot()
             # What is
             if getattr(plan, "kpi_name", None):
@@ -752,6 +764,10 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         steps = getattr(plan, "steps", []) or []
                         planned = queries_executed if queries_executed > 0 else len(steps)
                         kt.extent_is.append({"queries_planned": planned})
+                    except Exception:
+                        pass
+                    try:
+                        self.logger.info(f"execute_deep_analysis: dims_after_planning={len(getattr(plan, 'dimensions', []) or [])} steps={len(getattr(plan, 'steps', []) or [])} queries_executed={queries_executed}")
                     except Exception:
                         pass
 

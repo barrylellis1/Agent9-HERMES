@@ -8,6 +8,7 @@ with minimal mocking, including KPI loading, situation detection, and SQL delega
 import os
 import sys
 import asyncio
+import pytest
 import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
@@ -49,6 +50,7 @@ class SituationDetectionResponse(BaseResponse):
     """Response with detected situations."""
     situations: List[Dict[str, Any]]
 
+@pytest.mark.asyncio
 async def test_e2e_workflow():
     """Test end-to-end workflow of the Situation Awareness Agent."""
     logger.info("Starting end-to-end test for Situation Awareness Agent")

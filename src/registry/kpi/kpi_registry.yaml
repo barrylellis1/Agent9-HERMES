@@ -46,6 +46,9 @@ kpis:
       - "revenue"
       - "top_line"
       - "financial"
+    synonyms:
+      - "Revenue"
+      - "Sales"
     owner_role: "CFO"
     stakeholder_roles:
       - "CFO"
@@ -81,6 +84,9 @@ kpis:
       - "cogs"
       - "cost"
       - "financial"
+    synonyms:
+      - "COGS"
+      - "Cost of Sales"
     owner_role: "CFO"
     stakeholder_roles:
       - "CFO"
@@ -115,6 +121,9 @@ kpis:
       - "margin"
       - "profitability"
       - "financial"
+    synonyms:
+      - "Margin"
+      - "Gross Profit"
     owner_role: "CFO"
     stakeholder_roles:
       - "CFO"

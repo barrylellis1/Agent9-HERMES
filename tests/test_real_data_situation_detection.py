@@ -199,6 +199,13 @@ async def test_real_data_situation_detection():
         principal_provider = registry_factory.get_principal_profile_provider()
         principal_profile = principal_provider.get(principal_id) if principal_provider else None
         
+        # Normalize principal_profile to dict for downstream .get() access
+        if principal_profile is not None:
+            try:
+                principal_profile = principal_profile.model_dump() if hasattr(principal_profile, 'model_dump') else principal_profile
+            except Exception:
+                pass
+        
         if not principal_profile:
             logger.error(f"Principal profile not found for ID: {principal_id}")
             principal_profile = {
@@ -211,7 +218,7 @@ async def test_real_data_situation_detection():
         principal_context = PrincipalContext(
             principal_id=principal_id,
             role=PrincipalRole.CFO,
-            name=principal_profile.get("name", "Chief Financial Officer"),
+            name=(principal_profile.get("name", "Chief Financial Officer") if isinstance(principal_profile, dict) else getattr(principal_profile, 'name', "Chief Financial Officer")),
             # Use BusinessProcessEnum values directly
             business_processes=[
                 BusinessProcessEnum.PROFITABILITY_ANALYSIS,

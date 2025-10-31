@@ -226,6 +226,15 @@ class A9_Data_Product_Agent_Config(BaseModel):
         True, 
         description="Whether to validate SQL statements for security (only SELECT allowed)"
     )
+    # LLM SQL generation settings
+    enable_llm_sql: bool = Field(
+        False,
+        description="Enable LLM-based SQL generation for natural language queries"
+    )
+    force_llm_sql: bool = Field(
+        False,
+        description="Force-enable LLM-based SQL generation (overrides environment toggles)"
+    )
     
     # Logging settings
     log_level: str = Field(

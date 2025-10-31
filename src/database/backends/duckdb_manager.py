@@ -255,9 +255,10 @@ class DuckDBManager(DatabaseManager):
         normalized_sql = re.sub(r'/\*[\s\S]*?\*/', '', normalized_sql)
         normalized_sql = normalized_sql.strip()
         
-        # Check if the statement is a SELECT statement
-        if not normalized_sql.lower().startswith('select '):
-            error_msg = f"Invalid SQL statement (not a SELECT): {sql}"
+        # Check if the statement is a SELECT/WITH statement
+        lower_sql = normalized_sql.lower()
+        if not (lower_sql.startswith('select') or lower_sql.startswith('with')):
+            error_msg = f"Invalid SQL statement (not a SELECT/WITH): {sql}"
             self.logger.warning(error_msg)
             return False, error_msg
         

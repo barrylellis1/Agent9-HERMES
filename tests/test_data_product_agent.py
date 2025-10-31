@@ -32,7 +32,8 @@ class TestDataProductAgent(unittest.TestCase):
         logging.basicConfig(level=logging.INFO)
         
         # Create event loop for async tests
-        cls.loop = asyncio.get_event_loop()
+        cls.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(cls.loop)
         
         # Configuration for the agent
         cls.config = {
@@ -52,6 +53,15 @@ class TestDataProductAgent(unittest.TestCase):
         except Exception as e:
             print(f"Failed to create agent: {str(e)}")
             raise
+
+    @classmethod
+    def tearDownClass(cls):
+        try:
+            if hasattr(cls, 'loop') and cls.loop is not None:
+                cls.loop.run_until_complete(cls.agent.disconnect())
+                cls.loop.close()
+        except Exception:
+            pass
 
     def test_protocol_compliance(self):
         """Test that the agent implements the DataProductProtocol."""

@@ -170,6 +170,13 @@ class BusinessProcessProvider(RegistryProvider[BusinessProcess]):
             logger.error(f"Error loading business processes from {self.source_path}: {e}")
             self._load_default_processes()
     
+    def _remove_process_indexes(self, process: BusinessProcess) -> None:
+        """Remove cached lookups for the provided business process."""
+        self._processes_by_name.pop(process.name, None)
+        self._processes_by_legacy_id.pop(process.legacy_id, None)
+        if hasattr(process, "display_name") and process.display_name:
+            self._processes_by_name.pop(process.display_name, None)
+
     def _add_process(self, process: BusinessProcess) -> None:
         """
         Add a business process to the internal dictionaries.
@@ -177,6 +184,9 @@ class BusinessProcessProvider(RegistryProvider[BusinessProcess]):
         Args:
             process: The business process to add
         """
+        existing = self._processes.get(process.id)
+        if existing:
+            self._remove_process_indexes(existing)
         self._processes[process.id] = process
         self._processes_by_name[process.name] = process
         self._processes_by_legacy_id[process.legacy_id] = process
@@ -184,6 +194,19 @@ class BusinessProcessProvider(RegistryProvider[BusinessProcess]):
         # Add by display_name if it exists
         if hasattr(process, 'display_name') and process.display_name:
             self._processes_by_name[process.display_name] = process
+
+    def upsert(self, process: BusinessProcess) -> BusinessProcess:
+        """Create or replace a business process entry."""
+        self._add_process(process)
+        return process
+
+    def delete(self, process_id: str) -> bool:
+        """Delete a business process by ID."""
+        existing = self._processes.pop(process_id, None)
+        if not existing:
+            return False
+        self._remove_process_indexes(existing)
+        return True
     
     def get(self, id_or_name: str) -> Optional[BusinessProcess]:
         """

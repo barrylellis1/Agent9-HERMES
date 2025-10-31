@@ -41,6 +41,12 @@ The agent must read and respond to `yaml_contract_text` provided in the context 
 - The glossary SHALL be versioned, auditable, and updatable by data stewards/governance teams without code changes.
 - The Data Governance Agent SHALL load and use the registry for all mapping operations, and log all unmapped or ambiguous terms for HITL escalation and audit.
 - The Business Glossary Provider SHALL be initialized through the Registry Factory to ensure proper integration with the Unified Registry Access Layer.
+- **LLM-Assisted Synonym Harvesting (NEW)** The Data Governance Agent SHOULD collaborate with the LLM Service Agent during data product onboarding to harvest KPI synonym candidates automatically. The workflow SHOULD:
+  - Request candidate KPI names, aliases, and colloquial phrases from the LLM Service Agent using the YAML contract metadata and business glossary context supplied by the Data Product Agent.
+  - Present harvested candidates to governance stewards for approval (via HITL) before persisting to the KPI registry, ensuring human oversight of nomenclature changes.
+  - Persist approved synonyms back into the KPI provider so downstream agents (e.g., NLP Interface Agent) gain immediate access to expanded terminology.
+  - Log synonym generation events and steward decisions for auditability.
+  - Provide a fallback path that relies on existing glossary mappings if the LLM is unavailable, preserving deterministic behavior.
 
 
 

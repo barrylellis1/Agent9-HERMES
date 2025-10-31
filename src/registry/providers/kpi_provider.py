@@ -371,55 +371,50 @@ class KPIProvider(RegistryProvider[KPI]):
             self._load_default_kpis()
     
     def _add_kpi(self, kpi: KPI) -> None:
-        """
-        Add a KPI to the internal dictionaries.
-        
-        Args:
-            kpi: The KPI to add
-        """
+        """Add a KPI to the internal dictionaries with case-insensitive names."""
+        if not getattr(kpi, "id", None):
+            raise ValueError("KPI must have an id")
+
         self._kpis[kpi.id] = kpi
-        self._kpis_by_name[kpi.name] = kpi
-        self._kpis_by_legacy_id[kpi.legacy_id] = kpi
-    
+
+        name = getattr(kpi, "name", None)
+        if isinstance(name, str):
+            stripped = name.strip()
+            if stripped:
+                self._kpis_by_name[stripped] = kpi
+                self._kpis_by_name[stripped.lower()] = kpi
+
+        legacy_id = getattr(kpi, "legacy_id", None)
+        if isinstance(legacy_id, str):
+            clean_legacy = legacy_id.strip()
+            if clean_legacy:
+                self._kpis_by_legacy_id[clean_legacy] = kpi
+
     def get(self, id_or_name: str) -> Optional[KPI]:
-        """
-        Get a KPI by ID, name, or legacy ID.
-        
-        Args:
-            id_or_name: The ID, name, or legacy ID of the KPI
-            
-        Returns:
-            The KPI if found, None otherwise
-        """
-        # Try to find by ID
-        if id_or_name in self._kpis:
-            return self._kpis[id_or_name]
-        
-        # Try to find by name
-        if id_or_name in self._kpis_by_name:
-            return self._kpis_by_name[id_or_name]
-        
-        # Try to find by legacy ID
-        if id_or_name in self._kpis_by_legacy_id:
-            return self._kpis_by_legacy_id[id_or_name]
-        
-        # Try to create from enum value
-        try:
-            kpi = KPI.from_enum_value(id_or_name)
-            self._add_kpi(kpi)
-            return kpi
-        except:
-            pass
-        
-        return None
-    
+        """Return a KPI by id, legacy id, or name (case-insensitive)."""
+        if not isinstance(id_or_name, str):
+            return None
+
+        key = id_or_name.strip()
+        if not key:
+            return None
+
+        match = self._kpis.get(key)
+        if match:
+            return match
+
+        match = self._kpis_by_legacy_id.get(key)
+        if match:
+            return match
+
+        match = self._kpis_by_name.get(key)
+        if match:
+            return match
+
+        return self._kpis_by_name.get(key.lower())
+
     def get_all(self) -> List[KPI]:
-        """
-        Get all KPIs.
-        
-        Returns:
-            List of all KPIs
-        """
+        """Return all KPIs currently cached."""
         return list(self._kpis.values())
     
     def find_by_attribute(self, attr_name: str, attr_value: Any) -> List[KPI]:

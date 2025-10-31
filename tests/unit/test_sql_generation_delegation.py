@@ -61,16 +61,7 @@ async def test_sql_generation_delegation():
         {"orchestrator": orchestrator}
     )
     
-    # Mock the KPI registry
-    sa_agent.kpi_registry = {
-        'test_kpi': KPIDefinition(
-            name='test_kpi',
-            description='Test KPI',
-            unit='USD',
-            data_product_id='test_dp',
-            view_name='test_view'
-        )
-    }
+    # KPI registry will be set after connect to avoid being overwritten
     
     # Create test KPI value
     test_kpi_value = KPIValue(
@@ -87,6 +78,16 @@ async def test_sql_generation_delegation():
         await sa_agent.connect()
     # Ensure the SA agent uses our mock DP agent
     sa_agent.data_product_agent = mock_data_product_agent
+    # Mock the KPI registry (after connect so it's not overwritten)
+    sa_agent.kpi_registry = {
+        'test_kpi': KPIDefinition(
+            name='test_kpi',
+            description='Test KPI',
+            unit='USD',
+            data_product_id='test_dp',
+            view_name='test_view'
+        )
+    }
     
     # Test _generate_sql_for_query method
     sql = await sa_agent._generate_sql_for_query('test query', [test_kpi_value])

@@ -710,8 +710,8 @@ async def create_and_connect_agents(orchestrator: A9_Orchestrator_Agent, registr
     dp_agent_config = {
         "orchestrator": orchestrator,
         "registry_factory": registry_factory,
-        "db_type": "duckdb",
-        "db_path": "data/agent9-hermes.duckdb",
+        # Pass database config in the structure expected by A9_Data_Product_Agent
+        "database": {"type": "duckdb", "path": "data/agent9-hermes-ui.duckdb"},
         "registry_path": "src/registry/data_product"
     }
     dp_agent = await orchestrator.create_agent_with_dependencies("A9_Data_Product_Agent", dp_agent_config)

@@ -15,15 +15,21 @@ configuration:
 - **Version:** 1.0
 
 ## 2. Configuration Schema
-```python
-from pydantic import BaseModel, ConfigDict
+Key fields (see `src/agents/agent_config_models.py::A9_Data_Product_Agent_Config` for full schema):
 
-class A9DataProductAgentConfig(BaseModel):
-    """Configuration parameters for A9_Data_Product_Agent."""
-    # enable_llm_explainability: bool = True  # Route summaries via LLM service
-    model_config = ConfigDict(extra="allow")
-```
-- **Required secrets / external resources:** None (MCP handles DB access)
+- `data_directory: str` – Where DuckDB DB lives
+- `database: { type, path }` – DB config (DuckDB in MVP)
+- `allow_custom_sql: bool` – Allow custom SQL execution
+- `validate_sql: bool` – Validate SQL statements
+- `enable_llm_sql: bool` – Enable LLM-based SQL generation for NL queries
+- `force_llm_sql: bool` – Force-enable LLM path; on failure returns deterministic error
+- `fiscal_year_start_month: int` – Time dimension settings
+- `llm_service_agent: A9_LLM_Service_Agent | Any` – Optional injected LLM agent instance for tests or advanced flows. If present, Data Product Agent will call it directly.
+
+Notes:
+- LLM path is attempted when `llm_service_agent` is present. Env flag `A9_ENABLE_LLM_SQL` is still read but not required for injected instances.
+- Orchestrator creates/provides the LLM agent in production when `llm_service_agent` is not injected.
+- Required secrets for LLMs are managed by the LLM Service Agent (`OPENAI_API_KEY`, etc.), not this agent.
 
 ## 3. Protocol Entrypoints & Capabilities
 | Entrypoint | Description | Input Model | Output Model | Side-effects |

@@ -11,7 +11,6 @@ Assumptions:
 """
 import os
 import sys
-import asyncio
 import math
 import pytest
 
@@ -22,13 +21,6 @@ if ROOT not in sys.path:
 
 import duckdb
 
-from src.agents.new.a9_orchestrator_agent import A9_Orchestrator_Agent, create_and_connect_agents
-from src.registry.factory import RegistryFactory
-from src.registry.providers.kpi_provider import KPIProvider
-from src.registry.providers.principal_provider import PrincipalProfileProvider
-from src.registry.providers.data_product_provider import DataProductProvider
-from src.registry.providers.business_glossary_provider import BusinessGlossaryProvider
-from src.registry.providers.business_process_provider import BusinessProcessProvider
 from src.agents.models.situation_awareness_models import (
     SituationDetectionRequest,
     TimeFrame,
@@ -36,38 +28,7 @@ from src.agents.models.situation_awareness_models import (
 )
 
 @pytest.mark.asyncio
-async def test_cogs_amounts_match_sql():
-    # Initialize orchestrator and agents
-    orchestrator = await A9_Orchestrator_Agent.create({})
-    await orchestrator.connect()
-
-    # Initialize registry providers (align with Decision Studio)
-    registry_factory = RegistryFactory()
-    registry_factory.register_provider('kpi', KPIProvider(
-        source_path=os.path.join(ROOT, 'src', 'registry', 'kpi', 'kpi_registry.yaml'),
-        storage_format='yaml'
-    ))
-    registry_factory.register_provider('principal_profile', PrincipalProfileProvider(
-        source_path=os.path.join(ROOT, 'src', 'registry', 'principal', 'principal_registry.yaml'),
-        storage_format='yaml'
-    ))
-    registry_factory.register_provider('data_product', DataProductProvider(
-        source_path=os.path.join(ROOT, 'src', 'registry', 'data_product'),
-        storage_format='yaml'
-    ))
-    registry_factory.register_provider('business_glossary', BusinessGlossaryProvider())
-    registry_factory.register_provider('business_process', BusinessProcessProvider(
-        source_path=os.path.join(ROOT, 'src', 'registry', 'business_process', 'business_process_registry.yaml'),
-        storage_format='yaml'
-    ))
-    # Ensure providers are initialized if async init is supported
-    try:
-        await registry_factory.initialize()
-    except Exception:
-        pass
-
-    await create_and_connect_agents(orchestrator, registry_factory)
-
+async def test_cogs_amounts_match_sql(orchestrator):
     # Ensure FI Star tables and view are prepared, same as Decision Studio
     contract_path = os.path.join(ROOT, "src", "contracts", "fi_star_schema.yaml")
     prep = await orchestrator.prepare_environment(contract_path, view_name="FI_Star_View")

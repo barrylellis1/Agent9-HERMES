@@ -33,13 +33,6 @@ async def nlp_agent():
             agent = await A9_NLP_Interface_Agent_V2.create_from_registry()
             yield agent
 
-@pytest.fixture(scope="function")
-def event_loop():
-    """Create an instance of the default event loop for the entire test session."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
 @async_fixture(scope="function", autouse=True)
 async def setup_agents(request, event_loop):
     if 'no_agent_setup' in request.keywords or not LEGACY_STACK_AVAILABLE:

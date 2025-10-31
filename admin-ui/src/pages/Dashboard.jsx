@@ -135,64 +135,45 @@ function A9_Dashboard_Page() {
 
       <Grid container spacing={3} mt={4}>
         <Grid size={12}>
-            </Grid>
+          <A9_ceo_agent_status_overview />
+        </Grid>
+      </Grid>
 
-            <Grid size={{ xs: 12, md: 4 }}>
-              <A9_Quick_Actions_Panel />
-            </Grid>
-          </Grid>
+      <Grid container spacing={3} mt={4}>
+        <Grid size={12}>
+          <A9_innovation_catalyst_ceo_situations_feed />
+        </Grid>
+      </Grid>
 
-          <Grid container spacing={3} mt={4}>
-            <Grid size={12}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h5" style={{marginBottom: 16}}>Agent Status Overview</Typography>
-                  <AgentDashboard />
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
+      <Grid container spacing={3} mt={4}>
+        <Grid size={12}>
+          <A9_agent_analyses_feed />
+        </Grid>
+      </Grid>
 
-          <Grid container spacing={3} mt={4}>
-            <Grid size={12}>
-              <A9_ceo_agent_status_overview />
-            </Grid>
-          </Grid>
+      <Grid container spacing={3} mt={4}>
+        <Grid size={12}>
+          <A9_solution_evolution_agent_solutions_feed />
+        </Grid>
+      </Grid>
 
-          <Grid container spacing={3} mt={4}>
-            <Grid size={12}>
-              <Grid container spacing={3} mt={4}>
-                <Grid size={12}>
-                  <A9_innovation_catalyst_ceo_situations_feed />
-                </Grid>
-              </Grid>
-              <Grid container spacing={3} mt={4}>
-                <Grid size={12}>
-                  <A9_agent_analyses_feed />
-                </Grid>
-              </Grid>
-              <Grid container spacing={3} mt={4}>
-                <Grid size={12}>
-                  <A9_solution_evolution_agent_solutions_feed />
-                </Grid>
-              </Grid>
-              <Grid container spacing={3} mt={4}>
-                <Grid size={12}>
-                  <A9_implementation_validator_agent_implementations_feed />
-                </Grid>
-              </Grid>
-              <Grid container spacing={3} mt={4}>
-                <Grid size={12}>
-                  <A9_change_management_agent_feed />
-                </Grid>
-              </Grid>
-              <Grid container spacing={3} mt={4}>
-                <Grid size={12}>
-                  <A9_Activity_Timeline activities={recentActivities} />
-                </Grid>
-              </Grid>
-            </Grid>
-          </Grid>
+      <Grid container spacing={3} mt={4}>
+        <Grid size={12}>
+          <A9_implementation_validator_agent_implementations_feed />
+        </Grid>
+      </Grid>
+
+      <Grid container spacing={3} mt={4}>
+        <Grid size={12}>
+          <A9_change_management_agent_feed />
+        </Grid>
+      </Grid>
+
+      <Grid container spacing={3} mt={4}>
+        <Grid size={12}>
+          <A9_Activity_Timeline activities={recentActivities} />
+        </Grid>
+      </Grid>
         </>
       )}
     </Box>

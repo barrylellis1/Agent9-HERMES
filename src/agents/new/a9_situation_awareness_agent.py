@@ -239,41 +239,88 @@ class A9_Situation_Awareness_Agent:
         Load KPIs from the registry asynchronously.
         """
         try:
-            # Try to get the KPI registry from the registry factory
-            from src.registry.factory import RegistryFactory
-            registry_factory = RegistryFactory()
-            
             try:
-                # Initialize registry factory if needed
+                from src.registry.registry_factory import RegistryFactory as _RF
+            except Exception:
+                from src.registry.factory import RegistryFactory as _RF
+            registry_factory = _RF()
+            try:
                 if not registry_factory.is_initialized:
                     await registry_factory.initialize()
                     logger.info("Registry factory initialized successfully")
                 else:
                     logger.info("Registry factory already initialized")
-                
-                # Now get the KPI provider
-                kpi_provider = registry_factory.get_provider("kpi")
-                if kpi_provider:
-                    # Use get_all() which returns a list of KPI objects
-                    kpis = kpi_provider.get_all() or []
-                    for kpi in kpis:
-                        # Convert registry KPI to internal KPI definition
-                        kpi_def = self._convert_to_kpi_definition(kpi)
-                        if kpi_def:
-                            self.kpi_registry[kpi_def.name] = kpi_def
             except Exception as e:
-                self.logger.warning(f"Could not get KPI provider from registry factory: {str(e)}")
-                
-            # Load KPIs from contract as backup or additional source
-            if hasattr(self, 'contract') and self.contract and hasattr(self.contract, 'kpis'):
-                for kpi in self.contract.kpis:
-                    self.kpi_registry[kpi.name] = kpi
-                    
-            self.logger.info(f"Loaded {len(self.kpi_registry)} KPIs from registry and contract")
-        except Exception as e:
-            self.logger.error(f"Error initializing KPI registry: {str(e)}")
-            # Initialize with empty registry to avoid errors
+                logger.warning(f"Error initializing registry factory: {str(e)}")
+            kpi_provider = None
+            try:
+                kpi_provider = registry_factory.get_kpi_provider()
+                if kpi_provider:
+                    logger.info(f"Successfully got KPI provider via get_kpi_provider: {kpi_provider}")
+            except Exception as e:
+                logger.warning(f"Error getting KPI provider via get_kpi_provider: {str(e)}")
+            if kpi_provider is None:
+                try:
+                    kpi_provider = registry_factory.get_provider("kpi")
+                    if kpi_provider:
+                        logger.info(f"Successfully got KPI provider via get_provider: {kpi_provider}")
+                except Exception as e:
+                    logger.warning(f"Error getting KPI provider: {str(e)}")
+                    kpi_provider = None
+            if not kpi_provider:
+                logger.warning("Could not get KPI provider from registry factory")
+                self._load_kpis_from_contract()
+                return
+            kpis = kpi_provider.get_all() or []
+            if not kpis:
+                try:
+                    await kpi_provider.load()
+                    kpis = kpi_provider.get_all() or []
+                except Exception as e:
+                    logger.warning(f"KPI provider load attempt failed: {e}")
+            if not kpis:
+                logger.warning("No KPIs found in registry, attempting to load from file")
+                try:
+                    registry_path = os.path.join("src", "registry", "kpi", "kpi_registry.yaml")
+                    if os.path.exists(registry_path):
+                        with open(registry_path, 'r') as file:
+                            yaml_data = yaml.safe_load(file)
+                            if yaml_data and "kpis" in yaml_data and isinstance(yaml_data["kpis"], list):
+                                try:
+                                    from src.registry.models.kpi import KPI as RegistryKPI
+                                except Exception:
+                                    RegistryKPI = None
+                                for kpi_item in yaml_data["kpis"]:
+                                    try:
+                                        if RegistryKPI and isinstance(kpi_item, dict):
+                                            kpi_obj = RegistryKPI(**kpi_item)
+                                            kpi_provider.register(kpi_obj)
+                                    except Exception:
+                                        continue
+                                kpis = kpi_provider.get_all() or []
+                                if kpis:
+                                    logger.info(f"Successfully loaded {len(kpis)} KPIs from file")
+                except Exception as e:
+                    logger.error(f"Error loading KPIs from file: {str(e)}")
+            if not kpis:
+                logger.warning("Still no KPIs found, using empty KPI registry")
+                return
+            target_domains = self.config.get("target_domains", ["Finance"])
+            logger.info(f"Filtering KPIs for domains: {target_domains}")
             self.kpi_registry = {}
+            for kpi in kpis:
+                if self._kpi_matches_domains(kpi, target_domains):
+                    kpi_def = self._convert_to_kpi_definition(kpi)
+                    if kpi_def:
+                        self.kpi_registry[kpi_def.name] = kpi_def
+            logger.info(f"Added {len(self.kpi_registry)} KPIs to registry for domains: {target_domains}")
+            if not self.kpi_registry:
+                logger.warning("No matching KPIs found in registry, trying contract fallback")
+                self._load_kpis_from_contract()
+        except Exception as e:
+            logger.error(f"Error loading KPI registry: {str(e)}")
+            self.kpi_registry = {}
+            self._load_kpis_from_contract()
     
     async def disconnect(self):
         """Disconnect from dependent services."""
@@ -307,7 +354,7 @@ class A9_Situation_Awareness_Agent:
     
     async def detect_situations(
         self, 
-        request=None, **kwargs
+        request: SituationDetectionRequest = None, **kwargs
     ) -> SituationDetectionResponse:
         """Handle both direct request object and dictionary with request key"""
         # Store original request_id for response
@@ -475,7 +522,7 @@ class A9_Situation_Awareness_Agent:
     
     async def process_nl_query(
         self,
-        request=None, **kwargs
+        request: NLQueryRequest = None, **kwargs
     ) -> NLQueryResponse:
         """Handle both direct request object and dictionary with request key"""
         # Store original request_id for response
@@ -894,397 +941,6 @@ class A9_Situation_Awareness_Agent:
             message=f"Processed {request.decision} feedback"
         )
     
-    async def get_principal_context(self, principal_role: PrincipalRole) -> PrincipalProfileResponse:
-        """Get principal context for the specified role.
-        
-        Args:
-            principal_role: The role to get context for
-            
-        Returns:
-            PrincipalProfileResponse: The principal context response
-        """
-        try:
-            # Call Principal Context Agent to get principal context
-            context_response = await self.principal_context_agent.get_principal_context(principal_role)
-            
-            # Check if response is a dictionary with the expected structure
-            if isinstance(context_response, dict) and 'principal_context' in context_response:
-                context_dict = context_response['principal_context']
-                # Create PrincipalContext from dictionary
-                principal_context = PrincipalContext(**context_dict)
-                return principal_context
-            # Check if response is directly a dictionary with PrincipalContext fields
-            elif isinstance(context_response, dict) and 'role' in context_response:
-                principal_context = PrincipalContext(**context_response)
-                return principal_context
-            else:
-                self.logger.warning(f"Unexpected principal context format for role {principal_role}, using default")
-                self.logger.debug(f"Received context: {context_response}")
-                return self._create_default_principal_context(principal_role)
-        except Exception as e:
-            self.logger.error(f"Error getting principal context: {str(e)}")
-        
-        # Return default context as fallback
-        return self._create_default_principal_context(principal_role)
-        
-    async def get_principal_context_by_id(self, principal_id: str) -> PrincipalProfileResponse:
-        """Get principal context for the specified principal ID.
-        
-        Args:
-            principal_id: The principal ID to get context for
-            
-        Returns:
-            PrincipalProfileResponse: The principal context response
-        """
-        try:
-            # Check if Principal Context Agent is available
-            if not self.principal_context_agent:
-                self.logger.error("Principal Context Agent not available")
-                # Return default context as fallback
-                return self._create_default_principal_context("CFO")
-            
-            # Call Principal Context Agent to get principal context by ID
-            context_response = await self.principal_context_agent.get_principal_context_by_id(principal_id)
-            
-            # Check if response is a dictionary with the expected structure
-            if isinstance(context_response, dict) and 'principal_context' in context_response:
-                context_dict = context_response['principal_context']
-                # Create PrincipalContext from dictionary
-                principal_context = PrincipalContext(**context_dict)
-                return principal_context
-            # Check if response is directly a dictionary with PrincipalContext fields
-            elif isinstance(context_response, dict) and 'role' in context_response:
-                principal_context = PrincipalContext(**context_response)
-                return principal_context
-            else:
-                self.logger.warning(f"Unexpected principal context format for ID {principal_id}, using default")
-                self.logger.debug(f"Received context: {context_response}")
-                # Create default context with the provided ID
-                return self._create_default_principal_context_with_id(principal_id)
-        except Exception as e:
-            self.logger.error(f"Error getting principal context by ID: {str(e)}")
-        
-        # Return default context as fallback
-        return self._create_default_principal_context_with_id(principal_id)
-        
-    def _create_default_principal_context(self, principal_role) -> PrincipalContext:
-        """
-        Create a default principal context when the actual context cannot be retrieved.
-        
-        Args:
-            principal_role: Role of the principal (string or enum)
-            
-        Returns:
-            Default principal context
-        """
-        # Convert enum to string if needed
-        role_str = principal_role.value if hasattr(principal_role, 'value') else str(principal_role)
-        
-        return PrincipalContext(
-            role=role_str,
-            principal_id=role_str.lower().replace(' ', '_').replace('_', '-') + "_001",
-            business_processes=list(BusinessProcess),
-            default_filters={},
-            decision_style="Analytical",
-            communication_style="Concise",
-            preferred_timeframes=[TimeFrame.CURRENT_QUARTER, TimeFrame.YEAR_TO_DATE]
-        )
-        
-    async def get_recommended_questions(
-        self,
-        principal_context: PrincipalContext,
-        business_process: Optional[BusinessProcess] = None
-    ) -> List[str]:
-        """
-        Get recommended questions for the principal based on context.
-        
-        Args:
-            principal_context: Context of the principal
-            business_process: Optional specific business process
-            
-        Returns:
-            List of recommended questions
-        """
-        # Get relevant KPIs based on principal context and business process
-        relevant_kpis = self._get_relevant_kpis(principal_context, [business_process] if business_process else None)
-        
-        # Collect diagnostic questions from KPI definitions
-        questions = []
-        for kpi_name, kpi_def in relevant_kpis.items():
-            if kpi_def.diagnostic_questions:
-                questions.extend(kpi_def.diagnostic_questions)
-        
-        return questions[:5]  # Limit to top 5 questions
-    
-    async def get_kpi_definitions(
-        self,
-        principal_context: PrincipalContext,
-        business_process: Optional[BusinessProcess] = None
-    ) -> Dict[str, Any]:
-        """
-        Get KPI definitions relevant to the principal and business process.
-        
-        Args:
-            principal_context: Context of the principal
-            business_process: Optional specific business process
-            
-        Returns:
-            Dictionary of KPI definitions
-        """
-        return self._get_relevant_kpis(principal_context, [business_process] if business_process else None)
-        
-    async def detect_situation(self, request: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Detect situation from signals (agent card entrypoint).
-        This is an alias for detect_situations to maintain compatibility with the agent card.
-        
-        Args:
-            request: SituationDetectionRequest as a dictionary
-            
-        Returns:
-            DetectedSituation as a dictionary
-        """
-        # Convert dictionary to SituationDetectionRequest if needed
-        if isinstance(request, dict):
-            from src.agents.models.situation_awareness_models import SituationDetectionRequest
-            try:
-                # Try to convert dict to proper request object
-                request_obj = SituationDetectionRequest(**request)
-            except Exception as e:
-                logger.error(f"Error converting dict to SituationDetectionRequest: {str(e)}")
-                return {"status": "error", "message": f"Invalid request format: {str(e)}"}
-        else:
-            request_obj = request
-            
-        # Call the protocol-compliant method
-        response = await self.detect_situations(request_obj)
-        
-        # Return as dict for A2A compliance
-        if hasattr(response, "model_dump"):
-            return response.model_dump()
-        else:
-            return response
-            
-    async def summarize_situation(self, request: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Summarize situation for stakeholders (agent card entrypoint).
-        
-        Args:
-            request: SituationSummaryRequest as a dictionary
-            
-        Returns:
-            SituationSummary as a dictionary
-        """
-        # Extract situation ID and principal context from request
-        situation_id = request.get("situation_id")
-        principal_context = request.get("principal_context")
-        
-        if not situation_id:
-            return {"status": "error", "message": "Missing situation_id in request"}
-            
-        # For MVP, generate a simple summary
-        summary = {
-            "situation_id": situation_id,
-            "summary": f"Situation {situation_id} requires attention",
-            "stakeholders": ["CFO", "Finance Manager"],
-            "priority": "high",
-            "status": "success"
-        }
-        
-        # Log the event
-        logger.info(f"Summarized situation {situation_id} for stakeholders")
-        
-        return summary
-        
-    async def aggregate_agent_outputs(self, request: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Combine outputs from specialized agents (agent card entrypoint).
-        
-        Args:
-            request: AggregationRequest as a dictionary
-            
-        Returns:
-            AggregatedInsight as a dictionary
-        """
-        # Extract agent outputs from request
-        agent_outputs = request.get("agent_outputs", [])
-        context = request.get("context", {})
-        
-        if not agent_outputs:
-            return {"status": "error", "message": "No agent outputs provided"}
-            
-        # For MVP, simply combine the outputs with minimal processing
-        aggregated_insight = {
-            "status": "success",
-            "aggregated_output": {
-                "insights": [],
-                "recommendations": [],
-                "combined_confidence": 0.0
-            }
-        }
-        
-        # Process each agent output
-        insights = []
-        recommendations = []
-        confidence_sum = 0.0
-        confidence_count = 0
-        
-        for output in agent_outputs:
-            # Extract insights if available
-            if "insights" in output:
-                insights.extend(output["insights"] if isinstance(output["insights"], list) else [output["insights"]])
-                
-            # Extract recommendations if available
-            if "recommendations" in output:
-                recommendations.extend(output["recommendations"] if isinstance(output["recommendations"], list) else [output["recommendations"]])
-                
-            # Extract confidence if available
-            if "confidence" in output and isinstance(output["confidence"], (int, float)):
-                confidence_sum += float(output["confidence"])
-                confidence_count += 1
-                
-        # Calculate average confidence
-        avg_confidence = confidence_sum / confidence_count if confidence_count > 0 else 0.0
-        
-        # Update the aggregated insight
-        aggregated_insight["aggregated_output"]["insights"] = insights
-        aggregated_insight["aggregated_output"]["recommendations"] = recommendations
-        aggregated_insight["aggregated_output"]["combined_confidence"] = avg_confidence
-        
-        # Update context
-        logger.info(f"Aggregated outputs from {len(agent_outputs)} agents")
-        
-        return aggregated_insight
-    
-    async def _load_kpi_registry(self):
-        """
-        Load KPIs from the canonical KPI registry.
-        Converts from canonical KPI model to our internal KPIDefinition model.
-        """
-        try:
-            # Use RegistryFactory singleton which RegistryBootstrap has already initialized
-            logger.info("Loading KPI provider via RegistryFactory singleton")
-            registry_factory = RegistryFactory()
-            
-            # Ensure registry is initialized
-            try:
-                # Use the proper async initialize method if not already initialized
-                if not registry_factory.is_initialized:
-                    await registry_factory.initialize()
-                    logger.info("Registry factory initialized successfully")
-                else:
-                    logger.info("Registry factory already initialized")
-            except Exception as e:
-                logger.warning(f"Error initializing registry factory: {str(e)}")
-
-            # Try helper first, then generic provider getter
-            kpi_provider = None
-            try:
-                kpi_provider = registry_factory.get_kpi_provider()
-                if kpi_provider:
-                    logger.info(f"Successfully got KPI provider via get_kpi_provider: {kpi_provider}")
-            except Exception as e:
-                logger.warning(f"Error getting KPI provider via get_kpi_provider: {str(e)}")
-            
-            if kpi_provider is None:
-                logger.warning("KPI provider is None - trying alternate methods")
-                try:
-                    # Try direct access in case of alternate registration
-                    kpi_provider = registry_factory.get_provider("kpi")
-                    if kpi_provider:
-                        logger.info(f"Successfully got KPI provider via get_provider: {kpi_provider}")
-                except Exception as e:
-                    logger.warning(f"Error getting KPI provider: {str(e)}")
-                    kpi_provider = None
-                
-            if not kpi_provider:
-                logger.warning("Could not get KPI provider from registry factory")
-                # Attempt to create a minimal KPI registry from contract file
-                logger.info("Attempting to load KPIs from contract as fallback")
-                self._load_kpis_from_contract()
-                return
-                
-            # Get all KPIs - use get_all() which returns a list of KPI objects
-            kpis = kpi_provider.get_all() or []
-            # If provider has not yet loaded data, attempt to load explicitly
-            if not kpis:
-                try:
-                    await kpi_provider.load()
-                    kpis = kpi_provider.get_all() or []
-                except Exception as e:
-                    logger.warning(f"KPI provider load attempt failed: {e}")
-            if not kpis:
-                logger.warning("No KPIs found in registry, attempting to load from file")
-                # Try to load from file
-                try:
-                    import yaml
-                    import os
-                    
-                    # Try to load from the standard registry location
-                    registry_path = os.path.join("src", "registry", "kpi", "kpi_registry.yaml")
-                    if os.path.exists(registry_path):
-                        with open(registry_path, 'r') as file:
-                            yaml_data = yaml.safe_load(file)
-                            if yaml_data and "kpis" in yaml_data and isinstance(yaml_data["kpis"], list):
-                                # Register KPIs with provider (convert dict -> registry KPI model)
-                                try:
-                                    from src.registry.models.kpi import KPI as RegistryKPI
-                                except Exception:
-                                    RegistryKPI = None
-                                for kpi_item in yaml_data["kpis"]:
-                                    try:
-                                        if RegistryKPI and isinstance(kpi_item, dict):
-                                            kpi_obj = RegistryKPI(**kpi_item)
-                                            kpi_provider.register(kpi_obj)
-                                        else:
-                                            logger.warning("Skipping KPI item from YAML: invalid format or model unavailable")
-                                    except Exception as reg_err:
-                                        logger.warning(f"Failed to register KPI from YAML item: {reg_err}")
-                                
-                                # Try to get KPIs again
-                                kpis = kpi_provider.get_all() or []
-                                if kpis:
-                                    logger.info(f"Successfully loaded {len(kpis)} KPIs from file")
-                except Exception as e:
-                    logger.error(f"Error loading KPIs from file: {str(e)}")
-                
-                # If still no KPIs, return
-                if not kpis:
-                    logger.warning("Still no KPIs found, using empty KPI registry")
-                    return
-                
-            logger.info(f"Loaded {len(kpis)} KPIs from registry")
-                
-            # Filter KPIs to only include those matching target domains (default: Finance)
-            target_domains = self.config.get("target_domains", ["Finance"])
-            logger.info(f"Filtering KPIs for domains: {target_domains}")
-            
-            # Clear existing registry before loading new KPIs
-            self.kpi_registry = {}
-            
-            for kpi in kpis:
-                # Check if KPI matches any target domain
-                if self._kpi_matches_domains(kpi, target_domains):
-                    # Convert from canonical KPI model to internal KPIDefinition model
-                    kpi_def = self._convert_to_kpi_definition(kpi)
-                    if kpi_def:
-                        self.kpi_registry[kpi_def.name] = kpi_def
-                        logger.debug(f"Added KPI to registry: {kpi_def.name}")
-                        
-            logger.info(f"Added {len(self.kpi_registry)} KPIs to registry for domains: {target_domains}")
-            
-            # If no KPIs were loaded from registry, try fallback to contract
-            if not self.kpi_registry:
-                logger.warning("No matching KPIs found in registry, trying contract fallback")
-                self._load_kpis_from_contract()
-                
-        except Exception as e:
-            logger.error(f"Error loading KPI registry: {str(e)}")
-            # Create minimal registry for fallback
-            self.kpi_registry = {}
-            # Try to load from contract as last resort
-            self._load_kpis_from_contract()
-        
     def _load_kpis_from_contract(self):
         """
         Load KPIs directly from the contract file as a fallback when registry is unavailable.
@@ -1395,6 +1051,35 @@ class A9_Situation_Awareness_Agent:
         Returns:
             True if the KPI matches any of the target domains, False otherwise
         """
+        # Dict-based KPIs (used in tests/mocks)
+        if isinstance(kpi, dict):
+            domain = kpi.get('domain')
+            if isinstance(domain, str):
+                for d in target_domains:
+                    if d.lower() == domain.lower():
+                        return True
+            # business_process_ids (canonical)
+            for bp_id in (kpi.get('business_process_ids') or []):
+                for d in target_domains:
+                    if isinstance(bp_id, str) and bp_id.lower().startswith(d.lower() + '_'):
+                        return True
+            # business_processes (display strings)
+            for process in (kpi.get('business_processes') or []):
+                for d in target_domains:
+                    if isinstance(process, str) and process.lower().startswith(f"{d.lower()}:"):
+                        return True
+            # tags
+            for tag in (kpi.get('tags') or []):
+                for d in target_domains:
+                    if isinstance(tag, str) and d.lower() in tag.lower():
+                        return True
+            # name heuristic for Finance
+            if 'Finance' in target_domains:
+                name = kpi.get('name')
+                if isinstance(name, str) and 'finance' in name.lower():
+                    return True
+            return False
+
         # First check the canonical 'domain' attribute
         if hasattr(kpi, 'domain') and isinstance(kpi.domain, str):
             # Direct domain match
@@ -1442,22 +1127,41 @@ class A9_Situation_Awareness_Agent:
         Returns:
             KPIDefinition instance or None if conversion fails
         """
-        # First, validate that kpi is a valid object
-        if not kpi or not hasattr(kpi, '__dict__'):
-            logger.warning(f"Invalid KPI object received: {type(kpi)}")
+        # Handle dict-shaped KPIs used by tests/mocks
+        if isinstance(kpi, dict):
+            name = kpi.get('name')
+            if not name:
+                return None
+            description = kpi.get('description', '')
+            unit = kpi.get('unit')
+            dp_id = kpi.get('data_product_id') or "FI_Star_Schema"
+            business_processes = kpi.get('business_processes') or []
+            dimensions = kpi.get('dimensions') or []
+            calc = kpi.get('calculation')
+            # Optional thresholds mapping
+            thresholds = None
+            try:
+                th = kpi.get('thresholds') or {}
+                if isinstance(th, dict):
+                    thresholds = {}
+                    if 'warning' in th and isinstance(th['warning'], dict):
+                        thresholds[SituationSeverity.HIGH] = th['warning'].get('value')
+                    if 'critical' in th and isinstance(th['critical'], dict):
+                        thresholds[SituationSeverity.CRITICAL] = th['critical'].get('value')
+            except Exception:
+                thresholds = None
             return KPIDefinition(
-                name="unknown",
-                description="",
-                unit="",
-                calculation="",
-                thresholds={SituationSeverity.HIGH: 0.0},
-                dimensions=[],
-                business_processes=["Finance: General"],
-                data_product_id="FI_Star_Schema",
-                positive_trend_is_good=True,
-                attributes=["value"]  # Add default attribute
+                name=name,
+                description=description,
+                unit=unit,
+                calculation=calc,
+                thresholds=thresholds,
+                dimensions=dimensions,
+                business_processes=business_processes,
+                data_product_id=dp_id,
+                positive_trend_is_good=True
             )
-        
+
         try:
             # Initialize variables with safe defaults
             dimensions = []
@@ -2600,6 +2304,33 @@ class A9_Situation_Awareness_Agent:
                 except Exception:
                     return "Answer available, but formatting failed."
             return "No KPI values available to answer."
+
+
+    async def get_recommended_questions(self, principal_context: PrincipalContext, business_process: Optional[BusinessProcess] = None) -> List[str]:
+        try:
+            kpis = list(self.kpi_registry.keys()) if isinstance(self.kpi_registry, dict) else []
+            tf_list = getattr(principal_context, 'preferred_timeframes', None) or []
+            def _tf_label(tf):
+                try:
+                    return getattr(tf, 'value', None) or getattr(tf, 'name', None) or str(tf)
+                except Exception:
+                    return "current_period"
+            tf_label = _tf_label(tf_list[0]) if tf_list else "current_period"
+            qs: List[str] = []
+            if kpis:
+                top = kpis[:3]
+                for name in top:
+                    qs.append(f"What is {name} for {tf_label}?")
+                if len(kpis) > 1:
+                    qs.append(f"How does {kpis[0]} compare to budget for {tf_label}?")
+            else:
+                qs = [
+                    f"What are the top KPIs for {tf_label}?",
+                    f"Which KPIs deviated most from budget for {tf_label}?",
+                ]
+            return qs
+        except Exception:
+            return ["Show me key finance KPIs this period."]
 
 
 def create_situation_awareness_agent(config: Dict[str, Any]) -> "A9_Situation_Awareness_Agent":

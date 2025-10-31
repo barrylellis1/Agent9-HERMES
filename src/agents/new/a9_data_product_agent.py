@@ -131,12 +131,23 @@ class A9_Data_Product_Agent(DataProductProtocol):
         else:
             self.logger.warning("No orchestrator provided in config")
         
+        # Allow tests or callers to inject a pre-configured LLM Service Agent
+        self.llm_service_agent = config.get('llm_service_agent')
+        if self.llm_service_agent:
+            self.logger.info("Using pre-configured LLM Service Agent instance from config")
+        
         # Initialize registry providers
         self.registry_factory = config.get('registry_factory') or RegistryFactory()
-        self.data_product_provider = self.registry_factory.get_provider("data_product") or DataProductProvider()
-        self.kpi_provider = self.registry_factory.get_provider("kpi") or KPIProvider()
+
+        self.data_product_provider = self.registry_factory.get_provider("data_product")
+        if self.data_product_provider is None:
+            self.data_product_provider = self.registry_factory.get_data_product_provider()
+
+        self.kpi_provider = self.registry_factory.get_provider("kpi")
+        if self.kpi_provider is None:
+            self.kpi_provider = self.registry_factory.get_kpi_provider()
         self.logger.info("Registry providers initialized successfully")
-        
+
         # Bypass MCP toggle (config or env), defaults to False
         try:
             import os as _os
@@ -198,36 +209,68 @@ class A9_Data_Product_Agent(DataProductProtocol):
         # Initialize LLM Service Agent connection (optional)
         try:
             self.logger.info("Initializing LLM Service Agent connection")
-            if hasattr(self, 'orchestrator') and self.orchestrator:
-                try:
-                    # Request LLM Service Agent with OpenAI config so factory creates it with the right provider
-                    self.llm_service_agent = await self.orchestrator.get_agent(
-                        "A9_LLM_Service_Agent",
-                        {"provider": "openai", "model_name": "gpt-4-turbo", "api_key_env_var": "OPENAI_API_KEY"}
-                    )
-                except Exception:
-                    self.llm_service_agent = None
-                if not getattr(self, 'llm_service_agent', None):
+            if not getattr(self, 'llm_service_agent', None):
+                if hasattr(self, 'orchestrator') and self.orchestrator:
                     try:
-                        from src.agents.a9_llm_service_agent import A9_LLM_Service_Agent
-                        # Switch provider to OpenAI and use OPENAI_API_KEY
-                        self.llm_service_agent = await A9_LLM_Service_Agent.create({
-                            "provider": "openai",
-                            "model_name": "gpt-4-turbo",
-                            "api_key_env_var": "OPENAI_API_KEY"
-                        })
-                        try:
-                            await self.orchestrator.register_agent("A9_LLM_Service_Agent", self.llm_service_agent)
-                        except Exception:
-                            pass
-                        self.logger.info("Successfully created and registered LLM Service Agent (OpenAI)")
-                    except Exception as create_err:
-                        self.logger.warning(f"LLM Service Agent unavailable: {str(create_err)}")
+                        # Request LLM Service Agent with OpenAI config so factory creates it with the right provider
+                        self.llm_service_agent = await self.orchestrator.get_agent(
+                            "A9_LLM_Service_Agent",
+                            {"provider": "openai", "model_name": "gpt-4-turbo", "api_key_env_var": "OPENAI_API_KEY"}
+                        )
+                    except Exception:
                         self.llm_service_agent = None
+                    if not getattr(self, 'llm_service_agent', None):
+                        try:
+                            from src.agents.a9_llm_service_agent import A9_LLM_Service_Agent
+                            # Switch provider to OpenAI and use OPENAI_API_KEY
+                            self.llm_service_agent = await A9_LLM_Service_Agent.create({
+                                "provider": "openai",
+                                "model_name": "gpt-4-turbo",
+                                "api_key_env_var": "OPENAI_API_KEY"
+                            })
+                            try:
+                                await self.orchestrator.register_agent("A9_LLM_Service_Agent", self.llm_service_agent)
+                            except Exception:
+                                pass
+                            self.logger.info("Successfully created and registered LLM Service Agent (OpenAI)")
+                        except Exception as create_err:
+                            self.logger.warning(f"LLM Service Agent unavailable: {str(create_err)}")
+                            self.llm_service_agent = None
+                else:
+                    self.logger.warning("Orchestrator not available for LLM Service Agent connection")
             else:
-                self.logger.warning("Orchestrator not available for LLM Service Agent connection")
+                self.logger.info("Using pre-configured LLM Service Agent instance")
         except Exception as e:
             self.logger.error(f"Error connecting to LLM Service Agent: {str(e)}")
+    
+    async def _ensure_db_connected(self) -> bool:
+        """
+        Ensure the embedded DuckDB connection is available. Establish a lazy connection
+        if one is not already present. Returns True when connected.
+        """
+        try:
+            # If DB manager is missing, we cannot proceed
+            if not hasattr(self, 'db_manager') or self.db_manager is None:
+                return False
+            # If a connection already exists, we're good
+            if getattr(self.db_manager, 'duckdb_conn', None) is not None:
+                return True
+            # Attempt to connect lazily
+            ok = await self.db_manager.connect({'database_path': self.db_path})
+            if ok:
+                self.is_connected = True
+                # Best-effort: ensure time dimension exists for timeframe filters
+                try:
+                    await self._ensure_time_dimension()
+                except Exception as td_err:
+                    self.logger.warning(f"Failed to ensure Time Dimension (lazy): {td_err}")
+                return True
+            self.logger.warning("DuckDB connection attempt failed in _ensure_db_connected")
+            return False
+        except Exception as e:
+            self.logger.warning(f"_ensure_db_connected error: {e}")
+            return False
+
     async def _ensure_time_dimension(self) -> None:
         """
         Create and populate a shared Time Dimension table (time_dim) for consistent timeframe handling.
@@ -529,6 +572,10 @@ class A9_Data_Product_Agent(DataProductProtocol):
         """
         transaction_id = str(uuid.uuid4())
         try:
+            self.logger.info(f"[LLM_SQL] ENTER generate_sql txn={transaction_id} has_llm_agent={getattr(self, 'llm_service_agent', None) is not None}")
+        except Exception:
+            pass
+        try:
             items = self.data_product_provider.get_all() if self.data_product_provider else []
             data_products: List[Dict[str, Any]] = []
             for dp in items:
@@ -564,6 +611,10 @@ class A9_Data_Product_Agent(DataProductProtocol):
         This method is idempotent and returns a summary instead of raising on failure.
         """
         transaction_id = str(uuid.uuid4())
+        # Ensure database connection is available before registering sources
+        if not await self._ensure_db_connected():
+            self.logger.warning(f"[TXN:{transaction_id}] Database not connected; cannot register tables from contract")
+            return {"success": False, "message": "Database not connected", "registered": {}}
         try:
             with open(contract_path, "r") as f:
                 contract = yaml.safe_load(f)
@@ -621,6 +672,10 @@ class A9_Data_Product_Agent(DataProductProtocol):
         Create or replace a view defined in the YAML contract. Returns a status dict.
         """
         transaction_id = str(uuid.uuid4())
+        # Ensure database connection is available before creating a view
+        if not await self._ensure_db_connected():
+            self.logger.warning(f"[TXN:{transaction_id}] Database not connected; cannot create view '{view_name}'")
+            return {"success": False, "message": "Database not connected", "view_name": view_name}
         try:
             with open(contract_path, "r") as f:
                 contract = yaml.safe_load(f)
@@ -669,7 +724,8 @@ class A9_Data_Product_Agent(DataProductProtocol):
             if isinstance(query, str) and query.strip():
                 q = query.strip()
                 # naive detection: if the string appears to be SQL already, echo it back
-                if re.match(r"^\s*(with|select|from|create|explain)\b", q, flags=re.IGNORECASE):
+                m = re.match(r"^\s*(with|select|from|create|explain)\b", q, flags=re.IGNORECASE)
+                if m:
                     return {"success": True, "sql": q, "message": "Pass-through SQL", "transaction_id": transaction_id}
 
             # Attempt LLM-based SQL generation for natural language queries
@@ -738,8 +794,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 # If profile extraction fails, fall back silently
                 profile_yaml_text = None
 
-            enable_llm = str(os.environ.get('A9_ENABLE_LLM_SQL', 'false')).lower() in ('1','true','yes','y','on')
-            if enable_llm and getattr(self, 'llm_service_agent', None) is not None:
+            if getattr(self, 'llm_service_agent', None) is not None:
                 try:
                     req = A9_LLM_SQLGenerationRequest(
                         request_id=transaction_id,
@@ -766,13 +821,11 @@ class A9_Data_Product_Agent(DataProductProtocol):
                                         sql_out = sql_out.replace(bad, good)
                                 # 2) constant alias for total_revenue -> replace with aggregate on default measure when available
                                 if default_measure_name:
-                                    import re
                                     pattern = r"'total_revenue'\s+AS\s+total_revenue"
                                     repl = f'{default_agg}("{default_measure_name}") AS total_revenue'
                                     sql_out = re.sub(pattern, repl, sql_out, flags=re.IGNORECASE)
                                 # 3) When LLM emits "'Col' AS \"Col\"", collapse to just the column identifier
                                 for col in exposed_columns_list:
-                                    import re
                                     pattern = rf"'{re.escape(col)}'\s+AS\s+\"{re.escape(col)}\""
                                     repl = f'"{col}"'
                                     sql_out = re.sub(pattern, repl, sql_out, flags=re.IGNORECASE)
@@ -790,8 +843,6 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 except Exception as e:
                     self.logger.warning(f"LLM Service SQL generation failed: {e}")
                     # fall through to error unless we can do other deterministic fallback here
-            elif not enable_llm:
-                self.logger.info("A9_ENABLE_LLM_SQL is disabled; skipping LLM SQL generation")
             else:
                 self.logger.info("LLM Service Agent not available for SQL generation")
 
@@ -1977,9 +2028,75 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 parameters = getattr(sql_query, 'parameters', parameters)
                 sql_query = sql_query.sql_query
             else:
-                return {"transaction_id": transaction_id, "sql": "", "columns": [], "rows": [], "row_count": 0, "execution_time": 0, "success": False, "message": "Invalid SQL request payload", "data": []}
+                return {"transaction_id": transaction_id, "sql": "", "columns": [], "rows": [], "row_count": 0, "execution_time": 0, "query_time_ms": 0, "success": False, "status": "error", "message": "Invalid SQL request payload", "data": []}
+
+        if not isinstance(sql_query, str) or not sql_query.strip():
+            return {
+                "transaction_id": transaction_id,
+                "sql": sql_query or "",
+                "columns": [],
+                "rows": [],
+                "row_count": 0,
+                "execution_time": 0,
+                "query_time_ms": 0,
+                "success": False,
+                "status": "error",
+                "message": "Invalid SQL request: empty query",
+                "data": []
+            }
+
+        normalized_sql = sql_query.lstrip().upper()
+        if not (normalized_sql.startswith("SELECT") or normalized_sql.startswith("WITH")):
+            return {
+                "transaction_id": transaction_id,
+                "sql": sql_query,
+                "columns": [],
+                "rows": [],
+                "row_count": 0,
+                "execution_time": 0,
+                "query_time_ms": 0,
+                "success": False,
+                "status": "error",
+                "message": "Invalid SQL statement: only SELECT/WITH queries are permitted",
+                "data": []
+            }
 
         try:
+            # Validate SQL using manager guardrails
+            try:
+                if hasattr(self, 'db_manager') and self.db_manager is not None and hasattr(self.db_manager, 'validate_sql'):
+                    is_valid, val_err = await self.db_manager.validate_sql(sql_query)
+                    if not is_valid:
+                        return {
+                            "transaction_id": transaction_id,
+                            "sql": sql_query,
+                            "columns": [],
+                            "rows": [],
+                            "row_count": 0,
+                            "execution_time": 0,
+                            "query_time_ms": 0,
+                            "success": False,
+                            "status": "error",
+                            "message": val_err or "SQL validation failed",
+                            "data": []
+                        }
+            except Exception:
+                pass
+            # Ensure a live database connection before executing
+            if not await self._ensure_db_connected():
+                return {
+                    "transaction_id": transaction_id,
+                    "sql": sql_query,
+                    "columns": [],
+                    "rows": [],
+                    "row_count": 0,
+                    "execution_time": 0,
+                    "query_time_ms": 0,
+                    "success": False,
+                    "status": "error",
+                    "message": "Database not connected",
+                    "data": []
+                }
             t0 = time.time()
             resp = await self.db_manager.execute_query(sql_query, parameters or {}, transaction_id)
             exec_ms = (time.time() - t0) * 1000.0
@@ -2014,7 +2131,9 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 "rows": rows,
                 "row_count": len(rows) if isinstance(rows, list) else 0,
                 "execution_time": exec_ms,
+                "query_time_ms": exec_ms,
                 "success": True,
+                "status": "success",
                 "message": f"Query executed in {exec_ms:.2f} ms",
                 "data": rows
             }
@@ -2026,7 +2145,9 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 "rows": [],
                 "row_count": 0,
                 "execution_time": 0,
+                "query_time_ms": 0,
                 "success": False,
+                "status": "error",
                 "message": str(e),
                 "error": str(e),
                 "data": []
@@ -2055,6 +2176,66 @@ class A9_Data_Product_Agent(DataProductProtocol):
         except Exception as e:
             self.logger.error(f"[TXN:{transaction_id}] Error generating SQL for KPI {kpi_name}: {str(e)}\n{traceback.format_exc()}")
             return {"sql": "", "kpi_name": kpi_name, "transaction_id": transaction_id, "success": False, "message": str(e), "error": str(e)}
+
+    async def get_kpi_definition(self, kpi_name: str, *, include_mapping: bool = False) -> Optional[Any]:
+        """Retrieve a KPI definition using orchestrator-provisioned providers.
+
+        This helper keeps KPI access centralized inside the Data Product Agent so the tests (and other
+        agents) can ask for the definition without manually touching RegistryFactory.
+        """
+        if not isinstance(kpi_name, str) or not kpi_name.strip():
+            return None
+
+        # Ensure KPI provider is available
+        if self.kpi_provider is None:
+            self.kpi_provider = self.registry_factory.get_provider("kpi") or self.registry_factory.get_kpi_provider()
+        provider = self.kpi_provider
+        if provider is None:
+            return None
+
+        # Attempt to load if the provider supports it
+        if hasattr(provider, "load") and callable(provider.load):
+            try:
+                await provider.load()
+            except TypeError:
+                provider.load()
+            except Exception:
+                pass
+
+        # Try to retrieve by name (case variants) and id
+        candidate = provider.get(kpi_name)
+        if not candidate:
+            candidate = provider.get(kpi_name.lower()) if hasattr(provider, "get") else None
+        if not candidate:
+            try:
+                all_kpis = provider.get_all()
+                if isinstance(all_kpis, list):
+                    lname = kpi_name.lower()
+                    for k in all_kpis:
+                        nm = getattr(k, "name", None)
+                        if isinstance(nm, str) and nm.lower() == lname:
+                            candidate = k
+                            break
+            except Exception:
+                candidate = None
+
+        if not candidate or not include_mapping:
+            return candidate
+
+        # Optionally enrich with governance mapping
+        if hasattr(self, "data_governance_agent") and self.data_governance_agent:
+            try:
+                from src.agents.models.data_governance_models import KPIDataProductMappingRequest
+
+                mapping_req = KPIDataProductMappingRequest(kpi_names=[kpi_name], context={})
+                mapping_resp = await self.data_governance_agent.map_kpis_to_data_products(mapping_req)
+                if mapping_resp and mapping_resp.mappings:
+                    candidate.metadata = candidate.metadata or {}
+                    candidate.metadata.setdefault("data_product_mapping", mapping_resp.mappings[0].model_dump())
+            except Exception:
+                pass
+
+        return candidate
 
     async def get_kpi_data(self, kpi_definition: Any, timeframe: Any = None, filters: Dict[str, Any] = None, principal_context: Any = None) -> Dict[str, Any]:
         """

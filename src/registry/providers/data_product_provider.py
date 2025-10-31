@@ -355,6 +355,15 @@ class DataProductProvider(RegistryProvider[DataProduct]):
             logger.error(f"Error loading data products from {self.source_path}: {e}")
             self._load_default_data_products()
     
+    def _remove_data_product_indexes(self, data_product) -> None:
+        """Remove cached lookups for the provided data product."""
+        name = getattr(data_product, "name", None)
+        legacy_id = getattr(data_product, "legacy_id", None)
+        if name:
+            self._data_products_by_name.pop(name, None)
+        if legacy_id:
+            self._data_products_by_legacy_id.pop(legacy_id, None)
+
     def _add_data_product(self, data_product) -> None:
         """
         Add a data product to the internal dictionaries.
@@ -378,16 +387,35 @@ class DataProductProvider(RegistryProvider[DataProduct]):
             
             # Create a wrapper object
             wrapper = DictWrapper(data_product)
+            existing = self._data_products.get(wrapper.id)
+            if existing:
+                self._remove_data_product_indexes(existing)
             
             # Add to dictionaries
             self._data_products[wrapper.id] = data_product
             self._data_products_by_name[wrapper.name] = data_product
             self._data_products_by_legacy_id[wrapper.legacy_id] = data_product
         else:
+            existing = self._data_products.get(data_product.id)
+            if existing:
+                self._remove_data_product_indexes(existing)
             # For DataProduct objects
             self._data_products[data_product.id] = data_product
             self._data_products_by_name[data_product.name] = data_product
             self._data_products_by_legacy_id[data_product.legacy_id] = data_product
+
+    def upsert(self, data_product: DataProduct) -> DataProduct:
+        """Create or replace a data product entry."""
+        self._add_data_product(data_product)
+        return data_product
+
+    def delete(self, data_product_id: str) -> bool:
+        """Delete a data product by ID."""
+        existing = self._data_products.pop(data_product_id, None)
+        if not existing:
+            return False
+        self._remove_data_product_indexes(existing)
+        return True
     
     def get(self, id_or_name: str) -> Optional[DataProduct]:
         """

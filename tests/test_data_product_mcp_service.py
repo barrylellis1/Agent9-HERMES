@@ -38,8 +38,11 @@ class TestDataProductMCPService(unittest.TestCase):
             validate_sql=True
         )
         
-        # Create the agent instance
-        self.agent = A9_Data_Product_MCP_Service_Agent(self.config)
+        # Skip tests if the SAP data path is not available on this machine
+        if not os.path.exists(self.config.sap_data_path):
+            self.skipTest(f"SAP data path not found: {self.config.sap_data_path}")
+        # Create the agent instance using async factory to ensure proper initialization
+        self.agent = asyncio.run(A9_Data_Product_MCP_Service_Agent.create(self.config))
         
         # Mock request data
         self.request_id = "test-request-123"
@@ -57,8 +60,8 @@ class TestDataProductMCPService(unittest.TestCase):
         # Check if connection exists
         self.assertIsNotNone(self.agent.duckdb_conn)
         
-        # Give time for tables to be registered if needed
-        self.agent._register_csv_files()
+        # Register CSV files (async) to ensure sap.* tables are available
+        asyncio.run(self.agent._register_csv_files())
         
         # Check if tables were registered in the sap schema
         result = self.agent.duckdb_conn.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='sap'").fetchall()
@@ -71,7 +74,7 @@ class TestDataProductMCPService(unittest.TestCase):
     def test_csv_data_loaded(self):
         """Test if SAP CSV data was loaded correctly"""
         # Ensure tables are registered
-        self.agent._register_csv_files()
+        asyncio.run(self.agent._register_csv_files())
         
         # First get a list of available tables in the sap schema
         available_tables = []
@@ -139,9 +142,10 @@ class TestDataProductMCPService(unittest.TestCase):
         
         # Validate the error response
         self.assertEqual(response.status, "error")
-        self.assertIsNotNone(response.error)
-        self.assertTrue("only SELECT statements" in response.error, 
-                       f"Unexpected error message: {response.error}")
+        # Prefer error_message field; some models reserve 'error' for classmethod name
+        err_text = getattr(response, 'error_message', None) or getattr(response, 'error', None)
+        self.assertIsNotNone(err_text)
+        self.assertIn("only SELECT statements", err_text)
         
         print(f"Invalid SQL correctly rejected with error: {response.error}")
 

@@ -296,6 +296,11 @@ class PrincipalProfileProvider(RegistryProvider[PrincipalProfile]):
             logger.error(f"Error loading principal profiles from {self.source_path}: {e}")
             self._load_default_profiles()
     
+    def _remove_profile_indexes(self, profile: PrincipalProfile) -> None:
+        """Remove cached lookups for the provided principal profile."""
+        self._profiles_by_name.pop(profile.name, None)
+        self._profiles_by_title.pop(profile.title, None)
+
     def _add_profile(self, profile: PrincipalProfile) -> None:
         """
         Add a principal profile to the internal dictionaries.
@@ -303,9 +308,25 @@ class PrincipalProfileProvider(RegistryProvider[PrincipalProfile]):
         Args:
             profile: The principal profile to add
         """
+        existing = self._profiles.get(profile.id)
+        if existing:
+            self._remove_profile_indexes(existing)
         self._profiles[profile.id] = profile
         self._profiles_by_name[profile.name] = profile
         self._profiles_by_title[profile.title] = profile
+
+    def upsert(self, profile: PrincipalProfile) -> PrincipalProfile:
+        """Create or replace a principal profile entry."""
+        self._add_profile(profile)
+        return profile
+
+    def delete(self, profile_id: str) -> bool:
+        """Delete a principal profile by ID."""
+        existing = self._profiles.pop(profile_id, None)
+        if not existing:
+            return False
+        self._remove_profile_indexes(existing)
+        return True
     
     def get(self, id_or_name: str) -> Optional[PrincipalProfile]:
         """

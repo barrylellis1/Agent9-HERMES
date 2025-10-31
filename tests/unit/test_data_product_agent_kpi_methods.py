@@ -1,14 +1,14 @@
  # arch-allow-direct-agent-construction
-import asyncio
 from types import SimpleNamespace
 import pytest
 
-from src.agents.new.a9_data_product_agent import A9_Data_Product_Agent
+
+pytestmark = pytest.mark.no_agent_setup
 
 
 @pytest.mark.asyncio
-async def test_get_kpi_data_happy_path(monkeypatch):
-    agent = A9_Data_Product_Agent(config={})
+async def test_get_kpi_data_happy_path(data_product_agent, monkeypatch):
+    agent = data_product_agent
 
     # Mock SQL generation
     async def mock_generate_sql_for_kpi(kpi_definition, timeframe=None, filters=None):
@@ -35,8 +35,8 @@ async def test_get_kpi_data_happy_path(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_get_kpi_data_no_rows(monkeypatch):
-    agent = A9_Data_Product_Agent(config={})
+async def test_get_kpi_data_no_rows(data_product_agent, monkeypatch):
+    agent = data_product_agent
 
     async def mock_generate_sql_for_kpi(kpi_definition, timeframe=None, filters=None):
         return {"success": True, "sql": "SELECT 1"}
@@ -60,8 +60,8 @@ async def test_get_kpi_data_no_rows(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_get_kpi_comparison_data_happy_path(monkeypatch):
-    agent = A9_Data_Product_Agent(config={})
+async def test_get_kpi_comparison_data_happy_path(data_product_agent, monkeypatch):
+    agent = data_product_agent
 
     async def mock_generate_sql_for_kpi_comparison(kpi_definition, timeframe=None, comparison_type="previous_period", filters=None):
         return {"success": True, "sql": "SELECT 84 AS value"}

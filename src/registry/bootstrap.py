@@ -44,11 +44,24 @@ class RegistryBootstrap:
         Returns:
             bool: True if initialization was successful, False otherwise
         """
-        if cls._initialized:
-            logger.info("Registry bootstrap already initialized")
-            return True
-            
         try:
+            if cls._initialized:
+                cls._factory = cls._factory or RegistryFactory()
+                missing_providers = []
+                expected = ("principal_profile", "business_glossary", "data_product", "kpi")
+                for provider_name in expected:
+                    provider = cls._factory.get_provider(provider_name)
+                    if provider is None or not cls._factory._provider_initialization_status.get(provider_name, False):
+                        missing_providers.append(provider_name)
+
+                if not missing_providers:
+                    logger.info("Registry bootstrap already initialized")
+                    return True
+
+                logger.info(
+                    "Registry bootstrap re-running to finish provider initialization for: %s",
+                    ", ".join(missing_providers),
+                )
             config = config or {}
             base_path = config.get('base_path', os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
             registry_path = config.get('registry_path', os.path.join(base_path, "registry"))

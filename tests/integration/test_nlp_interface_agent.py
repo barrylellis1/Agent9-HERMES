@@ -6,16 +6,12 @@ import pytest
 # Ensure project root is on sys.path to import 'src' package
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 
-from src.agents.new.a9_orchestrator_agent import A9_Orchestrator_Agent, initialize_agent_registry
 from src.agents.models.nlp_models import NLPBusinessQueryInput
+from src.agents.models.data_governance_models import KPIDataProductMappingRequest
 
 
 @pytest.mark.asyncio
-async def test_parse_business_query_current_margin_uses_principal_defaults():
-    orchestrator = await A9_Orchestrator_Agent.create({})
-    await initialize_agent_registry()
-
-    # Create NLP agent via orchestrator registry
+async def test_parse_business_query_current_margin_uses_principal_defaults(orchestrator):
     nlp_agent = await orchestrator.get_agent("A9_NLP_Interface_Agent")
     assert nlp_agent is not None
 
@@ -49,10 +45,8 @@ async def test_parse_business_query_current_margin_uses_principal_defaults():
 
 
 @pytest.mark.asyncio
-async def test_parse_business_query_gross_revenue_by_region_last_quarter():
-    orchestrator = await A9_Orchestrator_Agent.create({})
-    await initialize_agent_registry()
-
+async def test_parse_business_query_gross_revenue_by_region_last_quarter(orchestrator):
+    # Agents
     nlp_agent = await orchestrator.get_agent("A9_NLP_Interface_Agent")
     assert nlp_agent is not None
 
@@ -83,10 +77,8 @@ async def test_parse_business_query_gross_revenue_by_region_last_quarter():
 
 
 @pytest.mark.asyncio
-async def test_nlp_to_dpa_sql_generation():
+async def test_nlp_to_dpa_sql_generation(orchestrator):
     """End-to-end: NLP intent → KPI definition → DPA SQL generation (no execution)."""
-    orchestrator = await A9_Orchestrator_Agent.create({})
-    await initialize_agent_registry()
 
     # Agents
     nlp_agent = await orchestrator.get_agent("A9_NLP_Interface_Agent")
@@ -101,19 +93,15 @@ async def test_nlp_to_dpa_sql_generation():
     assert res.matched_views, "Expected at least one matched view"
     kpi_name = res.matched_views[0].kpi_name
 
-    # Get KPI definition from registry directly (deterministic path)
-    from src.registry.factory import RegistryFactory
-    kpi_provider = RegistryFactory().get_kpi_provider() or RegistryFactory().get_provider("kpi")
-    # Ensure provider is loaded
-    if hasattr(kpi_provider, "load"):
-        try:
-            await kpi_provider.load()
-        except TypeError:
-            kpi_provider.load()
-    kpi_def = None
-    if kpi_provider:
-        # Try by name and by legacy id
-        kpi_def = kpi_provider.get(kpi_name) or kpi_provider.get(kpi_name.lower())
+    # Ask Data Governance Agent for the canonical KPI mapping to ensure consistent orchestration
+    dga = await orchestrator.get_agent("A9_Data_Governance_Agent")
+    mapping_req = KPIDataProductMappingRequest(kpi_names=[kpi_name], context={})
+    mapping_resp = await dga.map_kpis_to_data_products(mapping_req)
+    assert mapping_resp.mappings, f"No mappings returned for KPI {kpi_name}"
+    kpi_metadata = mapping_resp.mappings[0]
+
+    # Use Data Product Agent helper to retrieve the KPI definition through its registry access
+    kpi_def = await dpa.get_kpi_definition(kpi_metadata.kpi_name)
     assert kpi_def is not None, f"KPI definition not found for {kpi_name}"
 
     # Let DPA generate SQL; do not execute
@@ -126,9 +114,7 @@ async def test_nlp_to_dpa_sql_generation():
 
 
 @pytest.mark.asyncio
-async def test_hitl_escalation_when_kpi_missing():
-    orchestrator = await A9_Orchestrator_Agent.create({})
-    await initialize_agent_registry()
+async def test_hitl_escalation_when_kpi_missing(orchestrator):
 
     nlp_agent = await orchestrator.get_agent("A9_NLP_Interface_Agent")
     assert nlp_agent is not None
@@ -144,9 +130,7 @@ async def test_hitl_escalation_when_kpi_missing():
 
 
 @pytest.mark.asyncio
-async def test_timeframe_defaults_neutral_current_uses_typical_timeframes():
-    orchestrator = await A9_Orchestrator_Agent.create({})
-    await initialize_agent_registry()
+async def test_timeframe_defaults_neutral_current_uses_typical_timeframes(orchestrator):
 
     nlp_agent = await orchestrator.get_agent("A9_NLP_Interface_Agent")
     assert nlp_agent is not None
@@ -162,10 +146,7 @@ async def test_timeframe_defaults_neutral_current_uses_typical_timeframes():
 
 
 @pytest.mark.asyncio
-async def test_nlp_to_dga_mapping_and_view_name():
-    orchestrator = await A9_Orchestrator_Agent.create({})
-    await initialize_agent_registry()
-
+async def test_nlp_to_dga_mapping_and_view_name(orchestrator):
     nlp_agent = await orchestrator.get_agent("A9_NLP_Interface_Agent")
     dga = await orchestrator.get_agent("A9_Data_Governance_Agent")
     assert nlp_agent is not None and dga is not None
@@ -190,9 +171,7 @@ async def test_nlp_to_dga_mapping_and_view_name():
 
 
 @pytest.mark.asyncio
-async def test_parse_business_query_top5_by_revenue_last_quarter():
-    orchestrator = await A9_Orchestrator_Agent.create({})
-    await initialize_agent_registry()
+async def test_parse_business_query_top5_by_revenue_last_quarter(orchestrator):
 
     nlp_agent = await orchestrator.get_agent("A9_NLP_Interface_Agent")
     assert nlp_agent is not None
@@ -214,9 +193,7 @@ async def test_parse_business_query_top5_by_revenue_last_quarter():
 
 
 @pytest.mark.asyncio
-async def test_parse_business_query_bottom3_by_margin_this_quarter():
-    orchestrator = await A9_Orchestrator_Agent.create({})
-    await initialize_agent_registry()
+async def test_parse_business_query_bottom3_by_margin_this_quarter(orchestrator):
 
     nlp_agent = await orchestrator.get_agent("A9_NLP_Interface_Agent")
     assert nlp_agent is not None
@@ -238,9 +215,7 @@ async def test_parse_business_query_bottom3_by_margin_this_quarter():
 
 
 @pytest.mark.asyncio
-async def test_nlp_to_dpa_sql_generation_with_topn():
-    orchestrator = await A9_Orchestrator_Agent.create({})
-    await initialize_agent_registry()
+async def test_nlp_to_dpa_sql_generation_with_topn(orchestrator):
 
     nlp_agent = await orchestrator.get_agent("A9_NLP_Interface_Agent")
     assert nlp_agent is not None
@@ -253,16 +228,9 @@ async def test_nlp_to_dpa_sql_generation_with_topn():
     assert res.topn is not None and res.topn.limit_n == 5
     assert res.matched_views, "Expected matched view"
 
-    # Resolve KPI def
+    # Resolve KPI definition using Data Product Agent orchestration helpers
     kpi_name = res.matched_views[0].kpi_name
-    from src.registry.factory import RegistryFactory
-    kpi_provider = RegistryFactory().get_kpi_provider() or RegistryFactory().get_provider("kpi")
-    if hasattr(kpi_provider, "load"):
-        try:
-            await kpi_provider.load()
-        except TypeError:
-            kpi_provider.load()
-    kpi_def = kpi_provider.get(kpi_name) or kpi_provider.get(kpi_name.lower())
+    kpi_def = await dpa.get_kpi_definition(kpi_name)
     assert kpi_def is not None
 
     # Generate SQL with TopN forwarded to DPA
