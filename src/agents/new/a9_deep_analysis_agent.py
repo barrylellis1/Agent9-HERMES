@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import uuid
 import os
+import re
 from typing import Dict, Any, Optional, List
 import yaml
 
@@ -258,12 +259,6 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             except Exception:
                 pass
             kt = KTIsIsNot()
-            # What is
-            if getattr(plan, "kpi_name", None):
-                kt.what_is.append({"kpi_name": plan.kpi_name})
-            if getattr(plan, "timeframe", None):
-                kt.what_is.append({"timeframe": plan.timeframe})
-            kt.what_is.append({"filters_present": bool(getattr(plan, "filters", None))})
 
             change_points: List[ChangePoint] = []
             queries_executed: int = 0
@@ -500,13 +495,128 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 within.append(g)
                         return breaches, within
 
+                    def _format_where_entry(dimension: Any, key: Any, delta: Any, current: Any, previous: Any, note: Optional[str] = None) -> Dict[str, Any]:
+                        try:
+                            delta_val = float(delta if delta is not None else 0.0)
+                        except Exception:
+                            delta_val = 0.0
+                        dim_label = str(dimension) if dimension is not None else "(dimension)"
+                        key_label = str(key) if key is not None else "All"
+                        text_parts = [f"{dim_label}: {key_label} (Δ {delta_val:+,.2f})"]
+                        if note:
+                            text_parts.append(str(note))
+                        entry = {
+                            "dimension": dimension,
+                            "key": key,
+                            "delta": delta,
+                            "current": current,
+                            "previous": previous,
+                            "text": " — ".join(text_parts),
+                        }
+                        if note is not None:
+                            entry["note"] = note
+                        return entry
+
+                    def _format_when_entry(bucket: Any, delta: Any, current: Any, previous: Any, note: Optional[str] = None) -> Dict[str, Any]:
+                        try:
+                            delta_val = float(delta if delta is not None else 0.0)
+                        except Exception:
+                            delta_val = 0.0
+                        bucket_label = str(bucket) if bucket is not None else "(bucket)"
+                        text_parts = [f"{bucket_label} (Δ {delta_val:+,.2f})"]
+                        if note:
+                            text_parts.append(str(note))
+                        entry = {
+                            "bucket": bucket,
+                            "delta": delta,
+                            "current": current,
+                            "previous": previous,
+                            "text": " — ".join(text_parts),
+                        }
+                        if note is not None:
+                            entry["note"] = note
+                        return entry
+
+                    def _extract_scalar(exec_obj: Dict[str, Any]) -> float:
+                        try:
+                            rows = exec_obj.get("rows") or []
+                            if not rows:
+                                return 0.0
+                            first = rows[0]
+                            if isinstance(first, dict):
+                                for val in first.values():
+                                    try:
+                                        return float(val)
+                                    except Exception:
+                                        continue
+                                return 0.0
+                            for item in first:
+                                try:
+                                    return float(item)
+                                except Exception:
+                                    continue
+                            return 0.0
+                        except Exception:
+                            return 0.0
+
+                    async def _compute_overall_summary(comparator: str) -> Optional[Dict[str, float]]:
+                        try:
+                            base_filters = getattr(plan, "filters", None) or {}
+                            if comparator == "budget":
+                                f_act = {**base_filters, "Version": "Actual"}
+                                f_bud = {**base_filters, "Version": "Budget"}
+                                gen_act_tot = await self.data_product_agent.generate_sql_for_kpi(
+                                    kpi_def, timeframe=cur_tf, filters=f_act
+                                )
+                                gen_bud_tot = await self.data_product_agent.generate_sql_for_kpi(
+                                    kpi_def, timeframe=cur_tf, filters=f_bud
+                                )
+                                if not (gen_act_tot.get("success") and gen_bud_tot.get("success")):
+                                    return None
+                                act_exec_tot = await self.data_product_agent.execute_sql(gen_act_tot.get("sql"))
+                                bud_exec_tot = await self.data_product_agent.execute_sql(gen_bud_tot.get("sql"))
+                                current_total = _extract_scalar(act_exec_tot)
+                                baseline_total = _extract_scalar(bud_exec_tot)
+                            else:
+                                if not prev_tf:
+                                    return None
+                                gen_cur_tot = await self.data_product_agent.generate_sql_for_kpi(
+                                    kpi_def, timeframe=cur_tf, filters=base_filters
+                                )
+                                gen_prev_tot = await self.data_product_agent.generate_sql_for_kpi(
+                                    kpi_def, timeframe=prev_tf, filters=base_filters
+                                )
+                                if not (gen_cur_tot.get("success") and gen_prev_tot.get("success")):
+                                    return None
+                                cur_exec_tot = await self.data_product_agent.execute_sql(gen_cur_tot.get("sql"))
+                                prev_exec_tot = await self.data_product_agent.execute_sql(gen_prev_tot.get("sql"))
+                                current_total = _extract_scalar(cur_exec_tot)
+                                baseline_total = _extract_scalar(prev_exec_tot)
+
+                            delta_val = current_total - baseline_total
+                            if baseline_total == 0.0:
+                                delta_pct = 0.0 if abs(delta_val) < 1e-9 else (1.0 if delta_val > 0 else -1.0)
+                            else:
+                                delta_pct = delta_val / abs(baseline_total)
+                            return {
+                                "current": current_total,
+                                "baseline": baseline_total,
+                                "delta": delta_val,
+                                "delta_pct": delta_pct,
+                            }
+                        except Exception:
+                            return None
+
                     # Primary path: hierarchical drill per vector if hierarchies present
                     hmap = _hierarchies_from_contract()
                     used_hierarchical = False
+                    spec_main = _pick_threshold_spec()
+                    comparator_main = "budget" if str(spec_main.get("comparison_type", "")).lower() == "budget" else "previous"
+                    overall_summary = await _compute_overall_summary(comparator_main) if self.data_product_agent else None
                     if hmap:
                         used_hierarchical = True
-                        spec = _pick_threshold_spec()
-                        comparator = "budget" if str(spec.get("comparison_type", "")).lower() == "budget" else "previous"
+                        spec = spec_main
+                        comparator = comparator_main
                         # Default vector order
                         vector_order = [k for k in ["customer", "product", "profit_center"] if k in hmap] or list(hmap.keys())
                         for vec in vector_order:
@@ -516,22 +626,87 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 if not grp:
                                     continue
                                 breaches, within = _classify(grp, spec)
+                                try:
+                                    ratios = [float(g.get("ratio", 0.0)) for g in grp]
+                                    labels = ["<-20%", "-20% to -10%", "-10% to 0%", "0% to 10%", "10% to 20%", ">20%"]
+                                    edges = [-1e9, -0.2, -0.1, 0.0, 0.1, 0.2, 1e9]
+                                    counts = [0, 0, 0, 0, 0, 0]
+                                    for r in ratios:
+                                        if r < edges[1]:
+                                            counts[0] += 1
+                                        elif r < edges[2]:
+                                            counts[1] += 1
+                                        elif r < edges[3]:
+                                            counts[2] += 1
+                                        elif r < edges[4]:
+                                            counts[3] += 1
+                                        elif r < edges[5]:
+                                            counts[4] += 1
+                                        else:
+                                            counts[5] += 1
+                                    rs = sorted(ratios)
+                                    n = len(rs)
+                                    if n > 0:
+                                        if n % 2 == 1:
+                                            med = rs[n // 2]
+                                        else:
+                                            med = (rs[n // 2 - 1] + rs[n // 2]) / 2.0
+                                    else:
+                                        med = 0.0
+                                    inv = bool(spec.get("inverse_logic", False))
+                                    try:
+                                        yb_raw = spec.get("yellow_threshold")
+                                        yb_val = float(0.0 if yb_raw is None else yb_raw)
+                                    except Exception:
+                                        yb_val = 0.0
+                                    try:
+                                        if inv:
+                                            breach_count = sum(1 for g in grp if float(g.get("ratio", 0.0)) > yb_val)
+                                        else:
+                                            breach_count = sum(1 for g in grp if float(g.get("ratio", 0.0)) < yb_val)
+                                    except Exception:
+                                        breach_count = 0
+                                    entry = {
+                                        "dimension": lvl,
+                                        "vector": vec,
+                                        "comparator": comparator,
+                                        "threshold": yb_val,
+                                        "inverse_logic": inv,
+                                        "total_keys": n,
+                                        "breach_count": breach_count,
+                                        "within_count": max(0, n - breach_count),
+                                        "histogram": [{"bin": labels[i], "count": counts[i]} for i in range(len(labels))],
+                                        "min_ratio": (rs[0] if n else 0.0),
+                                        "median_ratio": med,
+                                        "max_ratio": (rs[-1] if n else 0.0),
+                                    }
+                                    kt.extent_is.append(entry)
+                                except Exception:
+                                    pass
                                 if breaches:
                                     for b in breaches:
-                                        kt.where_is.append({"dimension": b.get("dimension"), "key": b.get("key"), "delta": b.get("delta"), "current": b.get("current"), "previous": b.get("previous")})
+                                        entry_b = _format_where_entry(b.get("dimension"), b.get("key"), b.get("delta"), b.get("current"), b.get("previous"))
+                                        kt.where_is.append(entry_b)
                                         change_points.append(ChangePoint(dimension=b.get("dimension"), key=b.get("key"), current_value=b.get("current"), previous_value=b.get("previous"), delta=b.get("delta")))
                                     for w in within:
-                                        kt.where_is_not.append({"dimension": w.get("dimension"), "key": w.get("key"), "delta": w.get("delta"), "current": w.get("current"), "previous": w.get("previous")})
+                                        entry_w = _format_where_entry(w.get("dimension"), w.get("key"), w.get("delta"), w.get("current"), w.get("previous"), note="Within threshold")
+                                        kt.where_is_not.append(entry_w)
                                     break  # stop drilling this vector at first breach level
                                 else:
                                     # All within threshold at this level
-                                    kt.where_is.append({"dimension": lvl, "key": "All", "note": "All within threshold"})
+                                    kt.where_is_not.append(_format_where_entry(lvl, "All", 0.0, None, None, note="All within threshold"))
                                     # Continue to next finer level
                                     continue
                             # proceed to next vector
 
+                        # If hierarchical drill found no breaches, allow legacy fallback path
+                        if used_hierarchical and not change_points:
+                            used_hierarchical = False
+
                     # WHERE (dimension values with greatest variance) fallback (legacy Top/Bottom N)
                     if not used_hierarchical:
+                        spec_fb = dict(spec_main) if isinstance(spec_main, dict) else _pick_threshold_spec()
+                        comp_fb = comparator_main
                         for dim in dims[: max(1, min(len(dims), self.config.max_dimensions))]:
                             try:
                                 # Prefer single-shot delta ranking via DPA TopN metric
@@ -568,7 +743,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                                 c = float(r[1]) if r[1] is not None else 0.0
                                                 p = float(r[2]) if r[2] is not None else 0.0
                                                 d = float(r[3]) if r[3] is not None else (c - p)
-                                            kt.where_is.append({"dimension": dim, "key": key, "delta": d, "current": c, "previous": p})
+                                            entry_top = _format_where_entry(dim, key, d, c, p)
+                                            kt.where_is.append(entry_top)
                                             change_points.append(ChangePoint(dimension=dim, key=key, current_value=c, previous_value=p, delta=d))
                                         except Exception:
                                             continue
@@ -605,7 +781,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                                 c = float(r[1]) if r[1] is not None else 0.0
                                                 p = float(r[2]) if r[2] is not None else 0.0
                                                 d = float(r[3]) if r[3] is not None else (c - p)
-                                            kt.where_is_not.append({"dimension": dim, "key": key, "delta": d, "current": c, "previous": p})
+                                            entry_bot = _format_where_entry(dim, key, d, c, p, note="Within threshold")
+                                            kt.where_is_not.append(entry_bot)
                                         except Exception:
                                             continue
                                 # Fallback: dual-query method if TopN path failed to populate
@@ -637,11 +814,135 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                         # Sort by absolute variance descending
                                         diffs.sort(key=lambda t: abs(t[3]), reverse=True)
                                         for k, c, p, d in diffs[:3]:
-                                            kt.where_is.append({"dimension": dim, "key": k, "delta": d, "current": c, "previous": p})
+                                            entry_diff = _format_where_entry(dim, k, d, c, p)
+                                            kt.where_is.append(entry_diff)
                                             change_points.append(ChangePoint(dimension=dim, key=k, current_value=c, previous_value=p, delta=d))
                                         diffs_sorted_low = sorted(diffs, key=lambda t: abs(t[3]))
                                         for k, c, p, d in diffs_sorted_low[:3]:
-                                            kt.where_is_not.append({"dimension": dim, "key": k, "delta": d, "current": c, "previous": p})
+                                            entry_low = _format_where_entry(dim, k, d, c, p, note="Within threshold")
+                                            kt.where_is_not.append(entry_low)
+                                # Always compute and attach distribution summary for this dimension
+                                try:
+                                    ratios: List[float] = []
+                                    m_act_h: Dict[str, float] = {}
+                                    m_bud_h: Dict[str, float] = {}
+                                    m_cur_h: Dict[str, float] = {}
+                                    m_prev_h: Dict[str, float] = {}
+                                    if comp_fb == "budget":
+                                        base_filters = getattr(plan, "filters", None) or {}
+                                        f_act = {**base_filters, "Version": "Actual"}
+                                        f_bud = {**base_filters, "Version": "Budget"}
+                                        gen_act_h = await self.data_product_agent.generate_sql_for_kpi(
+                                            kpi_def, timeframe=cur_tf, filters=f_act, breakdown=True, override_group_by=[dim]
+                                        )
+                                        gen_bud_h = await self.data_product_agent.generate_sql_for_kpi(
+                                            kpi_def, timeframe=cur_tf, filters=f_bud, breakdown=True, override_group_by=[dim]
+                                        )
+                                        if gen_act_h.get("success") and gen_bud_h.get("success"):
+                                            act_exec_h = await self.data_product_agent.execute_sql(gen_act_h.get("sql"))
+                                            bud_exec_h = await self.data_product_agent.execute_sql(gen_bud_h.get("sql"))
+                                            m_act_h = _as_map(act_exec_h)
+                                            m_bud_h = _as_map(bud_exec_h)
+                                            keys_h = set(m_act_h.keys()) | set(m_bud_h.keys())
+                                            for k in keys_h:
+                                                c = float(m_act_h.get(k, 0.0)); b = float(m_bud_h.get(k, 0.0))
+                                                if b == 0.0:
+                                                    r = 0.0 if c == 0.0 else (1.0 if c > 0.0 else -1.0)
+                                                else:
+                                                    r = (c - b) / abs(b)
+                                                ratios.append(r)
+                                    else:
+                                        if prev_tf:
+                                            gen_cur_h = await self.data_product_agent.generate_sql_for_kpi(
+                                                kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim]
+                                            )
+                                            gen_prev_h = await self.data_product_agent.generate_sql_for_kpi(
+                                                kpi_def, timeframe=prev_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim]
+                                            )
+                                            if gen_cur_h.get("success") and gen_prev_h.get("success"):
+                                                cur_exec_h = await self.data_product_agent.execute_sql(gen_cur_h.get("sql"))
+                                                prev_exec_h = await self.data_product_agent.execute_sql(gen_prev_h.get("sql"))
+                                                m_cur_h = _as_map(cur_exec_h)
+                                                m_prev_h = _as_map(prev_exec_h)
+                                                keys_h = set(m_cur_h.keys()) | set(m_prev_h.keys())
+                                                for k in keys_h:
+                                                    c = float(m_cur_h.get(k, 0.0)); p = float(m_prev_h.get(k, 0.0))
+                                                    if p == 0.0:
+                                                        r = 0.0 if c == 0.0 else (1.0 if c > 0.0 else -1.0)
+                                                    else:
+                                                        r = (c - p) / abs(p)
+                                                    ratios.append(r)
+                                    if ratios:
+                                        labels = ["<-20%", "-20% to -10%", "-10% to 0%", "0% to 10%", "10% to 20%", ">20%"]
+                                        edges = [-1e9, -0.2, -0.1, 0.0, 0.1, 0.2, 1e9]
+                                        counts = [0, 0, 0, 0, 0, 0]
+                                        for r in ratios:
+                                            if r < edges[1]: counts[0] += 1
+                                            elif r < edges[2]: counts[1] += 1
+                                            elif r < edges[3]: counts[2] += 1
+                                            elif r < edges[4]: counts[3] += 1
+                                            elif r < edges[5]: counts[4] += 1
+                                            else: counts[5] += 1
+                                        rs = sorted(ratios)
+                                        n = len(rs)
+                                        if n % 2 == 1:
+                                            med = rs[n // 2]
+                                        else:
+                                            med = (rs[n // 2 - 1] + rs[n // 2]) / 2.0 if n else 0.0
+                                        inv_fb = bool(spec_fb.get("inverse_logic", False))
+                                        try:
+                                            yb_raw_fb = spec_fb.get("yellow_threshold"); yb_val_fb = float(0.0 if yb_raw_fb is None else yb_raw_fb)
+                                        except Exception:
+                                            yb_val_fb = 0.0
+                                        try:
+                                            if inv_fb:
+                                                breach_cnt_fb = sum(1 for r in ratios if r > yb_val_fb)
+                                            else:
+                                                breach_cnt_fb = sum(1 for r in ratios if r < yb_val_fb)
+                                        except Exception:
+                                            breach_cnt_fb = 0
+                                        entry_fb = {
+                                            "dimension": dim,
+                                            "vector": "dimension",
+                                            "comparator": comp_fb,
+                                            "threshold": yb_val_fb,
+                                            "inverse_logic": inv_fb,
+                                            "total_keys": n,
+                                            "breach_count": breach_cnt_fb,
+                                            "within_count": max(0, n - breach_cnt_fb),
+                                            "histogram": [{"bin": labels[i], "count": counts[i]} for i in range(len(labels))],
+                                            "min_ratio": (rs[0] if n else 0.0),
+                                            "median_ratio": med,
+                                            "max_ratio": (rs[-1] if n else 0.0),
+                                        }
+                                        kt.extent_is.append(entry_fb)
+
+                                        try:
+                                            diffs_fb: List[tuple] = []
+                                            if comp_fb == "budget" and (m_act_h or m_bud_h):
+                                                allk = set(m_act_h.keys()) | set(m_bud_h.keys())
+                                                for k in allk:
+                                                    c = float(m_act_h.get(k, 0.0)); b = float(m_bud_h.get(k, 0.0))
+                                                    d = c - b
+                                                    diffs_fb.append((k, c, b, d))
+                                            elif comp_fb == "previous" and (m_cur_h or m_prev_h):
+                                                allk = set(m_cur_h.keys()) | set(m_prev_h.keys())
+                                                for k in allk:
+                                                    c = float(m_cur_h.get(k, 0.0)); p = float(m_prev_h.get(k, 0.0))
+                                                    d = c - p
+                                                    diffs_fb.append((k, c, p, d))
+                                            if diffs_fb:
+                                                diffs_fb.sort(key=lambda t: abs(t[3]), reverse=True)
+                                                for k0, c0, p0, d0 in diffs_fb[:3]:
+                                                    kt.where_is.append({"dimension": dim, "key": k0, "delta": d0, "current": c0, "previous": p0})
+                                                    change_points.append(ChangePoint(dimension=dim, key=k0, current_value=c0, previous_value=p0, delta=d0))
+                                                diffs_low = sorted(diffs_fb, key=lambda t: abs(t[3]))
+                                                for k1, c1, p1, d1 in diffs_low[:3]:
+                                                    kt.where_is_not.append({"dimension": dim, "key": k1, "delta": d1, "current": c1, "previous": p1})
+                                        except Exception:
+                                            pass
+                                except Exception:
+                                    pass
                             except Exception as de:
                                 self.logger.debug(f"where-is computation failed for {dim}: {de}")
 
@@ -673,7 +974,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                         d = float(d_raw) if d_raw is not None else (c - p)
                                     else:
                                         b = str(r[0]); c = float(r[1] or 0.0); p = float(r[2] or 0.0); d = float((r[3] if r[3] is not None else c - p))
-                                    kt.when_is.append({"bucket": b, "delta": d, "current": c, "previous": p})
+                                    kt.when_is.append(_format_when_entry(b, d, c, p))
                                 except Exception:
                                     continue
                         t_bot = await self.data_product_agent.generate_sql_for_kpi(
@@ -700,7 +1001,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                         d = float(d_raw) if d_raw is not None else (c - p)
                                     else:
                                         b = str(r[0]); c = float(r[1] or 0.0); p = float(r[2] or 0.0); d = float((r[3] if r[3] is not None else c - p))
-                                    kt.when_is_not.append({"bucket": b, "delta": d, "current": c, "previous": p})
+                                    kt.when_is_not.append(_format_when_entry(b, d, c, p, note="Within threshold"))
                                 except Exception:
                                     continue
                         # Fallback if needed (dual-query path)
@@ -732,10 +1033,10 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 diffs_t.append((k, c, p, d))
                             diffs_t.sort(key=lambda t: abs(t[3]), reverse=True)
                             for k, c, p, d in diffs_t[:3]:
-                                kt.when_is.append({"bucket": k, "delta": d, "current": c, "previous": p})
+                                kt.when_is.append(_format_when_entry(k, d, c, p))
                             diffs_t_low = sorted(diffs_t, key=lambda t: abs(t[3]))
                             for k, c, p, d in diffs_t_low[:3]:
-                                kt.when_is_not.append({"bucket": k, "delta": d, "current": c, "previous": p})
+                                kt.when_is_not.append(_format_when_entry(k, d, c, p, note="Within threshold"))
                     except Exception as te:
                         self.logger.debug(f"when-is computation failed: {te}")
 
@@ -771,6 +1072,136 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     except Exception:
                         pass
 
+                    # Compose KT What/What Not narratives based on results
+                    try:
+                        comparator_label = "Budget" if comparator_main == "budget" else (prev_tf or "previous period")
+                        new_what_is: List[str] = []
+                        new_what_is_not: List[str] = []
+                        if overall_summary:
+                            delta_pct = overall_summary.get("delta_pct", 0.0)
+                            new_what_is.append(
+                                f"{plan.kpi_name} is {overall_summary.get('current', 0.0):,.2f} vs {comparator_label} {overall_summary.get('baseline', 0.0):,.2f} (Δ {overall_summary.get('delta', 0.0):+,.2f}, {delta_pct:+.1%})."
+                            )
+                        if cur_tf:
+                            new_what_is.append(f"Issue observed during {cur_tf} compared against {comparator_label}.")
+                        top_cp = None
+                        if change_points:
+                            top_cp = max(change_points, key=lambda cp: abs(getattr(cp, "delta", 0.0) or 0.0))
+                        if top_cp and getattr(top_cp, "dimension", None) is not None:
+                            try:
+                                dim_name = getattr(top_cp, "dimension", "Dimension")
+                                key_name = getattr(top_cp, "key", "(unknown)")
+                                delta_val = float(getattr(top_cp, "delta", 0.0) or 0.0)
+                                new_what_is.append(
+                                    f"Largest variance in {dim_name}: {key_name} (Δ {delta_val:+,.2f})."
+                                )
+                            except Exception:
+                                pass
+                        if not change_points:
+                            new_what_is.append("No discrete change points breached thresholds; variance is below detection limits.")
+
+                        def _pick_stable(entries: List[Any]) -> Optional[str]:
+                            try:
+                                candidates: List[tuple] = []
+                                for row in entries or []:
+                                    if isinstance(row, dict):
+                                        if row.get("note"):
+                                            candidates.append((0.0, row.get("note")))
+                                        else:
+                                            delta_raw = row.get("delta")
+                                            try:
+                                                delta_val = float(delta_raw)
+                                            except Exception:
+                                                delta_val = 0.0
+                                            label_parts = []
+                                            if row.get("dimension"):
+                                                label_parts.append(str(row.get("dimension")))
+                                            if row.get("key") is not None:
+                                                label_parts.append(str(row.get("key")))
+                                            if row.get("text"):
+                                                label = str(row.get("text"))
+                                            else:
+                                                label = " - ".join(label_parts) if label_parts else "Stable segment"
+                                            candidates.append((abs(delta_val), label))
+                                    else:
+                                        candidates.append((0.0, str(row)))
+                                if not candidates:
+                                    return None
+                                candidates.sort(key=lambda t: t[0])
+                                return candidates[0][1]
+                            except Exception:
+                                return None
+
+                        stable_dim = _pick_stable(getattr(kt, "where_is_not", []))
+                        if stable_dim:
+                            new_what_is_not.append(f"Stable across segments: {stable_dim}")
+
+                        stable_time = _pick_stable(getattr(kt, "when_is_not", []))
+                        if stable_time:
+                            new_what_is_not.append(f"Unaffected timeframe buckets: {stable_time}")
+
+                        if not getattr(plan, "filters", None):
+                            new_what_is_not.append("No additional filters applied; other business areas appear unaffected.")
+                        else:
+                            new_what_is.append("Analysis scoped by applied filters, limiting impact to selected context.")
+
+                        if not new_what_is_not and getattr(kt, "where_is_not", None):
+                            new_what_is_not.append("Non-breaching segments remain within expected thresholds.")
+
+                        if not new_what_is:
+                            new_what_is.append("Variance details unavailable; review data inputs.")
+                        if not new_what_is_not:
+                            new_what_is_not.append("No clear contrasting conditions identified.")
+
+                        kt.what_is = [{"text": msg} for msg in new_what_is]
+                        kt.what_is_not = [{"text": msg} for msg in new_what_is_not]
+                    except Exception:
+                        pass
+
+                    # Derive 'when_started' as earliest bucket where the change moved in the adverse direction
+                    when_started: Optional[str] = None
+                    try:
+                        # Determine adverse direction based on KPI name
+                        adverse_if = (lambda d: d < 0.0) if self._trend_positive(getattr(plan, "kpi_name", "") or "") else (lambda d: d > 0.0)
+                        cand: List[str] = []
+                        for lst in [getattr(kt, "when_is", []) or [], getattr(kt, "when_is_not", []) or []]:
+                            for row in lst:
+                                try:
+                                    b = row.get("bucket") if isinstance(row, dict) else None
+                                    d_raw = row.get("delta") if isinstance(row, dict) else None
+                                    d = float(d_raw) if d_raw is not None else 0.0
+                                    if b and adverse_if(d):
+                                        cand.append(str(b))
+                                except Exception:
+                                    continue
+                        if not cand:
+                            for row in (getattr(kt, "when_is", []) or []):
+                                try:
+                                    b = row.get("bucket") if isinstance(row, dict) else None
+                                    if b:
+                                        cand.append(str(b))
+                                except Exception:
+                                    continue
+
+                        def _bucket_key(s: str):
+                            try:
+                                m = re.match(r"^(\d{4})[-/](\d{2})$", s)
+                                if m:
+                                    return (int(m.group(1)), int(m.group(2)))
+                                m2 = re.match(r"^(\d{4})$", s)
+                                if m2:
+                                    return (int(m2.group(1)), 0)
+                            except Exception:
+                                pass
+                            return (s,)
+
+                        if cand:
+                            cand_sorted = sorted(set(cand), key=_bucket_key)
+                            if cand_sorted:
+                                when_started = str(cand_sorted[0])
+                    except Exception:
+                        when_started = None
+
             scqa_summary = (
                 f"Situation: Reviewing {plan.kpi_name}. "
                 f"Complication: Variance detected? (MVP skeleton). "
@@ -796,6 +1227,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 change_points=change_points,
                 percent_growth_enabled=False,
                 timeframe_mapping={"current": getattr(plan, "timeframe", None), "previous": self._prev_timeframe(getattr(plan, "timeframe", None))},
+                when_started=when_started,
                 dimensions_suggested=getattr(plan, "dimensions", [])
             )
         except Exception as e:

@@ -38,6 +38,11 @@ kpis:
         yellow_threshold: 0.0
         red_threshold: -0.03
         inverse_logic: false
+      - comparison_type: "qoq"
+        green_threshold: 0.05
+        yellow_threshold: 0.0
+        red_threshold: -0.03
+        inverse_logic: false
     dimensions:
       - name: "Profit Center"
         field: "profit_center"
@@ -67,6 +72,11 @@ kpis:
     sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Cost of Goods Sold'"
     thresholds:
       - comparison_type: "mom"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.10
+        inverse_logic: true
+      - comparison_type: "qoq"
         green_threshold: -0.05
         yellow_threshold: 0.0
         red_threshold: 0.10
@@ -104,6 +114,11 @@ kpis:
     sql_query: "WITH gross_rev AS (SELECT SUM(value) as gross FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Gross Revenue'), cogs AS (SELECT SUM(value) as cost FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Cost of Goods Sold') SELECT (gross_rev.gross - cogs.cost) / gross_rev.gross * 100 FROM gross_rev, cogs"
     thresholds:
       - comparison_type: "yoy"
+        green_threshold: 0.10
+        yellow_threshold: 0.0
+        red_threshold: -0.05
+        inverse_logic: false
+      - comparison_type: "qoq"
         green_threshold: 0.10
         yellow_threshold: 0.0
         red_threshold: -0.05
@@ -146,6 +161,11 @@ kpis:
         yellow_threshold: 0.0
         red_threshold: 0.10
         inverse_logic: true
+      - comparison_type: "qoq"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.10
+        inverse_logic: true
       - comparison_type: "budget"
         green_threshold: -0.05
         yellow_threshold: 0.0
@@ -180,6 +200,11 @@ kpis:
         yellow_threshold: 0.0
         red_threshold: 0.10
         inverse_logic: true
+      - comparison_type: "qoq"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.10
+        inverse_logic: true
       - comparison_type: "budget"
         green_threshold: -0.05
         yellow_threshold: 0.0
@@ -210,6 +235,11 @@ kpis:
     sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Payroll'"
     thresholds:
       - comparison_type: "mom"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.10
+        inverse_logic: true
+      - comparison_type: "qoq"
         green_threshold: -0.05
         yellow_threshold: 0.0
         red_threshold: 0.10

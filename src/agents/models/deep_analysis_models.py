@@ -70,6 +70,7 @@ class DeepAnalysisResponse(A9AgentBaseResponse):
     kt_is_is_not: Optional[KTIsIsNot] = None
     change_points: List[ChangePoint] = Field(default_factory=list)
     timeframe_mapping: Optional[Dict[str, str]] = Field(default=None, description="{'current': 'X', 'previous': 'Y'}")
+    when_started: Optional[str] = Field(default=None, description="Earliest time bucket when the issue began (e.g., '2025-08')")
     percent_growth_enabled: bool = Field(False)
 
     # Raw data excerpts (optional)

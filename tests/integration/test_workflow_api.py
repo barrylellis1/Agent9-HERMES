@@ -1,4 +1,5 @@
 import asyncio
+import json
 import sys
 from pathlib import Path
 
@@ -111,7 +112,8 @@ async def _wait_for_finished(client: AsyncClient, request_id: str, kind: str, ti
     while asyncio.get_event_loop().time() < deadline:
         response = await client.get(route)
         response.raise_for_status()
-        data = response.json()["data"]
+        payload = json.loads(response.content)
+        data = payload["data"]
         if data["state"] in {"completed", "failed"}:
             return data
         await asyncio.sleep(0.1)
@@ -126,7 +128,7 @@ async def test_run_situations_workflow(client: AsyncClient):
     }
     response = await client.post("/api/v1/workflows/situations/run", json=payload)
     assert response.status_code == 202
-    data = response.json()["data"]
+    data = json.loads(response.content)["data"]
     request_id = data["request_id"]
     status_payload = await _wait_for_finished(client, request_id, "situations")
     assert status_payload["state"] == "completed"
@@ -141,7 +143,7 @@ async def test_run_deep_analysis_workflow(client: AsyncClient):
     }
     response = await client.post("/api/v1/workflows/deep-analysis/run", json=payload)
     assert response.status_code == 202
-    request_id = response.json()["data"]["request_id"]
+    request_id = json.loads(response.content)["data"]["request_id"]
     status_payload = await _wait_for_finished(client, request_id, "deep-analysis")
     assert status_payload["state"] == "completed"
     assert "plan" in status_payload["result"]
@@ -155,7 +157,7 @@ async def test_run_solution_workflow(client: AsyncClient):
     }
     response = await client.post("/api/v1/workflows/solutions/run", json=payload)
     assert response.status_code == 202
-    request_id = response.json()["data"]["request_id"]
+    request_id = json.loads(response.content)["data"]["request_id"]
     status_payload = await _wait_for_finished(client, request_id, "solutions")
     assert status_payload["state"] == "completed"
     assert "solutions" in status_payload["result"]

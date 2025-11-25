@@ -1,0 +1,257 @@
+data_product: Sales_Star_Schema
+supported_business_processes:
+  - "Sales: Revenue Performance"
+  - "Sales: Channel Mix Optimization"
+  - "Sales: Order Fulfillment"
+  - "Sales: Customer Lifecycle"
+
+business_terms:
+  partner_id:
+    column: SalesOrder_PARTNERID
+    description: "Business partner associated with the sales order (customer or account)."
+  sales_org:
+    column: SALESORG
+    description: "Sales organization responsible for the order."
+  product_id:
+    column: PRODUCTID
+    description: "Ordered product identifier."
+  product_category:
+    column: PRODUCTCATEGORYID
+    description: "Product category identifier for rollups."
+  lifecycle_status:
+    column: LIFECYCLESTATUS
+    description: "Lifecycle status of the sales order (open, completed, cancelled)."
+  delivery_status:
+    column: DELIVERYSTATUS
+    description: "Delivery execution status for the order."
+  billing_status:
+    column: BILLINGSTATUS
+    description: "Billing completion status (e.g., billed, pending)."
+
+fallback_group_by_dimensions:
+  - sales_org
+  - partner_id
+  - product_category
+
+views:
+  - name: Sales_SalesOrderStarSchemaView
+    sql: |-
+      SELECT *
+      FROM `agent9-465818`.SalesOrders.SalesOrderStarSchemaView
+
+# Tables are documented for lineage; data_product agents query the view above.
+tables:
+  - name: BusinessPartners
+    data_source_path: "`agent9-465818`.SalesOrders.BusinessPartners"
+    columns:
+      - name: PARTNERID
+        type: string
+      - name: PARTNERROLE
+        type: string
+      - name: COMPANYNAME
+        type: string
+      - name: CURRENCY
+        type: string
+      - name: CREATEDAT
+        type: timestamp
+      - name: CHANGEDAT
+        type: timestamp
+  - name: SalesOrders
+    data_source_path: "`agent9-465818`.SalesOrders.SalesOrders"
+    columns:
+      - name: SALESORDERID
+        type: string
+      - name: PARTNERID
+        type: string
+      - name: SALESORG
+        type: string
+      - name: CURRENCY
+        type: string
+      - name: CREATEDAT
+        type: timestamp
+      - name: CHANGEDAT
+        type: timestamp
+      - name: GROSSAMOUNT
+        type: numeric
+      - name: NETAMOUNT
+        type: numeric
+      - name: TAXAMOUNT
+        type: numeric
+      - name: LIFECYCLESTATUS
+        type: string
+      - name: BILLINGSTATUS
+        type: string
+      - name: DELIVERYSTATUS
+        type: string
+  - name: SalesOrderItems
+    data_source_path: "`agent9-465818`.SalesOrders.SalesOrderItems"
+    columns:
+      - name: SALESORDERID
+        type: string
+      - name: SALESORDERITEM
+        type: string
+      - name: PRODUCTID
+        type: string
+      - name: QUANTITY
+        type: numeric
+      - name: QUANTITYUNIT
+        type: string
+      - name: NETAMOUNT
+        type: numeric
+      - name: GROSSAMOUNT
+        type: numeric
+      - name: TAXAMOUNT
+        type: numeric
+      - name: DELIVERYDATE
+        type: date
+  - name: Products
+    data_source_path: "`agent9-465818`.SalesOrders.Products"
+    columns:
+      - name: PRODUCTID
+        type: string
+      - name: PRODUCTCATEGORYID
+        type: string
+      - name: PRICE
+        type: numeric
+      - name: CURRENCY
+        type: string
+      - name: QUANTITYUNIT
+        type: string
+      - name: CREATEDAT
+        type: timestamp
+      - name: CHANGEDAT
+        type: timestamp
+  - name: ProductTexts
+    data_source_path: "`agent9-465818`.SalesOrders.ProductTexts"
+    columns:
+      - name: PRODUCTID
+        type: string
+      - name: LANGUAGE
+        type: string
+      - name: SHORTDESC
+        type: string
+      - name: MEDIUMDESC
+        type: string
+      - name: LONGDESC
+        type: string
+  - name: ProductCategoryTexts
+    data_source_path: "`agent9-465818`.SalesOrders.ProductCategoryTexts"
+    columns:
+      - name: PRODUCTCATEGORYID
+        type: string
+      - name: LANGUAGE
+        type: string
+      - name: SHORTDESCR
+        type: string
+      - name: MEDIUMDESCR
+        type: string
+      - name: LONGDESCR
+        type: string
+  - name: ProductHierarchy
+    data_source_path: "`agent9-465818`.SalesOrders.ProductHierarchy"
+    columns:
+      - name: HIERARCHYID
+        type: string
+      - name: DESCRIPTION
+        type: string
+      - name: LEVEL
+        type: string
+
+relationships:
+  - left_table: SalesOrders
+    left_column: PARTNERID
+    right_table: BusinessPartners
+    right_column: PARTNERID
+    type: many_to_one
+  - left_table: SalesOrderItems
+    left_column: SALESORDERID
+    right_table: SalesOrders
+    right_column: SALESORDERID
+    type: many_to_one
+  - left_table: Products
+    left_column: PRODUCTCATEGORYID
+    right_table: ProductHierarchy
+    right_column: HIERARCHYID
+    type: many_to_one
+
+kpis:
+  - name: Net Sales
+    data_product_id: Sales_Star_Schema
+    description: "Total net sales amount for the selected period."
+    calculation:
+      query_template: 'SUM("SalesOrder_NETAMOUNT")'
+    aggregation: SUM
+    base_column: "SalesOrder_NETAMOUNT"
+    join_tables:
+      - Sales_SalesOrderStarSchemaView
+    dimensions:
+      - partner_id
+      - sales_org
+      - product_category
+    diagnostic_questions:
+      - "Which business partners generated the highest net sales this period?"
+      - "How do net sales vary across sales organizations week over week?"
+
+  - name: Gross Sales
+    data_product_id: Sales_Star_Schema
+    description: "Total gross sales amount before deductions and taxes."
+    calculation:
+      query_template: 'SUM("SalesOrder_GROSSAMOUNT")'
+    aggregation: SUM
+    base_column: "SalesOrder_GROSSAMOUNT"
+    join_tables:
+      - Sales_SalesOrderStarSchemaView
+    dimensions:
+      - partner_id
+      - sales_org
+      - product_category
+    diagnostic_questions:
+      - "What is the gross sales trend by product category?"
+      - "Which sales organizations are leading gross revenue growth?"
+
+  - name: Average Order Value
+    data_product_id: Sales_Star_Schema
+    description: "Average net amount per unique sales order."
+    aggregation: Derived
+    formula: 'SUM("SalesOrder_NETAMOUNT") / COUNT(DISTINCT "SALESORDERID")'
+    dependencies:
+      - Net Sales
+    join_tables:
+      - Sales_SalesOrderStarSchemaView
+    dimensions:
+      - sales_org
+      - partner_id
+    diagnostic_questions:
+      - "How does average order value differ between key accounts?"
+      - "Are promotional campaigns lifting average order value by channel?"
+
+  - name: Delivery Completion Rate
+    data_product_id: Sales_Star_Schema
+    description: "Share of orders marked as delivered."
+    aggregation: Derived
+    formula: 'SUM(CASE WHEN "DELIVERYSTATUS" = "C" THEN 1 ELSE 0 END) / COUNT(1)'
+    join_tables:
+      - Sales_SalesOrderStarSchemaView
+    dimensions:
+      - sales_org
+      - partner_id
+    diagnostic_questions:
+      - "Which sales organizations have the lowest delivery completion rates?"
+      - "How does delivery performance correlate with lifecycle status?"
+
+  - name: Gross Margin
+    data_product_id: Sales_Star_Schema
+    description: "Gross margin computed as gross sales minus net sales."
+    aggregation: Derived
+    formula: 'SUM("SalesOrder_GROSSAMOUNT") - SUM("SalesOrder_NETAMOUNT")'
+    dependencies:
+      - Gross Sales
+      - Net Sales
+    join_tables:
+      - Sales_SalesOrderStarSchemaView
+    dimensions:
+      - sales_org
+      - product_category
+    diagnostic_questions:
+      - "Which product categories contribute most to gross margin?"
+      - "How does gross margin trend compared to gross sales?"

@@ -1,0 +1,110 @@
+workflow:
+  name: Data Product Onboarding
+  category: operational_maintenance
+  description: >
+    Repeatable intake workflow that inspects a new source schema, generates Agent9
+    data product contracts, registers KPI metadata with Data Governance, assigns
+    principal ownership, and validates readiness for automated SQL generation and
+    drill-path analysis across environments.
+
+  definitions:
+    data_product:
+      qualifies:
+        - Contract-backed dataset with YAML describing schema, measures, drill paths, and governance metadata accessible to the Data Product Agent.
+        - Entry in the Agent9 data product registry so orchestrator-driven workflows can discover and route to it.
+        - KPI metadata registered with Data Governance (thresholds, source mappings, business-process alignment).
+        - Principal ownership defined via Principal Context to enable Decision Studio routing and HITL workflows.
+        - Executable access path supported by the Data Product Agent (e.g., DuckDB, BigQuery) for SQL generation and retrieval.
+      excludes:
+        - Raw or staging tables lacking contracts, governance mapping, or ownership.
+        - One-off extracts or CSVs without registry presence or principal routing.
+        - Datasets that bypass the orchestrator/Data Product Agent (manual SQL, direct DB hits).
+
+  source_requirements:
+    minimum_viable:
+      - Stable analytic table or materialized view with clear grain, primary/business keys, measures, and dimension columns.
+      - Columns (or derived attributes) providing timeframe context to support trend and comparison analysis.
+      - Dimension attributes or joinable keys for drill-down (e.g., region, product, customer) accessible to contract generation.
+      - Deterministic, queryable location in the source platform (BigQuery dataset, Snowflake schema, Databricks catalog/table).
+      - Business semantics sufficient to bind KPIs and drill paths during contract generation and governance ingestion.
+    out_of_scope:
+      - Raw ingestion tiers lacking consistent keys or naming.
+      - Semi-structured or log data requiring heavy parsing before measures/dimensions are usable.
+      - Volatile scratch tables without stability guarantees.
+      - Proprietary access layers that cannot be reached via SQL executed by the Data Product Agent.
+
+  steps:
+    - agent: A9_Orchestrator_Agent
+      entrypoint: orchestrate_workflow
+      input_model: OrchestratorWorkflowInput
+      output_model: OrchestratorWorkflowOutput
+      purpose: Coordinate the onboarding sequence, enforce dependency ordering, and persist audit logs.
+
+    - agent: A9_Data_Product_Agent
+      entrypoint: inspect_source_schema
+      input_model: DataProductSchemaInspectionRequest
+      output_model: DataProductSchemaInspectionResponse
+      purpose: Profile the source (DuckDB, BigQuery, etc.), retrieve table/column metadata, and propose KPI candidates.
+
+    - agent: A9_Data_Product_Agent
+      entrypoint: generate_contract_yaml
+      input_model: DataProductContractGenerationRequest
+      output_model: DataProductContractGenerationResponse
+      purpose: Produce YAML contracts (schema, measures, drill paths) conforming to Agent9 standards.
+
+    - agent: A9_Data_Product_Agent
+      entrypoint: register_data_product
+      input_model: DataProductRegistrationRequest
+      output_model: DataProductRegistrationResponse
+      purpose: Persist contract references into the data product registry and expose MCP references for downstream agents.
+
+    - agent: A9_Data_Governance_Agent
+      entrypoint: register_kpi_metadata
+      input_model: KPIRegistryUpdateRequest
+      output_model: KPIRegistryUpdateResponse
+      purpose: Ingest KPI definitions, thresholds, and source mappings, ensuring bidirectional linkage to the new data product.
+
+    - agent: A9_Data_Governance_Agent
+      entrypoint: map_business_process
+      input_model: BusinessProcessMappingRequest
+      output_model: BusinessProcessMappingResponse
+      purpose: Associate KPIs and drill paths with governed business processes and compliance policies.
+
+    - agent: A9_Principal_Context_Agent
+      entrypoint: identify_data_product_owner
+      input_model: PrincipalOwnershipRequest
+      output_model: PrincipalOwnershipResponse
+      purpose: Resolve accountable principal(s) and default assignment hierarchy for the new data product.
+
+    - agent: A9_Quality_Assurance_Agent
+      entrypoint: validate_data_product_onboarding
+      input_model: DataProductQARequest
+      output_model: DataProductQAResponse
+      optional: true
+      purpose: Execute contract linting, SQL smoke tests, and environment checks before activation.
+
+    - agent: A9_Orchestrator_Agent
+      entrypoint: finalize_workflow
+      input_model: OrchestratorFinalizeInput
+      output_model: OrchestratorFinalizeOutput
+      purpose: Summarize results, publish audit record, and trigger follow-up workflows (e.g., Decision Studio refresh).
+
+  outputs:
+    - data_product_id: str
+    - contract_paths: List[str]
+    - governance_status: str
+    - principal_owner: Dict[str, Any]
+    - qa_report: Dict[str, Any]
+    - activation_context: Dict[str, Any]
+
+  validations:
+    - All request/response models must be Pydantic v2 models stored in src/agents/models/.
+    - Generated contracts must pass schema validation and be saved under src/registry_references/data_product_registry/data_products/.
+    - KPI registry updates must include source system identifiers and drill-path metadata for automated analysis.
+    - Principal ownership resolution must fall back to business context configuration when HR lookups fail.
+    - QA step must confirm SQL generation paths for both dev and prod environments or block activation.
+
+  notes:
+    - Workflow may be initiated via CLI, Admin UI, or orchestrator API and can run asynchronously.
+    - Supports multi-source onboarding by iterating schema inspection per source and merging contracts before registration.
+    - Downstream workflows (e.g., Decision Studio cache refresh, Situation Awareness KPI enablement) should subscribe to the activation context payload.

@@ -28,6 +28,241 @@ from src.agents.a9_llm_service_agent import (
 
 logger = logging.getLogger(__name__)
 
+
+def _model_to_dict(obj: Any) -> Any:
+    """Best-effort conversion of Pydantic/BaseModel objects to plain dicts."""
+    if obj is None:
+        return None
+    if isinstance(obj, dict):
+        return obj
+    try:
+        if hasattr(obj, "model_dump"):
+            return obj.model_dump()
+    except Exception:
+        pass
+    try:
+        return dict(obj.__dict__)
+    except Exception:
+        return obj
+
+
+def _limit(items: Optional[List[Any]], limit: int = 5) -> List[Any]:
+    if not items:
+        return []
+    try:
+        return list(items)[: max(0, limit)]
+    except Exception:
+        return list(items) if isinstance(items, list) else []
+
+
+def _format_driver_entry(entry: Dict[str, Any]) -> Optional[str]:
+    try:
+        dim = entry.get("dimension")
+        key = entry.get("key")
+        delta = entry.get("delta")
+        cur = entry.get("current_value") or entry.get("current")
+        prev = entry.get("previous_value") or entry.get("previous")
+        parts: List[str] = []
+        if dim:
+            parts.append(str(dim))
+        if key is not None:
+            parts.append(str(key))
+        label = " / ".join(parts) if parts else None
+        delta_val = None
+        try:
+            if delta is not None:
+                delta_val = float(delta)
+        except Exception:
+            delta_val = None
+        cur_val = None
+        prev_val = None
+        try:
+            if cur is not None:
+                cur_val = float(cur)
+        except Exception:
+            cur_val = None
+        try:
+            if prev is not None:
+                prev_val = float(prev)
+        except Exception:
+            prev_val = None
+        text_parts: List[str] = []
+        if label:
+            text_parts.append(label)
+        if delta_val is not None:
+            text_parts.append(f"Δ {delta_val:+,.2f}")
+        if cur_val is not None and prev_val is not None:
+            text_parts.append(f"current {cur_val:,.2f} vs prev {prev_val:,.2f}")
+        elif cur_val is not None:
+            text_parts.append(f"current {cur_val:,.2f}")
+        if not text_parts:
+            return None
+        return "; ".join(text_parts)
+    except Exception:
+        return None
+
+
+def _collect_text_entries(entries: Optional[List[Any]], limit: int = 4) -> List[str]:
+    out: List[str] = []
+    if not entries:
+        return out
+    for item in entries:
+        if len(out) >= limit:
+            break
+        entry = _model_to_dict(item)
+        if isinstance(entry, dict):
+            txt = entry.get("text")
+            if isinstance(txt, str) and txt.strip():
+                out.append(txt.strip())
+                continue
+            formatted = _format_driver_entry(entry)
+            if formatted:
+                out.append(formatted)
+        else:
+            out.append(str(entry))
+    return out
+
+
+def _extract_deep_analysis_summary(da_ctx: Any) -> Dict[str, Any]:
+    ctx = _model_to_dict(da_ctx)
+    if not isinstance(ctx, dict):
+        return {}
+
+    summary: Dict[str, Any] = {}
+    plan = _model_to_dict(ctx.get("plan"))
+    timeframe_map = _model_to_dict(ctx.get("timeframe_mapping"))
+
+    def _first_str(value: Any) -> Optional[str]:
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        return None
+
+    kpi_name = None
+    if isinstance(plan, dict):
+        kpi_name = plan.get("kpi_name")
+    if not kpi_name:
+        kpi_name = ctx.get("kpi_name")
+    if kpi_name:
+        summary["kpi_name"] = str(kpi_name)
+
+    timeframe = None
+    if isinstance(plan, dict):
+        timeframe = plan.get("timeframe")
+    if not timeframe and isinstance(timeframe_map, dict):
+        timeframe = timeframe_map.get("current")
+    if timeframe:
+        summary["timeframe"] = str(timeframe)
+    if isinstance(timeframe_map, dict) and timeframe_map.get("previous"):
+        summary["comparison_timeframe"] = str(timeframe_map.get("previous"))
+
+    scqa = _first_str(ctx.get("scqa_summary"))
+    if scqa:
+        summary["scqa_summary"] = scqa
+
+    if isinstance(plan, dict):
+        dims = plan.get("dimensions")
+        if isinstance(dims, list) and dims:
+            summary["dimension_focus"] = _limit([str(d) for d in dims if d], 6)
+
+    change_points_raw = ctx.get("change_points") or []
+    change_points: List[Dict[str, Any]] = []
+    for cp in change_points_raw:
+        cp_dict = _model_to_dict(cp)
+        if isinstance(cp_dict, dict):
+            slim = {
+                "dimension": cp_dict.get("dimension"),
+                "key": cp_dict.get("key"),
+                "delta": cp_dict.get("delta"),
+                "current_value": cp_dict.get("current_value"),
+                "previous_value": cp_dict.get("previous_value"),
+                "percent_growth": cp_dict.get("percent_growth"),
+            }
+            change_points.append(slim)
+    if change_points:
+        summary["top_change_points"] = _limit(change_points, 5)
+
+    kt = _model_to_dict(ctx.get("kt_is_is_not"))
+    if isinstance(kt, dict):
+        summary["what_is_highlights"] = _collect_text_entries(kt.get("what_is"))
+        summary["where_signals"] = _collect_text_entries(kt.get("where_is"))
+        summary["when_signals"] = _collect_text_entries(kt.get("when_is"))
+
+    when_started = _first_str(ctx.get("when_started"))
+    if when_started:
+        summary["when_started"] = when_started
+
+    highlights: List[str] = []
+    if scqa:
+        highlights.append(scqa)
+    for driver in summary.get("where_signals", [])[:3]:
+        highlights.append(f"Driver: {driver}")
+    for change in summary.get("top_change_points", [])[:3]:
+        formatted = _format_driver_entry(change)
+        if formatted:
+            highlights.append(f"Change point: {formatted}")
+    if when_started:
+        highlights.append(f"Issue started around {when_started}")
+    if highlights:
+        summary["key_highlights"] = highlights[:6]
+
+    return summary
+
+
+def _trim_deep_analysis_context(da_ctx: Any) -> Any:
+    ctx = _model_to_dict(da_ctx)
+    if not isinstance(ctx, dict):
+        return ctx
+
+    trimmed: Dict[str, Any] = {}
+    plan = _model_to_dict(ctx.get("plan"))
+    if isinstance(plan, dict):
+        trimmed["plan"] = {
+            "kpi_name": plan.get("kpi_name"),
+            "timeframe": plan.get("timeframe"),
+            "filters": plan.get("filters"),
+            "dimensions": _limit(plan.get("dimensions"), 6),
+            "steps": _limit(plan.get("steps"), 6),
+        }
+    if ctx.get("scqa_summary"):
+        trimmed["scqa_summary"] = ctx.get("scqa_summary")
+    if ctx.get("timeframe_mapping"):
+        trimmed["timeframe_mapping"] = ctx.get("timeframe_mapping")
+    if ctx.get("when_started"):
+        trimmed["when_started"] = ctx.get("when_started")
+
+    change_points_raw = ctx.get("change_points") or []
+    change_points: List[Dict[str, Any]] = []
+    for cp in change_points_raw:
+        cp_dict = _model_to_dict(cp)
+        if isinstance(cp_dict, dict):
+            change_points.append({
+                "dimension": cp_dict.get("dimension"),
+                "key": cp_dict.get("key"),
+                "delta": cp_dict.get("delta"),
+                "current_value": cp_dict.get("current_value"),
+                "previous_value": cp_dict.get("previous_value"),
+            })
+    if change_points:
+        trimmed["change_points"] = _limit(change_points, 6)
+
+    kt = _model_to_dict(ctx.get("kt_is_is_not"))
+    if isinstance(kt, dict):
+        trimmed_kt: Dict[str, Any] = {}
+        for key in ["what_is", "what_is_not", "where_is", "where_is_not", "when_is", "when_is_not", "extent_is"]:
+            entries = kt.get(key)
+            if entries:
+                trimmed_entries: List[Any] = []
+                for entry in _limit(entries, 5):
+                    entry_dict = _model_to_dict(entry)
+                    if isinstance(entry_dict, dict):
+                        trimmed_entries.append({k: entry_dict.get(k) for k in entry_dict.keys() if k in {"text", "dimension", "key", "delta", "current", "previous", "bucket", "note"}})
+                    else:
+                        trimmed_entries.append(entry_dict)
+                trimmed_kt[key] = trimmed_entries
+        if trimmed_kt:
+            trimmed["kt_is_is_not"] = trimmed_kt
+
+    return trimmed if trimmed else ctx
 def _safe01(v: Any) -> Optional[float]:
     """Clamp to [0,1] if numeric; return None if not parseable."""
     try:
@@ -169,9 +404,39 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     except Exception:
                         user_ctx = None
 
+                    trimmed_da = _trim_deep_analysis_context(da_ctx)
+                    da_summary = _extract_deep_analysis_summary(da_ctx)
+
+                    # Lightweight dataset recap for the personas to ground recommendations
+                    dataset_recap_lines: List[str] = []
+                    kpi_lbl = da_summary.get("kpi_name") or (sctx_kpi if 'sctx_kpi' in locals() else None)
+                    if kpi_lbl:
+                        dataset_recap_lines.append(f"KPI analyzed: {kpi_lbl}")
+                    if da_summary.get("timeframe"):
+                        comp_tf = da_summary.get("comparison_timeframe")
+                        tf_line = f"Timeframe: {da_summary['timeframe']}"
+                        if comp_tf:
+                            tf_line += f" vs {comp_tf}"
+                        dataset_recap_lines.append(tf_line)
+                    if da_summary.get("key_highlights"):
+                        for highlight in da_summary["key_highlights"][:3]:
+                            dataset_recap_lines.append(highlight)
+                    if da_summary.get("where_signals"):
+                        dataset_recap_lines.append("Key drivers: " + "; ".join(da_summary["where_signals"][:3]))
+                    if da_summary.get("top_change_points"):
+                        formatted_cps = [
+                            _format_driver_entry(cp) for cp in da_summary["top_change_points"][:3]
+                            if _format_driver_entry(cp)
+                        ]
+                        if formatted_cps:
+                            dataset_recap_lines.append("Change points: " + "; ".join(formatted_cps))
+                    dataset_recap = dataset_recap_lines if dataset_recap_lines else None
+
                     content = {
                         "problem": ps,
-                        "deep_analysis_context": da_ctx,
+                        "deep_analysis_context": trimmed_da,
+                        "deep_analysis_summary": da_summary,
+                        "dataset_recap": dataset_recap,
                         "debate_spec": debate_spec,
                         "user_context": user_ctx,
                     }

@@ -16,6 +16,10 @@ import uuid
 from enum import Enum
 import logging
 import yaml as _yaml
+try:
+    import pandas as pd
+except Exception:
+    pd = None
 
 # Add the project root and 'src' directory to the Python path for imports
 project_root = os.path.dirname(os.path.abspath(__file__))
@@ -1170,22 +1174,6 @@ def main():
         )
         st.session_state.comparison_type = ComparisonType(comparison_type)
         
-        # Additional filters
-        st.header("Additional Filters")
-        # For MVP, we'll include a simple text filter
-        filter_key = st.text_input("Filter Key", key="filter_key")
-        filter_value = st.text_input("Filter Value", key="filter_value")
-        
-        if st.button("Apply Filter"):
-            if filter_key and filter_value:
-                st.session_state.filters[filter_key] = filter_value
-                st.success(f"Filter applied: {filter_key} = {filter_value}")
-        
-        # Clear filters
-        if st.button("Clear Filters"):
-            st.session_state.filters = {}
-            st.success("Filters cleared")
-        
         # Debug mode
         st.header("Debug Mode")
         debug_mode = st.checkbox("Enable Debug Mode", value=st.session_state.debug_mode)
@@ -1259,7 +1247,6 @@ def main():
                 sel = st.radio("Select active situation", options=ids, format_func=lambda v: labels[ids.index(v)] if v in ids else str(v), index=(ids.index(active_default) if active_default in ids else 0), key="worklist_active_sid")
                 if sel and sel != st.session_state.get("active_situation_id"):
                     st.session_state.active_situation_id = sel
-                st.caption("Solutions Studio operates on the active situation only.")
     except Exception:
         pass
     
@@ -1358,6 +1345,13 @@ def main():
                             _da_active = st.session_state.get(f"{active_sid}_deep_analysis_result")
                             if isinstance(_da_active, dict):
                                 derived_problem = _da_active.get("scqa_summary") or None
+                            else:
+                                st.caption("KT Is / Is Not")
+                                try:
+                                    if st.session_state.get("debug_mode"):
+                                        st.caption("KT missing or unsupported type")
+                                except Exception:
+                                    pass
                         except Exception:
                             pass
                         if not derived_problem:
@@ -1510,6 +1504,21 @@ def main():
                     except Exception:
                         pass
 
+                    # Attach best available Deep Analysis output for richer Solutions context
+                    da_ctx = None
+                    try:
+                        if active_sid:
+                            da_ctx = st.session_state.get(f"{str(active_sid)}_deep_analysis_result")
+                    except Exception:
+                        da_ctx = None
+                    if not isinstance(da_ctx, dict) or not da_ctx:
+                        try:
+                            last_da_sid = st.session_state.get("last_da_sid")
+                            if last_da_sid:
+                                da_ctx = st.session_state.get(f"{last_da_sid}_deep_analysis_result")
+                        except Exception:
+                            da_ctx = None
+
                     # Gather contexts
                     # principal_context
                     pctx = {"principal_id": pid_val, "principal_name": principal_name}
@@ -1550,6 +1559,7 @@ def main():
                             {"name": "cost", "weight": _wc},
                             {"name": "risk", "weight": _wr},
                         ],
+                        "deep_analysis_output": da_ctx,
                         "preferences": {
                             "personas": selected_personas or persona_defaults,
                             "user_context": (user_ctx or "").strip() or None,
@@ -2151,52 +2161,10 @@ def main():
     st.header("Detected Situations")
     
     if st.session_state.situations:
-        # Optional summary from SA: number of KPIs evaluated and list
-        if isinstance(st.session_state.get("last_detect_result"), dict):
-            ldr = st.session_state.get("last_detect_result")
-            evaluated_count = ldr.get("kpi_evaluated_count")
-            evaluated_list = ldr.get("kpis_evaluated")
-            if evaluated_count is not None:
-                st.caption(f"KPIs evaluated: {evaluated_count}")
-                # Concise severity summary for quick glance
-                try:
-                    _sits = st.session_state.get("situations", []) or []
-                    if _sits:
-                        _sev_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "information": 0}
-                        for _s in _sits:
-                            try:
-                                _sev = _s.get('severity') if isinstance(_s, dict) else getattr(_s, 'severity', None)
-                                _sev_str = _sev.value if hasattr(_sev, 'value') else (str(_sev).lower() if _sev is not None else '')
-                                if _sev_str in _sev_counts:
-                                    _sev_counts[_sev_str] += 1
-                            except Exception:
-                                continue
-                        st.caption(
-                            f"Situations: {len(_sits)} • Critical: {_sev_counts['critical']} • High: {_sev_counts['high']} • Medium: {_sev_counts['medium']}"
-                        )
-                except Exception:
-                    pass
-            if evaluated_list:
-                with st.expander("Show details"):
-                    try:
-                        st.write("\n".join(f"- {name}" for name in evaluated_list))
-                    except Exception:
-                        st.write(evaluated_list)
-            # Show current timeframe and comparison context
-            try:
-                tf = st.session_state.timeframe
-                ct = st.session_state.comparison_type
-                tf_label = tf.value.replace('_', ' ').title() if hasattr(tf, 'value') else str(tf)
-                ct_label = ct.value.replace('_', ' ').title() if hasattr(ct, 'value') else str(ct)
-                st.caption(f"Timeframe: {tf_label} • Comparison: {ct_label}")
-            except Exception:
-                pass
-
         # Optional: Toggle to show SQL in KPI Details panel
         st.session_state.show_per_kpi_sql = st.checkbox("Show SQL in KPI Details (debug)", value=st.session_state.show_per_kpi_sql)
         # If enabled and no cached SQL results yet, trigger async generation
         try:
-            # removed stray placeholder introduced during previous edit
             if st.session_state.show_per_kpi_sql:
                 _has_results = bool(st.session_state.get("per_kpi_sql_results"))
                 if not _has_results:
@@ -2257,6 +2225,10 @@ def main():
             display_situation(s_active, severity_class)
     else:
         st.info("No situations detected yet. Click 'Detect Situations' to begin.")
+
+    # Always show Solutions Studio prompt/results at the bottom of the workspace
+    st.divider()
+    render_solutions_studio()
 
     # Debug panel: Data Governance KPI → Data Product / View mapping
     if st.session_state.get("debug_mode") and st.session_state.get("dg_kpi_mappings"):
@@ -2354,9 +2326,6 @@ def main():
             if st.session_state.debug_mode and st.session_state.nl_response.sql_query:
                 with st.expander("SQL Query"):
                     st.code(st.session_state.nl_response.sql_query, language="sql")
-
-    # Solutions Studio (moved to bottom)
-    render_solutions_studio()
 
 # Function to display a situation card
 def display_situation(situation, severity_class):
@@ -2478,7 +2447,7 @@ def display_situation(situation, severity_class):
                 pass
 
             # Suggested actions
-            if suggested_actions:
+            if False and suggested_actions:
                 st.subheader("Suggested Actions")
                 for action in suggested_actions:
                     st.write(f"- {action}")
@@ -2536,63 +2505,39 @@ def display_situation(situation, severity_class):
                         _da_res_present = bool(st.session_state.get(f"{local_sid_da}_deep_analysis_result"))
                     except Exception:
                         _da_res_present = False
-                    if st.button("View Solutions", key=f"{local_sid_da}_solutions_btn", disabled=not _da_res_present):
-                        # Build SolutionFinderRequest (dict) and trigger async execution
-                        pid_val = st.session_state.get("selected_principal_id") or st.session_state.get("default_principal_id") or "cfo_001"
-                        # Prefer Deep Analysis SCQA summary when available; fall back to situation description/KPI
-                        problem_stmt = None
-                        try:
-                            _da_res0 = st.session_state.get(f"{local_sid_da}_deep_analysis_result")
-                            if isinstance(_da_res0, dict):
-                                problem_stmt = _da_res0.get("scqa_summary")
-                        except Exception:
-                            problem_stmt = None
-                        if not problem_stmt:
-                            problem_stmt = desc or (f"KPI: {kpi_name}" if kpi_name else "")
-                        sf_req = {
-                            "request_id": str(uuid.uuid4()),
-                            "problem_statement": problem_stmt or "Problem statement not provided",
-                            "principal_id": pid_val,
-                        }
-                        # If DA results already present, include as context
-                        try:
-                            da_res = st.session_state.get(f"{local_sid_da}_deep_analysis_result")
-                            if da_res:
-                                sf_req["deep_analysis_output"] = da_res
-                        except Exception:
-                            pass
-                        st.session_state.sf_to_run = {"sid": local_sid_da, "request": sf_req}
-                        st.session_state.trigger_solution_finder = True
-                        # Optional audit trail
-                        try:
-                            _hitl2 = {
-                                "request_id": str(uuid.uuid4()),
-                                "situation_id": _get(situation, 'situation_id', local_sid_da),
-                                "decision": "approved",
-                                "comment": "user_requested_solutions"
-                            }
-                            st.session_state.pending_hitl_feedback = (st.session_state.get("pending_hitl_feedback") or []) + [_hitl2]
-                        except Exception:
-                            pass
-                        st.toast("Fetching solutions...", icon="🧩")
                     if not _da_res_present:
                         st.caption("Run Deep Analysis first to enable Solutions.")
 
                 # Render Deep Analysis results if available
                 try:
                     _da_res = st.session_state.get(f"{local_sid_da}_deep_analysis_result")
+                    if not isinstance(_da_res, dict) or not _da_res:
+                        try:
+                            _last_sid = st.session_state.get("last_da_sid")
+                            if _last_sid:
+                                _alt = st.session_state.get(f"{_last_sid}_deep_analysis_result")
+                                if isinstance(_alt, dict):
+                                    _da_res = _alt
+                        except Exception:
+                            pass
                     if isinstance(_da_res, dict):
+                        try:
+                            dbg_keys = list(_da_res.keys())
+                            st.session_state.debug_trace.append(f"da_res_keys={dbg_keys}")
+                        except Exception:
+                            pass
                         scqa = _da_res.get("scqa_summary")
                         chg = _da_res.get("change_points") or []
                         plan = _da_res.get("plan") or {}
                         dims = []
                         steps = []
                         try:
-                            dims = plan.get("dimensions") or []
-                        except Exception:
-                            pass
-                        try:
-                            steps = plan.get("steps") or []
+                            if isinstance(plan, dict):
+                                dims = plan.get("dimensions") or []
+                                steps = plan.get("steps") or []
+                            else:
+                                dims = getattr(plan, "dimensions", []) or []
+                                steps = getattr(plan, "steps", []) or []
                         except Exception:
                             pass
                         # Fallbacks: if agent returned minimal plan, use suggested dims and synthesize steps
@@ -2606,39 +2551,132 @@ def display_situation(situation, severity_class):
                                 steps = [{"type": "group_compare", "dimension": d} for d in dims]
                             except Exception:
                                 pass
-                        if scqa or chg or dims or steps:
-                            st.markdown("**Deep Analysis**")
-                        if scqa:
-                            st.write(scqa)
-                        # Compact summary line
+                        dims_count = 0
                         try:
-                            st.caption(f"Dimensions considered: {len(dims)} • Queries planned: {len(steps)} • Change points: {len(chg)}")
+                            dims_count = len(dims) if isinstance(dims, list) else 0
+                            if dims_count == 0:
+                                dims_count = len(_da_res.get("dimensions_suggested") or [])
+                        except Exception:
+                            dims_count = 0
+                        steps_count = 0
+                        try:
+                            steps_count = len(steps) if isinstance(steps, list) else 0
+                        except Exception:
+                            steps_count = 0
+                        if steps_count == 0:
+                            try:
+                                kt0 = _da_res.get("kt_is_is_not")
+                                if hasattr(kt0, "model_dump"):
+                                    kt0 = kt0.model_dump()
+                                if isinstance(kt0, dict):
+                                    for row in (kt0.get("extent_is") or []):
+                                        try:
+                                            if isinstance(row, dict) and "queries_planned" in row:
+                                                steps_count = int(row.get("queries_planned") or 0)
+                                                break
+                                        except Exception:
+                                            continue
+                            except Exception:
+                                steps_count = 0
+                        if steps_count == 0 and dims_count > 0:
+                            steps_count = dims_count
+                        try:
+                            st.session_state.debug_trace.append(f"da_counts dims={dims_count} steps={steps_count} chg={len(chg)}")
+                        except Exception:
+                            pass
+                        if scqa or len(chg) or dims_count or steps_count:
+                            st.markdown("**Deep Analysis**")
+                            if scqa:
+                                st.write(scqa)
+                            try:
+                                st.caption(f"Dimensions considered: {dims_count} • Queries planned: {steps_count} • Change points: {len(chg)}")
+                            except Exception:
+                                pass
+                        try:
+                            ws = _da_res.get("when_started")
+                        except Exception:
+                            ws = None
+                        try:
+                            drivers = []
+                            def _cp_get(d, k, default=None):
+                                try:
+                                    return d.get(k, default)
+                                except Exception:
+                                    try:
+                                        return getattr(d, k, default)
+                                    except Exception:
+                                        return default
+                            for cp in (chg or []):
+                                dim = _cp_get(cp, "dimension")
+                                key = _cp_get(cp, "key")
+                                delta = _cp_get(cp, "delta", 0.0) or 0.0
+                                try:
+                                    delta = float(delta)
+                                except Exception:
+                                    delta = 0.0
+                                if dim and key is not None:
+                                    drivers.append({"dimension": dim, "key": key, "delta": delta})
+                            drivers.sort(key=lambda x: abs(x.get("delta", 0.0)), reverse=True)
+                            topn = drivers[:3]
+                            if ws or topn:
+                                st.markdown("**Situation Summary**")
+                                if ws:
+                                    st.write(f"When started: {ws}")
+                                if topn:
+                                    st.write("Top drivers:")
+                                    for d in topn:
+                                        st.write(f"- {d['dimension']}: {d['key']} (Δ {d['delta']:+,.2f})")
                         except Exception:
                             pass
                         # KT Is/Is-Not table (if available)
                         try:
                             kt = _da_res.get("kt_is_is_not")
+                            try:
+                                _kt_type = type(kt).__name__
+                                _kt_is_none = (kt is None)
+                                st.session_state.debug_trace.append(f"kt_obj_type={_kt_type} is_none={_kt_is_none}")
+                            except Exception:
+                                pass
                             # Normalize KT to dict
                             if hasattr(kt, "model_dump"):
                                 kt = kt.model_dump()
-                            if isinstance(kt, dict) and any(kt.get(k) for k in [
-                                "what_is","what_is_not","where_is","where_is_not","when_is","when_is_not","extent_is","extent_is_not"
-                            ]):
+                            if isinstance(kt, dict):
+                                try:
+                                    _lens = {k: (len(kt.get(k) or []) if isinstance(kt.get(k), list) else 0) for k in [
+                                        "what_is","what_is_not","where_is","where_is_not","when_is","when_is_not","extent_is","extent_is_not"
+                                    ]}
+                                    st.session_state.debug_trace.append(f"kt_lens={_lens}")
+                                except Exception:
+                                    pass
                                 st.caption("KT Is / Is Not")
+                                try:
+                                    if st.session_state.get("debug_mode"):
+                                        st.caption(f"KT debug: {_lens}")
+                                except Exception:
+                                    pass
                                 c_is, c_is_not = st.columns(2)
                                 with c_is:
                                     if kt.get("what_is"):
                                         st.markdown("_What is_")
                                         for row in kt.get("what_is")[:6]:
-                                            st.write(f"- {row}")
+                                            if isinstance(row, dict):
+                                                st.write(f"- {row.get('text') or row}")
+                                            else:
+                                                st.write(f"- {row}")
                                     if kt.get("where_is"):
                                         st.markdown("_Where is_")
                                         for row in kt.get("where_is")[:6]:
-                                            st.write(f"- {row}")
+                                            if isinstance(row, dict):
+                                                st.write(f"- {row.get('text') or row}")
+                                            else:
+                                                st.write(f"- {row}")
                                     if kt.get("when_is"):
                                         st.markdown("_When is_")
                                         for row in kt.get("when_is")[:6]:
-                                            st.write(f"- {row}")
+                                            if isinstance(row, dict):
+                                                st.write(f"- {row.get('text') or row}")
+                                            else:
+                                                st.write(f"- {row}")
                                     if kt.get("extent_is"):
                                         st.markdown("_Extent is_")
                                         for row in kt.get("extent_is")[:6]:
@@ -2647,19 +2685,62 @@ def display_situation(situation, severity_class):
                                     if kt.get("what_is_not"):
                                         st.markdown("_What is not_")
                                         for row in kt.get("what_is_not")[:6]:
-                                            st.write(f"- {row}")
+                                            if isinstance(row, dict):
+                                                st.write(f"- {row.get('text') or row}")
+                                            else:
+                                                st.write(f"- {row}")
                                     if kt.get("where_is_not"):
                                         st.markdown("_Where is not_")
                                         for row in kt.get("where_is_not")[:6]:
-                                            st.write(f"- {row}")
+                                            if isinstance(row, dict):
+                                                st.write(f"- {row.get('text') or row}")
+                                            else:
+                                                st.write(f"- {row}")
                                     if kt.get("when_is_not"):
                                         st.markdown("_When is not_")
                                         for row in kt.get("when_is_not")[:6]:
-                                            st.write(f"- {row}")
+                                            if isinstance(row, dict):
+                                                st.write(f"- {row.get('text') or row}")
+                                            else:
+                                                st.write(f"- {row}")
                                     if kt.get("extent_is_not"):
                                         st.markdown("_Extent is not_")
                                         for row in kt.get("extent_is_not")[:6]:
                                             st.write(f"- {row}")
+                        except Exception:
+                            pass
+                        try:
+                            kt = _da_res.get("kt_is_is_not")
+                            if hasattr(kt, "model_dump"):
+                                kt = kt.model_dump()
+                            ext = kt.get("extent_is") if isinstance(kt, dict) else []
+                            if isinstance(ext, list) and ext:
+                                with st.expander("Distribution by dimension"):
+                                    for e in ext[:6]:
+                                        try:
+                                            hist = e.get("histogram") or []
+                                            if isinstance(hist, list) and hist:
+                                                st.write(f"{e.get('vector')}: {e.get('dimension')} • comparator={e.get('comparator')} • threshold={e.get('threshold')}")
+                                                if pd is not None:
+                                                    df = pd.DataFrame(hist)
+                                                    if "bin" in df.columns and "count" in df.columns:
+                                                        try:
+                                                            # Preserve the intended left-to-right order of bins
+                                                            # as provided by the histogram spec (negative to positive)
+                                                            ordered_bins = [h.get("bin") for h in hist if isinstance(h, dict) and h.get("bin") is not None]
+                                                            df["bin"] = pd.Categorical(df["bin"], categories=ordered_bins, ordered=True)
+                                                            df = df.sort_values("bin")
+                                                        except Exception:
+                                                            pass
+                                                        st.bar_chart(df.set_index('bin')["count"])
+                                                else:
+                                                    for h in hist:
+                                                        try:
+                                                            st.write(f"- {h.get('bin')}: {h.get('count')}")
+                                                        except Exception:
+                                                            continue
+                                        except Exception:
+                                            continue
                         except Exception:
                             pass
                         # Change points list (if provided)
@@ -3293,6 +3374,10 @@ async def run_async():
                             plan_model = DeepAnalysisPlan(kpi_name=da_request_model.kpi_name, timeframe=da_request_model.timeframe, filters=da_request_model.filters, steps=[], dimensions=[])
                     except Exception:
                         plan_model = DeepAnalysisPlan(kpi_name=da_request_model.kpi_name, timeframe=da_request_model.timeframe, filters=da_request_model.filters, steps=[], dimensions=[])
+                    try:
+                        st.session_state[f"{sid}_deep_analysis_plan"] = plan_model.model_dump() if hasattr(plan_model, 'model_dump') else plan_model
+                    except Exception:
+                        pass
                     # Execute with model
                     exec_resp = await _asyncio.wait_for(
                         st.session_state.orchestrator.execute_agent_method(
@@ -3308,6 +3393,11 @@ async def run_async():
                         exec_obj = exec_resp
                     else:
                         exec_obj = {"status": "success"}
+                    try:
+                        if isinstance(exec_obj, dict) and not exec_obj.get("plan"):
+                            exec_obj["plan"] = plan_model.model_dump() if hasattr(plan_model, 'model_dump') else plan_model
+                    except Exception:
+                        pass
                     st.session_state[f"{sid}_deep_analysis_result"] = exec_obj
                     # Remember last Deep Analysis SID to prefill Solutions Studio problem
                     try:

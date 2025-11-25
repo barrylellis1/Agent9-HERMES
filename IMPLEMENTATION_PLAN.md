@@ -1,76 +1,58 @@
-# Agent9 MVP Implementation Plan
+# Agent9 MVP Implementation Plan (November 2025 Refresh)
 
-## 1. Introduction
+## 1. Current State Snapshot
 
-This document outlines the detailed implementation plan for the Agent9 MVP, developed in accordance with the `MVP_GUIDE.md`, `Agent9_Agent_Design_Standards.md`, and all reviewed Product Requirement Documents (PRDs). The objective is to build a production-grade, compliant, and robust system from the ground up.
+| Area | Status | Notes |
+| --- | --- | --- |
+| Agent infrastructure (registry, protocols, shared models) | **Complete** | Orchestrator + AgentRegistry live in `src/agents/new/`, agents implement protocol interfaces and share registry providers.@src/agents/new/a9_orchestrator_agent.py#1-208 |
+| Core workflow agents | **Implemented** | Principal Context, Data Governance, Data Product, Situation Awareness, Deep Analysis, and Solution Finder agents exist in `src/agents/new/` and follow PRD responsibilities.@src/agents/new/a9_principal_context_agent.py#1-200@src/agents/new/a9_data_governance_agent.py#1-200@src/agents/new/a9_data_product_agent.py#1-200@src/agents/new/a9_situation_awareness_agent.py#1-200@src/agents/new/a9_deep_analysis_agent.py#1-200@src/agents/new/a9_solution_finder_agent.py#1-107 |
+| Decision Studio UI | **MVP debug UI** | Streamlit-based debugging experience; consumer-grade UI pending (see Phase 4).
+| Data sources | **FI schema available; Sales schema onboarding** | DuckDB demo data in place; BigQuery Sales schema work underway to enable cross-source stories.
+| Testing | **Partial** | Unit coverage improved, but cross-agent integration, Decision Studio UI, and multi-source regression tests still required.
 
-**Guiding Principles:**
-- **Orchestrator-Driven Architecture**: No direct agent instantiation. All interactions are managed by the `A9_Orchestrator_Agent`.
-- **Protocol-First**: Strict adherence to the Agent-to-Agent (A2A) communication protocol using Pydantic V2 models.
-- **Compliance by Design**: All components will be built to meet the standards for naming, configuration, testing, and documentation.
-- **Incremental, Bottom-Up Build**: Develop foundational components first, followed by individual agents, and finally the orchestrator to ensure a stable and testable process.
+## 2. Updated Phased Plan
 
-## 2. Phased Implementation Strategy
+### Phase 1 – Foundation Validation (Status: Complete)
+- Confirm orchestrator-driven lifecycle, protocol compliance, and logging standards across existing agents.
+- Catalog remaining gaps in config models, cards, and tests; track tech debt for future sprints.
 
-### Phase 1: Foundational Components & Core Infrastructure
+### Phase 2 – Data Foundations & Cross-Source Enablement (Status: In Progress)
+- Onboard Sales schema in Google BigQuery; document ingestion and environment configuration.
+- Extend Data Product & Data Governance agents for dual-source KPI metadata, including config/card/test updates.
+- Update registry providers so KPIs resolve across FI and Sales, and ensure Principal Context covers new personas/scopes.
 
-**Objective**: Establish the core building blocks and patterns for all agents.
+### Phase 3 – Workflow Completion & Agent Coverage (Status: In Progress)
+- Finish end-to-end workflows: Situation Awareness → Deep Analysis → Solution Finder with DG/DP/NLP/LLM orchestration.
+- Validate SQL generation stays within Data Product Agent while DG manages KPI thresholds/mappings.
+- Add integration tests for SA→DP→DG→PC interactions and BigQuery-backed flows; ensure orchestrator-driven execution in Decision Studio.
 
-1.  **Directory Structure Setup**:
-    - Re-create `src/agents/` for all new agent code.
-    - Re-create `src/agents/cards/` for agent cards.
-    - Create `src/agents/utils/` for shared utilities.
-    - Create `src/agents/models/` for core Pydantic models.
-    - Re-create `tests/` for all test suites.
+### Phase 4 – Decision Studio Upgrade (Status: Planned)
+- Replace the Streamlit debug UI with a consumer-grade Decision Studio aligned to the product vision doc.
+- Implement hierarchical situation inbox, inline HITL actions, KPI evaluation summaries, and assignment workflows.
+- Script investor demo narrative showcasing FI + Sales KPI alignment and DG mediation; rehearse end-to-end experience.
 
-2.  **Shared Utilities (`src/agents/utils/`)**:
-    - **Logging**: Implement a shared logger (`A9_SharedLogger`).
-    - **Error Handling**: Define custom, structured exception classes.
+### Phase 5 – Compliance & Launch Prep (Status: Planned)
+- Achieve comprehensive unit, integration, and UI test coverage, including multi-source scenarios.
+- Complete agent card/config synchronization, documentation updates, and Situation model finalization.
+- Run performance, reliability, and environment-promotion checks; finalize demo environment start/stop procedures.
 
-3.  **Core Pydantic Models (`src/agents/models/`)**:
-    - Define base request/response models for the A2A protocol.
-    - Create common data structures (e.g., `SituationReport`, `AnalysisResult`) that will be used across multiple agents.
+### Phase 6 – Registry Externalization & Multi-Tenant Readiness (Status: Planned)
+- Design the registry service schema and persistence strategy (e.g., managed Postgres/BigQuery) covering data product, business process, KPI, and principal registries currently stored under `src/registry/**`.
+- Implement a persistence layer and provider interfaces that allow agents to switch from file-backed loaders to database-backed repositories without breaking existing protocols.
+- Build migration utilities to seed the external registry from the current YAML/CSV assets and support per-customer overrides.
+- Update agent configuration models with environment-specific connection settings and secrets management (dev/test/prod) before rolling out the new registry path.
+- Add integration tests validating Data Product, Data Governance, and Principal Context agents against the external registry, and document the onboarding process for new tenants.
 
-4.  **Agent Infrastructure**:
-    - **Base Agent Class**: Create an abstract base class (`A9_Agent`) in `src/agents/base_agent.py` to enforce compliance. It will include abstract methods for `register_with_registry`, configuration loading, and protocol entrypoints.
-    - **Agent Registry**: Implement the `AgentRegistry` (`src/agents/agent_registry.py`) as a singleton for dynamic, orchestrator-driven agent loading and access.
+## 3. Testing & Compliance Backlog
+- **Completed**: Core agents implement required protocols; orchestrator-driven lifecycle enforced; baseline unit tests in place.
+- **Outstanding**:
+  - Multi-source integration tests covering DG-mediated KPI resolution.
+  - Decision Studio UI regression and investor-demo smoke tests.
+  - Automated checks for agent card/config parity and architectural guardrails.
+  - Performance monitoring for BigQuery-backed workflows.
 
-### Phase 2: Core Agent Implementation
-
-**Objective**: Build each core agent, ensuring it is compliant, unit-testable, and adheres to its PRD.
-
-For each agent, the following artifacts will be created:
-- Agent implementation file (`src/agents/a9_*_agent.py`)
-- Pydantic configuration model in `src/agents/agent_config_models.py`
-- Agent Card (`src/agents/cards/a9_*_agent_card.py`)
-- Unit tests (`tests/unit/test_a9_*_agent.py`)
-
-**Implementation Order**:
-1.  **`A9_Principal_Context_Agent`**: Foundational agent that provides user context and access control. It is a dependency for most other agents.
-2.  **`A9_Situation_Awareness_Agent`**: The entry point for the primary workflow. It will identify situations to be analyzed.
-3.  **`A9_Deep_Analysis_Agent`**: Takes a situation and performs a structured Kepner-Tregoe root cause analysis.
-4.  **`A9_Solution_Finder_Agent`**: Takes the root cause and generates potential solutions, managing the HITL event.
-
-### Phase 3: Orchestrator and Workflow Integration
-
-**Objective**: Tie all agents together into a functioning, end-to-end workflow.
-
-1.  **`A9_Orchestrator_Agent` Implementation**:
-    - Implement the orchestrator to manage the full workflow: `Situation Awareness` -> `Deep Analysis` -> `Solution Finder`.
-    - It will use the `AgentRegistry` to dynamically load and invoke agents based on a declarative workflow definition.
-    - It will handle state management, error propagation, and logging for the entire process.
-
-2.  **Integration Testing**:
-    - Create integration tests (`tests/integration/`) that invoke the `A9_Orchestrator_Agent` to run the full workflow.
-    - These tests will validate the A2A protocol between agents and ensure the end-to-end process works as designed.
-    - Mocking will be limited to true external dependencies (e.g., databases, external APIs).
-
-## 3. Testing and Compliance
-
-- **Unit Tests**: Each agent will have its own suite of unit tests to verify its internal logic.
-- **Integration Tests**: The orchestrator will be tested to ensure seamless agent-to-agent communication and workflow execution.
-- **Compliance Checks**: Before finalizing, a full audit will be conducted to ensure all code adheres to the `Agent9_Agent_Design_Standards.md`, including naming, protocol compliance, and the creation of all required artifacts (cards, configs).
-
-## 4. Submission
-
-Upon completion of all phases and successful execution of all tests, the project will be submitted for evaluation as per the `MVP_GUIDE.md`.
+## 4. Immediate Action Items (Q4 2025)
+1. Finalize Sales schema onboarding and update registry/config artifacts.
+2. Close workflow integration gaps and add tests for DG/DP/SA/PC orchestration.
+3. Launch Decision Studio upgrade sprint after Sales schema is live, targeting investor demo readiness.
+4. Establish CI gates for protocol compliance, agent card sync, and decision-studio UI checks.
