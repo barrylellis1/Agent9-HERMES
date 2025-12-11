@@ -72,7 +72,7 @@ async def submit_admin_onboarding_via_api(
         response = await client.post(run_url, json=payload)
         response.raise_for_status()
 
-    envelope = response.json()
+    envelope = response.json()  # httpx Response.json(), not Pydantic  # pydantic-lint: allow
     data = envelope.get("data") or {}
     request_id = data.get("request_id")
     if not request_id:
@@ -120,7 +120,7 @@ async def maybe_poll_admin_onboarding_status(
         async with client_factory(timeout=30.0) as client:
             response = await client.get(status_url)
             response.raise_for_status()
-        envelope = response.json()
+        envelope = response.json()  # httpx Response.json(), not Pydantic  # pydantic-lint: allow
         data = envelope.get("data") or {}
         new_state = data.get("state", current_status)
         _set_state_value(state, "admin_onboarding_status", new_state)

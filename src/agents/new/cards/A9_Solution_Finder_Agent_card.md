@@ -1,9 +1,9 @@
 # A9_Solution_Finder_Agent Card
 
-Status: MVP Scaffolding
+Status: MVP Active
 
 ## Overview
-The `A9_Solution_Finder_Agent` systematically generates, evaluates, and recommends solutions for diagnosed problems (often from Deep Analysis). It produces a trade-off matrix and emits a single HITL approval event per cycle (per PRD). Optionally, it can leverage the LLM Service to run an expert persona debate and synthesize a consensus rationale.
+The `A9_Solution_Finder_Agent` systematically generates, evaluates, and recommends solutions for diagnosed problems (often from Deep Analysis). It produces a trade-off matrix and emits a single HITL approval event per cycle (per PRD). It leverages the LLM Service to run an expert persona debate and synthesize a consensus rationale, with business context injection for domain-specific recommendations.
 
 ## Protocol Entrypoints
 - `recommend_actions(request: SolutionFinderRequest) -> SolutionFinderResponse`
@@ -34,7 +34,14 @@ class A9_Solution_Finder_Agent_Config(BaseModel):
 
 ## Dependencies
 - `A9_Deep_Analysis_Agent` (consumes its output for context)
-- `A9_LLM_Service_Agent` (optional narrative/evidence synthesis via orchestrator)
+- `A9_LLM_Service_Agent` (persona debate and narrative synthesis; fallback acquisition from AgentRegistry if not injected)
+
+## Key Features (Dec 2024)
+- **Business Context Injection**: Loads domain-specific context from `src/registry_references/business_context/*.yaml` to inform LLM recommendations
+- **Enhanced Problem Statement**: Dynamically constructs quantitative problem statements from Deep Analysis change points (KPI, delta, dimension, attribute)
+- **Principal Input Support**: Accepts user-defined priorities and constraints via `PrincipalInputPreferences` to guide solution generation
+- **Fallback LLM Acquisition**: If LLM service not injected by orchestrator, acquires directly from `AgentRegistry`
+- **Prompt Constraints**: Forbids "more analysis" solutions; requires actionable, implementable recommendations
 
 ## Compliance
 - A2A Pydantic IO for requests/responses
@@ -42,7 +49,8 @@ class A9_Solution_Finder_Agent_Config(BaseModel):
 - Full audit logging of options, scoring, recommendation, and human approvals
 
 ## Deliverables (MVP)
-- Ranked options
+- Ranked options with perspectives from expert personas
 - Trade-off matrix (impact/cost/risk)
+- Problem reframe (Situation/Complication/Question)
 - Recommendation + rationale
 - HITL approval context and audit trail

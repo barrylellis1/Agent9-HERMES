@@ -34,8 +34,10 @@ class A9_Deep_Analysis_Agent_Config(BaseModel):
 ## Planning and Execution
 - Dimensions are sourced from the Data Product Contract YAML (`src/contracts/fi_star_schema.yaml`) using `llm_profile.dimension_semantics` for `FI_Star_View`.
 - Planned steps are grouped comparisons per selected dimension with a "current vs previous" timeframe.
+- Dimension scan limit increased to 15 (from 5) for broader coverage.
 - KT Where/When are computed by executing grouped queries via `A9_Data_Product_Agent` for the current timeframe and the derived previous timeframe, then ranking by absolute delta.
- - Output fields include: `plan`, `dimensions_suggested`, `scqa_summary`, `kt_is_is_not`, `change_points`, `timeframe_mapping`, and `when_started` (earliest significant time bucket derived from time deltas).
+- Change points are globally sorted by absolute delta and truncated to top 5 for focused analysis.
+- Output fields include: `plan`, `dimensions_suggested`, `scqa_summary`, `kt_is_is_not`, `change_points`, `timeframe_mapping`, and `when_started` (earliest significant time bucket derived from time deltas).
 
 ## Compliance
 - A2A Pydantic IO for requests/responses

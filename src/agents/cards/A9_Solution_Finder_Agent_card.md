@@ -112,4 +112,5 @@ discoverability:
     - solution
     - finder
     - a2a_protocol
+  last_updated: "2024-12-10"
 ---

@@ -133,5 +133,6 @@ discoverability:
     - a2a_protocol
     - mcp_only
     - duckdb_backend
+  last_updated: "2024-12-10"
 
 ---

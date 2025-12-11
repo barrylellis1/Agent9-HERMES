@@ -84,4 +84,5 @@ print(report)
 - registry_compliant: true
 - a2a_ready: true
 - tags: [data, governance, a2a_protocol]
+- last_updated: "2024-12-10"
 ---

@@ -18,6 +18,7 @@ configuration:
     registry_compliant: true
     a2a_ready: true
     tags: [principal, context, a2a_protocol]
+    last_updated: "2024-12-10"
 ---
 
 ## 1. Agent Overview & Metadata

@@ -385,7 +385,7 @@ class DataProductQARequest(A9AgentBaseRequest):
     )
     checks: List[str] = Field(
         default_factory=list,
-        description="Specific QA checks to execute (lint_contract, run_smoke_query, etc.)",
+        description="Specific QA checks to run (lint_contract, run_smoke_query, etc.)",
     )
     additional_context: Dict[str, Any] = Field(
         default_factory=dict, description="Extra metadata for QA execution"

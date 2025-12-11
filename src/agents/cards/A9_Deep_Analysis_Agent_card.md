@@ -142,4 +142,6 @@ Respond with:
 - Bullet points for each key insight
 - (Optional) A markdown table of findings
 ```
+
+last_updated: "2024-12-10"
 ---
