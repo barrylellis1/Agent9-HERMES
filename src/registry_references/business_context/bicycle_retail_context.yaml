@@ -1,0 +1,33 @@
+name: "Global Bike Inc."
+industry: "Retail & Manufacturing"
+sub_sector: "Bicycles & Accessories"
+description: >
+  A leading global bicycle manufacturer and retailer operating across North America, Europe, and APAC. 
+  The company designs, assembles, and sells high-quality bicycles (Road, Mountain, Touring) and a wide range of accessories (helmets, lights, pumps).
+  Sales channels include wholesale distribution to independent dealers and direct-to-consumer online sales.
+
+business_model:
+  type: "Hybrid (Manufacturing + Retail)"
+  revenue_streams:
+    - "Whole Sales (B2B)"
+    - "Internet Sales (B2C)"
+  key_markets:
+    - "US West"
+    - "US East"
+    - "Germany"
+    - "Australia"
+
+strategic_priorities:
+  - "Expand market share in the growing E-Bike segment"
+  - "Optimize global supply chain to reduce inventory holding costs"
+  - "Maintain premium brand positioning against competitors like Trek and specialized"
+
+competitors:
+  - "Trek Bicycle Corporation"
+  - "Specialized Bicycle Components"
+  - "Giant Manufacturing"
+  - "Canyon Bicycles"
+
+operational_context:
+  inventory_challenges: "High seasonality in sales; long lead times from Asian component suppliers."
+  margin_pressures: "Rising logistics costs and competitive pricing in the mid-range segment."

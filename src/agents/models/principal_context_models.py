@@ -16,6 +16,10 @@ from src.agents.models.situation_awareness_models import (
 
 # Import PrincipalContext directly to avoid annotation issues with Pydantic v2
 from src.agents.models.situation_awareness_models import PrincipalContext
+from src.agents.models.data_product_onboarding_models import (
+    PrincipalOwnershipRequest,
+    PrincipalOwnershipResponse,
+)
 
 class PrincipalProfileRequest(BaseRequest):
     """Request for principal profile."""

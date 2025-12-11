@@ -13,6 +13,10 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.api.main import app  # noqa: E402
 from src.api.runtime import get_agent_runtime  # noqa: E402
+from src.agents.models.data_product_onboarding_models import (  # noqa: E402
+    DataProductOnboardingWorkflowResponse,
+    WorkflowStepSummary,
+)
 
 pytestmark = pytest.mark.anyio("asyncio")
 
@@ -70,6 +74,30 @@ class _StubOrchestrator:
                 }
             ]
         }
+
+    async def orchestrate_data_product_onboarding(self, request):
+        response = DataProductOnboardingWorkflowResponse.success(
+            request_id=request.request_id,
+            data_product_id=request.data_product_id,
+            steps=[
+                WorkflowStepSummary(
+                    name="inspect_source_schema",
+                    status="success",
+                    details={},
+                ),
+                WorkflowStepSummary(
+                    name="generate_contract_yaml",
+                    status="success",
+                    details={"contract_path": "src/registry/data_product/new_contract.yaml"},
+                ),
+            ],
+            contract_paths=["src/registry/data_product/new_contract.yaml"],
+            governance_status="success",
+            principal_owner={"owner_principal_id": "finance_manager"},
+            qa_report={"overall_status": "pass"},
+            activation_context={"status": "completed"},
+        )
+        return response
 
 
 class _StubRuntime:
@@ -161,3 +189,44 @@ async def test_run_solution_workflow(client: AsyncClient):
     status_payload = await _wait_for_finished(client, request_id, "solutions")
     assert status_payload["state"] == "completed"
     assert "solutions" in status_payload["result"]
+
+
+@pytest.mark.anyio
+async def test_run_data_product_onboarding_workflow(client: AsyncClient):
+    payload = {
+        "principal_id": "data_foundation_lead",
+        "data_product_id": "dp_test_001",
+        "source_system": "duckdb",
+        "schema": "main",
+        "tables": ["financial_transactions"],
+        "qa_enabled": True,
+        "kpi_entries": [
+            {
+                "kpi_id": "gross_margin",
+                "name": "Gross Margin",
+            }
+        ],
+        "business_process_mappings": [
+            {
+                "process_id": "finance_profitability_analysis",
+                "kpi_ids": ["gross_margin"],
+            }
+        ],
+    }
+
+    response = await client.post(
+        "/api/v1/workflows/data-product-onboarding/run",
+        json=payload,
+    )
+    assert response.status_code == 202
+    request_id = json.loads(response.content)["data"]["request_id"]
+
+    status_payload = await _wait_for_finished(
+        client,
+        request_id,
+        "data-product-onboarding",
+    )
+    assert status_payload["state"] == "completed"
+    result = status_payload["result"]
+    assert result["status"] == "success"
+    assert result["data_product_id"] == "dp_test_001"

@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from src.api.runtime import AgentRuntime
 from src.api.routes.registry import router as registry_router
 from src.api.routes.workflows import router as workflows_router
+from src.api.routes.upload import router as upload_router
 
 app = FastAPI(
     title="Agent9 API",
@@ -17,10 +18,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -30,6 +28,7 @@ app.add_middleware(
 agent_runtime = AgentRuntime()
 app.include_router(registry_router, prefix="/api/v1")
 app.include_router(workflows_router, prefix="/api/v1")
+app.include_router(upload_router, prefix="/api/v1")
 
 
 @app.on_event("startup")
@@ -62,3 +61,7 @@ async def agents_state() -> List[Dict[str, str]]:
 # NOTE: MCP service endpoints will be added under /mcp when the service is introduced.
 # from src.api.mcp_service import router as mcp_router
 # app.include_router(mcp_router, prefix="/mcp")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("src.api.main:app", host="0.0.0.0", port=8000, reload=True)

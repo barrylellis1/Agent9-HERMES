@@ -199,9 +199,11 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         try:
             # Prefer dimensions from Data Product Contract YAML
             try:
-                target_count = int(getattr(request, "target_count", self.config.max_dimensions) or self.config.max_dimensions)
+                # MVP Optimization: Scan more dimensions (15) to find true top drivers, even if we only report 5
+                cfg_limit = int(getattr(request, "target_count", self.config.max_dimensions) or self.config.max_dimensions)
+                target_count = max(cfg_limit, 15)
             except Exception:
-                target_count = self.config.max_dimensions
+                target_count = 15
             dimensions: List[str] = self._dims_from_contract(limit=target_count)
             try:
                 self.logger.info(f"plan_deep_analysis: kpi={request.kpi_name} timeframe={request.timeframe} dims_from_contract={len(dimensions)}")
@@ -1084,6 +1086,12 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             )
                         if cur_tf:
                             new_what_is.append(f"Issue observed during {cur_tf} compared against {comparator_label}.")
+                        
+                        # MVP Optimization: Sort and truncate global change_points to top 5 by impact
+                        if change_points:
+                            change_points.sort(key=lambda cp: abs(getattr(cp, "delta", 0.0) or 0.0), reverse=True)
+                            change_points = change_points[:5]
+                            
                         top_cp = None
                         if change_points:
                             top_cp = max(change_points, key=lambda cp: abs(getattr(cp, "delta", 0.0) or 0.0))
@@ -1219,6 +1227,17 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     )
             except Exception:
                 pass
+            
+            # Prepare timeframe mapping safely
+            cur_tf_val = getattr(plan, "timeframe", None)
+            prev_tf_val = self._prev_timeframe(cur_tf_val)
+            tf_mapping = None
+            if cur_tf_val:
+                tf_mapping = {
+                    "current": str(cur_tf_val), 
+                    "previous": str(prev_tf_val) if prev_tf_val else "previous period"
+                }
+
             return DeepAnalysisResponse.success(
                 request_id=req_id,
                 plan=plan,
@@ -1226,7 +1245,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 kt_is_is_not=kt,
                 change_points=change_points,
                 percent_growth_enabled=False,
-                timeframe_mapping={"current": getattr(plan, "timeframe", None), "previous": self._prev_timeframe(getattr(plan, "timeframe", None))},
+                timeframe_mapping=tf_mapping,
                 when_started=when_started,
                 dimensions_suggested=getattr(plan, "dimensions", [])
             )

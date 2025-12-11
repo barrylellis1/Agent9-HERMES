@@ -18,6 +18,19 @@ class TradeOffCriterion(A9AgentBaseModel):
     weight: float = 1.0
 
 
+class PerspectiveAnalysis(A9AgentBaseModel):
+    lens: str  # "Financial", "Operational", "Strategic", etc.
+    arguments_for: List[str] = Field(default_factory=list)
+    arguments_against: List[str] = Field(default_factory=list)
+    key_questions: List[str] = Field(default_factory=list)
+
+
+class UnresolvedTension(A9AgentBaseModel):
+    tension: str
+    options_affected: List[str] = Field(default_factory=list)
+    requires: str  # "human judgment", "more data", "stakeholder input"
+
+
 class SolutionOption(A9AgentBaseModel):
     id: str
     title: str
@@ -27,11 +40,26 @@ class SolutionOption(A9AgentBaseModel):
     risk: Optional[float] = None             # normalized risk estimate
     evidence: Optional[List[str]] = None     # URLs/refs or citations
     rationale: Optional[str] = None
+    
+    # Enhanced Decision Briefing Fields
+    time_to_value: Optional[str] = None
+    reversibility: Optional[str] = None  # high/medium/low
+    perspectives: List[PerspectiveAnalysis] = Field(default_factory=list)
+    implementation_triggers: List[str] = Field(default_factory=list)
+    prerequisites: List[str] = Field(default_factory=list)
 
 
 class TradeOffMatrix(A9AgentBaseModel):
     criteria: List[TradeOffCriterion] = Field(default_factory=list)
     options: List[SolutionOption] = Field(default_factory=list)
+
+
+class PrincipalInputPreferences(A9AgentBaseModel):
+    """Optional principal-supplied context to ground analysis."""
+    current_priorities: List[str] = Field(default_factory=list)  # e.g., ["cost control", "speed"]
+    known_constraints: List[str] = Field(default_factory=list)   # e.g., ["no M&A", "Q4 freeze"]
+    questions_to_explore: List[str] = Field(default_factory=list)
+    vetoes: List[str] = Field(default_factory=list)              # Options to exclude
 
 
 class SolutionFinderRequest(A9AgentBaseRequest):
@@ -41,6 +69,7 @@ class SolutionFinderRequest(A9AgentBaseRequest):
     market_analysis_input: Optional[Dict[str, Any]] = None
     constraints: Optional[Dict[str, Any]] = None
     preferences: Optional[Dict[str, Any]] = None
+    principal_input: Optional[PrincipalInputPreferences] = None
     evaluation_criteria: Optional[List[TradeOffCriterion]] = None
 
 
@@ -50,6 +79,12 @@ class SolutionFinderResponse(A9AgentBaseResponse):
     tradeoff_matrix: Optional[TradeOffMatrix] = None
     recommendation: Optional[SolutionOption] = None
     recommendation_rationale: Optional[str] = None
+
+    # Enhanced Decision Briefing Fields
+    problem_reframe: Optional[Dict[str, Any]] = None
+    unresolved_tensions: List[UnresolvedTension] = Field(default_factory=list)
+    blind_spots: List[str] = Field(default_factory=list)
+    next_steps: List[str] = Field(default_factory=list)
 
     # Single HITL event fields per PRD
     human_action_required: bool = False

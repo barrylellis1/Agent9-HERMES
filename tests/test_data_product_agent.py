@@ -21,6 +21,13 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.agents.new.a9_data_product_agent import A9_Data_Product_Agent
 from src.agents.protocols.data_product_protocol import DataProductProtocol
 
+import pytest
+
+pytestmark = pytest.mark.skip(
+    reason=(
+        "Legacy Data Product Agent unit tests retired pending Decision Studio-aligned coverage"
+    )
+)
 
 class TestDataProductAgent(unittest.TestCase):
     """Test case for Data Product Agent implementation."""

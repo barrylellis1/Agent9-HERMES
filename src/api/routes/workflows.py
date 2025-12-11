@@ -12,7 +12,13 @@ from pydantic import BaseModel, Field
 from src.api.runtime import AgentRuntime, get_agent_runtime
 from src.agents.models.deep_analysis_models import DeepAnalysisPlan, DeepAnalysisRequest
 from src.agents.models.solution_finder_models import SolutionFinderRequest
-from src.agents.models.situation_awareness_models import ComparisonType, TimeFrame
+from src.agents.models.situation_awareness_models import ComparisonType, TimeFrame, SituationDetectionRequest
+from src.agents.models.data_product_onboarding_models import (
+    DataProductOnboardingWorkflowRequest,
+    WorkflowStepSummary,
+    KPIRegistryEntry,
+    BusinessProcessMapping,
+)
 
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
@@ -146,6 +152,53 @@ class ActionRequest(BaseModel):
     payload: Optional[Dict[str, Any]] = Field(None, description="Optional payload for the action")
 
 
+class DataProductOnboardingWorkflowApiRequest(BaseModel):
+    principal_id: str = Field(..., description="Principal initiating onboarding")
+    data_product_id: str = Field(..., description="Identifier for the new data product")
+    source_system: str = Field(..., description="Source system identifier (duckdb, bigquery, etc.)")
+    database: Optional[str] = Field(None, description="Database or catalog")
+    schema: Optional[str] = Field(None, description="Schema or dataset")
+    tables: Optional[List[str]] = Field(None, description="Specific tables to profile")
+    inspection_depth: str = Field("standard", description="Profiling depth (basic/standard/extended)")
+    include_samples: bool = Field(False, description="Whether to include sample values during profiling")
+    environment: str = Field("dev", description="Target environment (dev/test/prod)")
+    connection_overrides: Optional[Dict[str, Any]] = Field(None, description="Per-environment connection overrides")
+    contract_output_path: Optional[str] = Field(None, description="Filesystem path for generated contract")
+    data_product_name: Optional[str] = Field(None, description="Human friendly name")
+    data_product_domain: Optional[str] = Field(None, description="Business domain")
+    data_product_description: Optional[str] = Field(None, description="Narrative description")
+    data_product_tags: List[str] = Field(default_factory=list, description="Registry tags")
+    contract_overrides: Dict[str, Any] = Field(default_factory=dict, description="Contract override payload")
+    additional_metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional registry metadata")
+    owner_metadata: Dict[str, Any] = Field(default_factory=dict, description="Owner metadata to persist")
+    kpi_entries: List[KPIRegistryEntry] = Field(default_factory=list, description="KPI definitions to register")
+    overwrite_existing_kpis: bool = Field(False, description="Whether to overwrite existing KPI entries")
+    business_process_mappings: List[BusinessProcessMapping] = Field(
+        default_factory=list,
+        description="Business process mappings to register",
+    )
+    overwrite_existing_mappings: bool = Field(
+        False, description="Whether to overwrite existing business process mappings"
+    )
+    candidate_owner_ids: List[str] = Field(
+        default_factory=list,
+        description="Preferred principal IDs to evaluate for ownership",
+    )
+    fallback_roles: List[str] = Field(
+        default_factory=list,
+        description="Role escalation chain for ownership resolution",
+    )
+    business_process_context: List[str] = Field(
+        default_factory=list,
+        description="Business process context for ownership resolution",
+    )
+    qa_enabled: bool = Field(False, description="Whether to execute optional QA helper")
+    qa_checks: List[str] = Field(default_factory=list, description="Explicit QA checks to run")
+    qa_additional_context: Dict[str, Any] = Field(
+        default_factory=dict, description="Additional context forwarded to QA"
+    )
+
+
 @router.post("/situations/run", response_model=Envelope, status_code=status.HTTP_202_ACCEPTED)
 async def run_situations_workflow(
     request: SituationWorkflowRequest,
@@ -237,6 +290,23 @@ async def iterate_solution(request_id: str, request: ActionRequest) -> Envelope:
     return await _record_solution_action(request_id, "iterate", request)
 
 
+@router.post("/data-product-onboarding/run", response_model=Envelope, status_code=status.HTTP_202_ACCEPTED)
+async def run_data_product_onboarding_workflow(
+    request: DataProductOnboardingWorkflowApiRequest,
+    runtime: AgentRuntime = Depends(get_agent_runtime),
+) -> Envelope:
+    request_id = _generate_request_id("data_product_onboarding")
+    await _create_record(request_id, "data_product_onboarding", request.model_dump())
+    asyncio.create_task(_run_data_product_onboarding_workflow(request_id, runtime, request))
+    return wrap({"request_id": request_id, "state": "pending"})
+
+
+@router.get("/data-product-onboarding/{request_id}/status", response_model=Envelope)
+async def get_data_product_onboarding_status(request_id: str) -> Envelope:
+    record = await _ensure_record(request_id, "data_product_onboarding")
+    return wrap(record.to_dict())
+
+
 async def _record_solution_action(request_id: str, action_type: str, request: ActionRequest) -> Envelope:
     record = await _ensure_record(request_id, "solutions")
     entry = {
@@ -271,7 +341,7 @@ async def _run_situations_workflow(request_id: str, runtime: AgentRuntime, reque
         timeframe = request.timeframe or TimeFrame.CURRENT_QUARTER.value
         comparison_type = request.comparison_type or ComparisonType.YEAR_OVER_YEAR.value
 
-        detection_request = {
+        detection_request_payload = {
             "request_id": request_id,
             "principal_context": principal_context,
             "business_processes": business_processes,
@@ -280,9 +350,11 @@ async def _run_situations_workflow(request_id: str, runtime: AgentRuntime, reque
             "filters": request.filters or {},
         }
         if request.kpi_ids:
-            detection_request["kpi_ids"] = request.kpi_ids
+            detection_request_payload["kpi_ids"] = request.kpi_ids
 
-        response = await orchestrator.detect_situations_batch(detection_request)
+        detection_request = SituationDetectionRequest(**detection_request_payload)
+        response = await orchestrator.orchestrate_situation_detection(detection_request)
+        
         await _update_record(
             request_id,
             state="completed",
@@ -376,5 +448,64 @@ async def _run_solution_workflow(request_id: str, runtime: AgentRuntime, request
             {"request": solution_request},
         )
         await _update_record(request_id, state="completed", result={"solutions": serialize(response)})
+    except Exception as exc:  # pragma: no cover - defensive
+        await _update_record(request_id, state="failed", error=str(exc))
+
+
+async def _run_data_product_onboarding_workflow(
+    request_id: str,
+    runtime: AgentRuntime,
+    request: DataProductOnboardingWorkflowApiRequest,
+) -> None:
+    try:
+        orchestrator = runtime.get_orchestrator()
+        workflow_request = DataProductOnboardingWorkflowRequest(
+            request_id=request_id,
+            principal_id=request.principal_id,
+            data_product_id=request.data_product_id,
+            source_system=request.source_system,
+            database=request.database,
+            schema=request.schema,
+            tables=request.tables,
+            inspection_depth=request.inspection_depth,
+            include_samples=request.include_samples,
+            environment=request.environment,
+            connection_overrides=request.connection_overrides,
+            contract_output_path=request.contract_output_path,
+            data_product_name=request.data_product_name,
+            data_product_domain=request.data_product_domain,
+            data_product_description=request.data_product_description,
+            data_product_tags=request.data_product_tags,
+            contract_overrides=request.contract_overrides,
+            additional_metadata=request.additional_metadata,
+            owner_metadata=request.owner_metadata,
+            kpi_entries=request.kpi_entries,
+            overwrite_existing_kpis=request.overwrite_existing_kpis,
+            business_process_mappings=request.business_process_mappings,
+            overwrite_existing_mappings=request.overwrite_existing_mappings,
+            candidate_owner_ids=request.candidate_owner_ids,
+            fallback_roles=request.fallback_roles,
+            business_process_context=request.business_process_context,
+            qa_enabled=request.qa_enabled,
+            qa_checks=request.qa_checks,
+            qa_additional_context=request.qa_additional_context,
+        )
+
+        response = await orchestrator.orchestrate_data_product_onboarding(workflow_request)
+        response_payload = serialize(response)
+        status = response_payload.get("status", "success")
+
+        if status == "success":
+            state = "completed"
+        elif status == "pending":
+            state = "pending"
+        else:
+            state = "failed"
+
+        await _update_record(
+            request_id,
+            state=state,
+            result=response_payload,
+        )
     except Exception as exc:  # pragma: no cover - defensive
         await _update_record(request_id, state="failed", error=str(exc))

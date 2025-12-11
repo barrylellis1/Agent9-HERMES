@@ -146,36 +146,53 @@ class DataProduct(BaseModel):
         if not data_product_id:
             data_product_id = name.lower().replace(" ", "_").replace("-", "_")
         
-        # Extract tables
+        raw_tables = yaml_data.get("tables", {}) or {}
+        if isinstance(raw_tables, list):
+            tables_iterable = {}
+            for entry in raw_tables:
+                name = entry.get("name") if isinstance(entry, dict) else None
+                if name:
+                    tables_iterable[name] = entry
+            raw_tables = tables_iterable
+
         tables = {}
-        for table_name, table_def in yaml_data.get("tables", {}).items():
+        for table_name, table_def in raw_tables.items():
             # Convert schema format to dict
             schema_definition = {}
-            for column in table_def.get("columns", []):
+            for column in table_def.get("columns", []) if isinstance(table_def, dict) else []:
                 col_name = column.get("name")
                 col_type = column.get("type")
                 if col_name and col_type:
                     schema_definition[col_name] = col_type
-            
+
             # Create table definition
             tables[table_name] = TableDefinition(
                 name=table_name,
-                description=table_def.get("description", f"Table {table_name}"),
-                data_source_type=table_def.get("data_source_type", DataSourceType.CSV),
-                data_source_path=table_def.get("data_source_path"),
+                description=table_def.get("description", f"Table {table_name}") if isinstance(table_def, dict) else f"Table {table_name}",
+                data_source_type=table_def.get("data_source_type", DataSourceType.CSV) if isinstance(table_def, dict) else DataSourceType.CSV,
+                data_source_path=table_def.get("data_source_path") if isinstance(table_def, dict) else None,
                 column_schema=schema_definition,
-                primary_keys=table_def.get("primary_keys", []),
-                foreign_keys=table_def.get("foreign_keys", {})
+                primary_keys=table_def.get("primary_keys", []) if isinstance(table_def, dict) else [],
+                foreign_keys=table_def.get("foreign_keys", {}) if isinstance(table_def, dict) else {}
             )
-        
+
         # Extract views
+        raw_views = yaml_data.get("views", {}) or {}
+        if isinstance(raw_views, list):
+            views_iterable = {}
+            for entry in raw_views:
+                name = entry.get("name") if isinstance(entry, dict) else None
+                if name:
+                    views_iterable[name] = entry
+            raw_views = views_iterable
+
         views = {}
-        for view_name, view_def in yaml_data.get("views", {}).items():
+        for view_name, view_def in raw_views.items():
             views[view_name] = ViewDefinition(
                 name=view_name,
-                description=view_def.get("description", f"View {view_name}"),
-                sql_definition=view_def.get("sql_definition", f"SELECT * FROM {view_name}"),
-                depends_on=view_def.get("depends_on", [])
+                description=view_def.get("description", f"View {view_name}") if isinstance(view_def, dict) else f"View {view_name}",
+                sql_definition=view_def.get("sql_definition", f"SELECT * FROM {view_name}") if isinstance(view_def, dict) else f"SELECT * FROM {view_name}",
+                depends_on=view_def.get("depends_on", []) if isinstance(view_def, dict) else []
             )
         
         # Create data product

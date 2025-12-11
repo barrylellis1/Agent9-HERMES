@@ -1,0 +1,32 @@
+active_profile: Google BigQuery
+profiles:
+- database: null
+  database_path: data/agent9-hermes.duckdb
+  default_schema: null
+  description: Local DuckDB database for Decision Studio
+  driver: null
+  extras: {}
+  host: null
+  name: local-duckdb
+  password: null
+  password_saved: false
+  persist_secret: false
+  port: null
+  schema: null
+  system_type: duckdb
+  username: null
+- database: agent9-465818
+  database_path: null
+  default_schema: null
+  description: This is a test connection to Google BigQuery
+  driver: null
+  extras: {}
+  host: null
+  name: Google BigQuery
+  password: null
+  password_saved: false
+  persist_secret: false
+  port: null
+  schema: SalesOrders
+  system_type: bigquery
+  username: null

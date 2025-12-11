@@ -16,6 +16,11 @@ from typing import Dict, List, Any, Optional
 from src.registry.factory import RegistryFactory
 from src.registry.providers.principal_provider import PrincipalProfileProvider
 from src.registry.providers.business_process_provider import BusinessProcessProvider
+from src.agents.models.data_product_onboarding_models import (
+    PrincipalOwnershipRequest,
+    PrincipalOwnershipResponse,
+    OwnershipChainEntry,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -332,6 +337,114 @@ class A9_Principal_Context_Agent:
         except Exception as e:
             self.logger.error(f"Error fetching principal profile: {str(e)}")
             return {"principal_id": principal_id, "name": principal_id.replace('_', ' ').title()}
+
+    async def identify_data_product_owner(
+        self, request: PrincipalOwnershipRequest
+    ) -> PrincipalOwnershipResponse:
+        """Resolve the accountable principal for a newly onboarded data product."""
+
+        request_id = request.request_id
+        notes: List[str] = []
+        ownership_chain: List[OwnershipChainEntry] = []
+        owner_principal_id: Optional[str] = None
+        owner_profile: Dict[str, Any] = {}
+
+        def _record_chain(principal_id: str, role: Optional[str], reason: str) -> None:
+            ownership_chain.append(
+                OwnershipChainEntry(
+                    principal_id=principal_id,
+                    role=role,
+                    reason=reason,
+                )
+            )
+
+        # 1. Direct nominee lookup by principal ID
+        if self._principal_provider and request.candidate_owner_ids:
+            for candidate_id in request.candidate_owner_ids:
+                if not candidate_id:
+                    continue
+                try:
+                    provider_profile = self._principal_provider.get(candidate_id)
+                except Exception as err:
+                    self.logger.warning(f"Candidate lookup failed for {candidate_id}: {err}")
+                    provider_profile = None
+                if provider_profile:
+                    owner_profile = self._normalize_profile_data(provider_profile)
+                    owner_principal_id = owner_profile.get("id", candidate_id)
+                    owner_profile.setdefault("principal_id", owner_principal_id)
+                    _record_chain(owner_principal_id, owner_profile.get("role"), "Direct nominee match")
+                    notes.append(f"Matched nominated owner '{owner_principal_id}'.")
+                    break
+
+        # 2. Fallback to role-based resolution when no direct nominee found
+        if not owner_principal_id and request.fallback_roles:
+            for role in request.fallback_roles:
+                profile = self._get_profile_case_insensitive(role)
+                if profile:
+                    owner_profile = self._normalize_profile_data(profile)
+                    owner_principal_id = owner_profile.get("id") or owner_profile.get("principal_id") or role
+                    owner_profile.setdefault("principal_id", owner_principal_id)
+                    _record_chain(owner_principal_id, owner_profile.get("role", role), "Role-based fallback match")
+                    notes.append(f"Selected role-based fallback '{owner_principal_id}'.")
+                    break
+
+        # 3. Examine business process context for the best available owner
+        if not owner_principal_id and request.business_process_context:
+            target_processes = {bp.lower() for bp in request.business_process_context if bp}
+            best_candidate: Optional[Dict[str, Any]] = None
+            best_match_count = 0
+            for profile_data in self._iter_principal_profiles():
+                business_processes = profile_data.get("business_processes", []) or []
+                overlap = target_processes.intersection({bp.lower() for bp in business_processes})
+                if overlap and len(overlap) > best_match_count:
+                    best_candidate = profile_data
+                    best_match_count = len(overlap)
+            if best_candidate:
+                owner_profile = best_candidate
+                owner_principal_id = best_candidate.get("id") or best_candidate.get("principal_id")
+                owner_profile.setdefault("principal_id", owner_principal_id)
+                _record_chain(
+                    owner_principal_id or "unknown",
+                    owner_profile.get("role"),
+                    "Matched via business process context",
+                )
+                notes.append(
+                    "Matched owner based on business process overlap: "
+                    + ", ".join(request.business_process_context)
+                )
+
+        # 4. Last-resort fallback to the first available profile
+        if not owner_principal_id:
+            fallback_profile = next(self._iter_principal_profiles(), None)
+            if fallback_profile:
+                owner_profile = fallback_profile
+                owner_principal_id = fallback_profile.get("id") or fallback_profile.get("principal_id")
+                owner_profile.setdefault("principal_id", owner_principal_id)
+                _record_chain(
+                    owner_principal_id or "unknown",
+                    owner_profile.get("role"),
+                    "Default registry fallback",
+                )
+                notes.append("Applied default principal registry fallback.")
+
+        if owner_principal_id:
+            owner_profile.setdefault("principal_id", owner_principal_id)
+            return PrincipalOwnershipResponse.success(
+                request_id=request_id,
+                owner_principal_id=owner_principal_id,
+                owner_profile=owner_profile,
+                ownership_chain=ownership_chain,
+                notes=notes,
+            )
+
+        notes.append("No owner could be resolved automatically; manual assignment required.")
+        return PrincipalOwnershipResponse.pending(
+            request_id=request_id,
+            owner_principal_id=None,
+            owner_profile={},
+            ownership_chain=ownership_chain,
+            notes=notes,
+        )
     
     async def get_context_recommendations(self) -> List[Dict[str, Any]]:
         """

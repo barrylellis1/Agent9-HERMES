@@ -1,0 +1,11 @@
+"Transaction Date","Account Hierarchy Desc","Version","Transaction Value Amount"
+2025-01-15,"Gross Revenue","Actual",150000
+2025-01-15,"Cost of Goods Sold","Actual",-80000
+2025-01-15,"Utilities Expense","Actual",-5000
+2025-01-15,"Office Expense","Actual",-2000
+2025-01-15,"Payroll","Actual",-40000
+2025-02-15,"Gross Revenue","Actual",160000
+2025-02-15,"Cost of Goods Sold","Actual",-85000
+2025-02-15,"Utilities Expense","Actual",-5500
+2025-02-15,"Office Expense","Actual",-2200
+2025-02-15,"Payroll","Actual",-41000

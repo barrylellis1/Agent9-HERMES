@@ -57,6 +57,7 @@ The outcomes of these sessions will be documented in the `docs/clarification_ses
 1. **Environment Setup**:
    - Copy `.env.template` to `.env` and fill in your API keys and credentials
    - Do NOT commit your `.env` file to version control
+   - (Optional) configure Decision Studio connection profiles in `config/connection_profiles.yaml`
 
 2. **Requirements Clarification**:
    - Use `docs/Agent9_LLM_Requirements_Session_Template.md` as the template for LLM sessions
@@ -66,6 +67,23 @@ The outcomes of these sessions will be documented in the `docs/clarification_ses
    - Follow the Agent9 Agent Design Standards in `docs/Agent9_Agent_Design_Standards.md`
    - Implement the core workflows based on the unified requirements
    - Use the test harnesses to validate your implementation
+
+### Decision Studio Connection Profiles
+
+The admin console now supports guardrailed connection profiles for onboarding workflows. Profiles are stored in `config/connection_profiles.yaml` (override with `A9_CONNECTION_PROFILES_PATH`). Example DuckDB profile:
+
+```yaml
+profiles:
+  - name: local-duckdb
+    system_type: duckdb
+    description: Local DuckDB database for Decision Studio
+    database_path: data/agent9-hermes.duckdb
+    persist_secret: false
+    password_saved: false
+active_profile: local-duckdb
+```
+
+Use the “Connection Profiles” panel in Decision Studio Admin to create, test, and activate profiles. Active profile defaults populate the onboarding form automatically. BigQuery profiles can be tested directly from the UI (ensure Application Default Credentials or a service-account key is configured so the SDK can authenticate).
 
 ## Core Workflows
 

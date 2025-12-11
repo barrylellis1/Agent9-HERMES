@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 # Import registry providers
 from src.registry.factory import RegistryFactory
 from src.registry.providers.business_glossary_provider import BusinessGlossaryProvider, BusinessTerm
+from src.registry.providers.business_process_provider import BusinessProcessProvider
 from src.registry.providers.kpi_provider import KPIProvider
 from src.registry.models.kpi import KPI
 
@@ -29,18 +30,26 @@ from src.agents.models.data_governance_models import (
     BusinessTermTranslationResponse,
     DataAccessValidationRequest,
     DataAccessValidationResponse,
-    DataQualityCheckRequest,
-    DataQualityCheckResponse,
     DataLineageRequest,
     DataLineageResponse,
+    DataQualityCheckRequest,
+    DataQualityCheckResponse,
     KPIDataProductMappingRequest,
     KPIDataProductMappingResponse,
     KPIDataProductMapping,
     DataAssetPathRequest,
     DataAssetPathResponse,
     KPIViewNameRequest,
-    KPIViewNameResponse
+    KPIViewNameResponse,
 )
+from src.agents.models.data_product_onboarding_models import (
+    KPIRegistryUpdateRequest,
+    KPIRegistryUpdateResponse,
+    BusinessProcessMappingRequest,
+    BusinessProcessMappingResponse,
+)
+from src.registry.models.kpi import KPI as RegistryKPI
+from src.registry.models.business_process import BusinessProcess
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -370,6 +379,134 @@ class A9_Data_Governance_Agent:
             human_action_required=human_action_required,
             human_action_context=human_action_context
         )
+
+    async def register_kpi_metadata(
+        self, request: KPIRegistryUpdateRequest
+    ) -> KPIRegistryUpdateResponse:
+        """Register or update KPI definitions in the governance registry."""
+
+        request_id = request.request_id
+
+        if not self.kpi_provider:
+            self.logger.error("KPI Provider not initialized")
+            return KPIRegistryUpdateResponse.error(
+                request_id=request_id,
+                error_message="KPI provider unavailable",
+                updated_count=0,
+                duplicated_ids=[entry.kpi_id for entry in request.kpis],
+                registry_path=None,
+            )
+
+        updated_count = 0
+        duplicated_ids: List[str] = []
+
+        for entry in request.kpis:
+            try:
+                payload = entry.model_dump()
+                payload.setdefault("data_product_id", request.data_product_id)
+                if entry.thresholds:
+                    thresholds = []
+                    for th in entry.thresholds:
+                        thresholds.append(
+                            {
+                                "comparison_type": th.type,
+                                "green_threshold": th.value,
+                                "yellow_threshold": None,
+                                "red_threshold": None,
+                                "inverse_logic": th.comparator in {"<=", "<"},
+                            }
+                        )
+                    payload["thresholds"] = thresholds
+
+                registry_kpi = RegistryKPI(**payload)
+
+                existing = self.kpi_provider.get(registry_kpi.id)
+                if existing and not request.overwrite_existing:
+                    duplicated_ids.append(registry_kpi.id)
+                    continue
+
+                self.kpi_provider.upsert(registry_kpi)
+                updated_count += 1
+            except Exception as err:
+                self.logger.error(f"Failed to register KPI {entry.kpi_id}: {err}")
+                duplicated_ids.append(entry.kpi_id)
+
+        registry_path = getattr(self.kpi_provider, "source_path", None)
+
+        return KPIRegistryUpdateResponse.success(
+            request_id=request_id,
+            updated_count=updated_count,
+            duplicated_ids=duplicated_ids,
+            registry_path=registry_path,
+        )
+
+    async def map_business_process(
+        self, request: BusinessProcessMappingRequest
+    ) -> BusinessProcessMappingResponse:
+        """Associate KPIs with governed business processes."""
+
+        request_id = request.request_id
+
+        try:
+            if not self.registry_factory:
+                self.registry_factory = RegistryFactory()
+
+            bp_provider = self.registry_factory.get_business_process_provider()
+            if not bp_provider:
+                bp_provider = BusinessProcessProvider()
+
+            applied: List[Any] = []
+            skipped: List[str] = []
+
+            # Ensure provider is loaded lazily
+            try:
+                if hasattr(bp_provider, "load"):
+                    await bp_provider.load()
+            except Exception:
+                pass
+
+            for mapping in request.mappings:
+                try:
+                    existing = bp_provider.get(mapping.process_id)
+                    if existing and not request.overwrite_existing:
+                        skipped.append(mapping.process_id)
+                        continue
+
+                    payload = {
+                        "id": mapping.process_id,
+                        "name": mapping.process_id.replace("_", " ").title(),
+                        "domain": "Finance",
+                        "description": mapping.notes or "Auto-generated process mapping",
+                        "kpi_ids": mapping.kpi_ids,
+                        "compliance_policies": mapping.compliance_policies,
+                    }
+
+                    bp_model = BusinessProcess(**payload)
+                    bp_provider.upsert(bp_model)
+                    applied.append(mapping)
+                except Exception as err:
+                    self.logger.error(
+                        f"Failed to map business process {mapping.process_id}: {err}"
+                    )
+                    skipped.append(mapping.process_id)
+
+            registry_path = getattr(bp_provider, "source_path", None)
+
+            return BusinessProcessMappingResponse.success(
+                request_id=request_id,
+                applied_mappings=applied,
+                skipped_process_ids=skipped,
+                registry_path=registry_path,
+            )
+        except Exception as err:
+            self.logger.error(f"Business process mapping error: {err}")
+            return BusinessProcessMappingResponse.error(
+                request_id=request_id,
+                error_message=str(err),
+                applied_mappings=[],
+                skipped_process_ids=[m.process_id for m in request.mappings],
+                registry_path=None,
+            )
     
     async def get_view_name_for_kpi(
         self, request: KPIViewNameRequest

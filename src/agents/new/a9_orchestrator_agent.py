@@ -12,6 +12,19 @@ from typing import Dict, Any, List, Optional, Callable, Type, Union, Set
 import inspect
 from src.agents.shared.business_context_loader import try_load_business_context
 from src.agents.shared.a9_debate_protocol_models import A9_ProblemStatement, A9_PS_BusinessContext
+from src.agents.models.situation_awareness_models import SituationDetectionRequest
+from src.agents.models.data_product_onboarding_models import (
+    DataProductOnboardingWorkflowRequest,
+    DataProductOnboardingWorkflowResponse,
+    WorkflowStepSummary,
+    DataProductSchemaInspectionRequest,
+    DataProductContractGenerationRequest,
+    DataProductRegistrationRequest,
+    KPIRegistryUpdateRequest,
+    BusinessProcessMappingRequest,
+    PrincipalOwnershipRequest,
+    DataProductQARequest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -451,7 +464,404 @@ class A9_Orchestrator_Agent:
             error_msg = f"Error executing {agent_name}.{method_name}: {str(e)}"
             self.logger.error(error_msg)
             raise RuntimeError(error_msg) from e
-    
+
+    async def _execute_workflow_step(
+        self,
+        agent_name: str,
+        method_name: str,
+        request_model,
+        request_payload: Dict[str, Any],
+        step_name: str,
+        context: Dict[str, Any],
+        suppress_errors: bool = False,
+    ) -> WorkflowStepSummary:
+        """Execute a workflow entrypoint and wrap the response into a summary."""
+
+        try:
+            if isinstance(request_model, type):
+                request_instance = request_model(**request_payload)
+            else:
+                request_instance = request_model
+
+            result = await self.execute_agent_method(
+                agent_name,
+                method_name,
+                {"request": request_instance},
+            )
+
+            if hasattr(result, "model_dump"):
+                result_dict = result.model_dump()
+                status = result_dict.get("status", "success")
+            else:
+                result_dict = result if isinstance(result, dict) else {"result": result}
+                status = result_dict.get("status", "success")
+
+            context[step_name] = result_dict
+
+            return WorkflowStepSummary(
+                name=step_name,
+                status=status,
+                details=result_dict,
+            )
+        except Exception as exc:
+            self.logger.error(f"Workflow step {step_name} failed: {exc}")
+            if suppress_errors:
+                return WorkflowStepSummary(
+                    name=step_name,
+                    status="error",
+                    details={"error": str(exc)},
+                )
+            raise
+
+    async def orchestrate_data_product_onboarding(
+        self, request: DataProductOnboardingWorkflowRequest
+    ) -> DataProductOnboardingWorkflowResponse:
+        """Coordinate the full data product onboarding workflow across agents."""
+
+        steps: List[WorkflowStepSummary] = []
+        context: Dict[str, Any] = {}
+        contract_paths: List[str] = []
+        principal_owner: Dict[str, Any] = {}
+        qa_report: Dict[str, Any] = {}
+        activation_context: Dict[str, Any] = {}
+        governance_status = "pending"
+
+        def _build_response(status: str, error_message: Optional[str] = None) -> DataProductOnboardingWorkflowResponse:
+            payload = {
+                "steps": steps,
+                "data_product_id": request.data_product_id,
+                "contract_paths": contract_paths,
+                "governance_status": governance_status,
+                "principal_owner": principal_owner,
+                "qa_report": qa_report,
+                "activation_context": activation_context,
+            }
+
+            if status == "success":
+                return DataProductOnboardingWorkflowResponse.success(
+                    request_id=request.request_id,
+                    **payload,
+                )
+            if status == "pending":
+                return DataProductOnboardingWorkflowResponse.pending(
+                    request_id=request.request_id,
+                    **payload,
+                )
+            return DataProductOnboardingWorkflowResponse.error(
+                request_id=request.request_id,
+                error_message=error_message or "Data product onboarding failed",
+                **payload,
+            )
+
+        async def _run_step(
+            agent_name: str,
+            method_name: str,
+            model_cls,
+            payload: Dict[str, Any],
+            name: str,
+            suppress_errors: bool = False,
+        ) -> WorkflowStepSummary:
+            summary = await self._execute_workflow_step(
+                agent_name,
+                method_name,
+                model_cls,
+                payload,
+                name,
+                context,
+                suppress_errors=suppress_errors,
+            )
+            steps.append(summary)
+            return summary
+
+        try:
+            try:
+                await initialize_agent_registry()
+            except Exception as init_err:  # pragma: no cover - defensive
+                self.logger.warning(f"Agent registry initialization warning: {init_err}")
+
+            for agent_name in [
+                "A9_Data_Product_Agent",
+                "A9_Data_Governance_Agent",
+                "A9_Principal_Context_Agent",
+            ]:
+                try:
+                    await self.get_agent(agent_name)
+                except Exception as agent_err:  # pragma: no cover - defensive
+                    self.logger.warning(f"Unable to pre-load {agent_name}: {agent_err}")
+
+            # INGESTION LOGIC: If connection_overrides has file_path, load it into DuckDB
+            if request.connection_overrides and request.connection_overrides.get('file_path') and request.source_system == 'duckdb':
+                file_path = request.connection_overrides.get('file_path')
+                table_name = request.connection_overrides.get('table_name', 'ingested_table')
+                self.logger.info(f"Ingesting file {file_path} into table {table_name}")
+                
+                dp_agent = await self.get_agent("A9_Data_Product_Agent")
+                # Use internal db_manager to execute raw SQL
+                if hasattr(dp_agent, 'db_manager'):
+                    ingest_sql = f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM '{file_path}'"
+                    try:
+                        # execute_query might be async
+                        if hasattr(dp_agent.db_manager, 'execute_query'):
+                            res = dp_agent.db_manager.execute_query(ingest_sql)
+                            if hasattr(res, '__await__'):
+                                await res
+                        self.logger.info(f"Ingestion successful: {table_name}")
+                    except Exception as ingest_err:
+                        self.logger.error(f"Ingestion failed: {ingest_err}")
+                        return _build_response("error", f"Data ingestion failed: {ingest_err}")
+
+            inspection_payload = {
+                "request_id": request.request_id,
+                "principal_id": request.principal_id,
+                "source_system": request.source_system,
+                "database": request.database,
+                "schema": request.schema,
+                "tables": request.tables,
+                "inspection_depth": request.inspection_depth,
+                "include_samples": request.include_samples,
+                "environment": request.environment,
+                "connection_overrides": request.connection_overrides,
+            }
+            inspection_step = await _run_step(
+                "A9_Data_Product_Agent",
+                "inspect_source_schema",
+                DataProductSchemaInspectionRequest,
+                inspection_payload,
+                "inspect_source_schema",
+            )
+            if inspection_step.status == "error":
+                return _build_response("error", "Schema inspection failed")
+
+            inspection_details = context.get("inspect_source_schema", {})
+            schema_summary = inspection_details.get("tables", [])
+            inferred_kpis = inspection_details.get("inferred_kpis", [])
+
+            target_contract_path = request.contract_output_path or f"src/registry/data_product/{request.data_product_id}.yaml"
+            contract_payload = {
+                "request_id": request.request_id,
+                "principal_id": request.principal_id,
+                "data_product_id": request.data_product_id,
+                "schema_summary": schema_summary,
+                "kpi_proposals": inferred_kpis,
+                "target_contract_path": target_contract_path,
+                "contract_overrides": request.contract_overrides or {},
+            }
+            contract_step = await _run_step(
+                "A9_Data_Product_Agent",
+                "generate_contract_yaml",
+                DataProductContractGenerationRequest,
+                contract_payload,
+                "generate_contract_yaml",
+            )
+            if contract_step.status == "error":
+                return _build_response("error", "Contract generation failed")
+
+            contract_details = context.get("generate_contract_yaml", {})
+            contract_path = contract_details.get("contract_path") or target_contract_path
+            if contract_path and contract_path not in contract_paths:
+                contract_paths.append(contract_path)
+
+            registration_payload = {
+                "request_id": request.request_id,
+                "principal_id": request.principal_id,
+                "data_product_id": request.data_product_id,
+                "contract_path": contract_path,
+                "display_name": request.data_product_name,
+                "domain": request.data_product_domain,
+                "description": request.data_product_description,
+                "tags": request.data_product_tags or [],
+                "owner_metadata": request.owner_metadata or {},
+                "additional_metadata": request.additional_metadata or {},
+            }
+            registration_step = await _run_step(
+                "A9_Data_Product_Agent",
+                "register_data_product",
+                DataProductRegistrationRequest,
+                registration_payload,
+                "register_data_product",
+            )
+            if registration_step.status == "error":
+                return _build_response("error", "Registry registration failed")
+
+            registration_details = context.get("register_data_product", {})
+            if registration_details.get("registry_entry"):
+                activation_context = {"registry_entry": registration_details.get("registry_entry")}
+
+            if request.kpi_entries:
+                kpi_payload = {
+                    "request_id": request.request_id,
+                    "principal_id": request.principal_id,
+                    "data_product_id": request.data_product_id,
+                    "kpis": request.kpi_entries,
+                    "overwrite_existing": request.overwrite_existing_kpis,
+                }
+                kpi_step = await _run_step(
+                    "A9_Data_Governance_Agent",
+                    "register_kpi_metadata",
+                    KPIRegistryUpdateRequest,
+                    kpi_payload,
+                    "register_kpi_metadata",
+                )
+                if kpi_step.status == "error":
+                    governance_status = "error"
+                    return _build_response("error", "KPI registry update failed")
+                governance_status = "success"
+
+            if request.business_process_mappings:
+                mapping_payload = {
+                    "request_id": request.request_id,
+                    "principal_id": request.principal_id,
+                    "data_product_id": request.data_product_id,
+                    "mappings": request.business_process_mappings,
+                    "overwrite_existing": request.overwrite_existing_mappings,
+                }
+                mapping_step = await _run_step(
+                    "A9_Data_Governance_Agent",
+                    "map_business_process",
+                    BusinessProcessMappingRequest,
+                    mapping_payload,
+                    "map_business_processes",
+                )
+                if mapping_step.status == "error":
+                    governance_status = "error"
+                    return _build_response("error", "Business process mapping failed")
+                if governance_status != "error":
+                    governance_status = "success"
+
+            if (
+                request.candidate_owner_ids
+                or request.fallback_roles
+                or request.business_process_context
+            ):
+                ownership_payload = {
+                    "request_id": request.request_id,
+                    "principal_id": request.principal_id,
+                    "data_product_id": request.data_product_id,
+                    "candidate_owner_ids": request.candidate_owner_ids or [],
+                    "fallback_roles": request.fallback_roles or [],
+                    "business_process_context": request.business_process_context or [],
+                    "environment": request.environment,
+                }
+                ownership_step = await _run_step(
+                    "A9_Principal_Context_Agent",
+                    "identify_data_product_owner",
+                    PrincipalOwnershipRequest,
+                    ownership_payload,
+                    "identify_data_product_owner",
+                )
+                if ownership_step.status == "error":
+                    return _build_response("error", "Principal ownership resolution failed")
+                principal_owner = context.get("identify_data_product_owner", {})
+                if principal_owner:
+                    activation_context.setdefault("principal_ownership", principal_owner)
+
+            if request.qa_enabled:
+                qa_payload = {
+                    "request_id": request.request_id,
+                    "principal_id": request.principal_id,
+                    "data_product_id": request.data_product_id,
+                    "contract_path": contract_path,
+                    "environment": request.environment,
+                    "checks": request.qa_checks or [],
+                    "additional_context": request.qa_additional_context or {},
+                }
+                qa_step = await _run_step(
+                    "A9_Data_Product_Agent",
+                    "validate_data_product_onboarding",
+                    DataProductQARequest,
+                    qa_payload,
+                    "validate_data_product_onboarding",
+                )
+                qa_report = context.get("validate_data_product_onboarding", {})
+                if qa_step.status == "error":
+                    return _build_response("error", "QA validation failed")
+
+            statuses = {step.status for step in steps}
+            if "error" in statuses:
+                return _build_response("error")
+            if "pending" in statuses:
+                return _build_response("pending")
+            if governance_status == "pending" and not (
+                request.kpi_entries or request.business_process_mappings
+            ):
+                governance_status = "success"
+            return _build_response("success")
+
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.error(f"Unexpected onboarding failure: {exc}")
+            return _build_response("error", str(exc))
+
+    async def orchestrate_situation_detection(
+        self, request: SituationDetectionRequest
+    ) -> Dict[str, Any]:
+        """
+        Orchestrate the situation detection workflow.
+        
+        Args:
+            request: The situation detection request.
+            
+        Returns:
+            The detection results including surfaced situations and logs.
+        """
+        # Debugging: Print exactly what request is
+        p_id = "unknown"
+        try:
+            if isinstance(request, dict):
+                p_id = request.get('principal_context', {}).get('principal_id', 'unknown_dict')
+            elif hasattr(request, 'principal_context'):
+                if hasattr(request.principal_context, 'principal_id'):
+                    p_id = request.principal_context.principal_id
+                elif isinstance(request.principal_context, dict):
+                    p_id = request.principal_context.get('principal_id', 'unknown_pc_dict')
+            elif hasattr(request, 'principal_id'):
+                p_id = request.principal_id
+        except Exception as e:
+            p_id = f"error_extracting_id_{str(e)}"
+
+        self.logger.info(f"Orchestrating situation detection for principal {p_id}")
+        
+        try:
+            # 1. Ensure SA Agent is initialized
+            await self.get_agent("A9_Situation_Awareness_Agent")
+            
+            # 2. Execute detection
+            result = await self.execute_agent_method(
+                "A9_Situation_Awareness_Agent",
+                "detect_situations",
+                {"request": request}
+            )
+            
+            # 3. Log success
+            # Result is a SituationDetectionResponse object (Pydantic model)
+            # We need to handle both object and dict return types from execute_agent_method
+            if isinstance(result, dict):
+                situations = result.get("situations", [])
+                metadata = result.get("metadata", {})
+                logs = result.get("logs", [])
+            else:
+                # Assume Pydantic model
+                situations = getattr(result, "situations", [])
+                metadata = getattr(result, "metadata", {}) if hasattr(result, "metadata") else {}
+                logs = getattr(result, "logs", []) if hasattr(result, "logs") else []
+
+            situation_count = len(situations)
+            self.logger.info(f"Situation detection completed. Surfaced {situation_count} situations.")
+            
+            return {
+                "status": "success",
+                "situations": situations,
+                "metadata": metadata,
+                "logs": logs
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Situation detection failed: {str(e)}")
+            return {
+                "status": "error",
+                "message": str(e),
+                "situations": []
+            }
+
     # ---- Headless orchestration helpers (for batch/background runs) ----
     async def prepare_environment(self, contract_path: str, view_name: str = "FI_Star_View", schema: str = "main") -> Dict[str, Any]:
         """

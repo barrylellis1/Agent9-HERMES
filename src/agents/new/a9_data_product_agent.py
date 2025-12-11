@@ -44,6 +44,20 @@ from src.agents.models.sql_models import SQLExecutionRequest, SQLExecutionRespon
 from src.registry.providers.business_glossary_provider import BusinessGlossaryProvider
 from src.agents.models.data_governance_models import KPIViewNameRequest
 from src.agents.a9_llm_service_agent import A9_LLM_SQLGenerationRequest
+from src.agents.models.data_product_onboarding_models import (
+    DataProductSchemaInspectionRequest,
+    DataProductSchemaInspectionResponse,
+    DataProductContractGenerationRequest,
+    DataProductContractGenerationResponse,
+    DataProductRegistrationRequest,
+    DataProductRegistrationResponse,
+    DataProductQARequest,
+    DataProductQAResponse,
+    TableProfile,
+    TableColumnProfile,
+    KPIProposal,
+    QAResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -349,6 +363,40 @@ class A9_Data_Product_Agent(DataProductProtocol):
                             self.logger.info(f"[TXN:{transaction_id}] Registry metadata loaded with {len(data['data_products'])} data products available")
                         else:
                             self.logger.warning(f"[TXN:{transaction_id}] Registry file format not recognized")
+                        
+                        # Auto-hydrate tables and views for local development
+                        # This ensures that if raw CSVs exist (as defined in contracts), they are loaded
+                        # and Views are created, without requiring manual onboarding steps.
+                        if self._registry_data and 'data_products' in self._registry_data:
+                            self.logger.info(f"[TXN:{transaction_id}] Auto-hydrating data products for local dev...")
+                            for dp in self._registry_data['data_products']:
+                                try:
+                                    # Support both keys for flexibility
+                                    contract_path = dp.get('yaml_contract_path') or dp.get('contract_path')
+                                    
+                                    # Handle relative paths from project root if needed
+                                    if contract_path and not os.path.isabs(contract_path) and not os.path.exists(contract_path):
+                                        # Try resolving relative to CWD (Project Root) or Registry Path
+                                        # But usually CWD is project root.
+                                        pass 
+
+                                    if contract_path and os.path.exists(contract_path):
+                                        self.logger.info(f"Auto-hydrating product {dp.get('product_id')} from {contract_path}")
+                                        # 1. Register Source Tables
+                                        await self.register_tables_from_contract(contract_path)
+                                        
+                                        # 2. Create Views
+                                        # We need to peek into the contract to find view names
+                                        with open(contract_path, 'r') as cf:
+                                            c_data = yaml.safe_load(cf)
+                                            views = c_data.get('views', [])
+                                            for v in views:
+                                                v_name = v.get('name')
+                                                if v_name:
+                                                    await self.create_view_from_contract(contract_path, v_name)
+                                except Exception as hydrate_err:
+                                    self.logger.warning(f"Auto-hydration failed for {dp.get('product_id')}: {hydrate_err}")
+
                     except Exception as e:
                         self.logger.error(f"[TXN:{transaction_id}] Error loading registry metadata: {str(e)}")
                 else:
@@ -604,6 +652,555 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 "message": str(e),
                 "data_products": []
             }
+
+    # ------------------------------------------------------------------
+    # Data Product Onboarding entrypoints
+    # ------------------------------------------------------------------
+
+    async def inspect_source_schema(
+        self, request: DataProductSchemaInspectionRequest
+    ) -> DataProductSchemaInspectionResponse:
+        """Profile tables/columns from a source schema for onboarding."""
+
+        request_id = request.request_id
+        tables: List[TableProfile] = []
+        inferred_kpis: List[KPIProposal] = []
+        warnings: List[str] = []
+        blockers: List[str] = []
+        inspection_metadata: Dict[str, Any] = {}
+
+        try:
+            if not await self._ensure_db_connected():
+                msg = "Database connection unavailable for schema inspection"
+                blockers.append(msg)
+                return DataProductSchemaInspectionResponse.error(
+                    request_id=request_id,
+                    error_message=msg,
+                    environment=request.environment,
+                    tables=tables,
+                    inferred_kpis=inferred_kpis,
+                    warnings=warnings,
+                    blockers=blockers,
+                    inspection_metadata=inspection_metadata,
+                )
+
+            # Build the list of tables to inspect
+            table_names: List[str]
+            if request.tables:
+                table_names = request.tables
+            else:
+                # Query DuckDB information schema for available tables in the schema
+                list_sql = """
+                    SELECT table_schema, table_name
+                    FROM information_schema.tables
+                    WHERE table_type = 'BASE TABLE'
+                """
+                params: Dict[str, Any] = {}
+                if request.schema:
+                    list_sql += " AND table_schema = ?"
+                    params = {"schema": request.schema}
+                try:
+                    df = await self.db_manager.execute_query(
+                        list_sql,
+                        parameters=params if params else None,
+                    )
+                    if not df.empty:
+                        table_names = [
+                            f"{row['table_schema']}.{row['table_name']}"
+                            if request.schema is None
+                            else row["table_name"]
+                            for _, row in df.iterrows()
+                        ]
+                    else:
+                        warnings.append("No tables discovered for inspection")
+                        table_names = []
+                except Exception as discover_err:
+                    msg = f"Failed to enumerate tables: {discover_err}"
+                    blockers.append(msg)
+                    return DataProductSchemaInspectionResponse.error(
+                        request_id=request_id,
+                        error_message=msg,
+                        environment=request.environment,
+                        tables=tables,
+                        inferred_kpis=inferred_kpis,
+                        warnings=warnings,
+                        blockers=blockers,
+                        inspection_metadata=inspection_metadata,
+                    )
+
+            # Profile each table
+            for table_name in table_names:
+                try:
+                    profile = await self._profile_table(
+                        table_name=table_name,
+                        include_samples=request.include_samples,
+                        inspection_depth=request.inspection_depth,
+                    )
+                    if profile:
+                        tables.append(profile)
+                except Exception as profile_err:
+                    warnings.append(f"Failed to profile {table_name}: {profile_err}")
+
+            # Infer KPI candidates from measures/dimensions heuristics
+            inferred_kpis = self._infer_kpis_from_profiles(tables)
+            inspection_metadata["table_count"] = len(tables)
+
+            return DataProductSchemaInspectionResponse.success(
+                request_id=request_id,
+                environment=request.environment,
+                tables=tables,
+                inferred_kpis=inferred_kpis,
+                warnings=warnings,
+                blockers=blockers,
+                inspection_metadata=inspection_metadata,
+            )
+        except Exception as err:
+            self.logger.error(f"Schema inspection error: {err}\n{traceback.format_exc()}")
+            return DataProductSchemaInspectionResponse.error(
+                request_id=request_id,
+                error_message=str(err),
+                environment=request.environment,
+                tables=tables,
+                inferred_kpis=inferred_kpis,
+                warnings=warnings,
+                blockers=blockers or ["Unexpected error"],
+                inspection_metadata=inspection_metadata,
+            )
+
+    async def generate_contract_yaml(
+        self, request: DataProductContractGenerationRequest
+    ) -> DataProductContractGenerationResponse:
+        """Generate a YAML contract from inspection results and overrides."""
+
+        request_id = request.request_id
+        try:
+            contract_dict = self._build_contract_dict(
+                data_product_id=request.data_product_id,
+                schema_summary=request.schema_summary,
+                kpi_proposals=request.kpi_proposals,
+                overrides=request.contract_overrides,
+            )
+            contract_yaml = yaml.safe_dump(
+                contract_dict, sort_keys=False, allow_unicode=True
+            )
+
+            contract_path: Optional[str] = None
+            if request.target_contract_path:
+                try:
+                    contract_path = self._persist_contract_yaml(
+                        request.target_contract_path, contract_yaml
+                    )
+                except Exception as persist_err:
+                    return DataProductContractGenerationResponse.error(
+                        request_id=request_id,
+                        error_message=f"Failed to write contract YAML: {persist_err}",
+                        contract_yaml=contract_yaml,
+                        contract_path=None,
+                        validation_messages=[],
+                        warnings=["Contract persisted to memory only"],
+                    )
+
+            # Minimal schema validation: ensure required top-level sections exist
+            validation_messages: List[str] = self._validate_contract_dict(contract_dict)
+
+            return DataProductContractGenerationResponse.success(
+                request_id=request_id,
+                contract_yaml=contract_yaml,
+                contract_path=contract_path,
+                validation_messages=validation_messages,
+                warnings=[],
+            )
+        except Exception as err:
+            self.logger.error(f"Contract generation error: {err}\n{traceback.format_exc()}")
+            return DataProductContractGenerationResponse.error(
+                request_id=request_id,
+                error_message=str(err),
+                contract_yaml="",
+                contract_path=None,
+                validation_messages=[],
+                warnings=[],
+            )
+
+    async def register_data_product(
+        self, request: DataProductRegistrationRequest
+    ) -> DataProductRegistrationResponse:
+        """Persist the data product entry in the registry provider."""
+
+        request_id = request.request_id
+        try:
+            if not self.data_product_provider:
+                raise RuntimeError("Data product provider is not initialized")
+
+            registry_entry = {
+                "id": request.data_product_id,
+                "product_id": request.data_product_id,
+                "name": request.display_name or request.data_product_id,
+                "domain": request.domain or "Unknown",
+                "description": request.description or "",
+                "contract_path": request.contract_path,
+                "tags": request.tags,
+                "owner_metadata": request.owner_metadata,
+                "additional_metadata": request.additional_metadata,
+            }
+
+            existing = self.data_product_provider.get(request.data_product_id)
+            self.data_product_provider.upsert(registry_entry)
+            was_created = existing is None
+
+            registry_path = getattr(self.data_product_provider, "source_path", None)
+
+            return DataProductRegistrationResponse.success(
+                request_id=request_id,
+                registry_entry=registry_entry,
+                was_created=was_created,
+                registry_path=registry_path,
+            )
+        except Exception as err:
+            self.logger.error(f"Registry registration error: {err}\n{traceback.format_exc()}")
+            return DataProductRegistrationResponse.error(
+                request_id=request_id,
+                error_message=str(err),
+                registry_entry={},
+                was_created=False,
+                registry_path=None,
+            )
+
+    async def validate_data_product_onboarding(
+        self, request: DataProductQARequest
+    ) -> DataProductQAResponse:
+        """Optional QA step that lint-checks the contract and runs smoke tests."""
+
+        request_id = request.request_id
+        results: List[QAResult] = []
+        blockers: List[str] = []
+        overall_status = "pass"
+
+        try:
+            checks = request.checks or [
+                "lint_contract",
+                "register_tables",
+                "create_default_view",
+            ]
+
+            contract_yaml: Optional[str] = None
+            try:
+                with open(request.contract_path, "r", encoding="utf-8") as fh:
+                    contract_yaml = fh.read()
+            except Exception as read_err:
+                msg = f"Failed to read contract: {read_err}"
+                blockers.append(msg)
+                results.append(
+                    QAResult(
+                        check="lint_contract",
+                        status="fail",
+                        details={"error": msg},
+                        human_action_required=True,
+                    )
+                )
+                overall_status = "fail"
+                return DataProductQAResponse.error(
+                    request_id=request_id,
+                    error_message=msg,
+                    results=results,
+                    blockers=blockers,
+                    overall_status=overall_status,
+                )
+
+            contract_obj = yaml.safe_load(contract_yaml) if contract_yaml else {}
+
+            # Lint: ensure critical sections exist
+            if "lint_contract" in checks:
+                missing_sections = [
+                    section
+                    for section in ["metadata", "tables", "views"]
+                    if section not in contract_obj
+                ]
+                status = "pass" if not missing_sections else "fail"
+                details = {"missing_sections": missing_sections}
+                results.append(
+                    QAResult(
+                        check="lint_contract",
+                        status=status,
+                        details=details,
+                        human_action_required=bool(missing_sections),
+                    )
+                )
+                if missing_sections:
+                    blockers.append(
+                        f"Contract missing required sections: {', '.join(missing_sections)}"
+                    )
+                    overall_status = "fail"
+
+            if "register_tables" in checks:
+                reg_result = await self.register_tables_from_contract(
+                    contract_path=request.contract_path,
+                    schema=request.environment,
+                )
+                check_status = "pass" if reg_result.get("success") else "fail"
+                results.append(
+                    QAResult(
+                        check="register_tables",
+                        status=check_status,
+                        details=reg_result,
+                        human_action_required=not reg_result.get("success", False),
+                    )
+                )
+                if not reg_result.get("success"):
+                    blockers.append("Table registration failed")
+                    overall_status = "fail"
+
+            if "create_default_view" in checks:
+                default_view = request.additional_context.get("default_view_name", "Onboarded_View")
+                create_result = await self.create_view_from_contract(
+                    contract_path=request.contract_path,
+                    view_name=default_view,
+                )
+                check_status = "pass" if create_result.get("success") else "warn"
+                results.append(
+                    QAResult(
+                        check="create_default_view",
+                        status=check_status,
+                        details=create_result,
+                        human_action_required=not create_result.get("success", False),
+                    )
+                )
+                if not create_result.get("success"):
+                    warnings.append(
+                        f"View {default_view} creation failed; contract may require manual review"
+                    )
+                    overall_status = "warn" if overall_status != "fail" else overall_status
+
+            if not results:
+                overall_status = "warn"
+
+            return DataProductQAResponse.success(
+                request_id=request_id,
+                results=results,
+                blockers=blockers,
+                overall_status=overall_status,
+            )
+        except Exception as err:
+            self.logger.error(f"QA validation error: {err}\n{traceback.format_exc()}")
+            blockers.append(str(err))
+            return DataProductQAResponse.error(
+                request_id=request_id,
+                error_message=str(err),
+                results=results,
+                blockers=blockers,
+                overall_status="fail",
+            )
+
+    # ------------------------------------------------------------------
+    # Helpers for onboarding
+    # ------------------------------------------------------------------
+
+    async def _profile_table(
+        self,
+        table_name: str,
+        include_samples: bool,
+        inspection_depth: str,
+    ) -> Optional[TableProfile]:
+        """Inspect a single table and return a profile."""
+
+        try:
+            # Fetch row count and primary keys (using DuckDB pragmas)
+            row_count_df = await self.db_manager.execute_query(
+                f"SELECT COUNT(*) AS row_count FROM {table_name}"
+            )
+            row_count = int(row_count_df.iloc[0]["row_count"]) if not row_count_df.empty else None
+
+            pragma_df = await self.db_manager.execute_query(
+                f"PRAGMA table_info('{table_name}')"
+            )
+
+            columns: List[TableColumnProfile] = []
+            primary_keys: List[str] = []
+            timestamp_columns: List[str] = []
+
+            for _, row in pragma_df.iterrows():
+                col_name = row.get("name")
+                data_type = row.get("type")
+                is_nullable = not bool(row.get("notnull"))
+                if bool(row.get("pk")):
+                    primary_keys.append(col_name)
+
+                if data_type and any(
+                    token in str(data_type).lower() for token in ("date", "time", "timestamp")
+                ):
+                    timestamp_columns.append(col_name)
+
+                sample_values: List[Any] = []
+                statistics: Dict[str, Any] = {}
+
+                if include_samples:
+                    sample_df = await self.db_manager.execute_query(
+                        f"SELECT {col_name} FROM {table_name} LIMIT 5"
+                    )
+                    sample_values = sample_df[col_name].tolist() if col_name in sample_df else []
+
+                if inspection_depth in {"standard", "extended"}:
+                    stats_df = await self.db_manager.execute_query(
+                        f"SELECT COUNT(*) AS total_count, DISTINCT COUNT({col_name}) AS distinct_count FROM {table_name}"
+                    )
+                    if not stats_df.empty:
+                        statistics = {
+                            "total_count": int(stats_df.iloc[0]["total_count"]),
+                            "distinct_count": int(stats_df.iloc[0]["distinct_count"]),
+                        }
+
+                semantic_tags = self._infer_semantic_tags(col_name, data_type)
+
+                columns.append(
+                    TableColumnProfile(
+                        name=col_name,
+                        data_type=data_type,
+                        is_nullable=is_nullable,
+                        sample_values=sample_values,
+                        statistics=statistics,
+                        semantic_tags=semantic_tags,
+                    )
+                )
+
+            return TableProfile(
+                name=table_name,
+                row_count=row_count,
+                primary_keys=primary_keys,
+                timestamp_columns=timestamp_columns,
+                columns=columns,
+            )
+        except Exception as err:
+            self.logger.warning(f"Error profiling table {table_name}: {err}")
+            return None
+
+    def _infer_semantic_tags(self, column_name: str, data_type: Optional[str]) -> List[str]:
+        tags: List[str] = []
+        lower_name = column_name.lower()
+
+        if any(token in lower_name for token in ["amount", "revenue", "cost", "total", "qty", "quantity"]):
+            tags.append("measure")
+        if any(token in lower_name for token in ["date", "time", "_at", "timestamp"]):
+            tags.append("time")
+        if any(token in lower_name for token in ["id", "key"]):
+            tags.append("identifier")
+        if not tags:
+            tags.append("dimension")
+
+        if data_type and any(token in str(data_type).lower() for token in ("int", "decimal", "double", "numeric")):
+            if "measure" not in tags:
+                tags.append("numeric")
+
+        return tags
+
+    def _infer_kpis_from_profiles(self, tables: List[TableProfile]) -> List[KPIProposal]:
+        proposals: List[KPIProposal] = []
+        for table in tables:
+            measures = [
+                col.name
+                for col in table.columns
+                if "measure" in col.semantic_tags or "numeric" in col.semantic_tags
+            ]
+            dims = [
+                col.name
+                for col in table.columns
+                if "dimension" in col.semantic_tags and col.name not in measures
+            ]
+            for measure in measures:
+                if measure.lower() in {"amount", "total_amount", "revenue", "sales"}:
+                    proposals.append(
+                        KPIProposal(
+                            name=f"Total {measure.replace('_', ' ').title()}",
+                            expression=f"SUM({measure})",
+                            grain=",".join(table.primary_keys) or None,
+                            dimensions=dims[:5],
+                            description=f"Aggregated {measure} for {table.name}",
+                            confidence=0.8,
+                        )
+                    )
+        return proposals
+
+    def _build_contract_dict(
+        self,
+        data_product_id: str,
+        schema_summary: List[TableProfile],
+        kpi_proposals: List[KPIProposal],
+        overrides: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        contract: Dict[str, Any] = {
+            "metadata": {
+                "id": data_product_id,
+                "name": overrides.get("display_name", data_product_id.replace("_", " ").title()),
+                "domain": overrides.get("domain", "Unknown"),
+            },
+            "tables": [],
+            "views": [],
+            "kpis": [],
+        }
+
+        for profile in schema_summary:
+            contract_table = {
+                "name": profile.name,
+                "columns": [
+                    {
+                        "name": col.name,
+                        "data_type": col.data_type,
+                        "semantic_tags": col.semantic_tags,
+                    }
+                    for col in profile.columns
+                ],
+            }
+            if profile.primary_keys:
+                contract_table["primary_keys"] = profile.primary_keys
+            if profile.timestamp_columns:
+                contract_table["time_columns"] = profile.timestamp_columns
+            contract["tables"].append(contract_table)
+
+        if overrides.get("views"):
+            contract["views"].extend(overrides["views"])
+        else:
+            for profile in schema_summary:
+                view_name = f"{data_product_id}_{profile.name.split('.')[-1]}_view"
+                columns = [col.name for col in profile.columns]
+                select_list = ", ".join(columns)
+                view_sql = f"SELECT {select_list} FROM {profile.name}"
+                contract["views"].append({
+                    "name": view_name,
+                    "sql": view_sql,
+                    "source_table": profile.name,
+                })
+
+        for proposal in kpi_proposals:
+            contract["kpis"].append(
+                {
+                    "name": proposal.name,
+                    "expression": proposal.expression,
+                    "grain": proposal.grain,
+                    "dimensions": proposal.dimensions,
+                    "description": proposal.description,
+                }
+            )
+
+        for key, value in overrides.items():
+            if key not in contract:
+                contract[key] = value
+
+        return contract
+
+    def _persist_contract_yaml(self, target_path: str, yaml_text: str) -> str:
+        path = os.path.abspath(target_path)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(yaml_text)
+        return path
+
+    def _validate_contract_dict(self, contract: Dict[str, Any]) -> List[str]:
+        messages: List[str] = []
+        if "tables" in contract and not contract["tables"]:
+            messages.append("Contract contains no tables")
+        if "views" in contract and not contract["views"]:
+            messages.append("Contract contains no views")
+        if "metadata" in contract and "id" not in contract["metadata"]:
+            messages.append("Metadata missing id field")
+        return messages
 
     async def register_tables_from_contract(self, contract_path: str, schema: str = "main") -> Dict[str, Any]:
         """

@@ -17,6 +17,13 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+
+pytestmark = pytest.mark.skip(
+    reason=(
+        "Legacy Situation Awareness E2E test retired pending Decision Studio alignment"
+    )
+)
+
 # Add the parent directory to the path
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 

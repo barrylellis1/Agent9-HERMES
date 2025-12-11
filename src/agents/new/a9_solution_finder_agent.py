@@ -19,6 +19,8 @@ from src.agents.models.solution_finder_models import (
     SolutionOption,
     TradeOffCriterion,
     TradeOffMatrix,
+    PerspectiveAnalysis,
+    UnresolvedTension,
 )
 from src.agents.a9_llm_service_agent import (
     A9_LLM_AnalysisRequest,
@@ -323,24 +325,107 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
             use_llm = bool(self.config.enable_llm_debate or (self.orchestrator is not None))
             options: List[SolutionOption] = []
             rationale = ""
+            
+            # Initialize briefing variables
+            problem_reframe: Optional[Dict[str, Any]] = None
+            unresolved_tensions_list: List[UnresolvedTension] = []
+            blind_spots_list: List[str] = []
+            next_steps_list: List[str] = []
 
-            if use_llm and (self.orchestrator or self.llm_service_agent):
+            # FORCE LLM for debugging/MVP
+            use_llm = True 
+            
+            # Fallback: Attempt to acquire LLM service if missing
+            if use_llm and not self.orchestrator and not self.llm_service_agent:
                 try:
+                    print("DEBUG: Dependencies missing, attempting AgentRegistry lookup...")
+                    from src.agents.new.a9_orchestrator_agent import AgentRegistry
+                    self.llm_service_agent = await AgentRegistry.get_agent("A9_LLM_Service_Agent")
+                    print(f"DEBUG: Acquired LLM Service via Registry: {self.llm_service_agent is not None}")
+                except Exception as e:
+                    print(f"DEBUG: Registry lookup failed: {e}")
+
+            if use_llm:
+                try:
+                    print(f"DEBUG: Attempting LLM Debate. Orchestrator: {self.orchestrator is not None}, LLM Agent: {self.llm_service_agent is not None}")
                     # Build compact debate prompt content using provided context
                     da_ctx = request.deep_analysis_output or {}
+                    da_summary = _extract_deep_analysis_summary(da_ctx)
+                    print(f"DEBUG: da_summary keys: {list(da_summary.keys())}")
+                    print(f"DEBUG: KPI in summary: {da_summary.get('kpi_name')}")
+                    
                     # Derive a robust problem statement
                     ps_raw = (getattr(request, "problem_statement", None) or "").strip()
                     ps = ps_raw
+                    
+                    # FORCE KPI from summary if available, even if ps_raw is missing
+                    target_kpi = da_summary.get("kpi_name") or "Business Metric"
+
                     if not ps:
-                        # Prefer SCQA summary from Deep Analysis
+                        # Construct robust problem statement from DA summary
+                        kpi = da_summary.get("kpi_name")
+                        change_points = da_summary.get("top_change_points", [])
+                        
+                        ps_parts = []
+                        
+                        # Part 1: KPI and Delta (Quantitative)
+                        if kpi:
+                            if change_points:
+                                # Use the first (biggest) change point to quantify
+                                cp = change_points[0]
+                                delta = cp.get("delta")
+                                key = cp.get("key")
+                                dim = cp.get("dimension")
+                                val = cp.get("current_value")
+                                
+                                # Format nicely if numeric
+                                try:
+                                    delta_val = float(delta)
+                                    delta_str = f"{delta_val:,.2f}"
+                                    direction = "dropped" if delta_val < 0 else "increased"
+                                    # Use absolute for narrative
+                                    delta_abs = f"{abs(delta_val):,.2f}"
+                                except:
+                                    delta_str = str(delta)
+                                    direction = "changed"
+                                    delta_abs = str(delta)
+                                
+                                try:
+                                    val_str = f"{float(val):,.2f}"
+                                except:
+                                    val_str = str(val)
+                                
+                                ps_parts.append(f"{kpi} {direction} by {delta_abs} (Current Level: {val_str}).")
+                                if dim and key:
+                                    ps_parts.append(f"This deviation is primarily driven by '{key}' within the {dim} segment.")
+                            else:
+                                ps_parts.append(f"{kpi} is showing significant anomalous behavior deviating from historical trends.")
+                        
+                        # Part 2: Timeframe
+                        tf = da_summary.get("timeframe")
+                        if tf:
+                             ps_parts.append(f"Analysis period: {tf}.")
+                        
+                        # Part 3: Signals
+                        signals = da_summary.get("where_signals", [])
+                        if signals:
+                             ps_parts.append(f"Contributing factors identified: {', '.join(signals[:2])}.")
+
+                        if ps_parts:
+                            ps = " ".join(ps_parts)
+                        else:
+                            ps = "Anomaly detected in business metrics requiring strategic intervention."
+                            
+                        # Prefer SCQA summary if available as it's more narrative context
                         try:
                             scqa = None
                             if hasattr(da_ctx, "scqa_summary"):
-                                scqa = getattr(da_ctx, "scqa_summary", None)
+                                scqa = getattr(da_ctx, "scqa_summary")
                             elif isinstance(da_ctx, dict):
                                 scqa = da_ctx.get("scqa_summary")
-                            if isinstance(scqa, str) and scqa.strip():
-                                ps = scqa.strip()
+                            
+                            if scqa:
+                                ps = f"{ps} \n\nAdditional Context: {str(scqa)}"
                         except Exception:
                             pass
                     if not ps:
@@ -391,12 +476,64 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     personas = ", ".join(personas_list)
 
                     debate_spec = (
-                        "You are a panel of expert personas (" + personas + ") debating solutions.\n"
-                        "Given the problem and data context, propose 2-3 concrete solution options with normalized metrics (0-1).\n"
-                        "Return STRICT JSON with keys: options (array of {id,title,description,expected_impact,cost,risk,rationale}),\n"
-                        "consensus_rationale (string), transcript (array of {persona,opinion}), and transcript_detailed (array).\n"
-                        "Each item in transcript_detailed should include: {persona, claim, reasoning_outline (array of bullet points),\n"
-                        "counters (array), concession (string|nullable), revised_position (string|nullable), vote (0-1 or yes/no)}.\n"
+                        "## ROLE\n"
+                        "You are a decision analyst preparing a structured briefing for executive stakeholders.\n\n"
+                        "## TASK\n"
+                        "Given the problem context, data analysis, and PRINCIPAL INPUT (priorities/constraints), generate a DECISION BRIEFING with:\n"
+                        "1. Problem reframing (ensure shared understanding)\n"
+                        "2. 2-3 concrete solution options with evidence-based analysis\n"
+                        "3. For EACH option: strongest arguments FOR and AGAINST from multiple perspectives\n"
+                        "4. Unresolved tensions requiring human judgment\n"
+                        "5. Implementation considerations and decision triggers\n\n"
+                        "## CONSTRAINTS\n"
+                        "- Do NOT synthesize a single recommendation or consensus\n"
+                        "- Do NOT simulate how real stakeholders would vote\n"
+                        "- DO surface trade-offs, assumptions, and blind spots\n"
+                        "- Each perspective must cite its reasoning basis\n"
+                        "- MUST respect Principal Input constraints/vetoes if provided\n"
+                        "- CRITICAL: The Deep Analysis is COMPLETE. Do NOT suggest 'more data gathering' or 'implementing analytics' as a primary solution. Focus on OPERATIONAL INTERVENTIONS to address the identified drivers.\n"
+                        f"- CONTEXT: The analysis focuses on '{target_kpi}'. Ensure the Problem Reframe explicitly mentions this KPI.\n\n"
+                        "## OUTPUT FORMAT (STRICT JSON)\n"
+                        "{\n"
+                        "  \"problem_reframe\": {\n"
+                        "    \"situation\": \"...\",\n"
+                        "    \"complication\": \"...\",\n"
+                        "    \"question\": \"...\",\n"
+                        "    \"key_assumptions\": [\"...\"]\n"
+                        "  },\n"
+                        "  \"options\": [\n"
+                        "    {\n"
+                        "      \"id\": \"opt_1\",\n"
+                        "      \"title\": \"...\",\n"
+                        "      \"description\": \"...\",\n"
+                        "      \"expected_impact\": 0.0-1.0,\n"
+                        "      \"cost\": 0.0-1.0,\n"
+                        "      \"risk\": 0.0-1.0,\n"
+                        "      \"rationale\": \"...\",\n"
+                        "      \"time_to_value\": \"...\",\n"
+                        "      \"reversibility\": \"high|medium|low\",\n"
+                        "      \"perspectives\": [\n"
+                        "        {\n"
+                        "          \"lens\": \"Financial\",\n"
+                        "          \"arguments_for\": [\"...\"],\n"
+                        "          \"arguments_against\": [\"...\"],\n"
+                        "          \"key_questions\": [\"...\"]\n"
+                        "        }\n"
+                        "      ],\n"
+                        "      \"implementation_triggers\": [\"...\"],\n"
+                        "      \"prerequisites\": [\"...\"]\n"
+                        "    }\n"
+                        "  ],\n"
+                        "  \"unresolved_tensions\": [\n"
+                        "    {\n"
+                        "      \"tension\": \"...\",\n"
+                        "      \"options_affected\": [\"opt_1\", \"opt_2\"],\n"
+                        "      \"requires\": \"human judgment|more data|stakeholder input\"\n"
+                        "    }\n"
+                        "  ],\n"
+                        "  \"blind_spots\": [\"...\"],\n"
+                        "  \"next_steps\": [\"...\"]\n"
+                        "}\n"
                     )
                     # Optional user-supplied context to guide the debate
                     try:
@@ -404,8 +541,16 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     except Exception:
                         user_ctx = None
 
+                    # Extract Principal Input (from request model or preferences dict fallback)
+                    principal_input = getattr(request, "principal_input", None)
+                    if not principal_input and isinstance(prefs, dict):
+                        pi_dict = prefs.get("principal_input")
+                        if isinstance(pi_dict, dict):
+                            # Pass as raw dict to content
+                            principal_input = pi_dict
+
                     trimmed_da = _trim_deep_analysis_context(da_ctx)
-                    da_summary = _extract_deep_analysis_summary(da_ctx)
+                    # da_summary already extracted above
 
                     # Lightweight dataset recap for the personas to ground recommendations
                     dataset_recap_lines: List[str] = []
@@ -420,9 +565,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         dataset_recap_lines.append(tf_line)
                     if da_summary.get("key_highlights"):
                         for highlight in da_summary["key_highlights"][:3]:
-                            dataset_recap_lines.append(highlight)
+                            dataset_recap_lines.append(f"Evidence: {highlight}")
                     if da_summary.get("where_signals"):
-                        dataset_recap_lines.append("Key drivers: " + "; ".join(da_summary["where_signals"][:3]))
+                        dataset_recap_lines.append("CONFIRMED ROOT CAUSES: " + "; ".join(da_summary["where_signals"][:3]))
                     if da_summary.get("top_change_points"):
                         formatted_cps = [
                             _format_driver_entry(cp) for cp in da_summary["top_change_points"][:3]
@@ -432,6 +577,39 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             dataset_recap_lines.append("Change points: " + "; ".join(formatted_cps))
                     dataset_recap = dataset_recap_lines if dataset_recap_lines else None
 
+                    # Fallback Business Context from registry if missing (MVP Enhancement)
+                    bc = getattr(request, "business_context", None)
+                    if not bc:
+                         # Attempt to load specific Bicycle Retail context
+                         try:
+                             import yaml
+                             import os
+                             # Hardcoded path for MVP, would normally come from a Registry Service
+                             ctx_path = r"c:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry_references\business_context\bicycle_retail_context.yaml"
+                             if os.path.exists(ctx_path):
+                                 with open(ctx_path, "r", encoding="utf-8") as f:
+                                     bc = yaml.safe_load(f)
+                         except Exception as e:
+                             print(f"DEBUG: Failed to load context yaml: {e}")
+                             pass
+                         
+                         if not bc:
+                             bc = {
+                                 "business_terms": {
+                                     "profit_center": "Operational unit responsible for generating revenue and managing costs.",
+                                     "customer_type": "Segment classification (Enterprise, SMB, Gov)."
+                                 },
+                                 "supported_processes": [
+                                     "Finance: Profitability Analysis",
+                                     "Finance: Expense Management"
+                                 ]
+                             }
+                         
+                         try:
+                            request.business_context = bc
+                         except:
+                            pass
+
                     content = {
                         "problem": ps,
                         "deep_analysis_context": trimmed_da,
@@ -439,6 +617,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "dataset_recap": dataset_recap,
                         "debate_spec": debate_spec,
                         "user_context": user_ctx,
+                        "principal_input": _model_to_dict(principal_input) if principal_input else None,
                     }
                     import json as _json
                     analysis_payload = _json.dumps(content)
@@ -483,6 +662,8 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             "A9_LLM_Service_Agent", "analyze", {"request": analysis_req}
                         )
                     else:
+                        if not self.llm_service_agent:
+                             raise Exception("A9_LLM_Service_Agent could not be acquired via Orchestrator or Registry.")
                         llm_resp = await self.llm_service_agent.analyze(analysis_req)  # type: ignore
 
                     # Extract options and rationale safely
@@ -499,6 +680,15 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     if isinstance(parsed, dict) and parsed.get("options"):
                         for idx, o in enumerate(parsed.get("options", []) or []):
                             try:
+                                # Construct perspectives
+                                pers_list = []
+                                for p_dict in o.get("perspectives", []):
+                                    try:
+                                        pers_list.append(PerspectiveAnalysis(**p_dict))
+                                    except:
+                                        # Fallback for partial data
+                                        pers_list.append(PerspectiveAnalysis(lens=p_dict.get("lens", "Unknown"), arguments_for=p_dict.get("arguments_for", [])))
+
                                 options.append(
                                     SolutionOption(
                                         id=str(o.get("id") or f"opt{idx+1}"),
@@ -508,40 +698,54 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                         cost=_safe01(o.get("cost")),
                                         risk=_safe01(o.get("risk")),
                                         rationale=o.get("rationale"),
+                                        # New Fields
+                                        time_to_value=o.get("time_to_value"),
+                                        reversibility=o.get("reversibility"),
+                                        perspectives=pers_list,
+                                        implementation_triggers=o.get("implementation_triggers", []),
+                                        prerequisites=o.get("prerequisites", [])
                                     )
                                 )
                             except Exception:
                                 continue
-                        rationale = str(parsed.get("consensus_rationale") or "LLM consensus rationale")
-                        # Add transcript snippet to audit (limit size)
-                        if parsed.get("transcript"):
-                            audit_log.append({
-                                "event": "llm_debate_transcript",
-                                "sample": (parsed.get("transcript") or [])[:3],
-                            })
-                            # Include a truncated full transcript for UI rendering
+
+                        # Extract other top-level fields
+                        problem_reframe = parsed.get("problem_reframe")
+                        if not problem_reframe and da_summary.get("scqa_summary"):
+                             # Fallback: Construct reframe from SCQA
+                             problem_reframe = {
+                                 "situation": da_summary.get("kpi_name") + " analysis",
+                                 "complication": da_summary.get("scqa_summary", "Anomaly detected"),
+                                 "question": "How to mitigate risk?",
+                                 "key_assumptions": ["Data is accurate"]
+                             }
+                        
+                        unresolved_tensions_list = []
+                        for t in parsed.get("unresolved_tensions", []):
                             try:
-                                _full_t = parsed.get("transcript") or []
-                                if isinstance(_full_t, list) and _full_t:
-                                    audit_log.append({
-                                        "event": "llm_debate_transcript_full",
-                                        "transcript": _full_t[:20],
-                                    })
-                            except Exception:
+                                unresolved_tensions_list.append(UnresolvedTension(**t))
+                            except: 
                                 pass
-                        # Record detailed transcript if provided
-                        try:
-                            _det = parsed.get("transcript_detailed")
-                            if isinstance(_det, list) and _det:
-                                audit_log.append({
-                                    "event": "llm_debate_transcript_detailed",
-                                    "transcript_detailed": _det[:20],
-                                })
-                        except Exception:
-                            pass
+
+                        blind_spots_list = parsed.get("blind_spots", [])
+                        next_steps_list = parsed.get("next_steps", [])
+
+                        # Fallback rationale
+                        rationale = "Options generated via Decision Briefing analysis."
+
+                        # Add briefing dump to audit log
+                        audit_log.append({
+                            "event": "decision_briefing_generated",
+                            "problem_reframe": problem_reframe,
+                            "unresolved_tensions": [t.model_dump() for t in unresolved_tensions_list],
+                            "blind_spots": blind_spots_list
+                        })
 
                 except Exception as le:
                     # LLM path failed; fall back to heuristic
+                    print(f"DEBUG: LLM Debate FAILED: {le}")
+                    import traceback
+                    traceback.print_exc()
                     self.logger.info(f"LLM debate path failed, falling back to heuristic: {le}")
                     audit_log.append({"event": "llm_debate_error", "error": str(le)})
 
@@ -553,6 +757,23 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                 ]
                 if not rationale:
                     rationale = "MVP heuristic ranking by weighted impact/cost/risk."
+                
+                # Ensure problem_reframe is populated even in fallback
+                if not problem_reframe:
+                     # Attempt to get SCQA from request context if available
+                     scqa = "Anomaly detected requiring intervention"
+                     da_ctx = request.deep_analysis_output or {}
+                     if isinstance(da_ctx, dict):
+                         scqa = da_ctx.get("scqa_summary") or scqa
+                     elif hasattr(da_ctx, "scqa_summary"):
+                         scqa = getattr(da_ctx, "scqa_summary") or scqa
+                         
+                     problem_reframe = {
+                         "situation": "SYSTEM FAILURE - FALLBACK MODE",
+                         "complication": "The AI reasoning engine is unavailable or encountered an error.",
+                         "question": "What are the immediate mitigation steps (heuristic)?",
+                         "key_assumptions": ["Standard operating procedures apply"]
+                     }
 
             criteria = request.evaluation_criteria or [
                 TradeOffCriterion(name="impact", weight=self.config.weight_impact),
@@ -608,6 +829,11 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     "summary": "Review ranked options and approve or select an alternative.",
                 },
                 audit_log=[{"event": "ranked_options", "count": len(options_payload)}] + audit_log,
+                # Enhanced Decision Briefing Fields
+                problem_reframe=problem_reframe,
+                unresolved_tensions=unresolved_tensions_list,
+                blind_spots=blind_spots_list,
+                next_steps=next_steps_list,
             )
         except Exception as e:
             return SolutionFinderResponse.error(request_id=req_id, error_message=str(e))

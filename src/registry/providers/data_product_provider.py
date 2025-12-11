@@ -404,10 +404,50 @@ class DataProductProvider(RegistryProvider[DataProduct]):
             self._data_products_by_name[data_product.name] = data_product
             self._data_products_by_legacy_id[data_product.legacy_id] = data_product
 
-    def upsert(self, data_product: DataProduct) -> DataProduct:
+    def add(self, data_product: DataProduct | Dict[str, Any]) -> DataProduct:
+        """Persist a new data product entry."""
+
+        product = self._normalize_to_dataproduct(data_product)
+        self._add_data_product(product)
+        return product
+
+    def update(self, data_product_id: str, data: Dict[str, Any]) -> DataProduct:
+        """Update an existing data product entry by replacing its stored payload."""
+
+        existing = self._data_products.get(data_product_id)
+        if not existing:
+            raise KeyError(f"Data product '{data_product_id}' does not exist")
+
+        updated_payload = existing.model_dump() if isinstance(existing, DataProduct) else dict(existing)
+        updated_payload.update(data)
+        product = self._normalize_to_dataproduct(updated_payload)
+        self._add_data_product(product)
+        return product
+
+    def upsert(self, data_product: DataProduct | Dict[str, Any]) -> DataProduct:
         """Create or replace a data product entry."""
-        self._add_data_product(data_product)
-        return data_product
+
+        product = self._normalize_to_dataproduct(data_product)
+        self._add_data_product(product)
+        return product
+
+    def _normalize_to_dataproduct(self, data: DataProduct | Dict[str, Any]) -> DataProduct:
+        """Coerce incoming payloads (dict/DataProduct) into a DataProduct instance."""
+
+        if isinstance(data, DataProduct):
+            return data
+
+        payload = dict(data)
+        payload.setdefault("id", payload.get("product_id"))
+        payload.setdefault("name", payload.get("id"))
+        payload.setdefault("legacy_id", payload.get("id", ""))
+        payload.setdefault("domain", payload.get("domain", "Unknown"))
+        payload.setdefault("description", payload.get("description", ""))
+        payload.setdefault("tables", payload.get("tables", {}))
+        payload.setdefault("views", payload.get("views", {}))
+        payload.setdefault("related_business_processes", payload.get("related_business_processes", []))
+
+        return DataProduct(**payload)
 
     def delete(self, data_product_id: str) -> bool:
         """Delete a data product by ID."""

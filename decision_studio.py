@@ -9,7 +9,9 @@ For MVP, focuses on Finance KPIs from the FI Star Schema.
 
 import os
 import sys
+import json
 import asyncio
+from typing import Any, Dict, List, Optional
 import streamlit as st
 from datetime import datetime
 import uuid
@@ -56,7 +58,438 @@ from src.agents.new.a9_situation_awareness_agent import A9_Situation_Awareness_A
 from src.agents.new.a9_orchestrator_agent import A9_Orchestrator_Agent
 from src.agents.new.a9_data_product_agent import A9_Data_Product_Agent
 from src.agents.new.a9_principal_context_agent import A9_Principal_Context_Agent
+from src.decision_studio_admin_utils import build_onboarding_workflow_request
+from src.decision_studio_admin_api import (
+    submit_admin_onboarding_via_api,
+    maybe_poll_admin_onboarding_status,
+    reset_admin_onboarding_polling_state,
+)
+from src.config.connection_profiles import (
+    ConnectionProfile,
+    get_connection_profiles_state,
+    get_active_profile,
+    upsert_connection_profile,
+    delete_connection_profile,
+    set_active_profile,
+    test_connection_profile,
+    CONFIG_ENV_VAR,
+    DEFAULT_CONFIG_FILENAME,
+)
 
+ADMIN_SECTIONS = [
+    "Data Product Onboarding",
+    "Data Governance",
+    "Registry Maintenance",
+]
+
+
+CONNECTION_PROFILE_SYSTEM_OPTIONS = [
+    "duckdb",
+    "postgres",
+    "snowflake",
+    "bigquery",
+    "redshift",
+    "other",
+]
+CONNECTION_PROFILE_NEW_LABEL = "Create new profile..."
+MANUAL_CONNECTION_PROFILE_OPTION = "Manual entry"
+
+
+PROFILE_FORM_FIELDS = [
+    "name",
+    "system_type",
+    "description",
+    "database_path",
+    "host",
+    "port",
+    "database",
+    "schema",
+    "username",
+    "password",
+    "driver",
+    "default_schema",
+    "extras",
+    "persist_secret",
+]
+
+
+def _profile_summary(profile: ConnectionProfile) -> Dict[str, Any]:
+    summary = {
+        "system_type": profile.system_type,
+        "description": profile.description,
+        "database_path": profile.database_path,
+        "host": profile.host,
+        "port": profile.port,
+        "database": profile.database,
+        "schema": profile.schema,
+        "driver": profile.driver,
+        "default_schema": profile.default_schema,
+        "username": profile.username,
+        "password_saved": profile.password_saved,
+    }
+    summary = {key: value for key, value in summary.items() if value not in (None, "", [], {})}
+    overrides = profile.connection_overrides(include_secret=False)
+    if overrides:
+        summary["connection_overrides"] = overrides
+    if profile.extras:
+        summary["extras"] = profile.extras
+    return summary
+
+
+def _apply_active_profile_defaults_to_session() -> None:
+    raw_map: Dict[str, ConnectionProfile] = st.session_state.get("connection_profiles_raw", {})
+    active_name: Optional[str] = st.session_state.get("connection_profiles_active")
+    defaults: Dict[str, Any] = {}
+    if active_name and active_name in raw_map:
+        defaults = raw_map[active_name].onboarding_defaults()
+    st.session_state.connection_profile_defaults = defaults
+
+
+def _refresh_connection_profiles_session_state(force: bool = False) -> None:
+    if not force and st.session_state.get("_connection_profiles_initialized"):
+        return
+    profiles_state = get_connection_profiles_state()
+    raw_map: Dict[str, ConnectionProfile] = {profile.name: profile for profile in profiles_state.profiles}
+    st.session_state.connection_profiles_raw = raw_map
+    st.session_state.connection_profiles_order = [profile.name for profile in profiles_state.profiles]
+    st.session_state.connection_profiles_active = profiles_state.active_profile
+    st.session_state.connection_profiles_display = {
+        name: _profile_summary(profile) for name, profile in raw_map.items()
+    }
+    st.session_state._connection_profiles_initialized = True
+    _apply_active_profile_defaults_to_session()
+
+
+def _format_tables_field(value: Any) -> str:
+    if isinstance(value, list):
+        return "\n".join(str(item) for item in value)
+    if isinstance(value, str):
+        return value
+    return ""
+
+
+def _format_csv_field(value: Any) -> str:
+    if isinstance(value, list):
+        return ", ".join(str(item) for item in value)
+    if isinstance(value, str):
+        return value
+    return ""
+
+
+def _format_json_field(value: Any) -> str:
+    if isinstance(value, (dict, list)):
+        try:
+            return json.dumps(value, indent=2)
+        except TypeError:
+            serialized = json.dumps(json.loads(json.dumps(value, default=str)))
+            return json.dumps(json.loads(serialized), indent=2)
+    if isinstance(value, str):
+        return value
+    return ""
+
+
+def _get_admin_onboarding_seed() -> Dict[str, Any]:
+    stored = st.session_state.get("admin_onboarding_request")
+    if stored:
+        return dict(stored)
+    defaults = st.session_state.get("connection_profile_defaults") or {}
+    return dict(defaults)
+
+
+def _ensure_principal_default(payload: Dict[str, Any]) -> None:
+    if not payload.get("principal_id"):
+        payload["principal_id"] = st.session_state.get("selected_principal_id", "admin_console")
+
+
+def _connection_profiles_config_path() -> str:
+    override_path = os.getenv(CONFIG_ENV_VAR)
+    if override_path:
+        return override_path
+    return os.path.join(project_root, "config", DEFAULT_CONFIG_FILENAME)
+
+
+def _clear_connection_profile_form_state() -> None:
+    for field in PROFILE_FORM_FIELDS:
+        st.session_state.pop(f"connection_profile_form_{field}", None)
+    st.session_state.pop("connection_profile_form_password_saved", None)
+
+
+def _profile_form_defaults(
+    profile: Optional[ConnectionProfile],
+    suggested_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    extras_text = ""
+    if profile and profile.extras:
+        try:
+            extras_text = json.dumps(profile.extras, indent=2)
+        except TypeError:
+            extras_text = str(profile.extras)
+
+    defaults: Dict[str, Any] = {
+        "name": profile.name if profile else (suggested_name or ""),
+        "system_type": profile.system_type if profile else CONNECTION_PROFILE_SYSTEM_OPTIONS[0],
+        "description": profile.description or "" if profile else "",
+        "database_path": profile.database_path or "" if profile else "",
+        "host": profile.host or "" if profile else "",
+        "port": (
+            str(profile.port)
+            if profile and profile.port is not None
+            else ""
+        ),
+        "database": profile.database or "" if profile else "",
+        "schema": profile.schema or "" if profile else "",
+        "username": profile.username or "" if profile else "",
+        "password": "",
+        "driver": profile.driver or "" if profile else "",
+        "default_schema": profile.default_schema or "" if profile else "",
+        "extras": extras_text,
+        "persist_secret": bool(profile.persist_secret) if profile else False,
+    }
+    return defaults
+
+
+def _load_connection_profile_form_state(profile_name: Optional[str]) -> None:
+    _clear_connection_profile_form_state()
+    profile: Optional[ConnectionProfile] = None
+    if profile_name:
+        profile = st.session_state.get("connection_profiles_raw", {}).get(profile_name)
+    defaults = _profile_form_defaults(
+        profile,
+        suggested_name=(profile_name if profile_name and profile_name != CONNECTION_PROFILE_NEW_LABEL else None),
+    )
+    for field, value in defaults.items():
+        st.session_state[f"connection_profile_form_{field}"] = value
+    st.session_state["connection_profile_form_password_saved"] = bool(profile and profile.password_saved)
+
+
+def _gather_connection_profile_form_data() -> Optional[Dict[str, Any]]:
+    name = st.session_state.get("connection_profile_form_name", "").strip()
+    if not name:
+        st.error("Profile name is required.")
+        return None
+
+    extras_text = st.session_state.get("connection_profile_form_extras", "")
+    extras: Dict[str, Any] = {}
+    if isinstance(extras_text, str) and extras_text.strip():
+        try:
+            parsed = json.loads(extras_text)
+        except json.JSONDecodeError as exc:
+            st.error(f"Extras JSON is invalid: {exc}")
+            return None
+        if not isinstance(parsed, dict):
+            st.error("Extras JSON must be an object (mapping).")
+            return None
+        extras = parsed
+
+    port_value = st.session_state.get("connection_profile_form_port", "")
+    port: Optional[int]
+    if isinstance(port_value, str):
+        port_value = port_value.strip()
+        if port_value:
+            try:
+                port = int(port_value)
+            except ValueError:
+                st.error("Port must be an integer value.")
+                return None
+        else:
+            port = None
+    else:
+        port = port_value if isinstance(port_value, int) else None
+
+    password_value = st.session_state.get("connection_profile_form_password", "")
+    if isinstance(password_value, str):
+        password_value = password_value.strip()
+    if not password_value:
+        password_value = None
+
+    data: Dict[str, Any] = {
+        "name": name,
+        "system_type": st.session_state.get("connection_profile_form_system_type", CONNECTION_PROFILE_SYSTEM_OPTIONS[0]),
+        "description": st.session_state.get("connection_profile_form_description", "").strip() or None,
+        "database_path": st.session_state.get("connection_profile_form_database_path", "").strip() or None,
+        "host": st.session_state.get("connection_profile_form_host", "").strip() or None,
+        "port": port,
+        "database": st.session_state.get("connection_profile_form_database", "").strip() or None,
+        "schema": st.session_state.get("connection_profile_form_schema", "").strip() or None,
+        "username": st.session_state.get("connection_profile_form_username", "").strip() or None,
+        "password": password_value,
+        "driver": st.session_state.get("connection_profile_form_driver", "").strip() or None,
+        "default_schema": st.session_state.get("connection_profile_form_default_schema", "").strip() or None,
+        "extras": extras,
+        "persist_secret": bool(st.session_state.get("connection_profile_form_persist_secret", False)),
+    }
+
+    return data
+
+
+def _profile_from_form_data(form_data: Dict[str, Any]) -> ConnectionProfile:
+    return ConnectionProfile(**form_data)
+
+
+def render_connection_profiles_panel() -> None:
+    _refresh_connection_profiles_session_state()
+    profile_order: List[str] = st.session_state.get("connection_profiles_order", [])
+    active_name: Optional[str] = st.session_state.get("connection_profiles_active")
+
+    profiles_path = _connection_profiles_config_path()
+    st.caption(
+        "Connection profiles are stored at `{}`. Set `{}` to override.".format(
+            profiles_path,
+            CONFIG_ENV_VAR,
+        )
+    )
+
+    select_options = [MANUAL_CONNECTION_PROFILE_OPTION] + profile_order
+    default_index = 0
+    if active_name and active_name in profile_order:
+        try:
+            default_index = select_options.index(active_name)
+        except ValueError:
+            default_index = 0
+
+    selected_option = st.selectbox(
+        "Active Connection Profile",
+        select_options,
+        index=default_index,
+        key="connection_profile_active_select",
+    )
+
+    if selected_option == MANUAL_CONNECTION_PROFILE_OPTION:
+        if active_name is not None:
+            set_active_profile(None)
+            st.session_state.connection_profiles_active = None
+            _apply_active_profile_defaults_to_session()
+            st.toast("Switched to manual connection entry.", icon="ℹ️")
+    elif selected_option != active_name:
+        try:
+            set_active_profile(selected_option)
+            st.session_state.connection_profiles_active = selected_option
+            _refresh_connection_profiles_session_state(force=True)
+            _apply_active_profile_defaults_to_session()
+            st.toast(f"Active profile set to {selected_option}.", icon="✅")
+        except ValueError as exc:
+            st.error(str(exc))
+
+    active_summary = None
+    if selected_option != MANUAL_CONNECTION_PROFILE_OPTION:
+        active_summary = st.session_state.get("connection_profiles_display", {}).get(selected_option)
+
+    if active_summary:
+        st.caption("Active profile summary")
+        st.json(active_summary)
+        if st.button("Apply profile defaults to form", key="apply_profile_defaults_button"):
+            defaults = st.session_state.get("connection_profile_defaults") or {}
+            st.session_state.admin_onboarding_request = dict(defaults)
+            st.toast("Profile defaults applied to onboarding form.", icon="✅")
+
+    render_connection_profile_manager()
+
+
+def render_connection_profile_manager() -> None:
+    profile_order: List[str] = st.session_state.get("connection_profiles_order", [])
+    manager_expanded = not bool(profile_order)
+
+    with st.expander("Manage connection profiles", expanded=manager_expanded):
+        selection_options = profile_order + [CONNECTION_PROFILE_NEW_LABEL]
+        current_selection = st.session_state.get("connection_profile_form_selected", CONNECTION_PROFILE_NEW_LABEL)
+        if current_selection not in selection_options:
+            current_selection = CONNECTION_PROFILE_NEW_LABEL
+
+        selected_option = st.selectbox(
+            "Profile to edit",
+            selection_options,
+            index=selection_options.index(current_selection),
+            key="connection_profile_manager_select",
+        )
+
+        if st.session_state.get("connection_profile_form_selected") != selected_option:
+            st.session_state.connection_profile_form_selected = selected_option
+            target_name = selected_option if selected_option != CONNECTION_PROFILE_NEW_LABEL else None
+            _load_connection_profile_form_state(target_name)
+        elif "connection_profile_form_name" not in st.session_state:
+            target_name = selected_option if selected_option != CONNECTION_PROFILE_NEW_LABEL else None
+            _load_connection_profile_form_state(target_name)
+
+        password_saved = bool(st.session_state.get("connection_profile_form_password_saved", False))
+        editing_existing = selected_option != CONNECTION_PROFILE_NEW_LABEL
+
+        with st.form("connection_profile_form"):
+            st.text_input("Profile Name", key="connection_profile_form_name")
+            st.selectbox(
+                "System Type",
+                CONNECTION_PROFILE_SYSTEM_OPTIONS,
+                key="connection_profile_form_system_type",
+            )
+            st.text_input("Description", key="connection_profile_form_description")
+            st.text_input("Database Path (for DuckDB)", key="connection_profile_form_database_path")
+            cols = st.columns(2)
+            with cols[0]:
+                st.text_input("Host", key="connection_profile_form_host")
+                st.text_input("Database", key="connection_profile_form_database")
+                st.text_input("Username", key="connection_profile_form_username")
+            with cols[1]:
+                st.text_input("Port", key="connection_profile_form_port")
+                st.text_input("Schema", key="connection_profile_form_schema")
+                st.text_input("Driver", key="connection_profile_form_driver")
+            st.text_input("Default Schema", key="connection_profile_form_default_schema")
+
+            st.checkbox(
+                "Persist password/secret in configuration",
+                key="connection_profile_form_persist_secret",
+            )
+            password_help = None
+            if editing_existing and password_saved and st.session_state.get("connection_profile_form_persist_secret", False):
+                password_help = "Leave blank to keep the existing stored secret."
+            st.text_input(
+                "Password / Secret",
+                type="password",
+                key="connection_profile_form_password",
+                help=password_help,
+            )
+
+            st.text_area(
+                "Extras (JSON)",
+                key="connection_profile_form_extras",
+                height=120,
+                help="Optional JSON payload for driver-specific overrides (e.g., IAM role, warehouse).",
+            )
+
+            cols_buttons = st.columns([1, 1, 1])
+            test_clicked = cols_buttons[0].form_submit_button("Test Connection")
+            save_clicked = cols_buttons[1].form_submit_button("Save Profile")
+            delete_clicked = False
+            if editing_existing:
+                delete_clicked = cols_buttons[2].form_submit_button("Delete Profile")
+
+        if test_clicked or save_clicked or delete_clicked:
+            form_data = _gather_connection_profile_form_data()
+            if form_data is None:
+                return
+            profile_obj = _profile_from_form_data(form_data)
+
+            if test_clicked:
+                result = test_connection_profile(profile_obj)
+                if result.success:
+                    st.success(result.message)
+                else:
+                    st.error(result.message)
+
+            if save_clicked:
+                upsert_connection_profile(profile_obj)
+                st.success(f"Profile '{profile_obj.name}' saved.")
+                st.session_state.connection_profile_form_selected = profile_obj.name
+                set_active_profile(profile_obj.name)
+                _refresh_connection_profiles_session_state(force=True)
+                _apply_active_profile_defaults_to_session()
+                _load_connection_profile_form_state(profile_obj.name)
+
+            if delete_clicked:
+                delete_connection_profile(profile_obj.name)
+                st.warning(f"Profile '{profile_obj.name}' deleted.")
+                st.session_state.connection_profile_form_selected = CONNECTION_PROFILE_NEW_LABEL
+                _refresh_connection_profiles_session_state(force=True)
+                _apply_active_profile_defaults_to_session()
+                _load_connection_profile_form_state(None)
 # Ensure root logger is configured; default to INFO to reduce console noise
 if not logging.getLogger().handlers:
     logging.basicConfig(
@@ -156,6 +589,36 @@ def init_session_state():
     if "orchestrator" not in st.session_state:
         st.session_state.orchestrator = None
         
+    if "connection_profiles_raw" not in st.session_state:
+        st.session_state.connection_profiles_raw = {}
+    if "connection_profiles_order" not in st.session_state:
+        st.session_state.connection_profiles_order = []
+    if "connection_profiles_active" not in st.session_state:
+        st.session_state.connection_profiles_active = None
+    if "connection_profile_defaults" not in st.session_state:
+        st.session_state.connection_profile_defaults = {}
+    if "_connection_profiles_initialized" not in st.session_state:
+        st.session_state._connection_profiles_initialized = False
+    if "connection_profile_form_selected" not in st.session_state:
+        st.session_state.connection_profile_form_selected = CONNECTION_PROFILE_NEW_LABEL
+
+    if not st.session_state.get("_connection_profiles_initialized"):
+        try:
+            _refresh_connection_profiles_session_state(force=True)
+        except Exception:
+            pass
+
+    if "connection_profile_form_name" not in st.session_state:
+        try:
+            target_name = (
+                st.session_state.get("connection_profile_form_selected")
+                if st.session_state.get("connection_profile_form_selected") not in (None, CONNECTION_PROFILE_NEW_LABEL)
+                else None
+            )
+            _load_connection_profile_form_state(target_name)
+        except Exception:
+            pass
+
     if "default_principal_id" not in st.session_state:
         st.session_state.default_principal_id = "cfo_001"
     
@@ -187,6 +650,29 @@ def init_session_state():
     
     if "filters" not in st.session_state:
         st.session_state.filters = {}
+    
+    if "studio_mode" not in st.session_state:
+        st.session_state.studio_mode = "Decision Studio"
+    if "admin_section" not in st.session_state:
+        st.session_state.admin_section = "Data Product Onboarding"
+    if "admin_onboarding_request" not in st.session_state:
+        st.session_state.admin_onboarding_request = None
+    if "admin_onboarding_result" not in st.session_state:
+        st.session_state.admin_onboarding_result = None
+    if "admin_onboarding_error" not in st.session_state:
+        st.session_state.admin_onboarding_error = None
+    if "admin_onboarding_status" not in st.session_state:
+        st.session_state.admin_onboarding_status = None
+    if "admin_onboarding_request_id" not in st.session_state:
+        st.session_state.admin_onboarding_request_id = None
+    if "trigger_admin_onboarding" not in st.session_state:
+        st.session_state.trigger_admin_onboarding = False
+    if "admin_onboarding_request_model" not in st.session_state:
+        st.session_state.admin_onboarding_request_model = None
+    if "admin_onboarding_next_poll" not in st.session_state:
+        st.session_state.admin_onboarding_next_poll = None
+    if "admin_onboarding_poll_in_progress" not in st.session_state:
+        st.session_state.admin_onboarding_poll_in_progress = False
     
     if "debug_mode" not in st.session_state:
         st.session_state.debug_mode = False
@@ -244,6 +730,421 @@ def init_session_state():
         st.session_state.trigger_per_kpi_sql = False
     if "per_kpi_sql_results" not in st.session_state:
         st.session_state.per_kpi_sql_results = []
+
+def render_decision_sidebar() -> None:
+    """Render the Decision Studio sidebar controls."""
+
+    st.header("Principal Context")
+
+    if "principal_profiles" not in st.session_state:
+        st.session_state.principal_profiles = {}
+    if "principal_ids" not in st.session_state:
+        st.session_state.principal_ids = [st.session_state.default_principal_id]
+    if "principal_id_to_role" not in st.session_state:
+        st.session_state.principal_id_to_role = {}
+    if "principal_id_to_name" not in st.session_state:
+        st.session_state.principal_id_to_name = {
+            st.session_state.default_principal_id: "Chief Financial Officer (CFO)"
+        }
+
+    try:
+        if st.session_state.principal_ids == [st.session_state.default_principal_id]:
+            registry_path = os.path.join(
+                project_root, "src", "registry", "principal", "principal_registry.yaml"
+            )
+            if os.path.exists(registry_path):
+                with open(registry_path, "r", encoding="utf-8") as handle:
+                    registry_payload = _yaml.safe_load(handle) or {}
+                profiles = registry_payload.get("principal_profiles") or registry_payload.get("profiles") or []
+                ids: List[str] = []
+                id_to_name: Dict[str, str] = {}
+                id_to_role: Dict[str, str] = {}
+                for profile in profiles:
+                    try:
+                        if isinstance(profile, dict):
+                            pid = profile.get("id") or profile.get("principal_id")
+                            name = profile.get("name") or profile.get("display_name") or pid
+                            role = profile.get("role") or profile.get("title") or name
+                            if pid:
+                                ids.append(pid)
+                                id_to_name[pid] = f"{name} ({role})" if name and role else (name or pid)
+                                id_to_role[pid] = role
+                    except Exception:
+                        continue
+                if ids:
+                    st.session_state.principal_ids = ids
+                    st.session_state.principal_id_to_name.update(id_to_name)
+                    st.session_state.principal_id_to_role.update(id_to_role)
+                    current = st.session_state.get(
+                        "selected_principal_id", st.session_state.default_principal_id
+                    )
+                    if current not in ids:
+                        preferred = None
+                        try:
+                            if "cfo_001" in ids:
+                                preferred = "cfo_001"
+                            else:
+                                preferred = next(
+                                    (
+                                        pid
+                                        for pid, role in id_to_role.items()
+                                        if isinstance(role, str)
+                                        and role.strip().lower() in ("cfo", "chief financial officer")
+                                    ),
+                                    None,
+                                )
+                        except Exception:
+                            preferred = None
+                        st.session_state.selected_principal_id = preferred or ids[0]
+    except Exception:
+        pass
+
+    options = st.session_state.principal_ids or [st.session_state.default_principal_id]
+    default_id = st.session_state.get("selected_principal_id", st.session_state.default_principal_id)
+    safe_index = options.index(default_id) if default_id in options else 0
+    principal_id = st.selectbox(
+        "Select Principal",
+        options=options,
+        index=safe_index,
+        format_func=lambda value: st.session_state.principal_id_to_name.get(value, value),
+        key="principal_id_select",
+    )
+    st.session_state.selected_principal_id = principal_id
+
+    st.header("Business Processes")
+    if "business_process_options" not in st.session_state:
+        st.session_state.business_process_options = [
+            "Finance: Profitability Analysis",
+            "Finance: Revenue Growth Analysis",
+            "Finance: Expense Management",
+            "Finance: Cash Flow Management",
+            "Finance: Budget vs. Actuals",
+            "Finance: Investor Relations Reporting",
+            "Strategy: Market Share Analysis",
+            "Strategy: EBITDA Growth Tracking",
+            "Strategy: Capital Allocation Efficiency",
+            "Operations: Order-to-Cash Cycle Optimization",
+            "Operations: Inventory Turnover Analysis",
+            "Operations: Production Cost Management",
+            "Operations: Global Performance Oversight",
+            "Supply Chain: Logistics Efficiency",
+        ]
+
+    selected_processes = st.multiselect(
+        "Select Business Processes",
+        options=st.session_state.business_process_options,
+        default=st.session_state.business_processes or ["Finance: Profitability Analysis"],
+        key="business_processes_select",
+    )
+    new_processes = sorted({proc for proc in selected_processes})
+    previous_processes = (
+        sorted({proc for proc in st.session_state.business_processes})
+        if isinstance(st.session_state.business_processes, list)
+        else []
+    )
+    st.session_state.business_processes = new_processes
+    if new_processes != previous_processes:
+        st.session_state.trigger_detect = True
+        st.session_state.detect_status = "queued"
+        st.toast("Business processes changed — detecting situations...", icon="🔄")
+
+    st.header("Time Frame")
+    timeframe_value = st.selectbox(
+        "Select Time Frame",
+        options=[tf.value for tf in TimeFrame],
+        index=list(TimeFrame).index(st.session_state.timeframe),
+        format_func=lambda value: value.replace("_", " ").title(),
+        key="timeframe_select",
+    )
+    selected_timeframe = TimeFrame(timeframe_value)
+    if selected_timeframe != st.session_state.timeframe:
+        st.session_state.timeframe = selected_timeframe
+        st.session_state.prev_timeframe = selected_timeframe
+        st.session_state.trigger_detect = True
+        st.session_state.detect_status = "queued"
+        st.toast("Time frame changed — detecting situations...", icon="⏱️")
+
+    comparison_value = st.selectbox(
+        "Select Comparison",
+        options=[ct.value for ct in ComparisonType],
+        index=list(ComparisonType).index(st.session_state.comparison_type),
+        format_func=lambda value: value.replace("_", " ").title(),
+        key="comparison_type_select",
+    )
+    st.session_state.comparison_type = ComparisonType(comparison_value)
+
+    st.header("Debug Mode")
+    st.session_state.debug_mode = st.checkbox(
+        "Enable Debug Mode", value=st.session_state.debug_mode
+    )
+    if st.session_state.debug_mode:
+        st.subheader("Registry & Profiles Debug")
+        profiles = st.session_state.get("principal_profiles", {})
+        principal_ids = st.session_state.get("principal_ids", [])
+        st.markdown(f"Profiles loaded (UI): **{len(profiles)}**")
+        if principal_ids:
+            st.write({"ids_preview": principal_ids[:10]})
+        debug_info = st.session_state.get("debug_info")
+        if debug_info:
+            st.json(debug_info)
+        else:
+            st.info(
+                "Debug info not populated yet. Click 'Detect Situations' or interact with the app to trigger loading."
+            )
+
+    if st.button("Detect Situations"):
+        st.session_state.trigger_detect = True
+        st.session_state.detect_status = "queued"
+        st.session_state.detect_in_progress = True
+        try:
+            st.session_state.debug_trace.append("ui: detect requested")
+        except Exception:
+            pass
+        st.info("Detection requested. Running in background...")
+
+def render_admin_console() -> None:
+    """Render the admin console content area."""
+
+    st.title("Agent9 Admin Console")
+    st.caption(
+        "Run administrative workflows such as data product onboarding, governance updates, and registry maintenance."
+    )
+
+    section = st.session_state.get("admin_section", ADMIN_SECTIONS[0])
+    if section == "Data Product Onboarding":
+        render_admin_onboarding_section()
+    elif section == "Data Governance":
+        st.info("Data Governance administration is coming soon.")
+    elif section == "Registry Maintenance":
+        st.info("Registry maintenance tools are coming soon.")
+
+def render_admin_onboarding_section() -> None:
+    """Render the onboarding workflow form and status output."""
+
+    st.subheader("Data Product Onboarding")
+    st.write(
+        "Provide source-system metadata and registry inputs to execute the automated onboarding workflow."
+    )
+
+    render_connection_profiles_panel()
+
+    previous_request = st.session_state.get("admin_onboarding_request") or {}
+
+    with st.form("admin_onboarding_form"):
+        principal_id = st.text_input(
+            "Principal ID",
+            value=previous_request.get(
+                "principal_id",
+                st.session_state.get("selected_principal_id", "admin_console"),
+            ),
+        )
+        data_product_id = st.text_input(
+            "Data Product ID",
+            value=previous_request.get("data_product_id", ""),
+        )
+        source_system = st.text_input(
+            "Source System",
+            value=previous_request.get("source_system", "duckdb"),
+        )
+        database = st.text_input(
+            "Database / Catalog",
+            value=previous_request.get("database", ""),
+        )
+        schema = st.text_input(
+            "Schema / Dataset",
+            value=previous_request.get("schema", "main"),
+        )
+        tables = st.text_area(
+            "Tables (comma or newline separated)",
+            value=previous_request.get("tables", ""),
+        )
+        inspection_depth = st.selectbox(
+            "Inspection Depth",
+            options=["basic", "standard", "extended"],
+            index=["basic", "standard", "extended"].index(
+                previous_request.get("inspection_depth", "standard")
+            ),
+        )
+        include_samples = st.checkbox(
+            "Include sample values",
+            value=bool(previous_request.get("include_samples", False)),
+        )
+        environment = st.selectbox(
+            "Environment",
+            options=["dev", "test", "prod"],
+            index=["dev", "test", "prod"].index(
+                previous_request.get("environment", "dev")
+            ),
+        )
+
+        tags = st.text_input(
+            "Tags (comma separated)", value=previous_request.get("data_product_tags", "")
+        )
+        candidate_owner_ids = st.text_input(
+            "Candidate Owner IDs (comma separated)",
+            value=previous_request.get("candidate_owner_ids", ""),
+        )
+        fallback_roles = st.text_input(
+            "Fallback Roles (comma separated)",
+            value=previous_request.get("fallback_roles", ""),
+        )
+        business_process_context = st.text_input(
+            "Business Process Context (comma separated)",
+            value=previous_request.get("business_process_context", ""),
+        )
+        qa_enabled = st.checkbox(
+            "Enable QA helper", value=bool(previous_request.get("qa_enabled", False))
+        )
+        qa_checks = st.text_input(
+            "QA Checks (comma separated)", value=previous_request.get("qa_checks", "")
+        )
+
+        contract_output_path = st.text_input(
+            "Contract Output Path",
+            value=previous_request.get("contract_output_path", ""),
+        )
+        data_product_name = st.text_input(
+            "Data Product Name",
+            value=previous_request.get("data_product_name", ""),
+        )
+        data_product_domain = st.text_input(
+            "Data Product Domain",
+            value=previous_request.get("data_product_domain", ""),
+        )
+        data_product_description = st.text_area(
+            "Data Product Description",
+            value=previous_request.get("data_product_description", ""),
+        )
+
+        connection_overrides = st.text_area(
+            "Connection Overrides (JSON)",
+            value=previous_request.get("connection_overrides", ""),
+        )
+        contract_overrides = st.text_area(
+            "Contract Overrides (JSON)",
+            value=previous_request.get("contract_overrides", ""),
+        )
+        additional_metadata = st.text_area(
+            "Additional Metadata (JSON)",
+            value=previous_request.get("additional_metadata", ""),
+        )
+        owner_metadata = st.text_area(
+            "Owner Metadata (JSON)",
+            value=previous_request.get("owner_metadata", ""),
+        )
+        qa_additional_context = st.text_area(
+            "QA Additional Context (JSON)",
+            value=previous_request.get("qa_additional_context", ""),
+        )
+
+        kpi_entries_text = st.text_area(
+            "KPI Entries (JSON list)",
+            value=previous_request.get("kpi_entries", ""),
+        )
+        business_process_mappings_text = st.text_area(
+            "Business Process Mappings (JSON list)",
+            value=previous_request.get("business_process_mappings", ""),
+        )
+
+        overwrite_existing_kpis = st.checkbox(
+            "Overwrite existing KPI entries",
+            value=bool(previous_request.get("overwrite_existing_kpis", False)),
+        )
+        overwrite_existing_mappings = st.checkbox(
+            "Overwrite existing business process mappings",
+            value=bool(previous_request.get("overwrite_existing_mappings", False)),
+        )
+
+        submitted = st.form_submit_button("Run Onboarding Workflow")
+
+    if submitted:
+        if not data_product_id.strip():
+            st.warning("Data Product ID is required to run onboarding.")
+        else:
+            try:
+                kpi_entries_payload = (
+                    json.loads(kpi_entries_text)
+                    if kpi_entries_text and kpi_entries_text.strip()
+                    else []
+                )
+                if kpi_entries_payload and not isinstance(kpi_entries_payload, list):
+                    raise ValueError("KPI entries must be a JSON list")
+            except (json.JSONDecodeError, ValueError) as exc:
+                st.error(f"Invalid KPI entries JSON: {exc}")
+                kpi_entries_payload = None
+
+            try:
+                process_mappings_payload = (
+                    json.loads(business_process_mappings_text)
+                    if business_process_mappings_text and business_process_mappings_text.strip()
+                    else []
+                )
+                if process_mappings_payload and not isinstance(process_mappings_payload, list):
+                    raise ValueError("Business process mappings must be a JSON list")
+            except (json.JSONDecodeError, ValueError) as exc:
+                st.error(f"Invalid business process mappings JSON: {exc}")
+                process_mappings_payload = None
+
+            if kpi_entries_payload is not None and process_mappings_payload is not None:
+                form_data = {
+                    "principal_id": principal_id.strip() or "admin_console",
+                    "data_product_id": data_product_id.strip(),
+                    "source_system": source_system.strip() or "duckdb",
+                    "database": database.strip(),
+                    "schema": schema.strip(),
+                    "tables": tables,
+                    "inspection_depth": inspection_depth,
+                    "include_samples": include_samples,
+                    "environment": environment,
+                    "data_product_tags": tags,
+                    "candidate_owner_ids": candidate_owner_ids,
+                    "fallback_roles": fallback_roles,
+                    "business_process_context": business_process_context,
+                    "qa_enabled": qa_enabled,
+                    "qa_checks": qa_checks,
+                    "contract_output_path": contract_output_path.strip(),
+                    "data_product_name": data_product_name.strip(),
+                    "data_product_domain": data_product_domain.strip(),
+                    "data_product_description": data_product_description,
+                    "connection_overrides": connection_overrides,
+                    "contract_overrides": contract_overrides,
+                    "additional_metadata": additional_metadata,
+                    "owner_metadata": owner_metadata,
+                    "qa_additional_context": qa_additional_context,
+                    "kpi_entries": kpi_entries_payload,
+                    "business_process_mappings": process_mappings_payload,
+                    "overwrite_existing_kpis": overwrite_existing_kpis,
+                    "overwrite_existing_mappings": overwrite_existing_mappings,
+                }
+
+                st.session_state.admin_onboarding_request = form_data
+                st.session_state.admin_onboarding_result = None
+                st.session_state.admin_onboarding_error = None
+                st.session_state.admin_onboarding_status = "queued"
+                st.session_state.admin_onboarding_request_id = None
+                st.session_state.trigger_admin_onboarding = True
+                st.session_state.admin_onboarding_next_poll = None
+                st.session_state.admin_onboarding_poll_in_progress = False
+                st.success(
+                    "Onboarding workflow request submitted. Status will update when processing completes."
+                )
+
+    status = st.session_state.get("admin_onboarding_status")
+    if status:
+        st.markdown(f"**Workflow Status:** `{status}`")
+    request_id = st.session_state.get("admin_onboarding_request_id")
+    if request_id:
+        st.markdown(f"Request ID: `{request_id}`")
+    error_message = st.session_state.get("admin_onboarding_error")
+    if error_message:
+        st.error(error_message)
+    result_payload = st.session_state.get("admin_onboarding_result")
+    if result_payload:
+        st.subheader("Workflow Result")
+        try:
+            st.json(result_payload)
+        except TypeError:
+            st.write(result_payload)
 
 # Initialize the Situation Awareness Agent using orchestrator-driven registration
 async def initialize_agent():
@@ -1023,193 +1924,35 @@ def main():
     
     # Create the sidebar for filters
     with st.sidebar:
-        st.title("Agent9 Decision Studio")
-        
-        # Principal role selector
-        st.header("Principal Context")
-        
-        # Ensure principal profile containers exist without wiping any pre-seeded values
-        if "principal_profiles" not in st.session_state:
-            st.session_state.principal_profiles = {}
-        if "principal_ids" not in st.session_state:
-            st.session_state.principal_ids = [st.session_state.default_principal_id]
-        if "principal_id_to_role" not in st.session_state:
-            st.session_state.principal_id_to_role = {}
-        if "principal_id_to_name" not in st.session_state:
-            st.session_state.principal_id_to_name = {st.session_state.default_principal_id: "Chief Financial Officer (CFO)"}
-        # Synchronous preload of principal profiles from YAML for immediate selector population
-        try:
-            if st.session_state.principal_ids == [st.session_state.default_principal_id]:
-                _ppath = os.path.join(project_root, "src", "registry", "principal", "principal_registry.yaml")
-                if os.path.exists(_ppath):
-                    with open(_ppath, "r", encoding="utf-8") as _f:
-                        _pdata = _yaml.safe_load(_f) or {}
-                    _plist = _pdata.get("principal_profiles") or _pdata.get("profiles") or []
-                    p_ids = []
-                    p_id_to_name = {}
-                    p_id_to_role = {}
-                    for p in _plist:
-                        try:
-                            if isinstance(p, dict):
-                                pid = p.get("id") or p.get("principal_id")
-                                name = p.get("name") or p.get("display_name") or pid
-                                role = p.get("role") or p.get("title") or name
-                                if pid:
-                                    p_ids.append(pid)
-                                    p_id_to_name[pid] = f"{name} ({role})" if name and role else (name or pid)
-                                    p_id_to_role[pid] = role
-                        except Exception:
-                            continue
-                    if p_ids:
-                        st.session_state.principal_ids = p_ids
-                        st.session_state.principal_id_to_name.update(p_id_to_name)
-                        st.session_state.principal_id_to_role.update(p_id_to_role)
-                        # Keep current selection if still valid, else choose CFO if available, else first
-                        cur = st.session_state.get("selected_principal_id", st.session_state.default_principal_id)
-                        if cur not in p_ids:
-                            preferred = None
-                            try:
-                                if "cfo_001" in p_ids:
-                                    preferred = "cfo_001"
-                                else:
-                                    # Try resolve by role name mapping
-                                    preferred = next((pid for pid, role in p_id_to_role.items() if str(role).strip().lower() in ("cfo", "chief financial officer")), None)
-                            except Exception:
-                                preferred = None
-                            chosen = preferred or p_ids[0]
-                            st.session_state.selected_principal_id = chosen
-                            logging.info(f"[DecisionStudio] Principal selection fallback: cur='{cur}' not in list; set to '{chosen}'")
-        except Exception:
-            pass
-        
-        # Show principal selector immediately; upgrade options once profiles load
-        options = st.session_state.principal_ids if st.session_state.principal_ids else [st.session_state.default_principal_id]
-        default_id = st.session_state.get("selected_principal_id", st.session_state.default_principal_id)
-        safe_index = options.index(default_id) if (default_id in options) else 0
-        principal_id = st.selectbox(
-            "Select Principal",
-            options=options,
-            index=safe_index,
-            format_func=lambda x: st.session_state.principal_id_to_name.get(x, x),
-            key="principal_id_select"
+        st.title("Agent9 Studio")
+        st.session_state.studio_mode = st.radio(
+            "Console",
+            options=["Decision Studio", "Admin Console"],
+            index=["Decision Studio", "Admin Console"].index(
+                st.session_state.get("studio_mode", "Decision Studio")
+            ),
+            key="studio_mode_selector",
         )
-        # Store the selected ID
-        st.session_state.selected_principal_id = principal_id
-        
-        # Business process selector
-        st.header("Business Processes")
-        
-        # Get business processes from registry instead of enum
-        if "business_process_options" not in st.session_state:
-            st.session_state.business_process_options = [
-                "Finance: Profitability Analysis",
-                "Finance: Revenue Growth Analysis",
-                "Finance: Expense Management",
-                "Finance: Cash Flow Management",
-                "Finance: Budget vs. Actuals",
-                "Finance: Investor Relations Reporting",
-                "Strategy: Market Share Analysis",
-                "Strategy: EBITDA Growth Tracking",
-                "Strategy: Capital Allocation Efficiency",
-                "Operations: Order-to-Cash Cycle Optimization",
-                "Operations: Inventory Turnover Analysis",
-                "Operations: Production Cost Management",
-                "Operations: Global Performance Oversight",
-                "Supply Chain: Logistics Efficiency"
-            ]
-        
-        # Try to get business processes from registry if orchestrator is available
-        if st.session_state.orchestrator:
-            try:
-                # This will be populated in the async section
-                pass
-            except Exception as e:
-                st.warning(f"Error loading business processes: {str(e)}")
-        
-        # Use specific business processes for selection
-        selected_processes = st.multiselect(
-            "Select Business Processes",
-            options=st.session_state.business_process_options,
-            default=st.session_state.business_processes if isinstance(st.session_state.business_processes[0], str) 
-                   and any(":" in bp for bp in st.session_state.business_processes)
-                   else ["Finance: Profitability Analysis"],
-            key="business_processes_select"
-        )
-        # Normalize to sorted unique list for stable comparison
-        new_bps = sorted(list(set(selected_processes)))
-        old_bps = sorted(list(set(st.session_state.business_processes))) if isinstance(st.session_state.business_processes, list) else []
-        st.session_state.business_processes = new_bps
-        if new_bps != old_bps:
-            # Auto-trigger detection on BP change
-            st.session_state.trigger_detect = True
-            st.session_state.detect_status = "queued"
-            st.toast("Business Processes changed — detecting situations...", icon="🔄")
-        
-        # Timeframe selector
-        st.header("Time Frame")
-        timeframe = st.selectbox(
-            "Select Time Frame",
-            options=[tf.value for tf in TimeFrame],
-            index=list(TimeFrame).index(st.session_state.timeframe),
-            format_func=lambda x: x.replace("_", " ").title(),
-            key="timeframe_select"
-        )
-        new_tf = TimeFrame(timeframe)
-        old_tf = st.session_state.timeframe
-        st.session_state.timeframe = new_tf
-        if new_tf != old_tf:
-            # Auto-trigger detection on timeframe change
-            st.session_state.trigger_detect = True
-            st.session_state.detect_status = "queued"
-            st.session_state.prev_timeframe = new_tf
-            st.toast("Timeframe changed — detecting situations...", icon="⏱️")
-        
-        # Comparison type selector
-        comparison_type = st.selectbox(
-            "Select Comparison",
-            options=[ct.value for ct in ComparisonType],
-            index=list(ComparisonType).index(st.session_state.comparison_type),
-            format_func=lambda x: x.replace("_", " ").title(),
-            key="comparison_type_select"
-        )
-        st.session_state.comparison_type = ComparisonType(comparison_type)
-        
-        # Debug mode
-        st.header("Debug Mode")
-        debug_mode = st.checkbox("Enable Debug Mode", value=st.session_state.debug_mode)
-        st.session_state.debug_mode = debug_mode
-        if debug_mode:
-            st.subheader("Registry & Profiles Debug")
-            # Show what the UI currently sees
-            profiles = st.session_state.get("principal_profiles", {})
-            principal_ids = st.session_state.get("principal_ids", [])
-            st.markdown(f"Profiles loaded (UI): **{len(profiles)}**")
-            if principal_ids:
-                preview_ids = principal_ids[:10]
-                st.write({"ids_preview": preview_ids})
-            debug_info = st.session_state.get("debug_info")
-            if debug_info:
-                st.json(debug_info)
-            else:
-                st.info("Debug info not populated yet. Click 'Detect Situations' or interact with the app to trigger loading.")
-        
-        # Run situation detection (always enabled; uses selected principal context at runtime)
-        detect_disabled = False
-        if st.button("Detect Situations", disabled=detect_disabled):
-            # Set a flag to trigger detection in the async section
-            st.session_state.trigger_detect = True
-            logging.info("[DecisionStudio UI] Detect button clicked; trigger_detect=True")
-            # Update unified status and flags immediately for consistent UI
-            st.session_state.detect_status = "queued"
-            st.session_state.detect_in_progress = True
-            try:
-                st.session_state.debug_trace.append("ui: detect requested")
-            except Exception:
-                pass
-            st.info("Detection requested. Running in background...")
-        # No extra caption; button is always available
+        st.divider()
+
+        if st.session_state.studio_mode == "Admin Console":
+            st.header("Admin Sections")
+            st.session_state.admin_section = st.selectbox(
+                "Select Admin Area",
+                options=ADMIN_SECTIONS,
+                index=ADMIN_SECTIONS.index(
+                    st.session_state.get("admin_section", ADMIN_SECTIONS[0])
+                ),
+                key="admin_section_selector",
+            )
+        else:
+            render_decision_sidebar()
     
     # Main content area
+    if st.session_state.studio_mode == "Admin Console":
+        render_admin_console()
+        return
+
     st.title("Finance KPI Situation Awareness")
     
     # Display information about the principal
@@ -2992,7 +3735,24 @@ async def run_async():
     try:
         # Initialize agent
         agent = await initialize_agent()
-        
+
+        # Handle admin console onboarding workflow submission via API
+        if st.session_state.get("trigger_admin_onboarding"):
+            st.session_state.trigger_admin_onboarding = False
+            request_payload = st.session_state.get("admin_onboarding_request")
+            if request_payload:
+                try:
+                    request_model = build_onboarding_workflow_request(request_payload)
+                    st.session_state.admin_onboarding_request_model = request_model
+                    await submit_admin_onboarding_via_api(st.session_state, request_model)
+                except Exception as exc:  # pragma: no cover - defensive
+                    st.session_state.admin_onboarding_error = str(exc)
+                    st.session_state.admin_onboarding_status = "failed"
+                    reset_admin_onboarding_polling_state(st.session_state)
+
+        # Poll onboarding workflow status when needed
+        await maybe_poll_admin_onboarding_status(st.session_state)
+
         # Load principal profiles and business processes from registry
         if agent and st.session_state.orchestrator:
             try:
