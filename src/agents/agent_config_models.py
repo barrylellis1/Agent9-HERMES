@@ -17,14 +17,24 @@ class A9_LLM_Service_Agent_Config(BaseModel):
     """
     Configuration for the A9_LLM_Service_Agent.
     Controls LLM provider settings, model selection, and guardrails.
+    
+    Task types for automatic model selection:
+    - sql_generation: Optimized for SQL output (gpt-4o-mini)
+    - nlp_parsing: Optimized for extraction (gpt-4o-mini)
+    - reasoning: Complex analysis (o1-mini)
+    - solution_finding: Solution debate (o1-mini)
+    - briefing: Executive briefing (gpt-4o)
+    - general: Balanced (gpt-4o)
     """
     model_config = ConfigDict(extra="allow")
     
     # Provider settings
-    provider: str = Field("anthropic", description="LLM provider to use (anthropic, openai)")
-    model_name: str = Field("claude-3-sonnet-20240229", 
-                           description="Default model to use for LLM requests")
-    api_key_env_var: str = Field("ANTHROPIC_API_KEY", 
+    provider: str = Field("openai", description="LLM provider to use (anthropic, openai)")
+    model_name: Optional[str] = Field(None, 
+                           description="Model to use. If None, auto-selected based on task_type")
+    task_type: str = Field("general", 
+                          description="Task type for automatic model selection")
+    api_key_env_var: str = Field("OPENAI_API_KEY", 
                                description="Environment variable containing API key")
     
     # Generation settings

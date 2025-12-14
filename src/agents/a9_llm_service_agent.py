@@ -16,7 +16,9 @@ from typing import Dict, List, Any, Optional, Union
 
 # Import service layer
 from src.llm_services.claude_service import ClaudeService, create_claude_service
-from src.llm_services.openai_service import OpenAIService, create_openai_service
+from src.llm_services.openai_service import (
+    OpenAIService, create_openai_service, TaskType, get_model_for_task
+)
 
 from pydantic import BaseModel, Field, ConfigDict
 from dotenv import load_dotenv
@@ -242,9 +244,19 @@ class A9_LLM_Service_Agent:
                 logger.warning(f"No API key found in config or environment var {self.config.api_key_env_var}")
                 raise ValueError(f"Missing API key for {self.config.provider} provider")
             
+            # Determine model name - use explicit config or auto-select based on task_type
+            model_name = self.config.model_name
+            task_type = getattr(self.config, 'task_type', TaskType.GENERAL)
+            if not model_name and self.config.provider.lower() == "openai":
+                model_name = get_model_for_task(task_type)
+                logger.info(f"Auto-selected model '{model_name}' for task type '{task_type}'")
+            elif not model_name:
+                model_name = "claude-3-sonnet-20240229"  # Default for Anthropic
+            
             # Convert agent config to service config
             service_config = {
-                "model_name": self.config.model_name,
+                "model_name": model_name,
+                "task_type": task_type,
                 "api_key": api_key,  # Pass the API key directly
                 "api_key_env_var": self.config.api_key_env_var,
                 "max_tokens": self.config.max_tokens,

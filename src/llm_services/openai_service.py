@@ -3,6 +3,12 @@ OpenAI LLM Service for Agent9-HERMES
 
 This module provides integration with OpenAI GPT models with guardrail enforcement
 and prompt template handling based on cascade_guardrails.md and cascade_prompt_templates.md.
+
+Supports multi-model configuration for different task types:
+- SQL generation: optimized for structured output
+- NLP parsing: optimized for extraction
+- Reasoning/Solution finding: optimized for complex analysis
+- General: balanced for most tasks
 """
 
 import os
@@ -41,11 +47,74 @@ class PromptTemplate(BaseModel):
     content: str
 
 
+class TaskType:
+    """Task type constants for model selection"""
+    SQL_GENERATION = "sql_generation"
+    NLP_PARSING = "nlp_parsing"
+    REASONING = "reasoning"
+    SOLUTION_FINDING = "solution_finding"
+    BRIEFING = "briefing"
+    GENERAL = "general"
+
+
+# Default model mappings per task type
+DEFAULT_TASK_MODELS: Dict[str, str] = {
+    TaskType.SQL_GENERATION: "gpt-4o-mini",
+    TaskType.NLP_PARSING: "gpt-4o-mini",
+    TaskType.REASONING: "o1-mini",
+    TaskType.SOLUTION_FINDING: "o1-mini",
+    TaskType.BRIEFING: "gpt-4o",
+    TaskType.GENERAL: "gpt-4o",
+}
+
+# Environment variable names for task-specific model overrides
+TASK_MODEL_ENV_VARS: Dict[str, str] = {
+    TaskType.SQL_GENERATION: "OPENAI_MODEL_SQL",
+    TaskType.NLP_PARSING: "OPENAI_MODEL_NLP",
+    TaskType.REASONING: "OPENAI_MODEL_REASONING",
+    TaskType.SOLUTION_FINDING: "OPENAI_MODEL_SOLUTION",
+    TaskType.BRIEFING: "OPENAI_MODEL_BRIEFING",
+    TaskType.GENERAL: "OPENAI_MODEL",
+}
+
+
+def get_model_for_task(task_type: str = TaskType.GENERAL) -> str:
+    """
+    Get the appropriate model for a given task type.
+    
+    Priority:
+    1. Environment variable override for specific task
+    2. General OPENAI_MODEL environment variable
+    3. Default model for task type
+    
+    Args:
+        task_type: One of TaskType constants
+        
+    Returns:
+        Model name string
+    """
+    # Check task-specific env var first
+    env_var = TASK_MODEL_ENV_VARS.get(task_type)
+    if env_var:
+        model = os.environ.get(env_var)
+        if model:
+            return model
+    
+    # Check general OPENAI_MODEL env var
+    general_model = os.environ.get("OPENAI_MODEL")
+    if general_model:
+        return general_model
+    
+    # Fall back to default for task type
+    return DEFAULT_TASK_MODELS.get(task_type, DEFAULT_TASK_MODELS[TaskType.GENERAL])
+
+
 class OpenAIServiceConfig(BaseModel):
     """Configuration for OpenAI Service"""
     model_config = ConfigDict(extra="allow")
     
-    model_name: str = "gpt-4-turbo"  # Default to GPT-4-turbo
+    model_name: str = Field(default_factory=lambda: get_model_for_task(TaskType.GENERAL))
+    task_type: str = TaskType.GENERAL  # Task type for automatic model selection
     api_key_env_var: str = "OPENAI_API_KEY"
     max_tokens: int = 4096
     temperature: float = 0.7
@@ -77,6 +146,15 @@ class OpenAIService:
             self.config = OpenAIServiceConfig(**config)
         else:
             self.config = config
+        
+        # If model_name wasn't explicitly set, use task_type to determine model
+        if not config.get("model_name") if isinstance(config, dict) else True:
+            task_model = get_model_for_task(self.config.task_type)
+            # Only override if using default
+            if self.config.model_name == get_model_for_task(TaskType.GENERAL):
+                self.config = OpenAIServiceConfig(
+                    **{**self.config.model_dump(), "model_name": task_model}
+                )
             
         # Get API key - first try direct API key, then environment variable
         api_key = getattr(self.config, 'api_key', None)
@@ -333,3 +411,69 @@ def create_openai_service(config: Union[Dict[str, Any], OpenAIServiceConfig]) ->
         logger.error(f"Failed to create OpenAI service: {str(e)}")
         # Re-raise to let caller handle
         raise
+
+
+def create_service_for_task(task_type: str, **config_overrides) -> OpenAIService:
+    """
+    Create an OpenAI service optimized for a specific task type.
+    
+    Args:
+        task_type: One of TaskType constants (sql_generation, nlp_parsing, reasoning, etc.)
+        **config_overrides: Additional config overrides
+        
+    Returns:
+        OpenAIService configured for the task
+        
+    Example:
+        sql_service = create_service_for_task(TaskType.SQL_GENERATION)
+        reasoning_service = create_service_for_task(TaskType.REASONING, temperature=0.3)
+    """
+    model = get_model_for_task(task_type)
+    
+    # Set appropriate defaults based on task type
+    task_defaults = {
+        TaskType.SQL_GENERATION: {"temperature": 0.1, "max_tokens": 2048},
+        TaskType.NLP_PARSING: {"temperature": 0.1, "max_tokens": 1024},
+        TaskType.REASONING: {"temperature": 0.7, "max_tokens": 8192},
+        TaskType.SOLUTION_FINDING: {"temperature": 0.7, "max_tokens": 8192},
+        TaskType.BRIEFING: {"temperature": 0.5, "max_tokens": 4096},
+        TaskType.GENERAL: {"temperature": 0.7, "max_tokens": 4096},
+    }
+    
+    defaults = task_defaults.get(task_type, task_defaults[TaskType.GENERAL])
+    
+    config = {
+        "model_name": model,
+        "task_type": task_type,
+        **defaults,
+        **config_overrides,
+    }
+    
+    logger.info(f"Creating service for task '{task_type}' with model '{model}'")
+    return create_openai_service(config)
+
+
+# Convenience factory functions for common tasks
+def create_sql_service(**config_overrides) -> OpenAIService:
+    """Create a service optimized for SQL generation"""
+    return create_service_for_task(TaskType.SQL_GENERATION, **config_overrides)
+
+
+def create_nlp_service(**config_overrides) -> OpenAIService:
+    """Create a service optimized for NLP parsing"""
+    return create_service_for_task(TaskType.NLP_PARSING, **config_overrides)
+
+
+def create_reasoning_service(**config_overrides) -> OpenAIService:
+    """Create a service optimized for complex reasoning tasks"""
+    return create_service_for_task(TaskType.REASONING, **config_overrides)
+
+
+def create_solution_service(**config_overrides) -> OpenAIService:
+    """Create a service optimized for solution finding/debate"""
+    return create_service_for_task(TaskType.SOLUTION_FINDING, **config_overrides)
+
+
+def create_briefing_service(**config_overrides) -> OpenAIService:
+    """Create a service optimized for executive briefing generation"""
+    return create_service_for_task(TaskType.BRIEFING, **config_overrides)
