@@ -39,3 +39,9 @@ logs/
 # Databases (DuckDB)
 data/*.duckdb
 data/*.duckdb.wal
+
+# Node.js
+node_modules/
+
+# Office temp files
+~$*
