@@ -85,6 +85,7 @@ class SolutionFinderResponse(A9AgentBaseResponse):
     unresolved_tensions: List[UnresolvedTension] = Field(default_factory=list)
     blind_spots: List[str] = Field(default_factory=list)
     next_steps: List[str] = Field(default_factory=list)
+    cross_review: Optional[Dict[str, Any]] = None  # Hybrid Council debate artifacts
 
     # Single HITL event fields per PRD
     human_action_required: bool = False

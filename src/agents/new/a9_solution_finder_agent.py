@@ -26,6 +26,12 @@ from src.agents.a9_llm_service_agent import (
     A9_LLM_AnalysisRequest,
     A9_LLM_AnalysisResponse,
 )
+from src.registry.consulting_personas import (
+    get_consulting_persona,
+    get_council_preset,
+    get_personas_for_principal,
+    ConsultingPersona,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -344,6 +350,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
             unresolved_tensions_list: List[UnresolvedTension] = []
             blind_spots_list: List[str] = []
             next_steps_list: List[str] = []
+            cross_review: Optional[Dict[str, Any]] = None
 
             # FORCE LLM for debugging/MVP
             use_llm = True 
@@ -468,31 +475,128 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             ps = f"KPI: {sctx_kpi} — generate actionable solution options."
                     except Exception:
                         pass
-                    # Allow per-request persona override via preferences
+                    # Resolve Personas (Hybrid Council vs Legacy)
+                    consulting_personas: List[ConsultingPersona] = []
+                    # Check if Hybrid Council is enabled via config or request preferences
+                    using_hybrid_council = getattr(self.config, "enable_hybrid_council", False)
+                    
+                    req_personas = []
+                    req_preset = None
                     try:
-                        prefs = getattr(request, "preferences", None) or {}
+                        req_personas = prefs.get("consulting_personas", [])
+                        req_preset = prefs.get("council_preset")
+                        if req_personas or req_preset:
+                            using_hybrid_council = True
                     except Exception:
-                        prefs = {}
-                    personas_override: List[str] = []
-                    try:
-                        cand = prefs.get("personas") if isinstance(prefs, dict) else None
-                        if isinstance(cand, list):
-                            personas_override = [str(p) for p in cand if p]
-                    except Exception:
-                        personas_override = []
-                    personas_list = personas_override or (self.config.expert_personas or [])
-                    personas = ", ".join(personas_list)
+                        pass
+
+                    if using_hybrid_council:
+                        # 1. Request-level override (Personas)
+                        if req_personas:
+                            for pid in req_personas:
+                                p = get_consulting_persona(str(pid))
+                                if p: consulting_personas.append(p)
+                        
+                        # 2. Request-level override (Preset)
+                        elif req_preset:
+                            preset = get_council_preset(str(req_preset))
+                            if preset:
+                                for pid in preset.personas:
+                                    p = get_consulting_persona(pid)
+                                    if p: consulting_personas.append(p)
+                        
+                        # 3. Config-level (Personas)
+                        elif getattr(self.config, "consulting_personas", None):
+                            for pid in self.config.consulting_personas:
+                                p = get_consulting_persona(pid)
+                                if p: consulting_personas.append(p)
+
+                        # 4. Config-level (Preset)
+                        elif getattr(self.config, "council_preset", None):
+                            preset = get_council_preset(self.config.council_preset)
+                            if preset:
+                                for pid in preset.personas:
+                                    p = get_consulting_persona(pid)
+                                    if p: consulting_personas.append(p)
+                        
+                        # 5. Principal Affinity Fallback
+                        else:
+                            role = None
+                            try:
+                                pc = getattr(request, "principal_context", None)
+                                if pc:
+                                    if isinstance(pc, dict): role = pc.get("role")
+                                    else: role = getattr(pc, "role", None)
+                            except Exception:
+                                pass
+                            
+                            if role:
+                                consulting_personas = get_personas_for_principal(role)
+                        
+                        # 6. Absolute Fallback (MBB)
+                        if not consulting_personas:
+                            preset = get_council_preset("mbb_council")
+                            if preset:
+                                for pid in preset.personas:
+                                    p = get_consulting_persona(pid)
+                                    if p: consulting_personas.append(p)
+
+                    # Build Context Strings
+                    if consulting_personas:
+                        persona_names = ", ".join([p.name for p in consulting_personas])
+                        persona_details = "\n\n".join([p.to_prompt_context() for p in consulting_personas])
+                        
+                        role_section = (
+                            "## ROLE\n"
+                            f"You are the Chair of a Strategy Council composed of top-tier consulting firms: {persona_names}.\n"
+                            "Your goal is to synthesize their distinct methodologies into a cohesive executive briefing.\n"
+                        )
+                        council_section = (
+                            "## CONSULTING COUNCIL PROFILES\n"
+                            f"{persona_details}\n"
+                        )
+                        task_instruction = (
+                            "Given the problem context and data analysis, simulate a COUNCIL DEBATE where each firm applies its methodology.\n"
+                            "1. Phase 1: Each firm generates an initial hypothesis based on their frameworks.\n"
+                            "2. Phase 2: Cross-Review - firms critique each other's blind spots (e.g., 'Strategy vs Execution').\n"
+                            "3. Phase 3: Synthesis - You (Chair) produce the final Decision Briefing.\n"
+                        )
+                        output_instruction = (
+                            "## OUTPUT FORMAT (STRICT JSON)\n"
+                            "Ensure the 'perspectives' in the output reflect the specific firms in the council.\n"
+                        )
+                    else:
+                        # Legacy / Generic Persona Path
+                        personas_override: List[str] = []
+                        try:
+                            cand = prefs.get("personas") if isinstance(prefs, dict) else None
+                            if isinstance(cand, list):
+                                personas_override = [str(p) for p in cand if p]
+                        except Exception:
+                            personas_override = []
+                        personas_list = personas_override or (self.config.expert_personas or [])
+                        persona_names = ", ".join(personas_list)
+                        
+                        role_section = (
+                            "## ROLE\n"
+                            "You are a decision analyst preparing a structured briefing for executive stakeholders.\n"
+                        )
+                        council_section = ""
+                        task_instruction = (
+                            "Given the problem context, data analysis, and PRINCIPAL INPUT (priorities/constraints), generate a DECISION BRIEFING with:\n"
+                            "1. Problem reframing (ensure shared understanding)\n"
+                            "2. 2-3 concrete solution options with evidence-based analysis\n"
+                            "3. For EACH option: strongest arguments FOR and AGAINST from multiple perspectives\n"
+                            "4. Unresolved tensions requiring human judgment\n"
+                            "5. Implementation considerations and decision triggers\n"
+                        )
+                        output_instruction = "## OUTPUT FORMAT (STRICT JSON)\n"
 
                     debate_spec = (
-                        "## ROLE\n"
-                        "You are a decision analyst preparing a structured briefing for executive stakeholders.\n\n"
+                        f"{role_section}\n"
+                        f"{council_section}\n"
                         "## TASK\n"
-                        "Given the problem context, data analysis, and PRINCIPAL INPUT (priorities/constraints), generate a DECISION BRIEFING with:\n"
-                        "1. Problem reframing (ensure shared understanding)\n"
-                        "2. 2-3 concrete solution options with evidence-based analysis\n"
-                        "3. For EACH option: strongest arguments FOR and AGAINST from multiple perspectives\n"
-                        "4. Unresolved tensions requiring human judgment\n"
-                        "5. Implementation considerations and decision triggers\n\n"
+                        f"{task_instruction}\n"
                         "## CONSTRAINTS\n"
                         "- Do NOT synthesize a single recommendation or consensus\n"
                         "- Do NOT simulate how real stakeholders would vote\n"
@@ -501,7 +605,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "- MUST respect Principal Input constraints/vetoes if provided\n"
                         "- CRITICAL: The Deep Analysis is COMPLETE. Do NOT suggest 'more data gathering' or 'implementing analytics' as a primary solution. Focus on OPERATIONAL INTERVENTIONS to address the identified drivers.\n"
                         f"- CONTEXT: The analysis focuses on '{target_kpi}'. Ensure the Problem Reframe explicitly mentions this KPI.\n\n"
-                        "## OUTPUT FORMAT (STRICT JSON)\n"
+                        f"{output_instruction}"
                         "{\n"
                         "  \"problem_reframe\": {\n"
                         "    \"situation\": \"...\",\n"
@@ -540,7 +644,8 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "    }\n"
                         "  ],\n"
                         "  \"blind_spots\": [\"...\"],\n"
-                        "  \"next_steps\": [\"...\"]\n"
+                        "  \"next_steps\": [\"...\"],\n"
+                        "  \"cross_review\": { \"persona_id\": { \"rankings\": [], \"critiques\": [] } }\n"
                         "}\n"
                     )
                     # Optional user-supplied context to guide the debate
@@ -737,6 +842,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
 
                         blind_spots_list = parsed.get("blind_spots", [])
                         next_steps_list = parsed.get("next_steps", [])
+                        cross_review = parsed.get("cross_review")
 
                         # Fallback rationale
                         rationale = "Options generated via Decision Briefing analysis."
@@ -842,6 +948,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                 unresolved_tensions=unresolved_tensions_list,
                 blind_spots=blind_spots_list,
                 next_steps=next_steps_list,
+                cross_review=cross_review,
             )
         except Exception as e:
             return SolutionFinderResponse.error(request_id=req_id, error_message=str(e))

@@ -364,6 +364,18 @@ class A9_Solution_Finder_Agent_Config(BaseModel):
         ],
         description="Default expert personas to include in debate prompts when enabled"
     )
+    
+    # Hybrid Council settings
+    enable_hybrid_council: bool = Field(
+        False, description="Enable Hybrid Council mode using external consulting personas"
+    )
+    consulting_personas: List[str] = Field(
+        [], description="List of consulting persona IDs to use in Hybrid Council mode"
+    )
+    council_preset: Optional[str] = Field(
+        None, description="Council preset ID to use if consulting_personas is empty"
+    )
+
     weight_impact: float = Field(
         0.5, description="Weight for expected business impact in option scoring"
     )
