@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { RidgelineScanner } from '../components/visualizations/RidgelineScanner'
 import { SnowflakeScanner, SnowflakeDimension } from '../components/visualizations/SnowflakeScanner'
 import { detectSituations, runDeepAnalysis, runSolutionFinder } from '../api/client'
-import { RefreshCw, Settings, X, ArrowRight, CheckCircle2, AlertTriangle, ChevronRight, ChevronLeft, User, Microscope, Loader2, Lightbulb, Plus } from 'lucide-react'
+import { RefreshCw, Settings, X, ArrowRight, CheckCircle2, AlertTriangle, ChevronRight, ChevronLeft, User, Microscope, Loader2, Lightbulb, Plus, Users, Shield, TrendingUp, BarChart2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -99,7 +99,14 @@ export function DecisionStudio() {
   const [findingSolutions, setFindingSolutions] = useState(false)
   const [solutions, setSolutions] = useState<any | null>(null)
   const [showPersonaSelector, setShowPersonaSelector] = useState(false)
-  const [selectedPersonas, setSelectedPersonas] = useState<string[]>(["CFO", "Supply Chain Expert", "Data Scientist"])
+  
+  // Hybrid Council State
+  const [useHybridCouncil, setUseHybridCouncil] = useState(true)
+  const [councilType, setCouncilType] = useState<"preset" | "custom">("preset")
+  const [selectedPreset, setSelectedPreset] = useState("mbb_council")
+  const [selectedPersonas, setSelectedPersonas] = useState<string[]>([])
+  
+  // Legacy State (kept for fallback)
   const [principalInput, setPrincipalInput] = useState<{current_priorities: string[], known_constraints: string[]}>({
       current_priorities: [],
       known_constraints: []
@@ -170,12 +177,23 @@ export function DecisionStudio() {
     }
   }, [])
 
+  const AVAILABLE_COUNCILS = [
+    { id: "mbb_council", label: "MBB Strategy Council", description: "McKinsey, BCG, Bain", icon: User, color: "text-purple-400" },
+    { id: "big4_council", label: "Big 4 Advisory Council", description: "Deloitte, EY-Parthenon, KPMG, PwC", icon: User, color: "text-blue-400" },
+    { id: "tech_council", label: "Tech Transformation", description: "Accenture, Deloitte, BCG", icon: User, color: "text-emerald-400" },
+    { id: "risk_council", label: "Risk & Governance", description: "KPMG, EY-Parthenon, Deloitte", icon: User, color: "text-red-400" },
+  ]
+
   const AVAILABLE_PERSONAS = [
-    { id: "CFO", label: "CFO", icon: User, color: "text-emerald-400" },
-    { id: "Supply Chain Expert", label: "Supply Chain", icon: User, color: "text-amber-400" },
-    { id: "Data Scientist", label: "Data Scientist", icon: User, color: "text-blue-400" },
-    { id: "Sales VP", label: "Sales VP", icon: User, color: "text-purple-400" },
-    { id: "Compliance Officer", label: "Compliance", icon: User, color: "text-red-400" }
+    // Consulting Firms
+    { id: "mckinsey", label: "McKinsey", type: "firm", icon: User, color: "text-purple-400" },
+    { id: "bcg", label: "BCG", type: "firm", icon: User, color: "text-green-400" },
+    { id: "bain", label: "Bain", type: "firm", icon: User, color: "text-red-400" },
+    { id: "deloitte", label: "Deloitte", type: "firm", icon: User, color: "text-blue-400" },
+    { id: "accenture", label: "Accenture", type: "firm", icon: User, color: "text-orange-400" },
+    // Legacy Roles (Fallback)
+    { id: "CFO", label: "CFO", type: "role", icon: User, color: "text-emerald-400" },
+    { id: "Supply Chain Expert", label: "Supply Chain", type: "role", icon: User, color: "text-amber-400" },
   ]
 
   const handleRefresh = async () => {
@@ -291,15 +309,33 @@ export function DecisionStudio() {
             plan: currentAnalysis.plan || {},
             execution: currentAnalysis
         }
-        // Prepare principal input object
-        const pInput = {
-            ...principalInput,
-            // Merge current text inputs if not empty
-            current_priorities: [...principalInput.current_priorities, ...(priorityText ? [priorityText] : [])],
-            known_constraints: [...principalInput.known_constraints, ...(constraintText ? [constraintText] : [])]
+        
+        // Prepare preferences based on mode
+        const preferences: any = {
+            principal_input: {
+                ...principalInput,
+                current_priorities: [...principalInput.current_priorities, ...(priorityText ? [priorityText] : [])],
+                known_constraints: [...principalInput.known_constraints, ...(constraintText ? [constraintText] : [])]
+            }
+        }
+
+        if (useHybridCouncil) {
+            if (councilType === 'preset') {
+                preferences.council_preset = selectedPreset
+            } else {
+                preferences.consulting_personas = selectedPersonas
+            }
+        } else {
+            preferences.personas = selectedPersonas
         }
         
-        const result = await runSolutionFinder(deepAnalysisPayload, selectedPersonas, pInput)
+        const result = await runSolutionFinder(
+            deepAnalysisPayload, 
+            [], // Legacy argument, ignored if preferences set
+            null, // Legacy argument
+            'cfo_001',
+            preferences // New argument support needs to be added to client.ts or pass via object
+        )
         
         // Extract solutions and transcript
         const solResponse = result.solutions
@@ -872,28 +908,113 @@ export function DecisionStudio() {
                                             </h4>
                                             <button onClick={() => setShowPersonaSelector(false)} className="text-slate-500 hover:text-white"><X className="w-4 h-4" /></button>
                                         </div>
-                                        <p className="text-xs text-slate-400 mb-3">Choose the expert personas to debate this solution.</p>
-                                        
-                                        <div className="grid grid-cols-1 gap-2 mb-4">
-                                            {AVAILABLE_PERSONAS.map(persona => {
-                                                const isSelected = selectedPersonas.includes(persona.id)
-                                                return (
-                                                    <button 
-                                                        key={persona.id}
-                                                        onClick={() => {
-                                                            if (isSelected) setSelectedPersonas(p => p.filter(id => id !== persona.id))
-                                                            else setSelectedPersonas(p => [...p, persona.id])
-                                                        }}
-                                                        className={`flex items-center gap-3 p-2 rounded border transition-all ${isSelected ? 'bg-slate-800 border-emerald-500/50' : 'bg-slate-900/50 border-slate-800 opacity-60 hover:opacity-100'}`}
-                                                    >
-                                                        <div className={`w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center border ${isSelected ? 'border-emerald-500/30' : 'border-slate-700'}`}>
-                                                            <persona.icon className={`w-4 h-4 ${persona.color}`} />
+                                        <div className="border-t border-slate-800 pt-4 mb-4">
+                                            <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Council Mode</h5>
+                                            
+                                            {/* Mode Toggle */}
+                                            <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800 mb-4">
+                                                <button
+                                                    onClick={() => setUseHybridCouncil(false)}
+                                                    className={`flex-1 py-1.5 px-3 rounded text-xs font-medium transition-all ${!useHybridCouncil ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                                                >
+                                                    Internal Roles
+                                                </button>
+                                                <button
+                                                    onClick={() => setUseHybridCouncil(true)}
+                                                    className={`flex-1 py-1.5 px-3 rounded text-xs font-medium transition-all ${useHybridCouncil ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                                                >
+                                                    Hybrid Council
+                                                </button>
+                                            </div>
+
+                                            {useHybridCouncil && (
+                                                <div className="mb-4">
+                                                    <div className="flex gap-2 mb-3">
+                                                        <button 
+                                                            onClick={() => setCouncilType('preset')}
+                                                            className={`px-3 py-1 text-xs rounded border ${councilType === 'preset' ? 'bg-indigo-900/30 border-indigo-500 text-indigo-300' : 'bg-transparent border-slate-700 text-slate-500'}`}
+                                                        >
+                                                            Council Presets
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => setCouncilType('custom')}
+                                                            className={`px-3 py-1 text-xs rounded border ${councilType === 'custom' ? 'bg-indigo-900/30 border-indigo-500 text-indigo-300' : 'bg-transparent border-slate-700 text-slate-500'}`}
+                                                        >
+                                                            Custom Selection
+                                                        </button>
+                                                    </div>
+
+                                                    {councilType === 'preset' ? (
+                                                        <div className="grid grid-cols-1 gap-2">
+                                                            {AVAILABLE_COUNCILS.map(council => (
+                                                                <button
+                                                                    key={council.id}
+                                                                    onClick={() => setSelectedPreset(council.id)}
+                                                                    className={`w-full text-left p-3 rounded border transition-all ${selectedPreset === council.id ? 'bg-slate-800 border-indigo-500' : 'bg-slate-900/50 border-slate-800 hover:border-slate-700'}`}
+                                                                >
+                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                        <Users className={`w-4 h-4 ${council.color}`} />
+                                                                        <span className={`text-sm font-medium ${selectedPreset === council.id ? 'text-white' : 'text-slate-300'}`}>
+                                                                            {council.label}
+                                                                        </span>
+                                                                        {selectedPreset === council.id && <CheckCircle2 className="w-4 h-4 text-indigo-500 ml-auto" />}
+                                                                    </div>
+                                                                    <p className="text-xs text-slate-500 ml-6">{council.description}</p>
+                                                                </button>
+                                                            ))}
                                                         </div>
-                                                        <span className={`text-sm ${isSelected ? 'text-white font-medium' : 'text-slate-500'}`}>{persona.label}</span>
-                                                        {isSelected && <CheckCircle2 className="w-4 h-4 text-emerald-500 ml-auto" />}
-                                                    </button>
-                                                )
-                                            })}
+                                                    ) : (
+                                                        <div className="space-y-2">
+                                                            <p className="text-xs text-slate-500 mb-2">Select 2-5 firms for the council:</p>
+                                                            {AVAILABLE_PERSONAS.filter(p => p.type === 'firm').map(persona => {
+                                                                const isSelected = selectedPersonas.includes(persona.id)
+                                                                return (
+                                                                    <button 
+                                                                        key={persona.id}
+                                                                        onClick={() => {
+                                                                            if (isSelected) setSelectedPersonas(p => p.filter(id => id !== persona.id))
+                                                                            else {
+                                                                                if (selectedPersonas.length < 5) setSelectedPersonas(p => [...p, persona.id])
+                                                                            }
+                                                                        }}
+                                                                        className={`w-full flex items-center gap-3 p-2 rounded border transition-all ${isSelected ? 'bg-slate-800 border-indigo-500/50' : 'bg-slate-900/50 border-slate-800 opacity-80 hover:opacity-100'}`}
+                                                                    >
+                                                                        <div className={`w-6 h-6 rounded bg-slate-900 flex items-center justify-center border ${isSelected ? 'border-indigo-500/30' : 'border-slate-700'}`}>
+                                                                            <span className={`text-xs font-bold ${persona.color}`}>{persona.label[0]}</span>
+                                                                        </div>
+                                                                        <span className={`text-sm ${isSelected ? 'text-white font-medium' : 'text-slate-500'}`}>{persona.label}</span>
+                                                                        {isSelected && <CheckCircle2 className="w-4 h-4 text-indigo-500 ml-auto" />}
+                                                                    </button>
+                                                                )
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {!useHybridCouncil && (
+                                                <div className="grid grid-cols-1 gap-2 mb-4">
+                                                    {AVAILABLE_PERSONAS.filter(p => p.type === 'role').map(persona => {
+                                                        const isSelected = selectedPersonas.includes(persona.id)
+                                                        return (
+                                                            <button 
+                                                                key={persona.id}
+                                                                onClick={() => {
+                                                                    if (isSelected) setSelectedPersonas(p => p.filter(id => id !== persona.id))
+                                                                    else setSelectedPersonas(p => [...p, persona.id])
+                                                                }}
+                                                                className={`flex items-center gap-3 p-2 rounded border transition-all ${isSelected ? 'bg-slate-800 border-emerald-500/50' : 'bg-slate-900/50 border-slate-800 opacity-60 hover:opacity-100'}`}
+                                                            >
+                                                                <div className={`w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center border ${isSelected ? 'border-emerald-500/30' : 'border-slate-700'}`}>
+                                                                    <persona.icon className={`w-4 h-4 ${persona.color}`} />
+                                                                </div>
+                                                                <span className={`text-sm ${isSelected ? 'text-white font-medium' : 'text-slate-500'}`}>{persona.label}</span>
+                                                                {isSelected && <CheckCircle2 className="w-4 h-4 text-emerald-500 ml-auto" />}
+                                                            </button>
+                                                        )
+                                                    })}
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Principal Input Section */}
@@ -981,10 +1102,20 @@ export function DecisionStudio() {
 
                                         <button 
                                             onClick={handleStartDebate}
-                                            disabled={selectedPersonas.length === 0}
-                                            className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-medium disabled:opacity-50 transition-colors"
+                                            disabled={(useHybridCouncil && councilType === 'custom' && selectedPersonas.length < 2) || (!useHybridCouncil && selectedPersonas.length === 0)}
+                                            className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-medium disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                                         >
-                                            Start Agentic Debate
+                                            {useHybridCouncil ? (
+                                                <>
+                                                    <Users className="w-4 h-4" />
+                                                    Convening Council...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Lightbulb className="w-4 h-4" />
+                                                    Start Agentic Debate
+                                                </>
+                                            )}
                                         </button>
                                     </div>
                                 )}

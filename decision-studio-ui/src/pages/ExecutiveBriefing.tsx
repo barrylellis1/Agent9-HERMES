@@ -183,6 +183,65 @@ export function ExecutiveBriefing() {
           </div>
         </section>
 
+        {/* Hybrid Council Debate (New Section) */}
+        {data.cross_review && (
+          <section className="mb-12">
+            <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
+              <div className="w-8 h-8 bg-purple-600 text-white rounded flex items-center justify-center text-sm font-bold">
+                <Users className="w-4 h-4" />
+              </div>
+              Council Debate
+            </h2>
+            <p className="text-slate-600 mb-6">
+              The Consulting Council conducted a cross-review of initial hypotheses to surface blind spots and tensions.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {Object.entries(data.cross_review).map(([personaId, review]: [string, any]) => (
+                <div key={personaId} className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                      <Users className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 capitalize">{personaId.replace(/_/g, ' ')}</h4>
+                      <p className="text-xs text-slate-500">Council Member</p>
+                    </div>
+                  </div>
+                  
+                  {review.critiques && review.critiques.length > 0 && (
+                    <div className="mb-3">
+                      <h5 className="text-xs font-semibold text-red-600 uppercase tracking-wider mb-2">Key Critiques</h5>
+                      <ul className="space-y-2">
+                        {review.critiques.map((c: any, i: number) => (
+                          <li key={i} className="text-sm text-slate-700 bg-white p-2 rounded border border-slate-100">
+                            <span className="font-medium text-slate-900 block mb-0.5">Re: {c.target}</span>
+                            "{c.concern}"
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {review.endorsements && review.endorsements.length > 0 && (
+                    <div>
+                      <h5 className="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-2">Endorsements</h5>
+                      <ul className="space-y-2">
+                        {review.endorsements.map((e: any, i: number) => (
+                          <li key={i} className="text-sm text-slate-700 bg-white p-2 rounded border border-slate-100">
+                            <span className="font-medium text-slate-900 block mb-0.5">Re: {e.target}</span>
+                            "{e.reason}"
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Strategic Options */}
         <section className="mb-12">
           <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
