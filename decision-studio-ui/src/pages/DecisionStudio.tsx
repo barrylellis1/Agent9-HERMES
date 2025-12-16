@@ -107,6 +107,69 @@ export function DecisionStudio() {
   const [priorityText, setPriorityText] = useState("")
   const [constraintText, setConstraintText] = useState("")
 
+  const buildExecutiveBriefing = useCallback((situation: any, analysis: any, sol: any) => {
+    const kpiName = situation?.kpi_name || analysis?.kpi_name || sol?.problem_reframe?.situation || 'KPI'
+    const topOptions = Array.isArray(sol?.options_ranked) ? sol.options_ranked : []
+
+    const urgency = situation?.severity ? String(situation.severity) : 'High Priority'
+    const executiveSummaryParts: string[] = []
+    if (sol?.problem_reframe?.complication) executiveSummaryParts.push(String(sol.problem_reframe.complication))
+    if (sol?.recommendation_rationale) executiveSummaryParts.push(String(sol.recommendation_rationale))
+    const executiveSummary = executiveSummaryParts.filter(Boolean).join("\n\n") || `A variance was detected in ${kpiName}. Review the options and approve a response.`
+
+    const options = topOptions.slice(0, 3).map((opt: any) => ({
+      title: opt?.title || 'Option',
+      subtitle: opt?.time_to_value ? `Time to value: ${opt.time_to_value}` : 'Operational intervention',
+      description: opt?.description || opt?.rationale || '',
+      roi: 'TBD',
+      investment: 'TBD',
+      timeline: opt?.time_to_value || 'TBD',
+      riskLevel: 'TBD',
+      reversibility: opt?.reversibility || 'TBD',
+      recommended: (sol?.recommendation?.id && opt?.id) ? sol.recommendation.id === opt.id : false,
+      prosDetailed: Array.isArray(opt?.perspectives?.[0]?.arguments_for)
+        ? opt.perspectives[0].arguments_for.slice(0, 3).map((p: string) => ({ point: p, detail: '' }))
+        : [],
+      consDetailed: Array.isArray(opt?.perspectives?.[0]?.arguments_against)
+        ? opt.perspectives[0].arguments_against.slice(0, 3).map((c: string) => ({ point: c, detail: '' }))
+        : [],
+      perspectives: Array.isArray(opt?.perspectives)
+        ? opt.perspectives.slice(0, 3).map((p: any) => ({ role: p?.lens || 'Perspective', view: (p?.key_questions || []).join(' ') }))
+        : [],
+    }))
+
+    const title = sol?.problem_reframe?.situation
+      ? `Decision Briefing: ${String(sol.problem_reframe.situation)}`
+      : `Decision Briefing: ${kpiName}`
+
+    return {
+      title,
+      urgency,
+      metrics: {
+        financialImpact: situation?.business_impact || 'TBD',
+        timeSensitivity: 'TBD',
+        confidence: 'TBD',
+        decisionDeadline: 'TBD',
+      },
+      executiveSummary,
+      situation: {
+        currentState: situation?.description || `Context for ${kpiName}.`,
+        problem: sol?.problem_reframe?.complication || `Variance detected in ${kpiName}.`,
+        rootCauses: [],
+      },
+      options,
+      roadmap: [],
+      risks: [],
+      recommendation: {
+        headline: sol?.recommendation?.title ? `Proceed with: ${sol.recommendation.title}` : 'Review options and approve next steps',
+        rationale: sol?.recommendation_rationale || '',
+        nextSteps: Array.isArray(sol?.next_steps) ? sol.next_steps : [],
+        decisionOwner: 'TBD',
+        deadline: 'TBD',
+      },
+    }
+  }, [])
+
   const AVAILABLE_PERSONAS = [
     { id: "CFO", label: "CFO", icon: User, color: "text-emerald-400" },
     { id: "Supply Chain Expert", label: "Supply Chain", icon: User, color: "text-amber-400" },
@@ -223,7 +286,11 @@ export function DecisionStudio() {
     setFindingSolutions(true)
     setShowPersonaSelector(false)
     try {
-        const daRequestId = currentAnalysis.request_id
+        // Pass full Deep Analysis result for PRD-compliant agent-to-agent data exchange
+        const deepAnalysisPayload = {
+            plan: currentAnalysis.plan || {},
+            execution: currentAnalysis
+        }
         // Prepare principal input object
         const pInput = {
             ...principalInput,
@@ -232,12 +299,21 @@ export function DecisionStudio() {
             known_constraints: [...principalInput.known_constraints, ...(constraintText ? [constraintText] : [])]
         }
         
-        const result = await runSolutionFinder(daRequestId, selectedPersonas, pInput)
+        const result = await runSolutionFinder(deepAnalysisPayload, selectedPersonas, pInput)
         
         // Extract solutions and transcript
         const solResponse = result.solutions
         console.log("Full Solution Response:", solResponse)
         setSolutions(solResponse)
+
+        try {
+          if (selectedSituation?.situation_id) {
+            const briefingPayload = buildExecutiveBriefing(selectedSituation, currentAnalysis, solResponse)
+            localStorage.setItem(`briefing_${selectedSituation.situation_id}`, JSON.stringify(briefingPayload))
+          }
+        } catch (e) {
+          console.error('Failed to persist briefing payload', e)
+        }
         
     } catch (err) {
         console.error("Solution Finder Failed", err)

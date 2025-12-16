@@ -136,7 +136,8 @@ class DeepAnalysisWorkflowRequest(BaseModel):
 
 class SolutionWorkflowRequest(BaseModel):
     principal_id: str = Field(..., description="ID of the requesting principal")
-    analysis_request_id: Optional[str] = Field(None, description="Prior deep-analysis request to build upon")
+    analysis_request_id: Optional[str] = Field(None, description="Prior deep-analysis request ID (deprecated, prefer deep_analysis_output)")
+    deep_analysis_output: Optional[Dict[str, Any]] = Field(None, description="Full Deep Analysis result for direct agent-to-agent data exchange")
     problem_statement: Optional[str] = Field(None, description="Problem statement to solve")
     constraints: Optional[Dict[str, Any]] = Field(None, description="Constraints such as budget or timeline")
     preferences: Optional[Dict[str, Any]] = Field(None, description="Additional preferences for recommendations")
@@ -426,11 +427,13 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
 async def _run_solution_workflow(request_id: str, runtime: AgentRuntime, request: SolutionWorkflowRequest) -> None:
     try:
         orchestrator = runtime.get_orchestrator()
-        deep_output: Optional[Dict[str, Any]] = None
-        if request.analysis_request_id:
+        # PRD-compliant: Prefer direct deep_analysis_output passed by frontend (agent-to-agent data exchange)
+        # Fall back to workflow store lookup only if deep_analysis_output not provided
+        deep_output: Optional[Dict[str, Any]] = request.deep_analysis_output
+        if not deep_output and request.analysis_request_id:
             related_record = await _get_record(request.analysis_request_id)
             if related_record and related_record.result:
-                deep_output = related_record.result.get("execution") or related_record.result
+                deep_output = related_record.result
 
         solution_request_payload: Dict[str, Any] = {
             "request_id": request_id,

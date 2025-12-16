@@ -147,18 +147,18 @@ export async function runDeepAnalysis(situationId: string, kpiName: string, prin
   }
 
 export async function runSolutionFinder(
-  analysisRequestId: string, 
+  deepAnalysisOutput: any,
   personas: string[] = ["CFO", "Supply Chain Expert", "Data Scientist"], 
   principalInput: any = null,
   principalId: string = 'cfo_001'
 ) {
-    // 1. Trigger the workflow
+    // 1. Trigger the workflow - pass full Deep Analysis result for agent-to-agent data exchange
     const runResponse = await fetch(`${API_BASE}/workflows/solutions/run`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         principal_id: principalId,
-        analysis_request_id: analysisRequestId,
+        deep_analysis_output: deepAnalysisOutput,
         preferences: {
             personas: personas,
             principal_input: principalInput

@@ -226,8 +226,20 @@ class DuckDBManager(DatabaseManager):
                 self.duckdb_conn.execute(
                     f"CREATE SCHEMA IF NOT EXISTS {schema}"
                 )
+                # Auto-detect delimiter by checking first line of file
+                delimiter = ','
+                try:
+                    with open(path, 'r', encoding='utf-8') as f:
+                        first_line = f.readline()
+                        if ';' in first_line and ',' not in first_line:
+                            delimiter = ';'
+                        elif first_line.count(';') > first_line.count(','):
+                            delimiter = ';'
+                except Exception:
+                    pass
+                
                 self.duckdb_conn.execute(
-                    f"CREATE OR REPLACE TABLE {schema}.{table_name} AS SELECT * FROM read_csv_auto('{path}')"
+                    f"CREATE OR REPLACE TABLE {schema}.{table_name} AS SELECT * FROM read_csv_auto('{path}', delim='{delimiter}', header=true, ignore_errors=true)"
                 )
                 
                 self.logger.info(f"[TXN:{tx_id}] Registered CSV file {path} as {schema}.{table_name}")

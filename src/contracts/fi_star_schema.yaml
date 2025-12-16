@@ -68,7 +68,7 @@ views:
         ch.DESCRIPTION AS "Customer/Group Description",
         ch.LEVEL AS "Parent Customer Hierarchy ID",
         ch_parent.DESCRIPTION AS "Parent Customer/Group Description",
-        ctt.LONG_DESCR AS "Customer Type Name",
+        COALESCE(ctt.LONG_DESCR, ctt.MEDIUM_DESCR, ctt.SHORT_DESCR) AS "Customer Type Name",
         pct.LONG_DESCR AS "Profit Center Name",
         pch.HIERARCHYID AS "Profit Center Hierarchyid",
         ch.HIERARCHYID AS "Customer Hierarchyid",
@@ -86,7 +86,7 @@ views:
       LEFT JOIN Customer c ON ft.customerid = c.customerid
       LEFT JOIN CustomersHierarchy ch ON c.customerid = ch.HIERARCHYID
       LEFT JOIN CustomersHierarchy ch_parent ON ch.LEVEL = ch_parent.HIERARCHYID
-      LEFT JOIN CustomerType ct ON c.customertypeid = ct.customertypeid
+      LEFT JOIN CustomerType ct ON ft.customertypeid = ct.customertypeid
       LEFT JOIN CustomerTypeTexts ctt ON ct.customertypeid = ctt.CUSTOMERTYPEID
       LEFT JOIN ProfitCenter pc ON ft.profitcenterid = pc.profitcenterid
       LEFT JOIN ProfitCenterTexts pct ON pc.profitcenterid = pct.PROFITCENTERID
