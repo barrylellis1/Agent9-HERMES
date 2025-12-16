@@ -130,9 +130,21 @@ def _extract_deep_analysis_summary(da_ctx: Any) -> Dict[str, Any]:
     if not isinstance(ctx, dict):
         return {}
 
+    # The workflow may pass the Deep Analysis workflow payload as:
+    # {"plan": <DeepAnalysisResponse>, "execution": <DeepAnalysisResponse>}
+    # Remember: execution contains the KPI drivers (change_points/kt/scqa), while plan
+    # contains kpi_name/timeframe/dimensions. Prefer extracting from execution when present.
+    exec_ctx = _model_to_dict(ctx.get("execution"))
+    if isinstance(exec_ctx, dict):
+        data_ctx: Dict[str, Any] = exec_ctx
+    else:
+        data_ctx = ctx
+
     summary: Dict[str, Any] = {}
     plan = _model_to_dict(ctx.get("plan"))
-    timeframe_map = _model_to_dict(ctx.get("timeframe_mapping"))
+    if not isinstance(plan, dict) and isinstance(exec_ctx, dict):
+        plan = _model_to_dict(exec_ctx.get("plan"))
+    timeframe_map = _model_to_dict(data_ctx.get("timeframe_mapping"))
 
     def _first_str(value: Any) -> Optional[str]:
         if isinstance(value, str) and value.strip():
@@ -143,7 +155,7 @@ def _extract_deep_analysis_summary(da_ctx: Any) -> Dict[str, Any]:
     if isinstance(plan, dict):
         kpi_name = plan.get("kpi_name")
     if not kpi_name:
-        kpi_name = ctx.get("kpi_name")
+        kpi_name = data_ctx.get("kpi_name")
     if kpi_name:
         summary["kpi_name"] = str(kpi_name)
 
@@ -157,7 +169,7 @@ def _extract_deep_analysis_summary(da_ctx: Any) -> Dict[str, Any]:
     if isinstance(timeframe_map, dict) and timeframe_map.get("previous"):
         summary["comparison_timeframe"] = str(timeframe_map.get("previous"))
 
-    scqa = _first_str(ctx.get("scqa_summary"))
+    scqa = _first_str(data_ctx.get("scqa_summary"))
     if scqa:
         summary["scqa_summary"] = scqa
 
@@ -166,7 +178,7 @@ def _extract_deep_analysis_summary(da_ctx: Any) -> Dict[str, Any]:
         if isinstance(dims, list) and dims:
             summary["dimension_focus"] = _limit([str(d) for d in dims if d], 6)
 
-    change_points_raw = ctx.get("change_points") or []
+    change_points_raw = data_ctx.get("change_points") or []
     change_points: List[Dict[str, Any]] = []
     for cp in change_points_raw:
         cp_dict = _model_to_dict(cp)
@@ -183,7 +195,7 @@ def _extract_deep_analysis_summary(da_ctx: Any) -> Dict[str, Any]:
     if change_points:
         summary["top_change_points"] = _limit(change_points, 5)
 
-    kt = _model_to_dict(ctx.get("kt_is_is_not"))
+    kt = _model_to_dict(data_ctx.get("kt_is_is_not"))
     if isinstance(kt, dict):
         summary["what_is_highlights"] = _collect_text_entries(kt.get("what_is"))
         summary["where_signals"] = _collect_text_entries(kt.get("where_is"))
@@ -306,6 +318,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                 except Exception:
                     self.deep_analysis_agent = None
                 try:
+                    # Get LLM Service Agent (uses cached instance from registry)
                     self.llm_service_agent = await orchestrator.get_agent("A9_LLM_Service_Agent")
                 except Exception:
                     self.llm_service_agent = None
@@ -338,21 +351,16 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
             # Fallback: Attempt to acquire LLM service if missing
             if use_llm and not self.orchestrator and not self.llm_service_agent:
                 try:
-                    print("DEBUG: Dependencies missing, attempting AgentRegistry lookup...")
                     from src.agents.new.a9_orchestrator_agent import AgentRegistry
                     self.llm_service_agent = await AgentRegistry.get_agent("A9_LLM_Service_Agent")
-                    print(f"DEBUG: Acquired LLM Service via Registry: {self.llm_service_agent is not None}")
-                except Exception as e:
-                    print(f"DEBUG: Registry lookup failed: {e}")
+                except Exception:
+                    pass
 
             if use_llm:
                 try:
-                    print(f"DEBUG: Attempting LLM Debate. Orchestrator: {self.orchestrator is not None}, LLM Agent: {self.llm_service_agent is not None}")
                     # Build compact debate prompt content using provided context
                     da_ctx = request.deep_analysis_output or {}
                     da_summary = _extract_deep_analysis_summary(da_ctx)
-                    print(f"DEBUG: da_summary keys: {list(da_summary.keys())}")
-                    print(f"DEBUG: KPI in summary: {da_summary.get('kpi_name')}")
                     
                     # Derive a robust problem statement
                     ps_raw = (getattr(request, "problem_statement", None) or "").strip()

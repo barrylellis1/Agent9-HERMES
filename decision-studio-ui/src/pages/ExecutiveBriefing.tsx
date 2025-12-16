@@ -29,8 +29,27 @@ export function ExecutiveBriefing() {
     )
   }
 
-  // Use mock data for demonstration if no real data
-  const data = briefing || MOCK_BRIEFING
+  if (!briefing) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-8">
+        <div className="max-w-xl w-full bg-slate-900/60 border border-slate-800 rounded-xl p-6">
+          <h2 className="text-xl font-bold text-white mb-2">Briefing not generated yet</h2>
+          <p className="text-slate-400 mb-6">
+            Go back to Decision Studio, run Deep Analysis, then click "Generate Solution Options" to create the Executive Briefing.
+          </p>
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Decision Studio
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  const data = briefing
 
   return (
     <div className="min-h-screen bg-white text-slate-900 print:bg-white">

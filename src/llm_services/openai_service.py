@@ -58,13 +58,14 @@ class TaskType:
 
 
 # Default model mappings per task type
+# Note: Using gpt-4-turbo as fallback since not all OpenAI projects have access to gpt-4o
 DEFAULT_TASK_MODELS: Dict[str, str] = {
-    TaskType.SQL_GENERATION: "gpt-4o-mini",
-    TaskType.NLP_PARSING: "gpt-4o-mini",
-    TaskType.REASONING: "o1-mini",
-    TaskType.SOLUTION_FINDING: "o1-mini",
-    TaskType.BRIEFING: "gpt-4o",
-    TaskType.GENERAL: "gpt-4o",
+    TaskType.SQL_GENERATION: "gpt-4-turbo",
+    TaskType.NLP_PARSING: "gpt-4-turbo",
+    TaskType.REASONING: "gpt-4-turbo",
+    TaskType.SOLUTION_FINDING: "gpt-4-turbo",
+    TaskType.BRIEFING: "gpt-4-turbo",
+    TaskType.GENERAL: "gpt-4-turbo",
 }
 
 # Environment variable names for task-specific model overrides

@@ -226,22 +226,14 @@ class A9_Data_Product_Agent(DataProductProtocol):
             if not getattr(self, 'llm_service_agent', None):
                 if hasattr(self, 'orchestrator') and self.orchestrator:
                     try:
-                        # Request LLM Service Agent with OpenAI config so factory creates it with the right provider
-                        self.llm_service_agent = await self.orchestrator.get_agent(
-                            "A9_LLM_Service_Agent",
-                            {"provider": "openai", "model_name": "gpt-4-turbo", "api_key_env_var": "OPENAI_API_KEY"}
-                        )
+                        # Request LLM Service Agent from registry
+                        self.llm_service_agent = await self.orchestrator.get_agent("A9_LLM_Service_Agent")
                     except Exception:
                         self.llm_service_agent = None
                     if not getattr(self, 'llm_service_agent', None):
                         try:
                             from src.agents.a9_llm_service_agent import A9_LLM_Service_Agent
-                            # Switch provider to OpenAI and use OPENAI_API_KEY
-                            self.llm_service_agent = await A9_LLM_Service_Agent.create({
-                                "provider": "openai",
-                                "model_name": "gpt-4-turbo",
-                                "api_key_env_var": "OPENAI_API_KEY"
-                            })
+                            self.llm_service_agent = await A9_LLM_Service_Agent.create({})
                             try:
                                 await self.orchestrator.register_agent("A9_LLM_Service_Agent", self.llm_service_agent)
                             except Exception:

@@ -91,7 +91,7 @@ class A9_LLM_EvaluationRequest(A9AgentBaseRequest):
 class A9_LLM_Response(A9AgentBaseResponse):
     """Base response model for LLM operations"""
     content: str = Field(..., description="The LLM-generated content")
-    model_used: str = Field(..., description="The model used for generation")
+    model_used: Optional[str] = Field(None, description="The model used for generation")
     usage: Dict[str, Any] = Field(..., description="Token usage information")
     operation: str = Field(..., description="The operation that was performed")
     warnings: Optional[List[str]] = Field(None, description="Any warnings generated")
@@ -100,7 +100,7 @@ class A9_LLM_Response(A9AgentBaseResponse):
 class A9_LLM_AnalysisResponse(A9AgentBaseResponse):
     """Response model for LLM analysis operations"""
     analysis: Dict[str, Any] = Field(..., description="Analysis results")
-    model_used: str = Field(..., description="The model used for analysis")
+    model_used: Optional[str] = Field(None, description="The model used for analysis")
     usage: Dict[str, Any] = Field(..., description="Token usage information")
     confidence: float = Field(..., description="Confidence score for analysis")
 
@@ -108,7 +108,7 @@ class A9_LLM_AnalysisResponse(A9AgentBaseResponse):
 class A9_LLM_SummaryResponse(A9AgentBaseResponse):
     """Response model for LLM summary operations"""
     summary: str = Field(..., description="Generated summary")
-    model_used: str = Field(..., description="The model used for summarization")
+    model_used: Optional[str] = Field(None, description="The model used for summarization")
     usage: Dict[str, Any] = Field(..., description="Token usage information")
     compression_ratio: float = Field(..., description="Ratio of original to summary length")
 
@@ -116,7 +116,7 @@ class A9_LLM_SummaryResponse(A9AgentBaseResponse):
 class A9_LLM_EvaluationResponse(A9AgentBaseResponse):
     """Response model for LLM evaluation operations"""
     rankings: List[Dict[str, Any]] = Field(..., description="Ranked options with scores")
-    model_used: str = Field(..., description="The model used for evaluation")
+    model_used: Optional[str] = Field(None, description="The model used for evaluation")
     usage: Dict[str, Any] = Field(..., description="Token usage information")
     rationale: str = Field(..., description="Rationale for rankings")
 

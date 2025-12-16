@@ -36,6 +36,13 @@ class A9_Solution_Finder_Agent_Config(BaseModel):
 - `A9_Deep_Analysis_Agent` (consumes its output for context)
 - `A9_LLM_Service_Agent` (persona debate and narrative synthesis; fallback acquisition from AgentRegistry if not injected)
 
+## LLM Configuration
+| Task Type | Optimal Model | Rationale |
+|-----------|---------------|-----------|
+| `solution_finding` | `o1-mini` | Complex multi-perspective reasoning for solution generation and trade-off analysis |
+
+Environment variable override: `OPENAI_MODEL_SOLUTION`
+
 ## Key Features (Dec 2024)
 - **Business Context Injection**: Loads domain-specific context from `src/registry_references/business_context/*.yaml` to inform LLM recommendations
 - **Enhanced Problem Statement**: Dynamically constructs quantitative problem statements from Deep Analysis change points (KPI, delta, dimension, attribute)

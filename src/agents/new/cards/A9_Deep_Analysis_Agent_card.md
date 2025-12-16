@@ -31,6 +31,13 @@ class A9_Deep_Analysis_Agent_Config(BaseModel):
 - `A9_Data_Governance_Agent` (glossary/KPI context)
 - `A9_LLM_Service_Agent` (optional narrative summarization via orchestrator)
 
+## LLM Configuration
+| Task Type | Optimal Model | Rationale |
+|-----------|---------------|-----------|
+| `reasoning` | `o1-mini` | Complex reasoning for narrative summarization and hypothesis generation |
+
+Environment variable override: `OPENAI_MODEL_REASONING`
+
 ## Planning and Execution
 - Dimensions are sourced from the Data Product Contract YAML (`src/contracts/fi_star_schema.yaml`) using `llm_profile.dimension_semantics` for `FI_Star_View`.
 - Planned steps are grouped comparisons per selected dimension with a "current vs previous" timeframe.

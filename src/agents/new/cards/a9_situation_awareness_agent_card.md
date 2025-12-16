@@ -73,6 +73,14 @@ class NLQueryResponse(BaseResponse):
 - A9_Principal_Context_Agent: For principal context retrieval (future)
 - A9_Data_Governance_Agent: For business term mapping (future)
 - A9_NLP_Interface_Agent: For advanced natural language processing (future)
+- A9_LLM_Service_Agent: For SQL generation from natural language queries
+
+## LLM Configuration
+| Task Type | Optimal Model | Rationale |
+|-----------|---------------|-----------|
+| `sql_generation` | `gpt-4o-mini` | Fast, cost-effective SQL generation from natural language |
+
+Environment variable override: `OPENAI_MODEL_SQL`
 
 ## Assignment & HITL
 - Delayed assignment until Deep Analysis completes; ownership mapping can be more precise once scope is identified across dimensions.
