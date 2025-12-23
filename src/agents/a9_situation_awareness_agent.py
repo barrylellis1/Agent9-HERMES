@@ -83,7 +83,7 @@ class A9_Situation_Awareness_Agent:
         self.logger = logging.getLogger(self.__class__.__name__)
         
         # Load contract and registries
-        self.contract_path = config.get("contract_path", "C:/Users/barry/CascadeProjects/Agent9-HERMES/src/contracts/fi_star_schema.yaml")
+        self.contract_path = config.get("contract_path", "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml")
         
         # Initialize empty contract and KPI registry (will be loaded in connect)
         self.contract = None

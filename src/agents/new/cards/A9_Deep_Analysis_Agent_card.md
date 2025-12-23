@@ -39,12 +39,19 @@ class A9_Deep_Analysis_Agent_Config(BaseModel):
 Environment variable override: `OPENAI_MODEL_REASONING`
 
 ## Planning and Execution
-- Dimensions are sourced from the Data Product Contract YAML (`src/contracts/fi_star_schema.yaml`) using `llm_profile.dimension_semantics` for `FI_Star_View`.
+- Dimensions are sourced from the Data Product Contract YAML (`src/registry_references/data_product_registry/data_products/fi_star_schema.yaml`) using `llm_profile.dimension_semantics` for `FI_Star_View`.
 - Planned steps are grouped comparisons per selected dimension with a "current vs previous" timeframe.
 - Dimension scan limit increased to 15 (from 5) for broader coverage.
+- **Default timeframe**: When no timeframe is specified, defaults to `current_quarter` to ensure dimensional scans have time boundaries.
 - KT Where/When are computed by executing grouped queries via `A9_Data_Product_Agent` for the current timeframe and the derived previous timeframe, then ranking by absolute delta.
+- **Delta calculation**: Uses CTE-based SQL with `delta_prev` metric comparing current vs previous timeframe values.
 - Change points are globally sorted by absolute delta and truncated to top 5 for focused analysis.
 - Output fields include: `plan`, `dimensions_suggested`, `scqa_summary`, `kt_is_is_not`, `change_points`, `timeframe_mapping`, and `when_started` (earliest significant time bucket derived from time deltas).
+
+## Recent Updates (Dec 2025)
+- Contract path consolidated to single source of truth in `registry_references`
+- Added default timeframe (`current_quarter`) when none specified
+- Fixed dimension extraction from Data Governance fallback to properly extract field names from objects
 
 ## Compliance
 - A2A Pydantic IO for requests/responses

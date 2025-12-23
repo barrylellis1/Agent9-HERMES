@@ -154,6 +154,10 @@ for situation in response.situations:
     print()
 ```
 
+## Recent Updates (Dec 2025)
+- Contract path consolidated to single source of truth in `registry_references`
+- Default contract path: `src/registry_references/data_product_registry/data_products/fi_star_schema.yaml`
+
 ## Future Enhancements
 - Integration with A9_NLP_Interface_Agent for advanced query parsing
 - Enhanced business impact analysis using LLM

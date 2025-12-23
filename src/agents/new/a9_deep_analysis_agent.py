@@ -49,27 +49,27 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
 
     # --- Helpers -----------------------------------------------------------
     def _contract_path(self) -> str:
+        """
+        Resolve contract path from the canonical registry_references location.
+        This ensures single source of truth for data product contracts.
+        """
         try:
+            # Canonical path in registry_references (single source of truth)
+            canonical = "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
+            if os.path.exists(canonical):
+                return canonical
+            
+            # Try from project root
             here = os.path.dirname(__file__)
-            # From src/agents/new -> src
-            src_dir = os.path.abspath(os.path.join(here, "..", ".."))
-            candidate = os.path.join(src_dir, "contracts", "fi_star_schema.yaml")
-            if os.path.exists(candidate):
-                return candidate
-            # Fallback: from project root -> src/contracts/...
             proj_root = os.path.abspath(os.path.join(here, "..", "..", ".."))
-            # here=src/agents/new -> proj_root=src; contract at src/contracts/fi_star_schema.yaml
-            alt2 = os.path.join(proj_root, "contracts", "fi_star_schema.yaml")
-            if os.path.exists(alt2):
-                return alt2
-            # Fallback: CWD-based absolute
-            cwd_alt = os.path.abspath(os.path.join(os.getcwd(), "src", "contracts", "fi_star_schema.yaml"))
-            if os.path.exists(cwd_alt):
-                return cwd_alt
-            # Last resort: repo-relative string (may still work if cwd = project root)
-            return "src/contracts/fi_star_schema.yaml"
+            abs_canonical = os.path.join(proj_root, canonical)
+            if os.path.exists(abs_canonical):
+                return abs_canonical
+            
+            # Last resort
+            return canonical
         except Exception:
-            return "src/contracts/fi_star_schema.yaml"
+            return "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
 
     def _dims_from_contract(self, limit: int) -> List[str]:
         dims: List[str] = []
@@ -328,7 +328,21 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             if isinstance(md, dict):
                                 dims = md.get("dimensions")
                                 if isinstance(dims, list):
-                                    dimensions = [str(d) for d in dims if d]
+                                    # Extract field name from dimension objects
+                                    extracted_dims = []
+                                    for d in dims:
+                                        if d:
+                                            if isinstance(d, dict):
+                                                # Use 'name' or 'field' key if available
+                                                dim_name = d.get('name') or d.get('field') or str(d)
+                                            elif hasattr(d, 'name'):
+                                                dim_name = d.name
+                                            elif hasattr(d, 'field'):
+                                                dim_name = d.field
+                                            else:
+                                                dim_name = str(d)
+                                            extracted_dims.append(dim_name)
+                                    dimensions = extracted_dims
                 except Exception as e:
                     self.logger.debug(f"plan_deep_analysis: DG fallback failed: {e}")
 
@@ -384,6 +398,14 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
 
                 if kpi_def is not None:
                     cur_tf = getattr(plan, "timeframe", None)
+                    # Default to current_quarter if no timeframe specified
+                    if not cur_tf:
+                        cur_tf = "current_quarter"
+                        try:
+                            if hasattr(plan, "timeframe"):
+                                plan.timeframe = cur_tf
+                        except Exception:
+                            pass
                     prev_tf = self._prev_timeframe(cur_tf)
                     dims = getattr(plan, "dimensions", []) or []
 

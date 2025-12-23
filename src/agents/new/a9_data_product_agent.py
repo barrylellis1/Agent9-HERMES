@@ -1505,13 +1505,11 @@ class A9_Data_Product_Agent(DataProductProtocol):
             # Derive primary measure column
             derived = self._resolve_measure_from_kpi(kpi_definition)
             if not derived:
-                # Pragmatic fallback for FI_Star_Schema
-                try:
-                    dp_id = getattr(kpi_definition, 'data_product_id', None)
-                    if isinstance(dp_id, str) and dp_id.strip().lower() == 'fi_star_schema':
-                        derived = '"Transaction Value Amount"'
-                except Exception:
-                    derived = None
+                # Use contract column_aliases instead of hardcoded product checks
+                aliases = self._get_contract_column_aliases()
+                measure_col = aliases.get('measure')
+                if measure_col:
+                    derived = f'"{measure_col}"'
             if derived:
                 select_items.append(f"COALESCE(SUM({derived}), 0) as total_value")
                 measure_alias = "total_value"
@@ -1574,12 +1572,15 @@ class A9_Data_Product_Agent(DataProductProtocol):
         # Now construct the SELECT clause including any grouping columns
         base_query += ", ".join(select_items)
         
-        # Interim default: ensure Version filter defaults to 'Actual' for FI Star Schema if unspecified
+        # Apply default version filter from contract if not already specified
         try:
-            dp_id = getattr(kpi_definition, 'data_product_id', None)
-            has_version = any(str(k).strip().lower() == 'version' for k in kpi_filters.keys()) if isinstance(kpi_filters, dict) else False
-            if isinstance(dp_id, str) and dp_id.strip().lower() == 'fi_star_schema' and not has_version:
-                kpi_filters['Version'] = 'Actual'
+            aliases = self._get_contract_column_aliases()
+            version_col = aliases.get('version')
+            default_version = aliases.get('default_version_value')
+            if version_col and default_version:
+                has_version = any(str(k).strip().lower() == version_col.lower() for k in kpi_filters.keys()) if isinstance(kpi_filters, dict) else False
+                if not has_version:
+                    kpi_filters[version_col] = default_version
         except Exception:
             pass
 
@@ -1675,13 +1676,13 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 except Exception:
                     resolved_date_col = None
 
-                # Product-aware fallback: if KPI belongs to FI_Star_Schema and no explicit date column,
-                # use the canonical view column "Transaction Date" from FI_Star_View.
+                # Use contract column_aliases for date column fallback
                 if not resolved_date_col:
                     try:
-                        dp_id = getattr(kpi_definition, 'data_product_id', None)
-                        if isinstance(dp_id, str) and dp_id.strip().lower() == 'fi_star_schema':
-                            resolved_date_col = 'Transaction Date'
+                        aliases = self._get_contract_column_aliases()
+                        date_col = aliases.get('date')
+                        if date_col:
+                            resolved_date_col = date_col
                     except Exception:
                         resolved_date_col = None
 
@@ -1741,6 +1742,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
 
             # Special metric: rank by growth vs previous timeframe (delta between current and previous totals)
             # Only when grouping is present and timeframe is provided
+            self.logger.debug(f"[SQL] topn check: metric={metric}, group_by_items={group_by_items}, timeframe={timeframe}, limit_n={limit_n}, limit_type={limit_type}")
             if (
                 isinstance(metric, str) and metric.strip().lower() == 'delta_prev'
                 and group_by_items and timeframe and isinstance(limit_n, int) and limit_n > 0
@@ -1930,28 +1932,67 @@ class A9_Data_Product_Agent(DataProductProtocol):
         except Exception:
             return items or []
 
-    def _contract_path(self) -> str:
-        """Resolve the FI Star contract path similarly to Deep Analysis Agent."""
+    def _get_contract_column_aliases(self, data_product_id: Optional[str] = None) -> Dict[str, str]:
+        """
+        Get column aliases from the contract for a data product.
+        Returns a dict with keys: measure, date, version, default_version_value
+        This removes hardcoded FI_Star_Schema checks from SQL generation.
+        """
         try:
-            here = os.path.dirname(__file__)
-            # From src/agents/new -> src
-            src_dir = os.path.abspath(os.path.join(here, "..", ".."))
-            candidate = os.path.join(src_dir, "contracts", "fi_star_schema.yaml")
-            if os.path.exists(candidate):
-                return candidate
-            # Fallback: from project root -> src/contracts/...
-            proj_root = os.path.abspath(os.path.join(here, "..", "..", ".."))
-            alt2 = os.path.join(proj_root, "contracts", "fi_star_schema.yaml")
-            if os.path.exists(alt2):
-                return alt2
-            # Fallback: CWD-based absolute
-            cwd_alt = os.path.abspath(os.path.join(os.getcwd(), "src", "contracts", "fi_star_schema.yaml"))
-            if os.path.exists(cwd_alt):
-                return cwd_alt
-            # Last resort: repo-relative string (may still work if cwd = project root)
-            return "src/contracts/fi_star_schema.yaml"
+            cpath = self._contract_path()
+            if not os.path.exists(cpath):
+                return {}
+            with open(cpath, "r", encoding="utf-8") as f:
+                doc = yaml.safe_load(f)
+            aliases = (doc or {}).get("column_aliases", {})
+            if isinstance(aliases, dict):
+                return aliases
+            return {}
         except Exception:
-            return "src/contracts/fi_star_schema.yaml"
+            return {}
+
+    def _contract_path(self, data_product_id: Optional[str] = None) -> str:
+        """
+        Resolve contract path from the registry's yaml_contract_path.
+        This ensures we use the single source of truth in registry_references.
+        
+        Args:
+            data_product_id: Optional product ID to look up specific contract.
+                            Defaults to FI Star Schema if not specified.
+        """
+        try:
+            # First, try to get path from loaded registry data
+            if self._registry_data and 'data_products' in self._registry_data:
+                target_id = data_product_id or 'dp_fi_20250516_001'  # Default to FI Star
+                for dp in self._registry_data['data_products']:
+                    dp_id = dp.get('product_id', '')
+                    # Match by ID or by domain/name containing 'fi_star'
+                    if dp_id == target_id or (not data_product_id and 'fi' in dp_id.lower()):
+                        contract_path = dp.get('yaml_contract_path') or dp.get('contract_path')
+                        if contract_path:
+                            # Handle relative paths
+                            if not os.path.isabs(contract_path):
+                                # Try from CWD (project root)
+                                if os.path.exists(contract_path):
+                                    return contract_path
+                                # Try from project root explicitly
+                                proj_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+                                abs_path = os.path.join(proj_root, contract_path)
+                                if os.path.exists(abs_path):
+                                    return abs_path
+                            elif os.path.exists(contract_path):
+                                return contract_path
+            
+            # Fallback: use registry_references path directly (canonical location)
+            canonical = "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
+            if os.path.exists(canonical):
+                return canonical
+            
+            # Last resort: project root relative
+            proj_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+            return os.path.join(proj_root, canonical)
+        except Exception:
+            return "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
 
     def _get_exposed_columns(self, view_name: Optional[str]) -> Optional[Set[str]]:
         """
@@ -2075,12 +2116,12 @@ class A9_Data_Product_Agent(DataProductProtocol):
                         safe_bc = bc.replace('"', '""')
                         return f'"{safe_bc}"'
 
-                    # Pragmatic product-specific fallback: if KPI belongs to FI_Star_Schema,
-                    # use the canonical measure alias used in FI_Star_View.
+                    # Use contract column_aliases for measure fallback
                     try:
-                        dp_id = getattr(kpi_definition, 'data_product_id', None)
-                        if isinstance(dp_id, str) and dp_id.strip().lower() == 'fi_star_schema':
-                            return '"Transaction Value Amount"'
+                        aliases = self._get_contract_column_aliases()
+                        measure_col = aliases.get('measure')
+                        if measure_col:
+                            return f'"{measure_col}"'
                     except Exception:
                         pass
             except Exception:
@@ -2136,12 +2177,12 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 safe_bc = bc.replace('"', '""')
                 return f'"{safe_bc}"'
 
-            # Pragmatic product-specific fallback: if KPI belongs to FI_Star_Schema,
-            # use the canonical measure alias used in FI_Star_View.
+            # Use contract column_aliases for measure fallback
             try:
-                dp_id = getattr(kpi_definition, 'data_product_id', None)
-                if isinstance(dp_id, str) and dp_id.strip().lower() == 'fi_star_schema':
-                    return '"Transaction Value Amount"'
+                aliases = self._get_contract_column_aliases()
+                measure_col = aliases.get('measure')
+                if measure_col:
+                    return f'"{measure_col}"'
             except Exception:
                 pass
         except Exception:
@@ -2749,7 +2790,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
         """
         transaction_id = str(uuid.uuid4())
         kpi_name = getattr(kpi_definition, "name", "unknown")
-        self.logger.info(f"[TXN:{transaction_id}] Generating SQL for KPI: {kpi_name}")
+        self.logger.info(f"[TXN:{transaction_id}] Generating SQL for KPI: {kpi_name}, timeframe={timeframe}, topn={topn}, breakdown={breakdown}, override_group_by={override_group_by}")
         try:
             sql = await self._generate_sql_for_kpi(
                 kpi_definition,

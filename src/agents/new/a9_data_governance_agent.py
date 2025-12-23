@@ -668,23 +668,26 @@ class A9_Data_Governance_Agent:
 
     # --- Registry Integrity Validation (per PRD) ---
     def _contract_path(self) -> str:
-        """Resolve the FI Star contract path (shared convention)."""
+        """
+        Resolve contract path from the canonical registry_references location.
+        This ensures single source of truth for data product contracts.
+        """
         try:
+            # Canonical path in registry_references (single source of truth)
+            canonical = "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
+            if os.path.exists(canonical):
+                return canonical
+            
+            # Try from project root
             here = os.path.dirname(__file__)
-            src_dir = os.path.abspath(os.path.join(here, "..", ".."))
-            candidate = os.path.join(src_dir, "contracts", "fi_star_schema.yaml")
-            if os.path.exists(candidate):
-                return candidate
             proj_root = os.path.abspath(os.path.join(here, "..", "..", ".."))
-            alt2 = os.path.join(proj_root, "contracts", "fi_star_schema.yaml")
-            if os.path.exists(alt2):
-                return alt2
-            cwd_alt = os.path.abspath(os.path.join(os.getcwd(), "src", "contracts", "fi_star_schema.yaml"))
-            if os.path.exists(cwd_alt):
-                return cwd_alt
-            return "src/contracts/fi_star_schema.yaml"
+            abs_canonical = os.path.join(proj_root, canonical)
+            if os.path.exists(abs_canonical):
+                return abs_canonical
+            
+            return canonical
         except Exception:
-            return "src/contracts/fi_star_schema.yaml"
+            return "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
 
     def _load_exposed_columns(self, view_name: str = "FI_Star_View") -> Set[str]:
         """Load contract-exposed columns for a given view (labels)."""

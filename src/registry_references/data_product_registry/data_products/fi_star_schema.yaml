@@ -15,6 +15,14 @@ supported_business_processes:
   - "Operations: Production Cost Management"
   - "Supply Chain: Logistics Efficiency"
 
+# Canonical column aliases for SQL generation
+# These remove hardcoded checks in Data Product Agent
+column_aliases:
+  measure: "Transaction Value Amount"
+  date: "Transaction Date"
+  version: "Version"
+  default_version_value: "Actual"
+
 # Business term mapping for LLM and UI
 business_terms:
   region:
@@ -35,6 +43,33 @@ fallback_group_by_dimensions:
 
 views:
   - name: FI_Star_View
+    llm_profile:
+      exposed_columns:
+        - "Profit Center Name"
+        - "Customer Type Name"
+        - "Customer Name"
+        - "Product Name"
+        - "Fiscal Year"
+        - "Fiscal Quarter"
+        - "Fiscal Month"
+        - "Fiscal Year-Month"
+        - "Account Hierarchy Desc"
+        - "Version"
+        - "Transaction Value Amount"
+      dimension_semantics:
+        - "Profit Center Name"
+        - "Customer Type Name"
+        - "Customer Name"
+        - "Product Name"
+        - "Fiscal Year"
+        - "Fiscal Quarter"
+        - "Fiscal Month"
+        - "Fiscal Year-Month"
+        - "Account Hierarchy Desc"
+        - "Account/Group Description"
+        - "Product Name"
+        - "Customer/Group Description"
+        - "Profit Center/Group Description"
     sql: |
       WITH FinancialTransactions_Typed AS (
           SELECT *, strptime(CAST(date AS VARCHAR), '%Y%m%d') AS transaction_date FROM FinancialTransactions

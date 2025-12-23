@@ -98,9 +98,12 @@ class A9_Situation_Awareness_Agent:
         # Initialize logging
         self.logger = logging.getLogger(self.__class__.__name__)
         
-        # Load contract and registries
-        default_contract_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 
-                                          "contracts", "fi_star_schema.yaml")
+        # Load contract and registries - use canonical registry_references path
+        default_contract_path = "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
+        # Try absolute path if relative doesn't exist
+        if not os.path.exists(default_contract_path):
+            proj_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+            default_contract_path = os.path.join(proj_root, "src", "registry_references", "data_product_registry", "data_products", "fi_star_schema.yaml")
         self.contract_path = config.get("contract_path", default_contract_path)
         
         # Load the contract and KPI definitions
