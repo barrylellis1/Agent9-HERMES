@@ -27,6 +27,12 @@ class A9_Solution_Finder_Agent_Config(BaseModel):
     weight_impact: float = 0.5
     weight_cost: float = 0.25
     weight_risk: float = 0.25
+    
+    # Hybrid Council settings
+    enable_hybrid_council: bool = False
+    consulting_personas: List[str] = []
+    council_preset: Optional[str] = None
+
     # Orchestration & logging
     require_orchestrator: bool = True
     log_all_requests: bool = True

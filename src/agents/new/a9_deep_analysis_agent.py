@@ -146,9 +146,114 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             return []
         return steps
 
-    def _trend_positive(self, kpi_name: str) -> bool:
+    def _trend_positive(self, kpi_name: str, kpi_def: Any = None) -> bool:
+        """
+        Determine if higher values are better for this KPI.
+        Uses inverse_logic from KPI registry thresholds if available.
+        
+        - inverse_logic=False (default): higher is better (revenue) -> trend_positive=True
+        - inverse_logic=True: lower is better (cost/expense) -> trend_positive=False
+        """
+        # Try to get inverse_logic from KPI definition thresholds
+        if kpi_def is not None:
+            try:
+                thresholds = getattr(kpi_def, "thresholds", None)
+                if isinstance(thresholds, list) and thresholds:
+                    # Use the first threshold's inverse_logic as the default
+                    for t in thresholds:
+                        inv = None
+                        if hasattr(t, "inverse_logic"):
+                            inv = getattr(t, "inverse_logic", None)
+                        elif isinstance(t, dict):
+                            inv = t.get("inverse_logic")
+                        if inv is not None:
+                            # inverse_logic=True means lower is better, so trend_positive=False
+                            return not bool(inv)
+            except Exception:
+                pass
+        
+        # Fallback to name-based heuristic
         s = (kpi_name or "").lower()
-        return not any(w in s for w in ("expense", "cost", "deduction"))
+        return not any(w in s for w in ("expense", "cost", "deduction", "cogs"))
+
+    def _select_variance_items(
+        self,
+        diffs: List[tuple],  # List of (key, current, previous, delta)
+        threshold_pct: float = 0.05,  # 5% variance threshold
+        min_items: int = 3,
+        max_items: int = 10,
+        trend_positive: bool = True,  # True if higher is better (revenue), False if lower is better (cost)
+    ) -> tuple:
+        """
+        Hybrid Threshold + Adaptive N approach for selecting variance items.
+        
+        Returns (where_is_items, where_is_not_items) where:
+        - where_is_items: Items with NEGATIVE variance (problem areas - underperforming)
+        - where_is_not_items: Items with POSITIVE variance (healthy areas - outperforming)
+        
+        For trend_positive=True (revenue KPIs): negative delta = problem, positive delta = healthy
+        For trend_positive=False (cost KPIs): positive delta = problem, negative delta = healthy
+        
+        Algorithm:
+        1. Separate items by variance direction (problem vs healthy)
+        2. Apply threshold to filter significant variances
+        3. If threshold returns < min_items, fall back to Top N
+        4. Cap at max_items to avoid overwhelming the LLM
+        """
+        if not diffs:
+            return [], []
+        
+        # Separate by variance direction
+        problem_items = []  # Underperforming
+        healthy_items = []  # Outperforming
+        
+        for item in diffs:
+            key, current, previous, delta = item
+            # Calculate percent variance (handle division by zero)
+            if previous != 0:
+                pct_variance = abs(delta / previous)
+            elif current != 0:
+                pct_variance = 1.0  # 100% variance if previous was 0 but current isn't
+            else:
+                pct_variance = 0.0  # Both are 0
+            
+            item_with_pct = (key, current, previous, delta, pct_variance)
+            
+            # Determine if this is a problem or healthy item based on delta direction
+            if trend_positive:
+                # For revenue: negative delta = problem, positive delta = healthy
+                if delta < 0:
+                    problem_items.append(item_with_pct)
+                else:
+                    healthy_items.append(item_with_pct)
+            else:
+                # For cost: positive delta = problem (cost increased), negative delta = healthy
+                if delta > 0:
+                    problem_items.append(item_with_pct)
+                else:
+                    healthy_items.append(item_with_pct)
+        
+        # Sort problem items by absolute delta (impact) descending
+        problem_items.sort(key=lambda t: abs(t[3]), reverse=True)
+        # Sort healthy items by delta (best performers first)
+        if trend_positive:
+            healthy_items.sort(key=lambda t: t[3], reverse=True)  # Highest positive first
+        else:
+            healthy_items.sort(key=lambda t: t[3])  # Most negative (cost reduction) first
+        
+        # Apply threshold filter to problem items
+        significant_problems = [item for item in problem_items if item[4] >= threshold_pct]
+        
+        # If threshold didn't find enough problems, use all problem items
+        if len(significant_problems) < min_items and problem_items:
+            where_is_items = [(k, c, p, d) for k, c, p, d, _ in problem_items[:max_items]]
+        else:
+            where_is_items = [(k, c, p, d) for k, c, p, d, _ in significant_problems[:max_items]]
+        
+        # For healthy items, take top performers
+        where_is_not_items = [(k, c, p, d) for k, c, p, d, _ in healthy_items[:max_items]]
+        
+        return where_is_items, where_is_not_items
 
     async def connect(self, orchestrator=None) -> bool:
         try:
@@ -705,31 +810,35 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         if used_hierarchical and not change_points:
                             used_hierarchical = False
 
-                    # WHERE (dimension values with greatest variance) fallback (legacy Top/Bottom N)
+                    # WHERE (dimension values with greatest variance) - Hybrid Threshold + Adaptive N approach
                     if not used_hierarchical:
                         spec_fb = dict(spec_main) if isinstance(spec_main, dict) else _pick_threshold_spec()
                         comp_fb = comparator_main
                         for dim in dims[: max(1, min(len(dims), self.config.max_dimensions))]:
                             try:
-                                # Prefer single-shot delta ranking via DPA TopN metric
-                                top_req = await self.data_product_agent.generate_sql_for_kpi(
+                                # Fetch ALL data for this dimension to apply hybrid threshold selection
+                                # This gives us richer context for the LLM vs fixed Top 3/Bottom 3
+                                all_req = await self.data_product_agent.generate_sql_for_kpi(
                                     kpi_def,
                                     timeframe=cur_tf,
                                     filters=getattr(plan, "filters", None),
                                     breakdown=True,
                                     override_group_by=[dim],
-                                    topn={"type": "top", "n": 3, "metric": "delta_prev"}
+                                    topn={"type": "top", "n": 50, "metric": "delta_prev"}  # Fetch more for threshold analysis
                                 )
-                                if top_req.get("success"):
-                                    top_exec = await self.data_product_agent.execute_sql(top_req.get("sql"))
+                                if all_req.get("success"):
+                                    all_exec = await self.data_product_agent.execute_sql(all_req.get("sql"))
                                     queries_executed += 1
-                                    rows = top_exec.get("rows") or []
-                                    cols = [str(c) for c in (top_exec.get("columns") or [])]
+                                    rows = all_exec.get("rows") or []
+                                    cols = [str(c) for c in (all_exec.get("columns") or [])]
                                     # Determine column names or fallback positions
                                     key_col = cols[0] if cols else None
                                     c_col = "current_value" if "current_value" in cols else (cols[1] if len(cols) > 1 else None)
                                     p_col = "previous_value" if "previous_value" in cols else (cols[2] if len(cols) > 2 else None)
                                     d_col = "delta_prev" if "delta_prev" in cols else (cols[3] if len(cols) > 3 else None)
+                                    
+                                    # Parse all rows into diffs list
+                                    diffs_topn = []
                                     for r in rows:
                                         try:
                                             if isinstance(r, dict):
@@ -745,48 +854,36 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                                 c = float(r[1]) if r[1] is not None else 0.0
                                                 p = float(r[2]) if r[2] is not None else 0.0
                                                 d = float(r[3]) if r[3] is not None else (c - p)
-                                            entry_top = _format_where_entry(dim, key, d, c, p)
-                                            kt.where_is.append(entry_top)
-                                            change_points.append(ChangePoint(dimension=dim, key=key, current_value=c, previous_value=p, delta=d))
+                                            if key:
+                                                diffs_topn.append((key, c, p, d))
                                         except Exception:
                                             continue
-                                # Bottom (least variance) list
-                                bot_req = await self.data_product_agent.generate_sql_for_kpi(
-                                    kpi_def,
-                                    timeframe=cur_tf,
-                                    filters=getattr(plan, "filters", None),
-                                    breakdown=True,
-                                    override_group_by=[dim],
-                                    topn={"type": "bottom", "n": 3, "metric": "delta_prev"}
-                                )
-                                if bot_req.get("success"):
-                                    bot_exec = await self.data_product_agent.execute_sql(bot_req.get("sql"))
-                                    queries_executed += 1
-                                    rows = bot_exec.get("rows") or []
-                                    cols_b = [str(c) for c in (bot_exec.get("columns") or [])]
-                                    key_col_b = cols_b[0] if cols_b else None
-                                    c_col_b = "current_value" if "current_value" in cols_b else (cols_b[1] if len(cols_b) > 1 else None)
-                                    p_col_b = "previous_value" if "previous_value" in cols_b else (cols_b[2] if len(cols_b) > 2 else None)
-                                    d_col_b = "delta_prev" if "delta_prev" in cols_b else (cols_b[3] if len(cols_b) > 3 else None)
-                                    for r in rows:
-                                        try:
-                                            if isinstance(r, dict):
-                                                key = str(r.get(key_col_b)) if key_col_b else None
-                                                c_raw = r.get(c_col_b) if isinstance(c_col_b, str) else (None if c_col_b is None else list(r.values())[1])
-                                                p_raw = r.get(p_col_b) if isinstance(p_col_b, str) else (None if p_col_b is None else list(r.values())[2])
-                                                d_raw = r.get(d_col_b) if isinstance(d_col_b, str) else (None if d_col_b is None else list(r.values())[3])
-                                                c = float(c_raw) if c_raw is not None else 0.0
-                                                p = float(p_raw) if p_raw is not None else 0.0
-                                                d = float(d_raw) if d_raw is not None else (c - p)
-                                            else:
-                                                key = str(r[0])
-                                                c = float(r[1]) if r[1] is not None else 0.0
-                                                p = float(r[2]) if r[2] is not None else 0.0
-                                                d = float(r[3]) if r[3] is not None else (c - p)
-                                            entry_bot = _format_where_entry(dim, key, d, c, p, note="Within threshold")
+                                    
+                                    # Apply Hybrid Threshold + Adaptive N selection
+                                    # Determine trend direction from KPI registry (inverse_logic)
+                                    kpi_trend_positive = self._trend_positive(plan.kpi_name, kpi_def)
+                                    where_is_items, where_is_not_items = self._select_variance_items(
+                                        diffs_topn,
+                                        threshold_pct=0.05,  # 5% variance threshold
+                                        min_items=3,
+                                        max_items=10,
+                                        trend_positive=kpi_trend_positive
+                                    )
+                                    
+                                    # Add significant variance items to where_is
+                                    added_keys_topn = set()
+                                    for key, c, p, d in where_is_items:
+                                        entry_top = _format_where_entry(dim, key, d, c, p)
+                                        kt.where_is.append(entry_top)
+                                        change_points.append(ChangePoint(dimension=dim, key=key, current_value=c, previous_value=p, delta=d))
+                                        added_keys_topn.add(key)
+                                    
+                                    # Add healthy items to where_is_not (for contrast)
+                                    for key, c, p, d in where_is_not_items:
+                                        if key not in added_keys_topn:
+                                            entry_bot = _format_where_entry(dim, key, d, c, p, note="Outperforming")
                                             kt.where_is_not.append(entry_bot)
-                                        except Exception:
-                                            continue
+                                
                                 # Fallback: dual-query method if TopN path failed to populate
                                 if not kt.where_is:
                                     gen_cur = await self.data_product_agent.generate_sql_for_kpi(
@@ -813,16 +910,30 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                             p = m_prev.get(k, 0.0)
                                             diff = c - p
                                             diffs.append((k, c, p, diff))
-                                        # Sort by absolute variance descending
-                                        diffs.sort(key=lambda t: abs(t[3]), reverse=True)
-                                        for k, c, p, d in diffs[:3]:
+                                        
+                                        # Use Hybrid Threshold + Adaptive N approach
+                                        kpi_trend_positive = self._trend_positive(plan.kpi_name, kpi_def)
+                                        where_is_items, where_is_not_items = self._select_variance_items(
+                                            diffs,
+                                            threshold_pct=0.05,  # 5% variance threshold
+                                            min_items=3,
+                                            max_items=10,
+                                            trend_positive=kpi_trend_positive
+                                        )
+                                        
+                                        # Add significant variance items to where_is
+                                        added_keys_fallback = set()
+                                        for k, c, p, d in where_is_items:
                                             entry_diff = _format_where_entry(dim, k, d, c, p)
                                             kt.where_is.append(entry_diff)
                                             change_points.append(ChangePoint(dimension=dim, key=k, current_value=c, previous_value=p, delta=d))
-                                        diffs_sorted_low = sorted(diffs, key=lambda t: abs(t[3]))
-                                        for k, c, p, d in diffs_sorted_low[:3]:
-                                            entry_low = _format_where_entry(dim, k, d, c, p, note="Within threshold")
-                                            kt.where_is_not.append(entry_low)
+                                            added_keys_fallback.add(k)
+                                        
+                                        # Add healthy items to where_is_not (for contrast)
+                                        for k, c, p, d in where_is_not_items:
+                                            if k not in added_keys_fallback:
+                                                entry_low = _format_where_entry(dim, k, d, c, p, note="Outperforming")
+                                                kt.where_is_not.append(entry_low)
                                 # Always compute and attach distribution summary for this dimension
                                 try:
                                     ratios: List[float] = []
@@ -935,12 +1046,17 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                                     diffs_fb.append((k, c, p, d))
                                             if diffs_fb:
                                                 diffs_fb.sort(key=lambda t: abs(t[3]), reverse=True)
+                                                # Track keys added to where_is to avoid duplicates in where_is_not
+                                                added_keys = set()
                                                 for k0, c0, p0, d0 in diffs_fb[:3]:
                                                     kt.where_is.append({"dimension": dim, "key": k0, "delta": d0, "current": c0, "previous": p0})
                                                     change_points.append(ChangePoint(dimension=dim, key=k0, current_value=c0, previous_value=p0, delta=d0))
+                                                    added_keys.add(k0)
                                                 diffs_low = sorted(diffs_fb, key=lambda t: abs(t[3]))
                                                 for k1, c1, p1, d1 in diffs_low[:3]:
-                                                    kt.where_is_not.append({"dimension": dim, "key": k1, "delta": d1, "current": c1, "previous": p1})
+                                                    # Skip if already in where_is to avoid duplicates
+                                                    if k1 not in added_keys:
+                                                        kt.where_is_not.append({"dimension": dim, "key": k1, "delta": d1, "current": c1, "previous": p1})
                                         except Exception:
                                             pass
                                 except Exception:
@@ -1169,8 +1285,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     # Derive 'when_started' as earliest bucket where the change moved in the adverse direction
                     when_started: Optional[str] = None
                     try:
-                        # Determine adverse direction based on KPI name
-                        adverse_if = (lambda d: d < 0.0) if self._trend_positive(getattr(plan, "kpi_name", "") or "") else (lambda d: d > 0.0)
+                        # Determine adverse direction based on KPI registry (inverse_logic)
+                        adverse_if = (lambda d: d < 0.0) if self._trend_positive(getattr(plan, "kpi_name", "") or "", kpi_def) else (lambda d: d > 0.0)
                         cand: List[str] = []
                         for lst in [getattr(kt, "when_is", []) or [], getattr(kt, "when_is_not", []) or []]:
                             for row in lst:

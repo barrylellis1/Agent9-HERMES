@@ -336,6 +336,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
 
     async def recommend_actions(self, request: SolutionFinderRequest) -> SolutionFinderResponse:
         req_id = request.request_id
+        prefs = request.preferences or {}
         try:
             audit_log: List[Dict[str, Any]] = []
 
@@ -410,7 +411,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                 except:
                                     val_str = str(val)
                                 
-                                ps_parts.append(f"{kpi} {direction} by {delta_abs} (Current Level: {val_str}).")
+                                ps_parts.append(f"{kpi} {direction} by {delta_abs} (Current Level: {val_str}). [KPI_DIRECTION: {direction.upper()}]")
                                 if dim and key:
                                     ps_parts.append(f"This deviation is primarily driven by '{key}' within the {dim} segment.")
                             else:
@@ -464,14 +465,32 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     if not ps:
                         ps = "Problem statement not provided"
 
-                    # Align with active situation context to avoid KPI mismatch
+                    # CRITICAL: Use situation_context.description as the PRIMARY problem statement
+                    # It contains the OVERALL KPI direction (e.g., "decreased by 27.2%") which is
+                    # more accurate than segment-level change_points that may show mixed directions.
                     try:
+                        # First try request-level situation_context, then fall back to deep_analysis_output.situation_context
                         sctx = getattr(request, "situation_context", None)
+                        if not sctx and isinstance(da_ctx, dict):
+                            sctx = da_ctx.get("situation_context")
                         sctx_desc = sctx.get("description") if isinstance(sctx, dict) else getattr(sctx, "description", None)
                         sctx_kpi = sctx.get("kpi_name") if isinstance(sctx, dict) else getattr(sctx, "kpi_name", None)
+                        
                         if isinstance(sctx_desc, str) and sctx_desc.strip():
-                            ps = sctx_desc.strip()
-                        elif (not ps_raw) and sctx_kpi:
+                            # Use situation description as the authoritative problem statement
+                            # It has the correct OVERALL direction from the situation detection
+                            overall_ps = sctx_desc.strip()
+                            
+                            # Extract direction from the description for emphasis
+                            overall_direction = "DECREASED" if "decreased" in overall_ps.lower() or "dropped" in overall_ps.lower() else "INCREASED" if "increased" in overall_ps.lower() else "CHANGED"
+                            
+                            # Combine with segment analysis context
+                            ps = f"[OVERALL KPI DIRECTION: {overall_direction}] {overall_ps}"
+                            
+                            # Add context about segment variations if we have change points
+                            if change_points:
+                                ps += f"\n\nNOTE: While the OVERALL {sctx_kpi or 'KPI'} has {overall_direction.lower()}, individual segments show mixed performance. Some segments may have increased while others decreased. The Problem Reframe 'situation' field MUST reflect the OVERALL {overall_direction} direction, not individual segment increases."
+                        elif sctx_kpi:
                             ps = f"KPI: {sctx_kpi} — generate actionable solution options."
                     except Exception:
                         pass
@@ -556,14 +575,25 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             f"{persona_details}\n"
                         )
                         task_instruction = (
-                            "Given the problem context and data analysis, simulate a COUNCIL DEBATE where each firm applies its methodology.\n"
-                            "1. Phase 1: Each firm generates an initial hypothesis based on their frameworks.\n"
-                            "2. Phase 2: Cross-Review - firms critique each other's blind spots (e.g., 'Strategy vs Execution').\n"
-                            "3. Phase 3: Synthesis - You (Chair) produce the final Decision Briefing.\n"
+                            "Given the problem context and data analysis, simulate a COUNCIL DEBATE where each firm applies its methodology.\n\n"
+                            "**STAGE 1 - INITIAL HYPOTHESES:**\n"
+                            "Each firm independently analyzes the problem using their signature frameworks:\n"
+                            "- McKinsey: MECE breakdown, root cause analysis, hypothesis-driven\n"
+                            "- BCG: Portfolio view, growth-share matrix thinking, value creation focus\n"
+                            "- Bain: Operational pragmatism, quick wins, implementation-first\n\n"
+                            "**STAGE 2 - CROSS-REVIEW:**\n"
+                            "Each firm reviews the others' Stage 1 outputs and provides:\n"
+                            "- Critiques: What blind spots or risks does the other firm's approach miss?\n"
+                            "- Endorsements: What aspects of the other firm's approach are strong?\n"
+                            "Be specific - reference the actual options proposed.\n\n"
+                            "**STAGE 3 - SYNTHESIS:**\n"
+                            "As Chair, synthesize into a Decision Briefing that captures the debate.\n"
                         )
                         output_instruction = (
                             "## OUTPUT FORMAT (STRICT JSON)\n"
-                            "Ensure the 'perspectives' in the output reflect the specific firms in the council.\n"
+                            "The 'cross_review' field MUST contain each firm's Stage 2 critiques and endorsements.\n"
+                            "Each critique must have 'target' (option id or firm name) and 'concern' (specific issue).\n"
+                            "Each endorsement must have 'target' and 'reason' (why they support it).\n"
                         )
                     else:
                         # Legacy / Generic Persona Path
@@ -603,8 +633,16 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "- DO surface trade-offs, assumptions, and blind spots\n"
                         "- Each perspective must cite its reasoning basis\n"
                         "- MUST respect Principal Input constraints/vetoes if provided\n"
+                        "- MUST populate cross_review with SPECIFIC critiques and endorsements from each consulting firm (McKinsey, BCG, Bain). Each firm should critique at least one option and endorse at least one option with concrete reasoning.\n"
                         "- CRITICAL: The Deep Analysis is COMPLETE. Do NOT suggest 'more data gathering' or 'implementing analytics' as a primary solution. Focus on OPERATIONAL INTERVENTIONS to address the identified drivers.\n"
-                        f"- CONTEXT: The analysis focuses on '{target_kpi}'. Ensure the Problem Reframe explicitly mentions this KPI.\n\n"
+                        f"- CONTEXT: The analysis focuses on '{target_kpi}'. Ensure the Problem Reframe explicitly mentions this KPI.\n"
+                        "- CRITICAL ACCURACY REQUIREMENT:\n"
+                        "  * The 'problem_statement' field contains the OVERALL KPI direction (e.g., 'decreased by 27.2%').\n"
+                        "  * The Problem Reframe 'situation' field MUST reflect this OVERALL direction.\n"
+                        "  * The Deep Analysis shows MIXED performance: some segments improved, others degraded.\n"
+                        "  * The 'situation' should state the NET/OVERALL effect (from problem_statement).\n"
+                        "  * The 'complication' should acknowledge the mixed segment performance.\n"
+                        "  * Solution options should address BOTH: fixing degraded segments AND leveraging successful ones.\n\n"
                         f"{output_instruction}"
                         "{\n"
                         "  \"problem_reframe\": {\n"
@@ -612,6 +650,11 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "    \"complication\": \"...\",\n"
                         "    \"question\": \"...\",\n"
                         "    \"key_assumptions\": [\"...\"]\n"
+                        "  },\n"
+                        "  \"stage_1_hypotheses\": {\n"
+                        "    \"mckinsey\": {\"framework\": \"MECE/Issue Tree\", \"hypothesis\": \"Root cause analysis finding...\", \"recommended_focus\": \"...\"},\n"
+                        "    \"bcg\": {\"framework\": \"Growth-Share/Portfolio\", \"hypothesis\": \"Value creation opportunity...\", \"recommended_focus\": \"...\"},\n"
+                        "    \"bain\": {\"framework\": \"Operational Excellence\", \"hypothesis\": \"Quick win opportunity...\", \"recommended_focus\": \"...\"}\n"
                         "  },\n"
                         "  \"options\": [\n"
                         "    {\n"
@@ -645,7 +688,20 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "  ],\n"
                         "  \"blind_spots\": [\"...\"],\n"
                         "  \"next_steps\": [\"...\"],\n"
-                        "  \"cross_review\": { \"persona_id\": { \"rankings\": [], \"critiques\": [] } }\n"
+                        "  \"cross_review\": {\n"
+                        "    \"mckinsey\": {\n"
+                        "      \"critiques\": [{\"target\": \"opt_1\", \"concern\": \"Specific critique of this option from McKinsey lens\"}],\n"
+                        "      \"endorsements\": [{\"target\": \"opt_2\", \"reason\": \"Why McKinsey supports this option\"}]\n"
+                        "    },\n"
+                        "    \"bcg\": {\n"
+                        "      \"critiques\": [{\"target\": \"opt_1\", \"concern\": \"BCG's specific concern about this option\"}],\n"
+                        "      \"endorsements\": [{\"target\": \"opt_2\", \"reason\": \"Why BCG supports this option\"}]\n"
+                        "    },\n"
+                        "    \"bain\": {\n"
+                        "      \"critiques\": [{\"target\": \"opt_1\", \"concern\": \"Bain's operational concern about this option\"}],\n"
+                        "      \"endorsements\": [{\"target\": \"opt_2\", \"reason\": \"Why Bain supports this option\"}]\n"
+                        "    }\n"
+                        "  }\n"
                         "}\n"
                     )
                     # Optional user-supplied context to guide the debate
@@ -723,17 +779,26 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                          except:
                             pass
 
-                    content = {
-                        "problem": ps,
-                        "deep_analysis_context": trimmed_da,
-                        "deep_analysis_summary": da_summary,
+                    # Pass FULL Deep Analysis context - do not trim critical quantitative data
+                    # The LLM needs complete context to generate accurate briefings
+                    full_da_context = _model_to_dict(da_ctx)
+                    
+                    # Separate the data payload from the instructions
+                    # The debate_spec contains critical constraints that must be in the prompt prefix
+                    data_payload = {
+                        "problem_statement": ps,
+                        "deep_analysis_context": full_da_context,  # FULL context, not trimmed
+                        "deep_analysis_summary": da_summary,  # Summary for quick reference
                         "dataset_recap": dataset_recap,
-                        "debate_spec": debate_spec,
                         "user_context": user_ctx,
                         "principal_input": _model_to_dict(principal_input) if principal_input else None,
                     }
                     import json as _json
-                    analysis_payload = _json.dumps(content)
+                    data_json = _json.dumps(data_payload, indent=2)
+                    
+                    # Build the full prompt with debate_spec as the instruction prefix
+                    # This ensures the LLM sees the constraints BEFORE the data
+                    full_prompt = f"{debate_spec}\n\n## INPUT DATA\n{data_json}\n\n## YOUR RESPONSE (JSON ONLY):"
 
                     analysis_req = A9_LLM_AnalysisRequest(
                         request_id=req_id,
@@ -742,9 +807,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         principal_context=getattr(request, "principal_context", None),
                         situation_context=getattr(request, "situation_context", None),
                         business_context=getattr(request, "business_context", None),
-                        content=analysis_payload,
+                        content=full_prompt,  # Full prompt with instructions + data
                         analysis_type="custom",
-                        context="Respond ONLY with valid JSON matching the required keys and numeric fields in [0,1].",
+                        context="",  # Empty context since debate_spec is now in content
                     )
 
                     # Record the analysis request components in audit for UI/debug
@@ -763,8 +828,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             "principal_context": _to_obj(getattr(analysis_req, "principal_context", None)),
                             "situation_context": _to_obj(getattr(analysis_req, "situation_context", None)),
                             "business_context": _to_obj(getattr(analysis_req, "business_context", None)),
-                            # Use parsed content dict for readability
-                            "content": content,
+                            # Log the data payload for readability
+                            "data_payload": data_payload,
+                            "debate_spec_length": len(debate_spec),
                         })
                     except Exception:
                         pass

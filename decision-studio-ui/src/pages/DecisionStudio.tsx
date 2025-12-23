@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { RidgelineScanner } from '../components/visualizations/RidgelineScanner'
-import { SnowflakeScanner, SnowflakeDimension } from '../components/visualizations/SnowflakeScanner'
+import { DivergingBarChart } from '../components/visualizations/DivergingBarChart'
+import { VarianceDrawer } from '../components/VarianceDrawer'
 import { detectSituations, runDeepAnalysis, runSolutionFinder } from '../api/client'
-import { RefreshCw, Settings, X, ArrowRight, CheckCircle2, AlertTriangle, ChevronRight, ChevronLeft, User, Microscope, Loader2, Lightbulb, Plus, Users, Shield, TrendingUp, BarChart2 } from 'lucide-react'
+import { RefreshCw, Settings, X, ArrowRight, CheckCircle2, AlertTriangle, ChevronRight, ChevronLeft, User, Microscope, Loader2, Lightbulb, Plus, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -51,54 +52,15 @@ export function DecisionStudio() {
   
   // View Mode for Deep Analysis
   const [daViewMode, setDaViewMode] = useState<"list" | "snowflake">("snowflake")
-
-  // Transform Deep Analysis for Snowflake
-  const snowflakeData = useMemo(() => {
-      if (!selectedSituation || !analysisResults) return []
-      const currentAnalysis = analysisResults[selectedSituation.situation_id]
-      if (!currentAnalysis?.kt_is_is_not) return []
-      
-      const kt = currentAnalysis.kt_is_is_not
-      const map = new Map<string, any[]>()
-      
-      const process = (list: any[]) => {
-          if (!list) return
-          list.forEach(item => {
-              if (!item.dimension) return
-              if (!map.has(item.dimension)) map.set(item.dimension, [])
-              let pct = 0.0
-              const prev = parseFloat(item.previous) || 0
-              const curr = parseFloat(item.current) || 0
-              const delta = parseFloat(item.delta) || (curr - prev)
-              if (prev !== 0) pct = delta / Math.abs(prev)
-              else if (delta !== 0) pct = delta > 0 ? 1 : -1
-
-              const dimArray = map.get(item.dimension)
-              if (dimArray) {
-                  dimArray.push({
-                      id: item.key || Math.random().toString(),
-                      label: item.key || 'Unknown',
-                      value: curr,
-                      delta: delta,
-                      deltaPct: pct
-                  })
-              }
-          })
-      }
-      process(kt.where_is)
-      process(kt.where_is_not)
-      
-      return Array.from(map.entries()).map(([dim, attrs]) => ({
-          id: dim,
-          label: dim,
-          attributes: attrs
-      }))
-  }, [selectedSituation, analysisResults])
+  
+  // Bottom Drawer State for Variance Analysis
+  const [varianceDrawerOpen, setVarianceDrawerOpen] = useState(false)
 
   // Solution Finder State
   const [findingSolutions, setFindingSolutions] = useState(false)
   const [solutions, setSolutions] = useState<any | null>(null)
   const [showPersonaSelector, setShowPersonaSelector] = useState(false)
+  const [debatePhase, setDebatePhase] = useState<number>(0) // 0=idle, 1=hypotheses, 2=cross-review, 3=synthesis
   
   // Hybrid Council State
   const [useHybridCouncil, setUseHybridCouncil] = useState(true)
@@ -119,21 +81,90 @@ export function DecisionStudio() {
     const topOptions = Array.isArray(sol?.options_ranked) ? sol.options_ranked : []
 
     const urgency = situation?.severity ? String(situation.severity) : 'High Priority'
+    
+    // Build comprehensive executive summary
     const executiveSummaryParts: string[] = []
+    if (sol?.problem_reframe?.situation) executiveSummaryParts.push(String(sol.problem_reframe.situation))
     if (sol?.problem_reframe?.complication) executiveSummaryParts.push(String(sol.problem_reframe.complication))
-    if (sol?.recommendation_rationale) executiveSummaryParts.push(String(sol.recommendation_rationale))
+    if (sol?.problem_reframe?.question) executiveSummaryParts.push(`Key Question: ${String(sol.problem_reframe.question)}`)
+    if (sol?.recommendation?.title) executiveSummaryParts.push(`Recommended Action: ${sol.recommendation.title}`)
     const executiveSummary = executiveSummaryParts.filter(Boolean).join("\n\n") || `A variance was detected in ${kpiName}. Review the options and approve a response.`
 
-    const options = topOptions.slice(0, 3).map((opt: any) => ({
+    // Extract variance percentage for financial impact
+    const varianceMatch = situation?.description?.match(/(\d+\.?\d*)%/)
+    const variancePct = varianceMatch ? varianceMatch[1] + '%' : null
+    
+    // Derive time sensitivity from severity
+    const timeSensitivityMap: Record<string, string> = {
+      'critical': 'Immediate (24-48 hrs)',
+      'high': 'Urgent (1 week)',
+      'medium': 'Standard (2-4 weeks)',
+      'low': 'Monitor'
+    }
+    const timeSensitivity = timeSensitivityMap[situation?.severity?.toLowerCase()] || 'Review Required'
+    
+    // Calculate confidence from analysis completeness
+    const hasChangePoints = analysis?.change_points?.length > 0
+    const hasKtAnalysis = analysis?.kt_is_is_not?.where_is?.length > 0
+    const hasSolutions = topOptions.length > 0
+    const confidenceScore = [hasChangePoints, hasKtAnalysis, hasSolutions].filter(Boolean).length
+    const confidenceMap = ['Low', 'Medium', 'High', 'Very High']
+    const confidence = confidenceMap[confidenceScore] || 'Medium'
+    
+    // Decision deadline based on severity
+    const deadlineMap: Record<string, string> = {
+      'critical': 'End of Day',
+      'high': 'This Week',
+      'medium': 'This Month',
+      'low': 'Next Quarter'
+    }
+    const decisionDeadline = deadlineMap[situation?.severity?.toLowerCase()] || 'TBD'
+
+    // Extract root causes from Deep Analysis
+    const rootCauses: any[] = []
+    const whereIs = analysis?.kt_is_is_not?.where_is || []
+    whereIs.slice(0, 5).forEach((item: any) => {
+      if (item?.dimension && item?.key) {
+        const delta = item?.delta ? (item.delta > 0 ? `+${(item.delta/1000000).toFixed(1)}M` : `${(item.delta/1000000).toFixed(1)}M`) : 'Significant'
+        rootCauses.push({
+          driver: `${item.dimension}: ${item.key}`,
+          evidence: item?.text || `Current: ${item?.current?.toLocaleString() || 'N/A'}`,
+          impact: delta
+        })
+      }
+    })
+
+    // Map risk level from option scores
+    const riskLevelMap = (risk: number) => {
+      if (risk >= 0.7) return 'High'
+      if (risk >= 0.4) return 'Medium'
+      return 'Low'
+    }
+    
+    // Map investment from cost score
+    const investmentMap = (cost: number) => {
+      if (cost >= 0.7) return 'High ($500K+)'
+      if (cost >= 0.4) return 'Medium ($100-500K)'
+      return 'Low (<$100K)'
+    }
+    
+    // Estimate ROI from impact score
+    const roiMap = (impact: number) => {
+      if (impact >= 0.7) return '15-25%'
+      if (impact >= 0.4) return '8-15%'
+      return '3-8%'
+    }
+
+    const options = topOptions.slice(0, 3).map((opt: any, idx: number) => ({
       title: opt?.title || 'Option',
       subtitle: opt?.time_to_value ? `Time to value: ${opt.time_to_value}` : 'Operational intervention',
       description: opt?.description || opt?.rationale || '',
-      roi: 'TBD',
-      investment: 'TBD',
-      timeline: opt?.time_to_value || 'TBD',
-      riskLevel: 'TBD',
-      reversibility: opt?.reversibility || 'TBD',
-      recommended: (sol?.recommendation?.id && opt?.id) ? sol.recommendation.id === opt.id : false,
+      roi: roiMap(opt?.expected_impact || 0.5),
+      investment: investmentMap(opt?.cost || 0.5),
+      timeline: opt?.time_to_value || '3-6 months',
+      riskLevel: riskLevelMap(opt?.risk || 0.5),
+      reversibility: opt?.reversibility || 'medium',
+      recommended: idx === 0 || ((sol?.recommendation?.id && opt?.id) ? sol.recommendation.id === opt.id : false),
       prosDetailed: Array.isArray(opt?.perspectives?.[0]?.arguments_for)
         ? opt.perspectives[0].arguments_for.slice(0, 3).map((p: string) => ({ point: p, detail: '' }))
         : [],
@@ -143,37 +174,73 @@ export function DecisionStudio() {
       perspectives: Array.isArray(opt?.perspectives)
         ? opt.perspectives.slice(0, 3).map((p: any) => ({ role: p?.lens || 'Perspective', view: (p?.key_questions || []).join(' ') }))
         : [],
+      prerequisites: opt?.prerequisites || [],
+      implementation_triggers: opt?.implementation_triggers || [],
     }))
 
-    const title = sol?.problem_reframe?.situation
-      ? `Decision Briefing: ${String(sol.problem_reframe.situation)}`
-      : `Decision Briefing: ${kpiName}`
+    // CRITICAL: Use situation.description as authoritative source for title, NOT LLM's problem_reframe
+    // The LLM may hallucinate the wrong direction (e.g., "increased" when it actually "decreased")
+    const title = situation?.description 
+      ? `Decision Briefing: ${String(situation.description)}`
+      : (sol?.problem_reframe?.situation 
+          ? `Decision Briefing: ${String(sol.problem_reframe.situation)}`
+          : `Decision Briefing: ${kpiName}`)
+
+    // Build implementation roadmap from recommended option
+    const roadmap: any[] = []
+    if (options[0]?.prerequisites?.length > 0) {
+      roadmap.push({ phase: 'Phase 1: Prerequisites', items: options[0].prerequisites, timeline: 'Week 1-2' })
+    }
+    if (options[0]?.implementation_triggers?.length > 0) {
+      roadmap.push({ phase: 'Phase 2: Implementation', items: options[0].implementation_triggers, timeline: 'Week 3-8' })
+    }
+    roadmap.push({ phase: 'Phase 3: Monitor & Adjust', items: ['Track KPI recovery', 'Weekly progress reviews', 'Adjust tactics as needed'], timeline: 'Ongoing' })
+
+    // Build risk matrix from blind spots and tensions
+    const risks: any[] = []
+    sol?.blind_spots?.slice(0, 3).forEach((bs: string) => {
+      risks.push({ risk: bs, likelihood: 'Medium', impact: 'Medium', mitigation: 'Monitor and reassess quarterly' })
+    })
+    sol?.unresolved_tensions?.slice(0, 2).forEach((t: any) => {
+      risks.push({ risk: t?.tension || 'Strategic tension', likelihood: 'High', impact: 'High', mitigation: t?.requires || 'Stakeholder alignment needed' })
+    })
 
     return {
       title,
       urgency,
       metrics: {
-        financialImpact: situation?.business_impact || 'TBD',
-        timeSensitivity: 'TBD',
-        confidence: 'TBD',
-        decisionDeadline: 'TBD',
+        financialImpact: situation?.description || `${kpiName} variance detected`,
+        timeSensitivity,
+        confidence,
+        decisionDeadline,
       },
       executiveSummary,
       situation: {
         currentState: situation?.description || `Context for ${kpiName}.`,
         problem: sol?.problem_reframe?.complication || `Variance detected in ${kpiName}.`,
-        rootCauses: [],
+        rootCauses,
+        keyQuestion: sol?.problem_reframe?.question || null,
+        assumptions: sol?.problem_reframe?.key_assumptions || [],
       },
       options,
-      roadmap: [],
-      risks: [],
+      roadmap,
+      risks,
       recommendation: {
-        headline: sol?.recommendation?.title ? `Proceed with: ${sol.recommendation.title}` : 'Review options and approve next steps',
-        rationale: sol?.recommendation_rationale || '',
-        nextSteps: Array.isArray(sol?.next_steps) ? sol.next_steps : [],
-        decisionOwner: 'TBD',
-        deadline: 'TBD',
+        headline: sol?.recommendation?.title 
+          ? `Proceed with: ${sol.recommendation.title}` 
+          : (options[0]?.title ? `Proceed with: ${options[0].title}` : 'Review options and approve next steps'),
+        rationale: sol?.recommendation_rationale || options[0]?.description || '',
+        nextSteps: Array.isArray(sol?.next_steps) && sol.next_steps.length > 0 
+          ? sol.next_steps 
+          : ['Review and approve recommended option', 'Assign implementation owner', 'Schedule kickoff meeting'],
+        decisionOwner: 'Finance Leadership',
+        deadline: decisionDeadline,
       },
+      // Hybrid Council artifacts - 3-stage debate
+      stage_1_hypotheses: sol?.stage_1_hypotheses || null,
+      cross_review: sol?.cross_review || null,
+      blind_spots: sol?.blind_spots || [],
+      unresolved_tensions: sol?.unresolved_tensions || [],
     }
   }, [])
 
@@ -247,6 +314,11 @@ export function DecisionStudio() {
             ...prev,
             [sitId]: result.execution // Store the execution part of the response
         }))
+        
+        // Auto-open variance drawer when analysis completes with data
+        if (result.execution?.kt_is_is_not) {
+            setVarianceDrawerOpen(true)
+        }
     } catch (err) {
         console.error("Analysis Failed", err)
         setAnalysisError(err instanceof Error ? err.message : "Analysis failed unexpectedly")
@@ -303,11 +375,24 @@ export function DecisionStudio() {
   const handleStartDebate = async () => {
     setFindingSolutions(true)
     setShowPersonaSelector(false)
+    setDebatePhase(1) // Start with Phase 1: Hypotheses
+    
+    // Simulate phase progression for UX feedback
+    const phaseTimer1 = setTimeout(() => setDebatePhase(2), 3000) // Cross-review after 3s
+    const phaseTimer2 = setTimeout(() => setDebatePhase(3), 6000) // Synthesis after 6s
+    
     try {
         // Pass full Deep Analysis result for PRD-compliant agent-to-agent data exchange
+        // CRITICAL: Include situation_context so LLM knows the OVERALL KPI direction
         const deepAnalysisPayload = {
             plan: currentAnalysis.plan || {},
-            execution: currentAnalysis
+            execution: currentAnalysis,
+            situation_context: selectedSituation ? {
+                kpi_name: selectedSituation.kpi_name,
+                description: selectedSituation.description,
+                severity: selectedSituation.severity,
+                situation_id: selectedSituation.situation_id
+            } : null
         }
         
         // Prepare preferences based on mode
@@ -354,7 +439,10 @@ export function DecisionStudio() {
     } catch (err) {
         console.error("Solution Finder Failed", err)
     } finally {
+        clearTimeout(phaseTimer1)
+        clearTimeout(phaseTimer2)
         setFindingSolutions(false)
+        setDebatePhase(0)
     }
   }
 
@@ -666,19 +754,24 @@ export function DecisionStudio() {
                                                     onClick={() => setDaViewMode("snowflake")}
                                                     className={`px-3 py-1 text-xs rounded ${daViewMode === 'snowflake' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}
                                                 >
-                                                    Snowflake
+                                                    Is / Is Not
                                                 </button>
                                             </div>
                                         </div>
 
                                         {daViewMode === 'snowflake' ? (
-                                            <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-6 flex justify-center">
-                                                <SnowflakeScanner 
-                                                    data={snowflakeData} 
-                                                    width={500} 
-                                                    height={400} 
-                                                    kpiName={selectedSituation.kpi_name}
-                                                />
+                                            <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-4">
+                                                {currentAnalysis.kt_is_is_not ? (
+                                                    <DivergingBarChart 
+                                                        data={currentAnalysis.kt_is_is_not} 
+                                                        kpiName={selectedSituation.kpi_name}
+                                                        width={500}
+                                                    />
+                                                ) : (
+                                                    <div className="flex items-center justify-center h-32 text-slate-500 text-sm">
+                                                        No Is/Is Not analysis available
+                                                    </div>
+                                                )}
                                             </div>
                                         ) : (
                                             currentAnalysis.change_points && currentAnalysis.change_points.length > 0 && (
@@ -1120,18 +1213,68 @@ export function DecisionStudio() {
                                     </div>
                                 )}
 
-                                {currentAnalysis && !solutions && !showPersonaSelector && (
+                                {currentAnalysis && !solutions && !showPersonaSelector && !findingSolutions && (
                                     <button 
                                         onClick={handleSolution}
-                                        disabled={findingSolutions}
-                                        className="w-full text-left p-4 bg-emerald-600/10 hover:bg-emerald-600/20 border border-emerald-500/20 hover:border-emerald-500/40 rounded-lg transition-all group flex items-center justify-between disabled:opacity-50"
+                                        className="w-full text-left p-4 bg-emerald-600/10 hover:bg-emerald-600/20 border border-emerald-500/20 hover:border-emerald-500/40 rounded-lg transition-all group flex items-center justify-between"
                                     >
                                         <span className="text-emerald-100 font-medium flex items-center gap-2">
-                                            {findingSolutions && <Loader2 className="w-4 h-4 animate-spin" />}
-                                            {findingSolutions ? 'Hosting Debate...' : 'Generate Solution Options'}
+                                            Generate Solution Options
                                         </span>
-                                        {!findingSolutions && <Lightbulb className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />}
+                                        <Lightbulb className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
                                     </button>
+                                )}
+
+                                {/* Council Debate Progress Indicator */}
+                                {findingSolutions && (
+                                    <div className="bg-indigo-900/20 border border-indigo-500/30 rounded-lg p-4 animate-in fade-in">
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
+                                            <h4 className="text-sm font-bold text-white">
+                                                {useHybridCouncil ? 'Consulting Council in Session' : 'Generating Solutions'}
+                                            </h4>
+                                        </div>
+                                        
+                                        {useHybridCouncil && (
+                                            <div className="space-y-3">
+                                                {/* Phase 1: Initial Hypotheses */}
+                                                <div className={`flex items-center gap-3 ${debatePhase >= 1 ? 'opacity-100' : 'opacity-40'}`}>
+                                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${debatePhase > 1 ? 'bg-emerald-500 text-white' : debatePhase === 1 ? 'bg-indigo-500 text-white animate-pulse' : 'bg-slate-700 text-slate-400'}`}>
+                                                        {debatePhase > 1 ? '✓' : '1'}
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <div className="text-xs font-medium text-slate-300">Phase 1: Initial Hypotheses</div>
+                                                        <div className="text-[10px] text-slate-500">Each firm applies their methodology</div>
+                                                    </div>
+                                                    {debatePhase === 1 && <Loader2 className="w-3 h-3 text-indigo-400 animate-spin" />}
+                                                </div>
+                                                
+                                                {/* Phase 2: Cross-Review */}
+                                                <div className={`flex items-center gap-3 ${debatePhase >= 2 ? 'opacity-100' : 'opacity-40'}`}>
+                                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${debatePhase > 2 ? 'bg-emerald-500 text-white' : debatePhase === 2 ? 'bg-indigo-500 text-white animate-pulse' : 'bg-slate-700 text-slate-400'}`}>
+                                                        {debatePhase > 2 ? '✓' : '2'}
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <div className="text-xs font-medium text-slate-300">Phase 2: Cross-Review</div>
+                                                        <div className="text-[10px] text-slate-500">Firms critique each other's blind spots</div>
+                                                    </div>
+                                                    {debatePhase === 2 && <Loader2 className="w-3 h-3 text-indigo-400 animate-spin" />}
+                                                </div>
+                                                
+                                                {/* Phase 3: Synthesis */}
+                                                <div className={`flex items-center gap-3 ${debatePhase >= 3 ? 'opacity-100' : 'opacity-40'}`}>
+                                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${debatePhase === 3 ? 'bg-indigo-500 text-white animate-pulse' : 'bg-slate-700 text-slate-400'}`}>
+                                                        3
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <div className="text-xs font-medium text-slate-300">Phase 3: Synthesis</div>
+                                                        <div className="text-[10px] text-slate-500">Chair produces Decision Briefing</div>
+                                                    </div>
+                                                    {debatePhase === 3 && <Loader2 className="w-3 h-3 text-indigo-400 animate-spin" />}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
 
                                 {/* Render Solutions if available */}
@@ -1272,8 +1415,49 @@ export function DecisionStudio() {
                                             ))}
                                         </div>
 
-                                        {/* 3. Unresolved Tensions & Blind Spots */}
-                                        <div className="grid grid-cols-1 gap-4">
+                                        {/* 3. Council Cross-Review (Hybrid Council Only) */}
+                                        {solutions.cross_review && Object.keys(solutions.cross_review).length > 0 && (
+                                            <div className="bg-purple-900/10 border border-purple-500/30 rounded-lg p-4">
+                                                <h5 className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                                    <Users className="w-3 h-3" /> Council Cross-Review
+                                                </h5>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    {Object.entries(solutions.cross_review).map(([personaId, review]: [string, any]) => (
+                                                        <div key={personaId} className="bg-slate-900/50 rounded p-3 border border-slate-800">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <div className="w-5 h-5 rounded-full bg-purple-900/50 flex items-center justify-center">
+                                                                    <Users className="w-3 h-3 text-purple-400" />
+                                                                </div>
+                                                                <span className="text-xs font-medium text-slate-300 capitalize">{personaId.replace(/_/g, ' ')}</span>
+                                                            </div>
+                                                            {review.critiques && review.critiques.length > 0 && (
+                                                                <div className="mb-2">
+                                                                    <div className="text-[10px] text-red-400 font-semibold uppercase mb-1">Critiques</div>
+                                                                    {review.critiques.slice(0, 2).map((c: any, i: number) => (
+                                                                        <div key={i} className="text-[10px] text-slate-400 mb-1 pl-2 border-l border-red-900/50">
+                                                                            <span className="text-slate-500">Re: {c.target}</span> — {c.concern}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                            {review.endorsements && review.endorsements.length > 0 && (
+                                                                <div>
+                                                                    <div className="text-[10px] text-emerald-400 font-semibold uppercase mb-1">Endorsements</div>
+                                                                    {review.endorsements.slice(0, 2).map((e: any, i: number) => (
+                                                                        <div key={i} className="text-[10px] text-slate-400 mb-1 pl-2 border-l border-emerald-900/50">
+                                                                            <span className="text-slate-500">Re: {e.target}</span> — {e.reason}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* 4. Unresolved Tensions & Blind Spots */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             {solutions.unresolved_tensions && solutions.unresolved_tensions.length > 0 && (
                                                 <div className="bg-amber-900/10 border border-amber-900/30 rounded-lg p-3">
                                                     <h5 className="text-xs font-bold text-amber-500 uppercase tracking-wider mb-2 flex items-center gap-2">
@@ -1287,6 +1471,22 @@ export function DecisionStudio() {
                                                                     <span className="font-medium text-amber-200">{t.tension}</span>
                                                                     <span className="block text-amber-500/60 mt-0.5 text-[10px]">Requires: {t.requires}</span>
                                                                 </span>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                            
+                                            {solutions.blind_spots && solutions.blind_spots.length > 0 && (
+                                                <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
+                                                    <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                                                        <AlertTriangle className="w-3 h-3" /> Blind Spots Identified
+                                                    </h5>
+                                                    <ul className="space-y-1">
+                                                        {solutions.blind_spots.map((bs: string, i: number) => (
+                                                            <li key={i} className="text-xs text-slate-400 flex gap-2">
+                                                                <span className="text-slate-600">•</span>
+                                                                <span>{bs}</span>
                                                             </li>
                                                         ))}
                                                     </ul>
@@ -1343,6 +1543,17 @@ export function DecisionStudio() {
             </>
         )}
       </AnimatePresence>
+
+      {/* Bottom Variance Drawer - Shows IS/IS-NOT side by side */}
+      {selectedSituation && (
+        <VarianceDrawer
+          data={currentAnalysis?.kt_is_is_not || null}
+          kpiName={selectedSituation?.kpi_name || 'KPI'}
+          timeframeMapping={currentAnalysis?.timeframe_mapping || null}
+          isOpen={varianceDrawerOpen}
+          onToggle={() => setVarianceDrawerOpen(!varianceDrawerOpen)}
+        />
+      )}
     </div>
   )
 }

@@ -161,39 +161,90 @@ export function ExecutiveBriefing() {
           </div>
 
           {/* Root Cause Analysis */}
-          <div className="bg-slate-900 text-white p-6 rounded-lg">
-            <h3 className="font-semibold mb-4 flex items-center gap-2">
-              <Zap className="w-5 h-5 text-amber-400" />
-              Root Cause Analysis (Data-Driven)
-            </h3>
-            <div className="space-y-3">
-              {data.situation.rootCauses.map((cause: any, i: number) => (
-                <div key={i} className="flex items-start gap-3">
-                  <div className="w-6 h-6 bg-amber-500 text-slate-900 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">
-                    {i + 1}
+          {data.situation.rootCauses && data.situation.rootCauses.length > 0 && (
+            <div className="bg-slate-900 text-white p-6 rounded-lg mb-6">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                <Zap className="w-5 h-5 text-amber-400" />
+                Root Cause Analysis (Data-Driven)
+              </h3>
+              <div className="space-y-3">
+                {data.situation.rootCauses.map((cause: any, i: number) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-amber-500 text-slate-900 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">
+                      {i + 1}
+                    </div>
+                    <div>
+                      <p className="font-medium text-white">{cause.driver}</p>
+                      <p className="text-slate-400 text-sm">{cause.evidence}</p>
+                      <p className="text-amber-400 text-sm font-medium mt-1">Impact: {cause.impact}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-white">{cause.driver}</p>
-                    <p className="text-slate-400 text-sm">{cause.evidence}</p>
-                    <p className="text-amber-400 text-sm font-medium mt-1">Impact: {cause.impact}</p>
-                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Key Question */}
+          {data.situation.keyQuestion && (
+            <div className="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-r-lg mb-6">
+              <h3 className="font-semibold text-blue-900 mb-2">Key Question</h3>
+              <p className="text-blue-800 italic">{data.situation.keyQuestion}</p>
+            </div>
+          )}
+
+          {/* Key Assumptions */}
+          {data.situation.assumptions && data.situation.assumptions.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
+              <h3 className="font-semibold text-amber-900 mb-2">Key Assumptions</h3>
+              <ul className="space-y-1">
+                {data.situation.assumptions.map((assumption: string, i: number) => (
+                  <li key={i} className="text-amber-800 text-sm flex items-start gap-2">
+                    <span className="text-amber-500">•</span>
+                    {assumption}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+
+        {/* Stage 1: Initial Hypotheses */}
+        {data.stage_1_hypotheses && (
+          <section className="mb-12">
+            <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
+              <div className="w-8 h-8 bg-indigo-600 text-white rounded flex items-center justify-center text-sm font-bold">1</div>
+              Stage 1: Initial Hypotheses
+            </h2>
+            <p className="text-slate-600 mb-6">
+              Each consulting firm independently analyzed the problem using their signature frameworks.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {Object.entries(data.stage_1_hypotheses).map(([firmId, hyp]: [string, any]) => (
+                <div key={firmId} className="bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-lg p-5">
+                  <h4 className="font-bold text-slate-900 capitalize mb-2">{firmId.replace(/_/g, ' ')}</h4>
+                  <p className="text-xs text-indigo-600 font-medium mb-2">{hyp.framework}</p>
+                  <p className="text-sm text-slate-700 mb-3">{hyp.hypothesis}</p>
+                  {hyp.recommended_focus && (
+                    <div className="bg-white p-2 rounded border border-slate-200">
+                      <p className="text-xs text-slate-500 uppercase">Recommended Focus</p>
+                      <p className="text-sm font-medium text-slate-800">{hyp.recommended_focus}</p>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
-        {/* Hybrid Council Debate (New Section) */}
+        {/* Stage 2: Council Cross-Review */}
         {data.cross_review && (
           <section className="mb-12">
             <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
-              <div className="w-8 h-8 bg-purple-600 text-white rounded flex items-center justify-center text-sm font-bold">
-                <Users className="w-4 h-4" />
-              </div>
-              Council Debate
+              <div className="w-8 h-8 bg-purple-600 text-white rounded flex items-center justify-center text-sm font-bold">2</div>
+              Stage 2: Cross-Review
             </h2>
             <p className="text-slate-600 mb-6">
-              The Consulting Council conducted a cross-review of initial hypotheses to surface blind spots and tensions.
+              Each firm reviewed the others' hypotheses to surface blind spots and tensions.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -385,15 +436,15 @@ export function ExecutiveBriefing() {
                   }`}></div>
                   <div className="bg-slate-50 p-4 rounded-lg">
                     <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-semibold text-slate-900">{phase.phase}: {phase.title}</h4>
+                      <h4 className="font-semibold text-slate-900">{phase.phase}</h4>
                       <span className="text-sm text-slate-500 flex items-center gap-1">
                         <Clock className="w-4 h-4" />
-                        {phase.duration}
+                        {phase.timeline || phase.duration}
                       </span>
                     </div>
-                    <p className="text-slate-700 text-sm mb-3">{phase.description}</p>
+                    {phase.description && <p className="text-slate-700 text-sm mb-3">{phase.description}</p>}
                     <div className="flex flex-wrap gap-2">
-                      {phase.deliverables.map((d: string, j: number) => (
+                      {(phase.items || phase.deliverables || []).map((d: string, j: number) => (
                         <span key={j} className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
                           {d}
                         </span>
@@ -452,6 +503,50 @@ export function ExecutiveBriefing() {
             </table>
           </div>
         </section>
+
+        {/* Blind Spots & Unresolved Tensions */}
+        {((data.blind_spots && data.blind_spots.length > 0) || (data.unresolved_tensions && data.unresolved_tensions.length > 0)) && (
+          <section className="mb-12">
+            <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
+              <div className="w-8 h-8 bg-amber-600 text-white rounded flex items-center justify-center text-sm font-bold">
+                <AlertTriangle className="w-4 h-4" />
+              </div>
+              Considerations & Blind Spots
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {data.blind_spots && data.blind_spots.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 p-5 rounded-lg">
+                  <h3 className="font-semibold text-amber-900 mb-3">Potential Blind Spots</h3>
+                  <ul className="space-y-2">
+                    {data.blind_spots.map((bs: string, i: number) => (
+                      <li key={i} className="text-amber-800 text-sm flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                        {bs}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              {data.unresolved_tensions && data.unresolved_tensions.length > 0 && (
+                <div className="bg-purple-50 border border-purple-200 p-5 rounded-lg">
+                  <h3 className="font-semibold text-purple-900 mb-3">Unresolved Tensions</h3>
+                  <ul className="space-y-3">
+                    {data.unresolved_tensions.map((t: any, i: number) => (
+                      <li key={i} className="text-purple-800 text-sm">
+                        <p className="font-medium">{t.tension || t}</p>
+                        {t.requires && (
+                          <p className="text-purple-600 text-xs mt-1">Requires: {t.requires}</p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Call to Action */}
         <section className="mb-12">
