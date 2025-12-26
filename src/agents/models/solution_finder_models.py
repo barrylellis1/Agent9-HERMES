@@ -71,6 +71,7 @@ class SolutionFinderRequest(A9AgentBaseRequest):
     preferences: Optional[Dict[str, Any]] = None
     principal_input: Optional[PrincipalInputPreferences] = None
     evaluation_criteria: Optional[List[TradeOffCriterion]] = None
+    principal_context: Optional[Dict[str, Any]] = None  # Principal context with decision_style for Principal-driven approach
 
 
 class SolutionFinderResponse(A9AgentBaseResponse):
@@ -86,6 +87,9 @@ class SolutionFinderResponse(A9AgentBaseResponse):
     blind_spots: List[str] = Field(default_factory=list)
     next_steps: List[str] = Field(default_factory=list)
     cross_review: Optional[Dict[str, Any]] = None  # Hybrid Council debate artifacts
+    
+    # Principal-Driven Framing Context (per PRD guardrails)
+    framing_context: Optional[Dict[str, Any]] = None  # decision_style, personas_used, presentation_note, disclaimer
 
     # Single HITL event fields per PRD
     human_action_required: bool = False

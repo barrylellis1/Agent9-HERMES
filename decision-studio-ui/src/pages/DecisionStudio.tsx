@@ -68,6 +68,9 @@ export function DecisionStudio() {
   const [selectedPreset, setSelectedPreset] = useState("mbb_council")
   const [selectedPersonas, setSelectedPersonas] = useState<string[]>([])
   
+  // Principal Selection State
+  const [selectedPrincipal, setSelectedPrincipal] = useState("cfo_001")
+  
   // Legacy State (kept for fallback)
   const [principalInput, setPrincipalInput] = useState<{current_priorities: string[], known_constraints: string[]}>({
       current_priorities: [],
@@ -244,6 +247,16 @@ export function DecisionStudio() {
     }
   }, [])
 
+  // Available Principals (from principal_registry.yaml)
+  const AVAILABLE_PRINCIPALS = [
+    { id: "cfo_001", name: "Lars Mikkelsen", title: "Chief Financial Officer", initials: "LM", decision_style: "analytical", color: "bg-blue-500/20 text-blue-400" },
+    { id: "ceo_001", name: "Alex Morgan", title: "Chief Executive Officer", initials: "AM", decision_style: "visionary", color: "bg-purple-500/20 text-purple-400" },
+    { id: "coo_001", name: "Priya Desai", title: "Chief Operating Officer", initials: "PD", decision_style: "pragmatic", color: "bg-emerald-500/20 text-emerald-400" },
+    { id: "finance_manager_001", name: "Emily Chen", title: "Finance Manager", initials: "EC", decision_style: "analytical", color: "bg-amber-500/20 text-amber-400" },
+  ]
+
+  const currentPrincipal = AVAILABLE_PRINCIPALS.find(p => p.id === selectedPrincipal) || AVAILABLE_PRINCIPALS[0]
+
   const AVAILABLE_COUNCILS = [
     { id: "mbb_council", label: "MBB Strategy Council", description: "McKinsey, BCG, Bain", icon: User, color: "text-purple-400" },
     { id: "big4_council", label: "Big 4 Advisory Council", description: "Deloitte, EY-Parthenon, KPMG, PwC", icon: User, color: "text-blue-400" },
@@ -274,8 +287,8 @@ export function DecisionStudio() {
     setSolutions(null)
     setShowPersonaSelector(false)
     try {
-      console.log("Calling Agent9 API...")
-      const result = await detectSituations()
+      console.log(`Calling Agent9 API for principal: ${selectedPrincipal}...`)
+      const result = await detectSituations(selectedPrincipal)
       console.log("Agent9 Response:", result)
       
       if (result && result.length > 0) {
@@ -303,7 +316,7 @@ export function DecisionStudio() {
     setAnalyzing(true)
     setAnalysisError(null)
     try {
-        const result = await runDeepAnalysis(sitId, selectedSituation.kpi_name)
+        const result = await runDeepAnalysis(sitId, selectedSituation.kpi_name, selectedPrincipal)
         console.log("Deep Analysis Result:", result)
         
         if (!result || !result.execution) {
@@ -414,12 +427,21 @@ export function DecisionStudio() {
             preferences.personas = selectedPersonas
         }
         
+        // Pass principal context with decision_style for Principal-driven approach
+        const principalContext = {
+            principal_id: selectedPrincipal,
+            role: currentPrincipal.title,
+            decision_style: currentPrincipal.decision_style,
+            name: currentPrincipal.name
+        }
+        
         const result = await runSolutionFinder(
             deepAnalysisPayload, 
             [], // Legacy argument, ignored if preferences set
             null, // Legacy argument
-            'cfo_001',
-            preferences // New argument support needs to be added to client.ts or pass via object
+            selectedPrincipal,
+            preferences,
+            principalContext // Pass principal context for decision_style mapping
         )
         
         // Extract solutions and transcript
@@ -492,7 +514,36 @@ export function DecisionStudio() {
           <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Decision Studio</h1>
           <p className="text-slate-400">Situation Awareness Console</p>
         </div>
-        <div className="flex items-start gap-4">
+        <div className="flex items-center gap-4">
+            {/* Principal Selector - Always visible, required before scan */}
+            <div className="flex flex-col items-end gap-1">
+                <label className="text-xs text-slate-500 uppercase tracking-wider">Principal</label>
+                <div className="relative">
+                    <select
+                        value={selectedPrincipal}
+                        onChange={(e) => setSelectedPrincipal(e.target.value)}
+                        className="appearance-none bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-2 pr-8 text-sm text-white cursor-pointer hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50 min-w-[200px]"
+                    >
+                        {AVAILABLE_PRINCIPALS.map(p => (
+                            <option key={p.id} value={p.id}>
+                                {p.name} ({p.title.split(' ').map(w => w[0]).join('')})
+                            </option>
+                        ))}
+                    </select>
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <ChevronRight className="w-4 h-4 text-slate-400 rotate-90" />
+                    </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <div className={`w-5 h-5 rounded-full ${currentPrincipal.color} flex items-center justify-center font-bold text-[9px]`}>
+                        {currentPrincipal.initials}
+                    </div>
+                    <span className="text-xs text-slate-400">
+                        <span className="capitalize">{currentPrincipal.decision_style}</span> style
+                    </span>
+                </div>
+            </div>
+
             <div className="flex flex-col items-end gap-2">
             <button 
                 onClick={handleRefresh}
@@ -518,18 +569,7 @@ export function DecisionStudio() {
       {/* KPI Evaluation Summary */}
       {scanComplete && (
         <section className="mb-8 animate-in slide-in-from-top-4 fade-in duration-500">
-            <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 grid grid-cols-1 md:grid-cols-4 gap-6 items-center">
-                <div className="col-span-1 border-r border-slate-800 pr-6">
-                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Principal Context</h3>
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-xs">CF</div>
-                        <div>
-                            <div className="text-sm font-medium text-white">{principalName}</div>
-                            <div className="text-xs text-slate-400">Finance & Strategy</div>
-                        </div>
-                    </div>
-                </div>
-                
+            <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
                 <div className="col-span-1 border-r border-slate-800 pr-6">
                     <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Scan Coverage</h3>
                     <div className="text-2xl font-light text-white">{kpisScanned} <span className="text-sm text-slate-500 font-normal">KPIs Evaluated</span></div>

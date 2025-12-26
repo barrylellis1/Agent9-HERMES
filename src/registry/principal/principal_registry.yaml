@@ -21,8 +21,8 @@ principals:
       - "Finance: Cash Flow Management"
       - "Finance: Budget vs. Actuals"
     default_filters:
-      profit_center_hierarchyid: ["Total"]
-      customer_hierarchyid: ["Total"]
+      "Profit Center Hierarchyid": ["Total"]
+      "Customer Hierarchyid": ["Total"]
     typical_timeframes:
       - "Monthly"
       - "Quarterly"
@@ -66,13 +66,15 @@ principals:
       - "oversee company performance"
       - "lead executive team"
     business_processes:
+      - "Finance: Profitability Analysis"
+      - "Finance: Revenue Growth Analysis"
+      - "Finance: Expense Management"
       - "Strategy: Market Share Analysis"
       - "Strategy: EBITDA Growth Tracking"
-      - "Strategy: Capital Allocation Efficiency"
-      - "Operations: Global Performance Oversight"
-      - "Finance: Investor Relations Reporting"
     default_filters:
-      profit_center_hierarchyid: ["#"]
+      "Profit Center Hierarchyid": ["Total"]
+      "Customer Hierarchyid": ["Total"]
+      "Fiscal Year": [2024, 2025]
     typical_timeframes:
       - "Quarterly"
       - "Annually"
@@ -116,13 +118,14 @@ principals:
       - "reduce operational costs"
       - "improve process efficiency"
     business_processes:
+      - "Finance: Profitability Analysis"
+      - "Finance: Revenue Growth Analysis"
+      - "Finance: Expense Management"
       - "Operations: Order-to-Cash Cycle Optimization"
-      - "Operations: Inventory Turnover Analysis"
       - "Operations: Production Cost Management"
-      - "Supply Chain: Logistics Efficiency"
     default_filters:
-      "Profit Center Name": ["Production"]
-      "Parent Customer Hierarchy ID": ["Z2", "Z3"]
+      "Profit Center Name": ["Production", "Mountain Cycles - Production", "Racing Cycles - Production"]
+      "Customer Hierarchyid": ["Total"]
     typical_timeframes:
       - "Monthly"
       - "Quarterly"
@@ -172,8 +175,8 @@ principals:
       - "Finance: Cash Flow Management"
       - "Finance: Budget vs. Actuals"
     default_filters:
-      "Profit Center/Group Description": ["US Holding Company"]
-      "Parent Customer Hierarchy ID": ["Z1"]
+      "Profit Center Name": ["Corporate", "Cruise Cycles - Large", "Cruise Cycles - Speciality"]
+      "Customer Hierarchyid": ["Total"]
     typical_timeframes:
       - "Monthly"
       - "Quarterly"

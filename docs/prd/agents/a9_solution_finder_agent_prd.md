@@ -204,6 +204,80 @@ Agent9 agents are prioritized for LLM integration as follows (see BACKLOG_REFOCU
 
 ---
 
+### Principal-Driven Solution Generation
+
+**6. Decision Style to Consulting Persona Mapping**
+
+The Solution Finder Agent uses the principal's `decision_style` to select appropriate consulting personas for the LLM council debate. This ensures solutions are framed in a way that resonates with the principal's decision-making approach.
+
+#### Decision Style to Persona Mapping
+
+| Decision Style | Primary Persona | Council Preset | Solution Focus |
+|----------------|-----------------|----------------|----------------|
+| `analytical` | McKinsey | mbb_council | Root cause fixes, MECE options, hypothesis validation |
+| `visionary` | BCG | growth_council | Strategic pivots, portfolio rebalancing, value creation |
+| `pragmatic` | Bain | cost_council | Quick wins, operational fixes, clear owners/timelines |
+| `decisive` | McKinsey | mbb_council | Clear trade-offs, decision criteria, risk assessment |
+
+#### Persona Selection Priority
+
+1. **Request-level override**: `preferences.consulting_personas` or `preferences.council_preset`
+2. **Principal decision_style**: Maps to appropriate council via table above
+3. **Principal role affinity**: Falls back to role-based persona mapping (CFO → analytical personas)
+4. **Default**: MBB Council (McKinsey, BCG, Bain)
+
+---
+
+### Guardrails: Personalization vs Attribution
+
+**CRITICAL**: The Solution Finder generates solutions FOR the principal's consideration. It does NOT speak FOR the principal or impersonate colleagues.
+
+#### Consulting Personas vs Colleague Personas
+
+The LLM council uses **external consulting firm personas** (McKinsey, BCG, Bain), NOT internal colleague personas. This is intentional:
+
+- ✅ "McKinsey perspective: Focus on root cause analysis..."
+- ✅ "BCG perspective: Consider portfolio implications..."
+- ❌ "The CFO would recommend..."
+- ❌ "Based on the COO's pragmatic style, she believes..."
+
+#### Prohibited Patterns
+
+- ❌ "Your colleague [Name] would likely prefer..."
+- ❌ "The [Role] believes this solution is best..."
+- ❌ "Based on [Name]'s decision style, they would choose..."
+- ❌ "Speaking on behalf of the executive team..."
+
+#### Required Patterns
+
+- ✅ "This solution aligns with your analytical decision style, emphasizing root cause resolution."
+- ✅ "Presented with implementation timelines per your pragmatic preferences."
+- ✅ "The McKinsey framework suggests... while the Bain perspective emphasizes..."
+- ✅ "Trade-offs are presented for YOUR decision—the agent does not choose for you."
+
+#### Transparency Requirements
+
+All Solution Finder outputs MUST include:
+```json
+{
+  "framing_context": {
+    "decision_style": "analytical",
+    "personas_used": ["mckinsey", "bcg", "bain"],
+    "presentation_note": "Solutions presented with MECE structure and root cause focus per your analytical profile.",
+    "disclaimer": "Consulting perspectives are analytical frameworks, not colleague opinions."
+  }
+}
+```
+
+#### Principal Control
+
+- Principal can override persona selection per session
+- Principal can request alternative framing (e.g., "Show me the pragmatic view")
+- Principal can disable persona-based framing entirely
+- All framing choices are logged for audit
+
+---
+
 ## Technical Requirements
 - Modular, maintainable architecture
 - Registry integration and async operations
@@ -213,6 +287,8 @@ Agent9 agents are prioritized for LLM integration as follows (see BACKLOG_REFOCU
 - Human-in-the-loop and iterative refinement are required; agent must support user feedback and resubmission cycles
 - All solution generation and evaluation steps must be logged for auditability and compliance
 - All market research usage (including LLM-sourced insights) must include source attribution and be logged for compliance.
+- Decision style to persona mapping must be implemented via consulting_persona_provider
+- Guardrails for personalization vs attribution must be enforced in all LLM prompts
 
 ---
 

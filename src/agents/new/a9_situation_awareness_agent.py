@@ -43,6 +43,9 @@ from src.models.kpi_models import KPI, KPIThreshold, KPIComparisonMethod
 # LLM Service models for SQL generation
 from src.agents.a9_llm_service_agent import A9_LLM_SQLGenerationRequest
 
+# Data quality filtering utility
+from src.agents.utils.data_quality_filter import DataQualityFilter
+
 logger = logging.getLogger(__name__)
 
 class A9_Situation_Awareness_Agent:

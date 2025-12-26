@@ -56,6 +56,16 @@ Environment variable override: `OPENAI_MODEL_SOLUTION`
 - **Fallback LLM Acquisition**: If LLM service not injected by orchestrator, acquires directly from `AgentRegistry`
 - **Prompt Constraints**: Forbids "more analysis" solutions; requires actionable, implementable recommendations
 
+## Principal-Driven Approach (Dec 2024)
+- **Decision Style to Persona Mapping**: Uses principal's `decision_style` from their profile to select appropriate consulting personas:
+  - `analytical` → McKinsey-style (root cause, MECE, hypothesis-driven)
+  - `visionary` → BCG-style (portfolio view, growth-share, value creation)
+  - `pragmatic` → Bain-style (operational excellence, quick wins, results-first)
+  - `decisive` → McKinsey-style (structured decision-making, clear trade-offs)
+- **Persona Selection Priority**: Request override → decision_style → role affinity → MBB default
+- **Framing Context**: All responses include `framing_context` with transparency about personas used and presentation style
+- **Guardrails**: Agent adapts presentation FOR the principal, does NOT speak FOR the principal or impersonate colleagues
+
 ## Compliance
 - A2A Pydantic IO for requests/responses
 - Orchestrator-driven lifecycle; single HITL event per cycle

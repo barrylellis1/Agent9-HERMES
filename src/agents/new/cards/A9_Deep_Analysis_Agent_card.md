@@ -52,6 +52,21 @@ Environment variable override: `OPENAI_MODEL_REASONING`
 - Contract path consolidated to single source of truth in `registry_references`
 - Added default timeframe (`current_quarter`) when none specified
 - Fixed dimension extraction from Data Governance fallback to properly extract field names from objects
+- Added `DataQualityFilter` utility for filtering unassigned/anomalous dimension values
+- Deduplication of IS/IS-NOT lists by (dimension, key) pairs
+
+## Principal-Driven KT Framing (Dec 2025)
+The Deep Analysis Agent adapts its KT IS/IS-NOT output framing based on the principal's `decision_style`:
+
+| Decision Style | KT Focus | Language Style | Metrics Emphasized |
+|----------------|----------|----------------|-------------------|
+| `analytical` | Root cause decomposition, MECE breakdown | Statistical, precise, hypothesis-driven | Variance %, confidence intervals |
+| `visionary` | Strategic implications, portfolio view | Narrative, forward-looking, market context | Strategic value at risk, opportunity cost |
+| `pragmatic` | Operational fixes, quick wins | Action-oriented, owners, timelines | Recovery $, days to fix, owner assignments |
+
+**Guardrails**: The agent adapts presentation FOR the principal, does NOT speak FOR the principal.
+- ✅ "Analysis presented with MECE decomposition per your analytical decision style."
+- ❌ "The CFO believes the root cause is..."
 
 ## Compliance
 - A2A Pydantic IO for requests/responses

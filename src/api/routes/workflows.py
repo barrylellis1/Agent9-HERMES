@@ -141,6 +141,7 @@ class SolutionWorkflowRequest(BaseModel):
     problem_statement: Optional[str] = Field(None, description="Problem statement to solve")
     constraints: Optional[Dict[str, Any]] = Field(None, description="Constraints such as budget or timeline")
     preferences: Optional[Dict[str, Any]] = Field(None, description="Additional preferences for recommendations")
+    principal_context: Optional[Dict[str, Any]] = Field(None, description="Principal context with decision_style for Principal-driven approach")
 
 
 class AnnotationRequest(BaseModel):
@@ -387,8 +388,11 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
         }
         if principal_context is not None:
             deep_request_payload["principal_context"] = principal_context
+            # Merge principal's default_filters into the request filters
+            if isinstance(principal_context, dict) and principal_context.get("default_filters"):
+                deep_request_payload["filters"].update(principal_context["default_filters"])
         if request.scope.time_range:
-            deep_request_payload["filters"] = {"time_range": request.scope.time_range}
+            deep_request_payload["filters"]["time_range"] = request.scope.time_range
         if request.hypotheses:
             deep_request_payload["extra"] = {"hypotheses": request.hypotheses}
         deep_request = DeepAnalysisRequest(**deep_request_payload)
@@ -443,6 +447,9 @@ async def _run_solution_workflow(request_id: str, runtime: AgentRuntime, request
             "constraints": request.constraints or {},
             "preferences": request.preferences or {},
         }
+        # Add principal_context if provided (for Principal-driven approach with decision_style)
+        if request.principal_context:
+            solution_request_payload["principal_context"] = request.principal_context
         solution_request = SolutionFinderRequest(**solution_request_payload)
 
         response = await orchestrator.execute_agent_method(

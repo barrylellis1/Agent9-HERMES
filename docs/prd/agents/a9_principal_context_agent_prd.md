@@ -184,12 +184,70 @@ async def clear_context(self) -> None
 - Performance metrics
 - Context history
 
+## Decision Style and Persona Mapping
+
+### 5. Decision Style to Analysis Lens Mapping
+
+The Principal Context Agent is responsible for providing `decision_style` from the principal's `persona_profile` to downstream agents. This enables role-appropriate presentation of analysis.
+
+#### Decision Style Definitions
+
+| Decision Style | Analysis Lens | Primary Consulting Framework | Focus |
+|----------------|---------------|------------------------------|-------|
+| `analytical` | McKinsey-style | MECE, Issue Trees, Hypothesis-driven | Root cause decomposition, statistical rigor, 80/20 prioritization |
+| `visionary` | BCG-style | Growth-Share Matrix, Portfolio View | Strategic implications, market positioning, value creation opportunities |
+| `pragmatic` | Bain-style | Results Delivery, Operational Excellence | Quick wins, implementation roadmaps, owners and timelines |
+| `decisive` | McKinsey-style | Structured Decision-Making | Clear options, trade-offs, decision criteria |
+
+#### Output Requirements
+
+The Principal Context output MUST include:
+```json
+{
+  "profile": {
+    "principal_id": "cfo_001",
+    "role": "CFO",
+    "decision_style": "analytical",
+    "risk_tolerance": "low",
+    "communication_style": "concise",
+    "responsibilities": ["maximize EBIT", "manage revenue"],
+    "filters": {"profit_center_hierarchyid": ["Total"]}
+  }
+}
+```
+
+#### Downstream Agent Usage
+
+- **Deep Analysis Agent**: Uses `decision_style` to frame KT IS/IS-NOT analysis
+- **Solution Finder Agent**: Uses `decision_style` to select consulting personas for LLM council
+- **Situation Awareness Agent**: Uses `communication_style` to format situation cards
+
+### 6. Guardrails: Personalization vs Attribution
+
+**CRITICAL**: Agent9 adapts presentation FOR the principal, it does NOT speak FOR the principal.
+
+#### Prohibited Patterns
+- ❌ "The CFO believes..."
+- ❌ "Based on Lars Mikkelsen's perspective..."
+- ❌ "The CFO would recommend..."
+
+#### Required Patterns
+- ✅ "This analysis is tailored for your analytical decision style..."
+- ✅ "Presented with MECE decomposition per your profile preferences..."
+- ✅ "Highlighting root cause factors relevant to your CFO responsibilities..."
+
+#### Principal Control
+- Principals can view and modify their `decision_style` at any time
+- Principals can override the default presentation style per session
+- All profile-influenced outputs must be transparent about adaptation
+
 ## Future Considerations
 - Enhanced recommendation system
 - Additional access control features
 - Expanded HCM system integration
 - Advanced context analysis
 - Performance optimizations
+- Cross-principal alignment detection (when multiple principals view same situation)
 
 
 ## Hackathon Quick Start

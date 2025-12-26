@@ -32,6 +32,11 @@ from src.registry.consulting_personas import (
     get_personas_for_principal,
     ConsultingPersona,
 )
+from src.registry.consulting_personas.consulting_persona_provider import (
+    get_personas_for_decision_style,
+    get_framing_context_for_decision_style,
+    DECISION_STYLE_TO_PERSONA,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -538,19 +543,29 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                     p = get_consulting_persona(pid)
                                     if p: consulting_personas.append(p)
                         
-                        # 5. Principal Affinity Fallback
+                        # 5. Principal Decision Style (NEW - Principal-Driven Approach)
                         else:
+                            decision_style = None
                             role = None
                             try:
                                 pc = getattr(request, "principal_context", None)
                                 if pc:
-                                    if isinstance(pc, dict): role = pc.get("role")
-                                    else: role = getattr(pc, "role", None)
+                                    if isinstance(pc, dict):
+                                        decision_style = pc.get("decision_style")
+                                        role = pc.get("role")
+                                    else:
+                                        decision_style = getattr(pc, "decision_style", None)
+                                        role = getattr(pc, "role", None)
                             except Exception:
                                 pass
                             
-                            if role:
+                            # Priority: decision_style > role affinity
+                            if decision_style and decision_style.lower() in DECISION_STYLE_TO_PERSONA:
+                                consulting_personas = get_personas_for_decision_style(decision_style)
+                                self.logger.info(f"Using decision_style '{decision_style}' for persona selection")
+                            elif role:
                                 consulting_personas = get_personas_for_principal(role)
+                                self.logger.info(f"Using role '{role}' for persona selection (no decision_style)")
                         
                         # 6. Absolute Fallback (MBB)
                         if not consulting_personas:
@@ -559,6 +574,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                 for pid in preset.personas:
                                     p = get_consulting_persona(pid)
                                     if p: consulting_personas.append(p)
+                            self.logger.info("Using default MBB council (no decision_style or role)")
 
                     # Build Context Strings
                     if consulting_personas:
@@ -996,6 +1012,28 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                 recommendation_payload = None
             matrix_payload = {"criteria": criteria_payload, "options": options_payload}
 
+            # Build framing_context for Principal-driven transparency (per PRD guardrails)
+            framing_context_payload = None
+            try:
+                decision_style = None
+                pc = getattr(request, "principal_context", None)
+                if pc:
+                    if isinstance(pc, dict):
+                        decision_style = pc.get("decision_style")
+                    else:
+                        decision_style = getattr(pc, "decision_style", None)
+                
+                if decision_style or consulting_personas:
+                    framing_context_payload = {
+                        "decision_style": decision_style or "default",
+                        "personas_used": [p.id for p in consulting_personas] if consulting_personas else ["mckinsey", "bcg", "bain"],
+                        "presentation_note": f"Solutions presented per your {decision_style or 'default'} decision style preferences.",
+                        "disclaimer": "Consulting perspectives are analytical frameworks, not colleague opinions.",
+                        "alternative_views_available": ["analytical", "visionary", "pragmatic"],
+                    }
+            except Exception:
+                pass
+
             # Single HITL event required per PRD
             return SolutionFinderResponse.success(
                 request_id=req_id,
@@ -1015,6 +1053,8 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                 blind_spots=blind_spots_list,
                 next_steps=next_steps_list,
                 cross_review=cross_review,
+                # Principal-Driven Framing Context
+                framing_context=framing_context_payload,
             )
         except Exception as e:
             return SolutionFinderResponse.error(request_id=req_id, error_message=str(e))

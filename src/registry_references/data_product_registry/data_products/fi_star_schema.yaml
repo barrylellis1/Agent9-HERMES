@@ -57,19 +57,20 @@ views:
         - "Version"
         - "Transaction Value Amount"
       dimension_semantics:
+        # Leaf-level dimensions for detailed variance analysis
         - "Profit Center Name"
         - "Customer Type Name"
         - "Customer Name"
         - "Product Name"
+        # Time dimensions
         - "Fiscal Year"
         - "Fiscal Quarter"
         - "Fiscal Month"
         - "Fiscal Year-Month"
+        # Account dimension (leaf level)
         - "Account Hierarchy Desc"
-        - "Account/Group Description"
-        - "Product Name"
-        - "Customer/Group Description"
-        - "Profit Center/Group Description"
+        # NOTE: Node/Group level dimensions excluded to avoid combining hierarchy levels
+        # dimension_hierarchies can be added later for drill-down analysis
     sql: |
       WITH FinancialTransactions_Typed AS (
           SELECT *, strptime(CAST(date AS VARCHAR), '%Y%m%d') AS transaction_date FROM FinancialTransactions

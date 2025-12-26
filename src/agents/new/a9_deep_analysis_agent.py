@@ -24,6 +24,7 @@ from src.agents.models.deep_analysis_models import (
     ChangePoint,
 )
 from src.agents.models.data_governance_models import KPIDataProductMappingRequest
+from src.agents.utils.data_quality_filter import DataQualityFilter, filter_anomalies
 
 
 logger = logging.getLogger(__name__)
@@ -376,7 +377,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         req_id = str(uuid.uuid4())
         try:
             try:
-                self.logger.info(f"execute_deep_analysis: kpi={getattr(plan, 'kpi_name', None)} timeframe={getattr(plan, 'timeframe', None)} dims_in={len(getattr(plan, 'dimensions', []) or [])}")
+                plan_filters = getattr(plan, 'filters', None)
+                self.logger.info(f"execute_deep_analysis: kpi={getattr(plan, 'kpi_name', None)} timeframe={getattr(plan, 'timeframe', None)} dims_in={len(getattr(plan, 'dimensions', []) or [])} filters={plan_filters}")
             except Exception:
                 pass
             kt = KTIsIsNot()
@@ -836,7 +838,16 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     if not used_hierarchical:
                         spec_fb = dict(spec_main) if isinstance(spec_main, dict) else _pick_threshold_spec()
                         comp_fb = comparator_main
-                        for dim in dims[: max(1, min(len(dims), self.config.max_dimensions))]:
+                        # Deduplicate dimensions to avoid duplicate entries in IS/IS-NOT lists
+                        unique_dims = list(dict.fromkeys(dims))
+                        self.logger.info(f"[DEDUP] Processing {len(unique_dims)} unique dimensions (from {len(dims)} total): {unique_dims[:5]}...")
+                        # Track already-added (dimension, key) pairs to prevent duplicates
+                        added_where_is_keys: set = set()
+                        added_where_is_not_keys: set = set()
+                        dims_to_process = unique_dims[: max(1, min(len(unique_dims), self.config.max_dimensions))]
+                        self.logger.info(f"[LOOP] Will process {len(dims_to_process)} dimensions: {dims_to_process}")
+                        for dim_idx, dim in enumerate(dims_to_process):
+                            self.logger.info(f"[LOOP] Processing dimension {dim_idx+1}/{len(dims_to_process)}: {dim}")
                             try:
                                 # Fetch ALL data for this dimension to apply hybrid threshold selection
                                 # This gives us richer context for the LLM vs fixed Top 3/Bottom 3
@@ -892,19 +903,27 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                         trend_positive=kpi_trend_positive
                                     )
                                     
-                                    # Add significant variance items to where_is
+                                    # Add significant variance items to where_is (with deduplication)
                                     added_keys_topn = set()
+                                    self.logger.info(f"[DEDUP] Dim={dim}: {len(where_is_items)} IS items, {len(where_is_not_items)} IS-NOT items, existing keys={len(added_where_is_keys)}")
                                     for key, c, p, d in where_is_items:
-                                        entry_top = _format_where_entry(dim, key, d, c, p)
-                                        kt.where_is.append(entry_top)
-                                        change_points.append(ChangePoint(dimension=dim, key=key, current_value=c, previous_value=p, delta=d))
-                                        added_keys_topn.add(key)
+                                        dedup_key = (dim, key)
+                                        if dedup_key not in added_where_is_keys:
+                                            entry_top = _format_where_entry(dim, key, d, c, p)
+                                            kt.where_is.append(entry_top)
+                                            change_points.append(ChangePoint(dimension=dim, key=key, current_value=c, previous_value=p, delta=d))
+                                            added_keys_topn.add(key)
+                                            added_where_is_keys.add(dedup_key)
+                                        else:
+                                            self.logger.warning(f"[DEDUP] Skipping duplicate: {dedup_key}")
                                     
-                                    # Add healthy items to where_is_not (for contrast)
+                                    # Add healthy items to where_is_not (for contrast, with deduplication)
                                     for key, c, p, d in where_is_not_items:
-                                        if key not in added_keys_topn:
+                                        dedup_key = (dim, key)
+                                        if key not in added_keys_topn and dedup_key not in added_where_is_not_keys:
                                             entry_bot = _format_where_entry(dim, key, d, c, p, note="Outperforming")
                                             kt.where_is_not.append(entry_bot)
+                                            added_where_is_not_keys.add(dedup_key)
                                 
                                 # Fallback: dual-query method if TopN path failed to populate
                                 if not kt.where_is:
@@ -943,19 +962,24 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                             trend_positive=kpi_trend_positive
                                         )
                                         
-                                        # Add significant variance items to where_is
+                                        # Add significant variance items to where_is (with deduplication)
                                         added_keys_fallback = set()
                                         for k, c, p, d in where_is_items:
-                                            entry_diff = _format_where_entry(dim, k, d, c, p)
-                                            kt.where_is.append(entry_diff)
-                                            change_points.append(ChangePoint(dimension=dim, key=k, current_value=c, previous_value=p, delta=d))
-                                            added_keys_fallback.add(k)
+                                            dedup_key = (dim, k)
+                                            if dedup_key not in added_where_is_keys:
+                                                entry_diff = _format_where_entry(dim, k, d, c, p)
+                                                kt.where_is.append(entry_diff)
+                                                change_points.append(ChangePoint(dimension=dim, key=k, current_value=c, previous_value=p, delta=d))
+                                                added_keys_fallback.add(k)
+                                                added_where_is_keys.add(dedup_key)
                                         
-                                        # Add healthy items to where_is_not (for contrast)
+                                        # Add healthy items to where_is_not (for contrast, with deduplication)
                                         for k, c, p, d in where_is_not_items:
-                                            if k not in added_keys_fallback:
+                                            dedup_key = (dim, k)
+                                            if k not in added_keys_fallback and dedup_key not in added_where_is_not_keys:
                                                 entry_low = _format_where_entry(dim, k, d, c, p, note="Outperforming")
                                                 kt.where_is_not.append(entry_low)
+                                                added_where_is_not_keys.add(dedup_key)
                                 # Always compute and attach distribution summary for this dimension
                                 try:
                                     ratios: List[float] = []
@@ -1052,35 +1076,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                         }
                                         kt.extent_is.append(entry_fb)
 
-                                        try:
-                                            diffs_fb: List[tuple] = []
-                                            if comp_fb == "budget" and (m_act_h or m_bud_h):
-                                                allk = set(m_act_h.keys()) | set(m_bud_h.keys())
-                                                for k in allk:
-                                                    c = float(m_act_h.get(k, 0.0)); b = float(m_bud_h.get(k, 0.0))
-                                                    d = c - b
-                                                    diffs_fb.append((k, c, b, d))
-                                            elif comp_fb == "previous" and (m_cur_h or m_prev_h):
-                                                allk = set(m_cur_h.keys()) | set(m_prev_h.keys())
-                                                for k in allk:
-                                                    c = float(m_cur_h.get(k, 0.0)); p = float(m_prev_h.get(k, 0.0))
-                                                    d = c - p
-                                                    diffs_fb.append((k, c, p, d))
-                                            if diffs_fb:
-                                                diffs_fb.sort(key=lambda t: abs(t[3]), reverse=True)
-                                                # Track keys added to where_is to avoid duplicates in where_is_not
-                                                added_keys = set()
-                                                for k0, c0, p0, d0 in diffs_fb[:3]:
-                                                    kt.where_is.append({"dimension": dim, "key": k0, "delta": d0, "current": c0, "previous": p0})
-                                                    change_points.append(ChangePoint(dimension=dim, key=k0, current_value=c0, previous_value=p0, delta=d0))
-                                                    added_keys.add(k0)
-                                                diffs_low = sorted(diffs_fb, key=lambda t: abs(t[3]))
-                                                for k1, c1, p1, d1 in diffs_low[:3]:
-                                                    # Skip if already in where_is to avoid duplicates
-                                                    if k1 not in added_keys:
-                                                        kt.where_is_not.append({"dimension": dim, "key": k1, "delta": d1, "current": c1, "previous": p1})
-                                        except Exception:
-                                            pass
+                                        # NOTE: Distribution summary diffs are now handled by the main TopN/fallback paths above
+                                        # with proper deduplication. This block is intentionally removed to prevent duplicates.
                                 except Exception:
                                     pass
                             except Exception as de:
@@ -1375,6 +1372,24 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     "current": str(cur_tf_val), 
                     "previous": str(prev_tf_val) if prev_tf_val else "previous period"
                 }
+
+            # Use DataQualityFilter utility to handle data anomalies
+            dq_filter = DataQualityFilter()
+            
+            # Process where_is and where_is_not lists
+            self.logger.info(f"[PRE-FILTER] where_is has {len(kt.where_is)} items, keys: {[i.get('key') for i in kt.where_is[:10]]}")
+            kt.where_is, dq_issues_is = dq_filter.filter_and_dedupe(kt.where_is)
+            kt.where_is_not, dq_issues_is_not = dq_filter.filter_and_dedupe(kt.where_is_not)
+            self.logger.info(f"[POST-FILTER] where_is has {len(kt.where_is)} items, dq_issues_is has {len(dq_issues_is)} items")
+            
+            # Create data quality alert if anomalies found
+            all_dq_issues = dq_issues_is + dq_issues_is_not
+            dq_alert = dq_filter.create_data_quality_alert(all_dq_issues, context="Deep Analysis")
+            if dq_alert:
+                kt.extent_is.append(dq_alert)
+                self.logger.warning(f"[DATA_QUALITY] {len(all_dq_issues)} items moved to data quality alerts")
+            
+            self.logger.info(f"[FINAL] where_is={len(kt.where_is)} items, where_is_not={len(kt.where_is_not)} items, dq_issues={len(all_dq_issues)} after filtering")
 
             return DeepAnalysisResponse.success(
                 request_id=req_id,

@@ -287,3 +287,144 @@ def list_all_personas() -> List[ConsultingPersona]:
 def list_all_presets() -> List[CouncilPreset]:
     """List all available council presets."""
     return _get_provider().list_all_presets()
+
+
+# =============================================================================
+# Decision Style to Persona Mapping (Principal-Driven Approach)
+# =============================================================================
+# Maps Principal Profile decision_style to consulting personas and councils.
+# This enables role-appropriate presentation of analysis and solutions.
+#
+# Decision Styles:
+#   - analytical: McKinsey-style (root cause, MECE, hypothesis-driven)
+#   - visionary: BCG-style (portfolio view, growth-share, value creation)
+#   - pragmatic: Bain-style (operational excellence, quick wins, results-first)
+#   - decisive: McKinsey-style (structured decision-making, clear trade-offs)
+# =============================================================================
+
+DECISION_STYLE_TO_PERSONA: Dict[str, str] = {
+    "analytical": "mckinsey",   # Root cause analysis, MECE, hypothesis-driven
+    "visionary": "bcg",         # Portfolio view, growth-share, value creation
+    "pragmatic": "bain",        # Operational excellence, quick wins, results-first
+    "decisive": "mckinsey",     # Structured decision-making, clear trade-offs
+}
+
+DECISION_STYLE_TO_COUNCIL: Dict[str, str] = {
+    "analytical": "mbb_council",    # Full MBB for comprehensive root cause analysis
+    "visionary": "growth_council",  # Growth-focused council for strategic decisions
+    "pragmatic": "cost_council",    # Cost/efficiency focused for operational fixes
+    "decisive": "mbb_council",      # Full MBB for balanced decision support
+}
+
+DECISION_STYLE_FOCUS: Dict[str, Dict[str, str]] = {
+    "analytical": {
+        "kt_focus": "Root cause decomposition, MECE breakdown",
+        "language_style": "Statistical, precise, hypothesis-driven",
+        "metrics_emphasis": "Variance %, confidence intervals, correlations",
+        "solution_focus": "Root cause fixes, MECE options, hypothesis validation",
+    },
+    "visionary": {
+        "kt_focus": "Strategic implications, portfolio view",
+        "language_style": "Narrative, forward-looking, market context",
+        "metrics_emphasis": "Market share, strategic value at risk, opportunity cost",
+        "solution_focus": "Strategic pivots, portfolio rebalancing, value creation",
+    },
+    "pragmatic": {
+        "kt_focus": "Operational fixes, quick wins",
+        "language_style": "Action-oriented, owners, timelines",
+        "metrics_emphasis": "Recovery $, days to fix, owner assignments",
+        "solution_focus": "Quick wins, operational fixes, clear owners/timelines",
+    },
+    "decisive": {
+        "kt_focus": "Clear options, trade-offs, decision criteria",
+        "language_style": "Structured, balanced, risk-aware",
+        "metrics_emphasis": "Decision criteria scores, risk assessment, trade-off matrix",
+        "solution_focus": "Clear trade-offs, decision criteria, risk assessment",
+    },
+}
+
+
+def get_primary_persona_for_decision_style(decision_style: str) -> Optional[ConsultingPersona]:
+    """
+    Get the primary consulting persona based on principal's decision style.
+    
+    Args:
+        decision_style: Principal's decision style (analytical, visionary, pragmatic, decisive)
+        
+    Returns:
+        Primary ConsultingPersona aligned with the decision style
+    """
+    style_lower = (decision_style or "").strip().lower()
+    persona_id = DECISION_STYLE_TO_PERSONA.get(style_lower, "mckinsey")
+    return get_consulting_persona(persona_id)
+
+
+def get_council_for_decision_style(decision_style: str) -> Optional[CouncilPreset]:
+    """
+    Get the recommended council preset based on principal's decision style.
+    
+    Args:
+        decision_style: Principal's decision style (analytical, visionary, pragmatic, decisive)
+        
+    Returns:
+        CouncilPreset aligned with the decision style
+    """
+    style_lower = (decision_style or "").strip().lower()
+    preset_id = DECISION_STYLE_TO_COUNCIL.get(style_lower, "mbb_council")
+    return get_council_preset(preset_id)
+
+
+def get_personas_for_decision_style(decision_style: str) -> List[ConsultingPersona]:
+    """
+    Get all personas for a council based on principal's decision style.
+    
+    Args:
+        decision_style: Principal's decision style (analytical, visionary, pragmatic, decisive)
+        
+    Returns:
+        List of ConsultingPersona objects for the recommended council
+    """
+    council = get_council_for_decision_style(decision_style)
+    if not council:
+        return []
+    
+    personas = []
+    for pid in council.personas:
+        persona = get_consulting_persona(pid)
+        if persona:
+            personas.append(persona)
+    return personas
+
+
+def get_framing_context_for_decision_style(decision_style: str) -> Dict[str, Any]:
+    """
+    Get the framing context for a decision style.
+    
+    This provides metadata about how analysis should be framed for the principal,
+    including KT focus, language style, and metrics emphasis.
+    
+    Args:
+        decision_style: Principal's decision style
+        
+    Returns:
+        Dictionary with framing context for the decision style
+    """
+    style_lower = (decision_style or "").strip().lower()
+    focus = DECISION_STYLE_FOCUS.get(style_lower, DECISION_STYLE_FOCUS["analytical"])
+    
+    council = get_council_for_decision_style(decision_style)
+    personas = get_personas_for_decision_style(decision_style)
+    
+    return {
+        "decision_style": style_lower or "analytical",
+        "primary_persona": DECISION_STYLE_TO_PERSONA.get(style_lower, "mckinsey"),
+        "council_preset": council.id if council else "mbb_council",
+        "personas_used": [p.id for p in personas],
+        "kt_focus": focus.get("kt_focus", ""),
+        "language_style": focus.get("language_style", ""),
+        "metrics_emphasis": focus.get("metrics_emphasis", ""),
+        "solution_focus": focus.get("solution_focus", ""),
+        "presentation_note": f"Analysis presented with {focus.get('kt_focus', 'structured analysis')} per your {style_lower or 'analytical'} decision style.",
+        "disclaimer": "Consulting perspectives are analytical frameworks, not colleague opinions.",
+        "alternative_views_available": [s for s in DECISION_STYLE_TO_PERSONA.keys() if s != style_lower],
+    }

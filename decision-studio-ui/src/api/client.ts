@@ -151,10 +151,11 @@ export async function runSolutionFinder(
   personas: string[] = ["CFO", "Supply Chain Expert", "Data Scientist"], 
   principalInput: any = null,
   principalId: string = 'cfo_001',
-  preferencesOverride: any = null
+  preferencesOverride: any = null,
+  principalContext: any = null  // NEW: Principal context with decision_style
 ) {
     // 1. Trigger the workflow - pass full Deep Analysis result for agent-to-agent data exchange
-    const body = {
+    const body: any = {
         principal_id: principalId,
         deep_analysis_output: deepAnalysisOutput,
         preferences: preferencesOverride || {
@@ -162,6 +163,11 @@ export async function runSolutionFinder(
             principal_input: principalInput
         }
     };
+    
+    // Add principal_context if provided (for Principal-driven approach)
+    if (principalContext) {
+        body.principal_context = principalContext;
+    }
 
     const runResponse = await fetch(`${API_BASE}/workflows/solutions/run`, {
       method: 'POST',
