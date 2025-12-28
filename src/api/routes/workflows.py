@@ -10,7 +10,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from src.api.runtime import AgentRuntime, get_agent_runtime
-from src.agents.models.deep_analysis_models import DeepAnalysisPlan, DeepAnalysisRequest
+from src.agents.models.deep_analysis_models import (
+    DeepAnalysisPlan,
+    DeepAnalysisRequest,
+    ProblemRefinementInput,
+    ProblemRefinementResult,
+)
 from src.agents.models.solution_finder_models import SolutionFinderRequest
 from src.agents.models.situation_awareness_models import ComparisonType, TimeFrame, SituationDetectionRequest
 from src.agents.models.data_product_onboarding_models import (
@@ -142,6 +147,18 @@ class SolutionWorkflowRequest(BaseModel):
     constraints: Optional[Dict[str, Any]] = Field(None, description="Constraints such as budget or timeline")
     preferences: Optional[Dict[str, Any]] = Field(None, description="Additional preferences for recommendations")
     principal_context: Optional[Dict[str, Any]] = Field(None, description="Principal context with decision_style for Principal-driven approach")
+    refinement_result: Optional[Dict[str, Any]] = Field(None, description="Problem refinement chat result with exclusions, constraints, and council routing")
+
+
+class ProblemRefinementRequest(BaseModel):
+    """API request for problem refinement chat turn."""
+    principal_id: str = Field(..., description="ID of the requesting principal")
+    deep_analysis_output: Dict[str, Any] = Field(..., description="KT IS/IS-NOT results from Deep Analysis")
+    principal_context: Dict[str, Any] = Field(..., description="Principal profile with role, decision_style, filters")
+    conversation_history: List[Dict[str, str]] = Field(default_factory=list, description="Multi-turn chat history")
+    user_message: Optional[str] = Field(None, description="Latest principal response (None for first turn)")
+    current_topic: Optional[str] = Field(None, description="Current topic in sequence (auto-managed)")
+    turn_count: int = Field(0, description="Current turn number")
 
 
 class AnnotationRequest(BaseModel):
@@ -233,6 +250,71 @@ async def run_deep_analysis_workflow(
 async def get_deep_analysis_status(request_id: str) -> Envelope:
     record = await _ensure_record(request_id, "deep_analysis")
     return wrap(record.to_dict())
+
+
+@router.post("/deep-analysis/refine", response_model=Envelope)
+async def refine_deep_analysis(
+    request: ProblemRefinementRequest,
+    runtime: AgentRuntime = Depends(get_agent_runtime),
+) -> Envelope:
+    """
+    Problem Refinement Chat endpoint - MBB-style principal engagement.
+    
+    This is a synchronous endpoint that processes one turn of the refinement
+    conversation and returns the next question or final result.
+    
+    The conversation is stateless on the server - the client maintains
+    conversation_history and passes it back each turn.
+    """
+    try:
+        orchestrator = runtime.get_orchestrator()
+        
+        # Build the input model for the agent
+        refinement_input = ProblemRefinementInput(
+            deep_analysis_output=request.deep_analysis_output,
+            principal_context=request.principal_context,
+            conversation_history=request.conversation_history,
+            user_message=request.user_message,
+            current_topic=request.current_topic,
+            turn_count=request.turn_count,
+        )
+        
+        # Call the Deep Analysis Agent's refine_analysis method
+        result = await orchestrator.execute_agent_method(
+            "A9_Deep_Analysis_Agent",
+            "refine_analysis",
+            {"input_model": refinement_input}
+        )
+        
+        # Handle response - could be dict or ProblemRefinementResult
+        if hasattr(result, "model_dump"):
+            result_data = result.model_dump()
+        elif isinstance(result, dict):
+            result_data = result
+        else:
+            result_data = serialize(result)
+        
+        return wrap(result_data)
+        
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Problem refinement error: {e}")
+        # Return a graceful error that allows the chat to continue
+        return wrap({
+            "agent_message": f"I encountered an issue: {str(e)[:200]}. Let's continue.",
+            "suggested_responses": ["Continue", "Skip this topic", "Proceed to solutions"],
+            "current_topic": request.current_topic or "hypothesis_validation",
+            "topic_complete": False,
+            "topics_completed": [],
+            "ready_for_solutions": False,
+            "turn_count": request.turn_count + 1,
+            "conversation_history": request.conversation_history,
+            "exclusions": [],
+            "external_context": [],
+            "constraints": [],
+            "validated_hypotheses": [],
+            "invalidated_hypotheses": [],
+        })
 
 
 @router.post("/solutions/run", response_model=Envelope, status_code=status.HTTP_202_ACCEPTED)

@@ -9,8 +9,28 @@ The `A9_Deep_Analysis_Agent` plans and executes transparent, auditable deep anal
 - `enumerate_dimensions(request: DeepAnalysisRequest) -> DeepAnalysisResponse`
 - `plan_deep_analysis(request: DeepAnalysisRequest) -> DeepAnalysisResponse`
 - `execute_deep_analysis(plan: DeepAnalysisPlan) -> DeepAnalysisResponse`
+- `refine_analysis(input_model: ProblemRefinementInput) -> ProblemRefinementResult`
 
 Models defined in `src/agents/models/deep_analysis_models.py`.
+
+## Problem Refinement Chat (Dec 2025)
+The `refine_analysis` method implements MBB-style principal engagement:
+- Validates Deep Analysis findings with principal's business knowledge
+- Gathers external context the data cannot show
+- Identifies constraints and exclusions
+- Recommends a diverse consulting council based on problem characteristics
+
+### Diverse Council Recommendation
+The agent recommends one consulting firm from each category:
+- **MBB**: McKinsey, BCG, or Bain (based on keyword matching)
+- **Big4**: Deloitte, EY-Parthenon, KPMG, or PwC Strategy& 
+- **Technology**: Accenture
+- **Risk**: KPMG Advisory
+
+Selection is based on:
+1. Keyword matching from SCQA summary and refinement responses
+2. Principal role affinity
+3. Default selection if no matches
 
 ## Configuration Schema
 Defined in `src/agents/agent_config_models.py`:

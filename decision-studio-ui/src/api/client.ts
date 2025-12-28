@@ -105,6 +105,68 @@ export async function detectSituations(principalId: string = 'cfo_001') {
   throw new Error('Workflow timed out');
 }
 
+// Problem Refinement Chat types
+export interface RefinementExclusion {
+  dimension: string;
+  value: string;
+  reason?: string;
+}
+
+export interface ProblemRefinementRequest {
+  principal_id: string;
+  deep_analysis_output: any;
+  principal_context: any;
+  conversation_history: Array<{ role: string; content: string }>;
+  user_message?: string;
+  current_topic?: string;
+  turn_count: number;
+}
+
+export interface CouncilMemberRecommendation {
+  category: string;
+  persona_id: string;
+  persona_name: string;
+  rationale: string;
+}
+
+export interface ProblemRefinementResult {
+  agent_message: string;
+  suggested_responses: string[];
+  exclusions: RefinementExclusion[];
+  external_context: string[];
+  constraints: string[];
+  validated_hypotheses: string[];
+  invalidated_hypotheses: string[];
+  current_topic: string;
+  topic_complete: boolean;
+  topics_completed: string[];
+  ready_for_solutions: boolean;
+  refined_problem_statement?: string;
+  recommended_council_type?: string;
+  council_routing_rationale?: string;
+  recommended_council_members?: CouncilMemberRecommendation[];
+  turn_count: number;
+  conversation_history: Array<{ role: string; content: string }>;
+}
+
+export async function refineProblem(
+  request: ProblemRefinementRequest
+): Promise<ProblemRefinementResult> {
+  const response = await fetch(`${API_BASE}/workflows/deep-analysis/refine`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to refine problem: ${errorText}`);
+  }
+
+  const { data } = await response.json();
+  return data as ProblemRefinementResult;
+}
+
 export async function runDeepAnalysis(situationId: string, kpiName: string, principalId: string = 'cfo_001') {
     // 1. Trigger the workflow
     const runResponse = await fetch(`${API_BASE}/workflows/deep-analysis/run`, {

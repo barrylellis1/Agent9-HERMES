@@ -22,12 +22,60 @@ from src.agents.models.deep_analysis_models import (
     DeepAnalysisResponse,
     KTIsIsNot,
     ChangePoint,
+    ProblemRefinementInput,
+    ProblemRefinementResult,
+    RefinementExclusion,
+    ExtractedRefinements,
 )
 from src.agents.models.data_governance_models import KPIDataProductMappingRequest
 from src.agents.utils.data_quality_filter import DataQualityFilter, filter_anomalies
 
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Problem Refinement Chat Constants (MBB-Style Principal Engagement)
+# ============================================================================
+
+REFINEMENT_TOPIC_SEQUENCE = [
+    "hypothesis_validation",  # Validate/invalidate KT findings with principal knowledge
+    "scope_boundaries",       # Confirm segments, time periods to include/exclude
+    "external_context",       # Capture factors not visible in data
+    "constraints",            # Identify levers that are off-limits
+    "success_criteria",       # Define what "solved" looks like
+]
+
+TOPIC_OBJECTIVES = {
+    "hypothesis_validation": "Confirm which KT drivers are real issues vs. known/expected factors",
+    "scope_boundaries": "Define what segments, time periods, or dimensions to include or exclude",
+    "external_context": "Capture external factors not visible in the data (market changes, supplier issues, etc.)",
+    "constraints": "Identify levers that are off-limits or actions that cannot be taken",
+    "success_criteria": "Define what 'solved' looks like and how success will be measured",
+}
+
+STYLE_GUIDANCE = {
+    "analytical": """McKinsey-style: hypothesis-driven, MECE decomposition, statistical confidence.
+Use precise, quantitative language. Focus on falsification criteria.""",
+    "visionary": """BCG-style: strategic framing, portfolio positioning, competitive dynamics.
+Use narrative, forward-looking language. Focus on long-term value creation.""",
+    "pragmatic": """Bain-style: action-oriented, quick wins, ownership, timelines.
+Use direct language. Focus on implementation feasibility and 90-day impact.""",
+}
+
+# Conversation control constants
+MAX_TURNS_PER_TOPIC = 3
+MAX_TOTAL_TURNS = 10
+MIN_TOPICS_REQUIRED = 3
+
+# Council routing rules
+COUNCIL_ROUTING = {
+    "strategic": {"roles": ["CEO"], "styles": ["visionary"], "keywords": ["market share", "portfolio", "competitive"]},
+    "operational": {"roles": ["COO"], "styles": ["pragmatic"], "keywords": ["process", "efficiency", "production"]},
+    "financial": {"roles": ["CFO", "Finance Manager"], "styles": ["analytical"], "keywords": ["margin", "cost", "revenue", "profitability"]},
+    "technical": {"roles": [], "styles": [], "keywords": ["data", "system", "integration", "IT"]},
+    "innovation": {"roles": [], "styles": [], "keywords": ["new", "disrupt", "creative", "unknown"]},
+}
 
 
 class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
@@ -1404,6 +1452,832 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             )
         except Exception as e:
             return DeepAnalysisResponse.error(request_id=req_id, error_message=str(e))
+
+    # ========================================================================
+    # Problem Refinement Chat (MBB-Style Principal Engagement)
+    # ========================================================================
+
+    async def refine_analysis(
+        self,
+        input_model: ProblemRefinementInput,
+        context: Optional[Dict[str, Any]] = None
+    ) -> ProblemRefinementResult:
+        """
+        Interactive problem refinement chat using hybrid approach:
+        - Deterministic topic sequence (what to cover)
+        - LLM-driven question generation (how to ask)
+        
+        This method is called iteratively for each turn of the conversation.
+        """
+        try:
+            # Extract inputs
+            da_output = input_model.deep_analysis_output
+            principal_ctx = input_model.principal_context
+            history = input_model.conversation_history or []
+            user_message = input_model.user_message
+            turn_count = input_model.turn_count
+            
+            # Get decision style (default to analytical)
+            decision_style = principal_ctx.get("decision_style", "analytical").lower()
+            if decision_style not in STYLE_GUIDANCE:
+                decision_style = "analytical"
+            
+            # Get principal role and ID
+            principal_role = principal_ctx.get("role", "")
+            principal_id = principal_ctx.get("principal_id", "system")
+            
+            # Determine current topic
+            current_topic = input_model.current_topic
+            topics_completed = []
+            
+            # Parse topics_completed from history if not first turn
+            if history:
+                topics_completed = self._extract_completed_topics(history)
+            
+            if not current_topic:
+                # First turn - start with first topic
+                current_topic = REFINEMENT_TOPIC_SEQUENCE[0]
+            
+            # Check for early exit commands
+            if user_message and self._is_early_exit(user_message):
+                # Accumulate refinements before finalizing
+                accumulated = self._accumulate_refinements(history)
+                return self._create_final_result(
+                    da_output, principal_ctx, history, topics_completed, turn_count, accumulated
+                )
+            
+            # Check for skip command
+            topic_skipped = False
+            if user_message and self._is_skip_command(user_message):
+                topic_skipped = True
+                topics_completed.append(current_topic)
+                current_topic = self._get_next_topic(current_topic, topics_completed)
+            
+            # Check max turns
+            if turn_count >= MAX_TOTAL_TURNS:
+                self.logger.info(f"Max turns ({MAX_TOTAL_TURNS}) reached, finalizing refinement")
+                accumulated = self._accumulate_refinements(history)
+                return self._create_final_result(
+                    da_output, principal_ctx, history, topics_completed, turn_count, accumulated
+                )
+            
+            # If all topics completed, finalize
+            if current_topic is None or len(topics_completed) >= len(REFINEMENT_TOPIC_SEQUENCE):
+                accumulated = self._accumulate_refinements(history)
+                return self._create_final_result(
+                    da_output, principal_ctx, history, topics_completed, turn_count, accumulated
+                )
+            
+            # Build KT summary for LLM context
+            kt_summary = self._build_kt_summary(da_output)
+            
+            # Accumulate refinements from previous turns
+            accumulated = self._accumulate_refinements(history)
+            
+            # If user provided a message, extract refinements from it
+            extracted = ExtractedRefinements()
+            if user_message and not topic_skipped:
+                extracted = await self._extract_refinements_from_response(
+                    user_message, current_topic, da_output, decision_style, principal_id
+                )
+                self.logger.info(f"[DA] Extracted refinements: ext_ctx={len(extracted.external_context)}, constraints={len(extracted.constraints)}, validated={len(extracted.validated_hypotheses)}")
+                # Merge extracted into accumulated
+                accumulated = self._merge_refinements(accumulated, extracted)
+            
+            # Check if topic is complete (via LLM or heuristics)
+            topic_complete = False
+            if user_message and not topic_skipped:
+                topic_complete = await self._check_topic_complete(
+                    current_topic, history, user_message, extracted
+                )
+            
+            # Advance topic if complete
+            if topic_complete:
+                topics_completed.append(current_topic)
+                current_topic = self._get_next_topic(current_topic, topics_completed)
+                
+                # If no more topics, finalize
+                if current_topic is None:
+                    return self._create_final_result(
+                        da_output, principal_ctx, history, topics_completed, turn_count,
+                        accumulated
+                    )
+            
+            # Generate next question via LLM
+            agent_message, suggested_responses = await self._generate_refinement_question(
+                current_topic=current_topic,
+                decision_style=decision_style,
+                kt_summary=kt_summary,
+                history=history,
+                user_message=user_message,
+                accumulated=accumulated,
+                principal_role=principal_role,
+                principal_id=principal_id,
+            )
+            
+            # Update conversation history
+            new_history = list(history)
+            if user_message:
+                new_history.append({"role": "user", "content": user_message})
+            new_history.append({"role": "assistant", "content": agent_message})
+            
+            return ProblemRefinementResult(
+                agent_message=agent_message,
+                suggested_responses=suggested_responses,
+                exclusions=accumulated.exclusions,
+                external_context=accumulated.external_context,
+                constraints=accumulated.constraints,
+                validated_hypotheses=accumulated.validated_hypotheses,
+                invalidated_hypotheses=accumulated.invalidated_hypotheses,
+                current_topic=current_topic,
+                topic_complete=topic_complete,
+                topics_completed=topics_completed,
+                ready_for_solutions=False,
+                refined_problem_statement=None,
+                recommended_council_type=None,
+                council_routing_rationale=None,
+                turn_count=turn_count + 1,
+                conversation_history=new_history,
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Error in refine_analysis: {e}")
+            # Return a graceful error response
+            return ProblemRefinementResult(
+                agent_message=f"I encountered an issue processing your response. Let's continue - {str(e)[:100]}",
+                suggested_responses=["Let's continue", "Skip this topic", "Proceed to solutions"],
+                exclusions=[],
+                external_context=[],
+                constraints=[],
+                validated_hypotheses=[],
+                invalidated_hypotheses=[],
+                current_topic=input_model.current_topic or REFINEMENT_TOPIC_SEQUENCE[0],
+                topic_complete=False,
+                topics_completed=[],
+                ready_for_solutions=False,
+                turn_count=input_model.turn_count + 1,
+                conversation_history=input_model.conversation_history or [],
+            )
+
+    def _is_early_exit(self, message: str) -> bool:
+        """Check if user wants to exit refinement early."""
+        exit_phrases = [
+            "proceed to solutions", "skip to solutions", "go to solutions",
+            "done", "finish", "that's all", "let's move on", "ready for solutions"
+        ]
+        msg_lower = message.lower().strip()
+        return any(phrase in msg_lower for phrase in exit_phrases)
+
+    def _is_skip_command(self, message: str) -> bool:
+        """Check if user wants to skip current topic."""
+        skip_phrases = ["skip", "not applicable", "n/a", "next topic", "move on"]
+        msg_lower = message.lower().strip()
+        return any(phrase in msg_lower for phrase in skip_phrases)
+
+    def _get_next_topic(self, current: str, completed: List[str]) -> Optional[str]:
+        """Get the next topic in sequence that hasn't been completed."""
+        try:
+            current_idx = REFINEMENT_TOPIC_SEQUENCE.index(current)
+            for topic in REFINEMENT_TOPIC_SEQUENCE[current_idx + 1:]:
+                if topic not in completed:
+                    return topic
+        except ValueError:
+            pass
+        # Check if any earlier topics were skipped
+        for topic in REFINEMENT_TOPIC_SEQUENCE:
+            if topic not in completed:
+                return topic
+        return None
+
+    def _extract_completed_topics(self, history: List[Dict[str, str]]) -> List[str]:
+        """Extract which topics have been completed from conversation history."""
+        # Simple heuristic: look for topic transitions in assistant messages
+        completed = []
+        for msg in history:
+            if msg.get("role") == "assistant":
+                content = msg.get("content", "").lower()
+                # Check for topic transition phrases
+                for topic in REFINEMENT_TOPIC_SEQUENCE:
+                    if f"moving to {topic}" in content or f"completed {topic}" in content:
+                        if topic not in completed:
+                            completed.append(topic)
+        return completed
+
+    def _build_kt_summary(self, da_output: Dict[str, Any]) -> str:
+        """Build a concise summary of KT IS/IS-NOT findings for LLM context."""
+        summary_parts = []
+        
+        # Handle nested structure - execution may be inside da_output
+        execution = da_output.get("execution", da_output)
+        
+        # Get KT data from execution
+        kt = execution.get("kt_is_is_not", {})
+        scqa = execution.get("scqa_summary", "")
+        
+        # Also get situation context if available
+        situation = da_output.get("situation_context", {})
+        if situation:
+            kpi_name = situation.get("kpi_name", "")
+            description = situation.get("description", "")
+            if kpi_name:
+                summary_parts.append(f"KPI: {kpi_name}")
+            if description:
+                summary_parts.append(f"Situation: {description}")
+        
+        if scqa:
+            summary_parts.append(f"Summary: {scqa[:500]}")
+        
+        # Where IS (top drivers)
+        where_is = kt.get("where_is", [])
+        if where_is:
+            top_drivers = where_is[:5]
+            driver_strs = []
+            for d in top_drivers:
+                key = d.get("key", "Unknown")
+                delta = d.get("delta", 0)
+                pct = d.get("percent_of_total", 0)
+                driver_strs.append(f"- {key}: ${delta:,.0f} ({pct:.1f}% of variance)")
+            summary_parts.append("Top Drivers (WHERE IS):\n" + "\n".join(driver_strs))
+        
+        # Where IS NOT (stable segments)
+        where_is_not = kt.get("where_is_not", [])
+        if where_is_not:
+            stable = where_is_not[:3]
+            stable_strs = [f"- {s.get('key', 'Unknown')}" for s in stable]
+            summary_parts.append("Stable Segments (WHERE IS NOT):\n" + "\n".join(stable_strs))
+        
+        # When started
+        when_started = execution.get("when_started")
+        if when_started:
+            summary_parts.append(f"Issue started: {when_started}")
+        
+        return "\n\n".join(summary_parts) if summary_parts else "No KT analysis data available."
+
+    def _accumulate_refinements(self, history: List[Dict[str, str]]) -> ExtractedRefinements:
+        """Accumulate refinements from conversation history by re-extracting from user messages."""
+        accumulated = ExtractedRefinements()
+        
+        # Extract refinements from each user message in history
+        for msg in history:
+            if msg.get("role") == "user":
+                user_text = msg.get("content", "")
+                # Use simple extraction (sync) to accumulate from history
+                extracted = self._simple_extraction(user_text, "general")
+                accumulated = self._merge_refinements(accumulated, extracted)
+        
+        return accumulated
+
+    def _merge_refinements(
+        self, accumulated: ExtractedRefinements, extracted: ExtractedRefinements
+    ) -> ExtractedRefinements:
+        """Merge newly extracted refinements into accumulated."""
+        return ExtractedRefinements(
+            exclusions=accumulated.exclusions + extracted.exclusions,
+            external_context=accumulated.external_context + extracted.external_context,
+            constraints=accumulated.constraints + extracted.constraints,
+            validated_hypotheses=accumulated.validated_hypotheses + extracted.validated_hypotheses,
+            invalidated_hypotheses=accumulated.invalidated_hypotheses + extracted.invalidated_hypotheses,
+        )
+
+    async def _extract_refinements_from_response(
+        self,
+        user_message: str,
+        current_topic: str,
+        da_output: Dict[str, Any],
+        decision_style: str,
+        principal_id: str = "system",
+    ) -> ExtractedRefinements:
+        """Use LLM to extract structured refinements from user's response."""
+        if not self.llm_service_agent:
+            # Fallback: simple keyword extraction
+            return self._simple_extraction(user_message, current_topic)
+        
+        try:
+            from src.agents.a9_llm_service_agent import A9_LLM_Request
+            
+            extraction_prompt = f"""Extract structured refinements from the user's response.
+
+User's response: "{user_message}"
+Current topic: {current_topic}
+
+Extract any of the following that are mentioned:
+1. EXCLUSIONS: Segments, dimensions, or time periods to exclude (format: dimension|value|reason)
+2. EXTERNAL_CONTEXT: External factors mentioned (market changes, supplier issues, etc.)
+3. CONSTRAINTS: Actions or levers that are off-limits
+4. VALIDATED: Hypotheses or drivers the user confirmed as real issues
+5. INVALIDATED: Hypotheses or drivers the user said are known/expected/not relevant
+
+Respond in JSON format:
+{{
+  "exclusions": [{{"dimension": "...", "value": "...", "reason": "..."}}],
+  "external_context": ["..."],
+  "constraints": ["..."],
+  "validated_hypotheses": ["..."],
+  "invalidated_hypotheses": ["..."]
+}}
+
+If nothing relevant is found for a category, use an empty list."""
+
+            request = A9_LLM_Request(
+                request_id=str(uuid.uuid4()),
+                principal_id=principal_id,
+                prompt=extraction_prompt,
+                operation="generate",
+                temperature=0.1,  # Low temperature for structured extraction
+            )
+            
+            response = await self.llm_service_agent.generate(request)
+            content = response.content if hasattr(response, 'content') else str(response)
+            
+            # Parse JSON from response
+            import json
+            # Try to extract JSON from response
+            json_match = re.search(r'\{[\s\S]*\}', content)
+            if json_match:
+                data = json.loads(json_match.group())
+                return ExtractedRefinements(
+                    exclusions=[
+                        RefinementExclusion(**e) for e in data.get("exclusions", [])
+                    ],
+                    external_context=data.get("external_context", []),
+                    constraints=data.get("constraints", []),
+                    validated_hypotheses=data.get("validated_hypotheses", []),
+                    invalidated_hypotheses=data.get("invalidated_hypotheses", []),
+                )
+        except Exception as e:
+            self.logger.warning(f"LLM extraction failed, using simple extraction: {e}")
+        
+        return self._simple_extraction(user_message, current_topic)
+
+    def _simple_extraction(self, user_message: str, current_topic: str) -> ExtractedRefinements:
+        """Simple keyword-based extraction fallback."""
+        msg_lower = user_message.lower()
+        result = ExtractedRefinements()
+        
+        # Skip very short responses or skip commands
+        if len(user_message) < 10 or "skip" in msg_lower or "proceed" in msg_lower:
+            return result
+        
+        # For "general" topic (used when accumulating from history), use keyword detection
+        if current_topic == "general":
+            # Detect constraints
+            if any(kw in msg_lower for kw in ["can't", "cannot", "won't", "off the table", "not possible", "budget", "timeline"]):
+                result.constraints.append(user_message[:300])
+            # Detect external context
+            elif any(kw in msg_lower for kw in ["supplier", "market", "competitor", "pricing", "change", "external", "economy"]):
+                result.external_context.append(user_message[:300])
+            # Detect validation
+            elif any(kw in msg_lower for kw in ["yes", "correct", "right", "confirms", "align", "understand", "agree"]):
+                result.validated_hypotheses.append(user_message[:300])
+            # Detect invalidation
+            elif any(kw in msg_lower for kw in ["no", "wrong", "incorrect", "known", "expected", "not surprising", "aware"]):
+                result.invalidated_hypotheses.append(user_message[:300])
+            # Default: treat substantive responses as context
+            elif len(user_message) > 30:
+                result.external_context.append(user_message[:300])
+            return result
+        
+        # Based on current topic, categorize the response
+        if current_topic == "hypothesis_validation":
+            # Look for validation/invalidation signals
+            if any(kw in msg_lower for kw in ["yes", "correct", "right", "confirms", "align", "understand", "agree"]):
+                result.validated_hypotheses.append(user_message[:300])
+            elif any(kw in msg_lower for kw in ["no", "wrong", "incorrect", "known", "expected", "not surprising", "aware"]):
+                result.invalidated_hypotheses.append(user_message[:300])
+            else:
+                # Default: treat as context
+                result.external_context.append(user_message[:300])
+        
+        elif current_topic == "external_context":
+            # Capture as external context
+            result.external_context.append(user_message[:300])
+        
+        elif current_topic == "scope_boundaries":
+            # Look for exclusion signals
+            if any(kw in msg_lower for kw in ["exclude", "ignore", "remove", "not include", "focus on"]):
+                result.external_context.append(f"Scope: {user_message[:300]}")
+            else:
+                result.external_context.append(user_message[:300])
+        
+        elif current_topic == "constraints":
+            # Capture as constraints
+            result.constraints.append(user_message[:300])
+        
+        else:
+            # Default: external context
+            if len(user_message) > 20:
+                result.external_context.append(user_message[:300])
+        
+        return result
+
+    async def _check_topic_complete(
+        self,
+        current_topic: str,
+        history: List[Dict[str, str]],
+        user_message: str,
+        extracted: ExtractedRefinements,
+    ) -> bool:
+        """Determine if the current topic has been sufficiently covered."""
+        # Count turns on this topic
+        topic_turns = 0
+        for msg in history:
+            if msg.get("role") == "assistant":
+                # Simple heuristic: count assistant messages since last topic change
+                topic_turns += 1
+        
+        # Auto-complete if max turns per topic reached
+        if topic_turns >= MAX_TURNS_PER_TOPIC:
+            return True
+        
+        # Topic-specific completion heuristics
+        if current_topic == "hypothesis_validation":
+            # Complete if user validated or invalidated at least one hypothesis
+            if extracted.validated_hypotheses or extracted.invalidated_hypotheses:
+                return True
+        
+        elif current_topic == "scope_boundaries":
+            # Complete if user specified any exclusions
+            if extracted.exclusions:
+                return True
+        
+        elif current_topic == "external_context":
+            # Complete if user provided context or said "none"
+            if extracted.external_context or "none" in user_message.lower() or "no" == user_message.lower().strip():
+                return True
+        
+        elif current_topic == "constraints":
+            # Complete if user provided constraints or said "none"
+            if extracted.constraints or "none" in user_message.lower() or "no" == user_message.lower().strip():
+                return True
+        
+        elif current_topic == "success_criteria":
+            # Complete if user provided any success criteria
+            if len(user_message) > 20:  # Assume substantive response
+                return True
+        
+        return False
+
+    async def _generate_refinement_question(
+        self,
+        current_topic: str,
+        decision_style: str,
+        kt_summary: str,
+        history: List[Dict[str, str]],
+        user_message: Optional[str],
+        accumulated: ExtractedRefinements,
+        principal_role: str,
+        principal_id: str = "system",
+    ) -> tuple:
+        """Generate the next question using LLM with style guidance."""
+        
+        # Build conversation history string
+        history_str = ""
+        for msg in history[-6:]:  # Last 6 messages for context
+            role = msg.get("role", "unknown")
+            content = msg.get("content", "")[:300]
+            history_str += f"{role.upper()}: {content}\n"
+        
+        # Build accumulated refinements string
+        acc_str = ""
+        if accumulated.exclusions:
+            acc_str += f"Exclusions: {[e.value for e in accumulated.exclusions]}\n"
+        if accumulated.external_context:
+            acc_str += f"External Context: {accumulated.external_context}\n"
+        if accumulated.constraints:
+            acc_str += f"Constraints: {accumulated.constraints}\n"
+        if accumulated.validated_hypotheses:
+            acc_str += f"Validated: {accumulated.validated_hypotheses}\n"
+        if accumulated.invalidated_hypotheses:
+            acc_str += f"Invalidated: {accumulated.invalidated_hypotheses}\n"
+        
+        # Default questions if LLM unavailable
+        default_questions = {
+            "hypothesis_validation": (
+                "Looking at the analysis findings, do any of these drivers surprise you or seem off based on what you know about the business?",
+                ["The findings align with my understanding", "Some of these are known issues", "I'm surprised by these results"]
+            ),
+            "scope_boundaries": (
+                "Are there any segments, time periods, or dimensions we should exclude from this analysis?",
+                ["No exclusions needed", "Exclude specific segments", "Focus on a specific time period"]
+            ),
+            "external_context": (
+                "Were there any external factors - market changes, supplier issues, or internal changes - that we should account for?",
+                ["No external factors", "Yes, there were market changes", "There were internal process changes"]
+            ),
+            "constraints": (
+                "What levers are off the table? Are there any actions we cannot take?",
+                ["No constraints", "Pricing is fixed", "Headcount is frozen"]
+            ),
+            "success_criteria": (
+                "What does 'solved' look like for you? How will we measure success?",
+                ["Return to prior performance", "Specific improvement target", "Stabilize the trend"]
+            ),
+        }
+        
+        if not self.llm_service_agent:
+            # Return default question for topic
+            return default_questions.get(current_topic, (
+                "Please share any additional context that would help refine this analysis.",
+                ["Continue", "Skip this topic", "Proceed to solutions"]
+            ))
+        
+        try:
+            from src.agents.a9_llm_service_agent import A9_LLM_Request
+            
+            system_prompt = f"""You are a senior consultant conducting a problem refinement interview with a business principal.
+
+INTERVIEW STYLE: {STYLE_GUIDANCE.get(decision_style, STYLE_GUIDANCE['analytical'])}
+
+YOUR TASK: Ask ONE question about "{current_topic}"
+GOAL: {TOPIC_OBJECTIVES.get(current_topic, '')}
+
+CRITICAL: The Deep Analysis is COMPLETE. We already have the data. Your questions should:
+- VALIDATE findings with the principal's business knowledge (not ask for more data)
+- Uncover CONTEXT the data cannot show (external factors, organizational constraints)
+- Identify what's OFF THE TABLE (constraints, exclusions)
+- Confirm or INVALIDATE hypotheses based on principal's expertise
+
+DO NOT ask questions like "What data do you have?" or "Can you provide metrics?" - we already analyzed the data below.
+
+ANALYSIS FINDINGS (ALREADY COMPLETE):
+{kt_summary}
+
+{f"CONVERSATION SO FAR:{chr(10)}{history_str}" if history_str else ""}
+{f"USER JUST SAID: {user_message}" if user_message else "This is the FIRST question - introduce yourself briefly and reference the specific findings above."}
+{f"REFINEMENTS CAPTURED:{chr(10)}{acc_str}" if acc_str else ""}
+
+OUTPUT REQUIREMENTS:
+- Generate exactly ONE question (1-2 sentences max)
+- Reference specific numbers or segments from the analysis findings above
+- Ask about VALIDATION, CONTEXT, or CONSTRAINTS - not more data
+- Return ONLY this JSON format:
+
+{{"question": "Your single question here", "suggested_responses": ["Option 1", "Option 2", "Option 3"]}}"""
+
+            request = A9_LLM_Request(
+                request_id=str(uuid.uuid4()),
+                principal_id=principal_id,
+                prompt="Return ONLY a JSON object with 'question' and 'suggested_responses' keys. No other text.",
+                system_prompt=system_prompt,
+                operation="generate",
+                temperature=0.3,  # Lower temperature for more consistent output
+            )
+            
+            response = await self.llm_service_agent.generate(request)
+            content = response.content if hasattr(response, 'content') else str(response)
+            
+            self.logger.info(f"LLM refinement response: {content[:500]}")
+            
+            # Parse JSON from response
+            import json
+            json_match = re.search(r'\{[\s\S]*?\}', content)  # Non-greedy match for first JSON object
+            if json_match:
+                data = json.loads(json_match.group())
+                question = data.get("question", default_questions[current_topic][0])
+                
+                # Post-process: take only first sentence if multiple questions detected
+                if question.count("?") > 1:
+                    # Split on question marks and take first complete question
+                    parts = question.split("?")
+                    question = parts[0].strip() + "?"
+                
+                return (
+                    question,
+                    data.get("suggested_responses", default_questions[current_topic][1])
+                )
+        except Exception as e:
+            self.logger.warning(f"LLM question generation failed: {e}")
+        
+        return default_questions.get(current_topic, (
+            "Please share any additional context.",
+            ["Continue", "Skip", "Proceed to solutions"]
+        ))
+
+    def _determine_council_type(
+        self,
+        principal_ctx: Dict[str, Any],
+        accumulated: ExtractedRefinements,
+        da_output: Dict[str, Any],
+    ) -> tuple:
+        """Determine recommended Solution Council type based on context."""
+        role = principal_ctx.get("role", "")
+        style = principal_ctx.get("decision_style", "analytical").lower()
+        
+        # Combine all text for keyword matching
+        all_text = " ".join([
+            da_output.get("scqa_summary", ""),
+            " ".join(accumulated.external_context),
+            " ".join(accumulated.constraints),
+            " ".join(accumulated.validated_hypotheses),
+        ]).lower()
+        
+        # Score each council type
+        scores = {}
+        for council, rules in COUNCIL_ROUTING.items():
+            score = 0
+            if role in rules["roles"]:
+                score += 3
+            if style in rules["styles"]:
+                score += 2
+            for kw in rules["keywords"]:
+                if kw.lower() in all_text:
+                    score += 1
+            scores[council] = score
+        
+        # Get highest scoring council
+        best_council = max(scores, key=scores.get)
+        best_score = scores[best_council]
+        
+        # Build rationale
+        rationale_parts = []
+        if role:
+            rationale_parts.append(f"Principal role: {role}")
+        rationale_parts.append(f"Decision style: {style}")
+        if best_score > 0:
+            rationale_parts.append(f"Matched keywords/rules for {best_council} council")
+        
+        return best_council, "; ".join(rationale_parts)
+
+    def _recommend_diverse_council(
+        self,
+        principal_ctx: Dict[str, Any],
+        accumulated: ExtractedRefinements,
+        da_output: Dict[str, Any],
+    ) -> List[Dict[str, str]]:
+        """Recommend a diverse council with one member from each category (MBB, Big4, Tech, Risk)."""
+        self.logger.info(f"_recommend_diverse_council called with principal_ctx: {principal_ctx}")
+        
+        # Partner selection rules by category
+        PARTNER_RULES = {
+            "mbb": {
+                "mckinsey": {
+                    "name": "McKinsey & Company",
+                    "keywords": ["strategy", "transformation", "portfolio", "cost", "restructuring", "operating model"],
+                    "roles": ["CEO", "CFO"],
+                },
+                "bcg": {
+                    "name": "Boston Consulting Group",
+                    "keywords": ["growth", "innovation", "digital", "market", "competitive", "portfolio"],
+                    "roles": ["CEO", "CMO", "CTO"],
+                },
+                "bain": {
+                    "name": "Bain & Company",
+                    "keywords": ["results", "implementation", "customer", "nps", "pe", "operational", "quick wins"],
+                    "roles": ["COO", "CEO"],
+                },
+            },
+            "big4": {
+                "deloitte": {
+                    "name": "Deloitte Consulting",
+                    "keywords": ["technology", "operations", "erp", "cloud", "process", "automation"],
+                    "roles": ["CTO", "COO"],
+                },
+                "ey_parthenon": {
+                    "name": "EY-Parthenon",
+                    "keywords": ["transaction", "ma", "synergy", "deal", "integration", "divestiture"],
+                    "roles": ["CFO", "CEO"],
+                },
+                "kpmg": {
+                    "name": "KPMG Advisory",
+                    "keywords": ["risk", "compliance", "governance", "regulatory", "esg", "audit", "controls"],
+                    "roles": ["CFO", "Finance Manager"],
+                },
+                "pwc_strategy": {
+                    "name": "PwC Strategy&",
+                    "keywords": ["capabilities", "operating model", "cost", "fit", "efficiency"],
+                    "roles": ["COO", "CFO"],
+                },
+            },
+            "technology": {
+                "accenture": {
+                    "name": "Accenture",
+                    "keywords": ["scale", "ai", "cloud", "digital", "automation", "platform", "data"],
+                    "roles": ["CTO", "COO"],
+                },
+            },
+            "risk": {
+                "kpmg": {
+                    "name": "KPMG Advisory",
+                    "keywords": ["risk", "compliance", "governance", "controls", "regulatory"],
+                    "roles": ["CFO", "Finance Manager"],
+                },
+            },
+        }
+        
+        role = principal_ctx.get("role", "")
+        
+        # Combine all text for keyword matching
+        all_text = " ".join([
+            da_output.get("scqa_summary", ""),
+            " ".join(accumulated.external_context),
+            " ".join(accumulated.constraints),
+            " ".join(accumulated.validated_hypotheses),
+            " ".join(accumulated.invalidated_hypotheses),
+        ]).lower()
+        
+        recommendations = []
+        
+        for category, partners in PARTNER_RULES.items():
+            best_partner = None
+            best_score = -1
+            best_rationale = ""
+            
+            for partner_id, info in partners.items():
+                score = 0
+                matched_keywords = []
+                
+                # Score by keyword matches
+                for kw in info["keywords"]:
+                    if kw.lower() in all_text:
+                        score += 1
+                        matched_keywords.append(kw)
+                
+                # Bonus for role affinity
+                if role in info.get("roles", []):
+                    score += 2
+                
+                if score > best_score:
+                    best_score = score
+                    best_partner = partner_id
+                    if matched_keywords:
+                        best_rationale = f"Matched: {', '.join(matched_keywords[:3])}"
+                    elif role in info.get("roles", []):
+                        best_rationale = f"Aligned with {role} role"
+                    else:
+                        best_rationale = f"Default {category.upper()} selection"
+            
+            if best_partner:
+                recommendations.append({
+                    "category": category,
+                    "persona_id": best_partner,
+                    "persona_name": PARTNER_RULES[category][best_partner]["name"],
+                    "rationale": best_rationale,
+                })
+        
+        return recommendations
+
+    def _create_final_result(
+        self,
+        da_output: Dict[str, Any],
+        principal_ctx: Dict[str, Any],
+        history: List[Dict[str, str]],
+        topics_completed: List[str],
+        turn_count: int,
+        accumulated: Optional[ExtractedRefinements] = None,
+    ) -> ProblemRefinementResult:
+        """Create the final refinement result with problem statement and council routing."""
+        if accumulated is None:
+            accumulated = ExtractedRefinements()
+        
+        # Determine council type
+        council_type, council_rationale = self._determine_council_type(
+            principal_ctx, accumulated, da_output
+        )
+        
+        # Recommend diverse council (one from each category)
+        diverse_council = self._recommend_diverse_council(
+            principal_ctx, accumulated, da_output
+        )
+        self.logger.info(f"Diverse council recommendation: {diverse_council}")
+        
+        # Build refined problem statement
+        scqa = da_output.get("scqa_summary", "")
+        problem_parts = [scqa[:500] if scqa else "Analysis complete."]
+        
+        if accumulated.exclusions:
+            excl_str = ", ".join([e.value for e in accumulated.exclusions])
+            problem_parts.append(f"Excluding: {excl_str}")
+        
+        if accumulated.external_context:
+            problem_parts.append(f"Context: {'; '.join(accumulated.external_context[:3])}")
+        
+        if accumulated.constraints:
+            problem_parts.append(f"Constraints: {'; '.join(accumulated.constraints[:3])}")
+        
+        if accumulated.validated_hypotheses:
+            problem_parts.append(f"Focus areas: {'; '.join(accumulated.validated_hypotheses[:3])}")
+        
+        refined_statement = " | ".join(problem_parts)
+        
+        return ProblemRefinementResult(
+            agent_message="Thank you for the context. I have enough information to proceed to solution generation.",
+            suggested_responses=[],
+            exclusions=accumulated.exclusions,
+            external_context=accumulated.external_context,
+            constraints=accumulated.constraints,
+            validated_hypotheses=accumulated.validated_hypotheses,
+            invalidated_hypotheses=accumulated.invalidated_hypotheses,
+            current_topic=topics_completed[-1] if topics_completed else "complete",
+            topic_complete=True,
+            topics_completed=topics_completed,
+            ready_for_solutions=True,
+            refined_problem_statement=refined_statement,
+            recommended_council_type=council_type,
+            council_routing_rationale=council_rationale,
+            recommended_council_members=diverse_council,
+            turn_count=turn_count,
+            conversation_history=history,
+        )
 
 
 async def create_deep_analysis_agent(config: Dict[str, Any] = None) -> A9_Deep_Analysis_Agent:

@@ -66,6 +66,12 @@ Environment variable override: `OPENAI_MODEL_SOLUTION`
 - **Framing Context**: All responses include `framing_context` with transparency about personas used and presentation style
 - **Guardrails**: Agent adapts presentation FOR the principal, does NOT speak FOR the principal or impersonate colleagues
 
+## Dynamic Diverse Council (Dec 2025)
+- **Recommended Council Integration**: Accepts `recommended_council_members` from Deep Analysis Problem Refinement
+- **Dynamic Cross-Review**: Cross-review section uses actual persona IDs from the diverse council (not hardcoded MBB)
+- **Persona Resolution**: Uses `get_consulting_persona()` to resolve persona IDs from the consulting personas registry
+- **LLM Instruction**: Explicit instruction to LLM to use the exact persona IDs provided in the cross-review JSON template
+
 ## Compliance
 - A2A Pydantic IO for requests/responses
 - Orchestrator-driven lifecycle; single HITL event per cycle

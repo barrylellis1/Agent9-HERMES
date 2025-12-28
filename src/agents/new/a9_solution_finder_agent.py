@@ -509,17 +509,23 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     try:
                         req_personas = prefs.get("consulting_personas", [])
                         req_preset = prefs.get("council_preset")
+                        self.logger.info(f"Preferences - consulting_personas: {req_personas}, council_preset: {req_preset}")
                         if req_personas or req_preset:
                             using_hybrid_council = True
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        self.logger.warning(f"Error extracting preferences: {e}")
 
                     if using_hybrid_council:
                         # 1. Request-level override (Personas)
                         if req_personas:
+                            self.logger.info(f"Using request-level personas: {req_personas}")
                             for pid in req_personas:
                                 p = get_consulting_persona(str(pid))
-                                if p: consulting_personas.append(p)
+                                if p: 
+                                    consulting_personas.append(p)
+                                    self.logger.info(f"  Added persona: {pid} -> {p.name}")
+                                else:
+                                    self.logger.warning(f"  Persona not found: {pid}")
                         
                         # 2. Request-level override (Preset)
                         elif req_preset:
@@ -577,13 +583,22 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             self.logger.info("Using default MBB council (no decision_style or role)")
 
                     # Build Context Strings
+                    self.logger.info(f"Final consulting_personas count: {len(consulting_personas)}")
+                    self.logger.info(f"Final consulting_personas IDs: {[p.id for p in consulting_personas]}")
                     if consulting_personas:
                         persona_names = ", ".join([p.name for p in consulting_personas])
+                        persona_ids = [p.id for p in consulting_personas]
                         persona_details = "\n\n".join([p.to_prompt_context() for p in consulting_personas])
+                        
+                        # Build dynamic framework descriptions based on actual personas
+                        framework_lines = []
+                        for p in consulting_personas:
+                            framework_lines.append(f"- {p.name}: {p.methodology_summary if hasattr(p, 'methodology_summary') and p.methodology_summary else 'Apply signature frameworks and expertise'}")
+                        frameworks_text = "\n".join(framework_lines)
                         
                         role_section = (
                             "## ROLE\n"
-                            f"You are the Chair of a Strategy Council composed of top-tier consulting firms: {persona_names}.\n"
+                            f"You are the Chair of a Strategy Council composed of: {persona_names}.\n"
                             "Your goal is to synthesize their distinct methodologies into a cohesive executive briefing.\n"
                         )
                         council_section = (
@@ -594,9 +609,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             "Given the problem context and data analysis, simulate a COUNCIL DEBATE where each firm applies its methodology.\n\n"
                             "**STAGE 1 - INITIAL HYPOTHESES:**\n"
                             "Each firm independently analyzes the problem using their signature frameworks:\n"
-                            "- McKinsey: MECE breakdown, root cause analysis, hypothesis-driven\n"
-                            "- BCG: Portfolio view, growth-share matrix thinking, value creation focus\n"
-                            "- Bain: Operational pragmatism, quick wins, implementation-first\n\n"
+                            f"{frameworks_text}\n\n"
                             "**STAGE 2 - CROSS-REVIEW:**\n"
                             "Each firm reviews the others' Stage 1 outputs and provides:\n"
                             "- Critiques: What blind spots or risks does the other firm's approach miss?\n"
@@ -649,7 +662,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "- DO surface trade-offs, assumptions, and blind spots\n"
                         "- Each perspective must cite its reasoning basis\n"
                         "- MUST respect Principal Input constraints/vetoes if provided\n"
-                        "- MUST populate cross_review with SPECIFIC critiques and endorsements from each consulting firm (McKinsey, BCG, Bain). Each firm should critique at least one option and endorse at least one option with concrete reasoning.\n"
+                        f"- MUST populate cross_review with SPECIFIC critiques and endorsements from each consulting firm ({persona_names}). Each firm should critique at least one option and endorse at least one option with concrete reasoning.\n"
                         "- CRITICAL: The Deep Analysis is COMPLETE. Do NOT suggest 'more data gathering' or 'implementing analytics' as a primary solution. Focus on OPERATIONAL INTERVENTIONS to address the identified drivers.\n"
                         f"- CONTEXT: The analysis focuses on '{target_kpi}'. Ensure the Problem Reframe explicitly mentions this KPI.\n"
                         "- CRITICAL ACCURACY REQUIREMENT:\n"
@@ -705,21 +718,18 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "  \"blind_spots\": [\"...\"],\n"
                         "  \"next_steps\": [\"...\"],\n"
                         "  \"cross_review\": {\n"
-                        "    \"mckinsey\": {\n"
-                        "      \"critiques\": [{\"target\": \"opt_1\", \"concern\": \"Specific critique of this option from McKinsey lens\"}],\n"
-                        "      \"endorsements\": [{\"target\": \"opt_2\", \"reason\": \"Why McKinsey supports this option\"}]\n"
-                        "    },\n"
-                        "    \"bcg\": {\n"
-                        "      \"critiques\": [{\"target\": \"opt_1\", \"concern\": \"BCG's specific concern about this option\"}],\n"
-                        "      \"endorsements\": [{\"target\": \"opt_2\", \"reason\": \"Why BCG supports this option\"}]\n"
-                        "    },\n"
-                        "    \"bain\": {\n"
-                        "      \"critiques\": [{\"target\": \"opt_1\", \"concern\": \"Bain's operational concern about this option\"}],\n"
-                        "      \"endorsements\": [{\"target\": \"opt_2\", \"reason\": \"Why Bain supports this option\"}]\n"
-                        "    }\n"
-                        "  }\n"
+                        + "".join([
+                            f'    "{pid}": {{\n'
+                            f'      "critiques": [{{"target": "opt_1", "concern": "Specific critique from {pid} lens"}}],\n'
+                            f'      "endorsements": [{{"target": "opt_2", "reason": "Why {pid} supports this option"}}]\n'
+                            f'    }}{{"," if i < len(persona_ids) - 1 else ""}}\n'
+                            for i, pid in enumerate(persona_ids)
+                        ])
+                        + "  }\n"
                         "}\n"
+                        f"\nCRITICAL: The cross_review MUST use EXACTLY these persona IDs as keys: {persona_ids}. Do NOT use mckinsey, bcg, bain unless they are in this list.\n"
                     )
+                    self.logger.info(f"Cross-review will use persona_ids: {persona_ids}")
                     # Optional user-supplied context to guide the debate
                     try:
                         user_ctx = prefs.get("user_context") if isinstance(prefs, dict) else None
@@ -733,6 +743,14 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         if isinstance(pi_dict, dict):
                             # Pass as raw dict to content
                             principal_input = pi_dict
+
+                    # Extract Problem Refinement results (from MBB-style chat)
+                    refinement_result = None
+                    if isinstance(prefs, dict):
+                        refinement_result = prefs.get("refinement_result")
+                        self.logger.info(f"[SF] Refinement result received: {refinement_result is not None}")
+                        if refinement_result:
+                            self.logger.info(f"[SF] Refinement keys: {list(refinement_result.keys()) if isinstance(refinement_result, dict) else 'not a dict'}")
 
                     trimmed_da = _trim_deep_analysis_context(da_ctx)
                     # da_summary already extracted above
@@ -760,6 +778,32 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         ]
                         if formatted_cps:
                             dataset_recap_lines.append("Change points: " + "; ".join(formatted_cps))
+                    
+                    # Add Problem Refinement context from MBB-style chat
+                    if refinement_result:
+                        if refinement_result.get("external_context"):
+                            ctx_items = refinement_result["external_context"][:3]
+                            if ctx_items:
+                                dataset_recap_lines.append("PRINCIPAL CONTEXT: " + "; ".join(ctx_items))
+                        if refinement_result.get("constraints"):
+                            constraint_items = refinement_result["constraints"][:3]
+                            if constraint_items:
+                                dataset_recap_lines.append("CONSTRAINTS: " + "; ".join(constraint_items))
+                        if refinement_result.get("exclusions"):
+                            excl_items = [e.get("value", str(e)) if isinstance(e, dict) else str(e) for e in refinement_result["exclusions"][:3]]
+                            if excl_items:
+                                dataset_recap_lines.append("EXCLUSIONS: " + "; ".join(excl_items))
+                        if refinement_result.get("validated_hypotheses"):
+                            validated = refinement_result["validated_hypotheses"][:3]
+                            if validated:
+                                dataset_recap_lines.append("VALIDATED BY PRINCIPAL: " + "; ".join(validated))
+                        if refinement_result.get("invalidated_hypotheses"):
+                            invalidated = refinement_result["invalidated_hypotheses"][:3]
+                            if invalidated:
+                                dataset_recap_lines.append("RULED OUT BY PRINCIPAL: " + "; ".join(invalidated))
+                        if refinement_result.get("refined_problem_statement"):
+                            dataset_recap_lines.append(f"REFINED PROBLEM: {refinement_result['refined_problem_statement']}")
+                    
                     dataset_recap = dataset_recap_lines if dataset_recap_lines else None
 
                     # Fallback Business Context from registry if missing (MVP Enhancement)
@@ -871,6 +915,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     })
 
                     parsed = getattr(llm_resp, "analysis", None) if llm_ok else None
+                    self.logger.info(f"[SF] LLM response status: {getattr(llm_resp, 'status', 'unknown')}, parsed type: {type(parsed)}, has options: {isinstance(parsed, dict) and bool(parsed.get('options'))}")
+                    if not llm_ok:
+                        self.logger.error(f"[SF] LLM call failed: {getattr(llm_resp, 'error', 'unknown error')}")
                     # Fallback if non-JSON returned
                     if isinstance(parsed, dict) and parsed.get("options"):
                         for idx, o in enumerate(parsed.get("options", []) or []):

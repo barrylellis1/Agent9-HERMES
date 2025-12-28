@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { RidgelineScanner } from '../components/visualizations/RidgelineScanner'
 import { DivergingBarChart } from '../components/visualizations/DivergingBarChart'
 import { VarianceDrawer } from '../components/VarianceDrawer'
-import { detectSituations, runDeepAnalysis, runSolutionFinder } from '../api/client'
+import { ProblemRefinementChat } from '../components/ProblemRefinementChat'
+import { detectSituations, runDeepAnalysis, runSolutionFinder, ProblemRefinementResult } from '../api/client'
 import { RefreshCw, Settings, X, ArrowRight, CheckCircle2, AlertTriangle, ChevronRight, ChevronLeft, User, Microscope, Loader2, Lightbulb, Plus, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -55,6 +56,10 @@ export function DecisionStudio() {
   
   // Bottom Drawer State for Variance Analysis
   const [varianceDrawerOpen, setVarianceDrawerOpen] = useState(false)
+
+  // Problem Refinement Chat State
+  const [showRefinementChat, setShowRefinementChat] = useState(false)
+  const [refinementResult, setRefinementResult] = useState<ProblemRefinementResult | null>(null)
 
   // Solution Finder State
   const [findingSolutions, setFindingSolutions] = useState(false)
@@ -208,7 +213,7 @@ export function DecisionStudio() {
       risks.push({ risk: t?.tension || 'Strategic tension', likelihood: 'High', impact: 'High', mitigation: t?.requires || 'Stakeholder alignment needed' })
     })
 
-    return {
+    const transformed = {
       title,
       urgency,
       metrics: {
@@ -245,6 +250,9 @@ export function DecisionStudio() {
       blind_spots: sol?.blind_spots || [],
       unresolved_tensions: sol?.unresolved_tensions || [],
     }
+    console.log('Transformed solutions - cross_review:', transformed.cross_review)
+    console.log('Raw solution cross_review:', sol?.cross_review)
+    return transformed
   }, [])
 
   // Available Principals (from principal_registry.yaml)
@@ -382,6 +390,22 @@ export function DecisionStudio() {
 
   const handleSolution = async () => {
     if (!currentAnalysis) return
+    // Show refinement chat before persona selector
+    setShowRefinementChat(true)
+  }
+
+  const handleRefinementComplete = (result: ProblemRefinementResult) => {
+    console.log('Refinement complete:', result)
+    console.log('Recommended council members:', result.recommended_council_members)
+    setRefinementResult(result)
+    setShowRefinementChat(false)
+    // Now show persona selector with refinement context
+    setShowPersonaSelector(true)
+  }
+
+  const handleRefinementCancel = () => {
+    setShowRefinementChat(false)
+    // Skip refinement and go directly to persona selector
     setShowPersonaSelector(true)
   }
 
@@ -414,10 +438,30 @@ export function DecisionStudio() {
                 ...principalInput,
                 current_priorities: [...principalInput.current_priorities, ...(priorityText ? [priorityText] : [])],
                 known_constraints: [...principalInput.known_constraints, ...(constraintText ? [constraintText] : [])]
-            }
+            },
+            // Include refinement result if available (from Problem Refinement Chat)
+            refinement_result: refinementResult ? {
+                exclusions: refinementResult.exclusions,
+                external_context: refinementResult.external_context,
+                constraints: refinementResult.constraints,
+                validated_hypotheses: refinementResult.validated_hypotheses,
+                invalidated_hypotheses: refinementResult.invalidated_hypotheses,
+                refined_problem_statement: refinementResult.refined_problem_statement,
+                recommended_council_type: refinementResult.recommended_council_type,
+                council_routing_rationale: refinementResult.council_routing_rationale,
+                recommended_council_members: refinementResult.recommended_council_members,
+            } : null
         }
 
-        if (useHybridCouncil) {
+        // Use recommended diverse council if available, otherwise fall back to user selection
+        console.log('handleStartDebate - refinementResult:', refinementResult)
+        console.log('handleStartDebate - recommended_council_members:', refinementResult?.recommended_council_members)
+        if (refinementResult?.recommended_council_members && refinementResult.recommended_council_members.length > 0) {
+            // Extract persona IDs from recommended council members
+            const recommendedPersonaIds = refinementResult.recommended_council_members.map(m => m.persona_id)
+            console.log('Using recommended diverse council:', recommendedPersonaIds)
+            preferences.consulting_personas = recommendedPersonaIds
+        } else if (useHybridCouncil) {
             if (councilType === 'preset') {
                 preferences.council_preset = selectedPreset
             } else {
@@ -779,6 +823,45 @@ export function DecisionStudio() {
                                         <p>Analysis complete. Reviewing change points...</p>
                                     )}
 
+                                    {/* Problem Refinement Summary (from MBB-style chat) */}
+                                    {refinementResult && (
+                                        <div className="mt-4 p-4 bg-indigo-900/20 border border-indigo-500/30 rounded-lg">
+                                            <h4 className="text-xs font-semibold text-indigo-300 uppercase mb-3">Principal Refinements</h4>
+                                            <div className="space-y-2 text-sm">
+                                                {refinementResult.external_context && refinementResult.external_context.length > 0 && (
+                                                    <div>
+                                                        <span className="text-indigo-400 font-medium">Context: </span>
+                                                        <span className="text-slate-300">{refinementResult.external_context.join('; ')}</span>
+                                                    </div>
+                                                )}
+                                                {refinementResult.constraints && refinementResult.constraints.length > 0 && (
+                                                    <div>
+                                                        <span className="text-amber-400 font-medium">Constraints: </span>
+                                                        <span className="text-slate-300">{refinementResult.constraints.join('; ')}</span>
+                                                    </div>
+                                                )}
+                                                {refinementResult.exclusions && refinementResult.exclusions.length > 0 && (
+                                                    <div>
+                                                        <span className="text-red-400 font-medium">Exclusions: </span>
+                                                        <span className="text-slate-300">{refinementResult.exclusions.map((e: any) => e.value || e).join('; ')}</span>
+                                                    </div>
+                                                )}
+                                                {refinementResult.validated_hypotheses && refinementResult.validated_hypotheses.length > 0 && (
+                                                    <div>
+                                                        <span className="text-green-400 font-medium">Validated: </span>
+                                                        <span className="text-slate-300">{refinementResult.validated_hypotheses.join('; ')}</span>
+                                                    </div>
+                                                )}
+                                                {refinementResult.invalidated_hypotheses && refinementResult.invalidated_hypotheses.length > 0 && (
+                                                    <div>
+                                                        <span className="text-red-400 font-medium">Ruled Out: </span>
+                                                        <span className="text-slate-300">{refinementResult.invalidated_hypotheses.join('; ')}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Change Points Visualization / Snowflake Scanner */}
                                     <div className="mt-6">
                                         <div className="flex items-center justify-between mb-3">
@@ -1031,6 +1114,32 @@ export function DecisionStudio() {
 
                                 {/* --- SOLUTION FINDER SECTION (Always visible after analysis) --- */}
                                 
+                                {/* Problem Refinement Chat */}
+                                {showRefinementChat && currentAnalysis && (
+                                    <div className="bg-slate-900 border border-indigo-500/30 rounded-lg p-4 mb-4 animate-in fade-in slide-in-from-bottom-2">
+                                        <ProblemRefinementChat
+                                            deepAnalysisOutput={{
+                                                plan: currentAnalysis.plan || {},
+                                                execution: currentAnalysis,
+                                                situation_context: selectedSituation ? {
+                                                    kpi_name: selectedSituation.kpi_name,
+                                                    description: selectedSituation.description,
+                                                    severity: selectedSituation.severity,
+                                                } : null
+                                            }}
+                                            principalContext={{
+                                                principal_id: selectedPrincipal,
+                                                role: currentPrincipal.title,
+                                                decision_style: currentPrincipal.decision_style,
+                                                name: currentPrincipal.name
+                                            }}
+                                            principalId={selectedPrincipal}
+                                            onComplete={handleRefinementComplete}
+                                            onCancel={handleRefinementCancel}
+                                        />
+                                    </div>
+                                )}
+
                                 {/* Persona Selector Mode */}
                                 {showPersonaSelector && (
                                     <div className="bg-slate-900 border border-emerald-500/30 rounded-lg p-4 mb-4 animate-in fade-in slide-in-from-bottom-2">
@@ -1041,6 +1150,31 @@ export function DecisionStudio() {
                                             </h4>
                                             <button onClick={() => setShowPersonaSelector(false)} className="text-slate-500 hover:text-white"><X className="w-4 h-4" /></button>
                                         </div>
+
+                                        {/* Recommended Diverse Council (from Problem Refinement) */}
+                                        {refinementResult?.recommended_council_members && refinementResult.recommended_council_members.length > 0 && (
+                                            <div className="bg-purple-900/20 rounded-lg p-4 border border-purple-500/30 mb-4">
+                                                <h5 className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-2">AI-Recommended Council</h5>
+                                                <p className="text-xs text-slate-400 mb-3">Based on your problem refinement, we recommend this diverse council:</p>
+                                                <div className="grid grid-cols-2 gap-2 mb-3">
+                                                    {refinementResult.recommended_council_members.map((member, idx) => (
+                                                        <div key={idx} className="bg-slate-900/50 rounded p-2 border border-purple-500/20">
+                                                            <div className="text-[10px] uppercase text-purple-400">{member.category}</div>
+                                                            <div className="text-sm font-medium text-white">{member.persona_name}</div>
+                                                            <div className="text-[10px] text-slate-500 mt-1">{member.rationale}</div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <button
+                                                    onClick={handleStartDebate}
+                                                    className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium rounded transition-colors"
+                                                >
+                                                    Use Recommended Council
+                                                </button>
+                                                <p className="text-[10px] text-slate-500 text-center mt-2">Or customize below</p>
+                                            </div>
+                                        )}
+
                                         <div className="border-t border-slate-800 pt-4 mb-4">
                                             <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Council Mode</h5>
                                             
@@ -1253,15 +1387,15 @@ export function DecisionStudio() {
                                     </div>
                                 )}
 
-                                {currentAnalysis && !solutions && !showPersonaSelector && !findingSolutions && (
+                                {currentAnalysis && !solutions && !showPersonaSelector && !findingSolutions && !showRefinementChat && (
                                     <button 
                                         onClick={handleSolution}
-                                        className="w-full text-left p-4 bg-emerald-600/10 hover:bg-emerald-600/20 border border-emerald-500/20 hover:border-emerald-500/40 rounded-lg transition-all group flex items-center justify-between"
+                                        className="w-full text-left p-4 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/20 hover:border-indigo-500/40 rounded-lg transition-all group flex items-center justify-between"
                                     >
-                                        <span className="text-emerald-100 font-medium flex items-center gap-2">
-                                            Generate Solution Options
+                                        <span className="text-indigo-100 font-medium flex items-center gap-2">
+                                            {refinementResult ? 'Generate Solution Options' : 'Refine Problem & Generate Solutions'}
                                         </span>
-                                        <Lightbulb className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+                                        <Lightbulb className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" />
                                     </button>
                                 )}
 
@@ -1358,6 +1492,61 @@ export function DecisionStudio() {
                                                         <span className="text-slate-500 w-24 flex-shrink-0">Key Q:</span>
                                                         <span className="font-medium text-white">{solutions.problem_reframe.question}</span>
                                                     </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* 1b. Problem Refinement Q&A (from MBB-style chat) */}
+                                        {refinementResult && refinementResult.conversation_history && refinementResult.conversation_history.length > 0 && (
+                                            <div className="bg-indigo-900/20 rounded-lg p-4 border border-indigo-500/30">
+                                                <h5 className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-3">Problem Refinement Q&A</h5>
+                                                <div className="space-y-3 max-h-48 overflow-y-auto">
+                                                    {refinementResult.conversation_history.map((msg, idx) => (
+                                                        <div key={idx} className={`text-sm ${msg.role === 'assistant' ? 'text-slate-400' : 'text-white'}`}>
+                                                            <span className={`text-xs uppercase mr-2 ${msg.role === 'assistant' ? 'text-indigo-400' : 'text-emerald-400'}`}>
+                                                                {msg.role === 'assistant' ? 'Q:' : 'A:'}
+                                                            </span>
+                                                            {msg.content}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                
+                                                {/* Hypothesis Results */}
+                                                {(refinementResult.validated_hypotheses?.length > 0 || refinementResult.invalidated_hypotheses?.length > 0) && (
+                                                    <div className="mt-4 pt-3 border-t border-indigo-500/20">
+                                                        <h6 className="text-xs font-semibold text-indigo-300 mb-2">Hypothesis Stage 1 Results</h6>
+                                                        <div className="space-y-1">
+                                                            {refinementResult.validated_hypotheses?.map((h, i) => (
+                                                                <div key={`v-${i}`} className="flex items-start gap-2 text-xs">
+                                                                    <span className="text-emerald-400">✓</span>
+                                                                    <span className="text-slate-300">{h}</span>
+                                                                </div>
+                                                            ))}
+                                                            {refinementResult.invalidated_hypotheses?.map((h, i) => (
+                                                                <div key={`i-${i}`} className="flex items-start gap-2 text-xs">
+                                                                    <span className="text-red-400">✗</span>
+                                                                    <span className="text-slate-400">{h}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* 1c. Recommended Diverse Council */}
+                                        {refinementResult && refinementResult.recommended_council_members && refinementResult.recommended_council_members.length > 0 && (
+                                            <div className="bg-purple-900/20 rounded-lg p-4 border border-purple-500/30">
+                                                <h5 className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-3">Recommended Council Composition</h5>
+                                                <p className="text-xs text-slate-400 mb-3">Diverse perspectives from Strategy, Advisory, Technology, and Risk</p>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {refinementResult.recommended_council_members.map((member, idx) => (
+                                                        <div key={idx} className="bg-slate-900/50 rounded p-2 border border-slate-700/50">
+                                                            <div className="text-[10px] uppercase text-slate-500 mb-1">{member.category}</div>
+                                                            <div className="text-sm font-medium text-white">{member.persona_name}</div>
+                                                            <div className="text-xs text-slate-400 mt-1">{member.rationale}</div>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </div>
                                         )}

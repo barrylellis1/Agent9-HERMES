@@ -498,6 +498,93 @@ Based on the refined problem and principal context, the agent recommends the app
 
 The routing recommendation is included in `ProblemRefinementResult.recommended_council_type` with rationale.
 
+#### Diverse Council Recommendation (2025-12-27)
+
+In addition to council type routing, the agent MUST recommend a **diverse council composition** with one partner from each category. This ensures the problem is viewed from multiple professional lenses rather than a homogeneous perspective.
+
+**Partner Categories**
+
+| Category | Partners | Primary Lens |
+|----------|----------|--------------|
+| **MBB** | McKinsey, BCG, Bain | Strategic transformation, growth, results |
+| **Big4** | Deloitte, EY-Parthenon, KPMG, PwC Strategy& | Technology, transactions, risk, capabilities |
+| **Technology** | Accenture | Scale delivery, AI/cloud, digital transformation |
+| **Risk** | KPMG, Oliver Wyman | Risk governance, regulatory compliance |
+
+**Selection Logic**
+
+The agent selects one partner from each category based on problem context:
+
+```python
+PARTNER_SELECTION_RULES = {
+    "mbb": {
+        "mckinsey": ["strategy", "transformation", "portfolio", "cost"],
+        "bcg": ["growth", "innovation", "digital", "market"],
+        "bain": ["results", "implementation", "customer", "nps", "pe"],
+    },
+    "big4": {
+        "deloitte": ["technology", "operations", "erp", "cloud", "process"],
+        "ey_parthenon": ["transaction", "ma", "synergy", "deal", "integration"],
+        "kpmg": ["risk", "compliance", "governance", "regulatory", "esg"],
+        "pwc_strategy": ["capabilities", "operating model", "cost", "fit"],
+    },
+    "technology": {
+        "accenture": ["scale", "ai", "cloud", "digital twin", "automation"],
+    },
+    "risk": {
+        "kpmg": ["risk", "compliance", "governance", "controls"],
+        "oliver_wyman": ["financial risk", "actuarial", "insurance"],
+    },
+}
+```
+
+**Selection Algorithm**
+
+1. Combine all text from: KT summary, external_context, constraints, validated_hypotheses
+2. For each category, score partners by keyword matches
+3. Select highest-scoring partner from each category
+4. If tie, use principal role affinity as tiebreaker
+5. Return list of 4 recommended partners with rationale
+
+**Output Structure**
+
+```python
+recommended_council_members: List[Dict[str, str]] = [
+    {
+        "category": "mbb",
+        "persona_id": "mckinsey",
+        "persona_name": "McKinsey & Company",
+        "rationale": "Strategic cost transformation focus matches principal's constraints"
+    },
+    {
+        "category": "big4",
+        "persona_id": "kpmg",
+        "persona_name": "KPMG Advisory",
+        "rationale": "Regulatory compliance concerns raised during refinement"
+    },
+    {
+        "category": "technology",
+        "persona_id": "accenture",
+        "persona_name": "Accenture",
+        "rationale": "Digital transformation keywords detected in problem context"
+    },
+    {
+        "category": "risk",
+        "persona_id": "kpmg",
+        "persona_name": "KPMG Advisory",
+        "rationale": "Risk governance lens for compliance-sensitive decision"
+    }
+]
+```
+
+**UI Integration**
+
+The Decision Studio UI should:
+1. Display recommended council composition after refinement chat completes
+2. Allow principal to accept recommendation or customize
+3. Show rationale for each partner selection
+4. Highlight diversity benefit ("Perspectives from Strategy, Advisory, Technology, and Risk")
+
 #### Guardrails
 
 **CRITICAL**: The refinement chat gathers information FROM the principal, it does NOT make decisions FOR the principal.
@@ -644,6 +731,25 @@ The Decision Studio UI should provide:
 ```
 
 ## Modification History
+
+### 2025-12-27
+- **Executive Briefing Enhancement**: Refinement Q&A and Hypothesis Stage 1 results now included in executive solution briefing
+  - Full conversation history from Problem Refinement Chat displayed in briefing
+  - Validated and invalidated hypotheses prominently shown
+  - Provides audit trail of principal engagement before solution generation
+- **Diverse Council Recommendation**: Smart council composition based on problem refinement
+  - Recommends one partner from each category to ensure diverse perspectives:
+    - **MBB** (McKinsey, BCG, or Bain) - Strategic lens
+    - **Big4** (Deloitte, EY-Parthenon, KPMG, PwC Strategy&) - Advisory/compliance lens
+    - **Technology** (Accenture) - Digital/implementation lens
+    - **Risk** (KPMG, Oliver Wyman) - Risk/governance lens
+  - Selection logic based on:
+    - Problem type keywords (operational, strategic, financial, technology, regulatory)
+    - Constraints mentioned during refinement (budget, timeline, compliance)
+    - External context captured (market, competition, supply chain)
+    - Principal role and decision style
+  - Prevents homogeneous council (all MBB or all Big4)
+  - New field: `recommended_council_members` in `ProblemRefinementResult`
 
 ### 2025-12-26
 - Added Problem Refinement Chat (MBB-Style Principal Engagement) section
