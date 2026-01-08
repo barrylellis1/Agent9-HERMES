@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Download, Share2, Printer, Clock, TrendingDown, AlertTriangle, CheckCircle, ChevronRight, Users, DollarSign, Target, Zap } from 'lucide-react'
+import { ArrowLeft, Download, Share2, Printer, AlertTriangle, CheckCircle, ChevronRight, Users, Target, Zap, Clock } from 'lucide-react'
 
 // Full-page Executive Briefing - Consultant-style deliverable
 export function ExecutiveBriefing() {
@@ -304,6 +304,78 @@ export function ExecutiveBriefing() {
             against financial impact, implementation complexity, risk profile, and alignment with stated priorities.
           </p>
 
+          {/* Comparative Table */}
+          <div className="overflow-x-auto rounded-lg border border-slate-200 mb-8">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-slate-100 text-slate-900 font-bold uppercase text-xs">
+                <tr>
+                  <th className="p-4 border-b border-slate-200 min-w-[150px]">Criteria</th>
+                  {data.options.map((opt: any, i: number) => (
+                    <th key={i} className={`p-4 border-b border-slate-200 min-w-[200px] ${opt.recommended ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : ''}`}>
+                      {opt.recommended && <div className="text-[10px] text-emerald-600 mb-1 flex items-center gap-1"><CheckCircle className="w-3 h-3"/> RECOMMENDED</div>}
+                      Option {String.fromCharCode(65 + i)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                <tr>
+                  <td className="p-4 font-semibold text-slate-700 bg-slate-50">Strategy</td>
+                  {data.options.map((opt: any, i: number) => (
+                    <td key={i} className={`p-4 font-medium text-slate-900 ${opt.recommended ? 'bg-emerald-50/30' : ''}`}>
+                      {opt.title}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <td className="p-4 font-semibold text-slate-700 bg-slate-50">Est. ROI</td>
+                  {data.options.map((opt: any, i: number) => (
+                    <td key={i} className={`p-4 font-bold text-emerald-600 ${opt.recommended ? 'bg-emerald-50/30' : ''}`}>
+                      {opt.roi}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <td className="p-4 font-semibold text-slate-700 bg-slate-50">Investment</td>
+                  {data.options.map((opt: any, i: number) => (
+                    <td key={i} className={`p-4 text-slate-600 ${opt.recommended ? 'bg-emerald-50/30' : ''}`}>
+                      {opt.investment}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <td className="p-4 font-semibold text-slate-700 bg-slate-50">Timeline</td>
+                  {data.options.map((opt: any, i: number) => (
+                    <td key={i} className={`p-4 text-slate-600 ${opt.recommended ? 'bg-emerald-50/30' : ''}`}>
+                      {opt.timeline}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <td className="p-4 font-semibold text-slate-700 bg-slate-50">Risk Level</td>
+                  {data.options.map((opt: any, i: number) => (
+                    <td key={i} className={`p-4 ${opt.recommended ? 'bg-emerald-50/30' : ''}`}>
+                       <span className={`px-2 py-1 rounded text-xs font-bold ${
+                          opt.riskLevel === 'Low' ? 'bg-emerald-100 text-emerald-700' : 
+                          opt.riskLevel === 'Medium' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                       }`}>
+                         {opt.riskLevel}
+                       </span>
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <td className="p-4 font-semibold text-slate-700 bg-slate-50">Reversibility</td>
+                  {data.options.map((opt: any, i: number) => (
+                    <td key={i} className={`p-4 text-slate-600 capitalize ${opt.recommended ? 'bg-emerald-50/30' : ''}`}>
+                      {opt.reversibility}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
           <div className="space-y-8">
             {data.options.map((option: any, i: number) => (
               <motion.div 
@@ -603,192 +675,6 @@ export function ExecutiveBriefing() {
 }
 
 // Mock data for demonstration - this would come from the LLM in production
-const MOCK_BRIEFING = {
-  title: "Cost of Goods Sold Variance: Strategic Response Required",
-  urgency: "High Priority",
-  metrics: {
-    financialImpact: "-$2.4M",
-    timeSensitivity: "Q4 Critical",
-    confidence: "94%",
-    decisionDeadline: "Dec 20"
-  },
-  executiveSummary: `Global Bike Inc. is experiencing a significant deviation in Cost of Goods Sold (COGS), with actual costs exceeding budget by $2.4M (18.3%) in Q3 2024. This variance, if unaddressed, will erode gross margins by 340 basis points and jeopardize our FY2024 profitability targets.
-
-Our deep analysis has identified three primary drivers: (1) raw material cost inflation in aluminum and carbon fiber components (+23% YoY), (2) supplier concentration risk with 67% of frame components sourced from a single vendor experiencing capacity constraints, and (3) inefficient inventory management leading to $890K in expedited shipping costs.
-
-This briefing presents three strategic options ranging from tactical cost containment to strategic supply chain restructuring. Based on our analysis of financial impact, implementation feasibility, and alignment with Global Bike's growth strategy, we recommend Option B: Strategic Supplier Diversification combined with targeted inventory optimization.
-
-Immediate action is required to prevent further margin erosion and position the company for sustainable cost management heading into FY2025.`,
-  
-  situation: {
-    currentState: "Global Bike Inc. operates a vertically-integrated bicycle manufacturing and retail operation with 47 retail locations and an e-commerce platform generating $156M in annual revenue. The company has historically maintained gross margins of 42-45%, positioning it competitively against peers like Trek and Specialized.",
-    problem: "COGS has increased by 18.3% ($2.4M) against budget in Q3 2024, driven primarily by the European Profit Center which accounts for 73% of the variance. This threatens our ability to meet FY2024 EBITDA targets and fund planned expansion into the electric bike segment.",
-    rootCauses: [
-      {
-        driver: "Raw Material Cost Inflation",
-        evidence: "Aluminum prices up 23% YoY; carbon fiber supply constrained due to aerospace demand",
-        impact: "Contributing $1.1M (46%) of total variance"
-      },
-      {
-        driver: "Supplier Concentration Risk",
-        evidence: "Primary frame supplier (TaiwanCycle Corp) at 94% capacity utilization; lead times extended from 6 to 14 weeks",
-        impact: "Contributing $890K (37%) through expedited shipping and production delays"
-      },
-      {
-        driver: "Inventory Management Inefficiency",
-        evidence: "Safety stock levels 40% below optimal; stockout rate increased from 3% to 11%",
-        impact: "Contributing $410K (17%) in rush orders and lost sales"
-      }
-    ]
-  },
-
-  options: [
-    {
-      title: "Tactical Cost Containment",
-      subtitle: "Short-term measures to reduce immediate cost pressure",
-      description: "Implement immediate cost reduction measures including renegotiating existing supplier contracts, reducing SKU complexity by 20%, and implementing stricter procurement controls. This option prioritizes quick wins and cash preservation while accepting some operational constraints.",
-      roi: "1.2x",
-      investment: "$150K",
-      timeline: "3 months",
-      riskLevel: "Low",
-      reversibility: "High",
-      recommended: false,
-      prosDetailed: [
-        { point: "Quick implementation", detail: "Can begin immediately with existing resources and relationships" },
-        { point: "Low capital requirement", detail: "Minimal upfront investment preserves cash for other priorities" },
-        { point: "Proven playbook", detail: "Standard cost reduction techniques with predictable outcomes" }
-      ],
-      consDetailed: [
-        { point: "Limited upside", detail: "Addresses symptoms rather than structural issues; savings plateau quickly" },
-        { point: "Supplier relationship risk", detail: "Aggressive renegotiation may damage long-term partnerships" },
-        { point: "SKU reduction impact", detail: "May alienate customers seeking specific configurations" }
-      ],
-      perspectives: [
-        { role: "CFO", view: "Supports short-term margin protection but concerned about sustainability" },
-        { role: "Supply Chain", view: "Feasible but warns of supplier pushback and quality risks" },
-        { role: "Sales", view: "Concerned about SKU reduction impact on customer satisfaction" }
-      ]
-    },
-    {
-      title: "Strategic Supplier Diversification",
-      subtitle: "Build resilient, multi-source supply chain",
-      description: "Develop a diversified supplier base by qualifying 2-3 alternative frame and component suppliers in Vietnam and Mexico, while implementing advanced demand forecasting and inventory optimization. This option addresses root causes and builds long-term competitive advantage.",
-      roi: "2.8x",
-      investment: "$1.2M",
-      timeline: "9 months",
-      riskLevel: "Medium",
-      reversibility: "Medium",
-      recommended: true,
-      prosDetailed: [
-        { point: "Structural cost reduction", detail: "Projected 12-15% reduction in component costs through competitive sourcing" },
-        { point: "Risk mitigation", detail: "Eliminates single-supplier dependency; improves supply chain resilience" },
-        { point: "Scalability", detail: "Positions company for growth without proportional cost increases" },
-        { point: "Nearshoring benefits", detail: "Mexico sourcing reduces lead times and shipping costs for North American market" }
-      ],
-      consDetailed: [
-        { point: "Implementation complexity", detail: "Requires significant project management and supplier qualification effort" },
-        { point: "Transition risk", detail: "Quality consistency during supplier onboarding period" },
-        { point: "Capital requirement", detail: "Requires board approval for investment above standard OpEx" }
-      ],
-      perspectives: [
-        { role: "CFO", view: "Strong ROI justifies investment; recommends phased funding approach" },
-        { role: "Supply Chain", view: "Enthusiastically supports; has preliminary supplier candidates identified" },
-        { role: "Operations", view: "Requests dedicated project manager and quality engineering support" }
-      ]
-    },
-    {
-      title: "Vertical Integration",
-      subtitle: "Acquire or build internal manufacturing capability",
-      description: "Acquire a frame manufacturing facility or invest in internal production capability to control costs and quality directly. This option provides maximum control but requires significant capital and operational expertise.",
-      roi: "3.5x (5yr)",
-      investment: "$8-12M",
-      timeline: "18-24 months",
-      riskLevel: "High",
-      reversibility: "Low",
-      recommended: false,
-      prosDetailed: [
-        { point: "Maximum cost control", detail: "Eliminates supplier margins; full visibility into cost structure" },
-        { point: "Quality ownership", detail: "Direct control over manufacturing processes and innovation" },
-        { point: "Competitive moat", detail: "Creates barrier to entry and differentiation opportunity" }
-      ],
-      consDetailed: [
-        { point: "Capital intensive", detail: "Requires significant investment outside current strategic plan" },
-        { point: "Execution risk", detail: "Manufacturing expertise not core competency; steep learning curve" },
-        { point: "Market timing", detail: "Long implementation timeline may miss current market window" },
-        { point: "Fixed cost exposure", detail: "Increases operating leverage and downside risk in market downturn" }
-      ],
-      perspectives: [
-        { role: "CFO", view: "Attractive long-term economics but concerned about near-term cash impact" },
-        { role: "CEO", view: "Aligns with long-term vision but questions timing given e-bike launch priorities" },
-        { role: "Board", view: "Would require strategic review and likely equity raise" }
-      ]
-    }
-  ],
-
-  roadmap: [
-    {
-      phase: "Phase 1",
-      title: "Foundation & Quick Wins",
-      duration: "Weeks 1-4",
-      description: "Implement immediate cost controls while initiating supplier qualification process",
-      deliverables: ["Procurement policy updates", "Supplier RFI distribution", "Inventory audit completion"]
-    },
-    {
-      phase: "Phase 2", 
-      title: "Supplier Qualification",
-      duration: "Weeks 5-16",
-      description: "Evaluate and qualify alternative suppliers; negotiate terms and conduct pilot orders",
-      deliverables: ["Supplier scorecards", "Quality certification", "Pilot production runs", "Contract negotiations"]
-    },
-    {
-      phase: "Phase 3",
-      title: "Transition & Optimization",
-      duration: "Weeks 17-36",
-      description: "Gradually shift volume to new suppliers while optimizing inventory systems",
-      deliverables: ["Volume transition plan", "Demand forecasting system", "Safety stock optimization", "Performance dashboards"]
-    }
-  ],
-
-  risks: [
-    {
-      risk: "Supplier qualification delays",
-      likelihood: "Medium",
-      impact: "Medium",
-      mitigation: "Parallel qualification of multiple candidates; maintain buffer inventory during transition"
-    },
-    {
-      risk: "Quality issues with new suppliers",
-      likelihood: "Medium", 
-      impact: "High",
-      mitigation: "Rigorous qualification process; phased volume ramp; quality hold provisions in contracts"
-    },
-    {
-      risk: "Existing supplier retaliation",
-      likelihood: "Low",
-      impact: "Medium",
-      mitigation: "Maintain professional relationship; gradual volume reduction; long-term partnership positioning"
-    },
-    {
-      risk: "Internal resource constraints",
-      likelihood: "High",
-      impact: "Medium",
-      mitigation: "Dedicated project team; consider external consulting support for peak periods"
-    }
-  ],
-
-  recommendation: {
-    headline: "Proceed with Option B: Strategic Supplier Diversification",
-    rationale: "This option offers the optimal balance of financial return (2.8x ROI), risk management, and strategic alignment. While requiring more investment than tactical measures, it addresses the structural issues driving our cost variance and positions Global Bike for sustainable competitive advantage. The 9-month timeline allows us to capture benefits before FY2025 planning while managing implementation risk through a phased approach.",
-    nextSteps: [
-      "Secure executive sponsorship and budget approval ($1.2M) by December 15",
-      "Assign dedicated project manager from Supply Chain team",
-      "Issue RFIs to pre-qualified supplier candidates in Vietnam and Mexico",
-      "Establish weekly steering committee reviews with CFO and COO",
-      "Communicate strategy to existing suppliers to manage relationship"
-    ],
-    decisionOwner: "Chief Operating Officer",
-    deadline: "December 20, 2024"
-  }
-}
+// const MOCK_BRIEFING = { ... } (Removed to fix lint)
 
 export default ExecutiveBriefing

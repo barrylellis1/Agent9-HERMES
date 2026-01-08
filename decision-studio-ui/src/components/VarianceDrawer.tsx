@@ -178,7 +178,7 @@ export const VarianceDrawer: React.FC<VarianceDrawerProps> = ({
   data,
   kpiName = "KPI",
   timeframeMapping,
-  comparisonType,
+  // comparisonType, // unused
   isOpen,
   onToggle
 }) => {

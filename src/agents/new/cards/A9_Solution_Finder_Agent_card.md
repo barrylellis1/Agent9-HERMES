@@ -71,6 +71,7 @@ Environment variable override: `OPENAI_MODEL_SOLUTION`
 - **Dynamic Cross-Review**: Cross-review section uses actual persona IDs from the diverse council (not hardcoded MBB)
 - **Persona Resolution**: Uses `get_consulting_persona()` to resolve persona IDs from the consulting personas registry
 - **LLM Instruction**: Explicit instruction to LLM to use the exact persona IDs provided in the cross-review JSON template
+- **Persona Safety**: Initializes `persona_ids` before prompt construction to guarantee identifiers are always defined, even when debate presets are overridden.
 
 ## Compliance
 - A2A Pydantic IO for requests/responses

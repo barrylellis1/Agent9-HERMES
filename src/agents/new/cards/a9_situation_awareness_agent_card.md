@@ -13,6 +13,7 @@ To provide personalized situation awareness for Finance KPIs, enabling principal
 - Natural language query processing for KPI insights
 - Human-in-the-loop feedback handling
 - Recommended diagnostic questions
+- Contract-driven KPI enrichment with defensive registry fallbacks (normalized KPI IDs, view/date column resolution, filter injection)
 
 ## Configuration Model
 ```python
@@ -71,7 +72,7 @@ class NLQueryResponse(BaseResponse):
 ## Dependencies
 - A9_Data_Product_MCP_Service_Agent: For data query execution
 - A9_Principal_Context_Agent: For principal context retrieval (future)
-- A9_Data_Governance_Agent: For business term mapping (future)
+- A9_Data_Governance_Agent: For business term mapping and contract-driven KPI enrichment metadata
 - A9_NLP_Interface_Agent: For advanced natural language processing (future)
 - A9_LLM_Service_Agent: For SQL generation from natural language queries
 

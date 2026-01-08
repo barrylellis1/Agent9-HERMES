@@ -322,7 +322,10 @@ class A9_Situation_Awareness_Agent:
             logger.info(f"Added {len(self.kpi_registry)} KPIs to registry for domains: {target_domains}")
             if not self.kpi_registry:
                 logger.warning("No matching KPIs found in registry, trying contract fallback")
-                self._load_kpis_from_contract()
+            
+            # Always try to load additional KPIs from contract to ensure full coverage
+            # This is important for KPIs defined in data products but not yet in the central registry
+            self._load_kpis_from_contract()
         except Exception as e:
             logger.error(f"Error loading KPI registry: {str(e)}")
             self.kpi_registry = {}
@@ -997,6 +1000,30 @@ class A9_Situation_Awareness_Agent:
 
                     # Prefer explicit calculation; if missing, synthesize from aggregation/base_column/filter_type
                     calc_value = kpi_data.get('calculation')
+                    
+                    # Initialize filters dictionary
+                    filters_dict = {}
+                    
+                    # 1. Try top-level 'filters'
+                    if kpi_data.get('filters') and isinstance(kpi_data.get('filters'), dict):
+                        filters_dict.update(kpi_data.get('filters'))
+                        
+                    # 2. Try nested in 'calculation' if it's a dict
+                    if isinstance(calc_value, dict) and 'filters' in calc_value:
+                        if isinstance(calc_value['filters'], dict):
+                            filters_dict.update(calc_value['filters'])
+                            
+                    # 3. Try filter_type/filter_value pair (Legacy/Simple format)
+                    # This overrides previous keys if there's a conflict, which is desired for simple definitions
+                    filter_type = kpi_data.get('filter_type')
+                    filter_value = kpi_data.get('filter_value')
+                    if filter_type and filter_value:
+                        key = filter_type
+                        # Normalize common column names
+                        if str(filter_type).lower() == 'account_hierarchy_desc':
+                            key = "Account Hierarchy Desc"
+                        filters_dict[key] = filter_value
+
                     if not calc_value:
                         agg = kpi_data.get('aggregation')
                         base_col = kpi_data.get('base_column')
@@ -1007,8 +1034,7 @@ class A9_Situation_Awareness_Agent:
                                 expr_col = f"[{expr_col}]"
                             calc_expr = f"{agg}({expr_col})"
                             # Inline filter support for common pattern account_hierarchy_desc
-                            filter_type = kpi_data.get('filter_type')
-                            filter_value = kpi_data.get('filter_value')
+                            # (We still patch the string calculation for completeness, though filters_dict is what matters for SQL gen)
                             if filter_type and filter_value:
                                 if str(filter_type).lower() == 'account_hierarchy_desc':
                                     calc_value = f"{calc_expr} WHERE \"Account Hierarchy Desc\" = '{filter_value}'"
@@ -1018,6 +1044,12 @@ class A9_Situation_Awareness_Agent:
                             else:
                                 calc_value = calc_expr
                         # else leave as None
+                    
+                    # Extract view name from join_tables if available
+                    view_name = None
+                    join_tables = kpi_data.get('join_tables')
+                    if join_tables and isinstance(join_tables, list) and len(join_tables) > 0:
+                        view_name = join_tables[0]
 
                     kpi_def = KPIDefinition(
                         name=kpi_name,
@@ -1027,11 +1059,16 @@ class A9_Situation_Awareness_Agent:
                         diagnostic_questions=kpi_data.get('diagnostic_questions'),
                         business_processes=kpi_data.get('business_terms', []),
                         thresholds=thresholds_dict,
+                        view_name=view_name,
+                        filters=filters_dict  # Pass the extracted filters
                     )
                     
-                    # Add to registry
-                    self.kpi_registry[kpi_name] = kpi_def
-                    logger.info(f"Added KPI from contract: {kpi_name}")
+                    # Add to registry only if not already present (Registry takes precedence)
+                    if kpi_name not in self.kpi_registry:
+                        self.kpi_registry[kpi_name] = kpi_def
+                        logger.info(f"Added KPI from contract: {kpi_name}")
+                    else:
+                        logger.debug(f"Skipping KPI from contract (already in registry): {kpi_name}")
                     
                 except Exception as kpi_err:
                     logger.warning(f"Error creating KPI definition for {kpi_data.get('name', 'unknown')}: {str(kpi_err)}")
@@ -1226,6 +1263,14 @@ class A9_Situation_Awareness_Agent:
                                 thresholds['_inverse_logic'] = threshold.inverse_logic
             except Exception as e:
                 logger.warning(f"Error accessing thresholds for KPI {kpi.name if hasattr(kpi, 'name') else 'unknown'}: {str(e)}")
+            
+            # Extract filters with safe access
+            filters = {}
+            try:
+                if hasattr(kpi, 'filters') and kpi.filters:
+                    filters = kpi.filters
+            except Exception as e:
+                logger.warning(f"Error accessing filters for KPI {kpi.name if hasattr(kpi, 'name') else 'unknown'}: {str(e)}")
                             
             # Determine if positive trend is good with safe access
             try:
@@ -1277,6 +1322,14 @@ class A9_Situation_Awareness_Agent:
             except Exception as e:
                 logger.warning(f"Error accessing data_product_id for KPI {kpi.name if hasattr(kpi, 'name') else 'unknown'}: {str(e)}")
             
+            # Get filters with safe access
+            kpi_filters = {}
+            try:
+                if hasattr(kpi, 'filters') and kpi.filters:
+                    kpi_filters = kpi.filters
+            except Exception as e:
+                logger.warning(f"Error accessing filters for KPI {kpi.name if hasattr(kpi, 'name') else 'unknown'}: {str(e)}")
+
             # Create KPI definition with all mapped fields
             # First safely get all required attributes
             kpi_name = kpi.name if hasattr(kpi, 'name') else "unknown"
@@ -1288,6 +1341,7 @@ class A9_Situation_Awareness_Agent:
                 description=kpi_desc,
                 unit=kpi_unit,
                 calculation=sql_query,
+                filters=kpi_filters,
                 thresholds=thresholds,
                 dimensions=dimensions,
                 business_processes=business_processes,
@@ -1341,112 +1395,83 @@ class A9_Situation_Awareness_Agent:
             except Exception as _vt_err:
                 logger.warning(f"Error mapping variance thresholds for KPI {kpi_name}: {_vt_err}")
             # Inject contract-level filters and metadata (GL accounts, timeframe hints, base column, etc.)
-            try:
-                if hasattr(self, 'contract') and isinstance(self.contract, dict):
-                    kpis_data = self.contract.get('kpis', []) or []
-                    for kpi_entry in kpis_data:
+            contract = getattr(self, 'contract', None)
+            if isinstance(contract, dict):
+                kpis_data = contract.get('kpis', []) or []
+                contract_views = contract.get('views') or []
+                for kpi_entry in kpis_data:
+                    if not isinstance(kpi_entry, dict):
+                        continue
+                    entry_name = kpi_entry.get('name')
+                    if not isinstance(entry_name, str):
+                        continue
+                    if entry_name.strip().lower() != kpi_name.strip().lower():
+                        continue
+                    # Found matching KPI in contract
+                    calc = kpi_entry.get('calculation')
+                    if isinstance(calc, dict):
+                        # Merge static filters (e.g., GL account restrictions)
+                        if isinstance(calc.get('filters'), dict):
+                            kpi_def.filters = {
+                                **(kpi_def.filters or {}),
+                                **(calc.get('filters') or {})
+                            }
+                        # Try to derive base_column from query_template if not explicitly set later
+                        qt = calc.get('query_template') or calc.get('template')
+                        if (not getattr(kpi_def, 'base_column', None)) and isinstance(qt, str):
+                            # Extract first quoted or bracketed column
+                            m = re.search(r'"([^\"]+)"', qt)
+                            if m and m.group(1):
+                                kpi_def.base_column = m.group(1)
+                            else:
+                                m2 = re.search(r'\[([^\]]+)\]', qt)
+                                if m2 and m2.group(1):
+                                    kpi_def.base_column = m2.group(1)
+                    # Explicit base_column at top level takes precedence
+                    if isinstance(kpi_entry.get('base_column'), str) and kpi_entry.get('base_column').strip():
+                        kpi_def.base_column = kpi_entry.get('base_column')
+
+                    # Simple mapping for grouping/ordering/limit when present
+                    if isinstance(kpi_entry.get('partition_by'), list):
+                        kpi_def.group_by = kpi_entry.get('partition_by')
+                    if isinstance(kpi_entry.get('order_by'), list):
+                        kpi_def.order_by = kpi_entry.get('order_by')
+                    if kpi_entry.get('top_n') is not None:
                         try:
-                            if not isinstance(kpi_entry, dict):
-                                continue
-                            entry_name = kpi_entry.get('name')
-                            if not isinstance(entry_name, str):
-                                continue
-                            if entry_name.strip().lower() != kpi_name.strip().lower():
-                                continue
-                            # Found matching KPI in contract
-                            calc = kpi_entry.get('calculation')
-                            if isinstance(calc, dict):
-                                # Merge static filters (e.g., GL account restrictions)
-                                if isinstance(calc.get('filters'), dict):
-                                    kpi_def.filters = {
-                                        **(kpi_def.filters or {}),
-                                        **(calc.get('filters') or {})
-                                    }
-                                # Try to derive base_column from query_template if not explicitly set later
-                                qt = calc.get('query_template') or calc.get('template')
-                                if (not getattr(kpi_def, 'base_column', None)) and isinstance(qt, str):
-                                    # Extract first quoted or bracketed column
-                                    m = re.search(r'"([^\"]+)"', qt)
-                                    if m and m.group(1):
-                                        kpi_def.base_column = m.group(1)
-                                    else:
-                                        m2 = re.search(r'\[([^\]]+)\]', qt)
-                                        if m2 and m2.group(1):
-                                            kpi_def.base_column = m2.group(1)
-                            # Explicit base_column at top level takes precedence
-                            if isinstance(kpi_entry.get('base_column'), str) and kpi_entry.get('base_column').strip():
-                                kpi_def.base_column = kpi_entry.get('base_column')
+                            kpi_def.limit = int(kpi_entry.get('top_n'))
+                        except Exception:
+                            pass
 
-                            # Simple mapping for grouping/ordering/limit when present
-                            if isinstance(kpi_entry.get('partition_by'), list):
-                                kpi_def.group_by = kpi_entry.get('partition_by')
-                            if isinstance(kpi_entry.get('order_by'), list):
-                                kpi_def.order_by = kpi_entry.get('order_by')
-                            if kpi_entry.get('top_n') is not None:
-                                try:
-                                    kpi_def.limit = int(kpi_entry.get('top_n'))
-                                except Exception:
-                                    pass
+                    # View resolution hint from contract (will still be resolved by DPA/Governance)
+                    join_tables = kpi_entry.get('join_tables')
+                    if isinstance(join_tables, list) and join_tables:
+                        jt0 = join_tables[0]
+                        if isinstance(jt0, str) and jt0.strip():
+                            kpi_def.view_name = jt0.strip()
+                    elif isinstance(contract_views, list) and contract_views:
+                        v0 = contract_views[0]
+                        if isinstance(v0, dict) and isinstance(v0.get('name'), str):
+                            kpi_def.view_name = v0.get('name')
 
-                            # View resolution hint from contract (will still be resolved by DPA/Governance)
-                            join_tables = kpi_entry.get('join_tables')
-                            if isinstance(join_tables, list) and join_tables:
-                                jt0 = join_tables[0]
-                                if isinstance(jt0, str) and jt0.strip():
-                                    kpi_def.view_name = jt0.strip()
-                            elif isinstance(self.contract.get('views'), list) and self.contract['views']:
-                                v0 = self.contract['views'][0]
-                                if isinstance(v0, dict) and isinstance(v0.get('name'), str):
-                                    kpi_def.view_name = v0.get('name')
+                    # Timeframe hints (date column)
+                    # In FI Star View, the canonical alias is "Transaction Date"
+                    if not getattr(kpi_def, 'date_column', None):
+                        # Allow override via contract if present
+                        if isinstance(kpi_entry.get('date_column'), str) and kpi_entry.get('date_column').strip():
+                            kpi_def.date_column = kpi_entry.get('date_column').strip()
+                        else:
+                            kpi_def.date_column = "Transaction Date"
 
-                            # Timeframe hints (date column)
-                            # In FI Star View, the canonical alias is "Transaction Date"
-                            if not getattr(kpi_def, 'date_column', None):
-                                # Allow override via contract if present
-                                if isinstance(kpi_entry.get('date_column'), str) and kpi_entry.get('date_column').strip():
-                                    kpi_def.date_column = kpi_entry.get('date_column').strip()
-                                else:
-                                    kpi_def.date_column = "Transaction Date"
+                    # Optional explicit time_filter injection if contract provides one later
+                    if isinstance(kpi_entry.get('time_filter'), dict):
+                        kpi_def.time_filter = kpi_entry.get('time_filter')
 
-                            # Optional explicit time_filter injection if contract provides one later
-                            if isinstance(kpi_entry.get('time_filter'), dict):
-                                kpi_def.time_filter = kpi_entry.get('time_filter')
+                    break  # done with matching entry
 
-                            break  # done with matching entry
-                        except Exception as _inj_err:
-                            self.logger.warning(f"Error injecting contract filters for KPI {kpi_name}: {_inj_err}")
-            except Exception as inj_err:
-                self.logger.warning(f"Contract injection step failed for KPI {kpi_name}: {inj_err}")
-            
-            # Add KPI ID as a reference
-            try:
-                if hasattr(kpi, 'id') and kpi.id:
-                    kpi_def.kpi_id = kpi.id
-            except Exception as e:
-                logger.warning(f"Error accessing id for KPI {kpi.name if hasattr(kpi, 'name') else 'unknown'}: {str(e)}")
-            
             return kpi_def
-            
         except Exception as e:
-            # Safely log the error without risking attribute errors
-            try:
-                kpi_name = kpi.name if hasattr(kpi, 'name') else 'unknown'
-                logger.error(f"Error converting KPI {kpi_name}: {type(e).__name__}: {str(e)}")
-            except Exception:
-                logger.error(f"Error converting KPI: {type(e).__name__}: {str(e)}")
-                
-            # Return an absolute minimal KPI definition that won't fail
-            return KPIDefinition(
-                name="unknown",
-                description="",
-                unit="",
-                calculation="",
-                thresholds={SituationSeverity.HIGH: 0.0},
-                dimensions=[],
-                business_processes=["Finance: General"],
-                data_product_id="FI_Star_Schema",
-                positive_trend_is_good=True
-            )
+            logger.error(f"Error converting KPI to KPIDefinition: {str(e)}")
+            return None
     
     def _get_relevant_kpis(
         self,

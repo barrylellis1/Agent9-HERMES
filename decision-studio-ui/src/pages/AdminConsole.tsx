@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Database, FileUp, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Database, FileUp } from 'lucide-react'
 
 export function AdminConsole() {
   return (

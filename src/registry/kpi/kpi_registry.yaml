@@ -23,9 +23,12 @@ kpis:
     description: "Total gross revenue recognized in the period."
     unit: "$"
     data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
     business_process_ids:
       - "finance_revenue_growth_analysis"
       - "finance_profitability_analysis"
+    filters:
+      "Account Hierarchy Desc": "Gross Revenue"
     sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Gross Revenue'"
     thresholds:
       - comparison_type: "yoy"
@@ -66,9 +69,12 @@ kpis:
     description: "Total cost of goods sold in the period."
     unit: "$"
     data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
     business_process_ids:
       - "finance_profitability_analysis"
       - "finance_expense_management"
+    filters:
+      "Account Hierarchy Desc": "Cost of Goods Sold"
     sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Cost of Goods Sold'"
     thresholds:
       - comparison_type: "mom"
@@ -108,9 +114,14 @@ kpis:
     description: "Gross Margin is calculated as Gross Revenue minus Cost of Goods Sold."
     unit: "%"
     data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
     business_process_ids:
       - "finance_profitability_analysis"
       - "finance_revenue_growth_analysis"
+    filters:
+      "Parent Account/Group Description":
+        - "Net Revenue"
+        - "Gross Margin"
     sql_query: "WITH gross_rev AS (SELECT SUM(value) as gross FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Gross Revenue'), cogs AS (SELECT SUM(value) as cost FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Cost of Goods Sold') SELECT (gross_rev.gross - cogs.cost) / gross_rev.gross * 100 FROM gross_rev, cogs"
     thresholds:
       - comparison_type: "yoy"
@@ -151,9 +162,12 @@ kpis:
     description: "Total utilities expense."
     unit: "$"
     data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
     business_process_ids:
       - "finance_expense_management"
       - "finance_budget_vs_actuals"
+    filters:
+      "Account Hierarchy Desc": "Utilities"
     sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Utilities'"
     thresholds:
       - comparison_type: "mom"
@@ -190,9 +204,12 @@ kpis:
     description: "Total office expense."
     unit: "$"
     data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
     business_process_ids:
       - "finance_expense_management"
       - "finance_budget_vs_actuals"
+    filters:
+      "Account Hierarchy Desc": "Office"
     sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Office'"
     thresholds:
       - comparison_type: "mom"
@@ -229,9 +246,12 @@ kpis:
     description: "Total payroll expense."
     unit: "$"
     data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
     business_process_ids:
       - "finance_expense_management"
       - "finance_budget_vs_actuals"
+    filters:
+      "Account Hierarchy Desc": "Payroll"
     sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Payroll'"
     thresholds:
       - comparison_type: "mom"
@@ -263,3 +283,462 @@ kpis:
       - "Finance Manager"
       - "CHRO"
 
+
+  - id: sales_deductions
+    name: "Sales Deductions"
+    domain: "Finance"
+    description: "Total sales deductions in the period."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
+    business_process_ids:
+      - "finance_profitability_analysis"
+      - "finance_revenue_growth_analysis"
+    filters:
+      "Account Hierarchy Desc": "Sales Deductions"
+    sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Sales Deductions'"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.10
+        inverse_logic: true
+    dimensions:
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "deductions"
+      - "revenue"
+      - "financial"
+    owner_role: "CFO"
+    stakeholder_roles:
+      - "CFO"
+      - "Finance Manager"
+
+  - id: periodic_building_expense
+    name: "Periodic Building Expense"
+    domain: "Finance"
+    description: "Total periodic building expense."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
+    business_process_ids:
+      - "finance_expense_management"
+      - "finance_facilities_management"
+    filters:
+      "Account Hierarchy Desc": "Periodic Building Expense"
+    sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Periodic Building Expense'"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.10
+        inverse_logic: true
+    dimensions:
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "expense"
+      - "facilities"
+      - "financial"
+    owner_role: "Finance Manager"
+    stakeholder_roles:
+      - "Finance Manager"
+      - "COO"
+
+  - id: travel
+    name: "Travel"
+    domain: "Finance"
+    description: "Total travel expense."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
+    business_process_ids:
+      - "finance_expense_management"
+      - "finance_travel_management"
+    filters:
+      "Account Hierarchy Desc": "Travel"
+    sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Travel'"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.10
+        inverse_logic: true
+    dimensions:
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "expense"
+      - "travel"
+      - "financial"
+    owner_role: "Finance Manager"
+    stakeholder_roles:
+      - "Finance Manager"
+
+  - id: employee_expense_other
+    name: "Employee Expense Other"
+    domain: "Finance"
+    description: "Total employee expense (other)."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
+    business_process_ids:
+      - "finance_expense_management"
+      - "finance_employee_benefits"
+    filters:
+      "Account Hierarchy Desc": "Employee Expense Other"
+    sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Employee Expense Other'"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.10
+        inverse_logic: true
+    dimensions:
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "expense"
+      - "hr"
+      - "financial"
+    owner_role: "Finance Manager"
+    stakeholder_roles:
+      - "Finance Manager"
+      - "CHRO"
+
+  - id: other_operating_expense
+    name: "Other Operating Expense"
+    domain: "Finance"
+    description: "Total other operating expense."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
+    business_process_ids:
+      - "finance_expense_management"
+      - "finance_miscellaneous_expense"
+    filters:
+      "Account Hierarchy Desc": "Other Operating Expense"
+    sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Other Operating Expense'"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.10
+        inverse_logic: true
+    dimensions:
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "expense"
+      - "financial"
+    owner_role: "Finance Manager"
+    stakeholder_roles:
+      - "Finance Manager"
+
+  - id: net_revenue
+    name: "Net Revenue"
+    domain: "Finance"
+    description: "Total net revenue (Gross Revenue - Sales Deductions)."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
+    business_process_ids:
+      - "finance_revenue_growth_analysis"
+      - "finance_profitability_analysis"
+    base_column: "Transaction Value Amount"
+    filters:
+      "Parent Account/Group Description": "Net Revenue"
+    thresholds:
+      - comparison_type: "yoy"
+        green_threshold: 0.10
+        yellow_threshold: 0.0
+        red_threshold: -0.05
+        inverse_logic: false
+    dimensions:
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "revenue"
+      - "financial"
+    owner_role: "CFO"
+    stakeholder_roles:
+      - "CFO"
+      - "CEO"
+  - id: operating_income
+    name: "Operating Income"
+    domain: "Finance"
+    description: "Operating Income."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
+    business_process_ids:
+      - "finance_profitability_analysis"
+    base_column: "Transaction Value Amount"
+    # Composite filter: Captures all branches rolling up to Op Income (Net Rev branch + Op Exp branch + Gross Margin branch)
+    filters:
+      "Parent Account/Group Description": 
+        - "Net Revenue"
+        - "Gross Margin"
+        - "Building Expense"
+        - "Employee Expense"
+        - "Operating Expense"
+    thresholds:
+      - comparison_type: "yoy"
+        green_threshold: 0.10
+        yellow_threshold: 0.0
+        red_threshold: -0.05
+        inverse_logic: false
+    dimensions:
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "profitability"
+      - "financial"
+    owner_role: "CFO"
+    stakeholder_roles:
+      - "CFO"
+      - "CEO"
+  - id: operating_expense
+    name: "Operating Expense"
+    domain: "Finance"
+    description: "Total Operating Expense."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
+    business_process_ids:
+      - "finance_expense_management"
+    base_column: "Transaction Value Amount"
+    # Composite filter: Captures all branches rolling up to Op Expense
+    filters:
+      "Parent Account/Group Description": 
+        - "Building Expense"
+        - "Employee Expense"
+        - "Operating Expense"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.10
+        inverse_logic: true
+    dimensions:
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "expense"
+      - "financial"
+    owner_role: "CFO"
+    stakeholder_roles:
+      - "CFO"
+      - "Finance Manager"
+  - id: building_expense
+    name: "Building Expense"
+    domain: "Finance"
+    description: "Total Building Expense (includes Periodic & Utilities)."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
+    business_process_ids:
+      - "finance_expense_management"
+      - "finance_facilities_management"
+    base_column: "Transaction Value Amount"
+    filters:
+      "Parent Account/Group Description": "Building Expense"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.10
+        inverse_logic: true
+    dimensions:
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "expense"
+      - "facilities"
+      - "financial"
+    owner_role: "Finance Manager"
+    stakeholder_roles:
+      - "Finance Manager"
+      - "COO"
+  - id: employee_expense
+    name: "Employee Expense"
+    domain: "Finance"
+    description: "Total Employee Expense (includes Payroll, Travel, Office, Other)."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
+    business_process_ids:
+      - "finance_expense_management"
+      - "finance_human_resources"
+    base_column: "Transaction Value Amount"
+    filters:
+      "Parent Account/Group Description": "Employee Expense"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.10
+        inverse_logic: true
+    dimensions:
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "expense"
+      - "hr"
+      - "financial"
+    owner_role: "Finance Manager"
+    stakeholder_roles:
+      - "Finance Manager"
+      - "CHRO"
+  - id: net_income
+    name: "Net Income"
+    domain: "Finance"
+    description: "Net Income."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
+    business_process_ids:
+      - "finance_profitability_analysis"
+      - "finance_investor_relations_reporting"
+    base_column: "Transaction Value Amount"
+    # Same as Op Income for MVP (assuming no interest/tax data)
+    filters:
+      "Parent Account/Group Description": 
+        - "Net Revenue"
+        - "Gross Margin"
+        - "Building Expense"
+        - "Employee Expense"
+        - "Operating Expense"
+    thresholds:
+      - comparison_type: "yoy"
+        green_threshold: 0.10
+        yellow_threshold: 0.0
+        red_threshold: -0.05
+        inverse_logic: false
+    dimensions:
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "profitability"
+      - "financial"
+      - "bottom_line"
+    owner_role: "CFO"
+    stakeholder_roles:
+      - "CFO"
+      - "CEO"
+      - "Investors"
+  - id: earnings_before_interest_and_taxes
+    name: "Earnings Before Interest & Taxes"
+    domain: "Finance"
+    description: "Earnings Before Interest & Taxes (EBIT)."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
+    business_process_ids:
+      - "finance_profitability_analysis"
+      - "strategy_ebitda_growth_tracking"
+    base_column: "Transaction Value Amount"
+    # Same as Op Income for MVP
+    filters:
+      "Parent Account/Group Description": 
+        - "Net Revenue"
+        - "Gross Margin"
+        - "Building Expense"
+        - "Employee Expense"
+        - "Operating Expense"
+    thresholds:
+      - comparison_type: "yoy"
+        green_threshold: 0.10
+        yellow_threshold: 0.0
+        red_threshold: -0.05
+        inverse_logic: false
+    dimensions:
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "profitability"
+      - "financial"
+      - "ebit"
+    synonyms:
+      - "EBIT"
+    owner_role: "CFO"
+    stakeholder_roles:
+      - "CFO"
+      - "CEO"
+  - id: depreciation
+    name: "Depreciation"
+    domain: "Finance"
+    description: "Depreciation."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
+    business_process_ids:
+      - "finance_expense_management"
+      - "finance_cash_flow_management"
+    filters:
+      "Account Hierarchy Desc": "Depreciation"
+    sql_query: "SELECT SUM(value) FROM sap.FinancialTransactions JOIN sap.GLAccounts ON FinancialTransactions.account_id = GLAccounts.account_id WHERE GLAccounts.account_hierarchy_desc = 'Depreciation'"
+    thresholds:
+      - comparison_type: "mom"
+        green_threshold: -0.05
+        yellow_threshold: 0.0
+        red_threshold: 0.10
+        inverse_logic: true
+    dimensions:
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "expense"
+      - "financial"
+      - "cash_flow"
+    owner_role: "CFO"
+    stakeholder_roles:
+      - "CFO"
+      - "Finance Manager"
+
+  - id: cash_flow_from_operating_activities
+    name: "Cash Flow from Operating Activities"
+    domain: "Finance"
+    description: "Cash Flow from Operating Activities (CFO)."
+    unit: "$"
+    data_product_id: "FI_Star_Schema"
+    view_name: "FI_Star_View"
+    business_process_ids:
+      - "finance_cash_flow_management"
+    base_column: "Transaction Value Amount"
+    filters:
+      "Parent Account/Group Description": "Cash Flow from Operating Activities (CFO)"
+    thresholds:
+      - comparison_type: "yoy"
+        green_threshold: 0.10
+        yellow_threshold: 0.0
+        red_threshold: -0.05
+        inverse_logic: false
+    dimensions:
+      - name: "Profit Center"
+        field: "profit_center"
+        description: "Business profit center"
+    tags:
+      - "cash_flow"
+      - "financial"
+    synonyms:
+      - "CFO"
+      - "Operating Cash Flow"
+    owner_role: "CFO"
+    stakeholder_roles:
+      - "CFO"
+      - "CEO"

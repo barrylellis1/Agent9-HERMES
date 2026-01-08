@@ -293,15 +293,15 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 fsm = 1
 
             create_sql = f"""
-                CREATE TABLE IF NOT EXISTS time_dim AS
+                CREATE OR REPLACE TABLE time_dim AS
                 WITH bounds AS (
-                    SELECT DATE '2021-01-01' AS start_date, DATE '2026-12-31' AS end_date
+                    SELECT DATE '2021-01-01' AS start_date, DATE '2030-12-31' AS end_date
                 ), series AS (
                     SELECT start_date + gs*INTERVAL 1 DAY AS dt
                     FROM bounds, generate_series(0, DATEDIFF('day', start_date, end_date)) AS s(gs)
                 )
                 SELECT
-                    dt AS "date",
+                    CAST(dt AS DATE) AS "date",
                     EXTRACT(year FROM dt) AS year,
                     EXTRACT(quarter FROM dt) AS quarter,
                     EXTRACT(month FROM dt) AS month,
@@ -1486,7 +1486,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
             
         if filters:
             kpi_filters.update(filters)
-
+        
         # Resolve view name early so we can map attribute names appropriately
         view_name = await self._get_view_name_from_kpi(kpi_definition)
         if not view_name:
@@ -2216,11 +2216,15 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 if isinstance(meta_vn, str) and meta_vn.strip():
                     return meta_vn.strip()
 
-            # Neutral default
-            base = str(kpi_name or 'unknown').strip().lower().replace(' ', '_')
-            return f"view_{base}"
+            # Strict mode (Option 1): do not invent view names.
+            # If we cannot resolve a view name, return empty so SQL generation can abort loudly.
+            self.logger.error(
+                f"Unable to resolve view name for KPI '{kpi_name}'. "
+                "Data Governance Agent did not provide a view_name and KPI metadata did not include one."
+            )
+            return ""
         except Exception:
-            return "view_unknown"
+            return ""
     
     def _get_timeframe_condition(self, timeframe: Any) -> Optional[str]:
         """

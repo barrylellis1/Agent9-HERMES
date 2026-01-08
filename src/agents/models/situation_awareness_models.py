@@ -134,11 +134,10 @@ class KPIDefinition(BaseModel):
     diagnostic_questions: Optional[List[str]] = Field(None, description="Diagnostic questions for the KPI")
     thresholds: Optional[Dict[str, float]] = Field(None, description="Thresholds for the KPI")
     business_processes: Optional[List[str]] = Field(None, description="Related business processes")
-    unit: Optional[str] = Field(None, description="Unit of measurement")
-    positive_trend_is_good: Optional[bool] = Field(None, description="Whether a positive trend is good for this KPI")
-    kpi_id: Optional[str] = Field(None, description="Unique identifier for the KPI")
-    dimensions: Optional[List[str]] = Field(None, description="Dimensions for the KPI")
-    attributes: Optional[List[str]] = Field(None, description="Attributes for the KPI")
+    dimensions: Optional[List[str]] = Field(None, description="Dimensions available for breakdown")
+    positive_trend_is_good: bool = Field(True, description="Whether an increase in value is positive")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
+    
     # Optional filtering and metadata fields used by the Data Product Agent for SQL generation
     filters: Optional[Dict[str, Any]] = Field(None, description="Static filters to apply for this KPI (e.g., GL account restrictions)")
     time_filter: Optional[Dict[str, Any]] = Field(None, description="Time filter metadata with 'column' and optional 'start'/'end'")

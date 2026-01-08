@@ -533,7 +533,41 @@ class A9_Data_Governance_Agent:
                 )
             
             # Get the KPI definition
-            kpi = kpi_provider.get(kpi_name)
+            kpi = None
+
+            # 1) Try direct provider lookup (often keyed by KPI id)
+            try:
+                kpi = kpi_provider.get(kpi_name)
+            except Exception:
+                kpi = None
+
+            # 2) Try normalized id derived from display name (e.g., "Gross Revenue" -> "gross_revenue")
+            if not kpi:
+                try:
+                    raw = str(kpi_name or "").strip().lower()
+                    raw = raw.replace("-", " ")
+                    parts = [p for p in raw.split() if p]
+                    normalized_id = "_".join(parts)
+                    if normalized_id:
+                        kpi = kpi_provider.get(normalized_id)
+                except Exception:
+                    kpi = None
+
+            # 3) Fallback: scan all KPIs and match by display name (case-insensitive)
+            if not kpi:
+                try:
+                    all_kpis = kpi_provider.get_all() if hasattr(kpi_provider, "get_all") else []
+                    target = str(kpi_name or "").strip().lower()
+                    for candidate in (all_kpis or []):
+                        try:
+                            cand_name = getattr(candidate, "name", None)
+                            if isinstance(cand_name, str) and cand_name.strip().lower() == target:
+                                kpi = candidate
+                                break
+                        except Exception:
+                            continue
+                except Exception:
+                    kpi = None
             
             if kpi:
                 data_product_id = self._get_data_product_id_for_kpi(kpi)
@@ -629,9 +663,8 @@ class A9_Data_Governance_Agent:
                 return 'FI_Star_View'
         except Exception:
             pass
-        # 4) Default to view_{technical_name}
-        technical_name = self._get_technical_name_for_kpi(kpi)
-        return f"view_{technical_name}"
+        # 4) No synthetic view fallback (PRD-aligned: do not invent view names)
+        return "unknown"
     
     def _get_kpi_metadata(self, kpi: KPI) -> Dict[str, Any]:
         """

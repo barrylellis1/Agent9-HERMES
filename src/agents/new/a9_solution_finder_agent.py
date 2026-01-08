@@ -582,6 +582,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                     if p: consulting_personas.append(p)
                             self.logger.info("Using default MBB council (no decision_style or role)")
 
+                    # Initialize persona_ids to ensure scope availability
+                    persona_ids = []
+                    
                     # Build Context Strings
                     self.logger.info(f"Final consulting_personas count: {len(consulting_personas)}")
                     self.logger.info(f"Final consulting_personas IDs: {[p.id for p in consulting_personas]}")
@@ -635,6 +638,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             personas_override = []
                         personas_list = personas_override or (self.config.expert_personas or [])
                         persona_names = ", ".join(personas_list)
+                        persona_ids = personas_list  # Ensure persona_ids is defined for the prompt construction
                         
                         role_section = (
                             "## ROLE\n"

@@ -37,6 +37,8 @@ Uses `_contract_path()` method to resolve contract files from registry:
 - **Delta calculation**: CTE-based queries with `delta_prev` metric for current vs previous comparison
 - **Column aliases**: Reads `column_aliases` from contract for measure, date, version columns
 - **TopN ranking**: Supports `top`/`bottom` N by various metrics including `delta_prev`
+- **View resolution**: Relies solely on governance metadata/contract hints; aborts loud if a view cannot be resolved instead of fabricating `view_*` aliases.
+- **Time dimension bootstrap**: Recreates `time_dim` with an expanded 2021–2030 range on each run to guarantee consistent ISO date casting.
 
 ## Recent Updates (Dec 2025)
 - Contract path consolidated to single source of truth in `registry_references`

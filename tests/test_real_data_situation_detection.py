@@ -45,10 +45,10 @@ from src.agents.models.situation_awareness_models import (
 from src.registry.models.business_process import BusinessProcess
 
 # Import agent and orchestrator
-from src.agents.a9_orchestrator_agent import A9_Orchestrator_Agent, AgentRegistry, initialize_agent_registry
-from src.agents.a9_situation_awareness_agent import create_situation_awareness_agent
-from src.agents.a9_data_product_mcp_service_agent import A9_Data_Product_MCP_Service_Agent
-from src.agents.a9_data_governance_agent import A9_Data_Governance_Agent
+from src.agents.new.a9_orchestrator_agent import A9_Orchestrator_Agent, AgentRegistry, initialize_agent_registry
+from src.agents.new.a9_situation_awareness_agent import create_situation_awareness_agent
+from src.agents.new.a9_data_product_agent import A9_Data_Product_Agent
+from src.agents.new.a9_data_governance_agent import A9_Data_Governance_Agent
 
 # Import necessary registry components
 from src.registry.bootstrap import RegistryBootstrap
@@ -95,7 +95,7 @@ async def test_real_data_situation_detection():
     
     # Define test config for the situation awareness agent
     situation_agent_config = {
-        "contract_path": "src/contracts/fi_star_schema.yaml",
+        "contract_path": "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml",
         "target_domains": ["Finance"],  # Focus on Finance domain for MVP
         "principal_profile_path": "src/registry/principal/principal_profiles.yaml",
         "business_glossary_path": "src/registry/data/business_glossary.yaml",
@@ -130,12 +130,22 @@ async def test_real_data_situation_detection():
         agent = create_situation_awareness_agent(situation_agent_config)
         
         # Add direct SQL tracking instrumentation
-        original_generate_sql = agent._generate_sql_for_kpi
+        # Capture the original method once
+        real_get_sql_for_kpi = agent._get_sql_for_kpi
         original_detect_situations = agent.detect_situations
         
+        # Attribute to store last SQL query (initialize it)
+        agent.last_sql_query = None
+        
         # Track all generated SQL directly
-        def sql_tracking_wrapper(*args, **kwargs):
-            sql = original_generate_sql(*args, **kwargs)
+        async def sql_tracking_wrapper(*args, **kwargs):
+            # Call the real method
+            sql = await real_get_sql_for_kpi(*args, **kwargs)
+            
+            # Store in agent for other tests to inspect
+            agent.last_sql_query = sql
+            
+            # Print for debug
             print(f"\n===== SQL GENERATED =====\n{sql}\n")
             return sql
         
@@ -162,11 +172,11 @@ async def test_real_data_situation_detection():
             response = await original_detect_situations(*args, **kwargs)
             print(f"\n===== SITUATIONS DETECTED: {len(response.situations)} =====\n")
             for i, situation in enumerate(response.situations):
-                print(f"Situation {i+1}: {situation.title} (Severity: {situation.severity})")
+                print(f"Situation {i+1}: {situation.kpi_name} - {situation.description} (Severity: {situation.severity})")
             return response
         
         # Apply direct instrumentation
-        agent._generate_sql_for_kpi = sql_tracking_wrapper
+        agent._get_sql_for_kpi = sql_tracking_wrapper
         agent.detect_situations = situation_tracking_wrapper
 
         # Connect the agent to its dependencies
@@ -225,7 +235,11 @@ async def test_real_data_situation_detection():
                 BusinessProcessEnum.REVENUE_GROWTH
             ],
             # Add required fields
-            default_filters={"business_unit": "all", "region": "global"},
+            default_filters={
+                "Profit Center Hierarchyid": ["Total"],
+                "Customer Hierarchyid": ["Total"],
+                "Fiscal Year": ["2024", "2025", "2026"]
+            },
             decision_style="data-driven",
             communication_style="concise",
             preferred_timeframes=[TimeFrame.CURRENT_QUARTER, TimeFrame.YEAR_TO_DATE]
@@ -279,16 +293,6 @@ async def test_real_data_situation_detection():
         # Add attribute to store last SQL query
         agent.last_sql_query = None
         
-        # Patch _generate_sql_for_kpi to capture queries
-        original_generate_sql = agent._generate_sql_for_kpi
-        
-        def patched_generate_sql(*args, **kwargs):
-            sql = original_generate_sql(*args, **kwargs)
-            agent.last_sql_query = sql
-            return sql
-        
-        agent._generate_sql_for_kpi = patched_generate_sql
-        
         # Execute situation detection
         logger.info("Executing situation detection with real data...")
         situation_response = await agent.detect_situations(situation_request)
@@ -330,10 +334,10 @@ async def test_real_data_situation_detection():
         print("\n===== Situations Detected =====")
         for i, situation in enumerate(situation_response.situations, 1):
             print(f"Situation {i}:")
-            print(f"  Title: {situation.title}")
+            print(f"  KPI: {situation.kpi_name}")
             print(f"  Description: {situation.description}")
             print(f"  Severity: {situation.severity}")
-            print(f"  KPIs: {', '.join([kpi.name for kpi in situation.kpis])}")
+            print(f"  Value: {situation.kpi_value.value}")
             print()
         
         # Validate response
@@ -343,80 +347,17 @@ async def test_real_data_situation_detection():
         # Log the detected situations
         logger.info(f"Detected {len(situation_response.situations)} situations")
         for idx, situation in enumerate(situation_response.situations):
-            logger.info(f"Situation {idx+1}: {situation.title}")
+            logger.info(f"Situation {idx+1}: {situation.kpi_name}")
             logger.info(f"  - Description: {situation.description}")
             logger.info(f"  - Severity: {situation.severity}")
-            logger.info(f"  - KPIs: {', '.join([kpi.kpi_name for kpi in situation.kpi_values])}")
-            logger.info(f"  - Context: {situation.context}")
+            logger.info(f"  - Value: {situation.kpi_value.value}")
             
             # Print the actual KPI values
-            for kpi in situation.kpi_values:
-                logger.info(f"    * {kpi.kpi_name}: {kpi.value}")
-                if kpi.comparison_value is not None:
-                    percent_change = (kpi.value - kpi.comparison_value) / abs(kpi.comparison_value) * 100 if kpi.comparison_value != 0 else 0
-                    logger.info(f"      Previous: {kpi.comparison_value} ({percent_change:.1f}% change)")
-        
-        # Test execution of actual SQL query directly
-        logger.info("\nTesting direct SQL execution...")
-        
-        # Get a sample KPI definition using RegistryFactory
-        registry = RegistryFactory()
-        kpi_provider = registry.get_kpi_provider()
-        kpi_definitions = {k.id: k for k in (kpi_provider.get_all() if kpi_provider else [])}
-        
-        if kpi_definitions:
-            # Get the first KPI for testing
-            sample_kpi_name = next(iter(kpi_definitions.keys()))
-            sample_kpi = kpi_definitions[sample_kpi_name]
-            
-            logger.info(f"Testing SQL generation for KPI: {sample_kpi_name}")
-            
-            # Generate SQL for the KPI
-            sql_query = agent._generate_sql_for_kpi(
-                sample_kpi,
-                TimeFrame.CURRENT_QUARTER,
-                {}
-            )
-            
-            logger.info(f"Generated SQL: {sql_query}")
-            
-            # Execute the SQL query via data product agent
-            from src.agents.a9_data_product_mcp_service_agent import SQLExecutionRequest
-            
-            sql_exec_request = SQLExecutionRequest(
-                request_id=f"test_sql_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                timestamp=datetime.now().isoformat(),
-                principal_id="system",
-                sql_query=sql_query
-            )
-            
-            sql_exec_response = await agent.data_product_agent.execute_sql(sql_exec_request)
-            
-            # Log the SQL execution result
-            logger.info(f"SQL execution status: {sql_exec_response.status}")
-            if sql_exec_response.status == "success":
-                logger.info(f"SQL results: {sql_exec_response.results}")
-            else:
-                logger.error(f"SQL error: {sql_exec_response.error_message}")
-                
-            # Test KPI value retrieval directly
-            logger.info("\nTesting direct KPI value retrieval...")
-            kpi_value = await agent._get_kpi_value(
-                sample_kpi,
-                TimeFrame.CURRENT_QUARTER,
-                ComparisonType.QUARTER_OVER_QUARTER,
-                {}
-            )
-            
-            if kpi_value:
-                logger.info(f"Retrieved KPI value for {kpi_value.kpi_name}: {kpi_value.value}")
-                if kpi_value.comparison_value is not None:
-                    percent_change = (kpi_value.value - kpi_value.comparison_value) / abs(kpi_value.comparison_value) * 100 if kpi_value.comparison_value != 0 else 0
-                    logger.info(f"Comparison value: {kpi_value.comparison_value} ({percent_change:.1f}% change)")
-            else:
-                logger.warning("KPI value retrieval returned None")
-        else:
-            logger.warning("No KPI definitions found for testing")
+            kpi = situation.kpi_value
+            logger.info(f"    * {kpi.kpi_name}: {kpi.value}")
+            if kpi.comparison_value is not None:
+                percent_change = (kpi.value - kpi.comparison_value) / abs(kpi.comparison_value) * 100 if kpi.comparison_value != 0 else 0
+                logger.info(f"      Previous: {kpi.comparison_value} ({percent_change:.1f}% change)")
         
     except Exception as e:
         logger.error(f"Error during test: {str(e)}", exc_info=True)

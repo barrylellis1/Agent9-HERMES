@@ -23,6 +23,7 @@ principals:
     default_filters:
       "Profit Center Hierarchyid": ["Total"]
       "Customer Hierarchyid": ["Total"]
+      "Fiscal Year": ["2024", "2025", "2026"]
     typical_timeframes:
       - "Monthly"
       - "Quarterly"
@@ -74,7 +75,7 @@ principals:
     default_filters:
       "Profit Center Hierarchyid": ["Total"]
       "Customer Hierarchyid": ["Total"]
-      "Fiscal Year": [2024, 2025]
+      "Fiscal Year": ["2024", "2025", "2026"]
     typical_timeframes:
       - "Quarterly"
       - "Annually"
