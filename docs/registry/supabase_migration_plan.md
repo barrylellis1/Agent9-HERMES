@@ -288,3 +288,85 @@ create table business_glossary_terms (
 - Review lessons learned (schema versioning, seed workflow, provider interface changes).
 - Apply patterns to higher-impact registries (principal profiles, KPIs) once stable.
 - [ ] Evaluate Supabase pricing/free tier for managed environments (future step).
+
+### Seed Script Outline (Business Glossary)
+
+Goal: Convert `business_glossary.yaml` into inserts for `business_glossary_terms` via Supabase Admin API.
+
+1. **Script Shell**
+   - Location: `scripts/seed_business_glossary.ts` (Node/TS, but omit from repo until validated).
+   - Dependencies: `npm install @supabase/supabase-js yaml` (dev dependency).
+
+2. **High-Level Flow**
+   ```ts
+   import { createClient } from '@supabase/supabase-js';
+   import { readFileSync } from 'fs';
+   import yaml from 'yaml';
+
+   const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+   const SUPABASE_URL = process.env.SUPABASE_URL!;
+
+   const client = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+   const glossary = yaml.parse(readFileSync('src/registry/data/business_glossary.yaml', 'utf8'));
+
+   const rows = glossary.terms.map(term => ({
+     id: term.name.toLowerCase().replace(/\s+/g, '_'),
+     term: term.name,
+     definition: term.description ?? null,
+     aliases: term.synonyms ?? [],
+     tags: Object.keys(term.technical_mappings ?? {}),
+     metadata: term.technical_mappings ?? {}
+   }));
+
+   await client.from('business_glossary_terms').upsert(rows, { onConflict: 'id' });
+   ```
+
+3. **Operational Notes**
+   - Gate execution behind `SUPABASE_SEED=true` guard.
+   - Provide dry-run flag to print payload without insert.
+   - Idempotent: rely on `upsert` with `onConflict`.
+   - For CI, wrap with environment check to avoid running in production.
+
+### Provider Swap Plan
+
+Objective: Allow `RegistryBootstrap` to load the business glossary from Supabase when configured, otherwise remain YAML-backed.
+
+1. **Configuration Toggle**
+   - Extend registry config model to include `business_glossary_backend` and Supabase credentials.
+   - Sample config snippet:
+     ```python
+     registry_config = {
+         "business_glossary_backend": os.getenv("BUSINESS_GLOSSARY_BACKEND", "yaml"),
+         "supabase": {
+             "url": os.getenv("SUPABASE_URL"),
+             "service_key": os.getenv("SUPABASE_SERVICE_KEY"),
+         }
+     }
+     ```
+
+2. **New Provider**
+   - Implement `SupabaseBusinessGlossaryProvider(RegistryProvider[BusinessGlossaryTerm])`.
+   - Key methods: `load()` (fetch via Supabase REST/RPC), `get_all()`, `find_by_attribute()`.
+   - Cache rows on load; revalidate by timestamp if needed.
+
+3. **Bootstrap Logic**
+   ```python
+   backend = config.get("business_glossary_backend", "yaml")
+   if backend == "supabase":
+       glossary_provider = SupabaseBusinessGlossaryProvider(config["supabase"])
+   else:
+       glossary_provider = BusinessGlossaryProvider(glossary_path=glossary_path)
+
+   cls._factory.register_provider('business_glossary', glossary_provider)
+   await glossary_provider.load()
+   cls._factory._provider_initialization_status['business_glossary'] = True
+   ```
+
+4. **Fallback Strategy**
+   - Wrap Supabase load in try/except; on failure, log warning and instantiate YAML provider.
+   - Track origin via provider property for observability.
+
+5. **Testing**
+   - Unit test Supabase provider with mocked client (e.g., responses library or supabase-js stub).
+   - Integration test toggling config to ensure bootstrap selects correct provider.
