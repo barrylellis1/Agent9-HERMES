@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MessageCircle, Send, SkipForward, AlertCircle, Loader2 } from 'lucide-react';
 import { refineProblem, ProblemRefinementResult, ProblemRefinementRequest } from '../api/client';
 
@@ -53,16 +53,24 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
     scrollToBottom();
   }, [messages]);
 
-  // Start the conversation on mount (with guard against double-call in StrictMode)
-  const hasStarted = useRef(false);
-  useEffect(() => {
-    if (!hasStarted.current) {
-      hasStarted.current = true;
-      startConversation();
-    }
-  }, []);
+  const handleRefinementResult = useCallback((result: ProblemRefinementResult) => {
+    // Add agent message to chat
+    setMessages(prev => [...prev, { role: 'assistant', content: result.agent_message }]);
+    
+    // Update state
+    setCurrentTopic(result.current_topic);
+    setTopicsCompleted(result.topics_completed);
+    setTurnCount(result.turn_count);
+    setSuggestedResponses(result.suggested_responses || []);
+    setRefinementState(result);
 
-  const startConversation = async () => {
+    // Check if refinement is complete
+    if (result.ready_for_solutions) {
+      onComplete(result);
+    }
+  }, [onComplete]);
+
+  const startConversation = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -81,24 +89,16 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [principalId, deepAnalysisOutput, principalContext, handleRefinementResult]);
 
-  const handleRefinementResult = (result: ProblemRefinementResult) => {
-    // Add agent message to chat
-    setMessages(prev => [...prev, { role: 'assistant', content: result.agent_message }]);
-    
-    // Update state
-    setCurrentTopic(result.current_topic);
-    setTopicsCompleted(result.topics_completed);
-    setTurnCount(result.turn_count);
-    setSuggestedResponses(result.suggested_responses || []);
-    setRefinementState(result);
-
-    // Check if refinement is complete
-    if (result.ready_for_solutions) {
-      onComplete(result);
+  // Start the conversation on mount (with guard against double-call in StrictMode)
+  const hasStarted = useRef(false);
+  useEffect(() => {
+    if (!hasStarted.current) {
+      hasStarted.current = true;
+      startConversation();
     }
-  };
+  }, [startConversation]);
 
   const sendMessage = async (message: string) => {
     if (!message.trim() || isLoading) return;

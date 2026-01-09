@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Loader2, MessageSquare } from 'lucide-react';
 
@@ -49,9 +49,11 @@ export const CouncilDebate: React.FC<CouncilDebateProps> = ({
   const [activeSpeakerId, setActiveSpeakerId] = useState<string | null>(null);
 
   // Get full persona objects
-  const councilMembers = activePersonas.map(id => 
-    availablePersonas.find(p => p.id === id) || { id, label: id, color: 'text-slate-400' }
-  );
+  const councilMembers = useMemo(() => (
+    activePersonas.map(id => 
+      availablePersonas.find(p => p.id === id) || { id, label: id, color: 'text-slate-400' }
+    )
+  ), [activePersonas, availablePersonas]);
 
   // Simulate live conversation feed
   useEffect(() => {
@@ -87,7 +89,7 @@ export const CouncilDebate: React.FC<CouncilDebateProps> = ({
     addThought();
 
     return () => clearTimeout(timeoutId);
-  }, [phase, activePersonas]); // Re-run when phase changes
+  }, [phase, councilMembers]);
 
   return (
     <div className="bg-slate-900 border border-indigo-500/30 rounded-xl p-6 relative overflow-hidden">

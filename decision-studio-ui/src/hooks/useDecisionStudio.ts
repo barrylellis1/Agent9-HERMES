@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { 
   detectSituations, 
@@ -8,7 +8,6 @@ import {
   Situation
 } from '../api/client';
 import { 
-  MOCK_HISTORY, 
   AVAILABLE_PRINCIPALS, 
   AVAILABLE_COUNCILS, 
   AVAILABLE_PERSONAS 
@@ -19,7 +18,6 @@ export function useDecisionStudio() {
   const location = useLocation();
   
   // --- State ---
-  const [history] = useState(MOCK_HISTORY);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
@@ -97,7 +95,7 @@ export function useDecisionStudio() {
 
   // --- Actions ---
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     setStatusMsg(null);
@@ -129,7 +127,25 @@ export function useDecisionStudio() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedPrincipal]);
+
+  // Auto-scan on mount and when principal changes
+  const autoScanTriggeredRef = useRef(false);
+  const lastPrincipalRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!autoScanTriggeredRef.current) {
+      autoScanTriggeredRef.current = true;
+      lastPrincipalRef.current = selectedPrincipal;
+      handleRefresh();
+      return;
+    }
+
+    if (lastPrincipalRef.current !== selectedPrincipal) {
+      lastPrincipalRef.current = selectedPrincipal;
+      handleRefresh();
+    }
+  }, [selectedPrincipal, handleRefresh]);
 
   const handleDeepAnalysis = async () => {
     if (!selectedSituation) return;
@@ -192,13 +208,16 @@ export function useDecisionStudio() {
     setComparing(false);
   };
 
-  const handleStartDebate = async (priorityText?: string, constraintText?: string) => {
+  const handleStartDebate = async (
+    mode: 'recommended' | 'manual' = 'manual',
+    priorityText?: string,
+    constraintText?: string
+  ) => {
     setFindingSolutions(true);
     setShowPersonaSelector(false);
     setDebatePhase(1);
-    
-    const phaseTimer1 = setTimeout(() => setDebatePhase(2), 3000);
-    const phaseTimer2 = setTimeout(() => setDebatePhase(3), 6000);
+    setSolutions(null);
+    setAnalysisError(null);
     
     try {
         const deepAnalysisPayload = {
@@ -212,7 +231,7 @@ export function useDecisionStudio() {
             } : null
         };
         
-        const preferences: any = {
+        const preferencesBase: any = {
             principal_input: {
                 ...principalInput,
                 current_priorities: [...principalInput.current_priorities, ...(priorityText ? [priorityText] : [])],
@@ -231,17 +250,20 @@ export function useDecisionStudio() {
             } : null
         };
 
-        if (refinementResult?.recommended_council_members && refinementResult.recommended_council_members.length > 0) {
-            const recommendedPersonaIds = refinementResult.recommended_council_members.map(m => m.persona_id);
-            preferences.consulting_personas = recommendedPersonaIds;
+        if (
+            mode === 'recommended' &&
+            refinementResult?.recommended_council_members &&
+            refinementResult.recommended_council_members.length > 0
+        ) {
+            preferencesBase.consulting_personas = refinementResult.recommended_council_members.map(m => m.persona_id);
         } else if (useHybridCouncil) {
             if (councilType === 'preset') {
-                preferences.council_preset = selectedPreset;
-            } else {
-                preferences.consulting_personas = selectedPersonas;
+                preferencesBase.council_preset = selectedPreset;
+            } else if (selectedPersonas.length > 0) {
+                preferencesBase.consulting_personas = selectedPersonas;
             }
-        } else {
-            preferences.personas = selectedPersonas;
+        } else if (selectedPersonas.length > 0) {
+            preferencesBase.personas = selectedPersonas;
         }
         
         const principalContext = {
@@ -251,42 +273,74 @@ export function useDecisionStudio() {
             name: currentPrincipal.name
         };
         
-        const result = await runSolutionFinder(
-            deepAnalysisPayload, 
-            [], 
-            null, 
-            selectedPrincipal,
-            preferences,
-            principalContext
-        );
-        
-        const solResponse = result.solutions;
-        console.log("Solution Finder Raw Result:", result);
-        console.log("Solution Response Object:", solResponse);
-        console.log("Options Ranked:", solResponse?.options_ranked);
-        console.log("Options Ranked Length:", solResponse?.options_ranked?.length);
-        console.log("First Option:", solResponse?.options_ranked?.[0]);
-        setSolutions(solResponse);
+        const stageResults: any[] = [];
+        let stageOneHypotheses: any = null;
+        let stageTwoCrossReview: any = null;
+
+        const runStage = async (stage: 'hypothesis' | 'cross_review' | 'synthesis') => {
+            const stagePreferences = {
+                ...preferencesBase,
+                debate_stage: stage,
+                prior_transcript: stageResults[stageResults.length - 1]?.solutions?.debate_transcript
+            };
+
+            const response = await runSolutionFinder(
+                deepAnalysisPayload,
+                [],
+                null,
+                selectedPrincipal,
+                stagePreferences,
+                principalContext
+            );
+
+            stageResults.push(response);
+
+            const stageSolutions = response?.solutions;
+            if (stage === 'hypothesis' && stageSolutions?.stage_1_hypotheses) {
+                stageOneHypotheses = stageSolutions.stage_1_hypotheses;
+            }
+            if (stage === 'cross_review' && stageSolutions?.cross_review) {
+                stageTwoCrossReview = stageSolutions.cross_review;
+            }
+            return response;
+        };
+
+        await runStage('hypothesis');
+        await new Promise(resolve => setTimeout(resolve, 1200));
+        setDebatePhase(2);
+
+        await runStage('cross_review');
+        await new Promise(resolve => setTimeout(resolve, 1200));
+        setDebatePhase(3);
+
+        const finalResult = await runStage('synthesis');
+        const solResponse = finalResult?.solutions || stageResults[stageResults.length - 1]?.solutions;
+        const enrichedSolutions = solResponse ? { ...solResponse } : null;
+
+        if (enrichedSolutions) {
+            if (stageOneHypotheses && !enrichedSolutions.stage_1_hypotheses) {
+                enrichedSolutions.stage_1_hypotheses = stageOneHypotheses;
+            }
+            if (stageTwoCrossReview) {
+                enrichedSolutions.cross_review = stageTwoCrossReview;
+            }
+        }
+
+        setSolutions(enrichedSolutions || null);
 
         try {
-          if (selectedSituation?.situation_id) {
-            // Persist solutions for DeepFocusView restoration
-            localStorage.setItem(`solutions_${selectedSituation.situation_id}`, JSON.stringify(solResponse));
-            
-            // Build and persist full briefing
-            const briefingPayload = buildExecutiveBriefing(selectedSituation, currentAnalysis, solResponse);
+          if (enrichedSolutions && selectedSituation?.situation_id) {
+            localStorage.setItem(`solutions_${selectedSituation.situation_id}`, JSON.stringify(enrichedSolutions));
+            const briefingPayload = buildExecutiveBriefing(selectedSituation, currentAnalysis, enrichedSolutions);
             localStorage.setItem(`briefing_${selectedSituation.situation_id}`, JSON.stringify(briefingPayload));
           }
         } catch (e) {
           console.error('Failed to persist briefing/solutions payload', e);
         }
-        
     } catch (err) {
         console.error("Solution Finder Failed", err);
         setAnalysisError(err instanceof Error ? err.message : "Failed to generate solutions. Please try again.");
     } finally {
-        clearTimeout(phaseTimer1);
-        clearTimeout(phaseTimer2);
         setFindingSolutions(false);
         setDebatePhase(0);
     }
@@ -294,7 +348,6 @@ export function useDecisionStudio() {
 
   return {
     // State
-    history,
     loading,
     error,
     statusMsg,

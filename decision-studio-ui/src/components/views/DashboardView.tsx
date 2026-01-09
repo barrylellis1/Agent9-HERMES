@@ -1,12 +1,10 @@
 import React from 'react';
-import { RidgelineScanner } from '../visualizations/RidgelineScanner';
 import { KPITile } from '../dashboard/KPITile';
-import { RefreshCw, Settings, ChevronRight } from 'lucide-react';
+import { RefreshCw, Settings, ChevronRight, Scan, Activity, Clock } from 'lucide-react';
 import { Situation } from '../../api/types';
 import { Principal } from '../../api/types';
 
 interface DashboardViewProps {
-  history: any[];
   scanComplete: boolean;
   loading: boolean;
   situations: Situation[];
@@ -25,7 +23,6 @@ interface DashboardViewProps {
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
-  history,
   scanComplete,
   loading,
   situations,
@@ -146,22 +143,51 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         
         {/* State 1: Scanner View (Initial) */}
         {!scanComplete && (
-            <section className="bg-card border border-border rounded-xl p-6 shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-20 text-9xl font-bold text-slate-800 -z-0 select-none">
-                    KPI
-                </div>
-                
-                <div className="relative z-10">
-                    <div className="flex justify-between items-center mb-6">
-                    <div>
-                        <h2 className="text-xl font-semibold text-white">Global KPI Health Monitor</h2>
-                        <p className="text-sm text-slate-400">Real-time variance distribution across key performance indicators</p>
-                    </div>
+            <section className="bg-card border border-border rounded-xl p-8 shadow-2xl relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-900/60 via-slate-900/20 to-indigo-900/20 pointer-events-none" />
+                <div className="relative z-10 space-y-6">
+                    <div className="flex items-center gap-3 text-indigo-300">
+                        <Scan className="w-6 h-6 animate-pulse" />
+                        <span className="uppercase tracking-[0.3em] text-xs font-semibold">Auto-scan in progress</span>
                     </div>
 
-                    {/* The Ridgeline Component */}
-                    <div className="h-[400px] w-full bg-slate-900/50 rounded-lg p-4 border border-border/50">
-                        <RidgelineScanner history={history} />
+                    <div>
+                        <h2 className="text-2xl font-semibold text-white mb-2">Evaluating KPI landscape…</h2>
+                        <p className="text-sm text-slate-400 max-w-2xl">
+                            Agent9 is sampling the latest KPI telemetry for {currentPrincipal.name}. We’ll surface the highest-impact situations as soon as the scan completes.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-4 flex items-center gap-3">
+                            <Activity className="w-5 h-5 text-emerald-400" />
+                            <div>
+                                <div className="text-xs text-slate-500 uppercase">Signals sampled</div>
+                                <div className="text-lg font-medium text-white">Analyzing…</div>
+                            </div>
+                        </div>
+                        <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-4 flex items-center gap-3">
+                            <Clock className="w-5 h-5 text-blue-400" />
+                            <div>
+                                <div className="text-xs text-slate-500 uppercase">Timeframe</div>
+                                <div className="text-lg font-medium text-white">Year to Date</div>
+                            </div>
+                        </div>
+                        <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-4 flex items-center gap-3">
+                            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin text-indigo-400' : 'text-indigo-400'}`} />
+                            <div>
+                                <div className="text-xs text-slate-500 uppercase">Status</div>
+                                <div className="text-lg font-medium text-white">{loading ? 'Scanning' : 'Standing by'}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {Array.from({ length: 4 }).map((_, idx) => (
+                            <div key={idx} className="h-28 bg-slate-900/30 border border-slate-800 rounded-lg overflow-hidden">
+                                <div className="h-full w-full animate-pulse bg-gradient-to-r from-slate-800/40 via-slate-900/40 to-slate-800/40" />
+                            </div>
+                        ))}
                     </div>
                 </div>
             </section>
