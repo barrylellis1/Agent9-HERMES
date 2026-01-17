@@ -10,6 +10,7 @@ To provide personalized situation awareness for Finance KPIs, enabling principal
 - Finance KPI monitoring and anomaly detection
 - Principal-specific situation awareness based on role and context
 - Business process-aligned KPI prioritization
+- Principal KPI preference-aware ordering using KPI `metadata.line` / `metadata.altitude` and principal profile `metadata.kpi_line_preference` / `metadata.kpi_altitude_preference`
 - Natural language query processing for KPI insights
 - Human-in-the-loop feedback handling
 - Recommended diagnostic questions
@@ -158,6 +159,7 @@ for situation in response.situations:
 ## Recent Updates (Dec 2025)
 - Contract path consolidated to single source of truth in `registry_references`
 - Default contract path: `src/registry_references/data_product_registry/data_products/fi_star_schema.yaml`
+- Principal KPI preference support added: KPI ordering now respects principal profile metadata (`kpi_line_preference`, `kpi_altitude_preference`) and KPI registry metadata (`line`, `altitude`) before situation detection
 
 ## Future Enhancements
 - Integration with A9_NLP_Interface_Agent for advanced query parsing

@@ -9,6 +9,8 @@ synonym matching, and business-to-technical mapping.
 import os
 import logging
 from typing import Dict, List, Optional, Set, Any, Union
+
+import httpx
 import yaml
 
 from pydantic import BaseModel, Field
@@ -31,7 +33,7 @@ class BusinessGlossaryProvider:
     Used for business-to-technical term translation and synonym matching.
     """
     
-    def __init__(self, glossary_path: Optional[str] = None):
+    def __init__(self, glossary_path: Optional[str] = None, *, auto_load: bool = True):
         """
         Initialize the Business Glossary Provider.
         
@@ -50,8 +52,9 @@ class BusinessGlossaryProvider:
             )
         
         self.glossary_path = glossary_path
-        self._load_glossary()
-    
+        if auto_load:
+            self._load_glossary()
+
     def _load_glossary(self) -> None:
         """Load the business glossary from YAML file."""
         try:
@@ -393,3 +396,105 @@ def create_business_glossary_provider(config: Dict[str, Any] = None) -> Business
     
     glossary_path = config.get("glossary_path")
     return BusinessGlossaryProvider(glossary_path=glossary_path)
+
+
+class SupabaseBusinessGlossaryProvider(BusinessGlossaryProvider):
+    """Supabase-backed implementation of the business glossary provider."""
+
+    def __init__(
+        self,
+        *,
+        supabase_url: str,
+        service_key: str,
+        table: str = "business_glossary_terms",
+        schema: str = "public",
+        timeout: float = 10.0,
+        glossary_path: Optional[str] = None,
+    ) -> None:
+        super().__init__(glossary_path=glossary_path, auto_load=False)
+        self.supabase_url = supabase_url.rstrip("/")
+        self.service_key = service_key
+        self.table = table
+        self.schema = schema
+        self.timeout = timeout
+
+    async def load(self) -> Dict[str, Any]:
+        """Fetch glossary rows from Supabase REST endpoint."""
+        endpoint = f"{self.supabase_url}/rest/v1/{self.table}"
+        headers = {
+            "apikey": self.service_key,
+            "Authorization": f"Bearer {self.service_key}",
+            "Accept": "application/json",
+            "Prefer": "return=representation",
+        }
+        if self.schema:
+            headers["Accept-Profile"] = self.schema
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(endpoint, params={"select": "*"}, headers=headers)
+                response.raise_for_status()
+                # Use explicit JSON parsing to avoid any BaseModel.json-style API usage
+                import json as _json  # local import to keep scope narrow and avoid top-level changes
+                records = _json.loads(response.text)
+        except httpx.HTTPStatusError as http_err:
+            logger.error(
+                "Supabase glossary fetch failed with status %s: %s",
+                http_err.response.status_code,
+                http_err.response.text,
+            )
+            return {
+                "success": False,
+                "message": "Supabase glossary fetch failed",
+                "error": str(http_err),
+            }
+        except Exception as exc:
+            logger.error("Unexpected error fetching Supabase glossary: %s", exc)
+            return {
+                "success": False,
+                "message": "Unexpected error fetching Supabase glossary",
+                "error": str(exc),
+            }
+
+        self.terms.clear()
+        self.synonym_map.clear()
+
+        loaded = 0
+        for record in records:
+            term_name = (record.get("term") or record.get("name") or "").strip()
+            if not term_name:
+                continue
+
+            synonyms = record.get("aliases") or record.get("synonyms") or []
+            if isinstance(synonyms, str):
+                synonyms = [synonyms]
+
+            metadata = record.get("metadata") or {}
+            if isinstance(metadata, str):
+                try:
+                    metadata = yaml.safe_load(metadata) or {}
+                except yaml.YAMLError:
+                    metadata = {}
+
+            technical_mappings = metadata if isinstance(metadata, dict) else {}
+            description = record.get("definition") or record.get("description")
+
+            try:
+                term = BusinessTerm(
+                    name=term_name,
+                    synonyms=[syn for syn in synonyms if syn],
+                    description=description,
+                    technical_mappings={k.lower(): v for k, v in technical_mappings.items()},
+                )
+            except Exception as term_err:
+                logger.warning("Skipping Supabase glossary row due to validation error: %s", term_err)
+                continue
+
+            self.terms[term.name.lower()] = term
+            for synonym in term.synonyms:
+                self.synonym_map[synonym.lower()] = term.name.lower()
+            loaded += 1
+
+        message = f"Loaded {loaded} business terms from Supabase"
+        logger.info(message)
+        return {"success": True, "message": message, "count": loaded}

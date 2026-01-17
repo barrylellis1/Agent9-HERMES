@@ -1335,7 +1335,15 @@ class A9_Situation_Awareness_Agent:
             kpi_name = kpi.name if hasattr(kpi, 'name') else "unknown"
             kpi_desc = kpi.description if hasattr(kpi, 'description') and kpi.description else ""
             kpi_unit = kpi.unit if hasattr(kpi, 'unit') and kpi.unit else ""
-            
+
+            # Propagate registry metadata (including line/altitude) when present
+            kpi_metadata = {}
+            try:
+                if hasattr(kpi, 'metadata') and isinstance(kpi.metadata, dict):
+                    kpi_metadata = dict(kpi.metadata)
+            except Exception:
+                kpi_metadata = {}
+
             kpi_def = KPIDefinition(
                 name=kpi_name,
                 description=kpi_desc,
@@ -1347,7 +1355,8 @@ class A9_Situation_Awareness_Agent:
                 business_processes=business_processes,
                 data_product_id=kpi_dp_id,
                 positive_trend_is_good=positive_trend,
-                diagnostic_questions=diagnostic_questions
+                diagnostic_questions=diagnostic_questions,
+                metadata=kpi_metadata or None,
             )
             # Map registry KPIThreshold (comparison-based) into variance thresholds metadata for downstream evaluation
             try:
@@ -1478,19 +1487,23 @@ class A9_Situation_Awareness_Agent:
         principal_context: PrincipalContext,
         business_processes: Optional[List[str]] = None
     ) -> Dict[str, KPIDefinition]:
-        """
-        Get KPIs relevant to the principal's business processes.
+        """Get KPIs relevant to the principal's business processes.
+        
+        This method now also applies *principal-specific KPI preferences* based on
+        line (top_line/bottom_line) and altitude (strategic/operational), using
+        metadata on both the principal profile and the KPIDefinition metadata.
         
         Args:
             principal_context: Principal context with business processes
             business_processes: Optional list of business processes to filter by
             
         Returns:
-            Dictionary of relevant KPI definitions
-            
+            Dictionary of relevant KPI definitions, ordered by principal
+            preferences when metadata is available.
         """
-        # This functionality has been moved to the Data Governance Agent
-        relevant_kpis = {}
+
+        # Collect KPIs that match the requested business processes
+        relevant_kpis: Dict[str, KPIDefinition] = {}
 
         # Use explicit business processes if provided, otherwise from principal context
         processes = business_processes if business_processes else (
@@ -1584,9 +1597,141 @@ class A9_Situation_Awareness_Agent:
                 elif hasattr(kpi_def, 'business_process_ids') and _to_bp_id(bp) in kpi_def.business_process_ids:
                     relevant_kpis[kpi_name] = kpi_def
                     break
-        
-        logger.debug(f"Found {len(relevant_kpis)} KPIs relevant to {len(processes)} business processes")
-        return relevant_kpis
+
+        # Apply principal KPI preferences (line/altitude) to ordering when possible
+        ordered_kpis = self._apply_principal_kpi_preferences(principal_context, relevant_kpis)
+
+        logger.debug(
+            f"Found {len(ordered_kpis)} KPIs relevant to {len(processes)} business processes "
+            f"for principal_id={getattr(principal_context, 'principal_id', None)}"
+        )
+        return ordered_kpis
+
+    def _apply_principal_kpi_preferences(
+        self,
+        principal_context: PrincipalContext,
+        kpis: Dict[str, KPIDefinition],
+    ) -> Dict[str, KPIDefinition]:
+        """Reorder KPIs based on principal KPI preferences and KPI metadata.
+
+        Preferences are sourced from the principal profile registry via
+        ``self.principal_profiles`` (loaded during ``connect``) using the
+        principal's ``principal_id`` or ``role``. KPI semantics come from
+        ``KPIDefinition.metadata`` (line/altitude) which were populated from
+        the KPI registry.
+        """
+
+        if not kpis:
+            return kpis
+
+        # Default preferences if none are configured
+        line_pref = "balanced"          # top_line_first | bottom_line_first | balanced
+        altitude_pref = "balanced"      # strategic_first | operational_first | balanced
+
+        # Look up the full principal profile (dict) by principal_id or role
+        try:
+            principal_id = getattr(principal_context, "principal_id", None)
+            principal_role = getattr(principal_context, "role", None)
+            profile = None
+
+            if isinstance(self.principal_profiles, dict):
+                # Direct key lookup first
+                if principal_id and principal_id in self.principal_profiles:
+                    profile = self.principal_profiles[principal_id]
+                elif principal_role and principal_role in self.principal_profiles:
+                    profile = self.principal_profiles[principal_role]
+                # Fallback: search values by id/role fields
+                if profile is None:
+                    for value in self.principal_profiles.values():
+                        try:
+                            pdata = (
+                                value.model_dump() if hasattr(value, "model_dump")
+                                else (dict(value) if isinstance(value, dict) else getattr(value, "__dict__", {}))
+                            )
+                        except Exception:
+                            pdata = {}
+                        if not isinstance(pdata, dict):
+                            continue
+                        if principal_id and pdata.get("id") == principal_id:
+                            profile = pdata
+                            break
+                        if principal_role and (
+                            pdata.get("role") == principal_role
+                            or pdata.get("name") == principal_role
+                        ):
+                            profile = pdata
+                            break
+
+            # Normalize profile to a dict and extract preferences from profile.metadata if present
+            if profile:
+                if not isinstance(profile, dict):
+                    try:
+                        if hasattr(profile, "model_dump"):
+                            profile = profile.model_dump()
+                        elif hasattr(profile, "__dict__"):
+                            profile = dict(profile.__dict__)
+                    except Exception:
+                        profile = None
+
+            if profile and isinstance(profile, dict):
+                meta = profile.get("metadata") or {}
+                if isinstance(meta, dict):
+                    line_pref = meta.get("kpi_line_preference", line_pref) or line_pref
+                    altitude_pref = meta.get("kpi_altitude_preference", altitude_pref) or altitude_pref
+        except Exception:
+            # If anything goes wrong, fall back to original ordering
+            return kpis
+
+        # If no preferences are set, keep original ordering
+        if line_pref == "balanced" and altitude_pref == "balanced":
+            return kpis
+
+        def _score_kpi(defn: KPIDefinition) -> int:
+            """Compute a simple preference score for a KPI based on metadata."""
+            score = 0
+            try:
+                md = getattr(defn, "metadata", None) or {}
+                if not isinstance(md, dict):
+                    return score
+                line = (md.get("line") or "").lower()
+                altitude = (md.get("altitude") or "").lower()
+
+                # Line preference: strong signal
+                if line_pref == "top_line_first" and line == "top_line":
+                    score += 20
+                elif line_pref == "bottom_line_first" and line == "bottom_line":
+                    score += 20
+
+                # Altitude preference: secondary signal
+                if altitude_pref == "strategic_first" and altitude == "strategic":
+                    score += 10
+                elif altitude_pref == "operational_first" and altitude == "operational":
+                    score += 10
+            except Exception:
+                return score
+            return score
+
+        # Sort items by descending score, preserving original order for ties
+        scored_items: List[Tuple[str, KPIDefinition]] = list(kpis.items())
+        scored_items.sort(key=lambda item: _score_kpi(item[1]), reverse=True)
+
+        # Rebuild ordered dict so downstream iteration respects preferences
+        ordered: Dict[str, KPIDefinition] = {}
+        for name, defn in scored_items:
+            ordered[name] = defn
+        try:
+            top_names = [name for name, _ in scored_items[:10]]
+            self.logger.info(
+                "[SA KPI-PREF] principal_id=%s role=%s line_pref=%s altitude_pref=%s ordered_kpis=%s",
+                getattr(principal_context, "principal_id", None),
+                getattr(principal_context, "role", None),
+                line_pref,
+                altitude_pref,
+                top_names,
+            )
+        except Exception:
+            pass
+        return ordered
     
     async def _get_kpi_value(
         self,

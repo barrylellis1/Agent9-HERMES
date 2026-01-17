@@ -1,3 +1,4 @@
+
 """
 Database Manager Interface - Abstract base class for all database backend implementations.
 

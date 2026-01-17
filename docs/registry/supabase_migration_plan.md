@@ -229,6 +229,8 @@ create table business_glossary_terms (
   ```
 - Update `.env.development` with Supabase credentials (never commit).
 - Ensure `requirements.txt` / `package.json` capture any new client dependencies (`supabase-py` or `@supabase/supabase-js`).
+- `BUSINESS_GLOSSARY_BACKEND=supabase` toggles the Supabase provider; fallback to YAML occurs automatically if the REST call fails.
+- Environment variables respected: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, optional `SUPABASE_BUSINESS_GLOSSARY_TABLE` (defaults to `business_glossary_terms`).
 
 ## 7. Open Questions / Follow-Ups
 
@@ -294,39 +296,36 @@ create table business_glossary_terms (
 Goal: Convert `business_glossary.yaml` into inserts for `business_glossary_terms` via Supabase Admin API.
 
 1. **Script Shell**
-   - Location: `scripts/seed_business_glossary.ts` (Node/TS, but omit from repo until validated).
-   - Dependencies: `npm install @supabase/supabase-js yaml` (dev dependency).
+   - Location: `scripts/supabase_seed_business_glossary.py` (Python CLI, included for pilot).
+   - Dependencies: `httpx`, `pyyaml` (already in `requirements.txt`).
 
 2. **High-Level Flow**
-   ```ts
-   import { createClient } from '@supabase/supabase-js';
-   import { readFileSync } from 'fs';
-   import yaml from 'yaml';
+   ```python
+   rows = transform_terms(load_glossary(Path('src/registry/data/business_glossary.yaml')))
 
-   const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-   const SUPABASE_URL = process.env.SUPABASE_URL!;
+   if args.dry_run:
+       print(json.dumps(rows, indent=2))
+       return
 
-   const client = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+   headers = {
+       "apikey": service_role,
+       "Authorization": f"Bearer {service_role}",
+       "Prefer": "resolution=merge-duplicates,return=representation",
+       "Accept": "application/json",
+       "Accept-Profile": schema,
+   }
 
-   const glossary = yaml.parse(readFileSync('src/registry/data/business_glossary.yaml', 'utf8'));
+   if args.truncate_first:
+       delete_existing_rows(client, endpoint, headers)
 
-   const rows = glossary.terms.map(term => ({
-     id: term.name.toLowerCase().replace(/\s+/g, '_'),
-     term: term.name,
-     definition: term.description ?? null,
-     aliases: term.synonyms ?? [],
-     tags: Object.keys(term.technical_mappings ?? {}),
-     metadata: term.technical_mappings ?? {}
-   }));
-
-   await client.from('business_glossary_terms').upsert(rows, { onConflict: 'id' });
+   upsert_rows(client, endpoint, headers, rows)
    ```
 
 3. **Operational Notes**
-   - Gate execution behind `SUPABASE_SEED=true` guard.
-   - Provide dry-run flag to print payload without insert.
-   - Idempotent: rely on `upsert` with `onConflict`.
-   - For CI, wrap with environment check to avoid running in production.
+   - CLI flags supported: `--dry-run`, `--truncate-first`.
+   - Env vars required: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`; optional `SUPABASE_SCHEMA`, `SUPABASE_BUSINESS_GLOSSARY_TABLE`.
+   - Idempotent via Supabase `on_conflict=id` upsert; dry-run prints payload only.
+   - Intended for local/dev use; avoid wiring into CI until Supabase test infra decided.
 
 ### Provider Swap Plan
 

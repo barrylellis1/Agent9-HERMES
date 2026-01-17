@@ -30,16 +30,17 @@ export function AdminConsole() {
                 <p className="text-sm text-slate-400">Upload CSV/Parquet files, inspect schema, and register new data products.</p>
             </Link>
 
-            {/* Registry Card (Future) */}
-            <div className="p-6 bg-card/50 border border-border/50 rounded-xl opacity-50 cursor-not-allowed">
+            {/* Registry Card */}
+            <Link to="/admin/registry" className="group block p-6 bg-card border border-border rounded-xl hover:border-slate-500 transition-colors">
                 <div className="flex items-center justify-between mb-4">
                     <div className="p-3 bg-purple-500/10 text-purple-400 rounded-lg">
                         <Database className="w-6 h-6" />
                     </div>
+                    <ArrowLeft className="w-4 h-4 text-slate-500 opacity-0 group-hover:opacity-100 rotate-180 transition-all" />
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">Registry Explorer</h3>
-                <p className="text-sm text-slate-400">View registered data products, KPIs, and entities.</p>
-            </div>
+                <p className="text-sm text-slate-400">View and manage registry entries across domains.</p>
+            </Link>
         </div>
       </main>
     </div>

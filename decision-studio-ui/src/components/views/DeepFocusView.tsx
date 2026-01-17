@@ -8,7 +8,10 @@ import {
   Lightbulb, 
   Loader2, 
   Users,
-  X
+  X,
+  Sparkles,
+  CircleDot,
+  ShieldCheck
 } from 'lucide-react';
 import { Situation, ProblemRefinementResult } from '../../api/types';
 import { ProblemRefinementChat } from '../ProblemRefinementChat';
@@ -38,7 +41,7 @@ interface DeepFocusViewProps {
   findingSolutions: boolean;
   debatePhase: number;
   solutions: any;
-  onStartDebate: () => void;
+  onStartDebate: (mode?: 'recommended' | 'manual') => void;
   // Council Config
   useHybridCouncil: boolean;
   setUseHybridCouncil: (val: boolean) => void;
@@ -330,6 +333,13 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                              >
                                  Start Refinement Session
                              </button>
+                             <button
+                                 onClick={() => onStartDebate('recommended')}
+                                 className="w-full mt-2 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded font-medium flex items-center justify-center gap-2"
+                             >
+                                 <CircleDot className="w-3 h-3" />
+                                 Run Recommended Debate
+                             </button>
                          </div>
                      </div>
                  )}
@@ -366,9 +376,21 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
 
                          {/* Recommended Council */}
                          {refinementResult?.recommended_council_members && refinementResult.recommended_council_members.length > 0 && (
-                            <div className="bg-purple-900/20 rounded-lg p-4 border border-purple-500/30">
-                                <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-2">AI Recommendation</h4>
-                                <div className="space-y-3 mb-3">
+                            <div className="bg-indigo-900/15 rounded-lg p-4 border border-purple-500/30">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2 text-purple-300">
+                                        <Sparkles className="w-4 h-4" />
+                                        <h4 className="text-xs font-bold uppercase tracking-wider">AI Recommendation</h4>
+                                    </div>
+                                    <button
+                                        onClick={() => onStartDebate('recommended')}
+                                        className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wide bg-purple-600 hover:bg-purple-500 text-white rounded flex items-center gap-2"
+                                    >
+                                        <CircleDot className="w-3 h-3" />
+                                        Run Recommended
+                                    </button>
+                                </div>
+                                <div className="space-y-3 mb-4">
                                     {refinementResult.recommended_council_members.map((m, i) => (
                                         <div key={i} className="text-xs text-slate-300">
                                             <div className="flex items-center gap-2 mb-1">
@@ -383,12 +405,6 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                         </div>
                                     ))}
                                 </div>
-                                <button
-                                    onClick={onStartDebate}
-                                    className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold uppercase rounded transition-colors"
-                                >
-                                    Convening Recommended Council
-                                </button>
                             </div>
                          )}
 
@@ -471,7 +487,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                              )}
 
                              <button 
-                                 onClick={onStartDebate}
+                                 onClick={() => onStartDebate('manual')}
                                  className="w-full mt-2 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-medium flex items-center justify-center gap-2"
                              >
                                  <Users className="w-4 h-4" />
@@ -515,12 +531,19 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                          </div>
 
                          {solutions.recommendation && (
-                             <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-                                 <div className="text-xs text-slate-500 uppercase mb-1">Top Recommendation</div>
-                                 <div className="text-white font-medium mb-2">{solutions.recommendation.title}</div>
-                                 <p className="text-xs text-slate-400 line-clamp-3">{solutions.recommendation_rationale}</p>
-                             </div>
-                         )}
+                            <div className="bg-slate-800 rounded-lg p-4 border border-slate-700 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <div className="text-xs text-slate-500 uppercase mb-1">Top Recommendation</div>
+                                        <div className="text-white font-medium">{solutions.recommendation.title}</div>
+                                    </div>
+                                    <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                                </div>
+                                <p className="text-xs text-slate-400 leading-relaxed">
+                                    {solutions.recommendation_rationale}
+                                </p>
+                            </div>
+                        )}
                          
                          <a 
                              href={`/briefing/${situation.situation_id}`}

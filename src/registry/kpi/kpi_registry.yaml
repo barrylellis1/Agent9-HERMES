@@ -62,6 +62,11 @@ kpis:
       - "CFO"
       - "Finance Manager"
       - "CEO"
+    metadata:
+      line: "top_line"
+      altitude: "strategic"
+      profit_driver_type: "revenue"
+      lens_affinity: "mckinsey,bcg"
 
   - id: cost_of_goods_sold
     name: "Cost of Goods Sold"
@@ -107,6 +112,11 @@ kpis:
     stakeholder_roles:
       - "CFO"
       - "Finance Manager"
+    metadata:
+      line: "bottom_line"
+      altitude: "operational"
+      profit_driver_type: "cost"
+      lens_affinity: "bcg,bain"
 
   - id: gross_margin
     name: "Gross Margin"
@@ -155,6 +165,11 @@ kpis:
       - "CFO"
       - "Finance Manager"
       - "CEO"
+    metadata:
+      line: "bottom_line"
+      altitude: "strategic"
+      profit_driver_type: "margin"
+      lens_affinity: "mckinsey,bcg"
 
   - id: utilities_expense
     name: "Utilities Expense"
@@ -197,6 +212,11 @@ kpis:
     stakeholder_roles:
       - "Finance Manager"
       - "COO"
+    metadata:
+      line: "bottom_line"
+      altitude: "operational"
+      profit_driver_type: "expense"
+      lens_affinity: "bcg,bain"
 
   - id: office_expense
     name: "Office Expense"
@@ -239,6 +259,11 @@ kpis:
     stakeholder_roles:
       - "Finance Manager"
       - "COO"
+    metadata:
+      line: "bottom_line"
+      altitude: "operational"
+      profit_driver_type: "expense"
+      lens_affinity: "bcg,bain"
 
   - id: payroll
     name: "Payroll"
@@ -282,6 +307,11 @@ kpis:
     stakeholder_roles:
       - "Finance Manager"
       - "CHRO"
+    metadata:
+      line: "bottom_line"
+      altitude: "operational"
+      profit_driver_type: "expense"
+      lens_affinity: "bcg,bain"
 
 
   - id: sales_deductions
@@ -315,6 +345,11 @@ kpis:
     stakeholder_roles:
       - "CFO"
       - "Finance Manager"
+    metadata:
+      line: "top_line"
+      altitude: "operational"
+      profit_driver_type: "revenue"
+      lens_affinity: "bcg,bain"
 
   - id: periodic_building_expense
     name: "Periodic Building Expense"
@@ -347,6 +382,11 @@ kpis:
     stakeholder_roles:
       - "Finance Manager"
       - "COO"
+    metadata:
+      line: "bottom_line"
+      altitude: "operational"
+      profit_driver_type: "expense"
+      lens_affinity: "bcg,bain"
 
   - id: travel
     name: "Travel"
@@ -378,6 +418,11 @@ kpis:
     owner_role: "Finance Manager"
     stakeholder_roles:
       - "Finance Manager"
+    metadata:
+      line: "bottom_line"
+      altitude: "operational"
+      profit_driver_type: "expense"
+      lens_affinity: "bcg,bain"
 
   - id: employee_expense_other
     name: "Employee Expense Other"
@@ -410,6 +455,11 @@ kpis:
     stakeholder_roles:
       - "Finance Manager"
       - "CHRO"
+    metadata:
+      line: "bottom_line"
+      altitude: "operational"
+      profit_driver_type: "expense"
+      lens_affinity: "bcg,bain"
 
   - id: other_operating_expense
     name: "Other Operating Expense"
@@ -440,6 +490,11 @@ kpis:
     owner_role: "Finance Manager"
     stakeholder_roles:
       - "Finance Manager"
+    metadata:
+      line: "bottom_line"
+      altitude: "operational"
+      profit_driver_type: "expense"
+      lens_affinity: "bcg,bain"
 
   - id: net_revenue
     name: "Net Revenue"
@@ -471,6 +526,11 @@ kpis:
     stakeholder_roles:
       - "CFO"
       - "CEO"
+    metadata:
+      line: "top_line"
+      altitude: "strategic"
+      profit_driver_type: "revenue"
+      lens_affinity: "mckinsey,bcg,bain"
   - id: operating_income
     name: "Operating Income"
     domain: "Finance"
@@ -506,6 +566,11 @@ kpis:
     stakeholder_roles:
       - "CFO"
       - "CEO"
+    metadata:
+      line: "bottom_line"
+      altitude: "strategic"
+      profit_driver_type: "profitability"
+      lens_affinity: "mckinsey,bcg,bain"
   - id: operating_expense
     name: "Operating Expense"
     domain: "Finance"
@@ -539,6 +604,11 @@ kpis:
     stakeholder_roles:
       - "CFO"
       - "Finance Manager"
+    metadata:
+      line: "bottom_line"
+      altitude: "operational"
+      profit_driver_type: "expense"
+      lens_affinity: "bcg,bain"
   - id: building_expense
     name: "Building Expense"
     domain: "Finance"
@@ -639,6 +709,11 @@ kpis:
       - "CFO"
       - "CEO"
       - "Investors"
+    metadata:
+      line: "bottom_line"
+      altitude: "strategic"
+      profit_driver_type: "profitability"
+      lens_affinity: "mckinsey,bcg,bain"
   - id: earnings_before_interest_and_taxes
     name: "Earnings Before Interest & Taxes"
     domain: "Finance"
@@ -678,6 +753,11 @@ kpis:
     stakeholder_roles:
       - "CFO"
       - "CEO"
+    metadata:
+      line: "bottom_line"
+      altitude: "strategic"
+      profit_driver_type: "profitability"
+      lens_affinity: "mckinsey,bcg,bain"
   - id: depreciation
     name: "Depreciation"
     domain: "Finance"
@@ -709,6 +789,11 @@ kpis:
     stakeholder_roles:
       - "CFO"
       - "Finance Manager"
+    metadata:
+      line: "bottom_line"
+      altitude: "operational"
+      profit_driver_type: "expense"
+      lens_affinity: "bcg,bain"
 
   - id: cash_flow_from_operating_activities
     name: "Cash Flow from Operating Activities"
@@ -742,3 +827,8 @@ kpis:
     stakeholder_roles:
       - "CFO"
       - "CEO"
+    metadata:
+      line: "bottom_line"
+      altitude: "strategic"
+      profit_driver_type: "cash_flow"
+      lens_affinity: "mckinsey,bcg,bain"

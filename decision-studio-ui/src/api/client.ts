@@ -10,10 +10,80 @@ export * from './types';
 
 const API_BASE = 'http://localhost:8000/api/v1';
 
+export type Envelope<T> = {
+  status: string;
+  data: T;
+};
+
+async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, init);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `Request failed: ${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
 export interface SituationRequest {
   principalId: string;
   timeframe?: string;
   comparisonType?: string;
+}
+
+export type BusinessTerm = {
+  name: string;
+  synonyms: string[];
+  description?: string | null;
+  technical_mappings?: Record<string, unknown>;
+};
+
+export async function listGlossaryTerms(): Promise<BusinessTerm[]> {
+  const envelope = await requestJson<Envelope<BusinessTerm[]>>(`/registry/glossary`);
+  return envelope.data || [];
+}
+
+export async function createGlossaryTerm(payload: BusinessTerm): Promise<BusinessTerm> {
+  const envelope = await requestJson<Envelope<BusinessTerm>>(`/registry/glossary`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return envelope.data;
+}
+
+export async function updateGlossaryTerm(termName: string, payload: BusinessTerm): Promise<BusinessTerm> {
+  const envelope = await requestJson<Envelope<BusinessTerm>>(`/registry/glossary/${encodeURIComponent(termName)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return envelope.data;
+}
+
+export async function deleteGlossaryTerm(termName: string): Promise<void> {
+  await requestJson<void>(`/registry/glossary/${encodeURIComponent(termName)}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function listKpis(): Promise<any[]> {
+  const envelope = await requestJson<Envelope<any[]>>(`/registry/kpis`);
+  return envelope.data || [];
+}
+
+export async function listPrincipals(): Promise<any[]> {
+  const envelope = await requestJson<Envelope<any[]>>(`/registry/principals`);
+  return envelope.data || [];
+}
+
+export async function listDataProducts(): Promise<any[]> {
+  const envelope = await requestJson<Envelope<any[]>>(`/registry/data-products`);
+  return envelope.data || [];
+}
+
+export async function listBusinessProcesses(): Promise<any[]> {
+  const envelope = await requestJson<Envelope<any[]>>(`/registry/business-processes`);
+  return envelope.data || [];
 }
 
 export interface UploadResponse {

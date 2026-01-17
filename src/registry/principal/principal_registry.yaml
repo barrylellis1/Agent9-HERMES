@@ -54,6 +54,9 @@ principals:
       detail_level: "high"
       format_preference: ["visual", "text", "table"]
       emphasis: ["trends", "anomalies", "forecasts"]
+    metadata:
+      kpi_line_preference: "bottom_line_first"
+      kpi_altitude_preference: "strategic_first"
 
   - id: "ceo_001"
     name: "Alex Morgan"
@@ -106,6 +109,9 @@ principals:
       detail_level: "medium"
       format_preference: ["visual", "summary"]
       emphasis: ["trends", "strategic_impact"]
+    metadata:
+      kpi_line_preference: "top_line_first"
+      kpi_altitude_preference: "strategic_first"
 
   - id: "coo_001"
     name: "Priya Desai"
@@ -157,6 +163,9 @@ principals:
       detail_level: "high"
       format_preference: ["table", "visual"]
       emphasis: ["variances", "operational_metrics"]
+    metadata:
+      kpi_line_preference: "bottom_line_first"
+      kpi_altitude_preference: "operational_first"
 
   - id: "finance_manager_001"
     name: "Emily Chen"
@@ -208,6 +217,9 @@ principals:
       detail_level: "high"
       format_preference: ["table", "visual", "text"]
       emphasis: ["variances", "trends", "forecasts"]
+    metadata:
+      kpi_line_preference: "bottom_line_first"
+      kpi_altitude_preference: "operational_first"
 
 # Role definitions
 roles:

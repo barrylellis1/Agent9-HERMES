@@ -223,15 +223,11 @@ class DataProductProvider(RegistryProvider[DataProduct]):
         try:
             with open(file_path, "r") as file:
                 data = yaml_module.safe_load(file)
-                
-                if data:
-                    # Use filename without extension as data product ID if not specified
-                    data_product_id = os.path.splitext(os.path.basename(file_path))[0]
-                    
-                    # Create data product from YAML contract
-                    data_product = DataProduct.from_yaml_contract(data, data_product_id)
-                    self._add_data_product(data_product)
-                    
+
+                # Delegate to shared YAML document handler so registry-style files
+                # and direct contract files are both supported.
+                self._process_yaml_document(data, file_path, yaml_module)
+
         except (yaml_module.YAMLError, Exception) as e:
             logger.error(f"Error loading data product from {file_path}: {e}")
     
@@ -246,17 +242,130 @@ class DataProductProvider(RegistryProvider[DataProduct]):
         try:
             with open(file_path, "r") as file:
                 data = yaml_module.safe_load(file)
-                
-                if data:
-                    # Use filename without extension as data product ID if not specified
-                    data_product_id = os.path.splitext(os.path.basename(file_path))[0]
-                    
-                    # Create data product from YAML contract
-                    data_product = DataProduct.from_yaml_contract(data, data_product_id)
-                    self._add_data_product(data_product)
-                    
+
+                # Delegate to shared YAML document handler so registry-style files
+                # and direct contract files are both supported.
+                self._process_yaml_document(data, file_path, yaml_module)
+
         except (yaml_module.YAMLError, Exception) as e:
             logger.error(f"Error loading data product from {file_path}: {e}")
+    
+    def _process_yaml_document(self, data: Any, file_path: str, yaml_module) -> None:
+        """Process a parsed YAML document into one or more DataProduct entries.
+
+        This supports two structures:
+        - Direct contract files that match the DataProduct YAML contract format.
+        - Registry-style files (e.g., data_product_registry.yaml) that contain a
+          top-level ``data_products`` list with entries that reference separate
+          YAML contracts via ``yaml_contract_path``.
+        """
+
+        if not data:
+            return
+
+        # Case 1: registry-style file with "data_products" list
+        if isinstance(data, dict) and isinstance(data.get("data_products"), list):
+            data_products = data["data_products"]
+            for entry in data_products:
+                if not isinstance(entry, dict):
+                    continue
+
+                product_id = entry.get("product_id") or entry.get("id")
+                contract_path = entry.get("yaml_contract_path")
+                if not product_id or not contract_path:
+                    logger.warning(
+                        "Skipping data product entry in %s due to missing product_id or yaml_contract_path",
+                        file_path,
+                    )
+                    continue
+
+                # Resolve contract path relative to project root if not absolute.
+                if not os.path.isabs(contract_path):
+                    # Assume project root is four levels above this file:
+                    # .../src/registry/data_product/data_product_registry.yaml -> .../
+                    project_root = os.path.abspath(
+                        os.path.join(os.path.dirname(file_path), "..", "..", "..", "..")
+                    )
+                    contract_path = os.path.join(project_root, *contract_path.split("/"))
+
+                try:
+                    with open(contract_path, "r") as contract_file:
+                        contract_data = yaml_module.safe_load(contract_file) or {}
+                except FileNotFoundError:
+                    logger.error(
+                        "YAML contract for data product '%s' not found at %s",
+                        product_id,
+                        contract_path,
+                    )
+                    continue
+                except yaml_module.YAMLError as e:
+                    logger.error(
+                        "Error parsing YAML contract for data product '%s' from %s: %s",
+                        product_id,
+                        contract_path,
+                        e,
+                    )
+                    continue
+
+                # Merge registry metadata into the contract's metadata so that
+                # name/domain/description/tags from the registry drive the
+                # DataProduct shown in the UI while preserving contract details.
+                registry_meta = {
+                    "name": entry.get("name"),
+                    "domain": entry.get("domain"),
+                    "description": entry.get("description"),
+                    "tags": entry.get("tags"),
+                    "language": entry.get("language"),
+                    "last_updated": entry.get("last_updated"),
+                    "documentation": entry.get("documentation"),
+                    "output_path": entry.get("output_path"),
+                    "yaml_contract_path": entry.get("yaml_contract_path"),
+                }
+
+                existing_meta = contract_data.get("metadata", {})
+                if not isinstance(existing_meta, dict):
+                    existing_meta = {}
+
+                # Only overlay non-None registry values
+                merged_meta = dict(existing_meta)
+                for k, v in registry_meta.items():
+                    if v is not None:
+                        merged_meta[k] = v
+
+                contract_data["metadata"] = merged_meta
+
+                # Create DataProduct from the merged contract using the
+                # registry's product_id as the canonical ID.
+                try:
+                    data_product = DataProduct.from_yaml_contract(contract_data, product_id)
+                    self._add_data_product(data_product)
+                    logger.info(
+                        "Registered data product from registry entry: %s (%s)",
+                        product_id,
+                        merged_meta.get("name"),
+                    )
+                except Exception as e:
+                    logger.error(
+                        "Error creating DataProduct '%s' from contract %s: %s",
+                        product_id,
+                        contract_path,
+                        e,
+                    )
+
+            return
+
+        # Case 2: direct contract file – behavior unchanged from previous
+        # implementation. Use filename (without extension) as default ID.
+        data_product_id = os.path.splitext(os.path.basename(file_path))[0]
+        try:
+            data_product = DataProduct.from_yaml_contract(data, data_product_id)
+            self._add_data_product(data_product)
+        except Exception as e:
+            logger.error(
+                "Error creating DataProduct from contract file %s: %s",
+                file_path,
+                e,
+            )
     
     async def _load_from_json(self) -> None:
         """
