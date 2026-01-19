@@ -316,3 +316,84 @@ class BusinessProcessProvider(RegistryProvider[BusinessProcess]):
         self._add_process(item)
         logger.info(f"Registered business process: {item.id} - {item.name}")
         return True
+
+
+class SupabaseBusinessProcessProvider(BusinessProcessProvider):
+    """
+    Supabase-backed business process provider.
+    
+    Fetches business processes from Supabase REST API and falls back to YAML if unavailable.
+    """
+    
+    def __init__(
+        self,
+        supabase_url: str,
+        service_key: str,
+        table: str = 'business_processes',
+        schema: str = 'public',
+        source_path: str = None,
+    ):
+        """
+        Initialize Supabase business process provider.
+        
+        Args:
+            supabase_url: Supabase project URL
+            service_key: Service role key for authentication
+            table: Table name (default: business_processes)
+            schema: Schema name (default: public)
+            source_path: Fallback YAML path if Supabase fails
+        """
+        super().__init__(source_path=source_path, storage_format='yaml')
+        self.supabase_url = supabase_url
+        self.service_key = service_key
+        self.table = table
+        self.schema = schema
+    
+    async def load(self) -> None:
+        """Load business processes from Supabase, with YAML fallback."""
+        try:
+            await self._load_from_supabase()
+        except Exception as e:
+            logger.warning(f'Failed to load from Supabase: {e}. Falling back to YAML.')
+            if self.source_path:
+                await self._load_from_yaml()
+            else:
+                self._load_default_processes()
+    
+    async def _load_from_supabase(self) -> None:
+        """Fetch business processes from Supabase REST API."""
+        import requests
+        import json
+        
+        url = f'{self.supabase_url}/rest/v1/{self.table}'
+        headers = {
+            'apikey': self.service_key,
+            'Authorization': f'Bearer {self.service_key}',
+        }
+        
+        params = {'select': '*'}
+        
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        
+        rows = json.loads(response.text)
+        
+        for row in rows:
+            bp = self._row_to_business_process(row)
+            self._add_process(bp)
+        
+        logger.info(f'Loaded {len(self._processes)} business processes from Supabase')
+    
+    def _row_to_business_process(self, row: dict) -> BusinessProcess:
+        """Convert Supabase row to BusinessProcess Pydantic object."""
+        return BusinessProcess(
+            id=row['id'],
+            name=row['name'],
+            domain=row['domain'],
+            description=row.get('description'),
+            tags=row.get('tags', []),
+            owner_role=row.get('owner_role'),
+            stakeholder_roles=row.get('stakeholder_roles', []),
+            display_name=row.get('display_name'),
+            metadata=row.get('metadata', {}),
+        )

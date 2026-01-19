@@ -48,7 +48,7 @@ This document outlines the requirements for version 1.0 of the A9_NLP_Interface_
 ### Development Environment Setup
 - Clone the Agent9-Hackathon-Template repository
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_NLP_Interface_Agent_Agent.py`

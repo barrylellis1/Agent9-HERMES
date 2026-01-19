@@ -18,7 +18,7 @@ Last updated: 2025-07-17
 ### Development Environment Setup
 - Clone the Agent9-Hackathon-Template repository
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Quality_Assurance_Agent_Agent.py`

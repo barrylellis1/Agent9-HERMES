@@ -705,3 +705,86 @@ class DataProductProvider(RegistryProvider[DataProduct]):
         self._add_data_product(item)
         logger.info(f"Registered data product: {item.id} - {item.name}")
         return True
+
+
+class SupabaseDataProductProvider(DataProductProvider):
+    """
+    Supabase-backed data product provider.
+    
+    Fetches data products from Supabase REST API and falls back to YAML if unavailable.
+    """
+    
+    def __init__(
+        self,
+        supabase_url: str,
+        service_key: str,
+        table: str = 'data_products',
+        schema: str = 'public',
+        source_path: str = None,
+    ):
+        """
+        Initialize Supabase data product provider.
+        
+        Args:
+            supabase_url: Supabase project URL
+            service_key: Service role key for authentication
+            table: Table name (default: data_products)
+            schema: Schema name (default: public)
+            source_path: Fallback YAML path if Supabase fails
+        """
+        super().__init__(source_path=source_path, storage_format='yaml')
+        self.supabase_url = supabase_url
+        self.service_key = service_key
+        self.table = table
+        self.schema = schema
+    
+    async def load(self) -> None:
+        """Load data products from Supabase, with YAML fallback."""
+        try:
+            await self._load_from_supabase()
+        except Exception as e:
+            logger.warning(f'Failed to load from Supabase: {e}. Falling back to YAML.')
+            if self.source_path:
+                await self._load_from_yaml()
+            else:
+                self._load_default_data_products()
+    
+    async def _load_from_supabase(self) -> None:
+        """Fetch data products from Supabase REST API."""
+        import requests
+        import json
+        
+        url = f'{self.supabase_url}/rest/v1/{self.table}'
+        headers = {
+            'apikey': self.service_key,
+            'Authorization': f'Bearer {self.service_key}',
+        }
+        
+        params = {'select': '*'}
+        
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        
+        rows = json.loads(response.text)
+        
+        for row in rows:
+            dp = self._row_to_data_product(row)
+            self._add_data_product(dp)
+        
+        logger.info(f'Loaded {len(self._data_products)} data products from Supabase')
+    
+    def _row_to_data_product(self, row: dict) -> DataProduct:
+        """Convert Supabase row to DataProduct Pydantic object."""
+        return DataProduct(
+            id=row['id'],
+            name=row['name'],
+            domain=row['domain'],
+            description=row.get('description'),
+            owner=row['owner'],
+            version=row.get('version', '1.0.0'),
+            tables=row.get('tables', {}),
+            views=row.get('views', {}),
+            related_business_processes=row.get('related_business_processes', []),
+            tags=row.get('tags', []),
+            metadata=row.get('metadata', {}),
+        )

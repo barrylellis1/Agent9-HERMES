@@ -43,5 +43,8 @@ data/*.duckdb.wal
 # Node.js
 node_modules/
 
+# Secrets (BigQuery, etc.)
+/secretsagent9/
+
 # Office temp files
 ~$*

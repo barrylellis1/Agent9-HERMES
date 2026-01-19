@@ -26,7 +26,7 @@ Agent9-MVP-Template/
 │       ├── kpi_registry/
 │       └── principal_registry/
 ├── test-harnesses/           # Test harnesses for validating implementations
-├── .env.template             # Environment variable template (copy to .env)
+├── .env.example              # Environment variable example (copy to .env)
 └── .windsurfrules            # Project coding standards and rules
 ```
 
@@ -55,7 +55,7 @@ The outcomes of these sessions will be documented in the `docs/clarification_ses
 ## Getting Started
 
 1. **Environment Setup**:
-   - Copy `.env.template` to `.env` and fill in your API keys and credentials
+   - Copy `.env.example` to `.env` and fill in your API keys and credentials
    - Do NOT commit your `.env` file to version control
    - (Optional) configure Decision Studio connection profiles in `config/connection_profiles.yaml`
 

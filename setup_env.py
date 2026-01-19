@@ -141,24 +141,24 @@ def setup_duckdb():
         return False
 
 def create_env_file():
-    """Create a .env file from .env.template if it doesn't exist."""
+    """Create a .env file from .env.example if it doesn't exist."""
     print_step("Setting up environment variables...")
     
     if os.path.exists(".env"):
         print("A .env file already exists.")
         return True
     
-    if os.path.exists(".env.template"):
+    if os.path.exists(".env.example"):
         try:
-            shutil.copy(".env.template", ".env")
-            print("Created .env file from .env.template")
+            shutil.copy(".env.example", ".env")
+            print("Created .env file from .env.example")
             print("Please update the .env file with your own values.")
             return True
         except Exception as e:
             print(f"Error creating .env file: {e}")
             return False
     else:
-        print("Warning: .env.template not found")
+        print("Warning: .env.example not found")
         return False
 
 def main():

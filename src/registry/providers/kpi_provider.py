@@ -496,3 +496,138 @@ class KPIProvider(RegistryProvider[KPI]):
         self._add_kpi(item)
         logger.info(f"Registered KPI: {item.id} - {item.name}")
         return True
+
+
+class SupabaseKPIProvider(KPIProvider):
+    """Supabase-backed implementation of the KPI provider."""
+
+    def __init__(
+        self,
+        *,
+        supabase_url: str,
+        service_key: str,
+        table: str = "kpis",
+        schema: str = "public",
+        timeout: float = 10.0,
+        source_path: Optional[str] = None,
+    ) -> None:
+        """
+        Initialize Supabase KPI provider.
+        
+        Args:
+            supabase_url: Supabase project URL
+            service_key: Service role key for admin access
+            table: Table name (default: kpis)
+            schema: Schema name (default: public)
+            timeout: HTTP timeout in seconds
+            source_path: Optional fallback YAML path
+        """
+        super().__init__(source_path=source_path, storage_format="yaml")
+        self.supabase_url = supabase_url.rstrip("/")
+        self.service_key = service_key
+        self.table = table
+        self.schema = schema
+        self.timeout = timeout
+
+    async def load(self) -> None:
+        """Fetch KPIs from Supabase REST endpoint."""
+        import httpx
+        
+        endpoint = f"{self.supabase_url}/rest/v1/{self.table}"
+        headers = {
+            "apikey": self.service_key,
+            "Authorization": f"Bearer {self.service_key}",
+            "Accept": "application/json",
+            "Prefer": "return=representation",
+        }
+        if self.schema:
+            headers["Accept-Profile"] = self.schema
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(endpoint, params={"select": "*"}, headers=headers)
+                response.raise_for_status()
+                # Use explicit JSON parsing to avoid Pydantic v1 API lint issues
+                import json as _json
+                records = _json.loads(response.text)
+        except httpx.HTTPStatusError as http_err:
+            logger.error(
+                "Supabase KPI fetch failed with status %s: %s",
+                http_err.response.status_code,
+                http_err.response.text,
+            )
+            logger.warning("Falling back to YAML-based KPI provider")
+            # Fall back to YAML loading
+            if self.source_path:
+                await super().load()
+            return
+        except Exception as exc:
+            logger.error("Unexpected error fetching Supabase KPIs: %s", exc)
+            logger.warning("Falling back to YAML-based KPI provider")
+            # Fall back to YAML loading
+            if self.source_path:
+                await super().load()
+            return
+
+        # Clear existing KPIs
+        self._kpis.clear()
+        self._kpis_by_name.clear()
+        self._kpis_by_legacy_id.clear()
+
+        loaded = 0
+        for record in records:
+            kpi_id = (record.get("id") or "").strip()
+            if not kpi_id:
+                continue
+
+            try:
+                # Build KPI from Supabase row
+                # Map Supabase columns to KPI fields
+                kpi = KPI(
+                    id=kpi_id,
+                    name=record.get("name") or kpi_id,
+                    domain=record.get("domain") or "Finance",
+                    description=record.get("description"),
+                    unit=record.get("unit"),
+                    data_product_id=record.get("data_product_id") or "unknown",
+                    business_process_ids=record.get("business_process_ids") or [],  # Normalized IDs
+                    sql_query=record.get("sql_query"),
+                    filters=record.get("filters") or {},
+                    thresholds=record.get("thresholds") or [],
+                    dimensions=record.get("dimensions") or [],
+                    tags=record.get("tags") or [],
+                    owner_role=record.get("owner_role"),
+                    stakeholder_roles=record.get("stakeholder_roles") or [],
+                    metadata=record.get("metadata") or {},
+                )
+            except Exception as kpi_err:
+                logger.warning(
+                    "Skipping Supabase KPI row due to validation error: %s",
+                    kpi_err
+                )
+                continue
+
+            self._add_kpi(kpi)
+            loaded += 1
+
+        logger.info(f"Loaded {loaded} KPIs from Supabase")
+
+
+def create_supabase_kpi_provider(config: Dict[str, Any]) -> SupabaseKPIProvider:
+    """
+    Factory function to create a Supabase KPI Provider.
+    
+    Args:
+        config: Configuration dictionary with Supabase credentials
+        
+    Returns:
+        SupabaseKPIProvider instance
+    """
+    return SupabaseKPIProvider(
+        supabase_url=config["url"],
+        service_key=config["service_key"],
+        table=config.get("kpi_table", "kpis"),
+        schema=config.get("schema", "public"),
+        timeout=config.get("timeout", 10.0),
+        source_path=config.get("fallback_yaml_path"),
+    )

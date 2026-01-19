@@ -212,7 +212,7 @@ Last updated: 2025-07-17
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Business_Optimization_Agent_Agent.py`
@@ -514,7 +514,7 @@ Last updated: 2025-07-17
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Change_Management_Agent_Agent.py`
@@ -1134,7 +1134,7 @@ Example protocol output:
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Data_Governance_Agent_Agent.py`
@@ -1849,7 +1849,7 @@ All error responses must be in the following format:
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Data_Product_Agent_Agent.py`
@@ -2078,7 +2078,7 @@ Last updated: 2025-07-17
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Deep_Analysis_Agent_Agent.py`
@@ -2490,7 +2490,7 @@ Last updated: 2025-07-17
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Implementation_Tracker_Agent_Agent.py`
@@ -2678,7 +2678,7 @@ Last updated: 2025-07-17
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Innovation_Driver_Agent_Agent.py`
@@ -3065,7 +3065,7 @@ Last updated: 2025-07-17
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_GenAI_Expert_Agent_Agent.py`
@@ -3197,7 +3197,7 @@ Centralize and standardize all LLM (Large Language Model) operations for Agent9 
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_LLM_Service_Agent_Agent.py`
@@ -3345,7 +3345,7 @@ Last updated: 2025-07-17
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Market_Analysis_Agent_Agent.py`
@@ -3574,7 +3574,7 @@ This document outlines the requirements for version 1.0 of the A9_NLP_Interface_
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_NLP_Interface_Agent_Agent.py`
@@ -4112,7 +4112,7 @@ Last updated: 2025-07-17
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Opportunity_Analysis_Agent_Agent.py`
@@ -4456,7 +4456,7 @@ Last updated: 2025-07-17
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Orchestrator_Agent_Agent.py`
@@ -5015,7 +5015,7 @@ graph TD
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Performance_Optimization_Agent_Agent.py`
@@ -5280,7 +5280,7 @@ async def clear_context(self) -> None
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Principal_Context_Agent_Agent.py`
@@ -5371,7 +5371,7 @@ Last updated: 2025-07-17
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Quality_Assurance_Agent_Agent.py`
@@ -5574,7 +5574,7 @@ Last updated: 2025-07-17
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Risk_Analysis_Agent_Agent.py`
@@ -5826,7 +5826,7 @@ Last updated: 2025-07-17
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Risk_Management_Agent_Agent.py`
@@ -6491,7 +6491,7 @@ This document outlines the requirements for version 1.0 of the A9_Situation_Awar
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Situation_Awareness_Agent_Agent.py`
@@ -6734,7 +6734,7 @@ Last updated: 2025-07-17
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Solution_Architect_Agent_Agent.py`
@@ -6823,7 +6823,7 @@ Last updated: 2025-07-17
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Solution_Finder_Agent_Agent.py`
@@ -7244,7 +7244,7 @@ result = await stakeholder_agent.analyze(input_data, change_context)
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Stakeholder_Analysis_Agent_Agent.py`
@@ -7482,7 +7482,7 @@ result = engagement_agent.analyze_stakeholder_engagement(input_data)
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Stakeholder_Engagement_Agent_Agent.py`
@@ -7719,7 +7719,7 @@ component = ui_design_agent.design_component(component_config)
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_UI_Design_Agent_Agent.py`
@@ -7853,7 +7853,7 @@ This service provides business-ready, summarized, filtered, and pre-joined data 
 
 ### Development Environment Setup
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_Data_Product_MCP_Service_Agent.py`

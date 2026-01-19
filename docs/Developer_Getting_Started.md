@@ -11,7 +11,7 @@ Before you begin, make sure you have:
 1. Python 3.10+ installed
 2. Git installed
 3. A code editor or IDE (e.g., VS Code, PyCharm)
-4. Access to the required LLM APIs (see `.env.template` for details)
+4. Access to the required LLM APIs (see `.env.example` for details)
 
 ## Setup Steps
 
@@ -41,7 +41,7 @@ pip install -r requirements.txt
 ### 4. Configure Environment Variables
 
 ```bash
-cp .env.template .env
+cp .env.example .env
 # Edit .env with your API keys and configuration
 ```
 

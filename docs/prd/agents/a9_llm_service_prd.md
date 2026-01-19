@@ -75,7 +75,7 @@ Centralize and standardize all LLM (Large Language Model) operations for Agent9 
 ### Development Environment Setup
 - Clone the Agent9-Hackathon-Template repository
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - Main agent implementation: `src/agents/new/A9_LLM_Service_Agent_Agent.py`

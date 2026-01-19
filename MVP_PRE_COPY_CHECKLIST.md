@@ -8,7 +8,7 @@
 - [ ] All Python dependencies installed: `pip install -r requirements.txt`
 - [ ] DuckDB specifically verified: `python -c "import duckdb; print('DuckDB OK')"`
 - [ ] FastAPI imports working: `python -c "from fastapi import FastAPI; print('FastAPI OK')"`
-- [ ] Environment template exists: `.env.template` is present
+- [ ] Environment template exists: `.env.example` is present
 - [ ] Virtual environment activated (if using venv)
 
 ### 2. **Database & Data State**
@@ -25,7 +25,7 @@
 
 ### 4. **Configuration**
 - [ ] `.env` file does NOT exist (each LLM will create their own)
-- [ ] `.env.template` has all required variables
+- [ ] `.env.example` has all required variables
 - [ ] No hardcoded API keys or secrets in code
 - [ ] Port configurations are standard (8000 for API)
 
@@ -48,7 +48,7 @@
 2. **Copy Template**: Copy entire template directory to new location
 3. **Unique Database**: Rename `data/agent9.duckdb` to `data/agent9-[llm-name].duckdb`
 4. **Unique Ports**: Update API port in each copy (8000, 8001, 8002) to avoid conflicts
-5. **Environment Setup**: Each LLM creates their own `.env` from `.env.template`
+5. **Environment Setup**: Each LLM creates their own `.env` from `.env.example`
 
 ### Port Assignments:
 - **Claude 3.7 Sonnet**: Port 8000

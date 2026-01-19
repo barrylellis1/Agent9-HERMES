@@ -30,7 +30,7 @@ This service (embedded as an execution backend library for MVP) provides busines
 ### Development Environment Setup
 - Clone the Agent9-Hackathon-Template repository
 - Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.template
+- Configure environment variables in .env file based on .env.example
 
 ### Key Files and Entry Points
 - MVP execution core is an embedded library invoked by `A9_Data_Product_Agent`; no standalone MCP "agent" is required in MVP.
