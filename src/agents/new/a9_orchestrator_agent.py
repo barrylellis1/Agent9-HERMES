@@ -613,6 +613,7 @@ class A9_Orchestrator_Agent:
             inspection_payload = {
                 "request_id": request.request_id,
                 "principal_id": request.principal_id,
+                "data_product_id": request.data_product_id,
                 "source_system": request.source_system,
                 "database": request.database,
                 "schema": request.schema,
@@ -636,7 +637,8 @@ class A9_Orchestrator_Agent:
             schema_summary = inspection_details.get("tables", [])
             inferred_kpis = inspection_details.get("inferred_kpis", [])
 
-            target_contract_path = request.contract_output_path or f"src/registry/data_product/{request.data_product_id}.yaml"
+            # Save to staging area during onboarding; promote to production after governance approval
+            target_contract_path = request.contract_output_path or f"src/registry_references/data_product_registry/staging/{request.data_product_id}.yaml"
             contract_payload = {
                 "request_id": request.request_id,
                 "principal_id": request.principal_id,

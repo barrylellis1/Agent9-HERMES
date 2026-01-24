@@ -395,6 +395,53 @@ class A9_Solution_Finder_Agent_Config(BaseModel):
     )
 
 
+class A9_KPI_Assistant_Agent_Config(BaseModel):
+    """
+    Configuration for the A9_KPI_Assistant_Agent.
+    Controls KPI suggestion, validation, and LLM integration settings.
+    """
+    model_config = ConfigDict(extra="allow")
+    
+    # LLM settings
+    llm_provider: str = Field("openai", description="LLM provider for KPI suggestions")
+    llm_model: str = Field("gpt-4-turbo", description="Model for KPI generation and chat")
+    temperature: float = Field(0.7, description="Temperature for LLM generation")
+    max_tokens: int = Field(4096, description="Maximum tokens for LLM responses")
+    
+    # Suggestion settings
+    default_num_suggestions: int = Field(5, description="Default number of KPI suggestions")
+    include_rationale: bool = Field(True, description="Include rationale for suggestions")
+    validate_sql: bool = Field(True, description="Validate SQL queries against schema")
+    
+    # Metadata validation
+    enforce_strategic_metadata: bool = Field(
+        True, description="Enforce all strategic metadata tags (line, altitude, profit_driver_type, lens_affinity)"
+    )
+    warn_on_inconsistencies: bool = Field(
+        True, description="Warn on logical inconsistencies in metadata tags"
+    )
+    
+    # Conversation settings
+    max_conversation_history: int = Field(20, description="Maximum messages to keep in conversation history")
+    conversation_timeout_minutes: int = Field(60, description="Conversation timeout in minutes")
+    
+    # Integration settings
+    data_governance_agent_id: Optional[str] = Field(
+        None, description="ID of Data Governance Agent for validation"
+    )
+    data_product_agent_id: Optional[str] = Field(
+        None, description="ID of Data Product Agent for contract updates"
+    )
+    
+    # Orchestration & logging
+    require_orchestrator: bool = Field(
+        True, description="All calls must be orchestrator-driven"
+    )
+    log_all_requests: bool = Field(
+        True, description="Log structured inputs/outputs for audit"
+    )
+
+
 # Protocol model references for compliance checks and documentation
 NLP_PROTOCOL_MODELS: Dict[str, Dict[str, Any]] = {
     "parse_business_query": {
