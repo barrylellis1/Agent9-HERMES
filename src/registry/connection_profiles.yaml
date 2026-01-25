@@ -1,0 +1,4 @@
+# Connection Profiles for Data Product Onboarding
+# Stores reusable connection configurations for different source systems
+
+profiles: []

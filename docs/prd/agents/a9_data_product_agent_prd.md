@@ -75,7 +75,22 @@ This document outlines the requirements for version 1.0 of the A9_Data_Product_A
 - Use the Data Product Provider to find data products by attribute, domain, or business process
 - Support both legacy enum-based discovery and new registry-based discovery
 
-### 3.1.5 LLM Explainability Compliance (2025-06-24)
+#### 3.1.5 Data Factory Onboarding Capability (NEW, Phase 5 hybrid)
+- Provide a **pluggable adapter framework** for multi-platform schema inspection (DuckDB, BigQuery → Snowflake → Databricks → Datasphere). Each adapter wraps the vendor SDK (e.g., `google-cloud-bigquery`) and emits normalized `TableProfile`, `KPIProposal`, and metadata payloads.
+- Accept `connection_profiles` + `connection_overrides` so customers can supply credentials securely (no `.env` edits required). Service account paths, warehouse names, and datasets live outside the repo.
+- Workflow automation:
+  1. `inspect_source_schema` dynamically selects the appropriate database manager (DuckDB or BigQuery) based on `source_system` metadata from the request, registry entry, or connection profile. The method uses helper functions:
+     - `_resolve_inspection_settings`: Merges metadata from request, registry, and connection profile to determine source system, schema/dataset, project, and connection parameters.
+     - `_prepare_inspection_manager`: Instantiates and connects the correct `DatabaseManager` via `DatabaseManagerFactory`. For DuckDB, reuses the existing agent connection; for BigQuery, creates a new manager with scoped credentials and ensures cleanup.
+     - `_discover_tables_for_inspection`: Queries the appropriate INFORMATION_SCHEMA (DuckDB or BigQuery) to enumerate tables/views for profiling.
+     - `_profile_table`: Dispatches to backend-specific profiling methods (`_profile_table_duckdb` or `_profile_table_bigquery`) that gather column metadata, row counts, samples, and semantic tags.
+  2. `generate_contract_yaml` assembles table, view, KPI, and relationship sections from inspection output plus business overrides.
+  3. `register_data_product` persists Supabase registry entries (metadata, yaml path, multi-source connection info) and triggers governance/ownership mapping.
+- The onboarding workflow must publish `activation_context` so Decision Studio, Situation Awareness, and downstream agents immediately "see" the new data product without manual cache flushes.
+- Guardrails: adapter implementations must enforce SELECT-only profiling, cost/rate limiting (warehouse auto-suspend, result row caps), and cache snapshot metadata (refresh_ts, source_platform) so embedded insight cards can display provenance.
+- Implementation Status: DuckDB and BigQuery adapters are **implemented and tested**. Snowflake/Datasphere/Databricks follow once FI Star schema pilot succeeds. All connectors reuse shared heuristics for measure/dimension detection, KPI inference, and Supabase metadata mapping.
+
+#### 3.1.5 LLM Explainability Compliance (2025-06-24)
 - All summary and recommendation text fields are routed through the A9_LLM_Service_Agent for explainability and business-user-friendly output.
 - LLM calls are protocol-compliant, orchestrator-driven, and fully async with structured event logging and error handling.
 - See agent card for implementation and compliance details.
@@ -97,6 +112,219 @@ kpis = await data_product_agent.find_products_for_processes(tech_processes)
 ```
 - Must validate all input terms and handle unmapped processes with robust error handling
 - Log all matching attempts, successes, and failures
+
+#### 3.1.6 LLM-Assisted KPI Definition Workflow (2026-01-22)
+
+##### Purpose
+Provide an interactive, LLM-powered chat interface during data product onboarding to help users define comprehensive KPIs with all required registry attributes, strategic metadata tags, and governance mappings.
+
+##### Workflow Integration
+The KPI definition step occurs between "Metadata Analysis" and "Review & Register" in the onboarding workflow:
+1. Connection Setup ✓
+2. Schema Discovery ✓
+3. Table Selection ✓
+4. Metadata Analysis ✓
+5. **KPI & Governance Assistant** (NEW)
+6. Review & Register ✓
+
+##### Core Capabilities
+
+**1. Auto-Suggestion Engine**
+- Analyze inspected schema (columns, semantic tags, table roles) to suggest 3-7 business KPIs
+- Leverage semantic tags to identify:
+  - Measures (columns tagged as "measure")
+  - Dimensions (columns tagged as "dimension")
+  - Time columns (columns tagged as "time")
+  - Identifiers (columns tagged as "identifier")
+- Generate KPI suggestions with complete attribute sets including strategic metadata
+
+**2. Interactive Refinement**
+- Accept natural language requests to customize KPIs
+- Support conversational clarification of:
+  - Threshold values (green/yellow/red boundaries)
+  - Comparison types (YoY, QoQ, MoM, target, budget)
+  - Dimension selections for slicing
+  - Owner roles and stakeholder roles
+  - Business process mappings
+- Validate SQL queries against available schema
+- Explain business rationale for each suggestion
+
+**3. Complete KPI Attribute Generation**
+For each KPI, generate ALL required attributes per `src/registry/models/kpi.py`:
+
+- **Core Identity:** id, name, domain, description, unit, data_product_id
+- **Calculation:** sql_query, filters (optional)
+- **Dimensions:** name, field, description, values
+- **Thresholds:** comparison_type, green/yellow/red thresholds, inverse_logic
+- **Governance:** business_process_ids, tags, owner_role, stakeholder_roles
+- **Strategic Metadata:**
+  - `line` (top_line/middle_line/bottom_line)
+  - `altitude` (strategic/tactical/operational)
+  - `profit_driver_type` (revenue/expense/efficiency/risk)
+  - `lens_affinity` (bcg/bain/mckinsey combinations)
+  - `refresh_frequency`, `data_latency`, `calculation_complexity`
+
+##### Strategic Metadata Tag Specifications
+
+**metadata.line** - Financial Statement Classification
+- `top_line`: Revenue/growth metrics (e.g., Total Revenue, Sales Growth)
+- `middle_line`: Operational efficiency (e.g., Gross Margin, Conversion Rate)
+- `bottom_line`: Profitability/cost control (e.g., Net Profit, Operating Expenses)
+
+**metadata.altitude** - Decision Level
+- `strategic`: C-suite, long-term planning (3-5 years)
+- `tactical`: Department heads, quarterly goals
+- `operational`: Day-to-day management
+
+**metadata.profit_driver_type** - P&L Impact
+- `revenue`: Drives top-line growth
+- `expense`: Cost reduction/control
+- `efficiency`: Resource optimization (do more with less)
+- `risk`: Downside protection
+
+**metadata.lens_affinity** - Consulting Persona Mapping
+- `bcg`: Portfolio view, growth-share matrix, value creation
+- `bain`: Operational excellence, quick wins, results-first
+- `mckinsey` or `mbb_council`: Root cause, MECE, hypothesis-driven
+- Can combine: "bcg,bain" or "mckinsey,bain"
+
+**Usage:** Solution Finder Agent selects consulting personas based on KPI's lens_affinity
+
+##### API Endpoints
+
+**POST /api/v1/data-product-onboarding/kpi-assistant/suggest**
+- Input: `{ data_product_id, schema_metadata, user_context }`
+- Output: `{ suggested_kpis: [KPI], conversation_id }`
+
+**POST /api/v1/data-product-onboarding/kpi-assistant/chat**
+- Input: `{ conversation_id, message, current_kpis }`
+- Output: `{ response, updated_kpis, actions }`
+
+**POST /api/v1/data-product-onboarding/kpi-assistant/validate**
+- Input: `{ kpi_definition, schema_metadata }`
+- Output: `{ valid, errors, warnings }`
+
+**POST /api/v1/data-product-onboarding/kpi-assistant/finalize**
+- Input: `{ data_product_id, kpis }`
+- Output: `{ updated_contract_yaml, registry_updates }`
+
+##### Backend Requirements
+
+**Agent Collaboration:**
+- A9_LLM_Service_Agent: Generate KPI suggestions and conversational responses
+- A9_Data_Governance_Agent: Validate business terms and governance mappings
+- A9_Data_Product_Agent: Validate SQL queries against schema, update contracts
+
+**LLM System Prompt Template:**
+```
+You are a KPI definition assistant for Agent9's data product onboarding.
+
+CONTEXT:
+- Data Product ID: {data_product_id}
+- Domain: {domain}
+- Source System: {source_system}
+- Available Measures: {measures}
+- Available Dimensions: {dimensions}
+- Time Columns: {time_columns}
+
+YOUR ROLE:
+Help users define comprehensive KPIs with ALL required attributes.
+
+KPI STRUCTURE (ALL fields required):
+1. Core Identity: id, name, domain, description, unit, data_product_id
+2. Calculation: sql_query, filters
+3. Dimensions: name, field, description, values
+4. Thresholds: comparison_type, green/yellow/red, inverse_logic
+5. Governance: business_process_ids, tags, owner_role, stakeholder_roles
+6. Strategic Metadata: line, altitude, profit_driver_type, lens_affinity
+
+STRATEGIC METADATA GUIDANCE:
+- Revenue KPIs → line:top_line, altitude:strategic, driver:revenue, lens:bcg,mckinsey
+- Efficiency KPIs → line:middle_line, altitude:tactical, driver:efficiency, lens:bain
+- Cost KPIs → line:bottom_line, altitude:operational, driver:expense, lens:bain
+
+INTERACTION STYLE:
+- Initially suggest 3-5 KPIs with complete attributes
+- Explain WHY you chose each metadata value
+- Ask clarifying questions to refine thresholds
+- Validate SQL against available schema
+- Format suggestions as YAML with all attributes
+```
+
+##### UI Components
+
+**Left Panel: Contract Preview**
+- Display inspected schema with semantic tags
+- Highlight measures, dimensions, time columns
+- Show detected table roles (FACT/DIMENSION)
+- Provide expandable full schema view
+
+**Right Panel: LLM Chat Interface**
+- Conversational message history
+- KPI suggestion cards with:
+  - Expandable YAML preview
+  - Action buttons: [Accept] [Customize] [Reject]
+  - Metadata tag explanations
+- User input field with send button
+- Batch actions: [Accept All] [Export YAML]
+
+**KPI Suggestion Card Format:**
+```
+📊 Total Revenue
+   SUM(SalesOrder_GROSSAMOUNT)
+   
+   Strategic Tags:
+   • Line: Top Line (revenue metric)
+   • Altitude: Strategic (C-suite focus)
+   • Driver: Revenue (P&L top line)
+   • Lens: BCG + McKinsey (growth + analysis)
+   
+   Dimensions: Company, Fiscal Period, Product
+   Thresholds: YoY >10% = Green
+   Owner: CFO | Stakeholders: CEO, Sales VP
+   
+   [View YAML] [Accept] [Customize] [Reject]
+```
+
+##### Implementation Requirements
+
+**Phase 1: Backend Agent (1 week)**
+- Create A9_KPI_Assistant_Agent with LLM integration
+- Implement KPI suggestion engine using schema analysis
+- Add conversational refinement capability
+- Implement SQL validation against schema
+- Add YAML contract update functionality
+
+**Phase 2: API Endpoints (3 days)**
+- Implement suggest, chat, validate, finalize endpoints
+- Add conversation state management
+- Implement error handling and validation
+- Add audit logging for KPI definitions
+
+**Phase 3: UI Integration (1 week)**
+- Add KPI Assistant step to onboarding workflow
+- Implement chat interface with message history
+- Create KPI suggestion cards with actions
+- Add contract preview panel
+- Implement batch operations
+
+**Phase 4: Testing & Refinement (3 days)**
+- Test with BigQuery SalesOrders dataset
+- Validate strategic metadata tag assignments
+- Test conversational refinement flows
+- Verify contract YAML generation
+- End-to-end integration testing
+
+##### Acceptance Criteria
+
+- LLM assistant suggests 3-5 relevant KPIs based on schema analysis
+- All suggested KPIs include complete attribute sets (no missing fields)
+- Strategic metadata tags are correctly assigned with explanations
+- SQL queries are validated against available schema
+- Users can refine KPIs through natural language conversation
+- Final KPIs are correctly added to data product contract YAML
+- Contract updates trigger registry synchronization
+- UI provides clear visual feedback for all operations
 
 ### 3.2 Error Handling
 
@@ -305,6 +533,14 @@ All error responses must be in the following format:
 - Enhanced logging
 - Performance optimization
 
+### Phase 3: Data Factory Adapters & Automated Onboarding (2 weeks, hybrid with Phase 5 hardening)
+- Implement BigQuery adapter using service account credentials and INFORMATION_SCHEMA profiling.
+- Generalize the Data Product Agent DB manager to load adapters per `source_system`.
+- Automate onboarding workflow end-to-end (schema inspection → contract generation → registry/governance ownership → QA).
+- Extend Supabase registry metadata to include multi-source connection descriptors, refresh cadence, and provenance.
+- Add Snowflake, Datasphere, and Databricks adapters (reusing the same adapter interface) with rate limiting + cost controls.
+- Document Decision Studio discovery UX tied to the new metadata fields.
+
 ## 7. Dependencies
 
 ### 7.1 External Dependencies
@@ -314,6 +550,10 @@ All error responses must be in the following format:
 - Configuration management
 
 ### 7.2 Internal Dependencies
+
+- Connection Profiles service (`config/connection_profiles.*`) for secure credential routing.
+- Supabase registry + YAML contracts for metadata persistence.
+- Vendor SDKs: `google-cloud-bigquery`, Snowflake Python Connector, Databricks SQL connector/Unity Catalog APIs, SAP Datasphere Open SQL/OData client libraries.
 
 ### Recent Updates (v1.1+)
 - **Execution via MCP Library (Embedded for MVP):**

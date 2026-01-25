@@ -8,6 +8,7 @@ data_products:
     name: "Dp Fi 20250516 001"
     domain: "FI"
     description: "FI Star Schema with Account Hierarchy (YAML-driven contract)"
+    source_system: "duckdb"
     tags:
       - "erp"
       - "finance"
@@ -22,6 +23,7 @@ data_products:
     name: "GL Accounts"
     domain: "SAP"
     description: "General ledger accounts master data"
+    source_system: "duckdb"
     tags:
       - "erp"
       - "finance"
@@ -35,6 +37,7 @@ data_products:
     name: "Employee Headcount"
     domain: "SAP"
     description: "Headcount data by department and division"
+    source_system: "duckdb"
     tags:
       - "erp"
       - "hr"
@@ -48,6 +51,7 @@ data_products:
     name: "Employee Performance"
     domain: "SAP"
     description: "Employee performance ratings and KPIs"
+    source_system: "duckdb"
     tags:
       - "erp"
       - "hr"
@@ -61,6 +65,7 @@ data_products:
     name: "Employee Personal Data"
     domain: "SAP"
     description: "Personal and demographic data for SAP employees"
+    source_system: "duckdb"
     tags:
       - "erp"
       - "hr"
@@ -74,6 +79,7 @@ data_products:
     name: "Sales Orders"
     domain: "SAP"
     description: "Sales orders from SAP sample data"
+    source_system: "bigquery"
     tags:
       - "erp"
       - "sales"
@@ -87,6 +93,7 @@ data_products:
     name: "Sales Order Items"
     domain: "SAP"
     description: "Line items for sales orders"
+    source_system: "bigquery"
     tags:
       - "erp"
       - "sales"

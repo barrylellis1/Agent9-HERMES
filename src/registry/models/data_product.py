@@ -68,7 +68,11 @@ class DataProduct(BaseModel):
     related_business_processes: List[str] = Field(default_factory=list, 
                                                description="Business processes related to this data product")
     tags: List[str] = Field(default_factory=list, description="Tags for categorization")
-    metadata: Dict[str, str] = Field(default_factory=dict, description="Additional metadata for extensions")
+    source_system: str = Field(
+        "duckdb",
+        description="Primary source system (duckdb, bigquery, etc.) for the curated data product",
+    )
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata for extensions")
     
     @classmethod
     def from_enum_value(cls, enum_value: str, domain: str = "Finance") -> "DataProduct":
@@ -141,6 +145,7 @@ class DataProduct(BaseModel):
         owner = metadata.get("owner", f"{domain} Team")
         description = metadata.get("description", f"Data product for {domain}")
         version = metadata.get("version", "1.0.0")
+        source_system = metadata.get("source_system") or yaml_data.get("source_system") or "duckdb"
         
         # Use provided ID or generate from name
         if not data_product_id:
@@ -207,6 +212,7 @@ class DataProduct(BaseModel):
             views=views,
             tags=metadata.get("tags", []),
             related_business_processes=metadata.get("related_business_processes", []),
+            source_system=source_system,
             metadata={k: v for k, v in metadata.items() 
                     if k not in ["name", "domain", "owner", "description", "version", "tags"]}
         )

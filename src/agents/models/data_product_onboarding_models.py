@@ -22,6 +22,26 @@ from src.agents.shared.a9_agent_base_model import (
 # ---------------------------------------------------------------------------
 
 
+class ForeignKeyRelationship(A9AgentBaseModel):
+    """Foreign key relationship extracted from metadata catalog or inferred."""
+
+    source_table: str = Field(..., description="Source table name")
+    source_column: str = Field(..., description="Foreign key column in source table")
+    target_table: str = Field(..., description="Referenced table name")
+    target_column: str = Field(..., description="Referenced column in target table")
+    confidence: float = Field(
+        1.0,
+        description="Confidence score: 1.0 for catalog-extracted, <1.0 for inferred",
+    )
+    relationship_type: str = Field(
+        "many-to-one",
+        description="Relationship cardinality: many-to-one, one-to-one, many-to-many",
+    )
+    constraint_name: Optional[str] = Field(
+        None, description="Name of the FK constraint in the source system"
+    )
+
+
 class TableColumnProfile(A9AgentBaseModel):
     """Column-level profiling details captured during schema inspection."""
 
@@ -57,6 +77,17 @@ class TableProfile(A9AgentBaseModel):
     )
     columns: List[TableColumnProfile] = Field(
         default_factory=list, description="Column profiles for the table"
+    )
+    foreign_keys: List[ForeignKeyRelationship] = Field(
+        default_factory=list,
+        description="Foreign key relationships extracted from catalog or inferred",
+    )
+    table_role: Optional[str] = Field(
+        None,
+        description="Table role in data model: FACT, DIMENSION, BRIDGE (required for DuckDB)",
+    )
+    view_definition: Optional[str] = Field(
+        None, description="SQL definition for views (extracted from INFORMATION_SCHEMA.VIEWS)"
     )
     notes: Optional[str] = Field(None, description="Additional metadata or caveats")
 
@@ -98,7 +129,15 @@ class QAResult(A9AgentBaseModel):
 class DataProductSchemaInspectionRequest(A9AgentBaseRequest):
     """Request model for inspecting a source schema."""
 
-    source_system: str = Field(..., description="Identifier for the source system (duckdb, bigquery, etc.)")
+    data_product_id: Optional[str] = Field(
+        None,
+        description="Registry identifier for the data product being onboarded (used for defaults/metadata)",
+    )
+    source_system: Optional[str] = Field(
+        None,
+        description="Identifier for the source system (duckdb, bigquery, etc.). "
+        "If omitted, the agent will use the registry metadata or default to DuckDB.",
+    )
     database: Optional[str] = Field(None, description="Database/catalog name if required by the source")
     schema: Optional[str] = Field(None, description="Schema/dataset name to inspect")
     tables: Optional[List[str]] = Field(

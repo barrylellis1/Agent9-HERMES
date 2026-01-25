@@ -1,0 +1,954 @@
+metadata:
+  id: test_check
+  name: Test Check
+  domain: Unknown
+tables:
+- name: ProductTexts
+  columns:
+  - name: ProductID
+    data_type: STRING
+    semantic_tags:
+    - identifier
+  - name: Language
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ShortDesc
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: MediumDesc
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: LongDesc
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  primary_keys:
+  - ProductID
+- name: BusinessPartners
+  columns:
+  - name: PARTNERID
+    data_type: INT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: PARTNERROLE
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: EMAILADDRESS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: PHONENUMBER
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: FAXNUMBER
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: WEBADDRESS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ADDRESSID
+    data_type: INT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: COMPANYNAME
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: LEGALFORM
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: CREATEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: CREATEDAT
+    data_type: DATE
+    semantic_tags:
+    - dimension
+  - name: CHANGEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: CHANGEDAT
+    data_type: DATE
+    semantic_tags:
+    - dimension
+  - name: CURRENCY
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  primary_keys:
+  - PARTNERID
+  - ADDRESSID
+- name: AllSalesDataView
+  columns:
+  - name: BusinessPartner_PARTNERID
+    data_type: INT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: PARTNERROLE
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: EMAILADDRESS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: PHONENUMBER
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: FAXNUMBER
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: WEBADDRESS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ADDRESSID
+    data_type: INT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: COMPANYNAME
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: LEGALFORM
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: BusinessPartner_CREATEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: BusinessPartner_CREATEDAT
+    data_type: DATE
+    semantic_tags:
+    - dimension
+  - name: BusinessPartner_CHANGEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: BusinessPartner_CHANGEDAT
+    data_type: DATE
+    semantic_tags:
+    - dimension
+  - name: BusinessPartner_CURRENCY
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: SALESORDERID
+    data_type: INT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: SalesOrder_CREATEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: SalesOrder_CREATEDAT
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: SalesOrder_CHANGEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: SalesOrder_CHANGEDAT
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: FISCALYEARVARIANT
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: FISCALYEARPERIOD
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: SalesOrder_NOTEID
+    data_type: STRING
+    semantic_tags:
+    - identifier
+  - name: SalesOrder_PARTNERID
+    data_type: INT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: SALESORG
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: SalesOrder_CURRENCY
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: SalesOrder_GROSSAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: SalesOrder_NETAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: SalesOrder_TAXAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: LIFECYCLESTATUS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: BILLINGSTATUS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: DELIVERYSTATUS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: SALESORDERITEM
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: PRODUCTID
+    data_type: STRING
+    semantic_tags:
+    - identifier
+  - name: SalesOrderItem_NOTEID
+    data_type: STRING
+    semantic_tags:
+    - identifier
+  - name: SalesOrderItem_CURRENCY
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: SalesOrderItem_GROSSAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: SalesOrderItem_NETAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: SalesOrderItem_TAXAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: ITEMATPSTATUS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: OPITEMPOS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: QUANTITY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: QUANTITYUNIT
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: DELIVERYDATE
+    data_type: INT64
+    semantic_tags:
+    - time
+    - numeric
+  primary_keys:
+  - BusinessPartner_PARTNERID
+  - ADDRESSID
+  - SALESORDERID
+  - SalesOrder_NOTEID
+  - SalesOrder_PARTNERID
+  - PRODUCTID
+  - SalesOrderItem_NOTEID
+  time_columns:
+  - DELIVERYDATE
+- name: ProductCategoryTexts
+  columns:
+  - name: ProductCategoryID
+    data_type: STRING
+    semantic_tags:
+    - identifier
+  - name: Language
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ShortDescr
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: MediumDescr
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: LongDescr
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  primary_keys:
+  - ProductCategoryID
+- name: SalesOrders
+  columns:
+  - name: SALESORDERID
+    data_type: INT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: CREATEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: CREATEDAT
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: CHANGEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: CHANGEDAT
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: FISCALYEARVARIANT
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: FISCALYEARPERIOD
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: NOTEID
+    data_type: STRING
+    semantic_tags:
+    - identifier
+  - name: PARTNERID
+    data_type: INT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: SALESORG
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: CURRENCY
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: GROSSAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: NETAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: TAXAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: LIFECYCLESTATUS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: BILLINGSTATUS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: DELIVERYSTATUS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  primary_keys:
+  - SALESORDERID
+  - NOTEID
+  - PARTNERID
+- name: Products
+  columns:
+  - name: PRODUCTID
+    data_type: STRING
+    semantic_tags:
+    - identifier
+  - name: TYPECODE
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: PRODUCTCATEGORYID
+    data_type: STRING
+    semantic_tags:
+    - identifier
+  - name: LANGUAGE
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: SUPPLIER_PARTNERID
+    data_type: INT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: TAXTARIFFCODE
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: QUANTITYUNIT
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: WEIGHTMEASURE
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: WEIGHTUNIT
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: CURRENCY
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: PRICE
+    data_type: FLOAT64
+    semantic_tags:
+    - measure
+  - name: WIDTH
+    data_type: FLOAT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: DEPTH
+    data_type: FLOAT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: HEIGHT
+    data_type: FLOAT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: DIMENSIONUNIT
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: CREATEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: CREATEDAT
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: CHANGEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: CHANGEDAT
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: PRODUCTPICURL
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  primary_keys:
+  - PRODUCTID
+  - PRODUCTCATEGORYID
+  - SUPPLIER_PARTNERID
+- name: ProductHierarchy
+  columns:
+  - name: HierarchyID
+    data_type: STRING
+    semantic_tags:
+    - identifier
+  - name: Description
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: Level
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  primary_keys:
+  - HierarchyID
+- name: SalesOrderItems
+  columns:
+  - name: SALESORDERID
+    data_type: INT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: SALESORDERITEM
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: PRODUCTID
+    data_type: STRING
+    semantic_tags:
+    - identifier
+  - name: NOTEID
+    data_type: STRING
+    semantic_tags:
+    - identifier
+  - name: CURRENCY
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: GROSSAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: NETAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: TAXAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: ITEMATPSTATUS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: OPITEMPOS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: QUANTITY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: QUANTITYUNIT
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: DELIVERYDATE
+    data_type: INT64
+    semantic_tags:
+    - time
+    - numeric
+  primary_keys:
+  - SALESORDERID
+  - PRODUCTID
+  - NOTEID
+  time_columns:
+  - DELIVERYDATE
+- name: SalesOrderStarSchemaView
+  columns:
+  - name: BusinessPartner_PARTNERID
+    data_type: INT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: PARTNERROLE
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: EMAILADDRESS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: PHONENUMBER
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: FAXNUMBER
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: WEBADDRESS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: BusinessPartner_ADDRESSID
+    data_type: INT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: COMPANYNAME
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: LEGALFORM
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: BusinessPartner_CREATEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: BusinessPartner_CREATEDAT
+    data_type: DATE
+    semantic_tags:
+    - dimension
+  - name: BusinessPartner_CHANGEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: BusinessPartner_CHANGEDAT
+    data_type: DATE
+    semantic_tags:
+    - dimension
+  - name: BusinessPartner_CURRENCY
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: SALESORDERID
+    data_type: INT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: SalesOrder_CREATEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: SalesOrder_CREATEDAT
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: SalesOrder_CHANGEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: SalesOrder_CHANGEDAT
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: FISCALYEARVARIANT
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: FISCALYEARPERIOD
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: SalesOrder_NOTEID
+    data_type: STRING
+    semantic_tags:
+    - identifier
+  - name: SALESORG
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: SalesOrder_CURRENCY
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: SalesOrder_GROSSAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: SalesOrder_NETAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: SalesOrder_TAXAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: LIFECYCLESTATUS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: BILLINGSTATUS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: DELIVERYSTATUS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: SALESORDERITEM
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: SalesOrderItem_NOTEID
+    data_type: STRING
+    semantic_tags:
+    - identifier
+  - name: SalesOrderItem_CURRENCY
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: SalesOrderItem_GROSSAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: SalesOrderItem_NETAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: SalesOrderItem_TAXAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: ITEMATPSTATUS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: OPITEMPOS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: QUANTITY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: SalesOrderItem_QUANTITYUNIT
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: DELIVERYDATE
+    data_type: INT64
+    semantic_tags:
+    - time
+    - numeric
+  - name: PRODUCTID
+    data_type: STRING
+    semantic_tags:
+    - identifier
+  - name: Product_TYPECODE
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: PRODUCTCATEGORYID
+    data_type: STRING
+    semantic_tags:
+    - identifier
+  - name: Product_LANGUAGE
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: SUPPLIER_PARTNERID
+    data_type: INT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: TAXTARIFFCODE
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: Product_QUANTITYUNIT
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: WEIGHTMEASURE
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: WEIGHTUNIT
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: Product_CURRENCY
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: Product_PRICE
+    data_type: FLOAT64
+    semantic_tags:
+    - measure
+  - name: WIDTH
+    data_type: FLOAT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: DEPTH
+    data_type: FLOAT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: HEIGHT
+    data_type: FLOAT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: DIMENSIONUNIT
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: Product_CREATEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: Product_CREATEDAT
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: Product_CHANGEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: Product_CHANGEDAT
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: PRODUCTPICURL
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ProductText_ShortDescription_EN
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ProductText_MediumDescription_EN
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ProductText_LongDescription_EN
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ProductCategoryText_ShortDescription_EN
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ProductCategoryText_MediumDescription_EN
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ProductCategoryText_LongDescription_EN
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ProductHierarchy_Description
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ProductHierarchy_Level
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  primary_keys:
+  - BusinessPartner_PARTNERID
+  - BusinessPartner_ADDRESSID
+  - SALESORDERID
+  - SalesOrder_NOTEID
+  - SalesOrderItem_NOTEID
+  - PRODUCTID
+  - PRODUCTCATEGORYID
+  - SUPPLIER_PARTNERID
+  time_columns:
+  - DELIVERYDATE
+views:
+- name: test_check_ProductTexts_view
+  sql: SELECT ProductID, Language, ShortDesc, MediumDesc, LongDesc FROM ProductTexts
+  source_table: ProductTexts
+- name: test_check_BusinessPartners_view
+  sql: SELECT PARTNERID, PARTNERROLE, EMAILADDRESS, PHONENUMBER, FAXNUMBER, WEBADDRESS,
+    ADDRESSID, COMPANYNAME, LEGALFORM, CREATEDBY, CREATEDAT, CHANGEDBY, CHANGEDAT,
+    CURRENCY FROM BusinessPartners
+  source_table: BusinessPartners
+- name: test_check_AllSalesDataView_view
+  sql: SELECT BusinessPartner_PARTNERID, PARTNERROLE, EMAILADDRESS, PHONENUMBER, FAXNUMBER,
+    WEBADDRESS, ADDRESSID, COMPANYNAME, LEGALFORM, BusinessPartner_CREATEDBY, BusinessPartner_CREATEDAT,
+    BusinessPartner_CHANGEDBY, BusinessPartner_CHANGEDAT, BusinessPartner_CURRENCY,
+    SALESORDERID, SalesOrder_CREATEDBY, SalesOrder_CREATEDAT, SalesOrder_CHANGEDBY,
+    SalesOrder_CHANGEDAT, FISCALYEARVARIANT, FISCALYEARPERIOD, SalesOrder_NOTEID,
+    SalesOrder_PARTNERID, SALESORG, SalesOrder_CURRENCY, SalesOrder_GROSSAMOUNT, SalesOrder_NETAMOUNT,
+    SalesOrder_TAXAMOUNT, LIFECYCLESTATUS, BILLINGSTATUS, DELIVERYSTATUS, SALESORDERITEM,
+    PRODUCTID, SalesOrderItem_NOTEID, SalesOrderItem_CURRENCY, SalesOrderItem_GROSSAMOUNT,
+    SalesOrderItem_NETAMOUNT, SalesOrderItem_TAXAMOUNT, ITEMATPSTATUS, OPITEMPOS,
+    QUANTITY, QUANTITYUNIT, DELIVERYDATE FROM AllSalesDataView
+  source_table: AllSalesDataView
+- name: test_check_ProductCategoryTexts_view
+  sql: SELECT ProductCategoryID, Language, ShortDescr, MediumDescr, LongDescr FROM
+    ProductCategoryTexts
+  source_table: ProductCategoryTexts
+- name: test_check_SalesOrders_view
+  sql: SELECT SALESORDERID, CREATEDBY, CREATEDAT, CHANGEDBY, CHANGEDAT, FISCALYEARVARIANT,
+    FISCALYEARPERIOD, NOTEID, PARTNERID, SALESORG, CURRENCY, GROSSAMOUNT, NETAMOUNT,
+    TAXAMOUNT, LIFECYCLESTATUS, BILLINGSTATUS, DELIVERYSTATUS FROM SalesOrders
+  source_table: SalesOrders
+- name: test_check_Products_view
+  sql: SELECT PRODUCTID, TYPECODE, PRODUCTCATEGORYID, LANGUAGE, SUPPLIER_PARTNERID,
+    TAXTARIFFCODE, QUANTITYUNIT, WEIGHTMEASURE, WEIGHTUNIT, CURRENCY, PRICE, WIDTH,
+    DEPTH, HEIGHT, DIMENSIONUNIT, CREATEDBY, CREATEDAT, CHANGEDBY, CHANGEDAT, PRODUCTPICURL
+    FROM Products
+  source_table: Products
+- name: test_check_ProductHierarchy_view
+  sql: SELECT HierarchyID, Description, Level FROM ProductHierarchy
+  source_table: ProductHierarchy
+- name: test_check_SalesOrderItems_view
+  sql: SELECT SALESORDERID, SALESORDERITEM, PRODUCTID, NOTEID, CURRENCY, GROSSAMOUNT,
+    NETAMOUNT, TAXAMOUNT, ITEMATPSTATUS, OPITEMPOS, QUANTITY, QUANTITYUNIT, DELIVERYDATE
+    FROM SalesOrderItems
+  source_table: SalesOrderItems
+- name: test_check_SalesOrderStarSchemaView_view
+  sql: SELECT BusinessPartner_PARTNERID, PARTNERROLE, EMAILADDRESS, PHONENUMBER, FAXNUMBER,
+    WEBADDRESS, BusinessPartner_ADDRESSID, COMPANYNAME, LEGALFORM, BusinessPartner_CREATEDBY,
+    BusinessPartner_CREATEDAT, BusinessPartner_CHANGEDBY, BusinessPartner_CHANGEDAT,
+    BusinessPartner_CURRENCY, SALESORDERID, SalesOrder_CREATEDBY, SalesOrder_CREATEDAT,
+    SalesOrder_CHANGEDBY, SalesOrder_CHANGEDAT, FISCALYEARVARIANT, FISCALYEARPERIOD,
+    SalesOrder_NOTEID, SALESORG, SalesOrder_CURRENCY, SalesOrder_GROSSAMOUNT, SalesOrder_NETAMOUNT,
+    SalesOrder_TAXAMOUNT, LIFECYCLESTATUS, BILLINGSTATUS, DELIVERYSTATUS, SALESORDERITEM,
+    SalesOrderItem_NOTEID, SalesOrderItem_CURRENCY, SalesOrderItem_GROSSAMOUNT, SalesOrderItem_NETAMOUNT,
+    SalesOrderItem_TAXAMOUNT, ITEMATPSTATUS, OPITEMPOS, QUANTITY, SalesOrderItem_QUANTITYUNIT,
+    DELIVERYDATE, PRODUCTID, Product_TYPECODE, PRODUCTCATEGORYID, Product_LANGUAGE,
+    SUPPLIER_PARTNERID, TAXTARIFFCODE, Product_QUANTITYUNIT, WEIGHTMEASURE, WEIGHTUNIT,
+    Product_CURRENCY, Product_PRICE, WIDTH, DEPTH, HEIGHT, DIMENSIONUNIT, Product_CREATEDBY,
+    Product_CREATEDAT, Product_CHANGEDBY, Product_CHANGEDAT, PRODUCTPICURL, ProductText_ShortDescription_EN,
+    ProductText_MediumDescription_EN, ProductText_LongDescription_EN, ProductCategoryText_ShortDescription_EN,
+    ProductCategoryText_MediumDescription_EN, ProductCategoryText_LongDescription_EN,
+    ProductHierarchy_Description, ProductHierarchy_Level FROM SalesOrderStarSchemaView
+  source_table: SalesOrderStarSchemaView
+kpis: []

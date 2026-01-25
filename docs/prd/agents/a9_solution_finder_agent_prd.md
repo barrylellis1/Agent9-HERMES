@@ -222,9 +222,135 @@ The Solution Finder Agent uses the principal's `decision_style` to select approp
 #### Persona Selection Priority
 
 1. **Request-level override**: `preferences.consulting_personas` or `preferences.council_preset`
-2. **Principal decision_style**: Maps to appropriate council via table above
-3. **Principal role affinity**: Falls back to role-based persona mapping (CFO → analytical personas)
-4. **Default**: MBB Council (McKinsey, BCG, Bain)
+2. **KPI lens_affinity**: Use KPI metadata to select personas (NEW - see below)
+3. **Principal decision_style**: Maps to appropriate council via table above
+4. **Principal role affinity**: Falls back to role-based persona mapping (CFO → analytical personas)
+5. **Default**: MBB Council (McKinsey, BCG, Bain)
+
+#### KPI Lens Affinity Integration (2026-01-22)
+
+**Purpose:** When generating solutions for KPI-related situations, use the KPI's `metadata.lens_affinity` tag to select the most appropriate consulting personas for analysis.
+
+**Integration Flow:**
+```
+Situation Awareness detects KPI anomaly
+  ↓
+Retrieves KPI definition from registry
+  ↓
+Extracts metadata.lens_affinity (e.g., "bcg,bain")
+  ↓
+Passes to Solution Finder as context
+  ↓
+Solution Finder selects personas based on lens_affinity
+  ↓
+Generates solutions using selected consulting frameworks
+```
+
+**Lens Affinity Values:**
+- `bcg`: Portfolio view, growth-share matrix, value creation, strategic positioning
+- `bain`: Operational excellence, quick wins, results-first, pragmatic implementation
+- `mckinsey` or `mbb_council`: Root cause analysis, MECE frameworks, hypothesis-driven
+- Combined: `"bcg,bain"` uses both personas in council debate
+
+**Selection Logic:**
+```python
+def select_personas_for_kpi(kpi: KPI, principal_context: PrincipalContext) -> List[str]:
+    # Priority 1: Request-level override
+    if principal_context.preferences.consulting_personas:
+        return principal_context.preferences.consulting_personas
+    
+    # Priority 2: KPI lens_affinity
+    if kpi.metadata.get('lens_affinity'):
+        personas = kpi.metadata['lens_affinity'].split(',')
+        return [p.strip() for p in personas]
+    
+    # Priority 3: Principal decision_style
+    return map_decision_style_to_personas(principal_context.decision_style)
+```
+
+**Example Scenarios:**
+
+**Revenue Growth KPI:**
+```yaml
+kpi:
+  id: total_revenue
+  metadata:
+    lens_affinity: bcg,mckinsey
+```
+→ Solution Finder uses BCG (growth strategy) + McKinsey (market analysis)
+
+**Cost Reduction KPI:**
+```yaml
+kpi:
+  id: operating_expenses
+  metadata:
+    lens_affinity: bain
+```
+→ Solution Finder uses Bain (operational excellence, quick wins)
+
+**Efficiency KPI:**
+```yaml
+kpi:
+  id: gross_margin
+  metadata:
+    lens_affinity: bain
+```
+→ Solution Finder uses Bain (process optimization)
+
+**Strategic Risk KPI:**
+```yaml
+kpi:
+  id: customer_churn_rate
+  metadata:
+    lens_affinity: mckinsey,bain
+```
+→ Solution Finder uses McKinsey (root cause) + Bain (retention tactics)
+
+**API Integration:**
+
+**Input Model Enhancement:**
+```python
+class SolutionFinderInput(BaseModel):
+    situation: Situation
+    principal_context: PrincipalContext
+    kpi_context: Optional[KPIContext] = None  # NEW
+
+class KPIContext(BaseModel):
+    kpi_id: str
+    kpi_name: str
+    lens_affinity: Optional[str] = None
+    profit_driver_type: Optional[str] = None
+    altitude: Optional[str] = None
+```
+
+**Output Model Enhancement:**
+```python
+class SolutionFinderOutput(BaseModel):
+    solutions: List[Solution]
+    framing_context: FramingContext
+
+class FramingContext(BaseModel):
+    decision_style: str
+    personas_used: List[str]
+    persona_source: str  # "kpi_lens_affinity" | "decision_style" | "role_affinity" | "default"
+    kpi_context: Optional[str] = None  # Explanation of KPI-driven persona selection
+    presentation_note: str
+    disclaimer: str
+```
+
+**Transparency Requirements:**
+
+When using KPI lens_affinity, include in framing_context:
+```json
+{
+  "framing_context": {
+    "personas_used": ["bcg", "bain"],
+    "persona_source": "kpi_lens_affinity",
+    "kpi_context": "Selected BCG and Bain personas based on Total Revenue KPI's strategic growth and operational focus.",
+    "presentation_note": "Solutions emphasize portfolio growth (BCG) and execution excellence (Bain) per KPI characteristics."
+  }
+}
+```
 
 ---
 
@@ -288,7 +414,10 @@ All Solution Finder outputs MUST include:
 - All solution generation and evaluation steps must be logged for auditability and compliance
 - All market research usage (including LLM-sourced insights) must include source attribution and be logged for compliance.
 - Decision style to persona mapping must be implemented via consulting_persona_provider
+- KPI lens_affinity must be retrieved from Data Governance Agent and used for persona selection
+- Persona selection priority: request override > KPI lens_affinity > decision_style > role affinity > default
 - Guardrails for personalization vs attribution must be enforced in all LLM prompts
+- All persona selection decisions must be logged with source (lens_affinity, decision_style, etc.)
 
 ---
 

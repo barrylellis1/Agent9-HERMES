@@ -315,6 +315,7 @@ class DataProductProvider(RegistryProvider[DataProduct]):
                     "domain": entry.get("domain"),
                     "description": entry.get("description"),
                     "tags": entry.get("tags"),
+                    "source_system": entry.get("source_system"),
                     "language": entry.get("language"),
                     "last_updated": entry.get("last_updated"),
                     "documentation": entry.get("documentation"),

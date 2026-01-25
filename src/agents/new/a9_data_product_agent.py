@@ -33,6 +33,7 @@ from src.agents.agent_config_models import A9_Data_Product_Agent_Config
 from src.agents.protocols.data_product_protocol import DataProductProtocol
 from src.agents.shared.a9_agent_base_model import A9AgentBaseModel
 from src.database.backends.duckdb_manager import DuckDBManager
+from src.database.manager_factory import DatabaseManagerFactory
 from src.registry.factory import RegistryFactory
 from src.registry.providers.data_product_provider import DataProductProvider
 from src.registry.providers.kpi_provider import KPIProvider
@@ -55,9 +56,15 @@ from src.agents.models.data_product_onboarding_models import (
     DataProductQAResponse,
     TableProfile,
     TableColumnProfile,
+    ForeignKeyRelationship,
     KPIProposal,
     QAResult,
 )
+
+try:  # Optional dependency for admin console defaults
+    from src.config.connection_profiles import get_active_profile  # type: ignore
+except Exception:  # pragma: no cover - optional component
+    get_active_profile = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -661,9 +668,40 @@ class A9_Data_Product_Agent(DataProductProtocol):
         blockers: List[str] = []
         inspection_metadata: Dict[str, Any] = {}
 
+        settings = self._resolve_inspection_settings(request)
+        source_system = settings["source_system"]
+        inspection_metadata["source_system"] = source_system
+        if settings.get("schema"):
+            inspection_metadata["schema"] = settings["schema"]
+        if settings.get("project"):
+            inspection_metadata["project"] = settings["project"]
+
         try:
-            if not await self._ensure_db_connected():
-                msg = "Database connection unavailable for schema inspection"
+            inspection_manager, cleanup_needed = await self._prepare_inspection_manager(settings)
+        except Exception as conn_err:
+            msg = f"Unable to connect to {source_system}: {conn_err}"
+            blockers.append(msg)
+            return DataProductSchemaInspectionResponse.error(
+                request_id=request_id,
+                error_message=msg,
+                environment=request.environment,
+                tables=tables,
+                inferred_kpis=inferred_kpis,
+                warnings=warnings,
+                blockers=blockers,
+                inspection_metadata=inspection_metadata,
+            )
+
+        try:
+            try:
+                table_names = await self._discover_tables_for_inspection(
+                    inspection_manager,
+                    settings,
+                )
+                if not table_names:
+                    warnings.append("No tables or views discovered for inspection")
+            except Exception as discover_err:
+                msg = f"Failed to enumerate objects for inspection: {discover_err}"
                 blockers.append(msg)
                 return DataProductSchemaInspectionResponse.error(
                     request_id=request_id,
@@ -676,57 +714,13 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     inspection_metadata=inspection_metadata,
                 )
 
-            # Build the list of tables to inspect
-            table_names: List[str]
-            if request.tables:
-                table_names = request.tables
-            else:
-                # Query DuckDB information schema for available tables in the schema
-                list_sql = """
-                    SELECT table_schema, table_name
-                    FROM information_schema.tables
-                    WHERE table_type = 'BASE TABLE'
-                """
-                params: Dict[str, Any] = {}
-                if request.schema:
-                    list_sql += " AND table_schema = ?"
-                    params = {"schema": request.schema}
-                try:
-                    df = await self.db_manager.execute_query(
-                        list_sql,
-                        parameters=params if params else None,
-                    )
-                    if not df.empty:
-                        table_names = [
-                            f"{row['table_schema']}.{row['table_name']}"
-                            if request.schema is None
-                            else row["table_name"]
-                            for _, row in df.iterrows()
-                        ]
-                    else:
-                        warnings.append("No tables discovered for inspection")
-                        table_names = []
-                except Exception as discover_err:
-                    msg = f"Failed to enumerate tables: {discover_err}"
-                    blockers.append(msg)
-                    return DataProductSchemaInspectionResponse.error(
-                        request_id=request_id,
-                        error_message=msg,
-                        environment=request.environment,
-                        tables=tables,
-                        inferred_kpis=inferred_kpis,
-                        warnings=warnings,
-                        blockers=blockers,
-                        inspection_metadata=inspection_metadata,
-                    )
-
-            # Profile each table
+            # Profile each table/view using the resolved backend
             for table_name in table_names:
                 try:
                     profile = await self._profile_table(
+                        inspection_manager=inspection_manager,
                         table_name=table_name,
-                        include_samples=request.include_samples,
-                        inspection_depth=request.inspection_depth,
+                        settings=settings,
                     )
                     if profile:
                         tables.append(profile)
@@ -758,6 +752,12 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 blockers=blockers or ["Unexpected error"],
                 inspection_metadata=inspection_metadata,
             )
+        finally:
+            if "cleanup_needed" in locals() and cleanup_needed:
+                try:
+                    await inspection_manager.disconnect()
+                except Exception:
+                    pass
 
     async def generate_contract_yaml(
         self, request: DataProductContractGenerationRequest
@@ -829,6 +829,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 "name": request.display_name or request.data_product_id,
                 "domain": request.domain or "Unknown",
                 "description": request.description or "",
+                "owner": request.owner_metadata.get("owner", "system") if request.owner_metadata else "system",
                 "contract_path": request.contract_path,
                 "tags": request.tags,
                 "owner_metadata": request.owner_metadata,
@@ -974,6 +975,11 @@ class A9_Data_Product_Agent(DataProductProtocol):
         except Exception as err:
             self.logger.error(f"QA validation error: {err}\n{traceback.format_exc()}")
             blockers.append(str(err))
+            if "cleanup_needed" in locals() and cleanup_needed:
+                try:
+                    await inspection_manager.disconnect()
+                except Exception:
+                    pass
             return DataProductQAResponse.error(
                 request_id=request_id,
                 error_message=str(err),
@@ -983,92 +989,497 @@ class A9_Data_Product_Agent(DataProductProtocol):
             )
 
     # ------------------------------------------------------------------
-    # Helpers for onboarding
+    # Schema Inspection Helper Methods
     # ------------------------------------------------------------------
 
+    def _resolve_inspection_settings(self, request: DataProductSchemaInspectionRequest) -> Dict[str, Any]:
+        """
+        Resolve inspection settings from request, registry, and connection profile.
+        
+        Returns a settings dict with: source_system, schema, project, tables, 
+        connection_config, connection_params, connection_overrides.
+        """
+        settings: Dict[str, Any] = {
+            "source_system": "duckdb",
+            "schema": None,
+            "project": None,
+            "tables": None,
+            "connection_config": {},
+            "connection_params": {},
+            "connection_overrides": {},
+        }
+        
+        # Start with request values
+        if request.source_system:
+            settings["source_system"] = request.source_system.lower()
+        if request.schema:
+            settings["schema"] = request.schema
+        if request.database:
+            settings["project"] = request.database
+        if request.tables:
+            settings["tables"] = request.tables
+        if request.connection_overrides:
+            settings["connection_overrides"] = request.connection_overrides
+        
+        # Merge registry metadata if data_product_id provided
+        if request.data_product_id and self.data_product_provider:
+            try:
+                dp = self.data_product_provider.get(request.data_product_id)
+                if dp:
+                    if hasattr(dp, "source_system") and dp.source_system and not request.source_system:
+                        settings["source_system"] = dp.source_system.lower()
+                    if hasattr(dp, "metadata") and isinstance(dp.metadata, dict):
+                        if not settings["project"] and "project" in dp.metadata:
+                            settings["project"] = dp.metadata["project"]
+                        if not settings["schema"] and "dataset" in dp.metadata:
+                            settings["schema"] = dp.metadata["dataset"]
+            except Exception as e:
+                self.logger.warning(f"Failed to load registry metadata for {request.data_product_id}: {e}")
+        
+        # Build connection config for manager factory
+        source_system = settings["source_system"]
+        if source_system == "duckdb":
+            db_path = settings["connection_overrides"].get("path") or self.db_path
+            settings["connection_config"] = {"type": "duckdb", "path": db_path}
+            settings["connection_params"] = {}
+        elif source_system == "bigquery":
+            project = settings["project"] or settings["connection_overrides"].get("project")
+            dataset = settings["schema"] or settings["connection_overrides"].get("dataset")
+            settings["connection_config"] = {
+                "type": "bigquery",
+                "project": project,
+                "dataset": dataset,
+            }
+            # Build connection params from overrides
+            conn_params = {}
+            self.logger.info(f"BigQuery connection_overrides keys: {list(settings['connection_overrides'].keys())}")
+            if "service_account_info" in settings["connection_overrides"]:
+                conn_params["service_account_info"] = settings["connection_overrides"]["service_account_info"]
+                self.logger.info("Using service_account_info from overrides")
+            elif "service_account_json_path" in settings["connection_overrides"]:
+                conn_params["service_account_json_path"] = settings["connection_overrides"]["service_account_json_path"]
+                self.logger.info(f"Using service_account_json_path: {conn_params['service_account_json_path']}")
+            elif "service_account_path" in settings["connection_overrides"]:
+                conn_params["service_account_json_path"] = settings["connection_overrides"]["service_account_path"]
+                self.logger.info(f"Using service_account_path: {conn_params['service_account_json_path']}")
+            else:
+                self.logger.warning("No service account credentials found in connection_overrides")
+            settings["connection_params"] = conn_params
+            self.logger.info(f"BigQuery connection_params: project={project}, dataset={dataset}, has_credentials={bool(conn_params)}")
+        
+        # Set defaults for inspection
+        if not settings["schema"]:
+            settings["schema"] = "main" if source_system == "duckdb" else None
+        
+        return settings
+    
+    async def _prepare_inspection_manager(self, settings: Dict[str, Any]):
+        """
+        Instantiate and connect the appropriate database manager.
+        
+        Returns (manager, cleanup_needed) tuple.
+        For DuckDB, reuses existing connection (cleanup_needed=False).
+        For other backends, creates new manager (cleanup_needed=True).
+        """
+        source_system = settings["source_system"]
+        
+        if source_system == "duckdb":
+            # Reuse existing DuckDB connection
+            await self._ensure_db_connected()
+            return self.db_manager, False
+        
+        # Create new manager for other backends
+        from src.database.manager_factory import DatabaseManagerFactory
+        
+        self.logger.info(f"Creating {source_system} manager with config: {settings['connection_config']}")
+        manager = DatabaseManagerFactory.create_manager(
+            source_system,
+            settings["connection_config"],
+            logger=self.logger
+        )
+        
+        # Connect with provided params
+        self.logger.info(f"Connecting {source_system} manager with params keys: {list(settings['connection_params'].keys())}")
+        connected = await manager.connect(settings["connection_params"])
+        if not connected:
+            raise RuntimeError(f"Failed to connect to {source_system} with provided credentials")
+        
+        self.logger.info(f"{source_system} manager connected successfully")
+        return manager, True
+    
+    async def _discover_tables_for_inspection(
+        self, inspection_manager, settings: Dict[str, Any]
+    ) -> List[str]:
+        """
+        Discover tables/views to inspect.
+        
+        If explicit tables provided in settings, use those.
+        Otherwise, query INFORMATION_SCHEMA for the backend.
+        """
+        # Use explicit tables if provided
+        if settings.get("tables"):
+            return settings["tables"]
+        
+        source_system = settings["source_system"]
+        schema = settings.get("schema")
+        project = settings.get("project")
+        
+        if source_system == "duckdb":
+            # Query DuckDB information_schema
+            query = f"""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = '{schema or "main"}'
+                AND table_type IN ('BASE TABLE', 'VIEW')
+            """
+            result = await inspection_manager.execute_query(query, {})
+            rows = result.get("rows", []) if isinstance(result, dict) else []
+            return [row.get("table_name") or row.get("TABLE_NAME") for row in rows if row]
+        
+        elif source_system == "bigquery":
+            # Query BigQuery INFORMATION_SCHEMA
+            query = f"""
+                SELECT table_name
+                FROM `{project}.{schema}.INFORMATION_SCHEMA.TABLES`
+                WHERE table_type IN ('BASE TABLE', 'VIEW')
+            """
+            self.logger.info(f"Executing BigQuery discovery query with project={project}, schema={schema}")
+            self.logger.info(f"Query: {query}")
+            result = await inspection_manager.execute_query(query, {})
+            
+            self.logger.info(f"BigQuery result type: {type(result)}, hasattr to_dict: {hasattr(result, 'to_dict')}, hasattr empty: {hasattr(result, 'empty')}")
+            
+            # BigQuery returns a pandas DataFrame
+            if hasattr(result, 'to_dict'):
+                # It's a DataFrame
+                self.logger.info(f"DataFrame shape: {result.shape}, columns: {list(result.columns) if hasattr(result, 'columns') else 'N/A'}")
+                if not result.empty and 'table_name' in result.columns:
+                    tables = result['table_name'].tolist()
+                    self.logger.info(f"Discovered {len(tables)} tables: {tables}")
+                    return tables
+                else:
+                    self.logger.warning(f"DataFrame is empty={result.empty if hasattr(result, 'empty') else 'N/A'}, has table_name={'table_name' in result.columns if hasattr(result, 'columns') else 'N/A'}")
+                    if hasattr(result, 'empty') and result.empty:
+                        self.logger.error("BigQuery query returned 0 rows - check if dataset exists and has tables")
+                    return []
+            # Fallback for dict format
+            rows = result.get("rows", []) if isinstance(result, dict) else []
+            return [row.get("table_name") or row.get("TABLE_NAME") for row in rows if row]
+        
+        return []
+    
     async def _profile_table(
-        self,
-        table_name: str,
-        include_samples: bool,
-        inspection_depth: str,
+        self, inspection_manager, table_name: str, settings: Dict[str, Any]
     ) -> Optional[TableProfile]:
-        """Inspect a single table and return a profile."""
-
+        """
+        Profile a table/view using the appropriate backend method.
+        
+        Dispatches to _profile_table_duckdb or _profile_table_bigquery.
+        """
+        source_system = settings["source_system"]
+        include_samples = settings.get("include_samples", False)
+        inspection_depth = settings.get("inspection_depth", "standard")
+        
+        if source_system == "duckdb":
+            return await self._profile_table_duckdb(
+                inspection_manager, table_name, include_samples, inspection_depth
+            )
+        elif source_system == "bigquery":
+            return await self._profile_table_bigquery(
+                inspection_manager, table_name, include_samples, inspection_depth, settings
+            )
+        
+        return None
+    
+    async def _profile_table_duckdb(
+        self, inspection_manager, table_name: str, include_samples: bool, inspection_depth: str
+    ) -> Optional[TableProfile]:
+        """Profile a DuckDB table using PRAGMA and direct queries with FK inference."""
         try:
-            # Fetch row count and primary keys (using DuckDB pragmas)
-            row_count_df = await self.db_manager.execute_query(
-                f"SELECT COUNT(*) AS row_count FROM {table_name}"
-            )
-            row_count = int(row_count_df.iloc[0]["row_count"]) if not row_count_df.empty else None
-
-            pragma_df = await self.db_manager.execute_query(
-                f"PRAGMA table_info('{table_name}')"
-            )
-
-            columns: List[TableColumnProfile] = []
-            primary_keys: List[str] = []
-            timestamp_columns: List[str] = []
-
-            for _, row in pragma_df.iterrows():
+            # Get column metadata via PRAGMA
+            pragma_result = await inspection_manager.execute_query(f"PRAGMA table_info('{table_name}')", {})
+            pragma_rows = pragma_result.get("rows", []) if isinstance(pragma_result, dict) else []
+            
+            columns = []
+            for row in pragma_rows:
                 col_name = row.get("name")
-                data_type = row.get("type")
-                is_nullable = not bool(row.get("notnull"))
-                if bool(row.get("pk")):
-                    primary_keys.append(col_name)
-
-                if data_type and any(
-                    token in str(data_type).lower() for token in ("date", "time", "timestamp")
-                ):
-                    timestamp_columns.append(col_name)
-
-                sample_values: List[Any] = []
-                statistics: Dict[str, Any] = {}
-
-                if include_samples:
-                    sample_df = await self.db_manager.execute_query(
-                        f"SELECT {col_name} FROM {table_name} LIMIT 5"
-                    )
-                    sample_values = sample_df[col_name].tolist() if col_name in sample_df else []
-
-                if inspection_depth in {"standard", "extended"}:
-                    stats_df = await self.db_manager.execute_query(
-                        f"SELECT COUNT(*) AS total_count, DISTINCT COUNT({col_name}) AS distinct_count FROM {table_name}"
-                    )
-                    if not stats_df.empty:
-                        statistics = {
-                            "total_count": int(stats_df.iloc[0]["total_count"]),
-                            "distinct_count": int(stats_df.iloc[0]["distinct_count"]),
-                        }
-
-                semantic_tags = self._infer_semantic_tags(col_name, data_type)
-
-                columns.append(
-                    TableColumnProfile(
+                col_type = row.get("type")
+                is_nullable = row.get("notnull", 0) == 0
+                if col_name:
+                    semantic_tags = self._infer_semantic_tags(col_name, col_type)
+                    columns.append(TableColumnProfile(
                         name=col_name,
-                        data_type=data_type,
+                        data_type=col_type or "UNKNOWN",
                         is_nullable=is_nullable,
-                        sample_values=sample_values,
-                        statistics=statistics,
                         semantic_tags=semantic_tags,
-                    )
-                )
-
+                    ))
+            
+            # Get row count
+            count_result = await inspection_manager.execute_query(f"SELECT COUNT(*) as count FROM {table_name}", {})
+            count_rows = count_result.get("rows", []) if isinstance(count_result, dict) else []
+            row_count = count_rows[0].get("count", 0) if count_rows else 0
+            
+            # Infer FK relationships via naming conventions
+            foreign_keys = await self._infer_foreign_keys_duckdb(
+                inspection_manager, table_name, columns
+            )
+            
+            # Infer primary keys and timestamp columns from semantic tags
+            primary_keys = [col.name for col in columns if "identifier" in col.semantic_tags and col.name.lower().endswith("id")]
+            timestamp_columns = [col.name for col in columns if "time" in col.semantic_tags]
+            
+            # Infer table role
+            table_role = self._infer_table_role(table_name, columns, None)
+            
             return TableProfile(
                 name=table_name,
                 row_count=row_count,
+                columns=columns,
                 primary_keys=primary_keys,
                 timestamp_columns=timestamp_columns,
-                columns=columns,
+                foreign_keys=foreign_keys,
+                table_role=table_role,
             )
-        except Exception as err:
-            self.logger.warning(f"Error profiling table {table_name}: {err}")
+        except Exception as e:
+            self.logger.error(f"Failed to profile DuckDB table {table_name}: {e}")
             return None
-
+    
+    async def _infer_foreign_keys_duckdb(
+        self, inspection_manager, table_name: str, columns: List[TableColumnProfile]
+    ) -> List:
+        """
+        Infer FK relationships for DuckDB via naming conventions.
+        
+        Heuristics:
+        - Column ending in _id → look for table with singular/plural name
+        - Validate target table exists
+        - Check for matching PK column (id or {table}_id)
+        """
+        from src.agents.models.data_product_onboarding_models import ForeignKeyRelationship
+        
+        foreign_keys = []
+        
+        # Get list of available tables
+        try:
+            tables_query = "SELECT name FROM sqlite_master WHERE type='table'"
+            tables_result = await inspection_manager.execute_query(tables_query, {})
+            available_tables = [row.get("name") for row in tables_result.get("rows", [])]
+        except Exception as e:
+            self.logger.warning(f"Could not query available tables for FK inference: {e}")
+            available_tables = []
+        
+        for col in columns:
+            col_lower = col.name.lower()
+            
+            # Check if column looks like a FK (ends with _id)
+            if col_lower.endswith("_id") and col_lower != "id":
+                # Extract potential table name
+                potential_table_base = col_lower[:-3]  # Remove _id
+                
+                # Try singular and plural forms
+                potential_tables = [
+                    potential_table_base,
+                    potential_table_base + "s",
+                    potential_table_base[:-1] if potential_table_base.endswith("s") else None,
+                ]
+                potential_tables = [t for t in potential_tables if t]
+                
+                # Check if any potential table exists
+                for target_table in potential_tables:
+                    if target_table in available_tables:
+                        # Assume target has PK column named 'id' or '{table}_id'
+                        target_column = "id"
+                        
+                        foreign_keys.append(ForeignKeyRelationship(
+                            source_table=table_name,
+                            source_column=col.name,
+                            target_table=target_table,
+                            target_column=target_column,
+                            confidence=0.7,  # Inferred, not catalog-extracted
+                            relationship_type="many-to-one",
+                        ))
+                        self.logger.info(f"Inferred FK: {table_name}.{col.name} -> {target_table}.{target_column} (confidence: 0.7)")
+                        break
+        
+        return foreign_keys
+    
+    async def _profile_table_bigquery(
+        self, inspection_manager, table_name: str, include_samples: bool, 
+        inspection_depth: str, settings: Dict[str, Any]
+    ) -> Optional[TableProfile]:
+        """Profile a BigQuery view using INFORMATION_SCHEMA with FK extraction."""
+        try:
+            project = settings.get("project")
+            schema = settings.get("schema")
+            
+            # Get column metadata from INFORMATION_SCHEMA
+            columns_query = f"""
+                SELECT column_name, data_type, is_nullable
+                FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+                WHERE table_name = @table_name
+                ORDER BY ordinal_position
+            """
+            columns_result = await inspection_manager.execute_query(
+                columns_query, 
+                {"table_name": table_name}
+            )
+            
+            columns = []
+            # Handle DataFrame response
+            if hasattr(columns_result, 'iterrows'):
+                for _, row in columns_result.iterrows():
+                    col_name = row.get("column_name")
+                    col_type = row.get("data_type")
+                    is_nullable = row.get("is_nullable", "YES") == "YES"
+                    if col_name:
+                        semantic_tags = self._infer_semantic_tags(col_name, col_type)
+                        columns.append(TableColumnProfile(
+                            name=col_name,
+                            data_type=col_type or "UNKNOWN",
+                            is_nullable=is_nullable,
+                            semantic_tags=semantic_tags,
+                        ))
+            else:
+                # Fallback for dict format
+                column_rows = columns_result.get("rows", []) if isinstance(columns_result, dict) else []
+                for row in column_rows:
+                    col_name = row.get("column_name")
+                    col_type = row.get("data_type")
+                    is_nullable = row.get("is_nullable", "YES") == "YES"
+                    if col_name:
+                        semantic_tags = self._infer_semantic_tags(col_name, col_type)
+                        columns.append(TableColumnProfile(
+                            name=col_name,
+                            data_type=col_type or "UNKNOWN",
+                            is_nullable=is_nullable,
+                            semantic_tags=semantic_tags,
+                        ))
+            
+            # Get row count
+            count_query = f"SELECT COUNT(1) as row_count FROM `{project}.{schema}.{table_name}`"
+            count_result = await inspection_manager.execute_query(count_query, {})
+            
+            # Handle DataFrame response
+            if hasattr(count_result, 'iloc'):
+                row_count = int(count_result.iloc[0]['row_count']) if not count_result.empty else 0
+            else:
+                # Fallback for dict format
+                count_rows = count_result.get("rows", []) if isinstance(count_result, dict) else []
+                row_count = count_rows[0].get("row_count", 0) if count_rows else 0
+            
+            # Extract FK relationships from INFORMATION_SCHEMA (if available)
+            foreign_keys = []
+            try:
+                fk_query = f"""
+                    SELECT 
+                        kcu.column_name,
+                        kcu.referenced_table_name,
+                        kcu.referenced_column_name,
+                        tc.constraint_name
+                    FROM `{project}.{schema}.INFORMATION_SCHEMA.KEY_COLUMN_USAGE` kcu
+                    JOIN `{project}.{schema}.INFORMATION_SCHEMA.TABLE_CONSTRAINTS` tc
+                        ON kcu.constraint_name = tc.constraint_name
+                    WHERE kcu.table_name = @table_name
+                      AND tc.constraint_type = 'FOREIGN KEY'
+                """
+                fk_result = await inspection_manager.execute_query(
+                    fk_query,
+                    {"table_name": table_name}
+                )
+                
+                from src.agents.models.data_product_onboarding_models import ForeignKeyRelationship
+                
+                # Handle DataFrame response
+                if hasattr(fk_result, 'iterrows'):
+                    for _, fk_row in fk_result.iterrows():
+                        foreign_keys.append(ForeignKeyRelationship(
+                            source_table=table_name,
+                            source_column=fk_row.get("column_name"),
+                            target_table=fk_row.get("referenced_table_name"),
+                            target_column=fk_row.get("referenced_column_name"),
+                            confidence=1.0,  # Catalog-extracted
+                            constraint_name=fk_row.get("constraint_name"),
+                        ))
+                        self.logger.info(f"Extracted FK: {table_name}.{fk_row.get('column_name')} -> {fk_row.get('referenced_table_name')}.{fk_row.get('referenced_column_name')}")
+                else:
+                    # Fallback for dict format
+                    fk_rows = fk_result.get("rows", []) if isinstance(fk_result, dict) else []
+                    for fk_row in fk_rows:
+                        foreign_keys.append(ForeignKeyRelationship(
+                            source_table=table_name,
+                            source_column=fk_row.get("column_name"),
+                            target_table=fk_row.get("referenced_table_name"),
+                            target_column=fk_row.get("referenced_column_name"),
+                            confidence=1.0,  # Catalog-extracted
+                            constraint_name=fk_row.get("constraint_name"),
+                        ))
+                        self.logger.info(f"Extracted FK: {table_name}.{fk_row.get('column_name')} -> {fk_row.get('referenced_table_name')}.{fk_row.get('referenced_column_name')}")
+            except Exception as fk_error:
+                self.logger.warning(f"Could not extract FK relationships for {table_name}: {fk_error}")
+            
+            # Extract view definition if this is a view
+            view_definition = None
+            try:
+                view_query = f"""
+                    SELECT view_definition
+                    FROM `{project}.{schema}.INFORMATION_SCHEMA.VIEWS`
+                    WHERE table_name = @table_name
+                """
+                view_result = await inspection_manager.execute_query(
+                    view_query,
+                    {"table_name": table_name}
+                )
+                
+                # Handle DataFrame response
+                if hasattr(view_result, 'iloc'):
+                    if not view_result.empty:
+                        view_definition = view_result.iloc[0].get("view_definition")
+                        self.logger.info(f"Extracted view definition for {table_name}")
+                else:
+                    # Fallback for dict format
+                    view_rows = view_result.get("rows", []) if isinstance(view_result, dict) else []
+                    if view_rows:
+                        view_definition = view_rows[0].get("view_definition")
+                        self.logger.info(f"Extracted view definition for {table_name}")
+            except Exception as view_error:
+                self.logger.debug(f"Table {table_name} is not a view or view definition unavailable: {view_error}")
+            
+            # If this is a view with no FK constraints, infer FKs from the view definition
+            if view_definition and len(foreign_keys) == 0:
+                self.logger.info(f"Inferring FK relationships from view definition for {table_name}")
+                self.logger.debug(f"View definition length: {len(view_definition)}")
+                self.logger.debug(f"View definition sample: {view_definition[-500:]}")
+                inferred_fks = self._infer_fks_from_view_definition(table_name, view_definition, columns)
+                foreign_keys.extend(inferred_fks)
+                self.logger.info(f"Inferred {len(inferred_fks)} FK relationships from view definition")
+            
+            # Infer primary keys and timestamp columns from semantic tags
+            primary_keys = [col.name for col in columns if "identifier" in col.semantic_tags and col.name.lower().endswith("id")]
+            timestamp_columns = [col.name for col in columns if "time" in col.semantic_tags]
+            
+            # Determine table role from view definition or heuristics
+            table_role = self._infer_table_role(table_name, columns, view_definition)
+            
+            return TableProfile(
+                name=table_name,
+                row_count=row_count,
+                columns=columns,
+                primary_keys=primary_keys,
+                timestamp_columns=timestamp_columns,
+                foreign_keys=foreign_keys,
+                table_role=table_role,
+                view_definition=view_definition,
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to profile BigQuery table {table_name}: {e}")
+            return None
+    
     def _infer_semantic_tags(self, column_name: str, data_type: Optional[str]) -> List[str]:
-        tags: List[str] = []
+        """Infer semantic tags from column name and data type."""
+        tags = []
         lower_name = column_name.lower()
-
-        if any(token in lower_name for token in ["amount", "revenue", "cost", "total", "qty", "quantity"]):
+        
+        if any(token in lower_name for token in ["amount", "revenue", "cost", "price", "total", "sum"]):
             tags.append("measure")
         if any(token in lower_name for token in ["date", "time", "_at", "timestamp"]):
             tags.append("time")
@@ -1077,11 +1488,148 @@ class A9_Data_Product_Agent(DataProductProtocol):
         if not tags:
             tags.append("dimension")
 
-        if data_type and any(token in str(data_type).lower() for token in ("int", "decimal", "double", "numeric")):
+        if data_type and any(token in str(data_type).lower() for token in ("int", "decimal", "double", "numeric", "float")):
             if "measure" not in tags:
                 tags.append("numeric")
 
         return tags
+
+    def _infer_table_role(
+        self, table_name: str, columns: List[TableColumnProfile], view_definition: Optional[str]
+    ) -> Optional[str]:
+        """
+        Infer table role (FACT, DIMENSION) from table characteristics.
+        
+        Heuristics:
+        - FACT: Many measures, few dimensions, FK columns, large row counts
+        - DIMENSION: Few/no measures, many dimensions, PK column, smaller row counts
+        """
+        measure_count = sum(1 for col in columns if "measure" in col.semantic_tags)
+        dimension_count = sum(1 for col in columns if "dimension" in col.semantic_tags)
+        fk_count = sum(1 for col in columns if col.name.lower().endswith("_id") and not col.name.lower() == "id")
+        has_id = any(col.name.lower() == "id" for col in columns)
+        
+        # Check table name patterns
+        lower_name = table_name.lower()
+        if any(token in lower_name for token in ["_fact", "fact_", "transaction", "event", "log"]):
+            return "FACT"
+        if any(token in lower_name for token in ["_dim", "dim_", "_dimension", "dimension_"]):
+            return "DIMENSION"
+        
+        # Heuristic-based inference
+        if measure_count > 2 and fk_count > 0:
+            return "FACT"
+        if dimension_count > measure_count and has_id:
+            return "DIMENSION"
+        
+        # Parse view definition for JOIN patterns (fact tables typically JOIN many dimensions)
+        if view_definition:
+            join_count = view_definition.upper().count("JOIN")
+            if join_count > 2:
+                return "FACT"
+        
+        return None  # Unable to determine
+
+    def _infer_fks_from_view_definition(
+        self, view_name: str, view_definition: str, columns: List[TableColumnProfile]
+    ) -> List[ForeignKeyRelationship]:
+        """
+        Infer FK relationships from view definition by parsing JOIN clauses.
+        
+        Example:
+        FROM SalesOrders so JOIN BusinessPartners bp ON so.PartnerID = bp.PartnerID
+        -> Infers: SalesOrders.PartnerID -> BusinessPartners.PartnerID
+        """
+        import re
+        
+        foreign_keys = []
+        
+        # Pattern to match JOIN clauses with ON conditions
+        # BigQuery format: `project-id`.dataset.table AS alias
+        # Backticks only around project name if it contains dashes
+        # Match: optional `project`, then .dataset.table or just table_name
+        join_pattern = re.compile(
+            r'(?:INNER\s+|LEFT\s+|RIGHT\s+|FULL\s+)?JOIN\s+(?:`[^`]+`\.)?(\S+)\s+(?:AS\s+)?(\w+)\s+ON\s+(\w+)\.(\w+)\s*=\s*(\w+)\.(\w+)',
+            re.IGNORECASE | re.DOTALL
+        )
+        
+        # Build a map of table aliases to table names from the view definition
+        # Pattern: FROM `project`.dataset.table AS alias or FROM table AS alias
+        from_pattern = re.compile(r'FROM\s+(?:`[^`]+`\.)?(\S+)\s+(?:AS\s+)?(\w+)', re.IGNORECASE)
+        
+        alias_to_table = {}
+        
+        # Extract FROM clause alias
+        from_match = from_pattern.search(view_definition)
+        if from_match:
+            table_name = from_match.group(1)
+            alias = from_match.group(2)
+            # Extract just the table name from fully qualified names (project.dataset.table)
+            if '.' in table_name:
+                table_name = table_name.split('.')[-1]
+            alias_to_table[alias.lower()] = table_name
+            self.logger.debug(f"FROM clause: {alias} -> {table_name}")
+        else:
+            self.logger.warning(f"No FROM clause matched in view definition")
+        
+        # Extract JOIN clause aliases and FK relationships
+        join_matches = list(join_pattern.finditer(view_definition))
+        self.logger.debug(f"Found {len(join_matches)} JOIN matches")
+        
+        for match in join_matches:
+            # Group 1: table name (backtick-quoted), Group 2: alias
+            # Groups 3-6: ON clause (left_alias.left_col = right_alias.right_col)
+            table_name = match.group(1)
+            alias = match.group(2)
+            
+            # Extract just the table name from fully qualified names
+            if '.' in table_name:
+                table_name = table_name.split('.')[-1]
+            alias_to_table[alias.lower()] = table_name
+            self.logger.debug(f"JOIN clause: {alias} -> {table_name}")
+        
+        # Parse JOIN conditions (iterate again to extract FK relationships)
+        for match in join_pattern.finditer(view_definition):
+            # Groups: 1=table, 2=alias, 3=left_alias, 4=left_col, 5=right_alias, 6=right_col
+            left_alias = match.group(3).lower()
+            left_col = match.group(4)
+            right_alias = match.group(5).lower()
+            right_col = match.group(6)
+            
+            # Resolve aliases to table names
+            left_table = alias_to_table.get(left_alias, left_alias)
+            right_table = alias_to_table.get(right_alias, right_alias)
+            
+            # Check if the column exists in the view's columns
+            column_names = [col.name.lower() for col in columns]
+            
+            # Create FK relationship if the column is in the view
+            # Convention: the table with "ID" suffix column is typically the FK source
+            if left_col.lower() in column_names or right_col.lower() in column_names:
+                # Determine which side is the FK (source) and which is the PK (target)
+                # Heuristic: if column name matches table name + "ID", it's likely the FK
+                if left_col.lower().endswith("id") and left_table.lower() != right_table.lower():
+                    foreign_keys.append(ForeignKeyRelationship(
+                        source_table=view_name,
+                        source_column=left_col,
+                        target_table=right_table,
+                        target_column=right_col,
+                        confidence=0.8,  # Inferred from view definition
+                        constraint_name=f"inferred_{view_name}_{left_col}_{right_table}_{right_col}",
+                    ))
+                    self.logger.info(f"Inferred FK from view: {view_name}.{left_col} -> {right_table}.{right_col}")
+                elif right_col.lower().endswith("id") and left_table.lower() != right_table.lower():
+                    foreign_keys.append(ForeignKeyRelationship(
+                        source_table=view_name,
+                        source_column=right_col,
+                        target_table=left_table,
+                        target_column=left_col,
+                        confidence=0.8,  # Inferred from view definition
+                        constraint_name=f"inferred_{view_name}_{right_col}_{left_table}_{left_col}",
+                    ))
+                    self.logger.info(f"Inferred FK from view: {view_name}.{right_col} -> {left_table}.{left_col}")
+        
+        return foreign_keys
 
     def _infer_kpis_from_profiles(self, tables: List[TableProfile]) -> List[KPIProposal]:
         proposals: List[KPIProposal] = []

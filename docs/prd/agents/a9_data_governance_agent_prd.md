@@ -73,6 +73,146 @@ Example protocol output:
 ### Core Capabilities
 
 - **YAML Contract Context Support:** Reads and applies YAML-driven data product contract metadata from the workflow context for schema, mapping, and policy enforcement.
+
+### KPI Strategic Metadata Tag Management (2026-01-22)
+
+#### Purpose
+Manage and validate strategic metadata tags for KPIs that enable principal-driven analysis, consulting persona selection, and situation prioritization across Agent9 workflows.
+
+#### Strategic Metadata Tag Specifications
+
+All KPIs in the registry MUST include the following strategic metadata tags:
+
+**1. metadata.line** - Financial Statement Classification
+- **Values:** `top_line`, `middle_line`, `bottom_line`
+- **Purpose:** Classifies KPI by P&L impact area
+- **Usage:** Filters KPIs by financial focus area for principals
+- **Definitions:**
+  - `top_line`: Revenue and growth metrics (e.g., Total Revenue, Sales Growth, Market Share)
+  - `middle_line`: Operational efficiency and conversion metrics (e.g., Gross Margin, Conversion Rate, Utilization)
+  - `bottom_line`: Profitability and cost control metrics (e.g., Net Profit, Operating Expenses, EBITDA)
+
+**2. metadata.altitude** - Decision Level
+- **Values:** `strategic`, `tactical`, `operational`
+- **Purpose:** Indicates decision-making level for the KPI
+- **Usage:** Situation Awareness Agent prioritizes situations by principal's organizational level
+- **Definitions:**
+  - `strategic`: C-suite focus, long-term planning (3-5 years), company-wide impact
+  - `tactical`: Department head focus, quarterly/annual goals, functional area impact
+  - `operational`: Manager/supervisor focus, daily/weekly operations, team-level impact
+
+**3. metadata.profit_driver_type** - P&L Impact Type
+- **Values:** `revenue`, `expense`, `efficiency`, `risk`
+- **Purpose:** Identifies how the KPI drives profitability
+- **Usage:** Deep Analysis Agent frames problems through profit lens
+- **Definitions:**
+  - `revenue`: Drives top-line growth (sales, pricing, market expansion)
+  - `expense`: Controls or reduces costs (procurement, labor, overhead)
+  - `efficiency`: Optimizes resource utilization (productivity, asset turns, yield)
+  - `risk`: Manages downside protection (compliance, quality, customer retention)
+
+**4. metadata.lens_affinity** - Consulting Persona Mapping
+- **Values:** Comma-separated list from: `bcg`, `bain`, `mckinsey`, `mbb_council`, `growth_council`, `cost_council`
+- **Purpose:** Maps KPI to consulting methodologies best suited for analysis
+- **Usage:** Solution Finder Agent selects consulting personas based on KPI context
+- **Definitions:**
+  - `bcg`: Portfolio view, growth-share matrix, value creation, strategic positioning
+  - `bain`: Operational excellence, quick wins, results-first, pragmatic implementation
+  - `mckinsey` or `mbb_council`: Root cause analysis, MECE frameworks, hypothesis-driven, structured problem-solving
+  - Can combine: `"bcg,bain"` for KPIs requiring both growth and operational lenses
+
+**5. Additional Operational Metadata**
+- `refresh_frequency`: How often KPI data is updated (e.g., "daily", "hourly", "real-time")
+- `data_latency`: Expected delay in data availability (e.g., "1_day", "1_hour", "real-time")
+- `calculation_complexity`: Computational complexity ("simple", "moderate", "complex")
+
+#### Validation Rules
+
+The Data Governance Agent SHALL enforce the following validation rules for KPI metadata:
+
+1. **Required Tags:** All four strategic metadata tags (line, altitude, profit_driver_type, lens_affinity) MUST be present
+2. **Valid Values:** Each tag MUST contain only allowed enumerated values
+3. **Logical Consistency:** Tag combinations MUST be logically consistent:
+   - `top_line` + `profit_driver_type:revenue` (consistent)
+   - `bottom_line` + `profit_driver_type:expense` (consistent)
+   - `top_line` + `profit_driver_type:expense` (inconsistent - should warn)
+4. **Lens Affinity Validation:** Multiple personas can be specified but must be comma-separated with no spaces
+5. **Altitude-Owner Alignment:** Strategic altitude should align with C-suite owner roles
+
+#### Tag Assignment Guidelines
+
+When validating or suggesting KPI metadata tags, use these guidelines:
+
+**Revenue KPIs:**
+```yaml
+metadata:
+  line: top_line
+  altitude: strategic
+  profit_driver_type: revenue
+  lens_affinity: bcg,mckinsey
+```
+
+**Efficiency KPIs:**
+```yaml
+metadata:
+  line: middle_line
+  altitude: tactical
+  profit_driver_type: efficiency
+  lens_affinity: bain
+```
+
+**Cost Control KPIs:**
+```yaml
+metadata:
+  line: bottom_line
+  altitude: operational
+  profit_driver_type: expense
+  lens_affinity: bain
+```
+
+**Risk Management KPIs:**
+```yaml
+metadata:
+  line: bottom_line
+  altitude: tactical
+  profit_driver_type: risk
+  lens_affinity: mckinsey,bain
+```
+
+#### Integration with Other Agents
+
+**During Data Product Onboarding:**
+- Validate KPI metadata tags suggested by KPI Assistant Agent
+- Flag inconsistencies or missing tags for correction
+- Provide tag recommendations based on KPI characteristics
+
+**For Situation Awareness:**
+- Filter KPIs by altitude to match principal's organizational level
+- Use profit_driver_type to categorize situations (revenue opportunity vs. cost problem)
+- Pass lens_affinity to Solution Finder for persona selection
+
+**For Solution Finder:**
+- Retrieve lens_affinity from KPI metadata
+- Select appropriate consulting personas for analysis
+- Ensure solution framing matches KPI's strategic context
+
+#### API Methods
+
+**validate_kpi_metadata(kpi: KPI) -> ValidationResult**
+- Validates all required metadata tags are present and valid
+- Checks logical consistency of tag combinations
+- Returns errors, warnings, and suggestions
+
+**suggest_kpi_metadata(kpi_characteristics: Dict) -> MetadataSuggestion**
+- Suggests appropriate metadata tags based on KPI name, description, and calculation
+- Provides rationale for each suggestion
+- Returns confidence scores for suggestions
+
+**enrich_kpi_metadata(kpi: KPI, context: Dict) -> KPI**
+- Enriches KPI with missing metadata tags using context from data product and domain
+- Applies default values based on domain and KPI type
+- Logs all enrichment operations for audit
+
 1. Business-to-Technical Translation (NEW, MVP Alignment)
    - Translate business terms (responsibilities, filters) into technical attribute names and code values
    - Resolve ambiguities and map business language to data product metadata

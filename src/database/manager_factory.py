@@ -19,6 +19,7 @@ from src.database.manager_interface import DatabaseManager
 # These will be registered in the factory
 # Note: Import statements will be uncommented as backends are implemented
 from src.database.backends.duckdb_manager import DuckDBManager
+from src.database.backends.bigquery_manager import BigQueryManager
 # from src.database.backends.hana_manager import HANAManager
 # from src.database.backends.snowflake_manager import SnowflakeManager
 # from src.database.backends.databricks_manager import DatabricksManager
@@ -35,6 +36,7 @@ class DatabaseManagerFactory:
     # Maps database type string to manager class
     _registry: Dict[str, Type[DatabaseManager]] = {
         'duckdb': DuckDBManager,
+        'bigquery': BigQueryManager,
         # 'hana': HANAManager,
         # 'snowflake': SnowflakeManager,
         # 'databricks': DatabricksManager,
