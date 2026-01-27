@@ -776,6 +776,9 @@ class SupabaseDataProductProvider(DataProductProvider):
     
     def _row_to_data_product(self, row: dict) -> DataProduct:
         """Convert Supabase row to DataProduct Pydantic object."""
+        metadata = row.get('metadata', {})
+        source_system = row.get('source_system') or metadata.get('source_system', 'duckdb')
+        
         return DataProduct(
             id=row['id'],
             name=row['name'],
@@ -787,6 +790,6 @@ class SupabaseDataProductProvider(DataProductProvider):
             views=row.get('views', {}),
             related_business_processes=row.get('related_business_processes', []),
             tags=row.get('tags', []),
-            source_system=row.get('source_system', 'duckdb'),
-            metadata=row.get('metadata', {}),
+            source_system=source_system,
+            metadata=metadata,
         )

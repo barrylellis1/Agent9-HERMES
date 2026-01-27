@@ -59,6 +59,9 @@ from src.agents.models.data_product_onboarding_models import (
     ForeignKeyRelationship,
     KPIProposal,
     QAResult,
+    ValidateKPIQueriesRequest,
+    ValidateKPIQueriesResponse,
+    KPIQueryValidationResult,
 )
 
 try:  # Optional dependency for admin console defaults
@@ -3640,3 +3643,349 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 "comparison_value": None,
                 "metadata": {"transaction_id": transaction_id}
             }
+
+    # ------------------------------------------------------------------
+    # KPI Query Validation (Phase 2)
+    # ------------------------------------------------------------------
+
+    async def validate_kpi_queries(
+        self, request: ValidateKPIQueriesRequest
+    ) -> ValidateKPIQueriesResponse:
+        """
+        Validate KPI queries by executing them against the data source.
+        
+        This method executes each KPI query and returns:
+        - Success/failure status
+        - First 5 rows of results (if successful)
+        - Error messages and categorization (if failed)
+        - Execution time metrics
+        
+        Args:
+            request: Validation request with KPIs and connection details
+            
+        Returns:
+            Validation response with results for each KPI
+        """
+        request_id = request.request_id
+        self.logger.info(f"[{request_id}] Starting KPI query validation for {len(request.kpis)} KPIs")
+        
+        validation_timestamp = datetime.datetime.utcnow().isoformat() + "Z"
+        results = []
+        passed_count = 0
+        failed_count = 0
+        
+        # Prepare database manager for validation
+        validation_manager = None
+        manager_connected = False
+        
+        try:
+            # Build connection settings for validation
+            source_system = request.source_system.lower() if request.source_system else "duckdb"
+            
+            settings = {
+                "source_system": source_system,
+                "schema": request.schema,
+                "project": request.database,
+                "connection_overrides": request.connection_overrides or {},
+                "connection_config": {},
+                "connection_params": {},
+            }
+            
+            # Build connection config for manager factory
+            if source_system == "duckdb":
+                db_path = settings["connection_overrides"].get("path") or self.db_path
+                settings["connection_config"] = {"type": "duckdb", "path": db_path}
+            elif source_system == "bigquery":
+                settings["connection_config"] = {
+                    "type": "bigquery",
+                    "project": settings["project"],
+                    "dataset": settings["schema"],
+                }
+                # Add service account path if provided
+                if settings["connection_overrides"].get("service_account_json_path"):
+                    settings["connection_params"]["service_account_json_path"] = settings["connection_overrides"]["service_account_json_path"]
+            
+            # Create and connect validation manager
+            validation_manager, manager_connected = await self._prepare_inspection_manager(settings)
+            
+            if not manager_connected:
+                self.logger.error(f"[{request_id}] Failed to connect to {source_system}")
+                return ValidateKPIQueriesResponse(
+                    request_id=request_id,
+                    status="error",
+                    error_message=f"Failed to connect to {source_system} for validation",
+                    results=[],
+                    overall_status="validation_error",
+                    validation_timestamp=validation_timestamp,
+                    can_proceed_to_governance=False,
+                    summary={
+                        "total": len(request.kpis),
+                        "passed": 0,
+                        "failed": 0,
+                        "errors": len(request.kpis),
+                    }
+                )
+            
+            # Validate each KPI query
+            for kpi in request.kpis:
+                result = await self._validate_single_kpi_query(
+                    kpi=kpi,
+                    validation_manager=validation_manager,
+                    timeout_seconds=request.timeout_seconds,
+                    request_id=request_id
+                )
+                results.append(result)
+                
+                if result.status == "success":
+                    passed_count += 1
+                else:
+                    failed_count += 1
+            
+            # Determine overall status
+            if passed_count == len(request.kpis):
+                overall_status = "all_passed"
+            elif failed_count == len(request.kpis):
+                overall_status = "all_failed"
+            else:
+                overall_status = "some_failed"
+            
+            # Validation is required for governance, but can proceed even with failures
+            can_proceed = True
+            
+            self.logger.info(
+                f"[{request_id}] Validation complete: {passed_count} passed, {failed_count} failed"
+            )
+            
+            return ValidateKPIQueriesResponse(
+                request_id=request_id,
+                status="success",
+                results=results,
+                overall_status=overall_status,
+                validation_timestamp=validation_timestamp,
+                can_proceed_to_governance=can_proceed,
+                summary={
+                    "total": len(request.kpis),
+                    "passed": passed_count,
+                    "failed": failed_count,
+                    "errors": failed_count,
+                }
+            )
+            
+        except Exception as e:
+            self.logger.error(
+                f"[{request_id}] Error during KPI validation: {str(e)}\n{traceback.format_exc()}"
+            )
+            return ValidateKPIQueriesResponse(
+                request_id=request_id,
+                status="error",
+                error_message=f"Validation error: {str(e)}",
+                results=results,
+                overall_status="validation_error",
+                validation_timestamp=validation_timestamp,
+                can_proceed_to_governance=False,
+                summary={
+                    "total": len(request.kpis),
+                    "passed": passed_count,
+                    "failed": failed_count,
+                    "errors": len(request.kpis) - len(results),
+                }
+            )
+        finally:
+            # Cleanup: disconnect validation manager if it's not the main db_manager
+            if validation_manager and validation_manager != self.db_manager:
+                try:
+                    await validation_manager.disconnect()
+                    self.logger.info(f"[{request_id}] Validation manager disconnected")
+                except Exception as cleanup_err:
+                    self.logger.warning(f"[{request_id}] Error disconnecting validation manager: {cleanup_err}")
+
+    async def _validate_single_kpi_query(
+        self,
+        kpi: Any,
+        validation_manager: Any,
+        timeout_seconds: int,
+        request_id: str
+    ) -> KPIQueryValidationResult:
+        """
+        Validate a single KPI query by executing it.
+        
+        Args:
+            kpi: KPI definition with sql_query
+            validation_manager: Database manager to use for execution
+            timeout_seconds: Query timeout in seconds
+            request_id: Request ID for logging
+            
+        Returns:
+            Validation result for the KPI
+        """
+        kpi_id = kpi.id
+        kpi_name = kpi.name
+        sql_query = kpi.sql_query
+        
+        self.logger.info(f"[{request_id}] Validating KPI {kpi_id}: {kpi_name}")
+        
+        start_time = time.time()
+        
+        try:
+            # Execute query with timeout
+            result = await asyncio.wait_for(
+                validation_manager.execute_query(sql_query),
+                timeout=timeout_seconds
+            )
+            
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            
+            # Handle DataFrame response (BigQuery, DuckDB return DataFrames)
+            import pandas as pd
+            if isinstance(result, pd.DataFrame):
+                # Empty DataFrame indicates error
+                if result.empty and hasattr(result, 'attrs') and 'error' in result.attrs:
+                    error_msg = result.attrs.get('error', 'Unknown error')
+                    error_type = self._categorize_error(error_msg)
+                    
+                    self.logger.warning(f"[{request_id}] KPI {kpi_id} failed: {error_msg}")
+                    
+                    return KPIQueryValidationResult(
+                        kpi_id=kpi_id,
+                        kpi_name=kpi_name,
+                        status="error",
+                        execution_time_ms=execution_time_ms,
+                        error_message=error_msg,
+                        error_type=error_type,
+                    )
+                
+                # Convert DataFrame to list of dicts
+                row_count = len(result)
+                sample_rows = result.head(5).to_dict('records') if not result.empty else []
+                
+            # Handle dict response (legacy format)
+            elif isinstance(result, dict):
+                if not result.get("success", False):
+                    error_msg = result.get("error", "Unknown error")
+                    error_type = self._categorize_error(error_msg)
+                    
+                    self.logger.warning(f"[{request_id}] KPI {kpi_id} failed: {error_msg}")
+                    
+                    return KPIQueryValidationResult(
+                        kpi_id=kpi_id,
+                        kpi_name=kpi_name,
+                        status="error",
+                        execution_time_ms=execution_time_ms,
+                        error_message=error_msg,
+                        error_type=error_type,
+                    )
+                
+                # Extract rows from dict format
+                rows = result.get("rows", []) or result.get("data", [])
+                row_count = len(rows)
+                sample_rows = rows[:5] if rows else []
+                
+                # Convert rows to list of dicts if needed
+                if sample_rows and not isinstance(sample_rows[0], dict):
+                    columns = result.get("columns", [])
+                    if columns:
+                        sample_rows = [
+                            {col: val for col, val in zip(columns, row)}
+                            for row in sample_rows
+                        ]
+            else:
+                # Unknown result type
+                error_msg = f"Unexpected result type: {type(result)}"
+                self.logger.warning(f"[{request_id}] KPI {kpi_id} failed: {error_msg}")
+                
+                return KPIQueryValidationResult(
+                    kpi_id=kpi_id,
+                    kpi_name=kpi_name,
+                    status="error",
+                    execution_time_ms=execution_time_ms,
+                    error_message=error_msg,
+                    error_type="unknown",
+                )
+            
+            self.logger.info(
+                f"[{request_id}] KPI {kpi_id} succeeded: {row_count} rows in {execution_time_ms}ms"
+            )
+            
+            return KPIQueryValidationResult(
+                kpi_id=kpi_id,
+                kpi_name=kpi_name,
+                status="success",
+                execution_time_ms=execution_time_ms,
+                row_count=row_count,
+                sample_rows=sample_rows,
+            )
+            
+        except asyncio.TimeoutError:
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            self.logger.warning(f"[{request_id}] KPI {kpi_id} timed out after {timeout_seconds}s")
+            
+            return KPIQueryValidationResult(
+                kpi_id=kpi_id,
+                kpi_name=kpi_name,
+                status="timeout",
+                execution_time_ms=execution_time_ms,
+                error_message=f"Query execution timed out after {timeout_seconds} seconds",
+                error_type="timeout",
+            )
+            
+        except Exception as e:
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            error_msg = str(e)
+            error_type = self._categorize_error(error_msg)
+            
+            self.logger.error(
+                f"[{request_id}] KPI {kpi_id} error: {error_msg}\n{traceback.format_exc()}"
+            )
+            
+            return KPIQueryValidationResult(
+                kpi_id=kpi_id,
+                kpi_name=kpi_name,
+                status="error",
+                execution_time_ms=execution_time_ms,
+                error_message=error_msg,
+                error_type=error_type,
+            )
+
+    def _categorize_error(self, error_message: str) -> str:
+        """
+        Categorize error message into a type for better UX.
+        
+        Args:
+            error_message: Error message from query execution
+            
+        Returns:
+            Error category: syntax, column_not_found, permission, timeout, connection, unknown
+        """
+        error_lower = error_message.lower()
+        
+        # Column/table not found
+        if any(phrase in error_lower for phrase in [
+            "column", "not found", "does not exist", "unknown column",
+            "invalid column", "no such column", "table or view not found"
+        ]):
+            return "column_not_found"
+        
+        # Syntax errors
+        if any(phrase in error_lower for phrase in [
+            "syntax error", "parse error", "invalid syntax", "unexpected token"
+        ]):
+            return "syntax"
+        
+        # Permission errors
+        if any(phrase in error_lower for phrase in [
+            "permission denied", "access denied", "insufficient privileges",
+            "not authorized", "forbidden"
+        ]):
+            return "permission"
+        
+        # Connection errors
+        if any(phrase in error_lower for phrase in [
+            "connection", "connect", "network", "timeout", "unreachable"
+        ]):
+            return "connection"
+        
+        # Timeout
+        if "timeout" in error_lower or "timed out" in error_lower:
+            return "timeout"
+        
+        return "unknown"

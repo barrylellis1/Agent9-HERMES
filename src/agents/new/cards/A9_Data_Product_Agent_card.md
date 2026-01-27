@@ -15,6 +15,7 @@ The `A9_Data_Product_Agent` is responsible for contract-driven SQL orchestration
   - `inspect_source_schema(DataProductSchemaInspectionRequest) -> DataProductSchemaInspectionResponse`
   - `generate_contract_yaml(DataProductContractGenerationRequest) -> DataProductContractGenerationResponse`
   - `register_data_product(DataProductRegistrationRequest) -> DataProductRegistrationResponse`
+  - `validate_kpi_queries(KPIQueryValidationRequest) -> KPIQueryValidationResponse`
 
 ## Configuration Schema
 Defined in `src/agents/agent_config_models.py`:

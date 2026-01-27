@@ -581,3 +581,77 @@ class DataProductOnboardingWorkflowResponse(A9AgentBaseResponse):
         default_factory=dict,
         description="Context payload for downstream activation workflows",
     )
+
+
+# ---------------------------------------------------------------------------
+# KPI Query Validation (Phase 2)
+# ---------------------------------------------------------------------------
+
+
+class KPIDefinition(A9AgentBaseModel):
+    """KPI definition for validation."""
+    
+    id: str = Field(..., description="KPI identifier")
+    name: str = Field(..., description="KPI name")
+    sql_query: str = Field(..., description="SQL query to execute")
+    data_product_id: str = Field(..., description="Associated data product ID")
+
+
+class KPIQueryValidationResult(A9AgentBaseModel):
+    """Result of validating a single KPI query."""
+    
+    kpi_id: str = Field(..., description="KPI identifier")
+    kpi_name: str = Field(..., description="KPI name")
+    status: str = Field(..., description="Validation status: success, error, timeout")
+    execution_time_ms: int = Field(..., description="Query execution time in milliseconds")
+    row_count: Optional[int] = Field(None, description="Number of rows returned (if success)")
+    sample_rows: Optional[List[Dict[str, Any]]] = Field(
+        None, description="First 5 rows of query results (if success)"
+    )
+    error_message: Optional[str] = Field(None, description="Error message (if failed)")
+    error_type: Optional[str] = Field(
+        None, 
+        description="Error category: syntax, column_not_found, permission, timeout, connection"
+    )
+    nlp_suggestion: Optional[str] = Field(
+        None, description="NLP-generated suggestion for fixing the error"
+    )
+
+
+class ValidateKPIQueriesRequest(A9AgentBaseRequest):
+    """Request to validate KPI queries against the data source."""
+    
+    data_product_id: str = Field(..., description="Data product identifier")
+    kpis: List[KPIDefinition] = Field(..., description="KPIs to validate")
+    connection_profile_id: Optional[str] = Field(
+        None, description="Connection profile to use for validation"
+    )
+    source_system: Optional[str] = Field(
+        None, description="Source system type (bigquery, duckdb, etc.)"
+    )
+    database: Optional[str] = Field(None, description="Database/catalog name")
+    schema: Optional[str] = Field(None, description="Schema/dataset name")
+    connection_overrides: Optional[Dict[str, Any]] = Field(
+        None, description="Connection parameter overrides (e.g., service_account_json_path)"
+    )
+    timeout_seconds: int = Field(30, description="Timeout per query in seconds")
+
+
+class ValidateKPIQueriesResponse(A9AgentBaseResponse):
+    """Response containing validation results for all KPI queries."""
+    
+    results: List[KPIQueryValidationResult] = Field(
+        default_factory=list, description="Validation results for each KPI"
+    )
+    overall_status: str = Field(
+        ..., 
+        description="Overall status: all_passed, some_failed, all_failed, validation_error"
+    )
+    validation_timestamp: str = Field(..., description="ISO timestamp of validation")
+    can_proceed_to_governance: bool = Field(
+        ..., description="Whether governance approval can proceed"
+    )
+    summary: Dict[str, Any] = Field(
+        default_factory=dict, 
+        description="Summary statistics (total, passed, failed, errors)"
+    )

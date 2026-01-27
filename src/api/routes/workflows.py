@@ -23,6 +23,9 @@ from src.agents.models.data_product_onboarding_models import (
     WorkflowStepSummary,
     KPIRegistryEntry,
     BusinessProcessMapping,
+    ValidateKPIQueriesRequest,
+    ValidateKPIQueriesResponse,
+    KPIDefinition,
 )
 
 
@@ -389,6 +392,41 @@ async def run_data_product_onboarding_workflow(
 async def get_data_product_onboarding_status(request_id: str) -> Envelope:
     record = await _ensure_record(request_id, "data_product_onboarding")
     return wrap(record.to_dict())
+
+
+@router.post("/data-product-onboarding/validate-kpi-queries", response_model=Envelope)
+async def validate_kpi_queries(
+    request: ValidateKPIQueriesRequest,
+    runtime: AgentRuntime = Depends(get_agent_runtime),
+) -> Envelope:
+    """
+    Validate KPI queries by executing them against the data source.
+    
+    This endpoint executes each KPI query and returns:
+    - Success/failure status
+    - First 5 rows of results (if successful)
+    - Error messages and categorization (if failed)
+    - Execution time metrics
+    
+    Phase 2: Query Testing implementation.
+    """
+    try:
+        orchestrator = runtime.get_orchestrator()
+        
+        # Execute validation via Data Product Agent
+        response: ValidateKPIQueriesResponse = await orchestrator.execute_agent_method(
+            "A9_Data_Product_Agent",
+            "validate_kpi_queries",
+            request
+        )
+        
+        return wrap(response.model_dump())
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"KPI query validation failed: {str(e)}"
+        )
 
 
 async def _record_solution_action(request_id: str, action_type: str, request: ActionRequest) -> Envelope:
