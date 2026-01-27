@@ -202,6 +202,7 @@ async def list_data_products(
     domain: Optional[str] = Query(None),
     tag: Optional[str] = Query(None),
     business_process_id: Optional[str] = Query(None),
+    include_staging: bool = Query(True, description="Include staging products"),
     factory: RegistryFactory = Depends(get_registry_factory),
 ):
     provider = factory.get_data_product_provider()
@@ -209,6 +210,35 @@ async def list_data_products(
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "Data product provider unavailable"))
 
     items: List[DataProduct] = provider.get_all()
+    
+    # Include staging products if requested
+    if include_staging:
+        import os
+        import yaml
+        staging_dir = "src/registry_references/data_product_registry/staging"
+        if os.path.exists(staging_dir):
+            for filename in os.listdir(staging_dir):
+                if filename.endswith('.yaml') and filename != 'README.md':
+                    try:
+                        filepath = os.path.join(staging_dir, filename)
+                        with open(filepath, 'r', encoding='utf-8') as f:
+                            contract_data = yaml.safe_load(f)
+                            if contract_data:
+                                product_id = os.path.splitext(filename)[0]
+                                staging_product = DataProduct.from_yaml_contract(contract_data, product_id)
+                                # Mark as staging in metadata
+                                staging_product.metadata['staging'] = True
+                                
+                                # Replace existing product with staging version if it exists
+                                existing_idx = next((i for i, dp in enumerate(items) if dp.id == product_id), None)
+                                if existing_idx is not None:
+                                    items[existing_idx] = staging_product
+                                else:
+                                    items.append(staging_product)
+                    except Exception as e:
+                        # Skip invalid staging files
+                        pass
+    
     if domain:
         items = [dp for dp in items if dp.domain == domain]
     if tag:
@@ -227,6 +257,26 @@ async def list_data_products(
 @router.get("/data-products/{data_product_id}", response_model=Envelope)
 async def get_data_product(data_product_id: str, factory: RegistryFactory = Depends(get_registry_factory)):
     provider = factory.get_data_product_provider()
+    
+    # First check staging directory for this product
+    import os
+    import yaml
+    staging_dir = "src/registry_references/data_product_registry/staging"
+    staging_file = os.path.join(staging_dir, f"{data_product_id}.yaml")
+    
+    if os.path.exists(staging_file):
+        try:
+            with open(staging_file, 'r', encoding='utf-8') as f:
+                contract_data = yaml.safe_load(f)
+                if contract_data:
+                    data_product = DataProduct.from_yaml_contract(contract_data, data_product_id)
+                    data_product.metadata['staging'] = True
+                    return wrap(data_product)
+        except Exception as e:
+            # Fall through to registry lookup if staging file is invalid
+            pass
+    
+    # Fall back to registry provider
     data_product = provider.get(data_product_id) if provider else None
     if data_product is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Data product '{data_product_id}' not found"))

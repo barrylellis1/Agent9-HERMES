@@ -787,5 +787,6 @@ class SupabaseDataProductProvider(DataProductProvider):
             views=row.get('views', {}),
             related_business_processes=row.get('related_business_processes', []),
             tags=row.get('tags', []),
+            source_system=row.get('source_system', 'duckdb'),
             metadata=row.get('metadata', {}),
         )

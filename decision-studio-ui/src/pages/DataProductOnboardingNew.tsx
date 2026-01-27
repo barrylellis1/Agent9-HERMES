@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { 
     ArrowLeft, Settings, Search, Database, FileText, Check, 
-    Loader2, ChevronRight, AlertCircle, Edit2, Link2, Sparkles 
+    Loader2, ChevronRight, AlertCircle, Edit2, Link2, Sparkles, CheckCircle 
 } from 'lucide-react'
 import { KPIAssistantChat } from '../components/KPIAssistantChat'
-
-const API_BASE_URL = 'http://localhost:8000'
+import { ConnectionProfileManager } from '../components/ConnectionProfileManager'
+import { DataProductSelector } from '../components/DataProductSelector'
+import { API_BASE_URL, API_ENDPOINTS, buildUrl } from '../config/api-endpoints'
+import { ConnectionProfile, markProfileAsUsed, getConnectionOverrides } from '../utils/connectionProfileStorage'
 
 // Step definitions
 const STEPS = [
@@ -15,6 +17,7 @@ const STEPS = [
     { id: 'selection', label: 'Data Product Selection', icon: Database },
     { id: 'analysis', label: 'Metadata Analysis', icon: FileText },
     { id: 'kpis', label: 'KPI Definition', icon: Sparkles },
+    { id: 'validation', label: 'Query Validation', icon: CheckCircle },
     { id: 'review', label: 'Review & Register', icon: Check },
 ]
 
@@ -67,6 +70,11 @@ const SOURCE_SYSTEMS = [
 ]
 
 export function DataProductOnboardingNew() {
+    // Workflow mode
+    const [workflowMode, setWorkflowMode] = useState<'select' | 'new' | 'extend'>('select')
+    const [showProductSelector, setShowProductSelector] = useState(false)
+    const [extendingProduct, setExtendingProduct] = useState<any>(null)
+    
     const [currentStep, setCurrentStep] = useState(0)
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
@@ -97,8 +105,70 @@ export function DataProductOnboardingNew() {
     // Step 5: KPI Definition
     const [definedKPIs, setDefinedKPIs] = useState<any[]>([])
 
+    // Step 6: Query Validation
+    const [validationResults, setValidationResults] = useState<any[]>([])
+    const [validationStatus, setValidationStatus] = useState<string>('')
+    const [validating, setValidating] = useState(false)
+
     const isPlatformMetadataRich = () => {
         return SOURCE_SYSTEMS.find(s => s.value === sourceSystem)?.hasMetadata || false
+    }
+
+    const handleQueryValidation = async () => {
+        setError(null)
+        setValidating(true)
+        setLogs(prev => [...prev, `🔍 Validating ${definedKPIs.length} KPI queries...`])
+
+        try {
+            const response = await fetch(buildUrl(API_ENDPOINTS.workflows.dataProductOnboarding.validateQueries), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    request_id: `validate_${Date.now()}`,
+                    principal_id: 'system',
+                    data_product_id: dataProductId,
+                    kpis: definedKPIs.map(kpi => ({
+                        id: kpi.id,
+                        name: kpi.name,
+                        sql_query: kpi.sql_query,
+                        data_product_id: dataProductId
+                    })),
+                    source_system: sourceSystem,
+                    database: database,
+                    schema: schema,
+                    connection_overrides: connectionOverrides || {},
+                    timeout_seconds: 30
+                })
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.detail || 'Validation request failed')
+            }
+
+            const data = await response.json()
+            const validationData = data.data
+
+            setValidationResults(validationData.results || [])
+            setValidationStatus(validationData.overall_status || 'unknown')
+
+            const passedCount = validationData.summary?.passed || 0
+            const failedCount = validationData.summary?.failed || 0
+
+            if (validationData.overall_status === 'all_passed') {
+                setLogs(prev => [...prev, `✅ All ${passedCount} queries validated successfully`])
+            } else if (validationData.overall_status === 'some_failed') {
+                setLogs(prev => [...prev, `⚠️ ${passedCount} passed, ${failedCount} failed`])
+            } else if (validationData.overall_status === 'all_failed') {
+                setLogs(prev => [...prev, `❌ All ${failedCount} queries failed validation`])
+            }
+
+        } catch (err: any) {
+            setError(`Validation failed: ${err.message}`)
+            setLogs(prev => [...prev, `❌ Validation error: ${err.message}`])
+        } finally {
+            setValidating(false)
+        }
     }
 
     const handleConnectionSetup = () => {
@@ -142,7 +212,7 @@ export function DataProductOnboardingNew() {
             
             console.log('Discovery payload:', JSON.stringify(payload, null, 2))
 
-            const response = await fetch('http://localhost:8000/api/v1/workflows/data-product-onboarding/run', {
+            const response = await fetch(buildUrl(API_ENDPOINTS.workflows.dataProductOnboarding.run), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
@@ -158,7 +228,7 @@ export function DataProductOnboardingNew() {
             const pollInterval = setInterval(async () => {
                 attempts++
                 try {
-                    const statusResponse = await fetch(`http://localhost:8000/api/v1/workflows/data-product-onboarding/${requestId}/status`)
+                    const statusResponse = await fetch(buildUrl(API_ENDPOINTS.workflows.dataProductOnboarding.status(requestId)))
                     const statusData = await statusResponse.json()
                     
                     setLogs(prev => [...prev, `⏳ Poll ${attempts}: ${statusData.data.state}`])
@@ -243,7 +313,7 @@ export function DataProductOnboardingNew() {
                 data_product_description: dataProductDescription,
             }
 
-            const response = await fetch('http://localhost:8000/api/v1/workflows/data-product-onboarding/run', {
+            const response = await fetch(buildUrl(API_ENDPOINTS.workflows.dataProductOnboarding.run), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
@@ -259,7 +329,7 @@ export function DataProductOnboardingNew() {
             const pollInterval = setInterval(async () => {
                 attempts++
                 try {
-                    const statusResponse = await fetch(`http://localhost:8000/api/v1/workflows/data-product-onboarding/${requestId}/status`)
+                    const statusResponse = await fetch(buildUrl(API_ENDPOINTS.workflows.dataProductOnboarding.status(requestId)))
                     const statusData = await statusResponse.json()
                     
                     setLogs(prev => [...prev, `⏳ Poll ${attempts}: ${statusData.data.state}`])
@@ -327,20 +397,195 @@ export function DataProductOnboardingNew() {
 
     return (
         <div className="min-h-screen bg-background text-foreground p-8 font-sans">
+            {/* Data Product Selector Modal */}
+            {showProductSelector && (
+                <DataProductSelector
+                    onSelect={async (product) => {
+                        setExtendingProduct(product)
+                        setDataProductId(product.id)
+                        setDataProductName(product.name)
+                        setDataProductDomain(product.domain)
+                        setSourceSystem(product.source_system)
+                        setShowProductSelector(false)
+                        setLogs(prev => [...prev, `Loading schema for ${product.name}...`])
+                        
+                        // Load product's schema from contract
+                        try {
+                            const response = await fetch(`http://localhost:8000/api/v1/registry/data-products/${product.id}`)
+                            if (response.ok) {
+                                const data = await response.json()
+                                const productData = data.data
+                                
+                                // Extract connection info from existing KPIs for BigQuery table references
+                                const existingKPIs = productData.kpis || []
+                                
+                                if (existingKPIs.length > 0 && productData.source_system === 'bigquery') {
+                                    // Parse BigQuery table reference from first KPI's SQL
+                                    const firstKPI = existingKPIs[0]
+                                    const sqlQuery = firstKPI.sql_query || ''
+                                    const bqTableMatch = sqlQuery.match(/`([^`]+)`/)
+                                    if (bqTableMatch) {
+                                        const fullTableRef = bqTableMatch[1] // e.g., "agent9-465818.SalesOrders.SalesOrderStarSchemaView"
+                                        const parts = fullTableRef.split('.')
+                                        if (parts.length === 3) {
+                                            // Set connection profile from existing KPI (use database/schema state vars)
+                                            setSourceSystem('bigquery')
+                                            setDatabase(parts[0]) // BigQuery project ID
+                                            setSchema(parts[1])   // BigQuery dataset ID
+                                            setLogs(prev => [...prev, `✓ Extracted BigQuery connection: ${parts[0]}.${parts[1]}`])
+                                        }
+                                    }
+                                }
+                                
+                                // Convert product tables to inspection result format
+                                const tables = Object.entries(productData.tables || {}).map(([tableName, tableDef]: [string, any]) => ({
+                                    name: tableName,
+                                    row_count: 0,
+                                    columns: Object.entries(tableDef.column_schema || {}).map(([colName, colType]: [string, any]) => ({
+                                        name: colName,
+                                        data_type: colType,
+                                        semantic_tags: []
+                                    })),
+                                    primary_keys: tableDef.primary_keys || [],
+                                    foreign_keys: []
+                                }))
+                                
+                                setInspectionResult({ tables })
+                                setDiscoveredTables(tables.map(t => ({ ...t, selected: true })))
+                                setLogs(prev => [...prev, `✓ Loaded ${tables.length} tables from ${product.name}`])
+                            }
+                        } catch (err) {
+                            console.error('Failed to load product schema:', err)
+                            setLogs(prev => [...prev, `⚠ Could not load schema, proceeding with empty schema`])
+                            // Set minimal inspection result to allow KPI definition
+                            setInspectionResult({ tables: [] })
+                        }
+                        
+                        setWorkflowMode('extend')
+                        setCurrentStep(4) // Skip to KPI Definition
+                        setLogs(prev => [...prev, `Extending data product: ${product.name} (${product.id})`])
+                    }}
+                    onCancel={() => {
+                        setShowProductSelector(false)
+                        setWorkflowMode('select')
+                    }}
+                />
+            )}
+
             {/* Header */}
             <header className="mb-8 flex justify-between items-center max-w-6xl mx-auto">
                 <div className="flex items-center gap-4">
-                    <Link to="/admin" className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors">
-                        <ArrowLeft className="w-5 h-5" />
-                    </Link>
+                    {workflowMode === 'select' ? (
+                        <Link to="/admin" className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors">
+                            <ArrowLeft className="w-5 h-5" />
+                        </Link>
+                    ) : currentStep === 0 && workflowMode === 'new' ? (
+                        <button 
+                            onClick={() => {
+                                setWorkflowMode('select')
+                                setLogs([])
+                            }}
+                            className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors"
+                        >
+                            <ArrowLeft className="w-5 h-5" />
+                        </button>
+                    ) : (
+                        <Link to="/admin" className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors">
+                            <ArrowLeft className="w-5 h-5" />
+                        </Link>
+                    )}
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-white">New Data Product</h1>
-                        <p className="text-sm text-slate-400">Platform-Adaptive Onboarding</p>
+                        <h1 className="text-2xl font-bold tracking-tight text-white">
+                            {workflowMode === 'extend' ? 'Extend Data Product' : workflowMode === 'new' ? 'New Data Product' : 'Data Product Onboarding'}
+                        </h1>
+                        <p className="text-sm text-slate-400">
+                            {workflowMode === 'extend' 
+                                ? `Adding KPIs to ${extendingProduct?.name || 'existing product'}`
+                                : workflowMode === 'new'
+                                ? 'Platform-Adaptive Onboarding'
+                                : 'Choose your workflow to get started'
+                            }
+                        </p>
                     </div>
                 </div>
             </header>
 
             <main className="max-w-6xl mx-auto">
+                {/* Mode Selection Screen */}
+                {workflowMode === 'select' && (
+                    <div className="max-w-2xl mx-auto">
+                        <div className="text-center mb-8">
+                            <h2 className="text-2xl font-bold text-white mb-2">Choose Your Workflow</h2>
+                            <p className="text-slate-400">Create a new data product or add KPIs to an existing one</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-6">
+                            {/* New Data Product */}
+                            <button
+                                onClick={() => {
+                                    setWorkflowMode('new')
+                                    setLogs(prev => [...prev, 'Starting new data product onboarding'])
+                                }}
+                                className="group p-8 bg-slate-800/50 hover:bg-slate-800 border-2 border-slate-700 hover:border-blue-500 rounded-xl transition-all text-left"
+                            >
+                                <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-blue-500/20 transition-colors">
+                                    <Database className="w-6 h-6 text-blue-400" />
+                                </div>
+                                <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-blue-400 transition-colors">
+                                    New Data Product
+                                </h3>
+                                <p className="text-sm text-slate-400 mb-4">
+                                    Start from scratch with schema discovery, metadata analysis, and KPI definition
+                                </p>
+                                <div className="flex items-center gap-2 text-sm text-blue-400">
+                                    <span>Get Started</span>
+                                    <ChevronRight className="w-4 h-4" />
+                                </div>
+                            </button>
+
+                            {/* Extend Existing Product */}
+                            <button
+                                onClick={() => {
+                                    setShowProductSelector(true)
+                                    setLogs(prev => [...prev, 'Opening data product selector'])
+                                }}
+                                className="group p-8 bg-slate-800/50 hover:bg-slate-800 border-2 border-slate-700 hover:border-green-500 rounded-xl transition-all text-left"
+                            >
+                                <div className="w-12 h-12 bg-green-500/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-green-500/20 transition-colors">
+                                    <Sparkles className="w-6 h-6 text-green-400" />
+                                </div>
+                                <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-green-400 transition-colors">
+                                    Extend Existing Product
+                                </h3>
+                                <p className="text-sm text-slate-400 mb-4">
+                                    Add new KPIs to a registered data product with pre-loaded context
+                                </p>
+                                <div className="flex items-center gap-2 text-sm text-green-400">
+                                    <span>Select Product</span>
+                                    <ChevronRight className="w-4 h-4" />
+                                </div>
+                            </button>
+                        </div>
+
+                        <div className="mt-8 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                            <div className="flex gap-3">
+                                <div className="flex-shrink-0">
+                                    <AlertCircle className="w-5 h-5 text-blue-400" />
+                                </div>
+                                <div className="text-sm text-blue-300">
+                                    <p className="font-medium mb-1">Quick Tip</p>
+                                    <p className="text-blue-300/80">
+                                        Use "Extend Existing Product" to add KPIs without repeating schema discovery and metadata analysis. 
+                                        Perfect for iterative KPI development!
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Main Workflow (shown when mode is 'new' or 'extend') */}
+                {(workflowMode === 'new' || workflowMode === 'extend') && (
                 <div className="flex gap-8">
                     {/* Stepper Sidebar */}
                     <div className="w-64 shrink-0">
@@ -390,23 +635,53 @@ export function DataProductOnboardingNew() {
                                 <h3 className="text-xl font-semibold text-white mb-6">Connection Setup</h3>
                                 
                                 <div className="space-y-6">
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-400 mb-2">Source System</label>
-                                        <select 
-                                            value={sourceSystem}
-                                            onChange={(e) => setSourceSystem(e.target.value)}
-                                            className="w-full p-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                        >
-                                            {SOURCE_SYSTEMS.map(sys => (
-                                                <option key={sys.value} value={sys.value}>{sys.label}</option>
-                                            ))}
-                                        </select>
-                                        {isPlatformMetadataRich() && (
-                                            <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
-                                                <Check className="w-3 h-3" /> Metadata catalog available - FK relationships will be auto-extracted
-                                            </p>
-                                        )}
-                                    </div>
+                                    {/* Connection Profile Manager */}
+                                    <ConnectionProfileManager
+                                        sourceSystem={sourceSystem}
+                                        onSelectProfile={(profile) => {
+                                            markProfileAsUsed(profile.id)
+                                            
+                                            if (profile.bigquery) {
+                                                setDatabase(profile.bigquery.project)
+                                                setSchema(profile.bigquery.dataset || '')
+                                                setConnectionOverrides({
+                                                    ...connectionOverrides,
+                                                    service_account_json_path: profile.bigquery.serviceAccountPath || ''
+                                                })
+                                            } else if (profile.duckdb) {
+                                                setSchema(profile.duckdb.path || 'main')
+                                            }
+                                            
+                                            setLogs(prev => [...prev, `Loaded connection profile: ${profile.name}`])
+                                        }}
+                                        currentValues={{
+                                            database,
+                                            schema,
+                                            serviceAccountPath: connectionOverrides.service_account_json_path,
+                                        }}
+                                    />
+
+                                    <div className="border-t border-slate-800 pt-6">
+                                        <h4 className="text-sm font-semibold text-slate-300 mb-4">Connection Details</h4>
+                                        
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-400 mb-2">Source System</label>
+                                                <select 
+                                                    value={sourceSystem}
+                                                    onChange={(e) => setSourceSystem(e.target.value)}
+                                                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                >
+                                                    {SOURCE_SYSTEMS.map(sys => (
+                                                        <option key={sys.value} value={sys.value}>{sys.label}</option>
+                                                    ))}
+                                                </select>
+                                                {isPlatformMetadataRich() && (
+                                                    <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
+                                                        <Check className="w-3 h-3" /> Metadata catalog available - FK relationships will be auto-extracted
+                                                    </p>
+                                                )}
+                                            </div>
 
                                     {sourceSystem === 'bigquery' && (
                                         <>
@@ -473,6 +748,8 @@ export function DataProductOnboardingNew() {
                                     >
                                         Continue to Discovery <ChevronRight className="w-4 h-4" />
                                     </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -723,6 +1000,9 @@ export function DataProductOnboardingNew() {
                                         dataProductId={dataProductId}
                                         domain={dataProductDomain}
                                         sourceSystem={sourceSystem}
+                                        tables={discoveredTables.filter(t => t.selected).map(t => t.name)}
+                                        database={database}
+                                        schema={schema}
                                         schemaMetadata={{
                                             measures: inspectionResult.tables.flatMap(t => 
                                                 t.columns.filter(c => c.semantic_tags.includes('measure')).map(c => ({
@@ -774,14 +1054,174 @@ export function DataProductOnboardingNew() {
                                         }}
                                         className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
                                     >
-                                        Skip to Review <ChevronRight className="w-4 h-4" />
+                                        Continue to Validation <ChevronRight className="w-4 h-4" />
                                     </button>
                                 </div>
                             </div>
                         )}
 
-                        {/* Step 6: Review & Register */}
-                        {currentStep === 5 && inspectionResult && (
+                        {/* Step 6: Query Validation */}
+                        {currentStep === 5 && definedKPIs.length > 0 && (
+                            <div className="py-8">
+                                <h3 className="text-xl font-semibold text-white mb-6">Query Validation</h3>
+                                <p className="text-slate-400 mb-6">
+                                    Test your KPI queries against the data source to ensure they execute correctly.
+                                </p>
+
+                                {validationResults.length === 0 ? (
+                                    <div className="space-y-4">
+                                        <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                                            <p className="text-sm text-blue-400">
+                                                Click "Test All Queries" to validate {definedKPIs.length} KPI {definedKPIs.length === 1 ? 'query' : 'queries'} against {sourceSystem}.
+                                            </p>
+                                        </div>
+
+                                        <button
+                                            onClick={handleQueryValidation}
+                                            disabled={validating}
+                                            className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            {validating ? (
+                                                <>
+                                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                                    Validating Queries...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <CheckCircle className="w-5 h-5" />
+                                                    Test All Queries
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {/* Validation Summary */}
+                                        <div className={`p-4 rounded-lg border ${
+                                            validationStatus === 'all_passed' 
+                                                ? 'bg-green-500/10 border-green-500/20' 
+                                                : validationStatus === 'some_failed'
+                                                ? 'bg-yellow-500/10 border-yellow-500/20'
+                                                : 'bg-red-500/10 border-red-500/20'
+                                        }`}>
+                                            <p className={`text-sm font-medium ${
+                                                validationStatus === 'all_passed' 
+                                                    ? 'text-green-400' 
+                                                    : validationStatus === 'some_failed'
+                                                    ? 'text-yellow-400'
+                                                    : 'text-red-400'
+                                            }`}>
+                                                {validationStatus === 'all_passed' && '✅ All queries validated successfully'}
+                                                {validationStatus === 'some_failed' && '⚠️ Some queries failed validation'}
+                                                {validationStatus === 'all_failed' && '❌ All queries failed validation'}
+                                            </p>
+                                        </div>
+
+                                        {/* Individual Query Results */}
+                                        {validationResults.map((result: any) => (
+                                            <div key={result.kpi_id} className="p-4 bg-slate-900/50 rounded-lg border border-slate-800">
+                                                <div className="flex items-start justify-between mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        {result.status === 'success' ? (
+                                                            <CheckCircle className="w-5 h-5 text-green-400 shrink-0" />
+                                                        ) : (
+                                                            <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+                                                        )}
+                                                        <h4 className="font-medium text-white">{result.kpi_name}</h4>
+                                                    </div>
+                                                    <span className="text-xs text-slate-400">{result.execution_time_ms}ms</span>
+                                                </div>
+
+                                                {result.status === 'success' ? (
+                                                    <div className="mt-3">
+                                                        <p className="text-sm text-slate-400 mb-2">
+                                                            {result.row_count} {result.row_count === 1 ? 'row' : 'rows'} returned
+                                                        </p>
+                                                        {result.sample_rows && result.sample_rows.length > 0 && (
+                                                            <div className="mt-2 p-3 bg-slate-950 rounded border border-slate-800 overflow-x-auto">
+                                                                <table className="w-full text-xs">
+                                                                    <thead>
+                                                                        <tr className="text-slate-400 border-b border-slate-800">
+                                                                            {Object.keys(result.sample_rows[0]).map((key: string) => (
+                                                                                <th key={key} className="text-left py-1 px-2 font-medium">{key}</th>
+                                                                            ))}
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {result.sample_rows.slice(0, 5).map((row: any, idx: number) => (
+                                                                            <tr key={idx} className="border-b border-slate-800/50">
+                                                                                {Object.values(row).map((val: any, vidx: number) => (
+                                                                                    <td key={vidx} className="py-1 px-2 text-slate-300">
+                                                                                        {val !== null && val !== undefined ? String(val) : 'null'}
+                                                                                    </td>
+                                                                                ))}
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="mt-3">
+                                                        <p className="text-sm text-red-400 mb-1">
+                                                            Error: {result.error_type || 'unknown'}
+                                                        </p>
+                                                        <p className="text-xs text-slate-400 font-mono bg-slate-950 p-2 rounded border border-slate-800">
+                                                            {result.error_message}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+
+                                        {/* Re-test Button */}
+                                        <button
+                                            onClick={handleQueryValidation}
+                                            disabled={validating}
+                                            className="w-full py-2 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-900 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            {validating ? (
+                                                <>
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                    Re-testing...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <CheckCircle className="w-4 h-4" />
+                                                    Re-test Queries
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                )}
+
+                                <div className="mt-6 flex gap-4">
+                                    <button 
+                                        onClick={() => setCurrentStep(4)}
+                                        className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium transition-colors"
+                                    >
+                                        Back to KPIs
+                                    </button>
+                                    <button 
+                                        onClick={() => {
+                                            if (validationResults.length === 0) {
+                                                setError('Please run query validation before proceeding')
+                                                return
+                                            }
+                                            setCurrentStep(6)
+                                        }}
+                                        disabled={validationResults.length === 0}
+                                        className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        Continue to Review <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Step 7: Review & Register */}
+                        {currentStep === 6 && inspectionResult && (
                             <div className="py-8">
                                 <h3 className="text-xl font-semibold text-white mb-6">Review & Register</h3>
                                 
@@ -842,12 +1282,13 @@ export function DataProductOnboardingNew() {
                                                     setLogs(prev => [...prev, `Finalizing KPIs and registering data product...`])
                                                     
                                                     // Finalize KPIs - write them to the contract YAML
-                                                    const finalizeResponse = await fetch(`${API_BASE_URL}/api/v1/data-product-onboarding/kpi-assistant/finalize`, {
+                                                    const finalizeResponse = await fetch(buildUrl(API_ENDPOINTS.kpiAssistant.finalize), {
                                                         method: 'POST',
                                                         headers: { 'Content-Type': 'application/json' },
                                                         body: JSON.stringify({
                                                             data_product_id: dataProductId,
-                                                            kpis: definedKPIs
+                                                            kpis: definedKPIs,
+                                                            extend_mode: workflowMode === 'extend'
                                                         })
                                                     })
                                                     
@@ -877,6 +1318,7 @@ export function DataProductOnboardingNew() {
                         )}
                     </div>
                 </div>
+                )}
             </main>
         </div>
     )

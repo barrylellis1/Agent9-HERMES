@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, Loader2, Sparkles, CheckCircle, AlertCircle, Edit3, Trash2 } from 'lucide-react'
+import { API_ENDPOINTS, buildUrl } from '../config/api-endpoints'
 
 interface KPIDefinition {
     id: string
@@ -45,6 +46,9 @@ interface KPIAssistantChatProps {
     dataProductId: string
     domain: string
     sourceSystem: string
+    tables: string[]
+    database?: string
+    schema?: string
     schemaMetadata: {
         measures: Array<{ name: string; data_type: string }>
         dimensions: Array<{ name: string; data_type: string }>
@@ -59,6 +63,9 @@ export function KPIAssistantChat({
     dataProductId,
     domain,
     sourceSystem,
+    tables,
+    database,
+    schema,
     schemaMetadata,
     onKPIsFinalized,
     onClose
@@ -89,13 +96,16 @@ export function KPIAssistantChat({
     const generateInitialSuggestions = async () => {
         setLoading(true)
         try {
-            const response = await fetch('http://localhost:8000/api/v1/data-product-onboarding/kpi-assistant/suggest', {
+            const response = await fetch(buildUrl(API_ENDPOINTS.kpiAssistant.suggest), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     data_product_id: dataProductId,
                     domain: domain,
                     source_system: sourceSystem,
+                    tables: tables,
+                    database: database,
+                    schema: schema,
                     measures: schemaMetadata.measures,
                     dimensions: schemaMetadata.dimensions,
                     time_columns: schemaMetadata.time_columns,

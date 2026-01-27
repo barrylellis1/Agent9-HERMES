@@ -10,7 +10,7 @@ The `A9_KPI_Assistant_Agent` provides an LLM-powered conversational interface fo
   - `suggest_kpis(KPISuggestionRequest) -> KPISuggestionResponse`
   - `chat(KPIChatRequest) -> KPIChatResponse`
   - `validate_kpi(KPIValidationRequest) -> KPIValidationResponse`
-  - `finalize_kpis(KPIFinalizeRequest) -> KPIFinalizeResponse`
+  - `finalize_kpis(KPIFinalizeRequest) -> KPIFinalizeResponse` (supports `extend_mode` for merging with existing KPIs)
 
 ## Configuration Schema
 Defined in `src/agents/agent_config_models.py`:

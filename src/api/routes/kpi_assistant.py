@@ -52,6 +52,9 @@ class SuggestKPIsAPIRequest(BaseModel):
     data_product_id: str
     domain: str = "Unknown"
     source_system: str
+    tables: List[str] = Field(default_factory=list, description="Table/view names in the data product")
+    database: Optional[str] = Field(None, description="Database/project name")
+    schema: Optional[str] = Field(None, description="Schema/dataset name")
     measures: List[Dict[str, Any]] = Field(default_factory=list)
     dimensions: List[Dict[str, Any]] = Field(default_factory=list)
     time_columns: List[Dict[str, Any]] = Field(default_factory=list)
@@ -111,6 +114,7 @@ class FinalizeKPIsAPIRequest(BaseModel):
     """API request for KPI finalization"""
     data_product_id: str
     kpis: List[Dict[str, Any]]
+    extend_mode: bool = Field(default=False, description="If True, merge new KPIs with existing ones; if False, replace all KPIs")
 
 
 class FinalizeKPIsAPIResponse(BaseModel):
@@ -140,6 +144,9 @@ async def suggest_kpis(
             data_product_id=request.data_product_id,
             domain=request.domain,
             source_system=request.source_system,
+            tables=request.tables,
+            database=request.database,
+            schema=request.schema,
             measures=request.measures,
             dimensions=request.dimensions,
             time_columns=request.time_columns,
@@ -268,12 +275,14 @@ async def finalize_kpis(
     Adds validated KPIs to the data product contract and triggers registry updates.
     """
     try:
-        logger.info(f"Finalizing {len(request.kpis)} KPIs for {request.data_product_id}")
+        mode_str = "extend" if request.extend_mode else "replace"
+        logger.info(f"Finalizing {len(request.kpis)} KPIs for {request.data_product_id} (mode: {mode_str})")
         
         # Create agent request
         agent_request = KPIFinalizeRequest(
             data_product_id=request.data_product_id,
-            kpis=request.kpis
+            kpis=request.kpis,
+            extend_mode=request.extend_mode
         )
         
         # Call agent

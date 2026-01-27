@@ -73,6 +73,7 @@ class DataProduct(BaseModel):
         description="Primary source system (duckdb, bigquery, etc.) for the curated data product",
     )
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata for extensions")
+    kpis: List[Dict[str, Any]] = Field(default_factory=list, description="KPIs defined for this data product")
     
     @classmethod
     def from_enum_value(cls, enum_value: str, domain: str = "Finance") -> "DataProduct":
@@ -166,7 +167,7 @@ class DataProduct(BaseModel):
             schema_definition = {}
             for column in table_def.get("columns", []) if isinstance(table_def, dict) else []:
                 col_name = column.get("name")
-                col_type = column.get("type")
+                col_type = column.get("type") or column.get("data_type")
                 if col_name and col_type:
                     schema_definition[col_name] = col_type
 
@@ -210,6 +211,7 @@ class DataProduct(BaseModel):
             version=version,
             tables=tables,
             views=views,
+            kpis=yaml_data.get("kpis", []),
             tags=metadata.get("tags", []),
             related_business_processes=metadata.get("related_business_processes", []),
             source_system=source_system,

@@ -52,6 +52,11 @@ def transform_data_product(dp: Dict[str, Any]) -> Dict[str, Any]:
             last_updated = datetime.strptime(last_updated, '%Y-%m-%d').date().isoformat()
         except:
             last_updated = None
+            
+    # Extract source_system from root or metadata
+    source_system = dp.get('source_system')
+    if not source_system and 'metadata' in dp:
+        source_system = dp['metadata'].get('source_system')
     
     return {
         'id': dp_id,
@@ -60,6 +65,7 @@ def transform_data_product(dp: Dict[str, Any]) -> Dict[str, Any]:
         'description': dp.get('description'),
         'owner': dp.get('owner', f"{dp.get('domain')} Team"),
         'version': dp.get('version', '1.0.0'),
+        'source_system': source_system or 'duckdb',
         'related_business_processes': dp.get('related_business_processes', []),
         'tags': dp.get('tags', []),
         'metadata': dp.get('metadata', {}),
@@ -71,7 +77,39 @@ def transform_data_product(dp: Dict[str, Any]) -> Dict[str, Any]:
         'reviewed': dp.get('reviewed', False),
         'language': dp.get('language', 'EN'),
         'documentation': dp.get('documentation'),
+        'staging': dp.get('staging', False),
     }
+
+
+def load_staging_products() -> List[Dict[str, Any]]:
+    """Load data products from staging directory."""
+    staging_dir = project_root / 'src' / 'registry_references' / 'data_product_registry' / 'staging'
+    products = []
+    
+    if not staging_dir.exists():
+        return products
+        
+    for yaml_file in staging_dir.glob('*.yaml'):
+        if yaml_file.name == 'README.md':
+            continue
+            
+        try:
+            with open(yaml_file, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f)
+                
+            if data:
+                # Add staging flag and ensure ID matches filename if not present
+                data['staging'] = True
+                if 'id' not in data:
+                    data['id'] = yaml_file.stem
+                if 'product_id' not in data:
+                    data['product_id'] = data['id']
+                    
+                products.append(data)
+        except Exception as e:
+            print(f"Warning: Failed to load staging file {yaml_file}: {e}")
+            
+    return products
 
 
 def seed_to_supabase(
@@ -132,11 +170,27 @@ def main():
     print(f"Loading {yaml_path}...")
     
     data_products = load_data_products(str(yaml_path))
-    print(f"Loaded {len(data_products)} data products")
+    print(f"Loaded {len(data_products)} registry data products")
+    
+    # Load staging products
+    staging_products = load_staging_products()
+    print(f"Loaded {len(staging_products)} staging data products")
+    
+    # Merge products (staging overrides registry if IDs conflict)
+    products_map = {dp.get('product_id') or dp.get('id'): dp for dp in data_products}
+    
+    for sp in staging_products:
+        sp_id = sp.get('product_id') or sp.get('id')
+        if sp_id:
+            if sp_id in products_map:
+                print(f"Overriding registry product {sp_id} with staging version")
+            products_map[sp_id] = sp
+            
+    all_products = list(products_map.values())
     
     # Transform to Supabase format
-    rows = [transform_data_product(dp) for dp in data_products]
-    print(f"Transformed {len(rows)} data products")
+    rows = [transform_data_product(dp) for dp in all_products]
+    print(f"Transformed {len(rows)} total data products")
     
     if args.dry_run:
         print("\n=== DRY RUN: Would seed the following rows ===")
