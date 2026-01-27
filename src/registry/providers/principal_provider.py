@@ -496,13 +496,11 @@ class SupabasePrincipalProfileProvider(PrincipalProfileProvider):
                 # Use explicit JSON parsing to avoid Pydantic v1 API lint issues
                 import json as _json
                 records = _json.loads(response.text)
-        except httpx.HTTPStatusError as http_err:
-            logger.error(
-                "Supabase principal profiles fetch failed with status %s: %s",
-                http_err.response.status_code,
-                http_err.response.text,
+        except (httpx.HTTPStatusError, httpx.RequestError) as http_err:
+            logger.warning(
+                "Supabase principal profiles fetch failed: %s. Falling back to YAML.",
+                str(http_err)
             )
-            logger.warning("Falling back to YAML-based principal profile provider")
             # Fall back to YAML loading
             if self.source_path:
                 await super().load()

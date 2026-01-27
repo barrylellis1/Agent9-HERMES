@@ -754,6 +754,7 @@ class SupabaseDataProductProvider(DataProductProvider):
         """Fetch data products from Supabase REST API."""
         import requests
         import json
+        from requests.exceptions import RequestException, ConnectionError, Timeout
         
         url = f'{self.supabase_url}/rest/v1/{self.table}'
         headers = {
@@ -763,16 +764,25 @@ class SupabaseDataProductProvider(DataProductProvider):
         
         params = {'select': '*'}
         
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        
-        rows = json.loads(response.text)
-        
-        for row in rows:
-            dp = self._row_to_data_product(row)
-            self._add_data_product(dp)
-        
-        logger.info(f'Loaded {len(self._data_products)} data products from Supabase')
+        try:
+            # Set a timeout to avoid hanging if Supabase is down
+            response = requests.get(url, headers=headers, params=params, timeout=5)
+            response.raise_for_status()
+            
+            rows = json.loads(response.text)
+            
+            for row in rows:
+                dp = self._row_to_data_product(row)
+                self._add_data_product(dp)
+            
+            logger.info(f'Loaded {len(self._data_products)} data products from Supabase')
+            
+        except ConnectionError:
+            raise Exception("Connection refused - Supabase may be down or unreachable")
+        except Timeout:
+            raise Exception("Connection timed out - Supabase is slow or unreachable")
+        except RequestException as e:
+            raise Exception(f"Supabase request failed: {e}")
     
     def _row_to_data_product(self, row: dict) -> DataProduct:
         """Convert Supabase row to DataProduct Pydantic object."""

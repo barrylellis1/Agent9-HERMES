@@ -364,6 +364,7 @@ class SupabaseBusinessProcessProvider(BusinessProcessProvider):
         """Fetch business processes from Supabase REST API."""
         import requests
         import json
+        from requests.exceptions import RequestException, ConnectionError, Timeout
         
         url = f'{self.supabase_url}/rest/v1/{self.table}'
         headers = {
@@ -373,16 +374,25 @@ class SupabaseBusinessProcessProvider(BusinessProcessProvider):
         
         params = {'select': '*'}
         
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        
-        rows = json.loads(response.text)
-        
-        for row in rows:
-            bp = self._row_to_business_process(row)
-            self._add_process(bp)
-        
-        logger.info(f'Loaded {len(self._processes)} business processes from Supabase')
+        try:
+            # Set a timeout to avoid hanging
+            response = requests.get(url, headers=headers, params=params, timeout=5)
+            response.raise_for_status()
+            
+            rows = json.loads(response.text)
+            
+            for row in rows:
+                bp = self._row_to_business_process(row)
+                self._add_process(bp)
+            
+            logger.info(f'Loaded {len(self._processes)} business processes from Supabase')
+            
+        except ConnectionError:
+            raise Exception("Connection refused - Supabase may be down or unreachable")
+        except Timeout:
+            raise Exception("Connection timed out - Supabase is slow or unreachable")
+        except RequestException as e:
+            raise Exception(f"Supabase request failed: {e}")
     
     def _row_to_business_process(self, row: dict) -> BusinessProcess:
         """Convert Supabase row to BusinessProcess Pydantic object."""

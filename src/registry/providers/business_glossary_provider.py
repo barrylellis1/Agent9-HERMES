@@ -437,24 +437,22 @@ class SupabaseBusinessGlossaryProvider(BusinessGlossaryProvider):
                 # Use explicit JSON parsing to avoid any BaseModel.json-style API usage
                 import json as _json  # local import to keep scope narrow and avoid top-level changes
                 records = _json.loads(response.text)
-        except httpx.HTTPStatusError as http_err:
-            logger.error(
-                "Supabase glossary fetch failed with status %s: %s",
-                http_err.response.status_code,
-                http_err.response.text,
-            )
-            return {
-                "success": False,
-                "message": "Supabase glossary fetch failed",
-                "error": str(http_err),
-            }
-        except Exception as exc:
-            logger.error("Unexpected error fetching Supabase glossary: %s", exc)
-            return {
-                "success": False,
-                "message": "Unexpected error fetching Supabase glossary",
-                "error": str(exc),
-            }
+        except (httpx.HTTPStatusError, Exception) as exc:
+            logger.warning(f"Supabase glossary fetch failed: {exc}. Falling back to YAML.")
+            try:
+                self._load_glossary()
+                return {
+                    "success": True,
+                    "message": f"Loaded {len(self.terms)} terms from YAML (fallback)",
+                    "count": len(self.terms)
+                }
+            except Exception as yaml_exc:
+                logger.error(f"YAML fallback failed: {yaml_exc}")
+                return {
+                    "success": False,
+                    "message": f"Supabase failed ({exc}) and YAML fallback failed",
+                    "error": str(yaml_exc),
+                }
 
         self.terms.clear()
         self.synonym_map.clear()
