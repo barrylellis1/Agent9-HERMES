@@ -83,6 +83,27 @@ if (Test-PortInUse -Port 8000) {
     Start-Sleep -Seconds 2
 }
 
+# Check Supabase Status
+Write-Host "Checking Supabase Status..." -ForegroundColor Cyan
+try {
+    $null = supabase status 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Supabase is not running. Attempting to start..." -ForegroundColor Yellow
+        supabase start
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Error: Failed to start Supabase. Please check Docker Desktop status." -ForegroundColor Red
+            Write-Host "Continuing anyway, but backend may fail..." -ForegroundColor DarkYellow
+            Pause
+        } else {
+            Write-Host "Supabase started successfully." -ForegroundColor Green
+        }
+    } else {
+        Write-Host "Supabase is running." -ForegroundColor Green
+    }
+} catch {
+    Write-Host "Warning: 'supabase' command not found or error checking status. Skipping Supabase check." -ForegroundColor Yellow
+}
+
 # Prepare logs directory BEFORE starting so we can tee output
 if (-not (Test-Path .\logs)) {
     New-Item -ItemType Directory -Path .\logs | Out-Null
