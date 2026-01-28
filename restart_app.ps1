@@ -100,6 +100,24 @@ try {
     } else {
         Write-Host "Supabase is running." -ForegroundColor Green
     }
+
+    # Sync Registry Data
+    Write-Host "Syncing YAML Registry Data to Supabase..." -ForegroundColor Cyan
+    $venvPath = Join-Path $PSScriptRoot '.venv'
+    $pythonExe = Join-Path $venvPath 'Scripts\python.exe'
+    $syncScript = Join-Path $PSScriptRoot 'scripts\sync_yaml_to_supabase.py'
+    
+    if (Test-Path $syncScript) {
+        $syncProcess = Start-Process -FilePath $pythonExe -ArgumentList $syncScript -NoNewWindow -PassThru -Wait
+        if ($syncProcess.ExitCode -eq 0) {
+            Write-Host "Registry sync completed successfully." -ForegroundColor Green
+        } else {
+            Write-Host "Warning: Registry sync failed. Proceeding, but data may be stale." -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "Warning: Sync script not found at $syncScript" -ForegroundColor Yellow
+    }
+
 } catch {
     Write-Host "Warning: 'supabase' command not found or error checking status. Skipping Supabase check." -ForegroundColor Yellow
 }
