@@ -83,6 +83,38 @@ if (Test-PortInUse -Port 8000) {
     Start-Sleep -Seconds 2
 }
 
+# Ensure Docker is Running
+Write-Host "Checking Docker status..." -ForegroundColor Cyan
+docker info > $null 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Docker is not responding. Attempting to start Docker Desktop..." -ForegroundColor Yellow
+    $dockerPath = "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+    if (Test-Path $dockerPath) {
+        Start-Process $dockerPath
+        
+        # Wait for Docker to come up
+        Write-Host "Waiting for Docker to start (this may take a minute)..." -NoNewline
+        $retries = 60 # 2 minutes max
+        while ($retries -gt 0) {
+            docker info > $null 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "`nDocker started successfully." -ForegroundColor Green
+                break
+            }
+            Write-Host "." -NoNewline
+            Start-Sleep -Seconds 2
+            $retries--
+        }
+        if ($retries -eq 0) {
+             Write-Host "`nTimeout waiting for Docker. Proceeding, but Supabase will likely fail." -ForegroundColor Red
+        }
+    } else {
+         Write-Host "Docker Desktop not found at default location ($dockerPath). Please ensure it is running." -ForegroundColor Red
+    }
+} else {
+    Write-Host "Docker is running." -ForegroundColor Green
+}
+
 # Check Supabase Status
 Write-Host "Checking Supabase Status..." -ForegroundColor Cyan
 try {
