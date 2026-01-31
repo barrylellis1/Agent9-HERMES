@@ -157,3 +157,70 @@ class DatabaseManager(ABC):
             Dictionary mapping view names to success status
         """
         pass
+
+    @abstractmethod
+    async def upsert_record(self, table: str, record: Dict[str, Any], key_fields: List[str], 
+                          transaction_id: Optional[str] = None) -> bool:
+        """
+        Insert or update a record in the specified table.
+        
+        Args:
+            table: Name of the table
+            record: Dictionary mapping column names to values
+            key_fields: List of column names that form the unique key for conflict resolution
+            transaction_id: Optional transaction identifier for logging
+            
+        Returns:
+            True if operation successful, False otherwise
+        """
+        pass
+
+    @abstractmethod
+    async def get_record(self, table: str, key_field: str, key_value: Any, 
+                       transaction_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve a single record by its key.
+        
+        Args:
+            table: Name of the table
+            key_field: Name of the key column
+            key_value: Value of the key to match
+            transaction_id: Optional transaction identifier for logging
+            
+        Returns:
+            Dictionary representing the record if found, None otherwise
+        """
+        pass
+
+    @abstractmethod
+    async def delete_record(self, table: str, key_field: str, key_value: Any, 
+                          transaction_id: Optional[str] = None) -> bool:
+        """
+        Delete a record by its key.
+        
+        Args:
+            table: Name of the table
+            key_field: Name of the key column
+            key_value: Value of the key to match
+            transaction_id: Optional transaction identifier for logging
+            
+        Returns:
+            True if operation successful (even if no row deleted), False on error
+        """
+        pass
+
+    @abstractmethod
+    async def fetch_records(self, table: str, filters: Optional[Dict[str, Any]] = None, 
+                          transaction_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Fetch multiple records from a table, optionally filtered.
+        
+        Args:
+            table: Name of the table
+            filters: Optional dictionary of column=value filters (AND logic)
+            transaction_id: Optional transaction identifier for logging
+            
+        Returns:
+            List of dictionaries representing the records
+        """
+        pass

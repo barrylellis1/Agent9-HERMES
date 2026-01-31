@@ -42,41 +42,53 @@ def load_data_products(yaml_path: str) -> List[Dict[str, Any]]:
 
 def transform_data_product(dp: Dict[str, Any]) -> Dict[str, Any]:
     """Transform data product to Supabase-compatible format."""
+    metadata = dp.get('metadata', {})
+    
+    # Helper to get field from root or metadata
+    def get_val(key: str, default: Any = None) -> Any:
+        val = dp.get(key)
+        if val is None and isinstance(metadata, dict):
+            val = metadata.get(key)
+        return val if val is not None else default
+
     # Convert product_id to id for consistency
     dp_id = dp.get('product_id') or dp.get('id')
+    # If not at root, check metadata
+    if not dp_id and isinstance(metadata, dict):
+        dp_id = metadata.get('id') or metadata.get('product_id')
     
     # Parse last_updated to date if it's a string
-    last_updated = dp.get('last_updated')
+    last_updated = get_val('last_updated')
     if isinstance(last_updated, str):
         try:
             last_updated = datetime.strptime(last_updated, '%Y-%m-%d').date().isoformat()
         except:
             last_updated = None
             
-    # Extract source_system from root or metadata
-    source_system = dp.get('source_system')
-    if not source_system and 'metadata' in dp:
-        source_system = dp['metadata'].get('source_system')
+    # Extract source_system
+    source_system = get_val('source_system')
+    
+    domain = get_val('domain')
     
     return {
         'id': dp_id,
-        'name': dp.get('name'),
-        'domain': dp.get('domain'),
-        'description': dp.get('description'),
-        'owner': dp.get('owner', f"{dp.get('domain')} Team"),
-        'version': dp.get('version', '1.0.0'),
+        'name': get_val('name'),
+        'domain': domain,
+        'description': get_val('description'),
+        'owner': get_val('owner', f"{domain or 'Unknown'} Team"),
+        'version': get_val('version', '1.0.0'),
         'source_system': source_system or 'duckdb',
-        'related_business_processes': dp.get('related_business_processes', []),
-        'tags': dp.get('tags', []),
-        'metadata': dp.get('metadata', {}),
+        'related_business_processes': get_val('related_business_processes', []),
+        'tags': get_val('tags', []),
+        'metadata': metadata,
         'tables': dp.get('tables', {}),
         'views': dp.get('views', {}),
         'yaml_contract_path': dp.get('yaml_contract_path'),
         'output_path': dp.get('output_path'),
         'last_updated': last_updated,
-        'reviewed': dp.get('reviewed', False),
-        'language': dp.get('language', 'EN'),
-        'documentation': dp.get('documentation'),
+        'reviewed': get_val('reviewed', False),
+        'language': get_val('language', 'EN'),
+        'documentation': get_val('documentation'),
         'staging': dp.get('staging', False),
     }
 
@@ -147,7 +159,7 @@ def seed_to_supabase(
     if resp.status_code not in (200, 201):
         raise Exception(f"Failed to seed data products: {resp.status_code} {resp.text}")
     
-    print(f"✅ Seeded {len(rows)} rows into {table}")
+    print(f"[SUCCESS] Seeded {len(rows)} rows into {table}")
 
 
 def main():

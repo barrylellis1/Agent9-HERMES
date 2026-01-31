@@ -89,7 +89,7 @@ def seed_to_supabase(
     if resp.status_code not in (200, 201):
         raise Exception(f"Failed to seed business processes: {resp.status_code} {resp.text}")
     
-    print(f"✅ Seeded {len(rows)} rows into {table}")
+    print(f"[SUCCESS] Seeded {len(rows)} rows into {table}")
 
 
 def main():

@@ -1807,6 +1807,51 @@ class A9_Data_Product_Agent(DataProductProtocol):
             "registered": results
         }
 
+    async def create_view(
+        self,
+        view_name: str,
+        sql_query: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Create a view from a SQL query.
+        
+        Args:
+            view_name: Name of the view to create
+            sql_query: SQL query defining the view
+            metadata: Optional metadata for the view
+            
+        Returns:
+            Dictionary containing the view definition or status
+        """
+        transaction_id = str(uuid.uuid4())
+        
+        # Ensure database connection is available before creating a view
+        if not await self._ensure_db_connected():
+            self.logger.warning(f"[TXN:{transaction_id}] Database not connected; cannot create view '{view_name}'")
+            return {"success": False, "message": "Database not connected", "view_name": view_name}
+            
+        try:
+            # Validate SQL is a string
+            if not isinstance(sql_query, str) or not sql_query.strip():
+                 return {"success": False, "message": "Invalid SQL query", "view_name": view_name}
+            
+            ok = await self.db_manager.create_view(
+                view_name=view_name, 
+                sql=sql_query, 
+                replace_existing=True, 
+                transaction_id=transaction_id
+            )
+            
+            return {
+                "success": bool(ok),
+                "message": f"View '{view_name}' created" if ok else f"Failed to create view '{view_name}'",
+                "view_name": view_name
+            }
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Error creating view {view_name}: {str(e)}\n{traceback.format_exc()}")
+            return {"success": False, "message": str(e), "view_name": view_name}
+
     async def create_view_from_contract(self, contract_path: str, view_name: str) -> Dict[str, Any]:
         """
         Create or replace a view defined in the YAML contract. Returns a status dict.
@@ -3749,11 +3794,12 @@ class A9_Data_Product_Agent(DataProductProtocol):
             else:
                 overall_status = "some_failed"
             
-            # Validation is required for governance, but can proceed even with failures
-            can_proceed = True
+            # Governance Gate: Block if any validation fails
+            # All KPIs must be valid to proceed to governance
+            can_proceed = (failed_count == 0)
             
             self.logger.info(
-                f"[{request_id}] Validation complete: {passed_count} passed, {failed_count} failed"
+                f"[{request_id}] Validation complete: {passed_count} passed, {failed_count} failed. Proceed={can_proceed}"
             )
             
             return ValidateKPIQueriesResponse(
@@ -3958,10 +4004,11 @@ class A9_Data_Product_Agent(DataProductProtocol):
         """
         error_lower = error_message.lower()
         
-        # Column/table not found
+        # Column/table not found (Generic + BigQuery specific)
         if any(phrase in error_lower for phrase in [
             "column", "not found", "does not exist", "unknown column",
-            "invalid column", "no such column", "table or view not found"
+            "invalid column", "no such column", "table or view not found",
+            "unrecognized name", "not found: table", "not found: dataset"
         ]):
             return "column_not_found"
         

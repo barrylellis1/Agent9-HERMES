@@ -337,7 +337,7 @@ views:
     ProductHierarchy_Description, ProductHierarchy_Level FROM SalesOrderStarSchemaView
   source_table: SalesOrderStarSchemaView
 kpis:
-- id: kpi_001
+- id: total_sales_revenue
   name: Total Sales Revenue
   domain: Sales
   description: Total revenue generated from sales orders within a specified timeframe.
@@ -373,7 +373,7 @@ kpis:
   stakeholder_roles:
   - Sales VP
   - Finance Director
-- id: kpi_002
+- id: average_sales_order_value
   name: Average Sales Order Value
   domain: Sales
   description: Average net amount of sales orders calculated over a given period.
@@ -408,7 +408,7 @@ kpis:
   stakeholder_roles:
   - Sales Analyst
   - Marketing Manager
-- id: kpi_003
+- id: sales_tax_collection
   name: Sales Tax Collection
   domain: Sales
   description: Total tax amount collected from sales orders within a specific period.
@@ -444,7 +444,7 @@ kpis:
   stakeholder_roles:
   - Accounting Manager
   - Compliance Officer
-- id: kpi_004
+- id: new_business_partners
   name: New Business Partners
   domain: Sales
   description: Count of new business partners added within a specific timeframe.
@@ -482,7 +482,7 @@ kpis:
   stakeholder_roles:
   - Sales VP
   - Marketing Manager
-- id: kpi_005
+- id: product_pricing_efficiency
   name: Product Pricing Efficiency
   domain: Sales
   description: Average price of products sold, indicating the pricing strategy efficiency.

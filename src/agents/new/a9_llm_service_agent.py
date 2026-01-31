@@ -498,6 +498,37 @@ class A9_LLM_Service_Agent:
                 operation=request.operation
             )
     
+    def _extract_json(self, content: str) -> Dict[str, Any]:
+        """
+        Extract JSON from content, handling markdown code blocks.
+        
+        Args:
+            content: Raw content string
+            
+        Returns:
+            Parsed JSON dictionary
+            
+        Raises:
+            json.JSONDecodeError: If JSON cannot be parsed
+        """
+        content = content.strip()
+        
+        # Strip markdown code blocks if present
+        if "```" in content:
+            # Try to find the JSON block
+            import re
+            json_match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', content, re.IGNORECASE)
+            if json_match:
+                content = json_match.group(1)
+            else:
+                # Fallback: look for first { and last }
+                start = content.find("{")
+                end = content.rfind("}")
+                if start != -1 and end != -1:
+                    content = content[start:end+1]
+        
+        return json.loads(content)
+
     async def generate_with_template(self, request: A9_LLM_TemplateRequest) -> A9_LLM_Response:
         """
         Generate text using a prompt template
@@ -984,8 +1015,13 @@ Important guidelines:
             
             # Parse JSON response
             try:
-                sql_data = json.loads(response.content)
+                sql_data = self._extract_json(response.content)
                 sql_query = sql_data.get("sql_query", "")
+                
+                # Clean up SQL query - remove escaped quotes if present (common LLM artifact)
+                if sql_query:
+                    sql_query = sql_query.replace('\\"', '"')
+                
                 confidence = float(sql_data.get("confidence", 0.8)) # Default to 0.8 if not provided
                 warnings = sql_data.get("warnings", [])
                 explanation = sql_data.get("explanation", "") if request.include_explain else None
@@ -1005,6 +1041,11 @@ Important guidelines:
                 import re
                 sql_match = re.search(r'SELECT[\s\S]+?(?=```|$)', response.content, re.IGNORECASE)
                 sql_query = sql_match.group(0) if sql_match else ""
+                
+                # Apply cleanup to regex-extracted SQL too
+                if sql_query:
+                    sql_query = sql_query.replace('\\"', '"')
+                    
                 confidence = 0.4  # Low confidence for regex extraction
                 warnings = ["Failed to parse response as JSON, extracted SQL using pattern matching"]
                 explanation = None

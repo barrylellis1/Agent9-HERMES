@@ -9,6 +9,8 @@ during the data product onboarding workflow.
 import logging
 import json
 import re
+import os
+import yaml
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 from pydantic import BaseModel, Field
@@ -233,6 +235,7 @@ class A9_KPI_Assistant_Agent:
             
             return KPIChatResponse(
                 status="success",
+                request_id=request.request_id,
                 response=llm_response,
                 updated_kpis=updated_kpis,
                 actions=actions
@@ -242,6 +245,7 @@ class A9_KPI_Assistant_Agent:
             self.logger.error(f"Error in chat: {e}")
             return KPIChatResponse(
                 status="error",
+                request_id=request.request_id,
                 error=str(e),
                 response="",
                 updated_kpis=None,
@@ -323,6 +327,7 @@ class A9_KPI_Assistant_Agent:
             
             return KPIValidationResponse(
                 status="success",
+                request_id=request.request_id,
                 valid=valid,
                 errors=errors,
                 warnings=warnings,
@@ -333,6 +338,7 @@ class A9_KPI_Assistant_Agent:
             self.logger.error(f"Error validating KPI: {e}")
             return KPIValidationResponse(
                 status="error",
+                request_id=request.request_id,
                 error=str(e),
                 valid=False,
                 errors=[str(e)],
@@ -400,10 +406,12 @@ YOUR ROLE:
 Help users define comprehensive KPIs with ALL required attributes for the Agent9 registry.
 
 KPI STRUCTURE (ALL fields required):
-1. Core Identity: id, name, domain, description, unit, data_product_id
+1. Core Identity:
+   - id: Semantic snake_case ID (e.g., "gross_revenue", "customer_churn_rate"). MUST be globally unique and derived from the name. Do NOT use generic IDs like "kpi_001".
+   - name, domain, description, unit, data_product_id
 2. Calculation: sql_query, filters (optional)
 3. Dimensions: name, field, description, values
-4. Thresholds: comparison_type, green/yellow/red thresholds, inverse_logic
+4. Thresholds: comparison_type (qoq/yoy/mom/target/budget), green/yellow/red thresholds, inverse_logic
 5. Governance: business_process_ids, tags, owner_role, stakeholder_roles
 6. Strategic Metadata:
    - line (top_line/middle_line/bottom_line)
@@ -459,6 +467,7 @@ DIMENSIONS:
 {dimensions_str}
 
 Please suggest {num_suggestions} KPIs with:
+- Semantic IDs (e.g., "total_sales_volume", NOT "kpi_001")
 - Complete attribute sets (all required fields)
 - Strategic metadata tags with explanations
 - SQL queries using the available measures and dimensions
@@ -475,15 +484,15 @@ IMPORTANT: Return a JSON array of KPI objects in this EXACT flat structure:
 ```json
 [
   {{
-    "id": "kpi_001",
-    "name": "KPI Name",
+    "id": "total_gross_sales",
+    "name": "Total Gross Sales",
     "domain": "{schema.domain}",
     "description": "Clear description",
     "unit": "USD or count or percent",
     "data_product_id": "{schema.data_product_id}",
     "sql_query": "SELECT SUM(measure_column) FROM {example_table}",
-    "dimensions": [{{"name": "Dimension Name", "field": "column_name", "description": "...", "values": "all"}}],
-    "thresholds": [{{"comparison_type": "greater_than", "green_threshold": 100, "yellow_threshold": 50, "red_threshold": 10, "inverse_logic": false}}],
+    "dimensions": [{{ "name": "Dimension Name", "field": "column_name", "description": "...", "values": ["all"] }}],
+    "thresholds": [{{ "comparison_type": "target", "green_threshold": 100, "yellow_threshold": 50, "red_threshold": 10, "inverse_logic": false }}],
     "metadata": {{
       "line": "top_line",
       "altitude": "strategic",
@@ -785,8 +794,6 @@ If the user is requesting changes to KPIs, format your response with clear JSON 
     
     async def _load_contract_yaml(self, data_product_id: str) -> str:
         """Load existing contract YAML from staging or registered location"""
-        import os
-        import yaml
         
         # Look in staging directory first (for new products)
         staging_path = f"src/registry_references/data_product_registry/staging/{data_product_id}.yaml"
@@ -830,7 +837,6 @@ If the user is requesting changes to KPIs, format your response with clear JSON 
             kpis: New KPIs to add
             extend_mode: If True, merge with existing KPIs; if False, replace all KPIs
         """
-        import yaml
         
         # Parse existing contract
         contract = yaml.safe_load(contract_yaml)
@@ -868,7 +874,6 @@ If the user is requesting changes to KPIs, format your response with clear JSON 
     
     async def _save_contract_yaml(self, data_product_id: str, yaml_content: str) -> None:
         """Save updated contract YAML to staging location"""
-        import os
         
         # Save to staging directory
         staging_path = f"src/registry_references/data_product_registry/staging/{data_product_id}.yaml"
@@ -884,8 +889,68 @@ If the user is requesting changes to KPIs, format your response with clear JSON 
     
     async def _trigger_registry_updates(self, data_product_id: str, kpis: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Trigger registry updates for new KPIs"""
-        # TODO: Implement registry updates
-        return {"status": "pending"}
+        results = {
+            "success": [],
+            "failed": []
+        }
+        
+        try:
+            from src.registry.factory import RegistryFactory
+            from src.registry.models.kpi import KPI
+            
+            # Get KPI provider
+            factory = RegistryFactory()
+            if not factory.is_initialized:
+                await factory.initialize()
+                
+            provider = factory.get_kpi_provider()
+            if not provider:
+                raise ValueError("KPI provider not available")
+            
+            self.logger.info(f"Registering {len(kpis)} KPIs to {provider.__class__.__name__}")
+            
+            import inspect
+            
+            for kpi_data in kpis:
+                try:
+                    # Convert dict to KPI model
+                    # Ensure data_product_id is set
+                    if "data_product_id" not in kpi_data:
+                        kpi_data["data_product_id"] = data_product_id
+                        
+                    kpi = KPI(**kpi_data)
+                    
+                    # Register with provider (handles Supabase insertion if configured)
+                    # Handle both sync and async providers
+                    if hasattr(provider, 'register'):
+                        result = provider.register(kpi)
+                        if inspect.isawaitable(result):
+                            success = await result
+                        else:
+                            success = result
+                    else:
+                        success = False
+                        self.logger.warning(f"Provider {provider.__class__.__name__} has no register method")
+                    
+                    if success:
+                        results["success"].append(kpi.id)
+                        self.logger.info(f"Successfully registered KPI: {kpi.id}")
+                    else:
+                        results["failed"].append({"id": kpi.id, "error": "Registration returned False"})
+                        self.logger.warning(f"Failed to register KPI: {kpi.id}")
+                        
+                except Exception as e:
+                    results["failed"].append({"id": kpi_data.get("id", "unknown"), "error": str(e)})
+                    self.logger.error(f"Error registering KPI {kpi_data.get('id')}: {e}")
+            
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"Error in registry updates: {e}")
+            return {
+                "success": [],
+                "failed": [{"id": "all", "error": str(e)}]
+            }
 
 
 # Factory function for orchestrator-driven creation

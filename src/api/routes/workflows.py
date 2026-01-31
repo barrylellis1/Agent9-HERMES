@@ -517,33 +517,28 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
             deep_request_payload["extra"] = {"hypotheses": request.hypotheses}
         deep_request = DeepAnalysisRequest(**deep_request_payload)
 
-        plan_resp = await orchestrator.execute_agent_method(
-            "A9_Deep_Analysis_Agent",
-            "plan_deep_analysis",
-            {"request": deep_request},
-        )
-        plan_serialized = serialize(plan_resp)
-        plan_data = None
-        if isinstance(plan_resp, dict):
-            plan_data = plan_resp.get("plan")
-        elif hasattr(plan_resp, "plan"):
-            plan_data = serialize(plan_resp.plan)
-        if plan_data is None:
-            plan_data = plan_serialized.get("plan") if isinstance(plan_serialized, dict) else None
-        if plan_data is None:
-            raise ValueError("Deep analysis plan not available")
-        plan_object = DeepAnalysisPlan(**plan_data) if not hasattr(plan_data, "model_dump") else plan_data
-
-        execution_resp = await orchestrator.execute_agent_method(
-            "A9_Deep_Analysis_Agent",
-            "execute_deep_analysis",
-            {"plan": plan_object},
-        )
+        # Use Orchestrator to run the full Deep Analysis workflow (Plan + Execute)
+        response = await orchestrator.orchestrate_deep_analysis(deep_request)
+        
+        # Maintain backward compatibility with UI result structure
+        # UI expects { "plan": ..., "execution": ... }
+        # The orchestrator response (DeepAnalysisResponse) contains the plan
+        plan_serialized = serialize(response.plan) if response.plan else None
+        execution_serialized = serialize(response)
+        
         result_payload = {
             "plan": plan_serialized,
-            "execution": serialize(execution_resp),
+            "execution": execution_serialized,
         }
-        await _update_record(request_id, state="completed", result=result_payload)
+        
+        status = "failed" if response.status == "error" else "completed"
+        error_msg = response.error_message if response.status == "error" else None
+        
+        if status == "failed":
+             await _update_record(request_id, state="failed", error=error_msg)
+        else:
+             await _update_record(request_id, state="completed", result=result_payload)
+             
     except Exception as exc:  # pragma: no cover - defensive
         await _update_record(request_id, state="failed", error=str(exc))
 
@@ -572,12 +567,17 @@ async def _run_solution_workflow(request_id: str, runtime: AgentRuntime, request
             solution_request_payload["principal_context"] = request.principal_context
         solution_request = SolutionFinderRequest(**solution_request_payload)
 
-        response = await orchestrator.execute_agent_method(
-            "A9_Solution_Finder_Agent",
-            "recommend_actions",
-            {"request": solution_request},
-        )
-        await _update_record(request_id, state="completed", result={"solutions": serialize(response)})
+        # Use Orchestrator to run the Solution Finding workflow
+        response = await orchestrator.orchestrate_solution_finding(solution_request)
+        
+        status = "failed" if response.status == "error" else "completed"
+        error_msg = response.message if response.status == "error" else None
+        
+        if status == "failed":
+            await _update_record(request_id, state="failed", error=error_msg)
+        else:
+            await _update_record(request_id, state="completed", result={"solutions": serialize(response)})
+            
     except Exception as exc:  # pragma: no cover - defensive
         await _update_record(request_id, state="failed", error=str(exc))
 

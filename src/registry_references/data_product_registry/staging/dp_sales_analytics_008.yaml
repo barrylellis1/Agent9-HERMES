@@ -337,7 +337,7 @@ views:
     ProductHierarchy_Description, ProductHierarchy_Level FROM SalesOrderStarSchemaView
   source_table: SalesOrderStarSchemaView
 kpis:
-- id: kpi_001
+- id: total_gross_sales
   name: Total Gross Sales
   domain: Finance
   description: Total gross amount from all sales orders
@@ -373,7 +373,7 @@ kpis:
   stakeholder_roles:
   - Sales VP
   - Finance Director
-- id: kpi_002
+- id: net_revenue_growth_rate
   name: Net Revenue Growth Rate
   domain: Finance
   description: Percentage growth in net revenue from sales orders month-over-month
@@ -414,7 +414,7 @@ kpis:
   stakeholder_roles:
   - Sales VP
   - Business Analyst
-- id: kpi_003
+- id: average_sales_order_value
   name: Average Sales Order Value
   domain: Finance
   description: Average net amount per sales order
@@ -450,7 +450,7 @@ kpis:
   stakeholder_roles:
   - Sales Analyst
   - Finance Director
-- id: kpi_004
+- id: sales_tax_collected
   name: Sales Tax Collected
   domain: Finance
   description: Total tax amount collected from sales orders
@@ -486,7 +486,7 @@ kpis:
   stakeholder_roles:
   - Finance Director
   - Compliance Officer
-- id: kpi_005
+- id: product_pricing_efficiency
   name: Product Pricing Efficiency
   domain: Finance
   description: Average price of products sold in relation to the net sales amount

@@ -117,10 +117,14 @@ class A9_Situation_Awareness_Agent:
         # Cache for last generated SQL per KPI to avoid regenerating for UI display
         self._last_sql_cache: Dict[str, Dict[str, str]] = {}
     
-    async def connect(self):
+    async def connect(self, orchestrator=None):
         """Initialize connections to dependent services."""
         try:
-            # Initialize the orchestrator agent
+            # Use provided orchestrator if available
+            if orchestrator:
+                self.orchestrator_agent = orchestrator
+
+            # Initialize the orchestrator agent if not already set
             if not hasattr(self, 'orchestrator_agent') or self.orchestrator_agent is None:
                 self.orchestrator_agent = await A9_Orchestrator_Agent.create({})
                 if self.orchestrator_agent is None:
@@ -1214,6 +1218,7 @@ class A9_Situation_Awareness_Agent:
             diagnostic_questions = []
             kpi_dp_id = "FI_Star_Schema"  # Default
             sql_query = ""
+            unit = getattr(kpi, 'unit', None)  # Extract unit
             
             # Extract dimensions with safe access
             try:

@@ -42,6 +42,77 @@ Write-Host "=== Restarting Agent9 Decision Studio (Consumer Grade) ===" -Foregro
 Kill-Port -Port 8000
 Kill-Port -Port 5173
 
+# 1.4 Ensure Docker is Running
+Write-Host "Checking Docker status..." -ForegroundColor Cyan
+docker info > $null 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Docker is not responding. Attempting to start Docker Desktop..." -ForegroundColor Yellow
+    $dockerPath = "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+    if (Test-Path $dockerPath) {
+        Start-Process $dockerPath
+        
+        # Wait for Docker to come up
+        Write-Host "Waiting for Docker to start (this may take a minute)..." -NoNewline
+        $retries = 60 # 2 minutes max
+        while ($retries -gt 0) {
+            docker info > $null 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "`nDocker started successfully." -ForegroundColor Green
+                break
+            }
+            Write-Host "." -NoNewline
+            Start-Sleep -Seconds 2
+            $retries--
+        }
+        if ($retries -eq 0) {
+             Write-Host "`nTimeout waiting for Docker. Proceeding, but Supabase will likely fail." -ForegroundColor Red
+        }
+    } else {
+         Write-Host "Docker Desktop not found at default location ($dockerPath). Please ensure it is running." -ForegroundColor Red
+    }
+} else {
+    Write-Host "Docker is running." -ForegroundColor Green
+}
+
+# 1.5 Check Supabase Status
+Write-Host "Checking Supabase Status..." -ForegroundColor Cyan
+try {
+    $null = supabase status 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Supabase is not running. Attempting to start..." -ForegroundColor Yellow
+        supabase start
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Error: Failed to start Supabase. Please check Docker Desktop status." -ForegroundColor Red
+            Write-Host "Continuing anyway, but backend may fail..." -ForegroundColor DarkYellow
+            Pause
+        } else {
+            Write-Host "Supabase started successfully." -ForegroundColor Green
+        }
+    } else {
+        Write-Host "Supabase is running." -ForegroundColor Green
+    }
+
+    # 1.6 Sync Registry Data
+    Write-Host "Syncing YAML Registry Data to Supabase..." -ForegroundColor Cyan
+    $venvPath = Join-Path $PSScriptRoot '.venv'
+    $pythonExe = Join-Path $venvPath 'Scripts\python.exe'
+    $syncScript = Join-Path $PSScriptRoot 'scripts\sync_yaml_to_supabase.py'
+    
+    if (Test-Path $syncScript) {
+        $syncProcess = Start-Process -FilePath $pythonExe -ArgumentList $syncScript -NoNewWindow -PassThru -Wait
+        if ($syncProcess.ExitCode -eq 0) {
+            Write-Host "Registry sync completed successfully." -ForegroundColor Green
+        } else {
+            Write-Host "Warning: Registry sync failed. Proceeding, but data may be stale." -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "Warning: Sync script not found at $syncScript" -ForegroundColor Yellow
+    }
+
+} catch {
+    Write-Host "Warning: 'supabase' command not found or error checking status. Skipping Supabase check." -ForegroundColor Yellow
+}
+
 # 2. Start Backend (FastAPI)
 Write-Host "Starting FastAPI Backend (Port 8000)..." -ForegroundColor Green
 $venvPath = Join-Path $PSScriptRoot '.venv'

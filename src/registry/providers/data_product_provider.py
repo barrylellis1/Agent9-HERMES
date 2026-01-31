@@ -786,20 +786,62 @@ class SupabaseDataProductProvider(DataProductProvider):
     
     def _row_to_data_product(self, row: dict) -> DataProduct:
         """Convert Supabase row to DataProduct Pydantic object."""
-        metadata = row.get('metadata', {})
-        source_system = row.get('source_system') or metadata.get('source_system', 'duckdb')
-        
         return DataProduct(
             id=row['id'],
             name=row['name'],
             domain=row['domain'],
             description=row.get('description'),
-            owner=row['owner'],
-            version=row.get('version', '1.0.0'),
+            tags=row.get('tags', []),
+            owner=row.get('owner'),
             tables=row.get('tables', {}),
             views=row.get('views', {}),
             related_business_processes=row.get('related_business_processes', []),
-            tags=row.get('tags', []),
-            source_system=source_system,
-            metadata=metadata,
+            metadata=row.get('metadata', {}),
+            version=row.get('version', '0.1.0'),
+            status=row.get('status', 'draft'),
         )
+
+    async def register(self, item: DataProduct) -> bool:
+        """
+        Register a new data product in Supabase.
+        
+        Args:
+            item: The data product to register
+            
+        Returns:
+            True if registration succeeded, False otherwise
+        """
+        import requests
+        import json
+        
+        # Always update local cache (upsert behavior)
+        self._add_data_product(item)
+            
+        url = f'{self.supabase_url}/rest/v1/{self.table}'
+        headers = {
+            'apikey': self.service_key,
+            'Authorization': f'Bearer {self.service_key}',
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation, resolution=merge-duplicates',
+        }
+        
+        try:
+            # Convert to dict for JSON serialization
+            payload = item.model_dump()
+            
+            # Map fields to Supabase schema if needed
+            # Ensure ID is present
+            if 'id' not in payload:
+                payload['id'] = item.id
+                
+            # Perform sync request (since we're using requests library here to match existing code)
+            # In a full async refactor, we should move _load_from_supabase to use httpx too
+            response = requests.post(url, json=payload, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            logger.info(f"Successfully registered Data Product {item.id} in Supabase")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to register Data Product {item.id} in Supabase: {e}")
+            return False

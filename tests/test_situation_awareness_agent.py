@@ -74,7 +74,7 @@ class MockDataProductAgent:
     def __init__(self):
         self.config = mock.MagicMock()
         # Add required attributes that are accessed during testing
-        self.config.contracts_path = "src/contracts"
+        self.config.contracts_path = "src/registry_references/data_product_registry/data_products"
         self.data_products = {
             "financial_transactions": {"tables": ["gl_line_items", "ap_items", "ar_items"]},
             "general_ledger": {"tables": ["accounts", "cost_centers", "profit_centers"]}
@@ -199,7 +199,7 @@ class MockDataProductAgentContinued:
         instance = cls()
         if config:
             instance.config = mock.MagicMock(**config)
-            instance.config.contracts_path = "src/contracts"
+            instance.config.contracts_path = "src/registry_references/data_product_registry/data_products"
         return instance
     
     async def connect(self):
@@ -310,7 +310,7 @@ async def test_agent_initialization():
         else:
             # Await the async create method
             return await A9_Data_Product_Agent.create({
-                "contracts_path": "src/contracts",
+                "contracts_path": "src/registry_references/data_product_registry/data_products",
                 "data_directory": "C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI",
                 "registry_path": "src/registry/data_product/data_product_registry.yaml"  # Use YAML-based registry
             })
@@ -342,7 +342,7 @@ async def test_agent_initialization():
     try:
         # Create the agent with the real orchestrator
         agent = create_situation_awareness_agent({
-            "contract_path": "src/contracts/fi_star_schema.yaml"
+            "contract_path": "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
         })
         
         # Connect to dependencies through the real orchestrator
@@ -393,7 +393,7 @@ async def test_metadata_alignment():
     registry_factory = RegistryFactory()
     
     # Load the data contract
-    contract_path = "src/contracts/fi_star_schema.yaml"
+    contract_path = "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
     with open(contract_path, "r") as f:
         contract = yaml.safe_load(f)
     
@@ -690,7 +690,7 @@ async def test_protocol_methods():
         
         # Create the agent
         agent = create_situation_awareness_agent({
-            "contract_path": "src/contracts/fi_star_schema.yaml",
+            "contract_path": "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml",
             "target_domains": ["Finance"]
         })
         

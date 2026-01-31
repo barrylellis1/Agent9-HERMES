@@ -25,6 +25,15 @@ from src.agents.models.data_product_onboarding_models import (
     PrincipalOwnershipRequest,
     DataProductQARequest,
 )
+from src.agents.models.deep_analysis_models import (
+    DeepAnalysisRequest,
+    DeepAnalysisResponse,
+    DeepAnalysisPlan,
+)
+from src.agents.models.solution_finder_models import (
+    SolutionFinderRequest,
+    SolutionFinderResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -863,6 +872,111 @@ class A9_Orchestrator_Agent:
                 "message": str(e),
                 "situations": []
             }
+
+    async def orchestrate_deep_analysis(
+        self, request: DeepAnalysisRequest
+    ) -> DeepAnalysisResponse:
+        """
+        Orchestrate the deep analysis workflow.
+        
+        Args:
+            request: The deep analysis request.
+            
+        Returns:
+            The analysis results including KT Analysis and Change Points.
+        """
+        self.logger.info(f"Orchestrating deep analysis for KPI: {request.kpi_name}")
+        
+        try:
+            # 1. Ensure DA Agent is initialized
+            await self.get_agent("A9_Deep_Analysis_Agent")
+            
+            # 2. Plan the analysis
+            plan_response = await self.execute_agent_method(
+                "A9_Deep_Analysis_Agent",
+                "plan_deep_analysis",
+                {"request": request}
+            )
+            
+            # Handle potential dict response if not Pydantic model
+            if isinstance(plan_response, dict):
+                plan_data = plan_response.get("plan")
+                if not plan_data:
+                    return DeepAnalysisResponse.error(
+                        request_id=request.request_id,
+                        error_message="Planning failed: No plan returned"
+                    )
+                # Convert dict plan back to model if needed for execution
+                if isinstance(plan_data, dict):
+                    plan = DeepAnalysisPlan(**plan_data)
+                else:
+                    plan = plan_data
+            else:
+                if not plan_response.plan:
+                    return DeepAnalysisResponse.error(
+                        request_id=request.request_id,
+                        error_message="Planning failed: No plan returned"
+                    )
+                plan = plan_response.plan
+
+            self.logger.info(f"Analysis plan generated with {len(plan.steps)} steps")
+
+            # 3. Execute the analysis
+            execution_response = await self.execute_agent_method(
+                "A9_Deep_Analysis_Agent",
+                "execute_deep_analysis",
+                {"plan": plan}
+            )
+            
+            return execution_response
+            
+        except Exception as e:
+            self.logger.error(f"Deep analysis orchestration failed: {str(e)}")
+            return DeepAnalysisResponse.error(
+                request_id=request.request_id,
+                error_message=f"Deep analysis failed: {str(e)}"
+            )
+
+    async def orchestrate_solution_finding(
+        self, request: SolutionFinderRequest
+    ) -> SolutionFinderResponse:
+        """
+        Orchestrate the solution finding workflow.
+        
+        Args:
+            request: The solution finder request.
+            
+        Returns:
+            The solution finder response with ranked options and recommendations.
+        """
+        self.logger.info(f"Orchestrating solution finding for request: {request.request_id}")
+        
+        try:
+            # 1. Ensure SF Agent is initialized
+            await self.get_agent("A9_Solution_Finder_Agent")
+            
+            # 2. Execute recommendation
+            response = await self.execute_agent_method(
+                "A9_Solution_Finder_Agent",
+                "recommend_actions",
+                {"request": request}
+            )
+            
+            return response
+            
+        except Exception as e:
+            self.logger.error(f"Solution finding orchestration failed: {str(e)}")
+            # Return error response using model if possible, or construct one
+            try:
+                return SolutionFinderResponse(
+                    request_id=request.request_id,
+                    status="error",
+                    message=f"Solution finding failed: {str(e)}",
+                    options_ranked=[]
+                )
+            except Exception:
+                # Fallback if validation fails
+                raise RuntimeError(f"Solution finding failed and could not build error response: {e}")
 
     # ---- Headless orchestration helpers (for batch/background runs) ----
     async def prepare_environment(self, contract_path: str, view_name: str = "FI_Star_View", schema: str = "main") -> Dict[str, Any]:

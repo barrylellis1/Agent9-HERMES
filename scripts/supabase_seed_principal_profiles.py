@@ -255,7 +255,7 @@ def main() -> int:
         print(f"Upserting {len(rows)} rows to {table}...")
         inserted = upsert_rows(client, endpoint, headers, rows)
     
-    print(f"✅ Seeded {len(inserted) if inserted else len(rows)} rows into {table}")
+    print(f"[SUCCESS] Seeded {len(inserted) if inserted else len(rows)} rows into {table}")
     return 0
 
 

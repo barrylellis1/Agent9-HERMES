@@ -29,6 +29,7 @@ import yaml
 # Paths to registry files
 KPI_REGISTRY_PATH = Path("src/registry/kpi/kpi_registry.yaml")
 BUSINESS_PROCESS_REGISTRY_PATH = Path("src/registry/business_process/business_process_registry.yaml")
+STAGING_DIR = Path("src/registry_references/data_product_registry/staging")
 
 
 def parse_args() -> argparse.Namespace:
@@ -224,9 +225,42 @@ def main() -> int:
     bp_map = build_business_process_map(bp_data)
     print(f"Mapped {len(bp_map)} business processes")
     
-    # Transform KPIs
+    # Transform KPIs from central registry
     rows = transform_kpis(kpi_data, bp_map)
-    print(f"Transformed {len(rows)} KPIs")
+    print(f"Transformed {len(rows)} KPIs from central registry")
+
+    # Load and transform KPIs from staging data products
+    if STAGING_DIR.exists():
+        print(f"Loading KPIs from staging: {STAGING_DIR}...")
+        staging_kpis_count = 0
+        for yaml_file in STAGING_DIR.glob("*.yaml"):
+            try:
+                dp_data = load_yaml_file(yaml_file)
+                if "kpis" in dp_data and isinstance(dp_data["kpis"], list):
+                    # Load KPIs directly without prefixing - enforcing global uniqueness
+                    dp_rows = transform_kpis(dp_data, bp_map)
+                    rows.extend(dp_rows)
+                    staging_kpis_count += len(dp_rows)
+            except Exception as e:
+                print(f"Warning: Failed to load KPIs from {yaml_file}: {e}", file=sys.stderr)
+        
+        print(f"Transformed {staging_kpis_count} KPIs from staging data products")
+    else:
+        print(f"Warning: Staging directory not found: {STAGING_DIR}", file=sys.stderr)
+    
+    # Deduplicate rows by ID
+    unique_rows = {}
+    for row in rows:
+        kpi_id = row.get("id")
+        if kpi_id:
+            if kpi_id in unique_rows:
+                print(f"Warning: Duplicate KPI ID '{kpi_id}' found. Overwriting with latest definition.", file=sys.stderr)
+            unique_rows[kpi_id] = row
+        else:
+            print("Warning: KPI missing ID, skipping.", file=sys.stderr)
+            
+    rows = list(unique_rows.values())
+    print(f"Total Unique KPIs to seed: {len(rows)}")
     
     # Dry run: print and exit
     if args.dry_run:
@@ -254,7 +288,7 @@ def main() -> int:
         print(f"Upserting {len(rows)} rows to {table}...")
         inserted = upsert_rows(client, endpoint, headers, rows)
     
-    print(f"✅ Seeded {len(inserted) if inserted else len(rows)} rows into {table}")
+    print(f"[SUCCESS] Seeded {len(inserted) if inserted else len(rows)} rows into {table}")
     return 0
 
 

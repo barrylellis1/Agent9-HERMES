@@ -611,6 +611,52 @@ class SupabaseKPIProvider(KPIProvider):
         logger.info(f"Loaded {loaded} KPIs from Supabase")
 
 
+    async def register(self, item: KPI) -> bool:
+        """
+        Register a new KPI in Supabase.
+        
+        Args:
+            item: The KPI to register
+            
+        Returns:
+            True if registration succeeded, False otherwise
+        """
+        import httpx
+        import json as _json
+        
+        # Always update local cache (upsert behavior)
+        self._add_kpi(item)
+            
+        endpoint = f"{self.supabase_url}/rest/v1/{self.table}"
+        headers = {
+            "apikey": self.service_key,
+            "Authorization": f"Bearer {self.service_key}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation, resolution=merge-duplicates",
+        }
+        
+        try:
+            # Convert KPI to dict for JSON serialization
+            payload = item.model_dump()
+            
+            # Handle enum serialization for Supabase
+            if payload.get("thresholds"):
+                for t in payload["thresholds"]:
+                    if "comparison_type" in t and hasattr(t["comparison_type"], "value"):
+                        t["comparison_type"] = t["comparison_type"].value
+            
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(endpoint, json=payload, headers=headers)
+                response.raise_for_status()
+                
+                logger.info(f"Successfully registered KPI {item.id} in Supabase")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Failed to register KPI {item.id} in Supabase: {e}")
+            return False
+
+
 def create_supabase_kpi_provider(config: Dict[str, Any]) -> SupabaseKPIProvider:
     """
     Factory function to create a Supabase KPI Provider.

@@ -129,6 +129,7 @@ class KPIDefinition(BaseModel):
     """KPI definition from the contract."""
     name: str = Field(description="Name of the KPI")
     description: str = Field(description="Description of the KPI") 
+    unit: Optional[str] = Field(None, description="Unit of measurement (%, $, #, etc.)")
     data_product_id: str = Field(description="Data product ID")
     calculation: Optional[Any] = Field(None, description="Calculation logic or query template")
     diagnostic_questions: Optional[List[str]] = Field(None, description="Diagnostic questions for the KPI")
