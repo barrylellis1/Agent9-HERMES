@@ -1,0 +1,540 @@
+metadata:
+  id: dp_sales_analytics_010
+  name: Dp Sales Analytics 010
+  domain: Unknown
+tables:
+- name: SalesOrderStarSchemaView
+  columns:
+  - name: BusinessPartner_PARTNERID
+    data_type: INT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: PARTNERROLE
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: EMAILADDRESS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: PHONENUMBER
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: FAXNUMBER
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: WEBADDRESS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: BusinessPartner_ADDRESSID
+    data_type: INT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: COMPANYNAME
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: LEGALFORM
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: BusinessPartner_CREATEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: BusinessPartner_CREATEDAT
+    data_type: DATE
+    semantic_tags:
+    - dimension
+  - name: BusinessPartner_CHANGEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: BusinessPartner_CHANGEDAT
+    data_type: DATE
+    semantic_tags:
+    - dimension
+  - name: BusinessPartner_CURRENCY
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: SALESORDERID
+    data_type: INT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: SalesOrder_CREATEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: SalesOrder_CREATEDAT
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: SalesOrder_CHANGEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: SalesOrder_CHANGEDAT
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: FISCALYEARVARIANT
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: FISCALYEARPERIOD
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: SalesOrder_NOTEID
+    data_type: STRING
+    semantic_tags:
+    - identifier
+  - name: SALESORG
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: SalesOrder_CURRENCY
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: SalesOrder_GROSSAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: SalesOrder_NETAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: SalesOrder_TAXAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: LIFECYCLESTATUS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: BILLINGSTATUS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: DELIVERYSTATUS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: SALESORDERITEM
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: SalesOrderItem_NOTEID
+    data_type: STRING
+    semantic_tags:
+    - identifier
+  - name: SalesOrderItem_CURRENCY
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: SalesOrderItem_GROSSAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: SalesOrderItem_NETAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: SalesOrderItem_TAXAMOUNT
+    data_type: INT64
+    semantic_tags:
+    - measure
+  - name: ITEMATPSTATUS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: OPITEMPOS
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: QUANTITY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: SalesOrderItem_QUANTITYUNIT
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: DELIVERYDATE
+    data_type: INT64
+    semantic_tags:
+    - time
+    - numeric
+  - name: PRODUCTID
+    data_type: STRING
+    semantic_tags:
+    - identifier
+  - name: Product_TYPECODE
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: PRODUCTCATEGORYID
+    data_type: STRING
+    semantic_tags:
+    - identifier
+  - name: Product_LANGUAGE
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: SUPPLIER_PARTNERID
+    data_type: INT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: TAXTARIFFCODE
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: Product_QUANTITYUNIT
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: WEIGHTMEASURE
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: WEIGHTUNIT
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: Product_CURRENCY
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: Product_PRICE
+    data_type: FLOAT64
+    semantic_tags:
+    - measure
+  - name: WIDTH
+    data_type: FLOAT64
+    semantic_tags:
+    - identifier
+    - numeric
+  - name: DEPTH
+    data_type: FLOAT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: HEIGHT
+    data_type: FLOAT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: DIMENSIONUNIT
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: Product_CREATEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: Product_CREATEDAT
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: Product_CHANGEDBY
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: Product_CHANGEDAT
+    data_type: INT64
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: PRODUCTPICURL
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ProductText_ShortDescription_EN
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ProductText_MediumDescription_EN
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ProductText_LongDescription_EN
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ProductCategoryText_ShortDescription_EN
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ProductCategoryText_MediumDescription_EN
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ProductCategoryText_LongDescription_EN
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ProductHierarchy_Description
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  - name: ProductHierarchy_Level
+    data_type: STRING
+    semantic_tags:
+    - dimension
+  primary_keys:
+  - BusinessPartner_PARTNERID
+  - BusinessPartner_ADDRESSID
+  - SALESORDERID
+  - SalesOrder_NOTEID
+  - SalesOrderItem_NOTEID
+  - PRODUCTID
+  - PRODUCTCATEGORYID
+  - SUPPLIER_PARTNERID
+  time_columns:
+  - DELIVERYDATE
+views:
+- name: dp_sales_analytics_010_SalesOrderStarSchemaView_view
+  sql: SELECT BusinessPartner_PARTNERID, PARTNERROLE, EMAILADDRESS, PHONENUMBER, FAXNUMBER,
+    WEBADDRESS, BusinessPartner_ADDRESSID, COMPANYNAME, LEGALFORM, BusinessPartner_CREATEDBY,
+    BusinessPartner_CREATEDAT, BusinessPartner_CHANGEDBY, BusinessPartner_CHANGEDAT,
+    BusinessPartner_CURRENCY, SALESORDERID, SalesOrder_CREATEDBY, SalesOrder_CREATEDAT,
+    SalesOrder_CHANGEDBY, SalesOrder_CHANGEDAT, FISCALYEARVARIANT, FISCALYEARPERIOD,
+    SalesOrder_NOTEID, SALESORG, SalesOrder_CURRENCY, SalesOrder_GROSSAMOUNT, SalesOrder_NETAMOUNT,
+    SalesOrder_TAXAMOUNT, LIFECYCLESTATUS, BILLINGSTATUS, DELIVERYSTATUS, SALESORDERITEM,
+    SalesOrderItem_NOTEID, SalesOrderItem_CURRENCY, SalesOrderItem_GROSSAMOUNT, SalesOrderItem_NETAMOUNT,
+    SalesOrderItem_TAXAMOUNT, ITEMATPSTATUS, OPITEMPOS, QUANTITY, SalesOrderItem_QUANTITYUNIT,
+    DELIVERYDATE, PRODUCTID, Product_TYPECODE, PRODUCTCATEGORYID, Product_LANGUAGE,
+    SUPPLIER_PARTNERID, TAXTARIFFCODE, Product_QUANTITYUNIT, WEIGHTMEASURE, WEIGHTUNIT,
+    Product_CURRENCY, Product_PRICE, WIDTH, DEPTH, HEIGHT, DIMENSIONUNIT, Product_CREATEDBY,
+    Product_CREATEDAT, Product_CHANGEDBY, Product_CHANGEDAT, PRODUCTPICURL, ProductText_ShortDescription_EN,
+    ProductText_MediumDescription_EN, ProductText_LongDescription_EN, ProductCategoryText_ShortDescription_EN,
+    ProductCategoryText_MediumDescription_EN, ProductCategoryText_LongDescription_EN,
+    ProductHierarchy_Description, ProductHierarchy_Level FROM SalesOrderStarSchemaView
+  source_table: SalesOrderStarSchemaView
+kpis:
+- id: total_gross_sales
+  name: Total Gross Sales
+  domain: Sales
+  description: Total gross sales amount from all sales orders, providing an overview
+    of total revenue generated before deductions.
+  unit: USD
+  data_product_id: dp_sales_analytics_010
+  sql_query: SELECT SUM(SalesOrder_GROSSAMOUNT) FROM `agent9-465818.SalesOrders.SalesOrderStarSchemaView`
+  dimensions:
+  - name: Business Partner Created Date
+    field: BusinessPartner_CREATEDAT
+    description: The date on which the business partner was created, used for analyzing
+      sales trends over time.
+    values:
+    - all
+  thresholds:
+  - comparison_type: target
+    green_threshold: 1000000
+    yellow_threshold: 500000
+    red_threshold: 250000
+    inverse_logic: false
+  metadata:
+    line: top_line
+    altitude: strategic
+    profit_driver_type: revenue
+    lens_affinity: bcg,mckinsey
+    refresh_frequency: daily
+    data_latency: 1 hour
+    calculation_complexity: simple
+  business_process_ids:
+  - sales_performance
+  - revenue_management
+  tags:
+  - total_sales
+  - revenue
+  - gross_amount
+  owner_role: CFO
+  stakeholder_roles:
+  - Sales VP
+  - Finance Director
+- id: net_margin_percentage
+  name: Net Margin Percentage
+  domain: Sales
+  description: The percentage of net sales to gross sales, indicating profitability
+    after accounting for costs and taxes.
+  unit: percent
+  data_product_id: dp_sales_analytics_010
+  sql_query: SELECT (SUM(SalesOrder_NETAMOUNT) / SUM(SalesOrder_GROSSAMOUNT)) * 100
+    AS NetMarginPercentage FROM `agent9-465818.SalesOrders.SalesOrderStarSchemaView`
+  dimensions:
+  - name: Business Partner Creator
+    field: BusinessPartner_CREATEDBY
+    description: Creator of the business partner, used to track sales effectiveness
+      across different sales teams.
+    values:
+    - all
+  thresholds:
+  - comparison_type: target
+    green_threshold: 30
+    yellow_threshold: 20
+    red_threshold: 10
+    inverse_logic: false
+  metadata:
+    line: middle_line
+    altitude: tactical
+    profit_driver_type: efficiency
+    lens_affinity: bain
+    refresh_frequency: weekly
+    data_latency: 1 day
+    calculation_complexity: medium
+  business_process_ids:
+  - cost_management
+  - profit_optimization
+  tags:
+  - net_margin
+  - profitability
+  - efficiency
+  owner_role: Finance Director
+  stakeholder_roles:
+  - CFO
+  - Sales VP
+- id: average_product_price
+  name: Average Product Price
+  domain: Sales
+  description: Average price of products sold, helping to understand pricing trends
+    and product positioning in the market.
+  unit: USD
+  data_product_id: dp_sales_analytics_010
+  sql_query: SELECT AVG(Product_PRICE) FROM `agent9-465818.SalesOrders.SalesOrderStarSchemaView`
+  dimensions:
+  - name: Product Price
+    field: Product_PRICE
+    description: The selling price of products, used to analyze the pricing strategy
+      and its impact on sales volume.
+    values:
+    - all
+  thresholds:
+  - comparison_type: target
+    green_threshold: 500
+    yellow_threshold: 300
+    red_threshold: 100
+    inverse_logic: false
+  metadata:
+    line: middle_line
+    altitude: tactical
+    profit_driver_type: revenue
+    lens_affinity: bcg
+    refresh_frequency: monthly
+    data_latency: 1 week
+    calculation_complexity: simple
+  business_process_ids:
+  - pricing_strategy
+  - market_analysis
+  tags:
+  - pricing
+  - average_price
+  - product
+  owner_role: Marketing Director
+  stakeholder_roles:
+  - CFO
+  - Sales VP
+- id: tax_collected
+  name: Tax Collected
+  domain: Sales
+  description: Total tax amount collected across all sales transactions, vital for
+    financial reporting and compliance.
+  unit: USD
+  data_product_id: dp_sales_analytics_010
+  sql_query: SELECT SUM(SalesOrder_TAXAMOUNT) FROM `agent9-465818.SalesOrders.SalesOrderStarSchemaView`
+  dimensions:
+  - name: Tax Amount
+    field: SalesOrder_TAXAMOUNT
+    description: Tax charged on sales orders, crucial for understanding tax obligations
+      and financial health.
+    values:
+    - all
+  thresholds:
+  - comparison_type: target
+    green_threshold: 200000
+    yellow_threshold: 150000
+    red_threshold: 100000
+    inverse_logic: false
+  metadata:
+    line: bottom_line
+    altitude: operational
+    profit_driver_type: expense
+    lens_affinity: bain
+    refresh_frequency: daily
+    data_latency: 1 hour
+    calculation_complexity: simple
+  business_process_ids:
+  - tax_management
+  - compliance_reporting
+  tags:
+  - tax
+  - compliance
+  - financial_reporting
+  owner_role: Compliance Officer
+  stakeholder_roles:
+  - CFO
+  - Finance Director
+- id: sales_order_volume
+  name: Sales Order Volume
+  domain: Sales
+  description: Count of sales orders processed, indicating the operational scale and
+    customer engagement level.
+  unit: count
+  data_product_id: dp_sales_analytics_010
+  sql_query: SELECT COUNT(*) FROM `agent9-465818.SalesOrders.SalesOrderStarSchemaView`
+  dimensions:
+  - name: Email Address
+    field: EMAILADDRESS
+    description: Email addresses of business partners, used to identify and communicate
+      with customers.
+    values:
+    - all
+  thresholds:
+  - comparison_type: target
+    green_threshold: 5000
+    yellow_threshold: 3000
+    red_threshold: 1500
+    inverse_logic: false
+  metadata:
+    line: middle_line
+    altitude: operational
+    profit_driver_type: efficiency
+    lens_affinity: bain
+    refresh_frequency: daily
+    data_latency: 1 hour
+    calculation_complexity: simple
+  business_process_ids:
+  - sales_operations
+  - customer_engagement
+  tags:
+  - sales_volume
+  - operational_scale
+  - customer_engagement
+  owner_role: Sales Manager
+  stakeholder_roles:
+  - Sales VP
+  - Marketing Director
