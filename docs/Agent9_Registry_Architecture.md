@@ -80,6 +80,7 @@ Registry Providers are responsible for loading, storing, and providing access to
 2. **KPI Provider**: Manages KPI definitions and evaluation logic
 3. **Principal Profile Provider**: Manages principal (user) profiles and preferences
 4. **Data Product Provider**: Manages data product definitions and schema information
+5. **Database Registry Provider**: A generic provider for database-backed persistence (Postgres, DuckDB, etc.)
 
 Each provider implements the `RegistryProvider[T]` interface, which defines common methods:
 
@@ -97,9 +98,28 @@ Providers support multiple storage formats, including:
 - YAML files
 - JSON files
 - CSV files
-- Database records
+- Database records (via `DatabaseRegistryProvider`)
+
+### Database Persistence (Hybrid Schema)
+
+Agent9 supports a "Hybrid Schema" pattern for database persistence, enabling "Bring Your Own Database" (BYODB) for enterprise deployments. This decoupling allows the registry to run on Postgres, DuckDB, or other SQL-compliant backends.
+
+**Key Features:**
+- **Database Agnostic**: Uses `DatabaseManager` interface to support multiple backends (e.g., `PostgresManager`, `DuckDBManager`).
+- **Hybrid Storage**:
+  - **Core Columns**: First-class SQL columns for identity and search (`id`, `name`, `domain`).
+  - **JSON Payload**: Full object definition stored in a JSON/Text column (`definition`) to avoid schema drift and frequent migrations.
+- **Generic Provider**: `DatabaseRegistryProvider` handles CRUD operations for any Pydantic model.
+
+**Configuration:**
+To enable database persistence for a specific registry (e.g., KPIs), set the environment variable:
+```bash
+KPI_REGISTRY_BACKEND=database
+DATABASE_URL=postgresql://user:pass@host:5432/db
+```
 
 ### Data Models
+
 
 The registry is built around well-defined data models that capture the business domain:
 

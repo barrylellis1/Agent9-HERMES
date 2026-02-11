@@ -36,15 +36,18 @@
 - Complete agent card/config synchronization, documentation updates, and Situation model finalization.
 - Run performance, reliability, and environment-promotion checks; finalize demo environment start/stop procedures.
 
-### Phase 6 – Registry Externalization & Multi-Tenant Readiness (Status: Planned)
-- Design the registry service schema and persistence strategy (e.g., managed Postgres/BigQuery) covering data product, business process, KPI, and principal registries currently stored under `src/registry/**`.
-- Implement a persistence layer and provider interfaces that allow agents to switch from file-backed loaders to database-backed repositories without breaking existing protocols.
-- Build migration utilities to seed the external registry from the current YAML/CSV assets and support per-customer overrides.
-- Update agent configuration models with environment-specific connection settings and secrets management (dev/test/prod) before rolling out the new registry path.
-- Add integration tests validating Data Product, Data Governance, and Principal Context agents against the external registry, and document the onboarding process for new tenants.
+### Phase 6 & Registry Externalization (Status: Implemented)
+- **Architecture**: Implemented "Hybrid Schema" pattern with `DatabaseManager` abstraction supporting DuckDB, Postgres, and BigQuery.
+- **Components**: Created `DatabaseRegistryProvider`, `PostgresManager`, and updated `RegistryBootstrap` to support `DATABASE_URL`.
+- **Status**: The registry is now database-agnostic and supports BYODB (Bring Your Own Database). Legacy Supabase-specific providers have been deprecated in favor of the generic provider.
+- **Next Steps**: Validate multi-tenant isolation and perform final migration of production data if applicable.
 
 ## 3. Testing & Compliance Backlog
-- **Completed**: Core agents implement required protocols; orchestrator-driven lifecycle enforced; baseline unit tests in place.
+- **Completed**: 
+  - Core agents implement required protocols.
+  - Orchestrator-driven lifecycle enforced.
+  - Baseline unit tests in place.
+  - **Registry Database Provider tests passed.**
 - **Outstanding**:
   - Multi-source integration tests covering DG-mediated KPI resolution.
   - Decision Studio UI regression and investor-demo smoke tests.

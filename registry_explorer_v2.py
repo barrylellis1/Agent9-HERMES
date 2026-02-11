@@ -5,13 +5,19 @@ A Streamlit application for exploring and managing registry data in Agent9.
 This includes KPIs, Principal Profiles, Data Products, Business Terms, etc.
 """
 
-import streamlit as st
-import yaml
+import asyncio
+import sys
 import os
-import json
-from pathlib import Path
-import pandas as pd
-from typing import Dict, List, Any, Optional
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Add project root to path to allow importing src
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from src.registry.bootstrap import RegistryBootstrap
+from src.registry.factory import RegistryFactory
 
 # Set page config
 st.set_page_config(
@@ -20,6 +26,29 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Initialize session state
+if 'registry_initialized' not in st.session_state:
+    st.session_state.registry_initialized = False
+    st.session_state.registry_factory = None
+
+async def init_registry():
+    """Initialize the registry bootstrap."""
+    if not st.session_state.registry_initialized:
+        await RegistryBootstrap.initialize()
+        st.session_state.registry_factory = RegistryFactory()
+        st.session_state.registry_initialized = True
+
+def get_live_items(provider_name: str) -> List[Any]:
+    """Get items from the live registry provider."""
+    if not st.session_state.registry_initialized or not st.session_state.registry_factory:
+        return []
+    
+    provider = st.session_state.registry_factory.get_provider(provider_name)
+    if not provider:
+        return []
+        
+    return provider.get_all()
 
 # Helper functions
 def load_yaml_file(file_path: str) -> Dict:
@@ -64,14 +93,25 @@ def find_registry_files() -> Dict[str, List[str]]:
     
     return registry_files
 
+def convert_to_dict(item: Any) -> Dict:
+    """Convert a registry model item to a dictionary."""
+    if isinstance(item, dict):
+        return item
+    if hasattr(item, "model_dump"):
+        return item.model_dump()
+    if hasattr(item, "__dict__"):
+        return vars(item)
+    return {}
+
 def display_kpi_details(kpi_data: Dict) -> None:
     """Display detailed information about a KPI."""
+    kpi_data = convert_to_dict(kpi_data)
     # Basic info
     col1, col2 = st.columns(2)
     with col1:
-        st.subheader(kpi_data["name"])
-        st.write(f"**ID:** {kpi_data['id']}")
-        st.write(f"**Domain:** {kpi_data['domain']}")
+        st.subheader(kpi_data.get("name", "Unnamed KPI"))
+        st.write(f"**ID:** {kpi_data.get('id', 'N/A')}")
+        st.write(f"**Domain:** {kpi_data.get('domain', 'N/A')}")
         st.write(f"**Unit:** {kpi_data.get('unit', 'N/A')}")
         st.write(f"**Description:** {kpi_data.get('description', 'No description available')}")
     
@@ -90,8 +130,9 @@ def display_kpi_details(kpi_data: Dict) -> None:
         st.subheader("Thresholds")
         threshold_data = []
         for t in kpi_data["thresholds"]:
+            t = convert_to_dict(t)
             threshold_data.append({
-                "Comparison": t["comparison_type"],
+                "Comparison": t.get("comparison_type", "N/A"),
                 "Green": t.get("green_threshold", "N/A"),
                 "Yellow": t.get("yellow_threshold", "N/A"),
                 "Red": t.get("red_threshold", "N/A"),
@@ -104,11 +145,12 @@ def display_kpi_details(kpi_data: Dict) -> None:
         st.subheader("Dimensions")
         dimension_data = []
         for d in kpi_data["dimensions"]:
+            d = convert_to_dict(d)
             dimension_data.append({
-                "Name": d["name"],
-                "Field": d["field"],
+                "Name": d.get("name", "N/A"),
+                "Field": d.get("field", "N/A"),
                 "Description": d.get("description", "N/A"),
-                "Values": ", ".join(d.get("values", []))
+                "Values": ", ".join(d.get("values", [])) if isinstance(d.get("values"), list) else str(d.get("values"))
             })
         st.table(pd.DataFrame(dimension_data))
     
@@ -119,6 +161,7 @@ def display_kpi_details(kpi_data: Dict) -> None:
 
 def display_principal_details(principal_data: Dict) -> None:
     """Display detailed information about a Principal Profile."""
+    principal_data = convert_to_dict(principal_data)
     st.subheader(principal_data.get("name", "Unnamed Principal"))
     
     # Basic info
@@ -204,6 +247,7 @@ def display_principal_details(principal_data: Dict) -> None:
 
 def display_data_product_details(dp_data: Dict) -> None:
     """Display detailed information about a Data Product."""
+    dp_data = convert_to_dict(dp_data)
     st.subheader(dp_data.get("name", "Unnamed Data Product"))
     
     # Basic info
@@ -214,8 +258,16 @@ def display_data_product_details(dp_data: Dict) -> None:
     # Tables/Views
     if "tables" in dp_data and dp_data["tables"]:
         st.subheader("Tables/Views")
-        for table in dp_data["tables"]:
-            st.write(f"- **{table.get('name', 'Unnamed')}**: {table.get('description', 'No description')}")
+        # Handle different table structures (dict vs list)
+        tables = dp_data["tables"]
+        if isinstance(tables, dict):
+            for name, table in tables.items():
+                table = convert_to_dict(table)
+                st.write(f"- **{name}**: {table.get('description', 'No description')}")
+        elif isinstance(tables, list):
+            for table in tables:
+                table = convert_to_dict(table)
+                st.write(f"- **{table.get('name', 'Unnamed')}**: {table.get('description', 'No description')}")
     
     # Raw YAML view
     with st.expander("View Raw YAML"):
@@ -223,6 +275,7 @@ def display_data_product_details(dp_data: Dict) -> None:
 
 def display_business_process_details(bp_data: Dict) -> None:
     """Display detailed information about a Business Process."""
+    bp_data = convert_to_dict(bp_data)
     # Get display name or ID for the header
     header_name = bp_data.get("display_name", bp_data.get("id", "Unnamed Business Process"))
     st.subheader(header_name)
@@ -316,240 +369,337 @@ def main():
     
     # Sidebar for navigation
     st.sidebar.title("Navigation")
+    
+    # Mode selection
+    mode = st.sidebar.radio("Mode", ["File System", "Live Registry (Database)"])
+    
+    if mode == "Live Registry (Database)":
+        # Initialize registry if not already done
+        if not st.session_state.registry_initialized:
+            with st.spinner("Initializing Registry Connection..."):
+                asyncio.run(init_registry())
+        
+        if not st.session_state.registry_initialized:
+            st.error("Failed to initialize registry. Check your configuration.")
+            return
+        
+        st.sidebar.success("Connected to Registry")
+    
     registry_type = st.sidebar.selectbox(
         "Registry Type",
         ["KPI", "Principal Profile", "Data Product", "Business Process", "Business Term"]
     )
     
-    # Find registry files
-    registry_files = find_registry_files()
-    
-    if registry_type == "KPI":
-        st.header("KPI Registry")
+    # File System Mode Logic
+    if mode == "File System":
+        # Find registry files
+        registry_files = find_registry_files()
         
-        # Get KPI files
-        kpi_files = registry_files["KPI"]
-        if not kpi_files:
-            st.warning("No KPI registry files found.")
-            return
-        
-        # Select KPI file
-        selected_file = st.selectbox("Select KPI Registry File", kpi_files)
-        
-        # Load KPI data
-        kpi_data = load_yaml_file(selected_file)
-        
-        # Try different structures (kpis list or direct dict)
-        kpis = []
-        if "kpis" in kpi_data:
-            kpis = kpi_data["kpis"]
-        elif isinstance(kpi_data, list):
-            kpis = kpi_data
-        elif isinstance(kpi_data, dict) and "id" in kpi_data and "name" in kpi_data:
-            kpis = [kpi_data]
-        
-        if not kpis:
-            st.error("No KPIs found in the selected file.")
-            st.write("File structure:")
-            st.code(yaml.dump(kpi_data, sort_keys=False), language="yaml")
-            return
-        
-        # Display KPIs
-        kpi_names = [kpi.get("name", f"Unnamed KPI ({kpi.get('id', 'unknown')})") for kpi in kpis]
-        
-        # KPI selection
-        selected_kpi_name = st.selectbox("Select KPI", kpi_names)
-        selected_kpi = next((kpi for kpi in kpis if kpi.get("name") == selected_kpi_name), None)
-        
-        if selected_kpi:
-            # Display KPI details
-            display_kpi_details(selected_kpi)
+        if registry_type == "KPI":
+            st.header("KPI Registry (File System)")
             
-            # Raw YAML view
-            with st.expander("View Raw YAML"):
-                st.code(yaml.dump(selected_kpi, sort_keys=False), language="yaml")
+            # Get KPI files
+            kpi_files = registry_files["KPI"]
+            if not kpi_files:
+                st.warning("No KPI registry files found.")
+                return
+            
+            # Select KPI file
+            selected_file = st.selectbox("Select KPI Registry File", kpi_files)
+            
+            # Load KPI data
+            kpi_data = load_yaml_file(selected_file)
+            
+            # Try different structures (kpis list or direct dict)
+            kpis = []
+            if "kpis" in kpi_data:
+                kpis = kpi_data["kpis"]
+            elif isinstance(kpi_data, list):
+                kpis = kpi_data
+            elif isinstance(kpi_data, dict) and "id" in kpi_data and "name" in kpi_data:
+                kpis = [kpi_data]
+            
+            if not kpis:
+                st.error("No KPIs found in the selected file.")
+                st.write("File structure:")
+                st.code(yaml.dump(kpi_data, sort_keys=False), language="yaml")
+                return
+            
+            # Display KPIs
+            kpi_names = [kpi.get("name", f"Unnamed KPI ({kpi.get('id', 'unknown')})") for kpi in kpis]
+            
+            # KPI selection
+            selected_kpi_name = st.selectbox("Select KPI", kpi_names)
+            selected_kpi = next((kpi for kpi in kpis if kpi.get("name") == selected_kpi_name), None)
+            
+            if selected_kpi:
+                # Display KPI details
+                display_kpi_details(selected_kpi)
+                
+                # Raw YAML view
+                with st.expander("View Raw YAML"):
+                    st.code(yaml.dump(selected_kpi, sort_keys=False), language="yaml")
+            
+            # KPI Statistics
+            st.sidebar.subheader("KPI Statistics")
+            st.sidebar.write(f"Total KPIs: {len(kpis)}")
+            
+            # Count by domain
+            domains = {}
+            for kpi in kpis:
+                domain = kpi.get("domain", "Unknown")
+                domains[domain] = domains.get(domain, 0) + 1
+            
+            st.sidebar.write("KPIs by Domain:")
+            for domain, count in domains.items():
+                st.sidebar.write(f"- {domain}: {count}")
         
-        # KPI Statistics
-        st.sidebar.subheader("KPI Statistics")
-        st.sidebar.write(f"Total KPIs: {len(kpis)}")
-        
-        # Count by domain
-        domains = {}
-        for kpi in kpis:
-            domain = kpi.get("domain", "Unknown")
-            domains[domain] = domains.get(domain, 0) + 1
-        
-        st.sidebar.write("KPIs by Domain:")
-        for domain, count in domains.items():
-            st.sidebar.write(f"- {domain}: {count}")
-    
-    elif registry_type == "Principal Profile":
-        st.header("Principal Profile Registry")
-        
-        # Get Principal Profile files
-        principal_files = registry_files["Principal"]
-        if not principal_files:
-            st.warning("No Principal Profile registry files found.")
-            return
-        
-        # Select Principal Profile file
-        selected_file = st.selectbox("Select Principal Profile Registry File", principal_files)
-        
-        # Load Principal Profile data
-        principal_data = load_yaml_file(selected_file)
-        
-        # Try different structures
-        principals = []
-        if "principals" in principal_data:
-            principals = principal_data["principals"]
-        elif "profiles" in principal_data:
-            principals = principal_data["profiles"]
-        elif isinstance(principal_data, list):
-            principals = principal_data
-        elif isinstance(principal_data, dict) and "role" in principal_data:
-            principals = [principal_data]
-        
-        if not principals:
-            st.error("No Principal Profiles found in the selected file.")
-            st.write("File structure:")
-            st.code(yaml.dump(principal_data, sort_keys=False), language="yaml")
-            return
-        
-        # Display Principal Profiles
-        principal_names = [p.get("name", p.get("role", f"Unnamed Principal ({p.get('id', 'unknown')})")) for p in principals]
-        
-        # Principal selection
-        selected_principal_name = st.selectbox("Select Principal Profile", principal_names)
-        selected_principal = next((p for p in principals if p.get("name") == selected_principal_name or p.get("role") == selected_principal_name), None)
-        
-        if selected_principal:
-            # Display Principal details
-            display_principal_details(selected_principal)
-        
-    elif registry_type == "Data Product":
-        st.header("Data Product Registry")
-        
-        # Get Data Product files
-        dp_files = registry_files["Data Product"]
-        if not dp_files:
-            st.warning("No Data Product registry files found.")
-            return
-        
-        # Select Data Product file
-        selected_file = st.selectbox("Select Data Product Registry File", dp_files)
-        
-        # Load Data Product data
-        dp_data = load_yaml_file(selected_file)
-        
-        # Try different structures
-        data_products = []
-        if "data_products" in dp_data:
-            data_products = dp_data["data_products"]
-        elif isinstance(dp_data, list):
-            data_products = dp_data
-        elif isinstance(dp_data, dict) and "id" in dp_data:
-            data_products = [dp_data]
-        
-        if not data_products:
-            st.error("No Data Products found in the selected file.")
-            st.write("File structure:")
-            st.code(yaml.dump(dp_data, sort_keys=False), language="yaml")
-            return
-        
-        # Display Data Products
-        dp_names = [dp.get("name", f"Unnamed Data Product ({dp.get('id', 'unknown')})") for dp in data_products]
-        
-        # Data Product selection
-        selected_dp_name = st.selectbox("Select Data Product", dp_names)
-        selected_dp = next((dp for dp in data_products if dp.get("name") == selected_dp_name), None)
-        
-        if selected_dp:
-            # Display Data Product details
-            display_data_product_details(selected_dp)
-        
-    elif registry_type == "Business Process":
-        st.header("Business Process Registry")
-        
-        # Get Business Process files
-        bp_files = registry_files["Business Process"]
-        if not bp_files:
-            st.warning("No Business Process registry files found.")
-            return
-        
-        # Select Business Process file
-        selected_file = st.selectbox("Select Business Process Registry File", bp_files)
-        
-        # Load Business Process data
-        bp_data = load_yaml_file(selected_file)
-        
-        # Try different structures
-        business_processes = []
-        if "business_processes" in bp_data:
-            business_processes = bp_data["business_processes"]
-        elif "processes" in bp_data:
-            business_processes = bp_data["processes"]
-        elif isinstance(bp_data, list):
-            business_processes = bp_data
-        elif isinstance(bp_data, dict) and "id" in bp_data:
-            business_processes = [bp_data]
-        
-        if not business_processes:
-            st.error("No Business Processes found in the selected file.")
-            st.write("File structure:")
-            st.code(yaml.dump(bp_data, sort_keys=False), language="yaml")
-            return
-        
-        # Group by domain for easier navigation
-        domains = {}
-        for bp in business_processes:
-            # Extract domain from display_name or use explicit domain field
-            domain = None
-            if "domain" in bp:
-                domain = bp["domain"]
-            elif "display_name" in bp and ":" in bp["display_name"]:
-                domain = bp["display_name"].split(":", 1)[0].strip()
+        elif registry_type == "Principal Profile":
+            st.header("Principal Profile Registry (File System)")
+            
+            # Get Principal Profile files
+            principal_files = registry_files["Principal"]
+            if not principal_files:
+                st.warning("No Principal Profile registry files found.")
+                return
+            
+            # Select Principal Profile file
+            selected_file = st.selectbox("Select Principal Profile Registry File", principal_files)
+            
+            # Load Principal Profile data
+            principal_data = load_yaml_file(selected_file)
+            
+            # Try different structures
+            principals = []
+            if "principals" in principal_data:
+                principals = principal_data["principals"]
+            elif "profiles" in principal_data:
+                principals = principal_data["profiles"]
+            elif isinstance(principal_data, list):
+                principals = principal_data
+            elif isinstance(principal_data, dict) and "role" in principal_data:
+                principals = [principal_data]
+            
+            if not principals:
+                st.error("No Principal Profiles found in the selected file.")
+                st.write("File structure:")
+                st.code(yaml.dump(principal_data, sort_keys=False), language="yaml")
+                return
+            
+            # Display Principal Profiles
+            principal_names = [p.get("name", p.get("role", f"Unnamed Principal ({p.get('id', 'unknown')})")) for p in principals]
+            
+            # Principal selection
+            selected_principal_name = st.selectbox("Select Principal Profile", principal_names)
+            selected_principal = next((p for p in principals if p.get("name") == selected_principal_name or p.get("role") == selected_principal_name), None)
+            
+            if selected_principal:
+                # Display Principal details
+                display_principal_details(selected_principal)
+            
+        elif registry_type == "Data Product":
+            st.header("Data Product Registry (File System)")
+            
+            # Get Data Product files
+            dp_files = registry_files["Data Product"]
+            if not dp_files:
+                st.warning("No Data Product registry files found.")
+                return
+            
+            # Select Data Product file
+            selected_file = st.selectbox("Select Data Product Registry File", dp_files)
+            
+            # Load Data Product data
+            dp_data = load_yaml_file(selected_file)
+            
+            # Try different structures
+            data_products = []
+            if "data_products" in dp_data:
+                data_products = dp_data["data_products"]
+            elif isinstance(dp_data, list):
+                data_products = dp_data
+            elif isinstance(dp_data, dict) and "id" in dp_data:
+                data_products = [dp_data]
+            
+            if not data_products:
+                st.error("No Data Products found in the selected file.")
+                st.write("File structure:")
+                st.code(yaml.dump(dp_data, sort_keys=False), language="yaml")
+                return
+            
+            # Display Data Products
+            dp_names = [dp.get("name", f"Unnamed Data Product ({dp.get('id', 'unknown')})") for dp in data_products]
+            
+            # Data Product selection
+            selected_dp_name = st.selectbox("Select Data Product", dp_names)
+            selected_dp = next((dp for dp in data_products if dp.get("name") == selected_dp_name), None)
+            
+            if selected_dp:
+                # Display Data Product details
+                display_data_product_details(selected_dp)
+            
+        elif registry_type == "Business Process":
+            st.header("Business Process Registry (File System)")
+            
+            # Get Business Process files
+            bp_files = registry_files["Business Process"]
+            if not bp_files:
+                st.warning("No Business Process registry files found.")
+                return
+            
+            # Select Business Process file
+            selected_file = st.selectbox("Select Business Process Registry File", bp_files)
+            
+            # Load Business Process data
+            bp_data = load_yaml_file(selected_file)
+            
+            # Try different structures
+            business_processes = []
+            if "business_processes" in bp_data:
+                business_processes = bp_data["business_processes"]
+            elif "processes" in bp_data:
+                business_processes = bp_data["processes"]
+            elif isinstance(bp_data, list):
+                business_processes = bp_data
+            elif isinstance(bp_data, dict) and "id" in bp_data:
+                business_processes = [bp_data]
+            
+            if not business_processes:
+                st.error("No Business Processes found in the selected file.")
+                st.write("File structure:")
+                st.code(yaml.dump(bp_data, sort_keys=False), language="yaml")
+                return
+            
+            # Group by domain for easier navigation
+            domains = {}
+            for bp in business_processes:
+                # Extract domain from display_name or use explicit domain field
+                domain = None
+                if "domain" in bp:
+                    domain = bp["domain"]
+                elif "display_name" in bp and ":" in bp["display_name"]:
+                    domain = bp["display_name"].split(":", 1)[0].strip()
+                else:
+                    domain = "Other"
+                
+                if domain not in domains:
+                    domains[domain] = []
+                domains[domain].append(bp)
+            
+            # Domain selection
+            domain_list = list(domains.keys())
+            selected_domain = st.selectbox("Select Domain", domain_list)
+            
+            # Business Process selection within domain
+            domain_bps = domains[selected_domain]
+            bp_names = [bp.get("display_name", bp.get("id", "Unnamed Business Process")) for bp in domain_bps]
+            
+            selected_bp_name = st.selectbox("Select Business Process", bp_names)
+            selected_bp = next((bp for bp in domain_bps if bp.get("display_name") == selected_bp_name or bp.get("id") == selected_bp_name), None)
+            
+            if selected_bp:
+                # Display Business Process details
+                display_business_process_details(selected_bp)
+                
+            # Business Process Statistics
+            st.sidebar.subheader("Business Process Statistics")
+            st.sidebar.write(f"Total Business Processes: {len(business_processes)}")
+            st.sidebar.write(f"Total Domains: {len(domains)}")
+            
+            st.sidebar.write("Business Processes by Domain:")
+            for domain, bps in domains.items():
+                st.sidebar.write(f"- {domain}: {len(bps)}")
+                
+            # Check for hierarchical structure
+            has_hierarchy = any("parent_id" in bp for bp in business_processes)
+            if has_hierarchy:
+                st.sidebar.write("✓ Hierarchical structure detected")
             else:
-                domain = "Other"
+                st.sidebar.write("✗ No hierarchical structure detected")
+        
+        elif registry_type == "Business Term":
+            st.header("Business Term Registry")
+            st.info("Business Term registry explorer to be implemented")
+
+    # Live Registry Mode Logic
+    else:
+        if registry_type == "KPI":
+            st.header("KPI Registry (Live)")
+            kpis = get_live_items("kpi")
             
-            if domain not in domains:
-                domains[domain] = []
-            domains[domain].append(bp)
-        
-        # Domain selection
-        domain_list = list(domains.keys())
-        selected_domain = st.selectbox("Select Domain", domain_list)
-        
-        # Business Process selection within domain
-        domain_bps = domains[selected_domain]
-        bp_names = [bp.get("display_name", bp.get("id", "Unnamed Business Process")) for bp in domain_bps]
-        
-        selected_bp_name = st.selectbox("Select Business Process", bp_names)
-        selected_bp = next((bp for bp in domain_bps if bp.get("display_name") == selected_bp_name or bp.get("id") == selected_bp_name), None)
-        
-        if selected_bp:
-            # Display Business Process details
-            display_business_process_details(selected_bp)
+            if not kpis:
+                st.warning("No KPIs found in live registry.")
+            else:
+                kpis = [convert_to_dict(k) for k in kpis]
+                kpi_names = [k.get("name", f"Unnamed ({k.get('id')})") for k in kpis]
+                selected_kpi_name = st.selectbox("Select KPI", kpi_names)
+                selected_kpi = next((k for k in kpis if k.get("name") == selected_kpi_name), None)
+                
+                if selected_kpi:
+                    display_kpi_details(selected_kpi)
+                    
+        elif registry_type == "Principal Profile":
+            st.header("Principal Profile Registry (Live)")
+            principals = get_live_items("principal_profile")
             
-        # Business Process Statistics
-        st.sidebar.subheader("Business Process Statistics")
-        st.sidebar.write(f"Total Business Processes: {len(business_processes)}")
-        st.sidebar.write(f"Total Domains: {len(domains)}")
-        
-        st.sidebar.write("Business Processes by Domain:")
-        for domain, bps in domains.items():
-            st.sidebar.write(f"- {domain}: {len(bps)}")
+            if not principals:
+                st.warning("No Principal Profiles found in live registry.")
+            else:
+                principals = [convert_to_dict(p) for p in principals]
+                principal_names = [p.get("name", p.get("role", f"Unnamed ({p.get('id')})")) for p in principals]
+                selected_name = st.selectbox("Select Principal", principal_names)
+                selected = next((p for p in principals if p.get("name") == selected_name or p.get("role") == selected_name), None)
+                
+                if selected:
+                    display_principal_details(selected)
+                    
+        elif registry_type == "Data Product":
+            st.header("Data Product Registry (Live)")
+            products = get_live_items("data_product")
             
-        # Check for hierarchical structure
-        has_hierarchy = any("parent_id" in bp for bp in business_processes)
-        if has_hierarchy:
-            st.sidebar.write("✓ Hierarchical structure detected")
-        else:
-            st.sidebar.write("✗ No hierarchical structure detected")
-        
-    elif registry_type == "Business Term":
-        st.header("Business Term Registry")
-        # Similar implementation for Business Terms
-        st.info("Business Term registry explorer to be implemented")
+            if not products:
+                st.warning("No Data Products found in live registry.")
+            else:
+                products = [convert_to_dict(p) for p in products]
+                names = [p.get("name", f"Unnamed ({p.get('id')})") for p in products]
+                selected_name = st.selectbox("Select Data Product", names)
+                selected = next((p for p in products if p.get("name") == selected_name), None)
+                
+                if selected:
+                    display_data_product_details(selected)
+                    
+        elif registry_type == "Business Process":
+            st.header("Business Process Registry (Live)")
+            processes = get_live_items("business_process")
+            
+            if not processes:
+                st.warning("No Business Processes found in live registry.")
+            else:
+                processes = [convert_to_dict(p) for p in processes]
+                names = [p.get("display_name", p.get("id", f"Unnamed ({p.get('id')})")) for p in processes]
+                selected_name = st.selectbox("Select Business Process", names)
+                selected = next((p for p in processes if p.get("display_name") == selected_name or p.get("id") == selected_name), None)
+                
+                if selected:
+                    display_business_process_details(selected)
+                    
+        elif registry_type == "Business Term":
+            st.header("Business Term Registry (Live)")
+            terms = get_live_items("business_glossary")
+            if not terms:
+                st.warning("No Business Terms found in live registry.")
+            else:
+                st.write(f"Found {len(terms)} terms.")
+                # Basic table view for terms
+                term_data = []
+                for t in terms:
+                    t = convert_to_dict(t)
+                    term_data.append({
+                        "Term": t.get("term", "N/A"),
+                        "Definition": t.get("definition", "N/A"),
+                        "Domain": t.get("domain", "N/A")
+                    })
+                st.table(pd.DataFrame(term_data))
 
 if __name__ == "__main__":
     main()
