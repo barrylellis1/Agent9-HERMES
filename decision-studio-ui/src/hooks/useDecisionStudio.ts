@@ -55,6 +55,7 @@ export function useDecisionStudio() {
   
   // Context / Principal
   const [selectedPrincipal, setSelectedPrincipal] = useState("cfo_001");
+  const [timeframe, setTimeframe] = useState("year_to_date"); // 'year_to_date' | 'current_month'
   const [principalInput, setPrincipalInput] = useState<{current_priorities: string[], known_constraints: string[]}>({
       current_priorities: [],
       known_constraints: []
@@ -108,8 +109,10 @@ export function useDecisionStudio() {
     setRefinementResult(null); // Reset refinement
     
     try {
-      console.log(`Calling Agent9 API for principal: ${selectedPrincipal}...`);
-      const result = await detectSituations(selectedPrincipal);
+      console.log(`Calling Agent9 API for principal: ${selectedPrincipal} timeframe: ${timeframe}...`);
+      // Use proper comparison type based on timeframe
+      const comparisonType = timeframe === 'current_month' ? 'month_over_month' : 'year_over_year';
+      const result = await detectSituations(selectedPrincipal, timeframe, comparisonType);
       console.log("Agent9 Response:", result);
       
       if (result && result.length > 0) {
@@ -127,25 +130,28 @@ export function useDecisionStudio() {
     } finally {
       setLoading(false);
     }
-  }, [selectedPrincipal]);
+  }, [selectedPrincipal, timeframe]);
 
-  // Auto-scan on mount and when principal changes
+  // Auto-scan on mount and when principal/timeframe changes
   const autoScanTriggeredRef = useRef(false);
   const lastPrincipalRef = useRef<string | null>(null);
+  const lastTimeframeRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!autoScanTriggeredRef.current) {
       autoScanTriggeredRef.current = true;
       lastPrincipalRef.current = selectedPrincipal;
+      lastTimeframeRef.current = timeframe;
       handleRefresh();
       return;
     }
 
-    if (lastPrincipalRef.current !== selectedPrincipal) {
+    if (lastPrincipalRef.current !== selectedPrincipal || lastTimeframeRef.current !== timeframe) {
       lastPrincipalRef.current = selectedPrincipal;
+      lastTimeframeRef.current = timeframe;
       handleRefresh();
     }
-  }, [selectedPrincipal, handleRefresh]);
+  }, [selectedPrincipal, timeframe, handleRefresh]);
 
   const handleDeepAnalysis = async () => {
     if (!selectedSituation) return;
@@ -374,6 +380,7 @@ export function useDecisionStudio() {
     principalInput,
     currentPrincipal,
     currentAnalysis,
+    timeframe,
     
     // Setters (if needed directly)
     setSelectedSituation,
@@ -388,6 +395,7 @@ export function useDecisionStudio() {
     setSelectedPrincipal,
     setPrincipalInput,
     setComparisonData,
+    setTimeframe,
 
     // Actions
     handleRefresh,

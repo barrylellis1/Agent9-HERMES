@@ -1,7 +1,78 @@
 metadata:
   id: SalesOrderStarSchemaView
-  name: Salesorderstarschemaview
-  domain: Unknown
-tables: []
+  name: Sales Order Star Schema View
+  domain: Sales
+  description: Combined view of Sales Orders, Items, Products, and Partners providing a dimensional model for sales analysis.
+tables:
+  - name: SalesOrderStarSchemaView
+    columns:
+      - name: SALESORDERID
+        type: INT64
+        description: Unique identifier for the sales order
+      - name: BusinessPartner_PARTNERID
+        type: INT64
+        description: Customer or Partner ID associated with the order
+      - name: PRODUCTID
+        type: STRING
+        description: Unique identifier for the product
+      - name: PRODUCTCATEGORYID
+        type: STRING
+        description: Category identifier for the product
+      - name: QUANTITY
+        type: INT64
+        description: Quantity of items ordered
+      - name: SalesOrderItem_GROSSAMOUNT
+        type: INT64
+        description: Gross amount of the order item (before tax)
+      - name: SalesOrderItem_NETAMOUNT
+        type: INT64
+        description: Net amount of the order item (after tax/deductions)
+      - name: SalesOrderItem_TAXAMOUNT
+        type: INT64
+        description: Tax amount associated with the order item
+      - name: SalesOrder_CREATEDAT
+        type: INT64
+        description: Timestamp when the order was created
+      - name: SalesOrder_CHANGEDAT
+        type: INT64
+        description: Timestamp when the order was last changed
+      - name: DELIVERYDATE
+        type: INT64
+        description: Expected or actual delivery date
+      - name: DELIVERYSTATUS
+        type: STRING
+        description: Status of delivery
+      - name: BILLINGSTATUS
+        type: STRING
+        description: Status of billing
+      - name: LIFECYCLESTATUS
+        type: STRING
+        description: Overall lifecycle status of the order
+      - name: SALESORG
+        type: STRING
+        description: Sales organization responsible for the order
+      - name: SalesOrderItem_CURRENCY
+        type: STRING
+        description: Currency code for the amounts
 views: []
-kpis: []
+kpis:
+  - name: total_revenue
+    description: Total revenue from all sales order items
+    sql_query: SELECT SUM(SalesOrderItem_GROSSAMOUNT) FROM SalesOrderStarSchemaView
+    metadata:
+      view_name: SalesOrderStarSchemaView
+  - name: average_order_value
+    description: Average value of sales orders (approximate via items)
+    sql_query: SELECT SUM(SalesOrderItem_GROSSAMOUNT) / COUNT(DISTINCT SALESORDERID) FROM SalesOrderStarSchemaView
+    metadata:
+      view_name: SalesOrderStarSchemaView
+  - name: product_profitability
+    description: Total sales by product category
+    sql_query: SELECT PRODUCTCATEGORYID, SUM(SalesOrderItem_GROSSAMOUNT) as total_sales FROM SalesOrderStarSchemaView GROUP BY PRODUCTCATEGORYID
+    metadata:
+      view_name: SalesOrderStarSchemaView
+  - name: total_orders
+    description: Total number of unique sales orders
+    sql_query: SELECT COUNT(DISTINCT SALESORDERID) FROM SalesOrderStarSchemaView
+    metadata:
+      view_name: SalesOrderStarSchemaView

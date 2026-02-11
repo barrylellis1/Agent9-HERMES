@@ -43,7 +43,7 @@ class DuckDBManager(DatabaseManager):
         self.duckdb_conn = None
         self.data_product_views = {}
         
-    async def connect(self, connection_params: Dict[str, Any]) -> bool:
+    async def connect(self, connection_params: Dict[str, Any] = None) -> bool:
         """
         Establish a connection to DuckDB using the provided parameters.
         
@@ -55,16 +55,32 @@ class DuckDBManager(DatabaseManager):
             True if connection established successfully, False otherwise
         """
         try:
-            # If a database_path is provided, use it, otherwise use in-memory
-            database_path = connection_params.get('database_path', ':memory:')
-            self.logger.info(f"Connecting to DuckDB at {database_path}")
+            # Extract parameters
+            params = connection_params or {}
+            
+            # Prioritize params, then config, then default
+            database_path = params.get('database_path')
+            if not database_path:
+                # Try to get from config
+                database_path = self.config.get('database_path')
+                if not database_path and self.config.get('dsn'):
+                    # Handle DSN style: duckdb:///path or duckdb://:memory:
+                    dsn = self.config.get('dsn', '')
+                    if dsn.startswith('duckdb://'):
+                        database_path = dsn.replace('duckdb://', '')
+                        
+            # Default to memory if still nothing
+            database_path = database_path or ':memory:'
+            
+            self.database_path = database_path
+            self.logger.info(f"Connecting to DuckDB at {self.database_path}")
 
-            if database_path not in (":memory:", ""):
-                db_path = Path(database_path)
+            if self.database_path not in (":memory:", ""):
+                db_path = Path(self.database_path)
                 db_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Create a new DuckDB connection
-            self.duckdb_conn = duckdb.connect(database_path)
+            self.duckdb_conn = duckdb.connect(self.database_path)
 
             # Configure DuckDB settings for proper decimal handling and other optimizations
             # Note: 'format' is not a valid DuckDB configuration parameter
@@ -119,8 +135,7 @@ class DuckDBManager(DatabaseManager):
             return result
         except Exception as e:
             self.logger.error(f"[TXN:{tx_id}] Error executing query: {str(e)}")
-            # Return empty DataFrame on error
-            return pd.DataFrame()
+            raise  # Re-raise the exception to allow caller to handle it
     
     async def create_view(self, view_name: str, sql: str, 
                         replace_existing: bool = True,
@@ -212,6 +227,7 @@ class DuckDBManager(DatabaseManager):
                 path = source_info.get('path')
                 schema = source_info.get('schema', 'main')
                 table_name = source_info.get('table_name')
+                csv_options = source_info.get('csv_options', {})
                 
                 if not path or not table_name:
                     self.logger.error(f"[TXN:{tx_id}] Missing required parameters for CSV registration")
@@ -226,23 +242,51 @@ class DuckDBManager(DatabaseManager):
                 self.duckdb_conn.execute(
                     f"CREATE SCHEMA IF NOT EXISTS {schema}"
                 )
-                # Auto-detect delimiter by checking first line of file
-                delimiter = ','
-                try:
-                    with open(path, 'r', encoding='utf-8') as f:
-                        first_line = f.readline()
-                        if ';' in first_line and ',' not in first_line:
-                            delimiter = ';'
-                        elif first_line.count(';') > first_line.count(','):
-                            delimiter = ';'
-                except Exception:
-                    pass
+                
+                # Determine delimiter
+                delimiter = csv_options.get('delimiter')
+                if not delimiter:
+                    # Auto-detect delimiter by checking first line of file
+                    delimiter = ','
+                    try:
+                        with open(path, 'r', encoding='utf-8') as f:
+                            first_line = f.readline()
+                            if ';' in first_line and ',' not in first_line:
+                                delimiter = ';'
+                            elif first_line.count(';') > first_line.count(','):
+                                delimiter = ';'
+                    except Exception:
+                        pass
+                
+                # Determine decimal separator
+                decimal = csv_options.get('decimal_separator', '.')
+                
+                # Build options string
+                options_parts = [
+                    f"delim='{delimiter}'",
+                    "header=true",
+                    "ignore_errors=true",
+                    "all_varchar=true"  # Load as varchar first to avoid type casting errors with European format
+                ]
+                
+                # If explicit decimal separator is provided, we might want to let DuckDB handle it,
+                # but read_csv_auto with all_varchar=True allows us to post-process if needed.
+                # However, read_csv_auto DOES support decimal_separator.
+                if decimal != '.':
+                     options_parts.append(f"decimal_separator='{decimal}'")
+                     # If we are specifying decimal separator, we should probably try to infer types again
+                     # or trust DuckDB's auto detection with the hint.
+                     # Let's remove all_varchar=true if we have a specific decimal separator to allow proper type inference
+                     if "all_varchar=true" in options_parts:
+                         options_parts.remove("all_varchar=true")
+
+                options_str = ", ".join(options_parts)
                 
                 self.duckdb_conn.execute(
-                    f"CREATE OR REPLACE TABLE {schema}.{table_name} AS SELECT * FROM read_csv_auto('{path}', delim='{delimiter}', header=true, ignore_errors=true)"
+                    f"CREATE OR REPLACE TABLE {schema}.{table_name} AS SELECT * FROM read_csv_auto('{path}', {options_str})"
                 )
                 
-                self.logger.info(f"[TXN:{tx_id}] Registered CSV file {path} as {schema}.{table_name}")
+                self.logger.info(f"[TXN:{tx_id}] Registered CSV file {path} as {schema}.{table_name} with options: {options_str}")
                 return True
             else:
                 self.logger.error(f"[TXN:{tx_id}] Unsupported data source type: {source_type}")
@@ -423,3 +467,416 @@ class DuckDBManager(DatabaseManager):
                 results[view_name] = False
                 
         return results
+
+    async def upsert_record(self, table: str, record: Dict[str, Any], key_fields: List[str], 
+                          transaction_id: Optional[str] = None) -> bool:
+        """
+        Insert or update a record in the specified table.
+        For DuckDB, we'll use DELETE + INSERT as a simple upsert strategy.
+        """
+        if not self.duckdb_conn or not self.is_connected:
+            return False
+
+        try:
+            # Clean table name
+            table = re.sub(r'[^\w_]', '', table)
+            
+            # Use thread executor for blocking operations
+            loop = asyncio.get_event_loop()
+            
+            # 1. Check if record exists based on keys
+            where_clauses = []
+            params = []
+            for key in key_fields:
+                if key in record:
+                    where_clauses.append(f"{key} = ?")
+                    params.append(record[key])
+            
+            if where_clauses:
+                where_sql = " AND ".join(where_clauses)
+                check_sql = f"SELECT count(*) FROM {table} WHERE {where_sql}"
+                
+                result = await loop.run_in_executor(
+                    None, lambda: self.duckdb_conn.execute(check_sql, params).fetchone()
+                )
+                exists = result[0] > 0 if result else False
+                
+                if exists:
+                    # Update
+                    update_fields = [f"{k} = ?" for k in record.keys() if k not in key_fields]
+                    if update_fields:
+                        update_sql = f"UPDATE {table} SET {', '.join(update_fields)} WHERE {where_sql}"
+                        # params for update set + params for where clause
+                        update_vals = [record[k] for k in record.keys() if k not in key_fields]
+                        update_params = update_vals + params
+                        
+                        await loop.run_in_executor(
+                            None, lambda: self.duckdb_conn.execute(update_sql, update_params)
+                        )
+                    return True
+
+            # Insert
+            cols = ", ".join(record.keys())
+            placeholders = ", ".join(["?" for _ in record])
+            insert_sql = f"INSERT INTO {table} ({cols}) VALUES ({placeholders})"
+            insert_params = list(record.values())
+            
+            await loop.run_in_executor(
+                None, lambda: self.duckdb_conn.execute(insert_sql, insert_params)
+            )
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Upsert failed: {str(e)}")
+            return False
+
+    async def get_record(self, table: str, key_field: str, key_value: Any, 
+                       transaction_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Retrieve a single record by its key."""
+        if not self.duckdb_conn or not self.is_connected:
+            return None
+            
+        try:
+            table = re.sub(r'[^\w_]', '', table)
+            sql = f"SELECT * FROM {table} WHERE {key_field} = ? LIMIT 1"
+            
+            loop = asyncio.get_event_loop()
+            # fetchdf returns a DataFrame
+            df = await loop.run_in_executor(
+                None, lambda: self.duckdb_conn.execute(sql, [key_value]).fetchdf()
+            )
+            
+            if not df.empty:
+                # Convert first row to dict
+                return df.iloc[0].to_dict()
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Get record failed: {str(e)}")
+            return None
+
+    async def delete_record(self, table: str, key_field: str, key_value: Any, 
+                          transaction_id: Optional[str] = None) -> bool:
+        """Delete a record by its key."""
+        if not self.duckdb_conn or not self.is_connected:
+            return False
+            
+        try:
+            table = re.sub(r'[^\w_]', '', table)
+            sql = f"DELETE FROM {table} WHERE {key_field} = ?"
+            
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None, lambda: self.duckdb_conn.execute(sql, [key_value])
+            )
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Delete record failed: {str(e)}")
+            return False
+
+    async def fetch_records(self, table: str, filters: Optional[Dict[str, Any]] = None, 
+                          transaction_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Fetch multiple records from a table, optionally filtered."""
+        if not self.duckdb_conn or not self.is_connected:
+            return []
+            
+        try:
+            table = re.sub(r'[^\w_]', '', table)
+            sql = f"SELECT * FROM {table}"
+            params = []
+            
+            if filters:
+                conditions = []
+                for k, v in filters.items():
+                    conditions.append(f"{k} = ?")
+                    params.append(v)
+                if conditions:
+                    sql += " WHERE " + " AND ".join(conditions)
+            
+            loop = asyncio.get_event_loop()
+            df = await loop.run_in_executor(
+                None, lambda: self.duckdb_conn.execute(sql, params).fetchdf()
+            )
+            
+            return df.to_dict(orient='records')
+            
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Fetch records failed: {str(e)}")
+            return []
+
+    async def upsert_record(self, table: str, record: Dict[str, Any], key_fields: List[str], 
+                          transaction_id: Optional[str] = None) -> bool:
+        """
+        Insert or update a record in the specified table.
+        For DuckDB, we'll use DELETE + INSERT as a simple upsert strategy.
+        """
+        if not self.duckdb_conn or not self.is_connected:
+            return False
+
+        try:
+            # Clean table name
+            table = re.sub(r'[^\w_]', '', table)
+            
+            # Use thread executor for blocking operations
+            loop = asyncio.get_event_loop()
+            
+            # 1. Check if record exists based on keys
+            where_clauses = []
+            params = []
+            for key in key_fields:
+                if key in record:
+                    where_clauses.append(f"{key} = ?")
+                    params.append(record[key])
+            
+            if where_clauses:
+                where_sql = " AND ".join(where_clauses)
+                check_sql = f"SELECT count(*) FROM {table} WHERE {where_sql}"
+                
+                result = await loop.run_in_executor(
+                    None, lambda: self.duckdb_conn.execute(check_sql, params).fetchone()
+                )
+                exists = result[0] > 0 if result else False
+                
+                if exists:
+                    # Update
+                    update_fields = [f"{k} = ?" for k in record.keys() if k not in key_fields]
+                    if update_fields:
+                        update_sql = f"UPDATE {table} SET {', '.join(update_fields)} WHERE {where_sql}"
+                        # params for update set + params for where clause
+                        update_vals = [record[k] for k in record.keys() if k not in key_fields]
+                        update_params = update_vals + params
+                        
+                        await loop.run_in_executor(
+                            None, lambda: self.duckdb_conn.execute(update_sql, update_params)
+                        )
+                    return True
+
+            # Insert
+            cols = ", ".join(record.keys())
+            placeholders = ", ".join(["?" for _ in record])
+            insert_sql = f"INSERT INTO {table} ({cols}) VALUES ({placeholders})"
+            insert_params = list(record.values())
+            
+            await loop.run_in_executor(
+                None, lambda: self.duckdb_conn.execute(insert_sql, insert_params)
+            )
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Upsert failed: {str(e)}")
+            return False
+
+    async def get_record(self, table: str, key_field: str, key_value: Any, 
+                       transaction_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Retrieve a single record by its key."""
+        if not self.duckdb_conn or not self.is_connected:
+            return None
+            
+        try:
+            table = re.sub(r'[^\w_]', '', table)
+            sql = f"SELECT * FROM {table} WHERE {key_field} = ? LIMIT 1"
+            
+            loop = asyncio.get_event_loop()
+            # fetchdf returns a DataFrame
+            df = await loop.run_in_executor(
+                None, lambda: self.duckdb_conn.execute(sql, [key_value]).fetchdf()
+            )
+            
+            if not df.empty:
+                # Convert first row to dict
+                # Handle pandas timestamp conversion to string if needed
+                record = df.iloc[0].to_dict()
+                return record
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Get record failed: {str(e)}")
+            return None
+
+    async def delete_record(self, table: str, key_field: str, key_value: Any, 
+                          transaction_id: Optional[str] = None) -> bool:
+        """Delete a record by its key."""
+        if not self.duckdb_conn or not self.is_connected:
+            return False
+            
+        try:
+            table = re.sub(r'[^\w_]', '', table)
+            sql = f"DELETE FROM {table} WHERE {key_field} = ?"
+            
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None, lambda: self.duckdb_conn.execute(sql, [key_value])
+            )
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Delete record failed: {str(e)}")
+            return False
+
+    async def fetch_records(self, table: str, filters: Optional[Dict[str, Any]] = None, 
+                          transaction_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Fetch multiple records from a table, optionally filtered."""
+        if not self.duckdb_conn or not self.is_connected:
+            return []
+            
+        try:
+            table = re.sub(r'[^\w_]', '', table)
+            sql = f"SELECT * FROM {table}"
+            params = []
+            
+            if filters:
+                conditions = []
+                for k, v in filters.items():
+                    conditions.append(f"{k} = ?")
+                    params.append(v)
+                if conditions:
+                    sql += " WHERE " + " AND ".join(conditions)
+            
+            loop = asyncio.get_event_loop()
+            df = await loop.run_in_executor(
+                None, lambda: self.duckdb_conn.execute(sql, params).fetchdf()
+            )
+            
+            return df.to_dict(orient='records')
+            
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Fetch records failed: {str(e)}")
+            return []
+
+    async def upsert_record(self, table: str, record: Dict[str, Any], key_fields: List[str], 
+                          transaction_id: Optional[str] = None) -> bool:
+        """
+        Insert or update a record in the specified table.
+        For DuckDB, we'll use DELETE + INSERT as a simple upsert strategy.
+        """
+        if not self.duckdb_conn or not self.is_connected:
+            return False
+
+        try:
+            # Clean table name
+            table = re.sub(r'[^\w_]', '', table)
+            
+            # Use thread executor for blocking operations
+            loop = asyncio.get_event_loop()
+            
+            # 1. Check if record exists based on keys
+            where_clauses = []
+            params = []
+            for key in key_fields:
+                if key in record:
+                    where_clauses.append(f"{key} = ?")
+                    params.append(record[key])
+            
+            if where_clauses:
+                where_sql = " AND ".join(where_clauses)
+                check_sql = f"SELECT count(*) FROM {table} WHERE {where_sql}"
+                
+                result = await loop.run_in_executor(
+                    None, lambda: self.duckdb_conn.execute(check_sql, params).fetchone()
+                )
+                exists = result[0] > 0 if result else False
+                
+                if exists:
+                    # Update
+                    update_fields = [f"{k} = ?" for k in record.keys() if k not in key_fields]
+                    if update_fields:
+                        update_sql = f"UPDATE {table} SET {', '.join(update_fields)} WHERE {where_sql}"
+                        # params for update set + params for where clause
+                        update_vals = [record[k] for k in record.keys() if k not in key_fields]
+                        update_params = update_vals + params
+                        
+                        await loop.run_in_executor(
+                            None, lambda: self.duckdb_conn.execute(update_sql, update_params)
+                        )
+                    return True
+
+            # Insert
+            cols = ", ".join(record.keys())
+            placeholders = ", ".join(["?" for _ in record])
+            insert_sql = f"INSERT INTO {table} ({cols}) VALUES ({placeholders})"
+            insert_params = list(record.values())
+            
+            await loop.run_in_executor(
+                None, lambda: self.duckdb_conn.execute(insert_sql, insert_params)
+            )
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Upsert failed: {str(e)}")
+            return False
+
+    async def get_record(self, table: str, key_field: str, key_value: Any, 
+                       transaction_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Retrieve a single record by its key."""
+        if not self.duckdb_conn or not self.is_connected:
+            return None
+            
+        try:
+            table = re.sub(r'[^\w_]', '', table)
+            sql = f"SELECT * FROM {table} WHERE {key_field} = ? LIMIT 1"
+            
+            loop = asyncio.get_event_loop()
+            # fetchdf returns a DataFrame
+            df = await loop.run_in_executor(
+                None, lambda: self.duckdb_conn.execute(sql, [key_value]).fetchdf()
+            )
+            
+            if not df.empty:
+                # Convert first row to dict
+                return df.iloc[0].to_dict()
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Get record failed: {str(e)}")
+            return None
+
+    async def delete_record(self, table: str, key_field: str, key_value: Any, 
+                          transaction_id: Optional[str] = None) -> bool:
+        """Delete a record by its key."""
+        if not self.duckdb_conn or not self.is_connected:
+            return False
+            
+        try:
+            table = re.sub(r'[^\w_]', '', table)
+            sql = f"DELETE FROM {table} WHERE {key_field} = ?"
+            
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None, lambda: self.duckdb_conn.execute(sql, [key_value])
+            )
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Delete record failed: {str(e)}")
+            return False
+
+    async def fetch_records(self, table: str, filters: Optional[Dict[str, Any]] = None, 
+                          transaction_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Fetch multiple records from a table, optionally filtered."""
+        if not self.duckdb_conn or not self.is_connected:
+            return []
+            
+        try:
+            table = re.sub(r'[^\w_]', '', table)
+            sql = f"SELECT * FROM {table}"
+            params = []
+            
+            if filters:
+                conditions = []
+                for k, v in filters.items():
+                    conditions.append(f"{k} = ?")
+                    params.append(v)
+                if conditions:
+                    sql += " WHERE " + " AND ".join(conditions)
+            
+            loop = asyncio.get_event_loop()
+            df = await loop.run_in_executor(
+                None, lambda: self.duckdb_conn.execute(sql, params).fetchdf()
+            )
+            
+            return df.to_dict(orient='records')
+            
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Fetch records failed: {str(e)}")
+            return []

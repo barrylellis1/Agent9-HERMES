@@ -13,8 +13,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import duckdb
 import pandas as pd
 
-from .database_manager import DatabaseManager
-
+import logging
+from .manager_interface import DatabaseManager
 
 class DuckDBManager(DatabaseManager):
     """
@@ -32,9 +32,11 @@ class DuckDBManager(DatabaseManager):
             config: Dictionary containing database configuration
             logger: Logger instance for outputting log messages
         """
-        super().__init__(config, logger)
+        self.config = config
+        self.logger = logger or logging.getLogger(__name__)
         self.connection = None
         self.database_path = None
+        self.is_connected = False
         
     async def connect(self, params: Dict[str, Any] = None) -> bool:
         """
@@ -356,3 +358,196 @@ class DuckDBManager(DatabaseManager):
             transformed_sql = transformed_sql.replace('NOW()', 'CURRENT_TIMESTAMP')
         
         return transformed_sql
+
+    async def upsert_record(self, table: str, record: Dict[str, Any], key_fields: List[str], 
+                          transaction_id: Optional[str] = None) -> bool:
+        """
+        Insert or update a record in the specified table.
+        For DuckDB, we'll use INSERT OR REPLACE if available, or DELETE + INSERT.
+        """
+        if not self.connection or not self.is_connected:
+            return False
+
+        try:
+            # Clean table name
+            table = re.sub(r'[^\w_]', '', table)
+            
+            # Use thread executor for blocking operations
+            loop = asyncio.get_event_loop()
+            
+            # 1. Check if record exists based on keys
+            where_clauses = []
+            params = []
+            for key in key_fields:
+                if key in record:
+                    where_clauses.append(f"{key} = ?")
+                    params.append(record[key])
+            
+            if where_clauses:
+                where_sql = " AND ".join(where_clauses)
+                check_sql = f"SELECT count(*) FROM {table} WHERE {where_sql}"
+                
+                result = await loop.run_in_executor(
+                    None, lambda: self.connection.execute(check_sql, params).fetchone()
+                )
+                exists = result[0] > 0 if result else False
+                
+                if exists:
+                    # Update
+                    update_fields = [f"{k} = ?" for k in record.keys() if k not in key_fields]
+                    if update_fields:
+                        update_sql = f"UPDATE {table} SET {', '.join(update_fields)} WHERE {where_sql}"
+                        update_params = [record[k] for k in record.keys() if k not in key_fields] + params
+                        await loop.run_in_executor(
+                            None, lambda: self.connection.execute(update_sql, update_params)
+                        )
+                    return True
+
+            # Insert
+            cols = ", ".join(record.keys())
+            placeholders = ", ".join(["?" for _ in record])
+            insert_sql = f"INSERT INTO {table} ({cols}) VALUES ({placeholders})"
+            insert_params = list(record.values())
+            
+            await loop.run_in_executor(
+                None, lambda: self.connection.execute(insert_sql, insert_params)
+            )
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Upsert failed: {str(e)}")
+            return False
+
+    async def get_record(self, table: str, key_field: str, key_value: Any, 
+                       transaction_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Retrieve a single record by its key."""
+        if not self.connection or not self.is_connected:
+            return None
+            
+        try:
+            table = re.sub(r'[^\w_]', '', table)
+            sql = f"SELECT * FROM {table} WHERE {key_field} = ? LIMIT 1"
+            
+            loop = asyncio.get_event_loop()
+            # fetchdf returns a DataFrame
+            df = await loop.run_in_executor(
+                None, lambda: self.connection.execute(sql, [key_value]).fetchdf()
+            )
+            
+            if not df.empty:
+                return df.iloc[0].to_dict()
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Get record failed: {str(e)}")
+            return None
+
+    async def delete_record(self, table: str, key_field: str, key_value: Any, 
+                          transaction_id: Optional[str] = None) -> bool:
+        """Delete a record by its key."""
+        if not self.connection or not self.is_connected:
+            return False
+            
+        try:
+            table = re.sub(r'[^\w_]', '', table)
+            sql = f"DELETE FROM {table} WHERE {key_field} = ?"
+            
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None, lambda: self.connection.execute(sql, [key_value])
+            )
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Delete record failed: {str(e)}")
+            return False
+
+    async def fetch_records(self, table: str, filters: Optional[Dict[str, Any]] = None, 
+                          transaction_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Fetch multiple records from a table, optionally filtered."""
+        if not self.connection or not self.is_connected:
+            return []
+            
+        try:
+            table = re.sub(r'[^\w_]', '', table)
+            sql = f"SELECT * FROM {table}"
+            params = []
+            
+            if filters:
+                conditions = []
+                for k, v in filters.items():
+                    conditions.append(f"{k} = ?")
+                    params.append(v)
+                if conditions:
+                    sql += " WHERE " + " AND ".join(conditions)
+            
+            loop = asyncio.get_event_loop()
+            df = await loop.run_in_executor(
+                None, lambda: self.connection.execute(sql, params).fetchdf()
+            )
+            
+            return df.to_dict(orient='records')
+            
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] Fetch records failed: {str(e)}")
+            return []
+
+    async def check_view_exists(self, view_name: str) -> bool:
+        """Check if a view exists."""
+        try:
+            # DuckDB-specific check
+            sql = "SELECT count(*) FROM information_schema.tables WHERE table_name = ? AND table_type = 'VIEW'"
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, lambda: self.connection.execute(sql, [view_name]).fetchone()
+            )
+            return result[0] > 0 if result else False
+        except Exception:
+            return False
+
+    async def list_views(self, transaction_id: Optional[str] = None) -> List[str]:
+        """List all views."""
+        try:
+            sql = "SELECT table_name FROM information_schema.tables WHERE table_type = 'VIEW'"
+            loop = asyncio.get_event_loop()
+            df = await loop.run_in_executor(
+                None, lambda: self.connection.execute(sql).fetchdf()
+            )
+            return df['table_name'].tolist()
+        except Exception as e:
+            self.logger.error(f"[TXN:{transaction_id}] List views failed: {str(e)}")
+            return []
+
+    async def create_fallback_views(self, view_names: List[str], 
+                                  transaction_id: Optional[str] = None) -> Dict[str, bool]:
+        """Create empty fallback views."""
+        results = {}
+        for view_name in view_names:
+            try:
+                # Create a simple view selecting NULLs or 0s
+                # We need to know the schema ideally, but for generic fallback we might just use SELECT 1
+                sql = f"CREATE OR REPLACE VIEW {view_name} AS SELECT 1 as dummy"
+                success = await self.create_view(view_name, "SELECT 1 as dummy", transaction_id)
+                results[view_name] = success
+            except Exception:
+                results[view_name] = False
+        return results
+
+    async def register_data_source(self, source_info: Dict[str, Any], 
+                                 transaction_id: Optional[str] = None) -> bool:
+        """
+        Register a data source. For DuckDB, this often means creating a view or table
+        from a file (CSV, Parquet, JSON).
+        """
+        source_type = source_info.get("type", "").lower()
+        path = source_info.get("path")
+        name = source_info.get("name")
+        
+        if not path or not name:
+            return False
+            
+        if source_type == "csv":
+            return await self.import_csv(path, name, source_info.get("options"), transaction_id)
+        
+        # Add other types as needed
+        return False

@@ -5,7 +5,6 @@ import { DeepFocusView } from '../components/views/DeepFocusView';
 export function DecisionStudio() {
   const {
     // State
-    history,
     loading,
     error,
     statusMsg,
@@ -29,6 +28,7 @@ export function DecisionStudio() {
     selectedPrincipal,
     currentPrincipal,
     principalInput,
+    timeframe,
     
     // Actions
     handleRefresh,
@@ -44,6 +44,7 @@ export function DecisionStudio() {
     setSelectedPreset,
     setSelectedPersonas,
     setSelectedPrincipal,
+    setTimeframe,
     
     // Constants
     AVAILABLE_PRINCIPALS,
@@ -115,7 +116,6 @@ export function DecisionStudio() {
 
   return (
     <DashboardView
-      history={history}
       scanComplete={scanComplete}
       loading={loading}
       situations={situations}
@@ -129,6 +129,9 @@ export function DecisionStudio() {
       currentPrincipal={currentPrincipal}
       onSelectPrincipal={setSelectedPrincipal}
       
+      timeframe={timeframe}
+      onSelectTimeframe={setTimeframe}
+
       onRefresh={handleRefresh}
       onSelectSituation={setSelectedSituation}
       statusMsg={statusMsg}

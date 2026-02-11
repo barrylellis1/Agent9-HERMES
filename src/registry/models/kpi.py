@@ -17,6 +17,8 @@ class ComparisonType(str, Enum):
     MOM = "mom"  # Month over Month
     TARGET = "target"  # Against Target
     BUDGET = "budget"  # Against Budget
+    GREATER_THAN = "greater_than"  # Simple threshold check >
+    LESS_THAN = "less_than"  # Simple threshold check <
 
 
 class KPIEvaluationStatus(str, Enum):

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Database, FileUp } from 'lucide-react'
+import { ArrowLeft, Database, FileUp, Users } from 'lucide-react'
 
 export function AdminConsole() {
   return (
@@ -16,8 +16,8 @@ export function AdminConsole() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <main className="max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Onboarding Card */}
             <Link to="/admin/onboarding" className="group block p-6 bg-card border border-border rounded-xl hover:border-slate-500 transition-colors">
                 <div className="flex items-center justify-between mb-4">
@@ -40,6 +40,18 @@ export function AdminConsole() {
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">Registry Explorer</h3>
                 <p className="text-sm text-slate-400">View and manage registry entries across domains.</p>
+            </Link>
+
+            {/* Principal Management Card */}
+            <Link to="/admin/principals" className="group block p-6 bg-card border border-border rounded-xl hover:border-slate-500 transition-colors">
+                <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 bg-green-500/10 text-green-400 rounded-lg">
+                        <Users className="w-6 h-6" />
+                    </div>
+                    <ArrowLeft className="w-4 h-4 text-slate-500 opacity-0 group-hover:opacity-100 rotate-180 transition-all" />
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2">Principal Management</h3>
+                <p className="text-sm text-slate-400">Assign business processes to principals.</p>
             </Link>
         </div>
       </main>

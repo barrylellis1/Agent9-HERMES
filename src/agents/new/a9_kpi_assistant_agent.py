@@ -920,7 +920,7 @@ If the user is requesting changes to KPIs, format your response with clear JSON 
                         
                     kpi = KPI(**kpi_data)
                     
-                    # Register with provider (handles Supabase insertion if configured)
+                    # Register with provider (handles Database insertion if configured)
                     # Handle both sync and async providers
                     if hasattr(provider, 'register'):
                         result = provider.register(kpi)

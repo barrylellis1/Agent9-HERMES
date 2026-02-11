@@ -6,6 +6,7 @@ import { DataProductOnboardingNew } from './pages/DataProductOnboardingNew'
 import { RegistryExplorer } from './pages/RegistryExplorer'
 import { ExecutiveBriefing } from './pages/ExecutiveBriefing'
 import { Login } from './pages/Login'
+import { PrincipalManagement } from './pages/PrincipalManagement'
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
         <Route path="/admin/onboarding" element={<DataProductOnboardingNew />} />
         <Route path="/admin/onboarding-legacy" element={<DataProductOnboarding />} />
         <Route path="/admin/registry" element={<RegistryExplorer />} />
+        <Route path="/admin/principals" element={<PrincipalManagement />} />
         {/* Redirect any unknown routes to login */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -20,6 +20,7 @@ from src.database.manager_interface import DatabaseManager
 # Note: Import statements will be uncommented as backends are implemented
 from src.database.backends.duckdb_manager import DuckDBManager
 from src.database.backends.bigquery_manager import BigQueryManager
+from src.database.backends.postgres_manager import PostgresManager
 # from src.database.backends.hana_manager import HANAManager
 # from src.database.backends.snowflake_manager import SnowflakeManager
 # from src.database.backends.databricks_manager import DatabricksManager
@@ -37,6 +38,9 @@ class DatabaseManagerFactory:
     _registry: Dict[str, Type[DatabaseManager]] = {
         'duckdb': DuckDBManager,
         'bigquery': BigQueryManager,
+        'postgres': PostgresManager,
+        'postgresql': PostgresManager,
+        'supabase': PostgresManager,
         # 'hana': HANAManager,
         # 'snowflake': SnowflakeManager,
         # 'databricks': DatabricksManager,

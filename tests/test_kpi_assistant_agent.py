@@ -1,4 +1,5 @@
 import pytest
+# arch-allow-direct-agent-construction
 import pytest_asyncio
 from unittest.mock import MagicMock, patch, mock_open, AsyncMock
 import json

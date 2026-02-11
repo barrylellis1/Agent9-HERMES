@@ -15,11 +15,15 @@ principals:
       - "manage revenue"
       - "control expenses"
     business_processes:
-      - "Finance: Profitability Analysis"
-      - "Finance: Revenue Growth Analysis"
-      - "Finance: Expense Management"
-      - "Finance: Cash Flow Management"
-      - "Finance: Budget vs. Actuals"
+      - "finance_profitability_analysis"
+      - "finance_revenue_growth_analysis"
+      - "finance_expense_management"
+      - "finance_cash_flow_management"
+      - "finance_budget_vs_actuals"
+      - "sales_management"
+      - "financial_reporting"
+      - "tax_management"
+      - "pricing_strategy"
     default_filters:
       "Profit Center Hierarchyid": ["Total"]
       "Customer Hierarchyid": ["Total"]
@@ -70,11 +74,11 @@ principals:
       - "oversee company performance"
       - "lead executive team"
     business_processes:
-      - "Finance: Profitability Analysis"
-      - "Finance: Revenue Growth Analysis"
-      - "Finance: Expense Management"
-      - "Strategy: Market Share Analysis"
-      - "Strategy: EBITDA Growth Tracking"
+      - "finance_profitability_analysis"
+      - "finance_revenue_growth_analysis"
+      - "finance_expense_management"
+      - "strategy_market_share_analysis"
+      - "strategy_ebitda_growth_tracking"
     default_filters:
       "Profit Center Hierarchyid": ["Total"]
       "Customer Hierarchyid": ["Total"]
@@ -125,11 +129,14 @@ principals:
       - "reduce operational costs"
       - "improve process efficiency"
     business_processes:
-      - "Finance: Profitability Analysis"
-      - "Finance: Revenue Growth Analysis"
-      - "Finance: Expense Management"
-      - "Operations: Order-to-Cash Cycle Optimization"
-      - "Operations: Production Cost Management"
+      - "finance_profitability_analysis"
+      - "finance_revenue_growth_analysis"
+      - "finance_expense_management"
+      - "operations_order_to_cash_cycle_optimization"
+      - "operations_production_cost_management"
+      - "order_processing"
+      - "sales_operations"
+      - "product_management"
     default_filters:
       "Profit Center Name": ["Production", "Mountain Cycles - Production", "Racing Cycles - Production"]
       "Customer Hierarchyid": ["Total"]
@@ -179,11 +186,11 @@ principals:
       - "analyze financial data"
       - "prepare financial reports"
     business_processes:
-      - "Finance: Profitability Analysis"
-      - "Finance: Revenue Growth Analysis"
-      - "Finance: Expense Management"
-      - "Finance: Cash Flow Management"
-      - "Finance: Budget vs. Actuals"
+      - "finance_profitability_analysis"
+      - "finance_revenue_growth_analysis"
+      - "finance_expense_management"
+      - "finance_cash_flow_management"
+      - "finance_budget_vs_actuals"
     default_filters:
       "Profit Center Name": ["Corporate", "Cruise Cycles - Large", "Cruise Cycles - Speciality"]
       "Customer Hierarchyid": ["Total"]

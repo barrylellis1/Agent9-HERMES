@@ -473,3 +473,121 @@
     - "budget"
     - "finance"
     - "management"
+
+# Sales Domain Processes
+
+- id: "sales_management"
+  name: "Sales Management"
+  domain: "Sales"
+  description: "Overall management of sales activities, targets, and performance"
+  owner_role: "CSO"
+  stakeholder_roles:
+    - "CEO"
+    - "CFO"
+  display_name: "Sales: Sales Management"
+  tags:
+    - "sales"
+    - "management"
+    - "revenue"
+
+- id: "sales_operations"
+  name: "Sales Operations"
+  domain: "Sales"
+  description: "Optimizing sales processes, tools, and data"
+  owner_role: "CSO"
+  stakeholder_roles:
+    - "COO"
+    - "Sales Managers"
+  display_name: "Sales: Sales Operations"
+  tags:
+    - "sales"
+    - "operations"
+    - "efficiency"
+
+- id: "order_processing"
+  name: "Order Processing"
+  domain: "Sales"
+  description: "Managing the lifecycle of customer orders from entry to fulfillment"
+  owner_role: "COO"
+  stakeholder_roles:
+    - "Sales Operations"
+    - "Logistics Manager"
+  display_name: "Sales: Order Processing"
+  tags:
+    - "sales"
+    - "operations"
+    - "fulfillment"
+
+- id: "pricing_strategy"
+  name: "Pricing Strategy"
+  domain: "Sales"
+  description: "Setting and adjusting product prices to maximize revenue and margin"
+  owner_role: "CSO"
+  stakeholder_roles:
+    - "CFO"
+    - "Product Manager"
+  display_name: "Sales: Pricing Strategy"
+  tags:
+    - "sales"
+    - "pricing"
+    - "strategy"
+
+# Finance & Compliance (Additional)
+
+- id: "financial_reporting"
+  name: "Financial Reporting"
+  domain: "Finance"
+  description: "Preparation and disclosure of financial statements and reports"
+  owner_role: "CFO"
+  stakeholder_roles:
+    - "CEO"
+    - "Board"
+  display_name: "Finance: Financial Reporting"
+  tags:
+    - "finance"
+    - "reporting"
+    - "compliance"
+
+- id: "tax_management"
+  name: "Tax Management"
+  domain: "Finance"
+  description: "Managing tax liabilities, compliance, and reporting"
+  owner_role: "CFO"
+  stakeholder_roles:
+    - "Compliance Officer"
+  display_name: "Finance: Tax Management"
+  tags:
+    - "finance"
+    - "tax"
+    - "compliance"
+
+- id: "compliance"
+  name: "Compliance Management"
+  domain: "Legal"
+  description: "Ensuring adherence to laws, regulations, and internal policies"
+  owner_role: "Compliance Officer"
+  stakeholder_roles:
+    - "CEO"
+    - "General Counsel"
+  display_name: "Legal: Compliance Management"
+  tags:
+    - "legal"
+    - "compliance"
+    - "risk"
+
+# Product Domain
+
+- id: "product_management"
+  name: "Product Management"
+  domain: "Product"
+  description: "Lifecycle management of products from conception to sunset"
+  owner_role: "CPO"
+  stakeholder_roles:
+    - "CTO"
+    - "Marketing Director"
+  display_name: "Product: Product Management"
+  tags:
+    - "product"
+    - "management"
+    - "strategy"
+

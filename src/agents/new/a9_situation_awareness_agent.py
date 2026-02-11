@@ -519,7 +519,8 @@ class A9_Situation_Awareness_Agent:
                 situations=situations,
                 sql_query=sample_sql,
                 kpi_evaluated_count=len(kpi_values),
-                kpis_evaluated=[kv.kpi_name for kv in kpi_values]
+                kpis_evaluated=[kv.kpi_name for kv in kpi_values],
+                kpi_details=kpi_values  # Return full KPIValue objects for debugging
             )
         
         except Exception as e:
@@ -1238,7 +1239,9 @@ class A9_Situation_Awareness_Agent:
                     business_processes = kpi.business_processes
                     
                 # Also check business_process_ids (canonical model)
+                business_process_ids = []
                 if hasattr(kpi, 'business_process_ids') and kpi.business_process_ids:
+                    business_process_ids = kpi.business_process_ids
                     for bp_id in kpi.business_process_ids:
                         # Format: domain_process_name
                         parts = bp_id.split('_', 1)
@@ -1246,7 +1249,8 @@ class A9_Situation_Awareness_Agent:
                             domain, process = parts
                             # Format for display: "Domain: Process Name"
                             formatted_bp = f"{domain.capitalize()}: {process.replace('_', ' ').title()}"
-                            business_processes.append(formatted_bp)
+                            if formatted_bp not in business_processes:
+                                business_processes.append(formatted_bp)
             except Exception as e:
                 logger.warning(f"Error accessing business_processes for KPI {kpi.name if hasattr(kpi, 'name') else 'unknown'}: {str(e)}")
                 
@@ -1358,6 +1362,7 @@ class A9_Situation_Awareness_Agent:
                 thresholds=thresholds,
                 dimensions=dimensions,
                 business_processes=business_processes,
+                business_process_ids=business_process_ids,
                 data_product_id=kpi_dp_id,
                 positive_trend_is_good=positive_trend,
                 diagnostic_questions=diagnostic_questions,
@@ -1576,8 +1581,13 @@ class A9_Situation_Awareness_Agent:
                 
             # Check if KPI matches any of the relevant business processes
             for bp in process_strings:
-                # Domain-level matching (e.g., "Finance" matches any "Finance: *" or "finance_*")
-                if isinstance(bp, str) and ":" not in bp:
+                # 1. Check for normalized business process IDs (Exact Match) - High Priority
+                if hasattr(kpi_def, 'business_process_ids') and _to_bp_id(bp) in kpi_def.business_process_ids:
+                    relevant_kpis[kpi_name] = kpi_def
+                    break
+                    
+                # 2. Domain-level matching (e.g., "Finance" matches any "Finance: *" or "finance_*")
+                elif isinstance(bp, str) and ":" not in bp:
                     # Check if any KPI business process starts with this domain
                     for kpi_bp in kpi_def.business_processes:
                         if isinstance(kpi_bp, str) and (kpi_bp.startswith(f"{bp}:") or 
@@ -1585,21 +1595,16 @@ class A9_Situation_Awareness_Agent:
                             relevant_kpis[kpi_name] = kpi_def
                             break
                     # Also check business_process_ids if available
-                    if hasattr(kpi_def, 'business_process_ids'):
+                    if kpi_name not in relevant_kpis and hasattr(kpi_def, 'business_process_ids'):
                         for kpi_bp_id in kpi_def.business_process_ids:
                             if isinstance(kpi_bp_id, str) and kpi_bp_id.lower().startswith(f"{bp.lower()}_"):
                                 relevant_kpis[kpi_name] = kpi_def
                                 break
-                # Exact matching for fully qualified business processes
+                    if kpi_name in relevant_kpis:
+                        break
+                        
+                # 3. Exact matching for fully qualified business processes (Display Name)
                 elif bp in kpi_def.business_processes:
-                    relevant_kpis[kpi_name] = kpi_def
-                    break
-                # Also check business_process_ids for exact matches
-                elif hasattr(kpi_def, 'business_process_ids') and bp in kpi_def.business_process_ids:
-                    relevant_kpis[kpi_name] = kpi_def
-                    break
-                # Check for normalized business process IDs
-                elif hasattr(kpi_def, 'business_process_ids') and _to_bp_id(bp) in kpi_def.business_process_ids:
                     relevant_kpis[kpi_name] = kpi_def
                     break
 

@@ -1,4 +1,9 @@
-data_product: FI_Star_Schema
+metadata:
+  id: FI_Star_Schema
+  name: FI Star Schema
+  description: >
+    SAP FI Star Schema with explicit schema, kpis:
+    # KPIs / Restricted Key Figures) definitions, and table relationships for NLQ/LLM use.
 supported_business_processes:
   - "Finance: Profitability Analysis"
   - "Finance: Revenue Growth Analysis"
@@ -31,10 +36,6 @@ business_terms:
   profit_center:
     column: profitcenterid
     description: "Profit center, mapped by profitcenterid (example only)"
-description: >
-  SAP FI Star Schema with explicit schema, kpis:
-  # KPIs / Restricted Key Figures) definitions, and table relationships for NLQ/LLM use.
-
 # Default child breakdown dimensions to use when a caller does not specify groupings.
 # These business terms are resolved by Data Governance to technical columns.
 fallback_group_by_dimensions:
@@ -98,7 +99,7 @@ views:
         ft.transaction_date AS "Transaction Date",
         CAST(REPLACE(ft.value, ',', '.') AS DECIMAL(18, 2)) AS "Transaction Value Amount",
         gah.DESCRIPTION AS "Account Hierarchy Desc",
-        gat."LONG_DESCR" AS "Account Long Description",
+        COALESCE(gat."MEDIUM_DESCR", gat."LONG_DESCR") AS "Account Long Description",
         gah.DESCRIPTION AS "Account/Group Description",
         gah.LEVEL AS "Parent Account/Group Hierarchy ID",
         gah_parent.DESCRIPTION AS "Parent Account/Group Description",
@@ -146,7 +147,10 @@ tables:
         type: string
 
   - name: FinancialTransactions
-    data_source_path: 'C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
+    data_source_path: 'C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI/FinancialTransactions.csv'
+    csv_options:
+      delimiter: ";"
+      decimal_separator: ","
     columns:
       - name: transactionid
         type: string
@@ -174,9 +178,15 @@ tables:
   - name: GLAccountsTexts
     data_source_path: 'C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
     columns:
-      - name: accountid
+      - name: ACCOUNTID
         type: string
-      - name: account_long_desc
+      - name: LANGUAGE
+        type: string
+      - name: SHORT_DESCR
+        type: string
+      - name: MEDIUM_DESCR
+        type: string
+      - name: LONG_DESCR
         type: string
 
   - name: GLAccounts
@@ -340,15 +350,13 @@ relationships:
 
 kpis:
   - name: Gross Revenue
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Total gross revenue recognized in the period."
-    calculation:
-      query_template: 'SUM("[Transaction Value Amount]")'
-      filters:
-        "Account Hierarchy Desc": "Gross Revenue"
-    aggregation: SUM
-    base_column: "[Transaction Value Amount]"
-    join_tables: ["FI_Star_View"]
+    sql_query: SELECT SUM("Transaction Value Amount") FROM FI_Star_View
+    filters:
+      "Account Hierarchy Desc": "Gross Revenue"
+    metadata:
+      view_name: FI_Star_View
     dimensions:
       - "product"
       - "profit_center"
@@ -363,15 +371,13 @@ kpis:
       - "What is the trend of gross revenue over the last six months?"
 
   - name: Cost of Goods Sold
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Total cost of goods sold in the period."
-    calculation:
-      query_template: 'SUM("[Transaction Value Amount]")'
-      filters:
-        "Account Hierarchy Desc": "Cost of Goods Sold"
-    aggregation: SUM
-    base_column: "[Transaction Value Amount]"
-    join_tables: ["FI_Star_View"]
+    sql_query: SELECT SUM("Transaction Value Amount") FROM FI_Star_View
+    filters:
+      "Account Hierarchy Desc": "Cost of Goods Sold"
+    metadata:
+      view_name: FI_Star_View
     dimensions:
       - "product"
       - "profit_center"
@@ -382,14 +388,21 @@ kpis:
     llm_hints: "Measures the direct costs attributable to the production of the goods sold by a company."
 
   - name: Gross Margin
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Gross Margin is calculated as Gross Revenue minus Cost of Goods Sold."
-    aggregation: Derived
-    formula: "Gross Revenue - Cost of Goods Sold"
-    dependencies:
-      - "Gross Revenue"
-      - "Cost of Goods Sold"
-    join_tables: ["FI_Star_View"]
+    sql_query: |
+      SELECT SUM(
+        CASE 
+          WHEN "Account Hierarchy Desc" = 'Cost of Goods Sold' THEN -1 * "Transaction Value Amount" 
+          ELSE "Transaction Value Amount" 
+        END
+      ) FROM FI_Star_View
+    filters:
+      "Account Hierarchy Desc":
+        - "Gross Revenue"
+        - "Cost of Goods Sold"
+    metadata:
+      view_name: FI_Star_View
     dimensions:
       - "product"
       - "profit_center"
@@ -404,129 +417,127 @@ kpis:
       - "Which region contributed most to Gross Margin this period?"
 
   - name: Sales Deductions
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Total sales deductions in the period."
-    calculation: "SUM(value) WHERE GLAccounts.account_hierarchy_desc = 'Sales Deductions'"
-    filter_type: account_hierarchy_desc
-    filter_value: Sales Deductions
+    sql_query: SELECT SUM("Transaction Value Amount") FROM FI_Star_View
+    filters:
+      "Account Hierarchy Desc": "Sales Deductions"
+    metadata:
+      view_name: FI_Star_View
     business_terms: ["Finance: Profitability Analysis", "Finance: Revenue Growth Analysis"]
-    aggregation: SUM
-    base_column: "Transaction Value Amount"
-    join_tables: [FI_Star_View]
     diagnostic_questions:
       - "What is the actual vs budget for Sales Deductions this quarter?"
       - "How do Sales Deductions compare to last quarter?"
       - "Which region had the highest Sales Deductions this period?"
 
   - name: Periodic Building Expense
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Total periodic building expense."
-    calculation: "SUM(value) WHERE GLAccounts.account_hierarchy_desc = 'Periodic Building Expense'"
-    filter_type: account_hierarchy_desc
-    filter_value: Periodic Building Expense
+    sql_query: SELECT SUM("Transaction Value Amount") FROM FI_Star_View
+    filters:
+      "Account Hierarchy Desc": "Periodic Building Expense"
+    metadata:
+      view_name: FI_Star_View
     business_terms: ["Finance: Expense Management", "Finance: Facilities Management"]
-    aggregation: SUM
-    base_column: "Transaction Value Amount"
     diagnostic_questions:
       - "What is the actual vs budget for Periodic Building Expense this quarter?"
       - "How does Periodic Building Expense compare to last quarter?"
       - "Which profit center had the highest Periodic Building Expense?"
 
   - name: Utilities Expense
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Total utilities expense."
-    calculation: "SUM(value) WHERE GLAccounts.account_hierarchy_desc = 'Utilities Expense'"
-    filter_type: account_hierarchy_desc
-    filter_value: Utilities Expense
+    sql_query: SELECT SUM("Transaction Value Amount") FROM FI_Star_View
+    filters:
+      "Account Hierarchy Desc": "Utilities Expense"
+    metadata:
+      view_name: FI_Star_View
     business_terms: ["Finance: Expense Management", "Finance: Utilities Management"]
-    aggregation: SUM
-    base_column: "Transaction Value Amount"
-    join_tables: [FI_Star_View]
 
   - name: Office Expense
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Total office expense."
-    calculation: "SUM(value) WHERE GLAccounts.account_hierarchy_desc = 'Office Expense'"
-    filter_type: account_hierarchy_desc
-    filter_value: Office Expense
+    sql_query: SELECT SUM("Transaction Value Amount") FROM FI_Star_View
+    filters:
+      "Account Hierarchy Desc": "Office Expense"
+    metadata:
+      view_name: FI_Star_View
     business_terms: ["Finance: Expense Management", "Finance: Administrative Expense"]
-    aggregation: SUM
-    base_column: "Transaction Value Amount"
-    join_tables: [FI_Star_View]
 
   - name: Payroll
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Total payroll expense."
-    calculation: "SUM(value) WHERE GLAccounts.account_hierarchy_desc = 'Payroll'"
-    filter_type: account_hierarchy_desc
-    filter_value: Payroll
+    sql_query: SELECT SUM("Transaction Value Amount") FROM FI_Star_View
+    filters:
+      "Account Hierarchy Desc": "Payroll"
+    metadata:
+      view_name: FI_Star_View
     business_terms: ["Finance: Expense Management", "Finance: Human Resources"]
-    aggregation: SUM
-    base_column: "Transaction Value Amount"
-    join_tables: [FI_Star_View]
 
   - name: Travel
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Total travel expense."
-    calculation: "SUM(value) WHERE GLAccounts.account_hierarchy_desc = 'Travel'"
-    filter_type: account_hierarchy_desc
-    filter_value: Travel
+    sql_query: SELECT SUM("Transaction Value Amount") FROM FI_Star_View
+    filters:
+      "Account Hierarchy Desc": "Travel"
+    metadata:
+      view_name: FI_Star_View
     business_terms: ["Finance: Expense Management", "Finance: Travel Management"]
-    aggregation: SUM
-    base_column: "Transaction Value Amount"
-    join_tables: [FI_Star_View]
 
   - name: Employee Expense Other
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Total employee expense (other)."
-    calculation: "SUM(value) WHERE GLAccounts.account_hierarchy_desc = 'Employee Expense Other'"
-    filter_type: account_hierarchy_desc
-    filter_value: Employee Expense Other
+    sql_query: SELECT SUM("Transaction Value Amount") FROM FI_Star_View
+    filters:
+      "Account Hierarchy Desc": "Employee Expense Other"
+    metadata:
+      view_name: FI_Star_View
     business_terms: ["Finance: Expense Management", "Finance: Employee Benefits"]
-    aggregation: SUM
-    base_column: "Transaction Value Amount"
-    join_tables: [FI_Star_View]
     diagnostic_questions:
       - "What is the actual vs budget for Employee Expense Other this quarter?"
       - "How does Employee Expense Other compare to last quarter?"
       - "Which profit center had the highest Employee Expense Other?"
 
   - name: Other Operating Expense
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Total other operating expense."
-    calculation: "SUM(value) WHERE GLAccounts.account_hierarchy_desc = 'Other Operating Expense'"
-    filter_type: account_hierarchy_desc
-    filter_value: Other Operating Expense
+    sql_query: SELECT SUM("Transaction Value Amount") FROM FI_Star_View
+    filters:
+      "Account Hierarchy Desc": "Other Operating Expense"
+    metadata:
+      view_name: FI_Star_View
     business_terms: ["Finance: Expense Management", "Finance: Miscellaneous Expense"]
-    aggregation: SUM
-    base_column: "Transaction Value Amount"
-    join_tables: [FI_Star_View]
     diagnostic_questions:
       - "What is the actual vs budget for Other Operating Expense this quarter?"
       - "How does Other Operating Expense compare to last quarter?"
       - "Which region had the highest Other Operating Expense?"
 
   - name: Net Revenue
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Total net revenue (Gross Revenue - Sales Deductions)."
-    calculation: "SUM(\"Transaction Value Amount\") WHERE \"Parent Account/Group Description\" = 'Net Revenue'"
+    sql_query: SELECT SUM("Transaction Value Amount") FROM FI_Star_View
     filters:
       "Parent Account/Group Description": "Net Revenue"
+    metadata:
+      view_name: FI_Star_View
+    dimensions:
+      - "product"
+      - "profit_center"
     business_terms: ["Finance: Revenue Growth Analysis", "Finance: Profitability Analysis"]
-    aggregation: SUM
-    base_column: "Transaction Value Amount"
-    join_tables: [FI_Star_View]
     diagnostic_questions:
       - "How does Net Revenue compare to Gross Revenue this period?"
       - "What is the trend of Net Revenue over the last 4 quarters?"
+
   - name: Operating Income
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Operating Income."
-    # Complex filter: Includes Net Revenue branch, Gross Margin branch (COGS), and Op Expense branch
-    calculation: "SUM(\"Transaction Value Amount\") WHERE \"Parent Account/Group Description\" IN (...)"
-    business_terms: ["Finance: Profitability Analysis"]
-    aggregation: SUM
-    base_column: "Transaction Value Amount"
+    sql_query: |
+      SELECT SUM(
+        CASE 
+          WHEN "Parent Account/Group Description" IN ('Gross Margin', 'Building Expense', 'Employee Expense', 'Operating Expense') THEN -1 * "Transaction Value Amount" 
+          ELSE "Transaction Value Amount" 
+        END
+      ) FROM FI_Star_View
     filters:
       "Parent Account/Group Description": 
         - "Net Revenue"
@@ -534,55 +545,63 @@ kpis:
         - "Building Expense"
         - "Employee Expense"
         - "Operating Expense"
-    join_tables: [FI_Star_View]
+    metadata:
+      view_name: FI_Star_View
+    dimensions:
+      - "profit_center"
+    business_terms: ["Finance: Profitability Analysis"]
     diagnostic_questions:
       - "What is the operating income margin this quarter?"
       - "How does operating income compare to budget?"
+
   - name: Operating Expense
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Total Operating Expense."
-    # Complex filter: Direct children (Other) + Grandchildren via Building/Employee
-    calculation: "SUM(\"Transaction Value Amount\") WHERE \"Parent Account/Group Description\" IN (...)"
-    business_terms: ["Finance: Expense Management"]
-    aggregation: SUM
-    base_column: "Transaction Value Amount"
+    sql_query: SELECT SUM("Transaction Value Amount") FROM FI_Star_View
     filters:
       "Parent Account/Group Description": 
         - "Building Expense"
         - "Employee Expense"
         - "Operating Expense"
-    join_tables: [FI_Star_View]
+    metadata:
+      view_name: FI_Star_View
+    dimensions:
+      - "profit_center"
+    business_terms: ["Finance: Expense Management"]
     diagnostic_questions:
       - "Which category of operating expense is growing the fastest?"
       - "How does total operating expense compare to the previous year?"
+
   - name: Building Expense
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Total Building Expense (includes Periodic & Utilities)."
-    calculation: "SUM(\"Transaction Value Amount\") WHERE \"Parent Account/Group Description\" = 'Building Expense'"
+    sql_query: SELECT SUM("Transaction Value Amount") FROM FI_Star_View
     filters:
       "Parent Account/Group Description": "Building Expense"
+    metadata:
+      view_name: FI_Star_View
     business_terms: ["Finance: Expense Management", "Finance: Facilities Management"]
-    aggregation: SUM
-    base_column: "Transaction Value Amount"
-    join_tables: [FI_Star_View]
+
   - name: Employee Expense
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Total Employee Expense (includes Payroll, Travel, Office, Other)."
-    calculation: "SUM(\"Transaction Value Amount\") WHERE \"Parent Account/Group Description\" = 'Employee Expense'"
+    sql_query: SELECT SUM("Transaction Value Amount") FROM FI_Star_View
     filters:
       "Parent Account/Group Description": "Employee Expense"
+    metadata:
+      view_name: FI_Star_View
     business_terms: ["Finance: Expense Management", "Finance: Human Resources"]
-    aggregation: SUM
-    base_column: "Transaction Value Amount"
-    join_tables: [FI_Star_View]
+
   - name: Net Income
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Net Income."
-    # Same as Operating Income for MVP coverage
-    calculation: "SUM(\"Transaction Value Amount\") WHERE \"Parent Account/Group Description\" IN (...)"
-    business_terms: ["Finance: Profitability Analysis", "Finance: Investor Relations Reporting"]
-    aggregation: SUM
-    base_column: "Transaction Value Amount"
+    sql_query: |
+      SELECT SUM(
+        CASE 
+          WHEN "Parent Account/Group Description" IN ('Gross Margin', 'Building Expense', 'Employee Expense', 'Operating Expense') THEN -1 * "Transaction Value Amount" 
+          ELSE "Transaction Value Amount" 
+        END
+      ) FROM FI_Star_View
     filters:
       "Parent Account/Group Description": 
         - "Net Revenue"
@@ -590,18 +609,25 @@ kpis:
         - "Building Expense"
         - "Employee Expense"
         - "Operating Expense"
-    join_tables: [FI_Star_View]
+    metadata:
+      view_name: FI_Star_View
+    dimensions:
+      - "profit_center"
+    business_terms: ["Finance: Profitability Analysis", "Finance: Investor Relations Reporting"]
     diagnostic_questions:
       - "What is the net income for the current fiscal year?"
       - "How does net income compare to the same period last year?"
+
   - name: Earnings Before Interest & Taxes
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Earnings Before Interest & Taxes (EBIT)."
-    # Same as Operating Income for MVP coverage
-    calculation: "SUM(\"Transaction Value Amount\") WHERE \"Parent Account/Group Description\" IN (...)"
-    business_terms: ["Finance: Profitability Analysis", "Strategy: EBITDA Growth Tracking"]
-    aggregation: SUM
-    base_column: "Transaction Value Amount"
+    sql_query: |
+      SELECT SUM(
+        CASE 
+          WHEN "Parent Account/Group Description" IN ('Gross Margin', 'Building Expense', 'Employee Expense', 'Operating Expense') THEN -1 * "Transaction Value Amount" 
+          ELSE "Transaction Value Amount" 
+        END
+      ) FROM FI_Star_View
     filters:
       "Parent Account/Group Description": 
         - "Net Revenue"
@@ -609,29 +635,32 @@ kpis:
         - "Building Expense"
         - "Employee Expense"
         - "Operating Expense"
-    join_tables: [FI_Star_View]
+    metadata:
+      view_name: FI_Star_View
+    dimensions:
+      - "profit_center"
+    business_terms: ["Finance: Profitability Analysis", "Strategy: EBITDA Growth Tracking"]
     synonyms: ["EBIT"]
     diagnostic_questions:
       - "What is the EBIT margin for the current quarter?"
+
   - name: Depreciation
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Depreciation."
-    calculation: "SUM(value) WHERE GLAccounts.account_hierarchy_desc = 'Depreciation'"
-    filter_type: account_hierarchy_desc
-    filter_value: Depreciation
+    sql_query: SELECT SUM("Transaction Value Amount") FROM FI_Star_View
+    filters:
+      "Account Hierarchy Desc": "Depreciation"
+    metadata:
+      view_name: FI_Star_View
     business_terms: ["Finance: Expense Management", "Finance: Cash Flow Management"]
-    aggregation: SUM
-    base_column: "Transaction Value Amount"
-    join_tables: [FI_Star_View]
 
   - name: Cash Flow from Operating Activities
-    data_product_id: FI_Star_Schema
+    data_product_id: fi_star_schema
     description: "Cash Flow from Operating Activities (CFO)."
-    calculation: "SUM(\"Transaction Value Amount\") WHERE \"Parent Account/Group Description\" = 'Cash Flow from Operating Activities (CFO)'"
+    sql_query: SELECT SUM("Transaction Value Amount") FROM FI_Star_View
     filters:
       "Parent Account/Group Description": "Cash Flow from Operating Activities (CFO)"
+    metadata:
+      view_name: FI_Star_View
     business_terms: ["Finance: Cash Flow Management"]
-    aggregation: SUM
-    base_column: "Transaction Value Amount"
-    join_tables: [FI_Star_View]
     synonyms: ["CFO", "Operating Cash Flow"]

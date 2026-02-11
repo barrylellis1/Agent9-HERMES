@@ -76,6 +76,15 @@ export async function listPrincipals(): Promise<any[]> {
   return envelope.data || [];
 }
 
+export async function updatePrincipal(principalId: string, payload: any): Promise<any> {
+  const envelope = await requestJson<Envelope<any>>(`/registry/principals/${principalId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  return envelope.data;
+}
+
 export async function listDataProducts(): Promise<any[]> {
   const envelope = await requestJson<Envelope<any[]>>(`/registry/data-products`);
   return envelope.data || [];
@@ -144,15 +153,19 @@ export async function onboardDataProduct(payload: any) {
     throw new Error('Workflow timed out');
   }
 
-export async function detectSituations(principalId: string = 'cfo_001'): Promise<Situation[]> {
+export async function detectSituations(
+  principalId: string = 'cfo_001', 
+  timeframe: string = 'year_to_date',
+  comparisonType: string = 'year_over_year'
+): Promise<Situation[]> {
   // 1. Trigger the workflow
   const runResponse = await fetch(`${API_BASE}/workflows/situations/run`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       principal_id: principalId,
-      timeframe: 'year_to_date',
-      comparison_type: 'year_over_year'
+      timeframe: timeframe,
+      comparison_type: comparisonType
     })
   });
   

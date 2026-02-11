@@ -10,7 +10,6 @@ import os
 import logging
 from typing import Dict, List, Optional, Set, Any, Union
 
-import httpx
 import yaml
 
 from pydantic import BaseModel, Field
@@ -398,101 +397,3 @@ def create_business_glossary_provider(config: Dict[str, Any] = None) -> Business
     return BusinessGlossaryProvider(glossary_path=glossary_path)
 
 
-class SupabaseBusinessGlossaryProvider(BusinessGlossaryProvider):
-    """Supabase-backed implementation of the business glossary provider."""
-
-    def __init__(
-        self,
-        *,
-        supabase_url: str,
-        service_key: str,
-        table: str = "business_glossary_terms",
-        schema: str = "public",
-        timeout: float = 10.0,
-        glossary_path: Optional[str] = None,
-    ) -> None:
-        super().__init__(glossary_path=glossary_path, auto_load=False)
-        self.supabase_url = supabase_url.rstrip("/")
-        self.service_key = service_key
-        self.table = table
-        self.schema = schema
-        self.timeout = timeout
-
-    async def load(self) -> Dict[str, Any]:
-        """Fetch glossary rows from Supabase REST endpoint."""
-        endpoint = f"{self.supabase_url}/rest/v1/{self.table}"
-        headers = {
-            "apikey": self.service_key,
-            "Authorization": f"Bearer {self.service_key}",
-            "Accept": "application/json",
-            "Prefer": "return=representation",
-        }
-        if self.schema:
-            headers["Accept-Profile"] = self.schema
-
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(endpoint, params={"select": "*"}, headers=headers)
-                response.raise_for_status()
-                # Use explicit JSON parsing to avoid any BaseModel.json-style API usage
-                import json as _json  # local import to keep scope narrow and avoid top-level changes
-                records = _json.loads(response.text)
-        except (httpx.HTTPStatusError, Exception) as exc:
-            logger.warning(f"Supabase glossary fetch failed: {exc}. Falling back to YAML.")
-            try:
-                self._load_glossary()
-                return {
-                    "success": True,
-                    "message": f"Loaded {len(self.terms)} terms from YAML (fallback)",
-                    "count": len(self.terms)
-                }
-            except Exception as yaml_exc:
-                logger.error(f"YAML fallback failed: {yaml_exc}")
-                return {
-                    "success": False,
-                    "message": f"Supabase failed ({exc}) and YAML fallback failed",
-                    "error": str(yaml_exc),
-                }
-
-        self.terms.clear()
-        self.synonym_map.clear()
-
-        loaded = 0
-        for record in records:
-            term_name = (record.get("term") or record.get("name") or "").strip()
-            if not term_name:
-                continue
-
-            synonyms = record.get("aliases") or record.get("synonyms") or []
-            if isinstance(synonyms, str):
-                synonyms = [synonyms]
-
-            metadata = record.get("metadata") or {}
-            if isinstance(metadata, str):
-                try:
-                    metadata = yaml.safe_load(metadata) or {}
-                except yaml.YAMLError:
-                    metadata = {}
-
-            technical_mappings = metadata if isinstance(metadata, dict) else {}
-            description = record.get("definition") or record.get("description")
-
-            try:
-                term = BusinessTerm(
-                    name=term_name,
-                    synonyms=[syn for syn in synonyms if syn],
-                    description=description,
-                    technical_mappings={k.lower(): v for k, v in technical_mappings.items()},
-                )
-            except Exception as term_err:
-                logger.warning("Skipping Supabase glossary row due to validation error: %s", term_err)
-                continue
-
-            self.terms[term.name.lower()] = term
-            for synonym in term.synonyms:
-                self.synonym_map[synonym.lower()] = term.name.lower()
-            loaded += 1
-
-        message = f"Loaded {loaded} business terms from Supabase"
-        logger.info(message)
-        return {"success": True, "message": message, "count": loaded}

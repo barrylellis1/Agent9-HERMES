@@ -16,6 +16,8 @@ interface DashboardViewProps {
   availablePrincipals: Principal[];
   currentPrincipal: Principal;
   onSelectPrincipal: (id: string) => void;
+  timeframe: string;
+  onSelectTimeframe: (tf: string) => void;
   onRefresh: () => void;
   onSelectSituation: (sit: Situation) => void;
   statusMsg: string | null;
@@ -34,6 +36,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   availablePrincipals,
   currentPrincipal,
   onSelectPrincipal,
+  timeframe,
+  onSelectTimeframe,
   onRefresh,
   onSelectSituation,
   statusMsg,
@@ -47,6 +51,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <p className="text-slate-400">Situation Awareness Console</p>
         </div>
         <div className="flex items-center gap-4">
+            {/* Timeframe Selector */}
+            <div className="flex flex-col items-end gap-1">
+                <label className="text-xs text-slate-500 uppercase tracking-wider">Timeframe</label>
+                <div className="relative">
+                    <select
+                        value={timeframe}
+                        onChange={(e) => onSelectTimeframe(e.target.value)}
+                        className="appearance-none bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-2 pr-8 text-sm text-white cursor-pointer hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50 min-w-[160px]"
+                    >
+                        <option value="year_to_date">Year to Date</option>
+                        <option value="current_month">Current Month</option>
+                    </select>
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <ChevronRight className="w-4 h-4 text-slate-400 rotate-90" />
+                    </div>
+                </div>
+            </div>
+
             {/* Principal Selector */}
             <div className="flex flex-col items-end gap-1">
                 <label className="text-xs text-slate-500 uppercase tracking-wider">Principal</label>

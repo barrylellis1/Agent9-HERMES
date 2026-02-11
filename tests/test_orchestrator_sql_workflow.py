@@ -51,8 +51,21 @@ class TestOrchestratorSQLWorkflow(unittest.TestCase):
 
     def setUp(self):
         """Set up the test environment with agents and mock orchestrator components"""
+        # Reset Registry Singletons
+        RegistryFactory._instance = None
+        RegistryBootstrap._initialized = False
+        RegistryBootstrap._factory = None
+        RegistryBootstrap._db_manager = None
+
         # Force reload .env file to ensure we have latest values
         load_dotenv(override=True)
+        
+        # Configure env for DB registry validation
+        os.environ["DATA_PRODUCT_BACKEND"] = "database"
+        os.environ["DATABASE_URL"] = "duckdb://:memory:"
+        # Ensure Supabase keys don't interfere if present
+        if "SUPABASE_URL" in os.environ:
+            del os.environ["SUPABASE_URL"]
         
         # Get API key from environment - switching to OpenAI
         api_key = os.environ.get("OPENAI_API_KEY")
@@ -84,15 +97,63 @@ class TestOrchestratorSQLWorkflow(unittest.TestCase):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             
-        # Initialize the registry factory
+        # --- Database Registry Setup (Manual Injection) ---
+        from src.database.duckdb_manager import DuckDBManager
+        
+        # 1. Manually create and connect DB Manager
+        db_config = {"database_path": ":memory:"}
+        self.db_manager = DuckDBManager(db_config)
+        loop.run_until_complete(self.db_manager.connect())
+        
+        # 2. Create Schema in the in-memory DB
+        create_sql = """
+        CREATE TABLE data_products (
+            id VARCHAR PRIMARY KEY,
+            name VARCHAR,
+            domain VARCHAR,
+            owner_role VARCHAR,
+            definition VARCHAR
+        )
+        """
+        loop.run_until_complete(self.db_manager.execute_query(create_sql))
+        
+        # 3. Inject into RegistryBootstrap
+        RegistryBootstrap._db_manager = self.db_manager
+        
+        # 4. Initialize the registry factory (will use injected manager)
         base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
-        # NOTE: This will pick up Supabase config from env if present
         loop.run_until_complete(RegistryBootstrap.initialize({"base_path": base_path}))
+        
         self.registry_factory = RegistryFactory()
         
-        # Ensure providers are loaded
-        if self.registry_factory.get_provider("data_product"):
-            loop.run_until_complete(self.registry_factory.get_provider("data_product").load())
+        # 5. Verify we got the DB provider
+        dp_provider = self.registry_factory.get_provider("data_product")
+        
+        from src.registry.providers.database_provider import DatabaseRegistryProvider
+        if not isinstance(dp_provider, DatabaseRegistryProvider):
+            print(f"DEBUG: dp_provider type={type(dp_provider)}")
+            raise RuntimeError(f"Expected DatabaseRegistryProvider, got {type(dp_provider)}")
+            
+        # 6. Populate Registry with Test Data Products
+        from src.registry.models.data_product import DataProduct
+        
+        # Load and register FI Star Schema
+        fi_contract = self._load_contract("fi_star_schema.yaml")
+        if fi_contract:
+            fi_data = yaml.safe_load(fi_contract)
+            fi_dp = DataProduct.from_yaml_contract(fi_data)
+            loop.run_until_complete(dp_provider.register(fi_dp))
+            logger.info("Registered FI Star Schema to DB Registry")
+            
+        # Load and register Sales Star Schema
+        sales_contract = self._load_contract("sales_star_schema.yaml")
+        if sales_contract:
+            sales_data = yaml.safe_load(sales_contract)
+            sales_dp = DataProduct.from_yaml_contract(sales_data)
+            loop.run_until_complete(dp_provider.register(sales_dp))
+            logger.info("Registered Sales Star Schema to DB Registry")
+            
+        # --- End Database Registry Setup ---
             
         # Configure Data Product Agent
         self.data_product_config = {
@@ -134,7 +195,13 @@ class TestOrchestratorSQLWorkflow(unittest.TestCase):
              except Exception:
                  pass
         
-        # Note: LLM Service Agent doesn't need explicit cleanup
+        # Clean up registry singletons
+        RegistryFactory._instance = None
+        RegistryBootstrap._initialized = False
+        if RegistryBootstrap._db_manager:
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(RegistryBootstrap._db_manager.disconnect())
+        RegistryBootstrap._db_manager = None
 
     def _load_contract(self, filename: str) -> str:
         """Load contract YAML content"""

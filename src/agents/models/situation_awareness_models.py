@@ -135,6 +135,7 @@ class KPIDefinition(BaseModel):
     diagnostic_questions: Optional[List[str]] = Field(None, description="Diagnostic questions for the KPI")
     thresholds: Optional[Dict[str, float]] = Field(None, description="Thresholds for the KPI")
     business_processes: Optional[List[str]] = Field(None, description="Related business processes")
+    business_process_ids: Optional[List[str]] = Field(None, description="IDs of related business processes")
     dimensions: Optional[List[str]] = Field(None, description="Dimensions available for breakdown")
     positive_trend_is_good: bool = Field(True, description="Whether an increase in value is positive")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
@@ -159,6 +160,7 @@ class KPIValue(BaseModel):
     unit: Optional[str] = Field(None, description="Unit of measurement")
     timeframe: TimeFrame = Field(description="Time frame of the KPI")
     dimensions: Optional[Dict[str, Any]] = Field(None, description="Dimensions of the KPI")
+    percent_change: Optional[float] = Field(None, description="Percentage change vs comparison")
 
 # Assignment models
 class AssignmentCandidate(BaseModel):
@@ -221,6 +223,10 @@ class SituationDetectionRequest(BaseRequest):
 class SituationDetectionResponse(BaseResponse):
     """Response with detected situations."""
     situations: List[Situation] = Field(description="Detected situations")
+    sql_query: Optional[str] = Field(None, description="Sample SQL query used for detection")
+    kpi_evaluated_count: Optional[int] = Field(None, description="Number of KPIs evaluated")
+    kpis_evaluated: Optional[List[str]] = Field(None, description="Names of KPIs evaluated")
+    kpi_details: Optional[List[KPIValue]] = Field(None, description="Detailed values of evaluated KPIs")
     
 # NLP Query Request/Response
 class NLQueryRequest(BaseRequest):

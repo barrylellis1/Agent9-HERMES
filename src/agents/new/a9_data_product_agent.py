@@ -1787,11 +1787,31 @@ class A9_Data_Product_Agent(DataProductProtocol):
                         if os.path.exists(c):
                             csv_path = c
                             break
+                
+                # Check if table already exists to avoid overwriting patched data (e.g. from reload_duckdb.py)
+                # We use a direct SQL check via db_manager
+                try:
+                    check_sql = f"SELECT count(*) FROM information_schema.tables WHERE table_schema = '{schema}' AND table_name = '{table_name}'"
+                    # execution is async in db_manager but returns a DF or similar. 
+                    # We can use execute_query.
+                    exists_df = await self.db_manager.execute_query(check_sql)
+                    if not exists_df.empty and exists_df.iloc[0, 0] > 0:
+                        self.logger.info(f"[TXN:{transaction_id}] Table {schema}.{table_name} already exists. Skipping auto-hydration to preserve data.")
+                        results[table_name] = True
+                        success_count += 1
+                        continue
+                except Exception as check_err:
+                    self.logger.warning(f"[TXN:{transaction_id}] Failed to check if table exists: {check_err}. Proceeding with registration.")
+
+                # Extract CSV options if present
+                csv_options = t.get("csv_options", {})
+                
                 ok = await self.db_manager.register_data_source({
                     "type": "csv",
                     "path": csv_path,
                     "schema": schema,
-                    "table_name": table_name
+                    "table_name": table_name,
+                    "csv_options": csv_options
                 }, transaction_id=transaction_id)
                 results[table_name] = bool(ok)
                 if ok:
@@ -2098,20 +2118,72 @@ class A9_Data_Product_Agent(DataProductProtocol):
         
         # Handle attributes if present; otherwise derive a measure and build SUM(...)
         if not hasattr(kpi_definition, 'attributes') or not kpi_definition.attributes:
-            # Derive primary measure column
-            derived = self._resolve_measure_from_kpi(kpi_definition)
-            if not derived:
-                # Use contract column_aliases instead of hardcoded product checks
-                aliases = self._get_contract_column_aliases()
-                measure_col = aliases.get('measure')
-                if measure_col:
-                    derived = f'"{measure_col}"'
-            if derived:
-                select_items.append(f"COALESCE(SUM({derived}), 0) as total_value")
-                measure_alias = "total_value"
+            # 0) Try to extract explicit SQL expression from sql_query or calculation if present
+            # This supports complex KPIs (e.g. ratios) defined in YAML
+            explicit_expr = None
+            
+            # Check sql_query first (legacy)
+            if hasattr(kpi_definition, 'sql_query') and kpi_definition.sql_query:
+                try:
+                    qt = kpi_definition.sql_query
+                    # Only use explicit SQL if it doesn't have a GROUP BY (implies scalar definition)
+                    # If it has GROUP BY, it likely contains dimensions we don't want in a scalar SELECT
+                    if 'group by' not in qt.lower():
+                        # Extract everything between SELECT and FROM
+                        m_expr = re.search(r'^\s*SELECT\s+(.+?)\s+FROM\s+', qt, re.IGNORECASE | re.DOTALL)
+                        if m_expr and m_expr.group(1):
+                            candidate = m_expr.group(1).strip()
+                            if candidate != '*' and candidate.lower() != 'count(*)':
+                                explicit_expr = candidate
+                except Exception:
+                    pass
+            
+            # Check calculation if sql_query yielded nothing
+            if not explicit_expr and hasattr(kpi_definition, 'calculation') and kpi_definition.calculation:
+                try:
+                    calc = kpi_definition.calculation
+                    qt = None
+                    if isinstance(calc, str):
+                        qt = calc
+                    elif isinstance(calc, dict):
+                        qt = calc.get('query_template') or calc.get('template')
+                    
+                    if isinstance(qt, str) and 'select' in qt.lower() and 'from' in qt.lower():
+                        if 'group by' not in qt.lower():
+                            # Extract everything between SELECT and FROM
+                            m_expr = re.search(r'^\s*SELECT\s+(.+?)\s+FROM\s+', qt, re.IGNORECASE | re.DOTALL)
+                            if m_expr and m_expr.group(1):
+                                candidate = m_expr.group(1).strip()
+                                if candidate != '*' and candidate.lower() != 'count(*)':
+                                    explicit_expr = candidate
+                except Exception:
+                    pass
+
+            if explicit_expr:
+                # Use the user-provided expression
+                # Check if it already has an alias
+                m_alias = re.search(r'\s+as\s+([\w_]+)$', explicit_expr, re.IGNORECASE)
+                if m_alias:
+                     measure_alias = m_alias.group(1)
+                     select_items.append(explicit_expr)
+                else:
+                     select_items.append(f"{explicit_expr} as total_value")
+                     measure_alias = "total_value"
             else:
-                self.logger.warning("KPI definition has no attributes and no resolvable measure")
-                return "SELECT 1 WHERE 1=0 -- Invalid KPI definition (no attributes or measure)"
+                # Derive primary measure column
+                derived = self._resolve_measure_from_kpi(kpi_definition)
+                if not derived:
+                    # Use contract column_aliases instead of hardcoded product checks
+                    aliases = self._get_contract_column_aliases()
+                    measure_col = aliases.get('measure')
+                    if measure_col:
+                        derived = f'"{measure_col}"'
+                if derived:
+                    select_items.append(f"COALESCE(SUM({derived}), 0) as total_value")
+                    measure_alias = "total_value"
+                else:
+                    self.logger.warning("KPI definition has no attributes and no resolvable measure")
+                    return "SELECT 1 WHERE 1=0 -- Invalid KPI definition (no attributes or measure)"
         else:
             for attr in kpi_definition.attributes:
                 if isinstance(attr, dict) and 'name' in attr and 'aggregation' in attr:
@@ -2765,6 +2837,20 @@ class A9_Data_Product_Agent(DataProductProtocol):
                         m2 = re.search(r'\[([^\]]+)\]', qt)
                         if m2 and m2.group(1):
                             base_col = m2.group(1)
+
+            # 3) Extract from sql_query if present
+            if not base_col and hasattr(kpi_definition, 'sql_query') and kpi_definition.sql_query:
+                qt = kpi_definition.sql_query
+                # Try to match SUM(col) or SUM("col") or COUNT(DISTINCT col)
+                # Match SUM(col)
+                m = re.search(r'SUM\s*\(\s*"?([a-zA-Z0-9_]+)"?\s*\)', qt, re.IGNORECASE)
+                if m and m.group(1):
+                    base_col = m.group(1)
+                else:
+                    # Match COUNT(DISTINCT col)
+                    m_count = re.search(r'COUNT\s*\(\s*DISTINCT\s*"?([a-zA-Z0-9_]+)"?\s*\)', qt, re.IGNORECASE)
+                    if m_count and m_count.group(1):
+                        base_col = m_count.group(1)
 
             if isinstance(base_col, str) and base_col.strip():
                 bc = base_col.strip()
@@ -3884,21 +3970,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
             # Handle DataFrame response (BigQuery, DuckDB return DataFrames)
             import pandas as pd
             if isinstance(result, pd.DataFrame):
-                # Empty DataFrame indicates error
-                if result.empty and hasattr(result, 'attrs') and 'error' in result.attrs:
-                    error_msg = result.attrs.get('error', 'Unknown error')
-                    error_type = self._categorize_error(error_msg)
-                    
-                    self.logger.warning(f"[{request_id}] KPI {kpi_id} failed: {error_msg}")
-                    
-                    return KPIQueryValidationResult(
-                        kpi_id=kpi_id,
-                        kpi_name=kpi_name,
-                        status="error",
-                        execution_time_ms=execution_time_ms,
-                        error_message=error_msg,
-                        error_type=error_type,
-                    )
+                # Empty DataFrame indicates 0 rows (success), errors are raised as exceptions now
                 
                 # Convert DataFrame to list of dicts
                 row_count = len(result)
@@ -3908,18 +3980,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
             elif isinstance(result, dict):
                 if not result.get("success", False):
                     error_msg = result.get("error", "Unknown error")
-                    error_type = self._categorize_error(error_msg)
-                    
-                    self.logger.warning(f"[{request_id}] KPI {kpi_id} failed: {error_msg}")
-                    
-                    return KPIQueryValidationResult(
-                        kpi_id=kpi_id,
-                        kpi_name=kpi_name,
-                        status="error",
-                        execution_time_ms=execution_time_ms,
-                        error_message=error_msg,
-                        error_type=error_type,
-                    )
+                    raise RuntimeError(error_msg)
                 
                 # Extract rows from dict format
                 rows = result.get("rows", []) or result.get("data", [])
@@ -3936,29 +3997,31 @@ class A9_Data_Product_Agent(DataProductProtocol):
                         ]
             else:
                 # Unknown result type
-                error_msg = f"Unexpected result type: {type(result)}"
-                self.logger.warning(f"[{request_id}] KPI {kpi_id} failed: {error_msg}")
-                
-                return KPIQueryValidationResult(
-                    kpi_id=kpi_id,
-                    kpi_name=kpi_name,
-                    status="error",
-                    execution_time_ms=execution_time_ms,
-                    error_message=error_msg,
-                    error_type="unknown",
-                )
-            
-            self.logger.info(
-                f"[{request_id}] KPI {kpi_id} succeeded: {row_count} rows in {execution_time_ms}ms"
-            )
-            
+                raise RuntimeError(f"Unexpected result type: {type(result)}")
+
             return KPIQueryValidationResult(
                 kpi_id=kpi_id,
                 kpi_name=kpi_name,
                 status="success",
                 execution_time_ms=execution_time_ms,
                 row_count=row_count,
-                sample_rows=sample_rows,
+                sample_rows=sample_rows
+            )
+
+        except Exception as e:
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            error_msg = str(e)
+            error_type = self._categorize_error(error_msg)
+            
+            self.logger.warning(f"[{request_id}] KPI {kpi_id} failed: {error_msg}")
+            
+            return KPIQueryValidationResult(
+                kpi_id=kpi_id,
+                kpi_name=kpi_name,
+                status="error",
+                execution_time_ms=execution_time_ms,
+                error_message=error_msg,
+                error_type=error_type,
             )
             
         except asyncio.TimeoutError:

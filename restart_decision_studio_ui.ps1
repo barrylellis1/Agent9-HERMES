@@ -83,8 +83,8 @@ try {
         supabase start
         if ($LASTEXITCODE -ne 0) {
             Write-Host "Error: Failed to start Supabase. Please check Docker Desktop status." -ForegroundColor Red
-            Write-Host "Continuing anyway, but backend may fail..." -ForegroundColor DarkYellow
-            Pause
+            Write-Host "Continuing anyway, but backend may fail if it relies on Supabase..." -ForegroundColor DarkYellow
+            # Pause removed for automation
         } else {
             Write-Host "Supabase started successfully." -ForegroundColor Green
         }

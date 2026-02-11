@@ -103,12 +103,12 @@ The agent enforces complete strategic metadata on all KPIs:
 - Validates all KPIs against schema and governance rules
 - Formats KPIs for data product contract YAML
 - Coordinates with Data Product Agent for contract updates
-- Triggers registry updates (supports both local YAML and Supabase backends)
+- Triggers registry updates (supports both local YAML and Database backends)
 
 ## Persistence Model
 - **Local Development**: KPIs are stored in YAML contracts and local `kpi_registry.yaml`
-- **Production/Shared**: KPIs are automatically registered to Supabase `kpis` table via `SupabaseKPIProvider`
-- **Hybrid**: Supports seamless transition from YAML to Supabase without code changes
+- **Production/Shared**: KPIs are automatically registered to the configured database (Postgres, DuckDB, etc.) via `DatabaseRegistryProvider`
+- **Hybrid**: Supports seamless transition from YAML to Database without code changes
 
 ## Validation Rules
 

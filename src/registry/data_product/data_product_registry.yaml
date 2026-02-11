@@ -12,7 +12,7 @@ data_products:
     tags:
       - "erp"
       - "finance"
-    last_updated: "2025-06-21"
+    last_updated: "2026-02-01"
     documentation: "Uses canonical YAML contract for schema, KPIs, and relationships. See yaml_contract_path."
     reviewed: true
     language: "EN"
@@ -31,7 +31,7 @@ data_products:
       - "sap"
     last_updated: "2025-05-16"
     reviewed: true
-    yaml_contract_path: "src/agents/new/data_products/dp_fi_20250516_002.yaml"
+    yaml_contract_path: "src/contracts/dp_fi_20250516_002.yaml"
   
   - product_id: "dp_hr_20250516_001"
     name: "Employee Headcount"
@@ -45,7 +45,7 @@ data_products:
       - "sap"
     last_updated: "2025-05-16"
     reviewed: true
-    yaml_contract_path: "src/agents/new/data_products/dp_hr_20250516_001.yaml"
+    yaml_contract_path: "src/contracts/dp_hr_20250516_001.yaml"
   
   - product_id: "dp_hr_20250516_002"
     name: "Employee Performance"
@@ -59,7 +59,7 @@ data_products:
       - "sap"
     last_updated: "2025-05-16"
     reviewed: true
-    yaml_contract_path: "src/agents/new/data_products/dp_hr_20250516_002.yaml"
+    yaml_contract_path: "src/contracts/dp_hr_20250516_002.yaml"
   
   - product_id: "dp_hr_20250516_003"
     name: "Employee Personal Data"
@@ -73,7 +73,7 @@ data_products:
       - "sap"
     last_updated: "2025-05-16"
     reviewed: true
-    yaml_contract_path: "src/agents/new/data_products/dp_hr_20250516_003.yaml"
+    yaml_contract_path: "src/contracts/dp_hr_20250516_003.yaml"
   
   - product_id: "dp_sales_20250516_001"
     name: "Sales Orders"
@@ -87,7 +87,7 @@ data_products:
       - "sap"
     last_updated: "2025-05-16"
     reviewed: true
-    yaml_contract_path: "src/agents/new/data_products/dp_sales_20250516_001.yaml"
+    yaml_contract_path: "src/contracts/dp_sales_20250516_001.yaml"
   
   - product_id: "dp_sales_20250516_002"
     name: "Sales Order Items"
@@ -101,4 +101,32 @@ data_products:
       - "sap"
     last_updated: "2025-05-16"
     reviewed: true
-    yaml_contract_path: "src/agents/new/data_products/dp_sales_20250516_002.yaml"
+    yaml_contract_path: "src/contracts/dp_sales_20250516_002.yaml"
+
+  - product_id: "SalesOrderStarSchemaView"
+    name: "Sales Order Star Schema View"
+    domain: "Sales"
+    description: "Combined view of Sales Orders, Items, Products, and Partners providing a dimensional model for sales analysis."
+    source_system: "bigquery"
+    tags:
+      - "sales"
+      - "orders"
+      - "starschema"
+    last_updated: "2025-05-16"
+    reviewed: true
+    yaml_contract_path: "src/registry/data_product/SalesOrderStarSchemaView.yaml"
+
+  - product_id: "dp_sales_analytics_009"
+    name: "Dp Sales Analytics 009"
+    domain: "Sales"
+    description: "Sales Analytics Data Product 009 - Star Schema View"
+    source_system: "bigquery"
+    tags:
+      - "sales"
+      - "analytics"
+      - "bigquery"
+    last_updated: "2026-02-01"
+    documentation: "See yaml_contract_path."
+    reviewed: true
+    language: "EN"
+    yaml_contract_path: "src/registry_references/data_product_registry/data_products/dp_sales_analytics_009.yaml"
