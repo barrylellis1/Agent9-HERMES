@@ -11,6 +11,10 @@ import {
   listDataProducts,
   listKpis,
   listPrincipals,
+  createKpi, replaceKpi, deleteKpi,
+  createPrincipal, replacePrincipal, deletePrincipal,
+  createDataProduct, replaceDataProduct, deleteDataProduct,
+  createBusinessProcess, replaceBusinessProcess, deleteBusinessProcess,
 } from '../api/client'
 
 type RegistryKey = 'glossary' | 'data-products' | 'kpis' | 'business-processes' | 'principals'
@@ -43,28 +47,28 @@ const REGISTRIES: RegistryDescriptor[] = [
     label: 'Data Products',
     icon: Box,
     colorClass: 'text-emerald-400 bg-emerald-500/10',
-    editable: false,
+    editable: true,
   },
   {
     key: 'kpis',
     label: 'KPIs',
     icon: Database,
     colorClass: 'text-blue-400 bg-blue-500/10',
-    editable: false,
+    editable: true,
   },
   {
     key: 'business-processes',
     label: 'Business Processes',
     icon: Briefcase,
     colorClass: 'text-amber-400 bg-amber-500/10',
-    editable: false,
+    editable: true,
   },
   {
     key: 'principals',
     label: 'Principals',
     icon: KeyRound,
     colorClass: 'text-slate-300 bg-slate-500/10',
-    editable: false,
+    editable: true,
   },
 ]
 
@@ -161,9 +165,13 @@ export function RegistryExplorer() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [searchText, setSearchText] = useState('')
 
+  // Glossary specific state
   const [termDraft, setTermDraft] = useState<BusinessTerm | null>(null)
   const [termSynonymsText, setTermSynonymsText] = useState('')
   const [termMappingsText, setTermMappingsText] = useState('')
+
+  // Generic JSON editor state
+  const [genericJsonText, setGenericJsonText] = useState('')
 
   const selectedItem = useMemo(() => {
     if (!selectedId) return null
@@ -191,9 +199,15 @@ export function RegistryExplorer() {
       setLoading(true)
       setError(null)
       setSelectedId(null)
+
+      // Reset generic state
+      setGenericJsonText('')
+
+      // Reset glossary state
       setTermDraft(null)
       setTermSynonymsText('')
       setTermMappingsText('')
+
       setSearchText('')
 
       try {
@@ -228,13 +242,17 @@ export function RegistryExplorer() {
   }, [registryKey])
 
   useEffect(() => {
-    if (registryKey !== 'glossary') return
     if (!selectedItem) return
 
-    const term = selectedItem as BusinessTerm
-    setTermDraft(term)
-    setTermSynonymsText(formatSynonyms(term.synonyms))
-    setTermMappingsText(JSON.stringify(term.technical_mappings || {}, null, 2))
+    if (registryKey === 'glossary') {
+      const term = selectedItem as BusinessTerm
+      setTermDraft(term)
+      setTermSynonymsText(formatSynonyms(term.synonyms))
+      setTermMappingsText(JSON.stringify(term.technical_mappings || {}, null, 2))
+    } else {
+      // For other registries, load into generic JSON editor
+      setGenericJsonText(JSON.stringify(selectedItem, null, 2))
+    }
   }, [registryKey, selectedItem])
 
   const onSelect = (it: any) => {
@@ -242,40 +260,58 @@ export function RegistryExplorer() {
     setSelectedId(id)
   }
 
-  const onNewGlossaryTerm = () => {
-    const draft: BusinessTerm = {
-      name: '',
-      description: '',
-      synonyms: [],
-      technical_mappings: {},
-    }
+  const onNewItem = () => {
     setSelectedId('__new__')
-    setTermDraft(draft)
-    setTermSynonymsText('')
-    setTermMappingsText('{}')
+
+    if (registryKey === 'glossary') {
+      const draft: BusinessTerm = {
+        name: '',
+        description: '',
+        synonyms: [],
+        technical_mappings: {},
+      }
+      setTermDraft(draft)
+      setTermSynonymsText('')
+      setTermMappingsText('{}')
+    } else {
+      // Template for generic items
+      let template: any = { id: 'new_item', name: 'New Item' }
+
+      if (registryKey === 'kpis') {
+        template = {
+          id: 'new_kpi',
+          name: 'New KPI',
+          domain: 'General',
+          description: '',
+          unit: '',
+          data_product_id: '',
+          owner_role: '',
+          sql_query: 'SELECT * FROM ...',
+          thresholds: []
+        }
+      } else if (registryKey === 'principals') {
+        template = {
+          id: 'new_principal',
+          name: 'New Principal',
+          role: 'Role',
+          title: 'Title',
+          department: '',
+          preferences: {}
+        }
+      }
+
+      setGenericJsonText(JSON.stringify(template, null, 2))
+    }
   }
 
   const reload = async () => {
-    if (registryKey === 'glossary') {
-      const data = await listGlossaryTerms()
-      setItems(data)
-    }
-    if (registryKey === 'data-products') {
-      const data = await listDataProducts()
-      setItems(data)
-    }
-    if (registryKey === 'kpis') {
-      const data = await listKpis()
-      setItems(data)
-    }
-    if (registryKey === 'business-processes') {
-      const data = await listBusinessProcesses()
-      setItems(data)
-    }
-    if (registryKey === 'principals') {
-      const data = await listPrincipals()
-      setItems(data)
-    }
+    let data: any[] = []
+    if (registryKey === 'glossary') data = await listGlossaryTerms()
+    if (registryKey === 'data-products') data = await listDataProducts()
+    if (registryKey === 'kpis') data = await listKpis()
+    if (registryKey === 'business-processes') data = await listBusinessProcesses()
+    if (registryKey === 'principals') data = await listPrincipals()
+    setItems(data)
   }
 
   const saveGlossary = async () => {
@@ -313,6 +349,53 @@ export function RegistryExplorer() {
     }
   }
 
+  const saveGeneric = async () => {
+    if (!genericJsonText) return
+
+    let payload: any
+    try {
+      payload = JSON.parse(genericJsonText)
+    } catch (e) {
+      setError('Invalid JSON format')
+      return
+    }
+
+    if (!payload.id) {
+      setError('ID field is required in JSON')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const isNew = selectedId === '__new__'
+      const id = payload.id
+
+      if (registryKey === 'kpis') {
+        if (isNew) await createKpi(payload)
+        else await replaceKpi(id, payload)
+      } else if (registryKey === 'principals') {
+        if (isNew) await createPrincipal(payload)
+        else await replacePrincipal(id, payload)
+      } else if (registryKey === 'data-products') {
+        if (isNew) await createDataProduct(payload)
+        else await replaceDataProduct(id, payload)
+      } else if (registryKey === 'business-processes') {
+        if (isNew) await createBusinessProcess(payload)
+        else await replaceBusinessProcess(id, payload)
+      }
+
+      await reload()
+      setSelectedId(id)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to save item'
+      setError(message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const deleteGlossary = async () => {
     if (!termDraft) return
     const termName = termDraft.name?.trim()
@@ -328,6 +411,29 @@ export function RegistryExplorer() {
       setTermDraft(null)
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to delete term'
+      setError(message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const deleteGeneric = async () => {
+    if (!selectedId || selectedId === '__new__') return
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      if (registryKey === 'kpis') await deleteKpi(selectedId)
+      else if (registryKey === 'principals') await deletePrincipal(selectedId)
+      else if (registryKey === 'data-products') await deleteDataProduct(selectedId)
+      else if (registryKey === 'business-processes') await deleteBusinessProcess(selectedId)
+
+      await reload()
+      setSelectedId(null)
+      setGenericJsonText('')
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to delete item'
       setError(message)
     } finally {
       setLoading(false)
@@ -394,9 +500,9 @@ export function RegistryExplorer() {
                   </div>
                 ) : null}
 
-                {registryKey === 'glossary' ? (
+                {active.editable ? (
                   <button
-                    onClick={onNewGlossaryTerm}
+                    onClick={onNewItem}
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-sm"
                   >
                     <Plus className="w-4 h-4" />
@@ -472,81 +578,13 @@ export function RegistryExplorer() {
               </div>
 
               <div className="border border-border rounded-xl p-4">
-                {!selectedId && registryKey !== 'glossary' ? (
-                  <div className="text-sm text-slate-400">Select an item to view details.</div>
-                ) : null}
-
-                {registryKey !== 'glossary' && selectedItem ? (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {columnsForRegistry(registryKey).map((col) => (
-                        <div key={col.key}>
-                          <div className="text-xs text-slate-400 mb-1">{col.label}</div>
-                          <div className="px-3 py-2 rounded-lg bg-slate-900/40 border border-slate-800 text-sm text-white">
-                            {col.render(selectedItem) || '—'}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {registryKey === 'kpis' && (selectedItem as any)?.metadata ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <div className="text-xs text-slate-400 mb-1">Line</div>
-                          <div className="px-3 py-2 rounded-lg bg-slate-900/40 border border-slate-800 text-sm text-white">
-                            {safeString((selectedItem as any).metadata?.line) || '—'}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-slate-400 mb-1">Altitude</div>
-                          <div className="px-3 py-2 rounded-lg bg-slate-900/40 border border-slate-800 text-sm text-white">
-                            {safeString((selectedItem as any).metadata?.altitude) || '—'}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-slate-400 mb-1">Profit Driver Type</div>
-                          <div className="px-3 py-2 rounded-lg bg-slate-900/40 border border-slate-800 text-sm text-white">
-                            {safeString((selectedItem as any).metadata?.profit_driver_type) || '—'}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-slate-400 mb-1">Lens Affinity</div>
-                          <div className="px-3 py-2 rounded-lg bg-slate-900/40 border border-slate-800 text-sm text-white">
-                            {safeString((selectedItem as any).metadata?.lens_affinity) || '—'}
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {registryKey === 'principals' && (selectedItem as any)?.metadata ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <div className="text-xs text-slate-400 mb-1">KPI Line Preference</div>
-                          <div className="px-3 py-2 rounded-lg bg-slate-900/40 border border-slate-800 text-sm text-white">
-                            {safeString((selectedItem as any).metadata?.kpi_line_preference) || '—'}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-slate-400 mb-1">KPI Altitude Preference</div>
-                          <div className="px-3 py-2 rounded-lg bg-slate-900/40 border border-slate-800 text-sm text-white">
-                            {safeString((selectedItem as any).metadata?.kpi_altitude_preference) || '—'}
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    <div className="text-xs text-slate-500">
-                      Raw JSON is hidden in this view to keep maintenance table-first. (We can add an “Advanced” toggle later.)
-                    </div>
-                  </div>
-                ) : null}
-
-                {registryKey === 'glossary' ? (
-                  <div className="space-y-4">
-                    {!termDraft ? (
-                      <div className="text-sm text-slate-400">Select a term or create a new one.</div>
-                    ) : (
-                      <>
+                {!selectedId ? (
+                  <div className="text-sm text-slate-400">Select an item or create new.</div>
+                ) : (
+                  <>
+                    {/* View/Edit Form Container */}
+                    {registryKey === 'glossary' && termDraft ? (
+                      <div className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-xs text-slate-400 mb-1">Name</label>
@@ -608,15 +646,51 @@ export function RegistryExplorer() {
                             Delete
                           </button>
 
-                          <div className="text-xs text-slate-500 ml-auto inline-flex items-center gap-2">
-                            <Database className="w-4 h-4" />
-                            {active.editable ? 'YAML-backed' : 'Read-only'}
+                          <div className="text-xs text-slate-500">
+                            Raw JSON is hidden in this view to keep maintenance table-first. (We can add an “Advanced” toggle later.)
                           </div>
                         </div>
-                      </>
+                      </div>
+                    ) : (
+                      /* Generic JSON Editor for other registries */
+                      <div className="space-y-4">
+                        <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-200 text-xs mb-4">
+                          This registry uses a generic JSON editor. Ensure the <code>id</code> field is present and unique.
+                        </div>
+
+                        <div>
+                          <label className="block text-xs text-slate-400 mb-1">JSON Payload</label>
+                          <textarea
+                            value={genericJsonText}
+                            onChange={(e) => setGenericJsonText(e.target.value)}
+                            rows={20}
+                            className="w-full px-3 py-2 rounded-lg bg-slate-900/40 border border-slate-700 text-white text-sm font-mono"
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={saveGeneric}
+                            disabled={loading}
+                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-sm"
+                          >
+                            <Save className="w-4 h-4" />
+                            Save
+                          </button>
+
+                          <button
+                            onClick={deleteGeneric}
+                            disabled={loading || selectedId === '__new__'}
+                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 disabled:opacity-60 text-white text-sm"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete
+                          </button>
+                        </div>
+                      </div>
                     )}
-                  </div>
-                ) : null}
+                  </>
+                )}
               </div>
             </div>
           </div>

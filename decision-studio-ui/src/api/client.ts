@@ -66,18 +66,78 @@ export async function deleteGlossaryTerm(termName: string): Promise<void> {
   });
 }
 
+// ------------------------------------------------------------------
+// KPI Registry API
+// ------------------------------------------------------------------
+
 export async function listKpis(): Promise<any[]> {
   const envelope = await requestJson<Envelope<any[]>>(`/registry/kpis`);
   return envelope.data || [];
 }
+
+export async function getKpi(id: string): Promise<any> {
+  const envelope = await requestJson<Envelope<any>>(`/registry/kpis/${encodeURIComponent(id)}`);
+  return envelope.data;
+}
+
+export async function createKpi(payload: any): Promise<any> {
+  const envelope = await requestJson<Envelope<any>>(`/registry/kpis`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return envelope.data;
+}
+
+export async function updateKpi(id: string, payload: any): Promise<any> {
+  const envelope = await requestJson<Envelope<any>>(`/registry/kpis/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return envelope.data;
+}
+
+export async function replaceKpi(id: string, payload: any): Promise<any> {
+  const envelope = await requestJson<Envelope<any>>(`/registry/kpis/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return envelope.data;
+}
+
+export async function deleteKpi(id: string): Promise<void> {
+  await requestJson<void>(`/registry/kpis/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}
+
+// ------------------------------------------------------------------
+// Principal Registry API
+// ------------------------------------------------------------------
 
 export async function listPrincipals(): Promise<any[]> {
   const envelope = await requestJson<Envelope<any[]>>(`/registry/principals`);
   return envelope.data || [];
 }
 
+export async function getPrincipal(id: string): Promise<any> {
+  const envelope = await requestJson<Envelope<any>>(`/registry/principals/${encodeURIComponent(id)}`);
+  return envelope.data;
+}
+
+export async function createPrincipal(payload: any): Promise<any> {
+  const envelope = await requestJson<Envelope<any>>(`/registry/principals`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return envelope.data;
+}
+
 export async function updatePrincipal(principalId: string, payload: any): Promise<any> {
-  const envelope = await requestJson<Envelope<any>>(`/registry/principals/${principalId}`, {
+  const envelope = await requestJson<Envelope<any>>(`/registry/principals/${encodeURIComponent(principalId)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -85,14 +145,113 @@ export async function updatePrincipal(principalId: string, payload: any): Promis
   return envelope.data;
 }
 
+export async function replacePrincipal(principalId: string, payload: any): Promise<any> {
+  const envelope = await requestJson<Envelope<any>>(`/registry/principals/${encodeURIComponent(principalId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  return envelope.data;
+}
+
+export async function deletePrincipal(id: string): Promise<void> {
+  await requestJson<void>(`/registry/principals/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}
+
+// ------------------------------------------------------------------
+// Data Product Registry API
+// ------------------------------------------------------------------
+
 export async function listDataProducts(): Promise<any[]> {
   const envelope = await requestJson<Envelope<any[]>>(`/registry/data-products`);
   return envelope.data || [];
 }
 
+export async function getDataProduct(id: string): Promise<any> {
+  const envelope = await requestJson<Envelope<any>>(`/registry/data-products/${encodeURIComponent(id)}`);
+  return envelope.data;
+}
+
+export async function createDataProduct(payload: any): Promise<any> {
+  const envelope = await requestJson<Envelope<any>>(`/registry/data-products`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return envelope.data;
+}
+
+export async function updateDataProduct(id: string, payload: any): Promise<any> {
+  const envelope = await requestJson<Envelope<any>>(`/registry/data-products/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return envelope.data;
+}
+
+export async function replaceDataProduct(id: string, payload: any): Promise<any> {
+  const envelope = await requestJson<Envelope<any>>(`/registry/data-products/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return envelope.data;
+}
+
+export async function deleteDataProduct(id: string): Promise<void> {
+  await requestJson<void>(`/registry/data-products/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}
+
+// ------------------------------------------------------------------
+// Business Process Registry API
+// ------------------------------------------------------------------
+
 export async function listBusinessProcesses(): Promise<any[]> {
   const envelope = await requestJson<Envelope<any[]>>(`/registry/business-processes`);
   return envelope.data || [];
+}
+
+export async function getBusinessProcess(id: string): Promise<any> {
+  const envelope = await requestJson<Envelope<any>>(`/registry/business-processes/${encodeURIComponent(id)}`);
+  return envelope.data;
+}
+
+export async function createBusinessProcess(payload: any): Promise<any> {
+  const envelope = await requestJson<Envelope<any>>(`/registry/business-processes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return envelope.data;
+}
+
+export async function updateBusinessProcess(id: string, payload: any): Promise<any> {
+  const envelope = await requestJson<Envelope<any>>(`/registry/business-processes/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return envelope.data;
+}
+
+export async function replaceBusinessProcess(id: string, payload: any): Promise<any> {
+  const envelope = await requestJson<Envelope<any>>(`/registry/business-processes/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return envelope.data;
+}
+
+export async function deleteBusinessProcess(id: string): Promise<void> {
+  await requestJson<void>(`/registry/business-processes/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
 }
 
 export interface UploadResponse {

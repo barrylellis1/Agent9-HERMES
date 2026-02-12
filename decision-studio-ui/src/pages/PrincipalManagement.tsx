@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, User, ChevronsUpDown, Check, PlusCircle, XCircle, Loader2, Save } from 'lucide-react';
+import { ArrowLeft, User, Check, PlusCircle, XCircle, Loader2, Save } from 'lucide-react';
 import { listPrincipals, listBusinessProcesses, updatePrincipal } from '../api/client';
 
 interface Principal {
