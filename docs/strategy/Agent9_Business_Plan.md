@@ -1,15 +1,22 @@
 # Agent9 Business Plan
-**Last Updated:** January 26, 2026
+**Last Updated:** February 12, 2026
 
 ---
 
 ## Executive Summary
 
-**Agent9** is an AI-powered consulting-as-a-service (CaaS) platform that transforms the $800B consulting industry by enabling multi-agent debate and collaboration to deliver strategic insights in hours instead of weeks, at 70-90% lower cost than traditional consulting.
+**Agent9** is an AI-powered decision intelligence platform that delivers continuous financial monitoring, multi-perspective analysis, and structured decision support for mid-market CFOs and PE portfolio operations teams. The platform combines registry-driven domain context with multi-agent analysis to surface the right insight for the right executive — automatically, continuously, and with a complete audit trail.
 
-**Current Stage:** Pre-revenue, moonlighting development  
-**Target:** $500K ARR within 18-24 months  
-**Exit Strategy:** Strategic acquisition at $2M-$3M ARR for $15M-$30M
+Agent9 addresses three distinct value propositions, each independent of the others:
+1. **Always-on monitoring** — proactive situation detection across KPIs before problems become crises
+2. **Consulting-quality insight on demand** — structured root cause analysis, multi-perspective options debate, and board-ready narrative in hours not weeks
+3. **Institutional memory and decision audit trail** — KPI definitions, decision rationale, and outcome tracking that survives executive turnover and satisfies compliance requirements
+
+**Current Stage:** Pre-revenue, platform built (~100K LOC), moonlighting development
+**Go-to-Market Launch:** Q2 2026 (demo-ready, warm network outreach)
+**Primary Entry Buyer:** VP FP&A / Head of Financial Planning (faster cycle) → CFO champion for expansion
+**Target:** $100K-$250K ARR within 18 months of first customer
+**Exit Strategy:** Strategic acquisition at $2M-$3M ARR for $15M-$30M (infrastructure/data platform framing)
 
 ---
 
@@ -18,7 +25,9 @@
 ### Market Size
 - **Total Addressable Market (TAM):** $800B global consulting market
 - **Serviceable Addressable Market (SAM):** $50B (mid-market + PE portfolio operations)
-- **Serviceable Obtainable Market (SOM):** $500M (Year 3 target)
+- **Serviceable Obtainable Market (SOM):** $5M-$10M (Year 3 target — 50-100 customers at $50K-$100K ACV)
+
+*Note: SOM is deliberately conservative. As a bootstrapped solo founder, capturing even $5M of a $50B SAM represents meaningful traction and positions for acquisition or Series A.*
 
 ### Market Trends
 - Enterprise AI adoption accelerating
@@ -31,24 +40,49 @@
 ## 2. Product Vision
 
 ### Core Value Proposition
-"Multi-perspective strategic consulting on-demand - 10-50x faster, 70-90% cheaper, with complete audit trail"
+"AI-powered decision intelligence for mid-market CFOs — continuous monitoring, structured analysis, and board-ready recommendations with a complete audit trail."
+
+### Three Value Pillars (Independent, Compounding)
+
+**Pillar 1 — Always-On Monitoring (replaces absence of something)**
+- 24/7 KPI surveillance across Finance and Sales domains with multi-timeframe thresholds
+- Proactive anomaly detection before the CFO asks the question
+- Situation lifecycle management (Open → Acknowledged → Assigned → Resolved)
+- *Replaces:* Manual weekly dashboard reviews, reactive fire-fighting
+
+**Pillar 2 — Consulting-Quality Insight on Demand (replaces expensive substitute)**
+- Structured SCQA root cause analysis (Situation, Complication, Question, Answer)
+- Multi-perspective solution debate with trade-off matrix (Financial, Operational, Strategic, Risk lenses)
+- Role-personalised output: same KPI, different framing for CFO (analytical), COO (pragmatic), CEO (visionary)
+- *Replaces:* $500K-$2M consulting engagements; delivers in hours not weeks
+
+**Pillar 3 — Institutional Memory and Decision Audit Trail (fills gap nothing else addresses)**
+- KPI definitions encoded with exact SQL logic, data lineage, and GL account mappings
+- Decision provenance: every option considered, trade-off evaluated, outcome tracked
+- Survives executive turnover — the definition of "Gross Margin" never walks out the door again
+- *Replaces:* Nothing currently — this capability does not exist in any comparable tool
 
 ### Key Differentiators
-1. **Multi-agent debate** - Multiple expert perspectives vs single firm bias
-2. **Speed** - Hours vs weeks/months
-3. **Cost** - $100-$500 per insight vs $50K+ engagements
-4. **Audit trail** - Complete transparency and compliance-ready
-5. **Branded expertise** - Partner IP encoded in agents
+1. **Registry-driven domain intelligence** — KPIs, principals, business processes, data products encoded per customer; deep context no generic AI provides
+2. **Always-on monitoring** — proactive, not reactive; runs 24/7 between consulting engagements
+3. **Role-personalised framing** — same data, right narrative for each executive
+4. **Decision audit trail** — complete provenance for compliance, board reporting, and investor scrutiny
+5. **5-day onboarding** — first situation card in one week, not 8-12 weeks (see Onboarding Moat doc)
+6. **Branded expertise** — partner consulting methodology encoded as agents (Year 3+)
 
-### Platform Capabilities (Current)
-- ✅ Multi-agent orchestration framework
+### Platform Capabilities (As of February 2026)
+- ✅ Multi-agent orchestration framework (A2A protocol-compliant)
 - ✅ Situation Awareness workflow
 - ✅ Deep Analysis workflow
 - ✅ Solution Finder with LLM debate
-- ✅ Data product onboarding
+- ✅ Data product onboarding (YAML contract-driven)
 - ✅ Audit trail and human-in-the-loop checkpoints
-- 🔄 Decision Studio UI (in progress)
-- 📋 Branded agent marketplace (roadmap)
+- ✅ Registry system (KPIs, principals, business processes, data products, glossary)
+- ✅ Decision Studio UI (React, functional — final polish phase)
+- ✅ Registry Explorer UI (browse/edit all registry entities)
+- ✅ Database-agnostic backend (DuckDB, Supabase/Postgres, BigQuery)
+- 🔄 Demo video and landing page (in progress)
+- 📋 Branded agent marketplace (post-first-revenue roadmap)
 
 ---
 
@@ -56,23 +90,33 @@
 
 ### Primary Segments (Priority Order)
 
-#### 1. PE Portfolio Operations ⭐⭐⭐
-- **Size:** 500 firms
-- **ARPU:** $200K+
-- **Pain:** Need to drive value creation across portfolio companies
-- **Trigger Events:** Post-acquisition, value creation mandate
+#### 1. VP FP&A / Head of Financial Planning ⭐⭐⭐ *(NEW — Primary Entry Buyer)*
+- **Size:** 10,000+ mid-market companies
+- **ARPU:** $30K-$60K initial (entry point for CFO expansion)
+- **Pain:** 30% of every month spent explaining last month; manual translation of data into three executive narratives
+- **Trigger Events:** New CFO hire demanding faster insights, board demanding better reporting, FP&A team under-resourced
+- **Why first:** Shorter sales cycle (4-6 weeks vs 4-6 months), clearer ROI (time saved on monthly close), budget authority for pilot pricing, creates internal CFO champion
 
 #### 2. Mid-Market CFOs ⭐⭐⭐
 - **Size:** 10,000+ companies
-- **ARPU:** $80K-$100K
-- **Pain:** $1M-$3M annual consulting spend, slow insights
-- **Trigger Events:** New CFO hire, cost reduction initiative
+- **ARPU:** $60K-$120K (expanded from $80K-$100K with multi-pillar value)
+- **Pain:** Reactive decision-making, consulting spend with no continuous coverage, no institutional memory
+- **Trigger Events:** New CFO hire, cost reduction initiative, board demanding faster insights
+- **Relationship to FP&A:** FP&A team entry → CFO becomes champion for expansion to full platform
 
-#### 3. Corporate Strategy Teams ⭐⭐
+#### 3. PE Portfolio Operations ⭐⭐⭐
+- **Size:** 500 firms
+- **ARPU:** $150K-$230K (platform fee + per-portfolio-company activation)
+- **Pain:** Inconsistent KPI definitions across portfolio, manual value creation tracking, LP reporting overhead
+- **Trigger Events:** Post-acquisition, value creation mandate, new GP joining portfolio ops team
+- **Commercial structure:** Platform fee ($40K-$60K) + per-portfolio-company fee ($20K-$30K); expands automatically with new acquisitions
+
+#### 4. Corporate Strategy Teams ⭐⭐
 - **Size:** 500 F500 companies
 - **ARPU:** $300K+
 - **Pain:** Strategic decisions need multiple perspectives
 - **Trigger Events:** Activist investor pressure, IPO prep
+- **Note:** Deferred to Year 2+ — procurement complexity too high for solo founder Year 1
 
 ### Ideal Customer Profile
 
@@ -123,172 +167,224 @@
 
 ## 4. Business Model
 
-### Revenue Streams
+### Revenue Streams (Phased)
 
-**Primary: Platform Subscriptions**
-- $80K-$300K annual contracts
-- Tiered pricing based on users, use cases, data sources
+**Year 1 — Direct Subscriptions Only**
+- $15K-$30K pilot engagements (3-6 months)
+- Light implementation included in pilot price
+- Goal: prove value, build case studies
 
-**Secondary: Transaction Fees**
-- $100-$500 per multi-agent debate session
-- Usage-based pricing for high-volume customers
+**Year 2 — Subscriptions + Services**
+- $40K-$80K annual contracts (post-pilot conversion)
+- $15K-$30K implementation/onboarding for new customers
+- Usage-based pricing for high-volume debate sessions
 
-**Tertiary: Implementation Services**
-- $50K-$150K one-time setup
-- Data integration, workflow customization
+**Year 3+ — Platform + Partner Revenue**
+- $60K-$120K annual platform subscriptions
+- Partner revenue share (15-30% of branded agent fees)
+- Implementation and integration services
 
-**Future: Partner Revenue Share**
-- 15-30% of branded agent subscription fees
-- 10-20% of human escalation services
+*Note: Partner/marketplace revenue is excluded from Year 1-2 projections. No consulting firm will encode IP in a pre-revenue startup platform. This becomes viable only after 10+ customers and proven ROI.*
 
-### Pricing Strategy (Year 1)
+### Pricing Architecture (Revised — Three-Layer Model)
 
-| Tier | Annual Price | Features | Target Customer |
-|------|-------------|----------|-----------------|
-| **Pilot** | $25K-$50K (6 months) | 1 use case, weekly check-ins | Early adopters |
-| **Professional** | $100K | 3 use cases, unlimited users | Mid-market CFO |
-| **Enterprise** | $200K-$300K | Unlimited, custom workflows | F500, PE firms |
+The original single-tier pricing anchors Agent9 to consulting engagement analogies. The revised model reflects the operational infrastructure nature of the platform.
 
-### Unit Economics (Target)
+**Layer 1 — Platform (fixed annual, high switching cost)**
+| Tier | Annual | Included |
+|------|--------|----------|
+| Starter | $20K-$30K | KPI registry, principal profiles, data product contracts, audit trail infrastructure |
+| Professional | $35K-$50K | Above + extended KPI library, multi-domain business processes |
+| Enterprise | $60K-$80K | Above + SOC 2, SLA, dedicated onboarding |
 
-| Metric | Target | Notes |
-|--------|--------|-------|
-| **CAC** | $30K-$50K | Founder-led sales, warm network |
-| **LTV** | $300K-$500K | 3-5 year customer lifetime |
-| **LTV:CAC** | 8-10x | Healthy SaaS benchmark |
-| **Gross Margin** | 75-80% | Software + light services |
-| **Payback Period** | 6-9 months | Fast for enterprise SaaS |
+**Layer 2 — Intelligence (per-principal/month, scales with adoption)**
+- $500-$1,500 per principal per month (Situation Awareness, Deep Analysis, Solution Finder access)
+- Example: 4 principals × $1,000/month × 12 = $48K/year
+
+**Layer 3 — Onboarding (one-time Fast Start fee)**
+- $10K-$15K flat for 5-day onboarding (data product contracts, KPI configuration, principal setup)
+- Framed as speed and certainty, not consulting hours billed
+- *See Onboarding Moat document for full methodology*
+
+**Year 1 Pilot Pricing (simplified for early customers)**
+| Tier | Price | Duration | What They Get |
+|------|-------|----------|---------------|
+| **Fast Start Pilot** | $15K | 3 months | 5-day onboarding + 3 months monitoring + bi-weekly check-ins |
+| **Full Pilot** | $25K-$30K | 6 months | Above + Deep Analysis + Solution Finder for 2 use cases |
+| **Annual (post-pilot)** | $60K-$120K | 12 months | Full three-layer pricing; reflects operational embedding |
+
+*Enterprise tier ($100K+) deferred until 3+ reference customers and SOC 2 readiness.*
+
+### Unit Economics (Revised)
+
+| Metric | Year 1 (Pilots) | Year 2 (Growth) | Change from Prior Plan |
+|--------|-----------------|-----------------|----------------------|
+| **CAC** | $5K-$10K | $15K-$25K | Unchanged — FP&A entry point may reduce |
+| **ACV** | $15K-$30K | $60K-$120K | Raised — multi-budget expansion + PE structure |
+| **LTV** | $90K-$180K | $240K-$480K | Raised — lower churn + higher NRR |
+| **LTV:CAC** | 12-18x | 15-20x | Raised — operational embedding reduces churn |
+| **Logo Churn** | 10% | 3-5% (mature) | Lowered — workflow embedding creates switching cost |
+| **NRR** | 110% | 130-140% | Raised — multi-budget expansion + PE portfolio adds |
+| **Gross Margin** | 80-85% | 85-90% | Raised — partner revenue (future) is near 100% margin |
+| **Payback Period** | 3-6 months | 4-8 months | Unchanged |
 
 ---
 
 ## 5. Go-to-Market Strategy
 
-### Phase 1: Moonlighting Foundation (Months 1-6)
-**Goal:** Get product demo-ready, validate with warm network
+### Phase 0: Demo-Ready (Feb-Apr 2026)
+**Goal:** Ship a compelling 5-minute demo and begin outreach
 
 **Activities:**
-- Polish Decision Studio UI (10 hours/week)
-- Build marketing assets (website, demo video, deck)
-- Network activation (20 warm contacts, 10 discovery calls)
-- Refine pitch based on feedback
+- Final Decision Studio UI polish
+- Record demo video (Situation Awareness → Deep Analysis → Solution Finder → Audit Trail)
+- Build landing page
+- Prepare 3-slide pitch deck for discovery calls
 
-**Investment:** $5K-$10K (self-funded)  
-**Time Commitment:** 15 hours/week (nights + weekends)
+**Investment:** $2K-$5K (self-funded)  
+**Time Commitment:** 15 hours/week  
+**Key Deliverable:** Demo video that sells the product without a live call
 
-### Phase 2: First Revenue (Months 7-12)
-**Goal:** Close 1-2 pilot customers, deliver successfully
+### Phase 1: Warm Network (May-Sep 2026)
+**Goal:** 20 discovery calls, 5 demos, 1-2 pilot proposals
 
 **Sales Motion:**
-- Founder-led sales (warm network only)
-- 30-minute "feedback" calls → demos → proposals
-- $25K-$40K pilot pricing (6 months)
-- Weekly check-ins + monthly strategy sessions
+- Founder-led outreach to warm network only
+- 30-minute "feedback" calls → live demos → pilot proposals
+- Position as "AI Decision Intelligence for CFOs" (not "agentic consulting marketplace")
+- $15K-$25K pilot pricing (3-6 months)
+
+**Investment:** $3K-$5K additional  
+**Time Commitment:** 15-20 hours/week  
+**Target:** 1-2 signed pilots by Sep 2026  
+**Kill Criterion:** Zero pipeline after 30 conversations → reassess ICP
+
+### Phase 2: First Revenue (Oct 2026-Mar 2027)
+**Goal:** Deliver pilot(s) successfully, close 1-2 additional customers
+
+**Activities:**
+- Weekly check-ins with pilot customers
+- Document ROI and build first case study
+- Expand within pilot accounts (additional use cases, users)
+- Begin outbound to similar profiles using case study
 
 **Investment:** $5K additional  
 **Time Commitment:** 20 hours/week  
-**Target Revenue:** $50K-$80K (1-2 pilots)
+**Target Revenue:** $20K-$75K (1-3 pilots)
 
-### Phase 3: Prove & Scale (Months 13-18)
-**Goal:** Convert pilots to annual contracts, add 3-5 new customers
+### Phase 3: Prove & Decide (Apr-Dec 2027)
+**Goal:** Convert pilots to annual contracts, reach 5-8 customers
 
-**Decision Point (Month 12):**
-- ✅ If pilots successful → Quit day job, go full-time
-- ❌ If struggling → Keep moonlighting, iterate
+**Decision Point (Month 14, ~Apr 2027):**
+- ✅ If 2+ paying customers, pipeline of 3+ → Quit day job, go full-time
+- ❌ If <2 customers, weak pipeline → Keep moonlighting, iterate or pivot
 
-**Full-Time Activities:**
+**Full-Time Activities (if triggered):**
 - Hire #1: Sales/Customer Success ($80K-$120K)
 - Expand within existing accounts
 - Outbound to similar profiles
-- Build case studies and references
+- Build 2-3 case studies and references
+- Begin SOC 2 readiness for enterprise tier
 
-**Target Revenue:** $200K-$500K ARR (5-10 customers)
+**Target Revenue:** $100K-$320K ARR (3-8 customers at $25K-$60K ACV)
 
-### Phase 4: Partner Launch (Months 19-24)
-**Goal:** Launch branded agent marketplace, scale through partners
+### Phase 4: Scale & Partner Exploration (2028)
+**Goal:** Grow customer base, explore first partner relationships
 
-**Partner Strategy:**
-- Onboard 2-3 strategic partners (consulting firms, cloud vendors)
-- Co-sell to mutual customers
+**Partner Strategy (only if 10+ customers):**
+- Target mid-tier consulting firms (FTI, A&M, Huron) — not BCG/McKinsey
+- Co-design 1 branded agent pilot with a willing partner
 - Revenue share model (70-85% to partner)
 
-**Target Revenue:** $1M-$2M ARR (15-25 customers)
+**Target Revenue:** $300K-$900K ARR (8-15 customers)
+
+*Note: Branded agent marketplace deferred to Year 3+. Direct customer value comes first.*
 
 ---
 
 ## 6. Competitive Landscape
 
-### Direct Competitors
+### Direct Competitors (Updated February 2026)
 
 | Player | What They Do | Gap/Weakness |
-|--------|--------------|--------------|
-| **McKinsey/BCG/Bain** | Human consulting | Slow (12-24 weeks), expensive ($500K-$2M), single perspective |
-| **ChatGPT/Claude** | Generic AI | No expertise, no audit trail, no branded methodology |
-| **Palantir** | Data platform | No consulting methodology, technical not strategic |
-| **Tableau/Power BI** | Dashboards | Shows data, doesn't advise or recommend |
-| **Dataiku/Alteryx** | ML platforms | Technical tools, not strategic advisory |
+|--------|--------------|---------------|
+| **McKinsey/BCG/Bain** | Human consulting (+ internal AI tools like Lilli) | Slow (12-24 weeks), expensive ($500K-$2M), single perspective. Building AI internally but not productizing for mid-market. |
+| **ChatGPT/Claude/Gemini** | Generic AI + agent frameworks | No domain expertise, no audit trail, no registry-driven context. Improving rapidly. |
+| **Hebbia ($130M raised)** | AI analyst for PE/finance | Strong in document analysis; lacks multi-agent debate, registry depth, and consulting methodology framing. |
+| **Numeric / Runway / Mosaic** | AI-powered FP&A and financial close | Narrow scope (financial operations only); no strategic advisory or multi-perspective analysis. |
+| **Palantir AIP** | Data platform + AI agents | Enterprise-grade but complex, expensive, and technical — not strategic advisory. |
+| **AWS Bedrock / Azure AI Agents** | Cloud-native agent orchestration | Infrastructure layer — no domain models, no consulting methodology, no vertical application. |
+| **Tableau/Power BI + Copilot** | Dashboards + AI narration | Shows data and explains trends; doesn't advise, recommend, or debate options. |
 
 ### Agent9 Unique Position
 
 ```
-                HIGH EXPERTISE
+                HIGH DOMAIN INTELLIGENCE
                       │
      Traditional      │      Agent9
-     Consulting       │      CaaS
+     Consulting       │      Decision Intelligence
                       │
 LOW SCALE ────────────┼──────────── HIGH SCALE
                       │
-     Generic AI       │      (empty)
-     (ChatGPT)        │
+     Generic AI       │      AI Finance Startups
+     (ChatGPT)        │      (Hebbia, Numeric)
                       │
-                LOW EXPERTISE
+                LOW DOMAIN INTELLIGENCE
 ```
 
-**We're creating a new category:** Agentic Consulting Marketplace
+**Positioning (updated):** Agent9 is not an "agentic consulting marketplace" (Year 1). It is **AI-powered decision intelligence** that combines registry-driven domain context, multi-agent analysis, and full audit trails. The marketplace layer is a Year 3+ evolution.
 
-### Defensibility & Moat
+*Key competitive insight: Multi-agent orchestration is becoming commodity infrastructure (AWS, Azure, open-source). The durable differentiator is the registry-driven domain model (KPIs, principals, business processes, data products, glossary) that gives agents enterprise context no generic platform provides.*
 
-| Moat | How It Works |
-|------|--------------|
-| **Partner Network** | More partners → more expertise → more customers → more partners |
-| **Data Network** | More customers → more data patterns → better recommendations |
-| **Methodology Encoding** | Partner IP encoded in agents is sticky, hard to replicate |
-| **Audit Trail Standard** | First to define "explainable AI consulting" |
-| **Switching Costs** | Data onboarding, workflow integration, user training |
+### Defensibility & Moat (Revised February 2026)
+
+| Moat | Durability | How It Works |
+|------|-----------|---------------|
+| **Registry-Driven Domain Intelligence** | 🟢 Strong | KPI definitions, principal profiles, business process mappings, data product contracts — deep enterprise context that takes months to build per customer. Hard to replicate without similar architecture. |
+| **5-Day Onboarding Template Library** | 🟢 Strong (compounds with customers) | Pre-built data product contracts and KPI templates per ERP/data stack (SAP, Oracle, NetSuite, Snowflake). First customer takes 5 days; tenth customer in same stack takes 2. Competitors starting from scratch need months. *See Onboarding Moat document.* |
+| **Decision Outcome Corpus** | 🟢 Strong (grows with customers) | Every debate, analysis, and recommendation builds a proprietary dataset of decision patterns. More customers = better recommendations. |
+| **Operational Embedding** | 🟢 Strong (grows over time) | Once integrated into monthly close process, board pack preparation, and KPI monitoring rhythm, switching cost grows every month. By month 6, the registry IS their source of truth. |
+| **Audit Trail Standard** | 🟡 Medium | First to define "explainable AI decision intelligence" with full provenance. Defensible until cloud platforms add similar features (~18-24 months). |
+| **Partner Network** | 🔴 Future (Year 3+) | Not a moat until partners exist. Mid-tier consulting firms (FTI, A&M, Huron) are the first targets. Lead generation + revenue assurance framing. *See Consulting Partner Strategy document.* |
+
+**Multi-agent orchestration is explicitly NOT listed as a moat.** It is commodity infrastructure by Q4 2027. The moat is everything listed above — the domain model, the templates, the embedded data, and the decision corpus.
 
 ---
 
-## 7. Financial Projections
+## 7. Financial Projections (Stress-Tested February 2026)
 
-### Moonlighting Phase (Year 1)
+*All projections rebased to Feb 2026 GTM launch. Three scenarios provided to bracket uncertainty.*
 
-| Milestone | Revenue | Costs | Net |
-|-----------|---------|-------|-----|
-| Months 1-6: Foundation | $0 | $10K | -$10K |
-| Months 7-12: First pilots | $50K | $5K | +$45K |
-| **Year 1 Total** | **$50K** | **$15K** | **+$35K** |
+### Year 1: Moonlighting Phase (Feb 2026 - Jan 2027)
 
-*Plus day job salary = No financial stress*
+| Period | Activity | Revenue | Costs | Net |
+|--------|----------|---------|-------|-----|
+| Feb-Apr 2026 | Demo-ready, landing page | $0 | $5K | -$5K |
+| May-Sep 2026 | Warm network outreach, first pilots | $0-$25K | $5K | -$5K to +$20K |
+| Oct 2026-Jan 2027 | Pilot delivery, second customer | $15K-$50K | $5K | +$10K to +$45K |
+| **Year 1 Total** | | **$15K-$75K** | **$15K** | **$0 to +$60K** |
 
-### Full-Time Phase (Year 2)
+*Plus day job salary = No financial stress. Year 1 goal is learning and validation, not revenue maximization.*
 
-| Quarter | Customers | ARR | Costs | Net |
-|---------|-----------|-----|-------|-----|
-| Q1 | 3 | $150K | $30K | +$120K |
-| Q2 | 5 | $300K | $40K | +$260K |
-| Q3 | 8 | $500K | $50K | +$450K |
-| Q4 | 10 | $750K | $60K | +$690K |
-| **Year 2 Total** | | **$750K** | **$180K** | **+$570K** |
+### Year 2: Growth Phase (Feb 2027 - Jan 2028)
 
-### Growth Phase (Year 3)
+| Scenario | Customers | Avg ACV | ARR | Costs | Net | Driver |
+|----------|-----------|---------|-----|-------|-----|--------|
+| **Downside** | 2-3 | $30K | $60K-$90K | $20K | +$40K-$70K | Slow sales cycle, no FP&A entry |
+| **Base** | 5-8 | $60K-$80K | $300K-$480K | $60K | +$240K-$420K | Multi-pillar value + FP&A entry point |
+| **Upside** | 10-15 | $80K-$100K | $800K-$1.2M | $120K | +$680K-$1.1M | One PE firm portfolio adoption |
 
-| Metric | Conservative | Aggressive |
-|--------|-------------|------------|
-| **Customers** | 25 | 40 |
-| **Avg ACV** | $100K | $120K |
-| **ARR** | $2.5M | $4.8M |
-| **Team Size** | 8 | 12 |
-| **Monthly Burn** | $120K | $150K |
-| **Profitability** | Break-even | Slight profit |
+*Base ACV raised from $40K to $60K-$80K reflecting multi-budget expansion (FP&A + CFO + compliance). Upside assumes one PE firm deploys across 3-5 portfolio companies at $150K-$200K total.*
+
+### Year 3: Scale Phase (Feb 2028 - Jan 2029)
+
+| Scenario | Customers | Avg ACV | Direct ARR | Partner Revenue | Total ARR | Team |
+|----------|-----------|---------|-----------|----------------|-----------|------|
+| **Downside** | 5-8 | $50K | $250K-$400K | $0 | $250K-$400K | 1-2 |
+| **Base** | 10-20 | $80K | $800K-$1.6M | $50K-$200K | $850K-$1.8M | 3-5 |
+| **Upside** | 20-30 | $100K | $2M-$3M | $300K-$800K | $2.3M-$3.8M | 6-8 |
+
+*Year 3 partner revenue reflects first mid-tier consulting firm partnership (FTI, A&M, or Huron) generating lead referral fees and branded agent usage. Enterprise tier ($100K+ with SOC 2) launches H1 2028.*
 
 ---
 
@@ -390,14 +486,15 @@ LOW SCALE ────────────┼──────────�
 
 ### Sales Metrics
 - Outreach → meeting: >20%
-- Meeting → pilot: >30%
-- Pilot → customer: >60%
-- Average deal size: $100K+
+- Meeting → pilot: >25%
+- Pilot → annual customer: >50%
+- Average deal size (Year 1): $15K-$30K
+- Average deal size (Year 2+): $40K-$80K
 
 ### Financial Metrics
-- MRR growth: >10%/month
-- CAC: <$50K
-- LTV: >$300K
+- MRR growth: >10%/month (post first customer)
+- CAC: <$10K (Year 1, founder-led); <$25K (Year 2, outbound)
+- LTV: >$60K (Year 1); >$120K (Year 2+)
 - LTV:CAC: >6x
 - Gross margin: >75%
 - Burn multiple: <2x
@@ -408,21 +505,27 @@ LOW SCALE ────────────┼──────────�
 - Net revenue retention: >110%
 - Reference-ability: >80%
 
-### Milestones
+### Milestones (Rebased to February 2026)
 
 | Milestone | Target Date | Status |
 |-----------|-------------|--------|
-| Demo-ready product | Month 3 | 🔄 In progress |
-| First discovery call | Month 4 | 📋 Pending |
-| First pilot signed | Month 7 | 📋 Pending |
-| Pilot successful | Month 12 | 📋 Pending |
-| Quit day job | Month 13 | 📋 Pending |
-| $500K ARR | Month 18 | 📋 Pending |
-| First hire | Month 18 | 📋 Pending |
-| $1M ARR | Month 24 | 📋 Pending |
-| Partner launch | Month 24 | 📋 Pending |
-| $2M ARR | Month 30 | 📋 Pending |
-| Exit discussions | Month 36 | 📋 Pending |
+| Demo video recorded | Apr 2026 | 🔄 In progress |
+| Landing page live | Apr 2026 | 📋 Pending |
+| First 10 discovery calls | Jun 2026 | 📋 Pending |
+| First pilot signed | Sep 2026 | 📋 Pending |
+| First case study documented | Jan 2027 | 📋 Pending |
+| Second paying customer | Mar 2027 | 📋 Pending |
+| Quit day job decision point | Apr 2027 | 📋 Pending |
+| First hire (if full-time) | Jun 2027 | 📋 Pending |
+| 5 customers / $200K ARR (base) | Dec 2027 | 📋 Pending |
+| SOC 2 readiness | H1 2028 | 📋 Pending |
+| First partner pilot (mid-tier firm) | H2 2028 | 📋 Pending |
+| 10+ customers / $600K+ ARR (base) | Jan 2029 | 📋 Pending |
+
+**Kill Criteria:**
+- Zero pipeline after 30 discovery calls (by Q3 2026) → Reassess ICP and positioning
+- Zero paying customers by Q4 2026 → Major pivot or wind down
+- First pilot churns / fails to renew → Stop selling, fix product
 
 ---
 
@@ -430,30 +533,40 @@ LOW SCALE ────────────┼──────────�
 
 ### Key Risks
 
-**1. Market Risk: Consulting firms build competing solutions**
-- **Mitigation:** Move fast, build partner relationships, focus on tech differentiation
-- **Likelihood:** Medium
+**1. Commoditization Risk: Multi-agent orchestration becomes table stakes** *(NEW)*
+- **Mitigation:** Shift differentiation from orchestration to registry-driven domain intelligence. The platform layer is commodity; the domain model (KPIs, principals, business processes, data products) is the moat.
+- **Likelihood:** High (already happening — AWS Bedrock, Azure AI Agents, LangGraph)
 - **Impact:** High
 
-**2. Product Risk: Platform not stable enough for enterprise**
-- **Mitigation:** Over-invest in reliability, start with forgiving customers
-- **Likelihood:** Medium
+**2. Competitive Risk: Well-funded AI finance startups saturate ICP**
+- **Mitigation:** Differentiate on multi-perspective analysis and audit trails vs. narrow FP&A tools. Target customers who need strategic advisory, not just financial automation.
+- **Likelihood:** High (Hebbia $130M, Numeric $28M, Runway $60M+ already in market)
 - **Impact:** High
 
 **3. Sales Risk: Can't close customers as solo founder**
-- **Mitigation:** Leverage warm network, start with pilots, hire sales early
+- **Mitigation:** Lower price point ($15K-$25K pilots) to reduce procurement friction. Founder-led warm network sales. Position as "feedback" conversations, not enterprise sales.
 - **Likelihood:** Medium
 - **Impact:** High
 
-**4. Competitive Risk: Well-funded competitor emerges**
-- **Mitigation:** Build moat through partner network, move upmarket quickly
-- **Likelihood:** High
+**4. Market Timing Risk: Enterprise AI budgets consolidate around platform vendors**
+- **Mitigation:** Target companies <$1B revenue with shorter procurement cycles. Avoid F500 until reference customers exist. Consider embedding within existing platforms (SAP, Salesforce) rather than standalone.
+- **Likelihood:** Medium-High
 - **Impact:** Medium
 
-**5. Execution Risk: Burnout while moonlighting**
-- **Mitigation:** Set boundaries, maintain work-life balance, quit if pilots successful
+**5. Product Risk: Platform not stable enough for enterprise**
+- **Mitigation:** Over-invest in reliability. Start with forgiving early adopters. Pilot pricing sets appropriate expectations.
+- **Likelihood:** Medium
+- **Impact:** High
+
+**6. Execution Risk: Burnout while moonlighting**
+- **Mitigation:** Set boundaries, maintain work-life balance, quit day job only when 2+ paying customers and 6+ months runway saved.
 - **Likelihood:** Medium
 - **Impact:** Medium
+
+**7. Partner Timing Risk: Marketplace vision is premature**
+- **Mitigation:** Defer partner/marketplace strategy to Year 3+. Focus entirely on direct customer value for first 18 months. Do not spend time on BCG/McKinsey outreach until 10+ customers.
+- **Likelihood:** High (no consulting firm will engage with pre-revenue startup)
+- **Impact:** Low (if properly deferred; High if it becomes a distraction)
 
 ---
 
@@ -564,28 +677,27 @@ LOW SCALE ────────────┼──────────�
 
 ---
 
-## 15. Next Steps (30/60/90 Days)
+## 15. Next Steps (30/60/90 Days from February 2026)
 
-### Next 30 Days
-- [ ] Complete Decision Studio UI critical fixes
-- [ ] Build landing page (agent9.ai)
-- [ ] Record 5-minute demo video
-- [ ] List 20 warm contacts (potential customers)
-- [ ] Schedule 5 discovery calls
+### Next 30 Days (Feb-Mar 2026)
+- [ ] Final Decision Studio UI polish (demo-critical flows only)
+- [ ] Record 5-minute demo video (Situation Awareness → Deep Analysis → Solution Finder → Audit Trail)
+- [ ] Build simple landing page
+- [ ] List 20 warm contacts (potential customers or referrers)
+- [ ] Draft 3-slide pitch deck for discovery calls
 
-### Next 60 Days
-- [ ] Complete 10 discovery calls
-- [ ] Refine pitch based on feedback
-- [ ] Identify 3-5 serious prospects
-- [ ] Create custom demos for each
-- [ ] Send first pilot proposal
+### Next 60 Days (Apr-May 2026)
+- [ ] Schedule and complete first 10 discovery calls
+- [ ] Refine pitch and positioning based on feedback ("AI Decision Intelligence for CFOs" vs. "Agentic Consulting Marketplace")
+- [ ] Identify 3-5 serious prospects from discovery calls
+- [ ] Create tailored demos for top prospects
 
-### Next 90 Days
-- [ ] Close first pilot customer ($25K-$40K)
+### Next 90 Days (Jun-Jul 2026)
+- [ ] Send first pilot proposal(s) at $15K-$25K
+- [ ] Close first pilot customer
 - [ ] Begin pilot delivery (weekly check-ins)
-- [ ] Document learnings and case study
-- [ ] Prepare for customer #2 outreach
-- [ ] Decide: continue moonlighting or accelerate
+- [ ] Start documenting learnings for case study
+- [ ] Assess: Is the ICP right? Is the pricing right? Adjust if needed.
 
 ---
 

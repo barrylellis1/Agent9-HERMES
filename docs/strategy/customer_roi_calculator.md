@@ -1,8 +1,29 @@
-# Agent9 CaaS Customer ROI Calculator
+# Agent9 Customer ROI Calculator
+
+## ⚠️ Validation Disclaimer
+
+**Status:** Pre-revenue, unvalidated assumptions
+
+This ROI calculator is based on:
+- **Projected pricing** (not validated with paying customers)
+- **Estimated savings** (not verified through actual deployments)
+- **Assumed adoption rates** (no real-world data)
+
+**Use with caution:** These projections represent best-case scenarios and should not be used for financial planning until Agent9 has 3+ paying customers with documented ROI.
+
+**Last Updated:** February 13, 2026
+
+---
 
 ## Executive Summary
 
-This calculator helps enterprise customers estimate the return on investment from adopting Agent9's Consulting-as-a-Service platform compared to traditional consulting engagements.
+This calculator covers **three independent ROI scenarios** reflecting Agent9's three value pillars. Customers will typically lead with one pillar and expand to others over time.
+
+- **Scenario A:** FP&A team time savings (fastest ROI, primary entry point)
+- **Scenario B:** Consulting spend reduction (mid-market enterprise)
+- **Scenario C:** Large enterprise full deployment
+
+Each scenario stands alone — a customer does not need to use all three to achieve positive ROI.
 
 ---
 
@@ -22,9 +43,44 @@ This calculator helps enterprise customers estimate the return on investment fro
 
 ---
 
-## ROI Model: Traditional vs. Agent9 CaaS
+## ROI Model
 
-### Scenario A: Mid-Market Enterprise
+### Scenario A: FP&A Team Time Savings *(Primary Entry Point — Fastest ROI)*
+
+**Current State (Manual FP&A Monthly Process)**
+| Activity | Hours/Month | Fully-Loaded Cost (@ $120K/year analyst) |
+|----------|------------|------------------------------------------|
+| Data gathering and variance extraction | 20 hrs | $1,200 |
+| Writing executive narratives (3 versions per exec) | 30 hrs | $1,800 |
+| Anomaly investigation and root cause | 15 hrs | $900 |
+| Board pack preparation | 20 hrs | $1,200 |
+| Ad-hoc CFO questions | 15 hrs | $900 |
+| **Total monthly FP&A cost (2 analysts)** | **200 hrs** | **$12,000** |
+
+**With Agent9 (Continuous Monitoring + Automated Narrative)**
+| Activity | Hours/Month | Cost |
+|----------|------------|------|
+| Review Agent9 situation cards + approve narratives | 20 hrs | $1,200 |
+| Strategic analysis and forward-looking work | 80 hrs | $4,800 |
+| Agent9 platform subscription | — | $5,000/month |
+| **Total monthly cost** | **100 hrs** | **$11,000** |
+
+**ROI Summary — FP&A Scenario**
+| Metric | Value |
+|--------|-------|
+| Monthly analyst time freed | 100 hours (50% reduction) |
+| Annual analyst cost savings | $72,000 |
+| Agent9 annual cost | $60,000 |
+| **Year 1 Net Savings** | **$12,000** |
+| **Year 2+ Net Savings** | **$72,000** (no onboarding cost) |
+| Payback Period | 10 months |
+| Strategic value (analysts redirected to forward-looking work) | Unquantified but significant |
+
+*Note: This ROI scenario is independent of consulting spend. A company spending $0 on consulting still achieves positive ROI through analyst productivity gains.*
+
+---
+
+### Scenario B: Mid-Market Enterprise (Consulting Spend Reduction)
 
 **Current State (Traditional Consulting)**
 | Cost Category | Annual Cost |
@@ -56,7 +112,7 @@ This calculator helps enterprise customers estimate the return on investment fro
 
 ---
 
-### Scenario B: Large Enterprise
+### Scenario C: Large Enterprise
 
 **Current State (Traditional Consulting)**
 | Cost Category | Annual Cost |
@@ -343,32 +399,44 @@ This calculator helps enterprise customers estimate the return on investment fro
 
 ## Appendix: Pricing Reference
 
-### Platform Tiers
+*Pricing follows a three-layer model reflecting the operational infrastructure nature of the platform.*
 
-| Tier | Monthly | Annual | Included |
-|------|---------|--------|----------|
-| Starter | $2,500 | $25,000 | 5 principals, 2 agents, 100 debates/month |
-| Professional | $8,000 | $80,000 | 25 principals, 5 agents, 500 debates/month |
-| Enterprise | $25,000 | $250,000 | Unlimited principals, all agents, unlimited debates |
+### Layer 1 — Platform (Annual, Fixed)
 
-### Branded Agent Usage
+| Tier | Annual | Included |
+|------|--------|----------|
+| Starter | $20K-$30K | KPI registry, principal profiles (up to 4), data product contracts, audit trail |
+| Professional | $35K-$50K | Above + extended KPI library, multi-domain processes, up to 10 principals |
+| Enterprise | $60K-$80K | Above + SOC 2 compliance, SLA guarantee, dedicated onboarding support |
 
-| Agent Type | Per Debate | Monthly Cap |
-|------------|------------|-------------|
-| Strategy | $150-$300 | $5,000 |
-| Operations | $100-$200 | $3,500 |
-| Technology | $100-$200 | $3,500 |
-| Risk/Compliance | $75-$150 | $2,500 |
-| Custom/Specialist | $200-$500 | Negotiated |
+### Layer 2 — Intelligence (Per Principal/Month)
 
-### Professional Services
+| Principal Type | Monthly | Annual (per principal) |
+|---------------|---------|------------------------|
+| Standard (CFO, Finance Manager) | $500-$1,000 | $6K-$12K |
+| Senior (CEO, COO, PE Partner) | $1,000-$1,500 | $12K-$18K |
 
-| Service | Price Range |
-|---------|-------------|
-| Implementation (standard) | $50,000-$100,000 |
-| Data product onboarding (per source) | $15,000-$35,000 |
-| Custom agent development | $75,000-$200,000 |
-| Training (per cohort) | $10,000-$25,000 |
+*Example: 4 principals × $1,000/month × 12 = $48K/year*
+
+### Layer 3 — Fast Start Onboarding (One-Time)
+
+| Service | Price | What's Included |
+|---------|-------|----------------|
+| **Fast Start** (5-day onboarding) | $10K-$15K | Data product contracts, KPI configuration, principal setup, first situation card |
+| Additional data source | $5K-$10K | Per additional ERP/warehouse source after initial onboarding |
+
+*Fast Start pricing reflects speed and certainty of delivery, not hours billed. Most competitors require 8-12 weeks for equivalent setup.*
+
+### Pilot Pricing (Year 1 Early Customers)
+
+| Tier | Price | Duration | Covers |
+|------|-------|----------|--------|
+| Fast Start Pilot | $15K | 3 months | 5-day onboarding + monitoring + bi-weekly check-ins |
+| Full Pilot | $25K-$30K | 6 months | Above + Deep Analysis + Solution Finder for 2 use cases |
+
+### Branded Agent Usage (Year 3+ Marketplace — Not Current)
+
+*Partner consulting firm branded agents are a Year 3+ roadmap feature. Pricing will be established at that time based on partner negotiations. Not included in current customer pricing.*
 
 ---
 

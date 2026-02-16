@@ -1,14 +1,33 @@
-# BCG Partnership Engagement Strategy
+# Agent9 Partnership Strategy
 
-_Last updated: 2026-01-14_
+_Last updated: 2026-02-13_
 
-## 1. Purpose
+## Executive Summary
 
-This document outlines a focused partnership thesis and engagement plan for approaching Boston Consulting Group (BCG), anchored in their publication **“How Agents Are Accelerating the Next Wave of AI Value Creation” (2025)** and Agent9’s existing product and GTM strategy.
+**Strategic Shift:** Partnership strategy deferred to **Phase 3 (2028+)** after establishing 10+ paying customers and $600K+ ARR.
 
-Goals:
+**Rationale:**
+- MBB firms (McKinsey, BCG, Bain) are building internal AI capabilities and won't partner with pre-revenue startups
+- **18-24 month window** exists before consulting firms expand AI downmarket
+- Agent9 must prove direct customer value before pursuing partnerships
+- **Application First, Platform Later** strategy prioritizes customer traction over marketplace complexity
 
-- Position Agent9 as a **platform that operationalizes BCG’s agentic AI roadmap**, not as a competitor.
+**Revised Partnership Approach:**
+- **Phase 1-2 (2026-2027):** Focus exclusively on direct customer acquisition
+- **Phase 3 (2028+):** Explore partnerships with **mid-tier consulting firms** (FTI, A&M, Huron) who lack internal AI capabilities
+- **MBB partnerships:** Deferred to Year 4+ or post-Series A
+
+---
+
+## 1. Original BCG Partnership Thesis (Archived for Future Reference)
+
+**Status:** Deferred to Phase 3+
+
+This document outlines a focused partnership thesis and engagement plan for approaching Boston Consulting Group (BCG), anchored in their publication **"How Agents Are Accelerating the Next Wave of AI Value Creation" (2025)** and Agent9's existing product and GTM strategy.
+
+Original Goals:
+
+- Position Agent9 as a **platform that operationalizes BCG's agentic AI roadmap**, not as a competitor.
 - Define where BCG creates value (methodologies, sector expertise, change management) and where Agent9 creates value (agentic platform, registry, auditability, multi-LLM orchestration).
 - Propose a **practical first engagement**: a co-designed pilot in finance / PE portfolio operations.
 
@@ -202,3 +221,52 @@ Key messages to include in outreach (email / LinkedIn / deck):
 - [ ] Prepare a **short Decision Studio demo script** tailored to BCG’s article themes.
 - [ ] Identify warm intros to BCG (alumni, investors, partner firms).
 - [ ] Send initial outreach email to selected co-author / BCG X partner.
+
+---
+
+## 8. Revised Partnership Strategy (Phase 3: 2028+)
+
+### 8.1 Mid-Tier Consulting Firms (Primary Target)
+
+**Target Firms:**
+- FTI Consulting
+- AlixPartners
+- Huron Consulting
+- Navigant (Guidehouse)
+- Protiviti
+
+**Why Mid-Tier?**
+- Lack internal AI capabilities (unlike MBB)
+- Serve mid-market clients Agent9 targets
+- More likely to partner with proven startup
+- Less brand risk than MBB
+
+**Partnership Model:**
+- **Co-sell:** Joint go-to-market to mutual mid-market clients
+- **Methodology encoding:** Encode firm's frameworks as Agent9 workflows
+- **Revenue share:** 70/30 split on platform fees
+- **No exclusivity:** Multi-firm marketplace approach
+
+### 8.2 MBB Firms (Deferred to Year 4+)
+
+**McKinsey, BCG, Bain:**
+- **Current status:** Building internal AI (Lilli, BCG X)
+- **Partnership timing:** After Agent9 has 20+ customers, $1M+ ARR
+- **Engagement model:** Strategic partnership vs marketplace participation
+- **Risk:** May build competing platforms by 2028
+
+### 8.3 Phase 3 Prerequisites (Before Partnership Outreach)
+
+- **10+ paying customers** with case studies
+- **$600K+ ARR** (base case)
+- **Proven unit economics** (LTV:CAC > 6x)
+- **SOC 2 Type II** certification
+- **Partner onboarding workflow** built and tested
+
+### 8.4 Next Steps (2026-2027: Pre-Partnership Phase)
+
+- [ ] Focus 100% on direct customer acquisition
+- [ ] Build case studies from first 5 customers
+- [ ] Develop partner onboarding materials (for future use)
+- [ ] Monitor mid-tier consulting firm AI initiatives
+- [ ] **Do not engage MBB firms** until Phase 3 criteria met

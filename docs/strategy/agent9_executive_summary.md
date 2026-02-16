@@ -1,6 +1,7 @@
-# Agent9: Consulting-as-a-Service Platform
+# Agent9: AI-Powered Decision Intelligence
 
 ## One-Page Executive Summary
+**Last Updated:** February 13, 2026
 
 ---
 
@@ -17,33 +18,45 @@ Enterprise decision-makers spend **$800B+ annually** on consulting, yet:
 
 ### The Solution
 
-**Agent9** is the first **agentic consulting marketplace**—a platform where branded AI agents from leading consultancies and technology providers collaborate to solve complex business problems.
+**Agent9** is an **AI-powered decision intelligence platform** for mid-market CFOs — combining registry-driven domain context, continuous KPI monitoring, and multi-agent analysis to surface the right insight for the right executive, automatically and continuously.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    AGENT9 PLATFORM                      │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │  McKinsey   │  │    BCG      │  │    AWS      │     │
-│  │   Agent     │◄─┼─►  Agent    │◄─┼─►  Agent    │     │
-│  │ (Strategy)  │  │   (Ops)     │  │  (Tech)     │     │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘     │
-│         │                │                │             │
-│         └────────────────┼────────────────┘             │
+│                                                         │
+│  YOUR DATA          YOUR KPIS        YOUR PRINCIPALS    │
+│  (SAP, Oracle,  →   (24+ metrics, →  (CFO, CEO, COO,   │
+│   Snowflake)        thresholds)       Finance Mgr)      │
+│                          │                              │
 │                          ▼                              │
-│              ┌───────────────────────┐                  │
-│              │   MULTI-AGENT DEBATE  │                  │
-│              │   Consensus Building  │                  │
-│              │   Solution Synthesis  │                  │
-│              └───────────┬───────────┘                  │
-│                          ▼                              │
-│              ┌───────────────────────┐                  │
-│              │  AUDITABLE RECOMMENDATION │              │
-│              │  + Debate Transcript      │              │
-│              │  + Evidence Citations     │              │
-│              │  + Confidence Scores      │              │
-│              └───────────────────────┘                  │
+│         ┌────────────────────────────────┐              │
+│         │     SITUATION AWARENESS        │              │
+│         │  Continuous anomaly detection  │              │
+│         │  Proactive alerts by severity  │              │
+│         └───────────────┬────────────────┘              │
+│                         ▼                               │
+│         ┌────────────────────────────────┐              │
+│         │       DEEP ANALYSIS            │              │
+│         │  SCQA root cause framework     │              │
+│         │  Dimensional variance breakdown│              │
+│         └───────────────┬────────────────┘              │
+│                         ▼                               │
+│         ┌────────────────────────────────┐              │
+│         │      SOLUTION FINDER           │              │
+│         │  Multi-perspective debate      │              │
+│         │  Trade-off matrix + risk scores│              │
+│         └───────────────┬────────────────┘              │
+│                         ▼                               │
+│         ┌────────────────────────────────┐              │
+│         │   AUDITABLE RECOMMENDATION     │              │
+│         │   Role-personalised for CFO /  │              │
+│         │   CEO / COO / Finance Manager  │              │
+│         │   + Full decision audit trail  │              │
+│         └────────────────────────────────┘              │
 └─────────────────────────────────────────────────────────┘
 ```
+
+*Note: Branded consulting firm agents (McKinsey, BCG, etc.) are a Year 3+ marketplace feature. The platform today delivers consulting-methodology-quality analysis through encoded frameworks (SCQA, KT Is/Is-Not, multi-lens trade-off analysis) — not through external firm partnerships.*
 
 ---
 
@@ -60,68 +73,89 @@ Enterprise decision-makers spend **$800B+ annually** on consulting, yet:
 
 ---
 
-### ROI Snapshot
+### Value Snapshot (Three Independent Pillars)
 
-| Metric | Traditional | Agent9 | Impact |
-|--------|-------------|--------|--------|
-| Annual consulting spend | $3-12M | $0.5-3M | **70-90% reduction** |
-| Time to first insight | 4-8 weeks | 4-24 hours | **10-50x faster** |
-| Perspectives per decision | 1 | 3-5 | **3-5x broader** |
-| Audit trail coverage | 20-40% | 100% | **Compliance-ready** |
+**Pillar 1 — Always-On Monitoring**
+| Metric | Without Agent9 | With Agent9 |
+|--------|---------------|-------------|
+| KPI review frequency | Weekly manual review | Continuous, automatic |
+| Problem detection | Reactive (you notice) | Proactive (system alerts you) |
+| Time from problem to awareness | Days to weeks | Hours |
+
+**Pillar 2 — Consulting-Quality Insight on Demand**
+| Metric | Traditional Consulting | Agent9 |
+|--------|----------------------|--------|
+| Annual cost | $500K-$3M | $60K-$120K |
+| Time to first insight | 4-8 weeks | 4-24 hours |
+| Perspectives per decision | 1 firm | 3-5 lenses (Financial, Operational, Strategic, Risk, Technical) |
+
+**Pillar 3 — Institutional Memory and Audit Trail**
+| Capability | Current state | With Agent9 |
+|------------|--------------|-------------|
+| KPI definitions | In analysts' heads | Encoded, versioned, auditable |
+| Decision rationale | Email threads, slide decks | Structured debate transcript |
+| Outcome tracking | Manual follow-up | Continuous monitoring vs target |
+| Executive turnover risk | High (knowledge walks out) | Zero (registry persists) |
 
 ---
 
-### For Partners (Consulting Firms, Tech Vendors)
+### For VP FP&A / Head of Financial Planning *(Primary Entry Buyer)*
 
-**Monetize your IP at scale:**
+**Stop spending 30% of every month explaining last month:**
+- Automated monthly close narrative — anomalies detected, root causes identified, board-ready framing generated
+- Role-personalised output for each executive (same data, right narrative for CFO vs COO vs CEO)
+- First situation card within 5 days of onboarding
+
+**Pilot Program:** $15K for 3 months — 5-day onboarding, first insight in week one
+
+### For Mid-Market CFOs
+
+**Continuous decision intelligence — not just when you pay for an engagement:**
+- Always-on KPI monitoring with proactive anomaly alerts
+- Structured analysis and multi-perspective solution debate on demand
+- Full audit trail: KPI definitions, decision rationale, outcome tracking
+- Institutional memory that survives executive turnover
+
+**Pilot Program:** $25K-$30K for 6 months, first situation card in 5 days
+
+---
+
+### For Future Partners (Year 3+)
+
+**Mid-tier consulting firms (FTI, A&M, Huron):**
+- Expand reach to mid-market clients you can't serve profitably today
 - Encode methodologies as branded agents
-- Participate in multi-agent debates
-- Earn revenue share on every use
-- Maintain full IP protection
+- Revenue share on platform usage
 
-**Pilot Program:** 14 weeks, $37.5K-$150K investment
-
----
-
-### For Customers (Enterprises)
-
-**Get best-of-breed advice on demand:**
-- Select and blend branded agents
-- See the debate, not just the answer
-- Full audit trail for compliance
-- 10x cheaper, 10x faster
-
-**Pilot Program:** 10 weeks to first ROI
+**Partnership exploration deferred until 10+ paying customers**
 
 ---
 
 ### Traction & Roadmap
 
-| Milestone | Status |
-|-----------|--------|
-| Core platform (orchestration, debate, audit) | ✅ Complete |
-| Situation Awareness workflow | ✅ Complete |
-| Deep Analysis workflow | ✅ Complete |
-| Solution Finder with LLM debate | ✅ Complete |
-| Decision Studio UI | 🔄 In progress |
-| Branded agent marketplace | 📋 Q2 2025 |
-| Partner pilots | 📋 Q1 2025 |
+**Completed (Feb 2026):**
+- ✅ Multi-agent orchestration (SA, Deep Analysis, Solution Finder)
+- ✅ Decision Studio UI (React, functional)
+- ✅ Registry Explorer (KPIs, principals, processes, data products)
+- ✅ Principal-driven analysis (decision style → consulting persona)
+- ✅ Database-agnostic backend (DuckDB, Supabase, BigQuery)
+
+**Next Milestones:**
+- Demo video: Apr 2026
+- First pilot signed: Sep 2026
+- 5 customers, $200K ARR: Dec 2027
 
 ---
 
 ### The Ask
 
-**For Partners:**
-- 30-minute discovery call to explore co-development
-- Innovation team sponsor with methodology to encode
+**For Early Customers (CFOs, Finance VPs):**
+- 30-minute discovery call to understand your decision intelligence needs
+- 1-2 high-value use cases for pilot (e.g., profitability analysis, budget variance investigation)
 
-**For Customers:**
-- 30-minute discovery call to map consulting spend
-- 1-2 high-value use cases for pilot
-
-**For Investors:**
-- Platform demo and technical deep-dive
-- Market sizing and competitive analysis
+**For Future Investors (Post-Revenue):**
+- Not seeking funding now—bootstrapping to first revenue
+- Open to conversations after 3+ paying customers, $200K+ ARR
 
 ---
 
@@ -136,4 +170,4 @@ Enterprise decision-makers spend **$800B+ annually** on consulting, yet:
 
 ---
 
-*Confidential | December 2025*
+*Confidential | February 2026*

@@ -1,47 +1,74 @@
 # Agent9 Adoption Realism & Timeline
+**Last Updated:** February 13, 2026
 
-## Phased Enterprise Adoption
+## Actual Progress (As of Feb 2026)
+
+### ✅ Completed
+- Multi-agent orchestration framework (SA, Deep Analysis, Solution Finder)
+- Decision Studio UI (React, functional)
+- Registry Explorer (KPIs, principals, processes, data products, glossary)
+- Principal-driven analysis (decision style → consulting persona framing)
+- Database-agnostic backend (DuckDB, Supabase/Postgres, BigQuery)
+- Audit trail and HITL checkpoints
+
+### 🔄 In Progress (Feb-Apr 2026)
+- Demo video production
+- Landing page and pitch deck
+- Warm network identification (20 contacts)
+
+## Revised Timeline (Bootstrapped, Solo Founder)
 
 ```mermaid
 gantt
-    title Agent9 Adoption Timeline
-    dateFormat  YYYY-Q
-    section Core Platform
-    MVP Features           :done,    mvp, 2025-Q1, 2025-Q3
-    Governed Workflows     :active,  gov, 2025-Q4, 2026-Q2
-    Marketplace Launch     :         mkt, 2026-Q3, 2027-Q1
+    title Agent9 Realistic Timeline
+    dateFormat  YYYY-MM
+    section Phase 0: Demo-Ready
+    Platform Complete      :done,    p0a, 2025-06, 2026-02
+    Demo Video & Landing   :active,  p0b, 2026-02, 2026-04
 
-    section Enterprise Integration
-    Coexistence Phase      :crit,    co, 2025-Q2, 2026-Q4
-    Consolidation          :         con, 2026-Q1, 2027-Q3
-    Full Transition        :         ft, 2027-Q2, 2028-Q4
+    section Phase 1: First Pilots
+    Warm Outreach          :         p1a, 2026-05, 2026-06
+    Discovery Calls        :         p1b, 2026-06, 2026-08
+    First Pilot Signed     :crit,    p1c, 2026-09, 2026-09
+
+    section Phase 2: Prove & Grow
+    Pilot Delivery         :         p2a, 2026-09, 2027-03
+    Convert to Annual      :         p2b, 2027-01, 2027-06
+    Add 3-5 Customers      :         p2c, 2027-04, 2027-12
+
+    section Phase 3: Scale (Conditional)
+    Hire Sales/CS          :         p3a, 2027-09, 2027-12
+    Enterprise Tier        :         p3b, 2028-01, 2028-06
+    Partner Exploration    :         p3c, 2028-03, 2028-12
 ```
 
-### Verification Milestones
+### Realistic Milestones & Kill Criteria
 
-| **Phase**           | **Signals**                                                                 | **Metrics**                              |
-|----------------------|-----------------------------------------------------------------------------|------------------------------------------|
-| Coexistence (12-24m) | - 3+ production workflows per function
-- Legacy BI usage flat/decreasing | - ≥50% manual reporting reduction
-- Zero audit issues |
-| Consolidation (24-36m) | - Department-level tool retirements
-- Partner agents in use | - 30% TCO reduction
-- 5+ branded agents active |
-| Full Transition (36+m) | - C-suite analytics via Agent9
-- Legacy BI only for niche uses | - 80%+ governed queries
-- <5% fallback to manual |
+| **Phase** | **Target Date** | **Success Criteria** | **Kill Criteria** |
+|-----------|----------------|---------------------|-------------------|
+| **Phase 0: Demo-Ready** | Apr 2026 | Demo video recorded, 20 warm contacts identified | N/A (sunk cost) |
+| **Phase 1: First Pilot** | Sep 2026 | 1-2 signed pilots ($15K-$25K) | No signed pilots by Oct 2026 → pause/pivot |
+| **Phase 2: Prove & Grow** | Dec 2027 | 5-8 customers, $200K-$320K ARR (base) | <3 customers by Jun 2027 → reassess |
+| **Phase 3: Scale** | 2028+ | 10-20 customers, $600K-$1.2M ARR (base) | Negative unit economics after 10 customers |
 
-## Technical Preconditions
+## Customer Readiness Assumptions
 
-1. **Data Governance Maturity**
-   - Centralized business glossary
-   - KPI registry with lineage
-   - Access/RBAC implemented
+### Must-Haves (Non-Negotiable)
+1. **Existing data infrastructure** (ERP, BI, data warehouse)
+2. **Analytics team** that can validate outputs
+3. **Executive sponsor** with innovation budget
+4. **$1M+ annual consulting spend** (pain is real)
 
-2. **Deterministic NLQ**
-   - ≥95% accuracy in narrow domains
-   - Clear HITL escalation paths
+### Nice-to-Haves (Can Work Around)
+- Centralized business glossary (Agent9 can help build)
+- KPI registry with lineage (Agent9 provides this)
+- AI policy approved (can help draft)
 
-3. **Protocol Compliance**
-   - All agents pass atomic refactor checks
-   - Registry event logging coverage ≥90%
+## Moonlighting Constraints
+
+- **15-20 hrs/week** available for Agent9 (nights/weekends)
+- **No full-time sales capacity** until first hires
+- **Founder-led demos only** (no SDR team)
+- **Limited customer support hours** (async-first)
+
+**Implication:** Customer acquisition will be slow but capital-efficient. Target customers must be self-service-friendly and patient with response times.
