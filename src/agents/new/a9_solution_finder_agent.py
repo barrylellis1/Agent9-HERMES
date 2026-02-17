@@ -817,13 +817,14 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                          try:
                              import yaml
                              import os
-                             # Hardcoded path for MVP, would normally come from a Registry Service
-                             ctx_path = r"c:\Users\barry\CascadeProjects\Agent9-HERMES\src\registry_references\business_context\bicycle_retail_context.yaml"
+                             _here = os.path.dirname(os.path.abspath(__file__))
+                             _project_root = os.path.abspath(os.path.join(_here, "..", "..", ".."))
+                             ctx_path = os.path.join(_project_root, "src", "registry_references", "business_context", "bicycle_retail_context.yaml")
                              if os.path.exists(ctx_path):
                                  with open(ctx_path, "r", encoding="utf-8") as f:
                                      bc = yaml.safe_load(f)
                          except Exception as e:
-                             print(f"DEBUG: Failed to load context yaml: {e}")
+                             self.logger.warning(f"Failed to load business context yaml: {e}")
                              pass
                          
                          if not bc:

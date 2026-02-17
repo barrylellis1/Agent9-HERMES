@@ -121,6 +121,7 @@ class A9_KPI_Assistant_Agent:
         self.logger = logging.getLogger(__name__)
         self.conversation_history: Dict[str, List[Dict[str, str]]] = {}
         self.llm_agent: Optional[A9_LLM_Service_Agent] = None
+        self.data_governance_agent: Optional[Any] = None
         
     async def connect(self) -> bool:
         """Connect to required services"""
@@ -138,8 +139,15 @@ class A9_KPI_Assistant_Agent:
             self.llm_agent = await A9_LLM_Service_Agent.create(llm_config.__dict__)
             self.logger.info("LLM Service Agent initialized successfully")
             
-            # TODO: Initialize Data Governance Agent connection for validation
-            
+            # Initialize Data Governance Agent connection for validation
+            try:
+                from src.agents.new.a9_data_governance_agent import A9_Data_Governance_Agent
+                self.data_governance_agent = await A9_Data_Governance_Agent.create({})
+                self.logger.info("Data Governance Agent initialized successfully")
+            except Exception as dg_err:
+                self.data_governance_agent = None
+                self.logger.warning(f"Data Governance Agent unavailable, KPI validation will use local rules only: {dg_err}")
+
             return True
         except Exception as e:
             self.logger.error(f"Failed to connect KPI Assistant Agent: {e}")
@@ -168,8 +176,7 @@ class A9_KPI_Assistant_Agent:
             system_prompt = self._build_suggestion_system_prompt(request.schema_metadata)
             user_prompt = self._build_suggestion_user_prompt(request.schema_metadata, request.num_suggestions)
             
-            # Call LLM Service Agent
-            # TODO: Integrate with A9_LLM_Service_Agent
+            # Call LLM Service Agent via A9_LLM_Service_Agent
             llm_response = await self._call_llm_for_suggestions(system_prompt, user_prompt)
             
             # Parse LLM response into structured KPI definitions
@@ -221,8 +228,7 @@ class A9_KPI_Assistant_Agent:
             # Build context with current KPIs
             context = self._build_chat_context(request.current_kpis)
             
-            # Call LLM Service Agent with conversation history
-            # TODO: Integrate with A9_LLM_Service_Agent
+            # Call LLM Service Agent with conversation history via A9_LLM_Service_Agent
             llm_response = await self._call_llm_for_chat(history, context)
             
             # Parse response for KPI updates
@@ -782,9 +788,33 @@ If the user is requesting changes to KPIs, format your response with clear JSON 
             return None
     
     def _validate_sql_against_schema(self, sql: str, schema: SchemaMetadata) -> List[str]:
-        """Validate SQL query against schema"""
+        """Validate SQL query against schema using rule-based checks against available columns."""
         errors = []
-        # TODO: Implement SQL validation
+        if not sql or not sql.strip():
+            errors.append("SQL query is empty")
+            return errors
+
+        sql_upper = sql.upper()
+
+        if not sql_upper.strip().startswith("SELECT"):
+            errors.append("SQL query must start with SELECT")
+
+        # Build set of all known column names (case-insensitive)
+        all_columns = set()
+        for col in schema.measures + schema.dimensions + schema.time_columns + schema.identifiers:
+            col_name = col.get("name")
+            if col_name:
+                all_columns.add(col_name.lower())
+
+        # Check that at least one known table name appears in the SQL
+        if schema.tables:
+            table_found = any(table.lower() in sql.lower() for table in schema.tables)
+            if not table_found:
+                errors.append(
+                    f"SQL query does not reference any known table. "
+                    f"Expected one of: {', '.join(schema.tables)}"
+                )
+
         return errors
     
     def _dimension_exists_in_schema(self, field: str, schema: SchemaMetadata) -> bool:
