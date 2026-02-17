@@ -1,0 +1,58 @@
+name: "Summit Lubricants & Specialty Products"
+industry: "Specialty Chemicals & Automotive Aftermarket"
+sub_sector: "Automotive & Industrial Lubricants"
+revenue: "$3.2B"
+employees: "4,800"
+ownership: "Public (NYSE: SLSP)"
+
+description: >
+  Leading manufacturer and distributor of automotive and industrial lubricants. 
+  Product portfolio includes synthetic motor oils, conventional lubricants, 
+  transmission fluids, and specialty chemicals. Channels include retail (AutoZone, 
+  O'Reilly), quick-lube franchises, and industrial B2B.
+
+business_model:
+  revenue_streams:
+    - "Retail (40%): Branded products through auto parts stores"
+    - "Quick-Lube (35%): Valvoline Instant Oil Change franchises"
+    - "Industrial B2B (25%): Fleet and manufacturing customers"
+  key_markets:
+    - "North America (75%)"
+    - "Europe (15%)"
+    - "Asia-Pacific (10%)"
+
+strategic_priorities:
+  - "Improve gross margin from 38% to 42% (raw material cost pressure)"
+  - "Optimize product mix (shift to high-margin synthetic products)"
+  - "Expand direct-to-consumer channel (quick-lube franchises)"
+  - "Reduce manufacturing costs (12 plants, optimize footprint)"
+
+competitors:
+  - "Shell Lubricants"
+  - "Castrol (BP)"
+  - "Mobil 1 (ExxonMobil)"
+  - "Pennzoil (Shell)"
+
+operational_context:
+  margin_pressures: "Base oil prices volatile ($2.50-$4.00/gal), impacting 60% of COGS"
+  channel_complexity: "Different margin profiles by channel (Retail 45%, Quick-Lube 40%, Industrial 30%)"
+  product_mix_challenge: "Synthetic products 50% margin vs conventional 35% margin"
+
+consulting_spend: "$3.5M annually"
+
+consulting_firms_used:
+  Bain:
+    focus: "pricing strategy"
+    spend: "$1.2M"
+  AlixPartners:
+    focus: "cost reduction"
+    spend: "$1.5M"
+  Regional firms:
+    focus: "ad-hoc projects"
+    spend: "$800K"
+
+pain_points:
+  - "Margin analysis by product/channel takes 2-3 weeks (need real-time visibility)"
+  - "Pricing decisions delayed by slow analytics (miss market windows)"
+  - "Plant network optimization requires 6-month $500K consulting project"
+  - "Multiple consulting firms = fragmented recommendations, no audit trail"
