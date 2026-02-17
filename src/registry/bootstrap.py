@@ -10,6 +10,8 @@ Provides standardized initialization of registry providers and agent factories.
 import os
 import logging
 from typing import Dict, Any, Optional
+from dotenv import load_dotenv
+load_dotenv()
 
 from src.registry.factory import RegistryFactory
 from src.registry.providers.principal_provider import PrincipalProfileProvider
