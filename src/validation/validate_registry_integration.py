@@ -219,10 +219,10 @@ class RegistryIntegrationValidator:
         missing_processes = set()
         
         for kpi in kpis:
-            if not hasattr(kpi, 'business_processes') or not kpi.business_processes:
+            if not hasattr(kpi, 'business_process_ids') or not kpi.business_process_ids:
                 continue
-                
-            for process_id in kpi.business_processes:
+
+            for process_id in kpi.business_process_ids:
                 if process_id not in process_ids:
                     missing_processes.add(process_id)
                     logger.warning(f"KPI {kpi.id} references non-existent business process: {process_id}")
@@ -300,8 +300,8 @@ class RegistryIntegrationValidator:
                         
                         # Find KPIs for this business process
                         for kpi in self.kpi_provider.get_all():
-                            if hasattr(kpi, 'business_processes') and kpi.business_processes:
-                                for kpi_bp in kpi.business_processes:
+                            if hasattr(kpi, 'business_process_ids') and kpi.business_process_ids:
+                                for kpi_bp in kpi.business_process_ids:
                                     if bp_normalized in kpi_bp.lower() or kpi_bp.lower() in bp_normalized:
                                         relevant_kpis.append(kpi)
                                         break

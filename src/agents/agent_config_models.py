@@ -442,6 +442,19 @@ class A9_KPI_Assistant_Agent_Config(BaseModel):
     )
 
 
+class A9RiskAnalysisAgentConfig(BaseModel):
+    """Configuration for the A9_Risk_Analysis_Agent."""
+
+    model_config = ConfigDict(extra="allow")
+
+    hitl_enabled: bool = Field(False, description="HITL is not required for Risk Analysis (see PRD). Present for protocol consistency only.")
+    weight_market: Optional[float] = Field(0.35, ge=0.0, le=1.0, description="Default weight for market risk in composite score calculation")
+    weight_operational: Optional[float] = Field(0.35, ge=0.0, le=1.0, description="Default weight for operational risk in composite score calculation")
+    weight_financial: Optional[float] = Field(0.30, ge=0.0, le=1.0, description="Default weight for financial risk in composite score calculation")
+    require_orchestrator: bool = Field(True, description="All calls must be orchestrator-driven")
+    log_all_requests: bool = Field(True, description="Log structured inputs/outputs for audit")
+
+
 # Protocol model references for compliance checks and documentation
 NLP_PROTOCOL_MODELS: Dict[str, Dict[str, Any]] = {
     "parse_business_query": {
