@@ -46,5 +46,8 @@ node_modules/
 # Secrets (BigQuery, etc.)
 /secretsagent9/
 
+# Git token file
+.git_token
+
 # Office temp files
 ~$*
