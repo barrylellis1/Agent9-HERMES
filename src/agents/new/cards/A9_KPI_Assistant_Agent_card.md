@@ -217,12 +217,12 @@ The agent enforces complete strategic metadata on all KPIs:
 - Mock tests: LLM responses for deterministic testing
 - User acceptance tests: Business user KPI definition scenarios
 
-## Recent Updates (Jan 2026)
-- Initial implementation with LLM Service Agent integration
+## Recent Updates (Feb 2026)
+- Fix: Data Governance Agent resolved via AgentRegistry instead of direct instantiation
+- Initial implementation with LLM Service Agent integration (Jan 2026)
 - Strategic metadata framework enforcement
 - Conversational refinement capability
 - Integration with data product onboarding workflow
-- UI chat component with real-time updates
 - Validation rules for schema and governance compliance
 
 ## Compliance Status

@@ -9,14 +9,14 @@ Protocol compliance:
 - All I/O via Pydantic models (A2A protocol)
 - Orchestrator-driven lifecycle (create_from_registry / create)
 - LLM calls routed through A9_LLM_Service_Agent via orchestrator
-- Structured logging via self.logger (A9_SharedLogger pattern)
+- Structured logging via self.logger (logging.getLogger pattern)
 - Standard lifecycle: create -> connect -> process -> disconnect
 - Standard entrypoints: check_access, process_request
 """
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -476,7 +476,7 @@ def _financial_recommendation(score: float, contributors: List[str]) -> str:
 
 
 def _build_deterministic_summary(market_result, operational_result, financial_result, composite_score, composite_severity, weights, business_context=None) -> str:
-    timestamp_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    timestamp_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     context_clause = f" for the context described ({business_context.strip()})" if business_context else ""
 
     opening = (

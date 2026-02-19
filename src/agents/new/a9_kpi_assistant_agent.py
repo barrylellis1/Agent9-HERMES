@@ -139,11 +139,11 @@ class A9_KPI_Assistant_Agent:
             self.llm_agent = await A9_LLM_Service_Agent.create(llm_config.__dict__)
             self.logger.info("LLM Service Agent initialized successfully")
             
-            # Initialize Data Governance Agent connection for validation
+            # Initialize Data Governance Agent connection for validation (via registry, not direct instantiation)
             try:
-                from src.agents.new.a9_data_governance_agent import A9_Data_Governance_Agent
-                self.data_governance_agent = await A9_Data_Governance_Agent.create({})
-                self.logger.info("Data Governance Agent initialized successfully")
+                from src.agents.new.a9_orchestrator_agent import AgentRegistry
+                self.data_governance_agent = await AgentRegistry.get_agent("A9_Data_Governance_Agent")
+                self.logger.info("Data Governance Agent resolved via AgentRegistry")
             except Exception as dg_err:
                 self.data_governance_agent = None
                 self.logger.warning(f"Data Governance Agent unavailable, KPI validation will use local rules only: {dg_err}")

@@ -15,6 +15,169 @@ Agent9-HERMES is a multi-agent automation system designed to provide automated b
   - Data Governance Agent connection patterns incomplete
   - Registry provider replacement warnings
 
+## Current Capabilities (What Actually Works Today)
+
+### Working End-to-End Pipelines
+
+**1. Situation Awareness → Deep Analysis → Solution Finding**
+- Full detection-to-recommendation pipeline operational via Decision Studio UI
+- Sidebar: Select principal (8 profiles), business processes (39 available), timeframe, comparison type
+- Click "Detect Situations" → SA Agent queries KPIs against thresholds → generates situation cards
+- Per-situation "Initiate Deep Analysis" → DA Agent runs dimensional Is/Is Not analysis with change-point detection
+- Per-situation or standalone "Run Debate" → SF Agent generates multi-persona consulting debate with ranked solutions
+- Follow-up NL questions per situation → NLP Interface Agent parses → Data Product Agent executes SQL → inline results
+- HITL approval workflow for solution recommendations
+
+**2. Data Product Onboarding (Admin Console)**
+- Full Streamlit form (25+ fields) → FastAPI POST → Orchestrator → Data Product Agent
+- 8-step orchestrated workflow: inspect schema → generate contract YAML → register data product → KPI registration → business process mapping → principal ownership → QA validation
+- Supports DuckDB (local), BigQuery, PostgreSQL source systems
+- Connection Profiles panel: create/edit/test/save profiles for any supported database
+- Async status polling with real-time progress display
+- Contract YAML auto-generation from inspected schema
+
+**3. KPI Assistant (API Only — No UI)**
+- 4 FastAPI endpoints wired at `/api/v1/data-product-onboarding/kpi-assistant/`
+  - POST `/suggest` — LLM-powered KPI suggestions from schema metadata
+  - POST `/chat` — Conversational KPI refinement
+  - POST `/validate` — KPI validation against schema and governance rules
+  - POST `/finalize` — Finalize KPIs and update contract YAML
+- Agent: A9_KPI_Assistant_Agent with conversation history tracking
+- **No Streamlit UI exists** — API endpoints only
+
+### Implemented Agents (12 Total)
+
+| Agent | Key Capabilities | Status |
+|-------|-----------------|--------|
+| **A9_Orchestrator_Agent** | Agent registry (singleton), dependency resolution with cycle detection, 7 workflow methods, `execute_agent_method()` for inter-agent calls | Core — operational |
+| **A9_Principal_Context_Agent** | 8 principal profiles, dual lookup (role-based legacy + ID-based), business process mapping, data product ownership identification | Operational |
+| **A9_Situation_Awareness_Agent** | KPI threshold monitoring, anomaly detection, situation card generation, per-KPI SQL generation, NL query processing | Operational |
+| **A9_Deep_Analysis_Agent** | Dimensional Is/Is Not analysis, grouped comparisons, variance analysis, change-point detection, SCQA framing | Operational |
+| **A9_Solution_Finder_Agent** | Multi-persona consulting debate, trade-off matrix, option ranking (impact/cost/risk weights), HITL events | Operational |
+| **A9_Data_Product_Agent** | Schema inspection (DuckDB/BigQuery/Postgres), contract YAML generation, SQL execution, view management, data product registration | Operational — largest agent |
+| **A9_Data_Governance_Agent** | Business term translation, KPI-to-data-product mapping, registry integrity validation, top dimension computation | Operational (MVP: allows all access) |
+| **A9_NLP_Interface_Agent** | Deterministic regex-based parsing (no LLM), TopN intent, timeframe hints, grouping extraction, KPI resolution | Operational |
+| **A9_LLM_Service_Agent** | Multi-provider (Claude/OpenAI), template-based prompting, model routing by task type, token tracking, guardrails | Operational |
+| **A9_KPI_Assistant_Agent** | LLM-powered KPI suggestions from schema, conversational refinement, validation, contract updates | API-only (no UI) |
+| **A9_Data_Product_MCP_Service_Agent** | SQL execution via MCP protocol | **DEPRECATED** (removal after 2025-11-30) |
+| **A9_Risk_Analysis_Agent** | Weighted risk scoring (market/operational/financial), severity classification | **Dead code** — no tests, no registration, redundant with Solution Finder |
+
+### Decision Studio UI Surfaces
+
+**Decision Studio Mode (main):**
+- Principal selector (dropdown, 8 profiles with name+role display)
+- Business process multi-select (39 options, auto-loads from registry)
+- Timeframe selector (LAST_QUARTER, CURRENT_QUARTER, YEAR_TO_DATE, etc.)
+- Comparison type selector (QoQ, YoY, etc.)
+- Detect Situations button → async situation detection
+- Situation Worklist (radio buttons, severity-colored cards with KPI details)
+- Per-situation: Details expander, diagnostic question buttons, Deep Analysis button, Solutions button
+- Per-situation: Follow-up question text input with SQL generation and execution
+- Solutions Studio: weight sliders (impact/cost/risk), problem statement, debate persona selector, Run Debate button
+- Solutions display: recommendation, option scores table, debate transcript, KT Is/Is Not, executive summary
+- Debug mode: SQL per KPI, data governance mappings, diagnostics trace, state HUD
+- NL Q&A section: free-text question → answer with generated SQL
+
+**Admin Console Mode:**
+- Data Product Onboarding: 25+ field form with connection profile integration
+- Connection Profiles Manager: create/edit/test/delete profiles (DuckDB, BigQuery, Postgres, Snowflake, Redshift)
+- Data Governance: placeholder ("coming soon")
+- Registry Maintenance: placeholder ("coming soon")
+
+### API Endpoints (55 Total)
+
+**Workflow Routes** (`/api/v1/workflows/`):
+- Situation detection: POST `/situations/run`, GET `/situations/{id}/status`, POST `/{id}/annotations`
+- Deep analysis: POST `/deep-analysis/run`, GET `/{id}/status`, POST `/refine`
+- Solutions: POST `/solutions/run`, GET `/{id}/status`, POST `/{id}/actions/approve|request-changes|iterate`
+- Deep analysis revision: POST `/{id}/actions/request-revision`
+- Data product onboarding: POST `/data-product-onboarding/run`, GET `/{id}/status`, POST `/validate-kpi-queries`
+
+**Registry Routes** (`/api/v1/registry/`):
+- KPIs: full CRUD (GET list, GET by id, POST, PUT, PATCH, DELETE) — 6 endpoints
+- Principals: full CRUD — 6 endpoints
+- Data Products: full CRUD with filtering — 6 endpoints
+- Business Processes: full CRUD — 6 endpoints
+- Business Glossary: CRUD — 5 endpoints
+
+**KPI Assistant Routes** (`/api/v1/data-product-onboarding/kpi-assistant/`):
+- POST `/suggest`, `/chat`, `/validate`, `/finalize`, GET `/health`
+
+**Connection Profiles** (`/api/v1/connection-profiles/`):
+- GET list, GET by id, POST, PUT, DELETE
+
+**File Upload**: POST `/api/v1/upload`
+
+### Database Backends (3 Operational)
+
+| Backend | Status | Capabilities |
+|---------|--------|-------------|
+| **DuckDB** | Production-ready (local dev) | Full CRUD, CSV registration, view management, fallback views, European decimal support |
+| **PostgreSQL/Supabase** | Production-ready (cloud) | Connection pooling (asyncpg), upsert, SSL, hybrid schema (columns + JSONB) |
+| **BigQuery** | Production-ready (analytics) | Read-only by design, async query execution, service account auth, parameter substitution |
+
+**Database Factory**: Supports `duckdb`, `postgres`/`postgresql`, `supabase` (alias→Postgres), `bigquery`
+
+**SQL Security**: SELECT/WITH only enforcement, SQL injection pattern detection, DuckDB dialect transformations
+
+### Registry System
+
+**6 Registries with dual persistence (YAML + Supabase):**
+
+| Registry | YAML Items | Supabase Migration | Current Backend |
+|----------|-----------|-------------------|-----------------|
+| Principal Profiles | 8 profiles | Migration 0002 ready | .env says `supabase` but **SUPABASE_DB_URL missing** → falls back to YAML |
+| KPI | 25 KPIs (Finance domain) | Migration 0003 ready | Same — YAML fallback |
+| Business Processes | 39 processes (12 domains) | Migration 0004 ready | Same — YAML fallback |
+| Data Products | 9 products | Migration 0005 ready | Same — YAML fallback |
+| Business Glossary | Defined | Migration 0001 ready | Same — YAML fallback |
+| Business Contexts | 2 demo contexts | Migration 0006 **ACTIVE** | Supabase (REST API via SUPABASE_URL) |
+
+**Blocking issue**: `.env` has all backends set to `supabase` but missing `SUPABASE_DB_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres`. Only Business Contexts works because it uses REST API (`SUPABASE_URL`), not Postgres DSN. `load_dotenv()` was added to bootstrap.py (fixed).
+
+### Data Products and Contracts
+
+**Configured data products**: 9 registered (Finance, HR, Sales domains)
+- **FI Star Schema** (dp_fi_20250516_001): Finance star schema with 25 KPIs, DuckDB source
+- **GL Accounts** (dp_fi_20250516_002): General ledger master data
+- **Employee Headcount/Performance/Personal** (3 HR products): SAP HR data
+- **Sales Orders/Order Items** (2 products): BigQuery source, project `agent9-465818`, dataset `SalesOrders`
+
+**12 contract YAML files** in `src/contracts/` — auto-generated by Data Product Agent during onboarding
+
+**BigQuery integration**: BigQueryManager (334 lines), service account auth via `GOOGLE_APPLICATION_CREDENTIALS`, connection profile "Google BigQuery" configured
+
+### Workflow Definitions (10 Defined, 3 Fully Implemented)
+
+| Workflow | Implementation Status |
+|----------|---------------------|
+| Automated Situational Awareness | **Fully implemented** — SA Agent + orchestrator |
+| Problem Deep Analysis | **Fully implemented** — DA Agent + orchestrator |
+| Solution Finding | **Fully implemented** — SF Agent + orchestrator |
+| Data Product Onboarding | **Fully implemented** — 8-step orchestrator method |
+| Opportunity Deep Analysis | Defined in YAML — core agents exist |
+| Solution Deployment | Defined — references unbuilt agents (QA, Change Mgmt) |
+| Value Assurance | Defined — post-deployment review |
+| Business Optimization | Defined — references unbuilt agents |
+| Agent9 Environment Administration | Defined — enterprise admin scope |
+| Innovation Driver | Defined — references unbuilt agents |
+
+### Connection Profiles
+
+**Configured in `src/config/connection_profiles.yaml`**: Currently empty (profiles created via UI are stored at runtime)
+**Supported system types**: DuckDB, PostgreSQL, BigQuery, Snowflake, Redshift, Other
+**BigQuery profile**: Project `agent9-465818`, Dataset `SalesOrders`, service account credentials
+
+### What's NOT Built Yet
+
+- **KPI Assistant Streamlit UI** — API routes exist but no Decision Studio panel
+- **13+ agents referenced in workflow YAMLs** not implemented: Business Optimization, Market Analysis, Risk Management, Stakeholder Analysis/Engagement, Opportunity Analysis, QA, Change Management, Solution Architect, GenAI Expert, Implementation Planner, Innovation, UI Design
+- **Registry Maintenance UI** — placeholder in Admin Console
+- **Data Governance Admin UI** — placeholder in Admin Console
+- **Supabase activation for 5 registries** — migrations ready, `SUPABASE_DB_URL` missing from `.env`
+- **Hierarchical business processes** — MVP uses domain-level only
+- **A9_SharedLogger** — documented in PRDs but never implemented; all agents use `logging.getLogger(__name__)`
+
 ## Technology Stack
 
 **Backend:**
