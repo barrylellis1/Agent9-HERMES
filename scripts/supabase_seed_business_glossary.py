@@ -1,5 +1,9 @@
-"""Seed the Supabase business_glossary_terms table from the YAML registry.
+"""DEPRECATED: Seed the Supabase business_glossary_terms table from the YAML registry.
 
+As of 2026-02-19, the business glossary is managed directly in Supabase.
+Pass --force to run this script for disaster recovery only.
+
+Original description:
 This script is intended for local/dev usage while piloting the Supabase-backed
 registry. It reads `src/registry/data/business_glossary.yaml`, transforms each
 term into a Supabase row, and performs an upsert into the target table.
@@ -113,10 +117,16 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Seed Supabase business glossary table")
     parser.add_argument("--dry-run", action="store_true", help="Print payload without writing")
     parser.add_argument("--truncate-first", action="store_true", help="Delete existing rows before upsert")
+    parser.add_argument("--force", action="store_true", help="Force run deprecated script")
     return parser.parse_args()
 
 
 def main() -> int:
+    # DEPRECATED — Supabase is now the sole registry backend
+    if "--force" not in sys.argv:
+        print("⚠️  DEPRECATED: supabase_seed_business_glossary.py — registries now live in Supabase. Pass --force to run.")
+        return 0
+
     args = parse_args()
 
     supabase_url = os.getenv("SUPABASE_URL")

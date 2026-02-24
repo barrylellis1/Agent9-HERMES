@@ -70,12 +70,38 @@ class PostgresManager(DatabaseManager):
 
             self.logger.info(f"Connecting to Postgres at {params.get('host', 'unknown')}:{params.get('port', 5432)}")
             
+            # Determine SSL mode: respect explicit config, then parse DSN, then default to require
+            ssl_setting = params.get("ssl")
+            if ssl_setting is None:
+                from urllib.parse import urlparse, parse_qs
+                parsed = urlparse(dsn)
+                qs = parse_qs(parsed.query)
+                sslmode = qs.get("sslmode", [None])[0]
+                if sslmode in ("disable", "allow"):
+                    ssl_setting = False
+                elif sslmode in ("require", "verify-ca", "verify-full"):
+                    ssl_setting = "require"
+                else:
+                    # Default: require SSL (safe for cloud Supabase), but not for localhost
+                    host = parsed.hostname or ""
+                    ssl_setting = False if host in ("localhost", "127.0.0.1", "::1") else "require"
+
+            # Register JSON/JSONB codec so JSONB columns come back as dicts, not strings
+            async def _init_json_codec(conn):
+                await conn.set_type_codec(
+                    "jsonb", encoder=json.dumps, decoder=json.loads, schema="pg_catalog"
+                )
+                await conn.set_type_codec(
+                    "json", encoder=json.dumps, decoder=json.loads, schema="pg_catalog"
+                )
+
             # Create connection pool
             self.pool = await asyncpg.create_pool(
                 dsn=dsn,
                 min_size=params.get("min_pool_size", 1),
                 max_size=params.get("max_pool_size", 10),
-                ssl=params.get("ssl", "require") # Default to require for cloud DBs like Supabase
+                ssl=ssl_setting,
+                init=_init_json_codec,
             )
             
             self._is_connected = True

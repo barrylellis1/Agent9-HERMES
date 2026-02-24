@@ -1,7 +1,16 @@
 metadata:
   id: dp_sales_analytics
-  name: Dp Sales Analytics
-  domain: Unknown
+  name: Sales Analytics Star Schema
+  domain: Sales
+  source_system: bigquery
+  description: "SAP Sales Orders star schema view from BigQuery (project: agent9-465818, dataset: SalesOrders)"
+  tags:
+    - sales
+    - analytics
+    - bigquery
+    - sap
+  owner: "Sales Analytics Team"
+  version: "1.0.0"
 tables:
 - name: SalesOrderStarSchemaView
   columns:

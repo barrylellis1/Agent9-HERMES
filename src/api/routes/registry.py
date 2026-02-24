@@ -137,11 +137,17 @@ async def delete_kpi(kpi_id: str, factory: RegistryFactory = Depends(get_registr
 
 
 @router.get("/principals", response_model=Envelope)
-async def list_principals(factory: RegistryFactory = Depends(get_registry_factory)):
+async def list_principals(
+    client_id: Optional[str] = Query(None, description="Filter principals by client/tenant ID"),
+    factory: RegistryFactory = Depends(get_registry_factory),
+):
     provider = factory.get_principal_profile_provider()
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "Principal provider unavailable"))
-    return wrap(provider.get_all())
+    items: List[PrincipalProfile] = provider.get_all()
+    if client_id:
+        items = [p for p in items if getattr(p, "client_id", None) == client_id]
+    return wrap(items)
 
 
 @router.get("/principals/{principal_id}", response_model=Envelope)
@@ -448,3 +454,31 @@ async def delete_term(term_name: str, factory: RegistryFactory = Depends(get_reg
     provider = _get_glossary_provider(factory)
     if not provider.delete_term(term_name):
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Term '{term_name}' not found"))
+
+
+# ---------------------------------------------------------------------------
+# Clients (multi-tenant)
+# ---------------------------------------------------------------------------
+
+# Hardcoded client list — single source of truth for demo environments.
+# When Supabase business_contexts has data, this is the authoritative fallback.
+_DEMO_CLIENTS = [
+    {
+        "id": "lubricants",
+        "name": "Lubricants Business",
+        "industry": "Oil & Gas / Specialty Chemicals",
+        "data_product_ids": ["dp_lubricants_financials"],
+    },
+    {
+        "id": "bicycle",
+        "name": "Global Bike Inc.",
+        "industry": "Retail & Manufacturing",
+        "data_product_ids": ["fi_star_schema"],
+    },
+]
+
+
+@router.get("/clients", response_model=Envelope)
+async def list_clients():
+    """Return available client/tenant configurations for the demo environment selector."""
+    return wrap(_DEMO_CLIENTS)

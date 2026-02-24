@@ -68,11 +68,13 @@ class KPI(BaseModel):
     """
     
     id: str = Field(..., description="Unique identifier for the KPI")
+    client_id: str = Field("lubricants", description="Client/tenant this KPI belongs to")
     name: str = Field(..., description="Human-readable name of the KPI")
     domain: str = Field(..., description="Business domain this KPI belongs to (e.g., Finance, HR, Sales)")
     description: Optional[str] = Field(None, description="Detailed description of the KPI")
     unit: Optional[str] = Field(None, description="Unit of measurement (%, $, #, etc.)")
     data_product_id: str = Field(..., description="ID of the data product containing this KPI's data")
+    view_name: Optional[str] = Field(None, description="Name of the view/table this KPI queries against")
     business_process_ids: List[str] = Field(default_factory=list, description="Business processes this KPI belongs to")
     sql_query: Optional[str] = Field(None, description="SQL query to calculate the KPI")
     filters: Optional[Dict[str, Union[str, int, float, bool, List[str], List[int], List[float]]]] = Field(None, description="Static filters to apply for this KPI")

@@ -6,7 +6,7 @@ This replaces the hardcoded principal data with a flexible, data-driven model.
 """
 
 from typing import Dict, List, Optional, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class TimeFrame(BaseModel):
@@ -40,12 +40,23 @@ class PrincipalProfile(BaseModel):
     """
     
     id: str = Field(..., description="Unique identifier for the principal profile")
+    client_id: str = Field("lubricants", description="Client/tenant this principal belongs to")
     name: str = Field(..., description="Human-readable name of the principal profile")
     title: str = Field(..., description="Title of the principal (e.g., CFO, CEO)")
     description: Optional[str] = Field(None, description="Detailed description of the principal")
-    business_processes: List[str] = Field(default_factory=list, 
+    business_processes: List[str] = Field(default_factory=list,
                                          description="Business processes this principal is responsible for")
-    kpis: List[str] = Field(default_factory=list, 
+
+    @model_validator(mode='before')
+    @classmethod
+    def _remap_business_process_ids(cls, values: dict) -> dict:
+        """Remap Supabase column name 'business_process_ids' → model field 'business_processes'."""
+        if isinstance(values, dict):
+            if 'business_process_ids' in values and not values.get('business_processes'):
+                values['business_processes'] = values.pop('business_process_ids')
+        return values
+
+    kpis: List[str] = Field(default_factory=list,
                            description="KPIs this principal monitors")
     responsibilities: List[str] = Field(default_factory=list, 
                                       description="Key responsibilities of this principal")

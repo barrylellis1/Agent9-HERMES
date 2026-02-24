@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """
-Supabase Data Product Seeder
+DEPRECATED: Supabase Data Product Seeder
 
+As of 2026-02-19, data products are managed directly in Supabase.
+Pass --force to run this script for disaster recovery only.
+
+Original description:
 Reads data products from YAML and seeds them into Supabase.
 Handles normalization and transformation for Supabase schema.
 
@@ -163,9 +167,15 @@ def seed_to_supabase(
 
 
 def main():
+    # DEPRECATED — Supabase is now the sole registry backend
+    if "--force" not in sys.argv:
+        print("⚠️  DEPRECATED: supabase_seed_data_products.py — registries now live in Supabase. Pass --force to run.")
+        return
+
     parser = argparse.ArgumentParser(description='Seed data products to Supabase')
     parser.add_argument('--dry-run', action='store_true', help='Print rows without seeding')
     parser.add_argument('--truncate-first', action='store_true', help='Truncate table before seeding')
+    parser.add_argument('--force', action='store_true', help='Force run deprecated script')
     args = parser.parse_args()
     
     # Get environment variables
@@ -184,24 +194,13 @@ def main():
     data_products = load_data_products(str(yaml_path))
     print(f"Loaded {len(data_products)} registry data products")
     
-    # Load staging products
-    staging_products = load_staging_products()
-    print(f"Loaded {len(staging_products)} staging data products")
-    
-    # Merge products (staging overrides registry if IDs conflict)
-    products_map = {dp.get('product_id') or dp.get('id'): dp for dp in data_products}
-    
-    for sp in staging_products:
-        sp_id = sp.get('product_id') or sp.get('id')
-        if sp_id:
-            if sp_id in products_map:
-                print(f"Overriding registry product {sp_id} with staging version")
-            products_map[sp_id] = sp
-            
-    all_products = list(products_map.values())
-    
+    # Note: Staging products are NOT seeded to Supabase.
+    # Staging files in registry_references/data_product_registry/staging/ are
+    # in-progress onboarding artifacts. They get promoted to production via the
+    # Data Governance workflow, not via bulk seeding. See staging/README.md.
+
     # Transform to Supabase format
-    rows = [transform_data_product(dp) for dp in all_products]
+    rows = [transform_data_product(dp) for dp in data_products]
     print(f"Transformed {len(rows)} total data products")
     
     if args.dry_run:

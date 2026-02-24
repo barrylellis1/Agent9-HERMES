@@ -1,7 +1,7 @@
 import React from 'react';
 import { KPITile } from '../dashboard/KPITile';
 import { RefreshCw, Settings, ChevronRight, Scan, Activity, Clock } from 'lucide-react';
-import { Situation } from '../../api/types';
+import { Situation, Client } from '../../api/types';
 import { Principal } from '../../api/types';
 
 interface DashboardViewProps {
@@ -18,6 +18,9 @@ interface DashboardViewProps {
   onSelectPrincipal: (id: string) => void;
   timeframe: string;
   onSelectTimeframe: (tf: string) => void;
+  availableClients: Client[];
+  selectedClientId: string;
+  onSelectClient: (id: string) => void;
   onRefresh: () => void;
   onSelectSituation: (sit: Situation) => void;
   statusMsg: string | null;
@@ -38,6 +41,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onSelectPrincipal,
   timeframe,
   onSelectTimeframe,
+  availableClients,
+  selectedClientId,
+  onSelectClient,
   onRefresh,
   onSelectSituation,
   statusMsg,
@@ -51,6 +57,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <p className="text-slate-400">Situation Awareness Console</p>
         </div>
         <div className="flex items-center gap-4">
+            {/* Client Selector */}
+            {availableClients.length > 0 && (
+              <div className="flex flex-col items-end gap-1">
+                <label className="text-xs text-slate-500 uppercase tracking-wider">Client</label>
+                <div className="relative">
+                  <select
+                    value={selectedClientId}
+                    onChange={(e) => onSelectClient(e.target.value)}
+                    className="appearance-none bg-slate-800/80 border border-slate-600 rounded-lg px-3 py-2 pr-8 text-sm text-white cursor-pointer hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50 min-w-[200px]"
+                  >
+                    {availableClients.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <ChevronRight className="w-4 h-4 text-slate-400 rotate-90" />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Timeframe Selector */}
             <div className="flex flex-col items-end gap-1">
                 <label className="text-xs text-slate-500 uppercase tracking-wider">Timeframe</label>

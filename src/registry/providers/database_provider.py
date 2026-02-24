@@ -25,12 +25,13 @@ class DatabaseRegistryProvider(RegistryProvider[T]):
     """
 
     def __init__(
-        self, 
-        db_manager: DatabaseManager, 
-        table_name: str, 
+        self,
+        db_manager: DatabaseManager,
+        table_name: str,
         model_class: Type[T],
         key_fields: List[str] = None,
-        json_column: str = "definition"
+        json_column: str = "definition",
+        client_id: Optional[str] = None
     ):
         """
         Initialize the database registry provider.
@@ -39,34 +40,36 @@ class DatabaseRegistryProvider(RegistryProvider[T]):
             db_manager: Configured DatabaseManager instance (Postgres, DuckDB, etc.)
             table_name: Name of the database table to persist to
             model_class: Pydantic model class for deserialization
-            key_fields: List of column names that form the unique key (default: ["id"])
+            key_fields: List of column names that form the unique key (default: ["id"] or ["client_id","id"])
             json_column: Name of the column to store the full JSON payload (default: "definition")
+            client_id: If set, only load/write records for this client. Also changes default key_fields
+                       to ["client_id", "id"] for composite PK upserts.
         """
         super().__init__()
         self.db_manager = db_manager
         self.table_name = table_name
         self.model_class = model_class
-        self.key_fields = key_fields or ["id"]
+        self.client_id = client_id
+        # When client_id is provided, default key_fields to composite PK
+        self.key_fields = key_fields or (["client_id", "id"] if client_id else ["id"])
         self.json_column = json_column
-        
-        # Internal cache (inherited convention is usually specific dicts like self._kpis, 
-        # but generic provider needs a generic storage. 
-        # We will use a generic _items dict and expose it via get/get_all overrides if needed,
-        # but let's see how base RegistryProvider behaves.
-        # Base RegistryProvider doesn't implement storage, just interface. 
-        # Concrete providers like KPIProvider implement specific storage (self._kpis).
-        # We will implement generic storage here.
+
         self._items: Dict[str, T] = {}
 
     async def load(self) -> None:
         """
-        Load all items from the database into memory.
+        Load items from the database into memory.
+        If client_id is set, only loads records for that client.
         """
-        logger.info(f"Loading {self.model_class.__name__} items from table {self.table_name}")
-        
+        logger.info(
+            f"Loading {self.model_class.__name__} items from table {self.table_name}"
+            + (f" (client_id={self.client_id})" if self.client_id else "")
+        )
+
         try:
-            records = await self.db_manager.fetch_records(self.table_name)
-            
+            filters = {"client_id": self.client_id} if self.client_id else None
+            records = await self.db_manager.fetch_records(self.table_name, filters=filters)
+
             loaded_count = 0
             for record in records:
                 try:
@@ -129,7 +132,7 @@ class DatabaseRegistryProvider(RegistryProvider[T]):
         # For this generic implementation, we will promote ID and basic metadata fields 
         # that are common across our tables (id, name, domain, etc).
         
-        common_fields = ["id", "name", "domain", "owner", "owner_role", "title", "version"]
+        common_fields = ["id", "client_id", "name", "domain", "owner", "owner_role", "title", "version"]
         for field in common_fields:
             if field in model_dump:
                 record[field] = model_dump[field]
@@ -142,16 +145,19 @@ class DatabaseRegistryProvider(RegistryProvider[T]):
         return record
 
     def _cache_item(self, item: T) -> None:
-        """Add item to internal cache."""
-        if hasattr(item, "id"):
-            self._items[item.id] = item
-        # We could add more indexing here (by name, etc) like specific providers do
+        """Add item to internal cache, keyed by composite (client_id:id) when client_id is present."""
+        if not hasattr(item, "id"):
+            return
+        client_prefix = getattr(item, "client_id", None)
+        key = f"{client_prefix}:{item.id}" if client_prefix else item.id
+        self._items[key] = item
 
     def get(self, id_or_name: str) -> Optional[T]:
-        """Get an item by ID."""
-        # Simple cache lookup
-        # Specific providers usually have complex lookup (by name, legacy_id, etc.)
-        # We can implement basic ID lookup here.
+        """Get an item by ID. Tries composite key (client_id:id) first, then plain id."""
+        if self.client_id:
+            result = self._items.get(f"{self.client_id}:{id_or_name}")
+            if result is not None:
+                return result
         return self._items.get(id_or_name)
 
     def get_all(self) -> List[T]:

@@ -29,7 +29,10 @@ export function DecisionStudio() {
     currentPrincipal,
     principalInput,
     timeframe,
-    
+    selectedClientId,
+    availableClients,
+    availablePrincipals,
+
     // Actions
     handleRefresh,
     handleDeepAnalysis,
@@ -45,9 +48,9 @@ export function DecisionStudio() {
     setSelectedPersonas,
     setSelectedPrincipal,
     setTimeframe,
-    
+    setSelectedClientId,
+
     // Constants
-    AVAILABLE_PRINCIPALS,
     AVAILABLE_COUNCILS,
     AVAILABLE_PERSONAS
   } = useDecisionStudio();
@@ -125,12 +128,16 @@ export function DecisionStudio() {
       impactColor={situations.length > 3 ? 'text-red-400' : situations.length > 0 ? 'text-amber-400' : 'text-green-400'}
       
       selectedPrincipal={selectedPrincipal}
-      availablePrincipals={AVAILABLE_PRINCIPALS}
+      availablePrincipals={availablePrincipals}
       currentPrincipal={currentPrincipal}
       onSelectPrincipal={setSelectedPrincipal}
-      
+
       timeframe={timeframe}
       onSelectTimeframe={setTimeframe}
+
+      availableClients={availableClients}
+      selectedClientId={selectedClientId}
+      onSelectClient={setSelectedClientId}
 
       onRefresh={handleRefresh}
       onSelectSituation={setSelectedSituation}

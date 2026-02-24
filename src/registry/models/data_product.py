@@ -58,6 +58,7 @@ class DataProduct(BaseModel):
     """
     
     id: str = Field(..., description="Unique identifier for the data product")
+    client_id: str = Field("lubricants", description="Client/tenant this data product belongs to")
     name: str = Field(..., description="Human-readable name of the data product")
     description: Optional[str] = Field(None, description="Description of the data product")
     domain: str = Field(..., description="Business domain this data product belongs to")

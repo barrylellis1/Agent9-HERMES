@@ -62,3 +62,4 @@ Uses `_contract_path()` method to resolve contract files from registry:
 - Fixed column alias resolution from contract `column_aliases` section
 - Added debug logging for topn and timeframe parameters
 - (Jan 2026) Added data factory onboarding entrypoints, adapter abstraction, and Supabase metadata sync requirements.
+- (Feb 2026) Multi-tenant architecture changes; client_id propagation through registry and seed scripts

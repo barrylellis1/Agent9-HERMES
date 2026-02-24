@@ -144,6 +144,8 @@ class A9_Data_Product_Agent(DataProductProtocol):
         self.db_manager = DuckDBManager({'type': db_type, 'path': self.db_path}, logger=self.logger)
         self.is_connected = False
         self.logger.info("Database connection initialized successfully")
+        # Cached BigQuery manager — created on first BigQuery SQL execution
+        self._bq_manager = None
         
         # MCP Service Agent will be initialized in _async_init
         self.mcp_service_agent = None
@@ -3329,9 +3331,29 @@ class A9_Data_Product_Agent(DataProductProtocol):
             
         return comparison_sql
 
+    async def _ensure_bq_connected(self) -> bool:
+        """Return a connected BigQueryManager, creating and caching it on first call."""
+        if self._bq_manager is not None:
+            return True
+        try:
+            from src.database.backends.bigquery_manager import BigQueryManager
+            import os
+            creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
+            self._bq_manager = BigQueryManager({}, logger=self.logger)
+            ok = await self._bq_manager.connect({"service_account_json_path": creds_path} if creds_path else {})
+            if not ok:
+                self._bq_manager = None
+                self.logger.warning("BigQueryManager failed to connect")
+            return ok
+        except Exception as e:
+            self.logger.error(f"Error creating BigQueryManager: {e}")
+            self._bq_manager = None
+            return False
+
     async def execute_sql(self, sql_query: Union[str, 'SQLExecutionRequest'], parameters: Optional[Dict[str, Any]] = None, principal_context=None) -> Dict[str, Any]:
         """
-        Execute a SQL query using the embedded DuckDBManager. Returns a protocol-compliant dict
+        Execute a SQL query using the embedded DuckDBManager (or BigQueryManager when the SQL
+        contains fully-qualified BigQuery table references).  Returns a protocol-compliant dict
         with columns, rows, row_count, execution_time, and success flag.
         """
         transaction_id = str(uuid.uuid4())
@@ -3378,6 +3400,55 @@ class A9_Data_Product_Agent(DataProductProtocol):
             }
 
         try:
+            # ── BigQuery routing ────────────────────────────────────────────────
+            # Detect fully-qualified BigQuery references: `project.dataset.table`
+            import re as _re
+            _BQ_PATTERN = _re.compile(r'`[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_.-]+`')
+            if _BQ_PATTERN.search(sql_query):
+                self.logger.info(f"[TXN:{transaction_id}] Routing to BigQuery (detected BQ table reference)")
+                bq_ok = await self._ensure_bq_connected()
+                if bq_ok and self._bq_manager is not None:
+                    t0 = time.time()
+                    try:
+                        df = await self._bq_manager.execute_query(sql_query, parameters or {}, transaction_id)
+                        exec_ms = (time.time() - t0) * 1000.0
+                        columns = list(getattr(df, "columns", [])) if hasattr(df, "columns") else []
+                        rows = df.to_dict(orient="records") if hasattr(df, "to_dict") else (df if isinstance(df, list) else [])
+                        return {
+                            "transaction_id": transaction_id,
+                            "sql": sql_query,
+                            "columns": columns,
+                            "rows": rows,
+                            "row_count": len(rows),
+                            "execution_time": exec_ms,
+                            "query_time_ms": exec_ms,
+                            "success": True,
+                            "status": "success",
+                            "message": f"BigQuery executed in {exec_ms:.2f} ms",
+                            "data": rows,
+                        }
+                    except Exception as bq_err:
+                        self.logger.error(f"[TXN:{transaction_id}] BigQuery execution error: {bq_err}")
+                        return {
+                            "transaction_id": transaction_id,
+                            "sql": sql_query,
+                            "columns": [], "rows": [], "row_count": 0,
+                            "execution_time": 0, "query_time_ms": 0,
+                            "success": False, "status": "error",
+                            "message": str(bq_err), "error": str(bq_err), "data": [],
+                        }
+                else:
+                    return {
+                        "transaction_id": transaction_id,
+                        "sql": sql_query,
+                        "columns": [], "rows": [], "row_count": 0,
+                        "execution_time": 0, "query_time_ms": 0,
+                        "success": False, "status": "error",
+                        "message": "BigQuery not available — check GOOGLE_APPLICATION_CREDENTIALS",
+                        "data": [],
+                    }
+            # ── End BigQuery routing ─────────────────────────────────────────────
+
             # Validate SQL using manager guardrails
             try:
                 if hasattr(self, 'db_manager') and self.db_manager is not None and hasattr(self.db_manager, 'validate_sql'):

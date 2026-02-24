@@ -1,18 +1,55 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { 
-  detectSituations, 
-  runDeepAnalysis, 
-  runSolutionFinder, 
-  ProblemRefinementResult, 
+import {
+  detectSituations,
+  runDeepAnalysis,
+  runSolutionFinder,
+  listPrincipals,
+  listClients,
+  ProblemRefinementResult,
   Situation
 } from '../api/client';
-import { 
-  AVAILABLE_PRINCIPALS, 
-  AVAILABLE_COUNCILS, 
-  AVAILABLE_PERSONAS 
+import {
+  AVAILABLE_PRINCIPALS,
+  AVAILABLE_COUNCILS,
+  AVAILABLE_PERSONAS
 } from '../config/uiConstants';
+import { Client, Principal } from '../api/types';
 import { buildExecutiveBriefing } from '../utils/briefingUtils';
+
+// ── Principal mapping helpers ─────────────────────────────────────────────────
+
+const STYLE_COLORS: Record<string, string> = {
+  analytical: 'bg-blue-500/20 text-blue-400',
+  visionary:  'bg-purple-500/20 text-purple-400',
+  pragmatic:  'bg-emerald-500/20 text-emerald-400',
+  decisive:   'bg-amber-500/20 text-amber-400',
+};
+
+function inferDecisionStyle(raw: any): Principal['decision_style'] {
+  if (raw.decision_style && STYLE_COLORS[raw.decision_style]) return raw.decision_style;
+  const title = (raw.title || raw.role || '').toLowerCase();
+  if (title.includes('ceo') || title.includes('executive')) return 'visionary';
+  if (title.includes('coo') || title.includes('operat')) return 'pragmatic';
+  if (title.includes('cto') || title.includes('technology')) return 'decisive';
+  return 'analytical';
+}
+
+function toInitials(name: string): string {
+  return name.split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function mapApiPrincipal(raw: any): Principal {
+  const style = inferDecisionStyle(raw);
+  return {
+    id: raw.id,
+    name: raw.name || raw.id,
+    title: raw.title || raw.role || '',
+    initials: toInitials(raw.name || raw.id),
+    decision_style: style,
+    color: STYLE_COLORS[style] || 'bg-slate-500/20 text-slate-400',
+  };
+}
 
 export function useDecisionStudio() {
   const location = useLocation();
@@ -61,12 +98,43 @@ export function useDecisionStudio() {
       known_constraints: []
   });
 
-  // Effect to set principal from router state
+  // Multi-client support
+  const [selectedClientId, setSelectedClientId] = useState("lubricants");
+  const [availableClients, setAvailableClients] = useState<Client[]>([]);
+  const [availablePrincipals, setAvailablePrincipals] = useState<Principal[]>(AVAILABLE_PRINCIPALS);
+
+  // Effect to set principal and client from router state (set by Login)
   useEffect(() => {
+    if (location.state?.clientId) {
+      setSelectedClientId(location.state.clientId);
+    }
     if (location.state?.principalId) {
       setSelectedPrincipal(location.state.principalId);
     }
   }, [location.state]);
+
+  // Load available clients on mount
+  useEffect(() => {
+    listClients()
+      .then(data => { if (data && data.length > 0) setAvailableClients(data as Client[]); })
+      .catch(err => console.warn('Failed to load clients:', err));
+  }, []);
+
+  // Load principals for the selected client whenever client changes
+  useEffect(() => {
+    listPrincipals(selectedClientId)
+      .then(data => {
+        if (data && data.length > 0) {
+          const mapped = data.map(mapApiPrincipal);
+          setAvailablePrincipals(mapped);
+          // Reset to first principal in new list if current selection not found
+          setSelectedPrincipal(prev =>
+            mapped.find(p => p.id === prev) ? prev : mapped[0].id
+          );
+        }
+      })
+      .catch(err => console.warn('Failed to load principals:', err));
+  }, [selectedClientId]);
 
   // Restore solutions from persistence when situation changes
   useEffect(() => {
@@ -91,7 +159,7 @@ export function useDecisionStudio() {
   }, [selectedSituation?.situation_id]);
   
   // Derived
-  const currentPrincipal = AVAILABLE_PRINCIPALS.find(p => p.id === selectedPrincipal) || AVAILABLE_PRINCIPALS[0];
+  const currentPrincipal = availablePrincipals.find(p => p.id === selectedPrincipal) || availablePrincipals[0] || AVAILABLE_PRINCIPALS[0];
   const currentAnalysis = selectedSituation ? analysisResults[selectedSituation.situation_id] : null;
 
   // --- Actions ---
@@ -112,7 +180,7 @@ export function useDecisionStudio() {
       console.log(`Calling Agent9 API for principal: ${selectedPrincipal} timeframe: ${timeframe}...`);
       // Use proper comparison type based on timeframe
       const comparisonType = timeframe === 'current_month' ? 'month_over_month' : 'year_over_year';
-      const result = await detectSituations(selectedPrincipal, timeframe, comparisonType);
+      const result = await detectSituations(selectedPrincipal, timeframe, comparisonType, selectedClientId);
       console.log("Agent9 Response:", result);
       
       if (result && result.length > 0) {
@@ -130,28 +198,35 @@ export function useDecisionStudio() {
     } finally {
       setLoading(false);
     }
-  }, [selectedPrincipal, timeframe]);
+  }, [selectedPrincipal, timeframe, selectedClientId]);
 
-  // Auto-scan on mount and when principal/timeframe changes
+  // Auto-scan on mount and when principal/timeframe/client changes
   const autoScanTriggeredRef = useRef(false);
   const lastPrincipalRef = useRef<string | null>(null);
   const lastTimeframeRef = useRef<string | null>(null);
+  const lastClientRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!autoScanTriggeredRef.current) {
       autoScanTriggeredRef.current = true;
       lastPrincipalRef.current = selectedPrincipal;
       lastTimeframeRef.current = timeframe;
+      lastClientRef.current = selectedClientId;
       handleRefresh();
       return;
     }
 
-    if (lastPrincipalRef.current !== selectedPrincipal || lastTimeframeRef.current !== timeframe) {
+    if (
+      lastPrincipalRef.current !== selectedPrincipal ||
+      lastTimeframeRef.current !== timeframe ||
+      lastClientRef.current !== selectedClientId
+    ) {
       lastPrincipalRef.current = selectedPrincipal;
       lastTimeframeRef.current = timeframe;
+      lastClientRef.current = selectedClientId;
       handleRefresh();
     }
-  }, [selectedPrincipal, timeframe, handleRefresh]);
+  }, [selectedPrincipal, timeframe, selectedClientId, handleRefresh]);
 
   const handleDeepAnalysis = async () => {
     if (!selectedSituation) return;
@@ -381,7 +456,10 @@ export function useDecisionStudio() {
     currentPrincipal,
     currentAnalysis,
     timeframe,
-    
+    selectedClientId,
+    availableClients,
+    availablePrincipals,
+
     // Setters (if needed directly)
     setSelectedSituation,
     setDaViewMode,
@@ -396,15 +474,15 @@ export function useDecisionStudio() {
     setPrincipalInput,
     setComparisonData,
     setTimeframe,
+    setSelectedClientId,
 
     // Actions
     handleRefresh,
     handleDeepAnalysis,
     handleCompare,
     handleStartDebate,
-    
+
     // Constants
-    AVAILABLE_PRINCIPALS,
     AVAILABLE_COUNCILS,
     AVAILABLE_PERSONAS
   };

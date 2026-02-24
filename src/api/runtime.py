@@ -53,40 +53,10 @@ class AgentRuntime:
         return self._orchestrator
 
     async def _build_registry_factory(self):
-        from src.registry.factory import RegistryFactory
-        from src.registry.providers.business_glossary_provider import BusinessGlossaryProvider
-        from src.registry.providers.business_process_provider import BusinessProcessProvider
-        from src.registry.providers.data_product_provider import DataProductProvider
-        from src.registry.providers.kpi_provider import KPIProvider
-        from src.registry.providers.principal_provider import PrincipalProfileProvider
+        from src.registry.bootstrap import RegistryBootstrap
 
-        factory = RegistryFactory()
-        factory.register_provider(
-            "kpi",
-            KPIProvider(source_path="src/registry/kpi/kpi_registry.yaml", storage_format="yaml"),
-        )
-        factory.register_provider(
-            "principal_profile",
-            PrincipalProfileProvider(
-                source_path="src/registry/principal/principal_registry.yaml",
-                storage_format="yaml",
-            ),
-        )
-        factory.register_provider(
-            "data_product",
-            DataProductProvider(source_path="src/registry/data_product", storage_format="yaml"),
-        )
-        factory.register_provider("business_glossary", BusinessGlossaryProvider())
-        factory.register_provider(
-            "business_process",
-            BusinessProcessProvider(
-                source_path="src/registry/business_process/business_process_registry.yaml",
-                storage_format="yaml",
-            ),
-        )
-
-        await factory.initialize()
-        return factory
+        await RegistryBootstrap.initialize()
+        return RegistryBootstrap._factory
 
     async def _create_orchestrator(self):
         from src.agents.new.a9_orchestrator_agent import A9_Orchestrator_Agent

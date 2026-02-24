@@ -155,7 +155,7 @@ export function KPIAssistantChat({
         setLoading(true)
 
         try {
-            const response = await fetch('http://localhost:8000/api/v1/data-product-onboarding/kpi-assistant/chat', {
+            const response = await fetch(buildUrl(API_ENDPOINTS.kpiAssistant.chat), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

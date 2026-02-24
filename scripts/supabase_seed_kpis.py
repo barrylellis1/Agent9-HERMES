@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """
-Supabase KPI Seeder
+DEPRECATED: Supabase KPI Seeder
 
+As of 2026-02-19, KPIs are managed directly in Supabase.
+Pass --force to run this script for disaster recovery only.
+
+Original description:
 Reads kpi_registry.yaml and business_process_registry.yaml, transforms KPIs
 into Supabase-compatible rows with normalized business_process_ids, and upserts via REST API.
 
@@ -45,6 +49,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Delete all existing rows before upserting (destructive)",
     )
+    parser.add_argument("--force", action="store_true", help="Force run deprecated script")
     return parser.parse_args()
 
 
@@ -200,6 +205,11 @@ def upsert_rows(client: httpx.Client, endpoint: str, headers: Dict[str, str], ro
 
 def main() -> int:
     """Main entry point."""
+    # DEPRECATED — Supabase is now the sole registry backend
+    if "--force" not in sys.argv:
+        print("⚠️  DEPRECATED: supabase_seed_kpis.py — registries now live in Supabase. Pass --force to run.")
+        return 0
+
     args = parse_args()
     
     # Load environment variables
@@ -229,25 +239,11 @@ def main() -> int:
     rows = transform_kpis(kpi_data, bp_map)
     print(f"Transformed {len(rows)} KPIs from central registry")
 
-    # Load and transform KPIs from staging data products
-    if STAGING_DIR.exists():
-        print(f"Loading KPIs from staging: {STAGING_DIR}...")
-        staging_kpis_count = 0
-        for yaml_file in STAGING_DIR.glob("*.yaml"):
-            try:
-                dp_data = load_yaml_file(yaml_file)
-                if "kpis" in dp_data and isinstance(dp_data["kpis"], list):
-                    # Load KPIs directly without prefixing - enforcing global uniqueness
-                    dp_rows = transform_kpis(dp_data, bp_map)
-                    rows.extend(dp_rows)
-                    staging_kpis_count += len(dp_rows)
-            except Exception as e:
-                print(f"Warning: Failed to load KPIs from {yaml_file}: {e}", file=sys.stderr)
-        
-        print(f"Transformed {staging_kpis_count} KPIs from staging data products")
-    else:
-        print(f"Warning: Staging directory not found: {STAGING_DIR}", file=sys.stderr)
-    
+    # Note: KPIs from staging data products are NOT seeded to Supabase.
+    # Staging KPIs are in-progress onboarding artifacts created via the KPI
+    # Assistant HITL flow. They get promoted to production via governance
+    # approval, not via bulk seeding. See staging/README.md.
+
     # Deduplicate rows by ID
     unique_rows = {}
     for row in rows:

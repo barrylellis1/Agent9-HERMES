@@ -128,8 +128,9 @@ class PrincipalContextResponse(BaseResponse):
 class KPIDefinition(BaseModel):
     """KPI definition from the contract."""
     name: str = Field(description="Name of the KPI")
-    description: str = Field(description="Description of the KPI") 
+    description: str = Field(description="Description of the KPI")
     unit: Optional[str] = Field(None, description="Unit of measurement (%, $, #, etc.)")
+    client_id: Optional[str] = Field(None, description="Client/tenant this KPI belongs to")
     data_product_id: str = Field(description="Data product ID")
     calculation: Optional[Any] = Field(None, description="Calculation logic or query template")
     diagnostic_questions: Optional[List[str]] = Field(None, description="Diagnostic questions for the KPI")
@@ -219,6 +220,7 @@ class SituationDetectionRequest(BaseRequest):
     timeframe: TimeFrame = Field(description="Time frame for analysis")
     comparison_type: Optional[ComparisonType] = Field(None, description="Type of comparison")
     filters: Optional[Dict[str, Any]] = Field(None, description="Additional filters")
+    client_id: Optional[str] = Field(None, description="Client/tenant ID — limits KPI evaluation to this client's KPIs")
     
 class SituationDetectionResponse(BaseResponse):
     """Response with detected situations."""

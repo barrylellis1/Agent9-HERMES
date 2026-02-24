@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """
-Supabase Principal Profiles Seeder
+DEPRECATED: Supabase Principal Profiles Seeder
 
+As of 2026-02-19, principal profiles are managed directly in Supabase.
+Pass --force to run this script for disaster recovery only.
+
+Original description:
 Reads principal_registry.yaml and business_process_registry.yaml, transforms principals
 into Supabase-compatible rows with normalized business_process_ids, and upserts via REST API.
 
@@ -44,6 +48,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Delete all existing rows before upserting (destructive)",
     )
+    parser.add_argument("--force", action="store_true", help="Force run deprecated script")
     return parser.parse_args()
 
 
@@ -200,8 +205,13 @@ def upsert_rows(client: httpx.Client, endpoint: str, headers: Dict[str, str], ro
 
 def main() -> int:
     """Main entry point."""
+    # DEPRECATED — Supabase is now the sole registry backend
+    if "--force" not in sys.argv:
+        print("⚠️  DEPRECATED: supabase_seed_principal_profiles.py — registries now live in Supabase. Pass --force to run.")
+        return 0
+
     args = parse_args()
-    
+
     # Load environment variables
     supabase_url = os.getenv("SUPABASE_URL")
     supabase_service_role = os.getenv("SUPABASE_SERVICE_ROLE_KEY")

@@ -117,8 +117,14 @@ export async function deleteKpi(id: string): Promise<void> {
 // Principal Registry API
 // ------------------------------------------------------------------
 
-export async function listPrincipals(): Promise<any[]> {
-  const envelope = await requestJson<Envelope<any[]>>(`/registry/principals`);
+export async function listPrincipals(clientId?: string): Promise<any[]> {
+  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
+  const envelope = await requestJson<Envelope<any[]>>(`/registry/principals${qs}`);
+  return envelope.data || [];
+}
+
+export async function listClients(): Promise<any[]> {
+  const envelope = await requestJson<Envelope<any[]>>(`/registry/clients`);
   return envelope.data || [];
 }
 
@@ -313,19 +319,23 @@ export async function onboardDataProduct(payload: any) {
   }
 
 export async function detectSituations(
-  principalId: string = 'cfo_001', 
+  principalId: string = 'cfo_001',
   timeframe: string = 'year_to_date',
-  comparisonType: string = 'year_over_year'
+  comparisonType: string = 'year_over_year',
+  clientId?: string
 ): Promise<Situation[]> {
   // 1. Trigger the workflow
+  const body: Record<string, any> = {
+    principal_id: principalId,
+    timeframe: timeframe,
+    comparison_type: comparisonType,
+  };
+  if (clientId) body.client_id = clientId;
+
   const runResponse = await fetch(`${API_BASE}/workflows/situations/run`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      principal_id: principalId,
-      timeframe: timeframe,
-      comparison_type: comparisonType
-    })
+    body: JSON.stringify(body),
   });
   
   if (!runResponse.ok) {

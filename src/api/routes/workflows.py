@@ -127,6 +127,7 @@ class SituationWorkflowRequest(BaseModel):
     timeframe: Optional[str] = Field(None, description="Requested timeframe token")
     kpi_ids: Optional[List[str]] = Field(None, description="Explicit KPI identifiers to evaluate")
     include_annotations: bool = Field(False, description="Whether to capture annotations in the workflow")
+    client_id: Optional[str] = Field(None, description="Client/tenant ID — limits KPI evaluation to this client's KPIs")
 
 
 class DeepAnalysisScope(BaseModel):
@@ -459,7 +460,12 @@ async def _run_situations_workflow(request_id: str, runtime: AgentRuntime, reque
         if principal_context is None:
             raise ValueError("Unable to resolve principal context")
 
-        business_processes = request.business_processes or principal_context.get("business_processes") or []
+        business_processes = (
+            request.business_processes
+            or principal_context.get("business_processes")
+            or principal_context.get("business_process_ids")  # fallback for Supabase column name
+            or []
+        )
         timeframe = request.timeframe or TimeFrame.CURRENT_QUARTER.value
         comparison_type = request.comparison_type or ComparisonType.YEAR_OVER_YEAR.value
 
@@ -473,6 +479,8 @@ async def _run_situations_workflow(request_id: str, runtime: AgentRuntime, reque
         }
         if request.kpi_ids:
             detection_request_payload["kpi_ids"] = request.kpi_ids
+        if request.client_id:
+            detection_request_payload["client_id"] = request.client_id
 
         detection_request = SituationDetectionRequest(**detection_request_payload)
         response = await orchestrator.orchestrate_situation_detection(detection_request)

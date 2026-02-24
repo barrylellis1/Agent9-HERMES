@@ -1,3 +1,17 @@
+"""
+DEPRECATED: YAML-to-Supabase sync orchestrator.
+
+As of 2026-02-19, all 5 registries are confirmed synced to Supabase and the
+application reads directly from the database via DatabaseRegistryProvider.
+This script (and the individual seed scripts it calls) should NOT be run
+during normal startup. It exists only as a recovery mechanism.
+
+To force-run for disaster recovery:
+    python scripts/sync_yaml_to_supabase.py --force
+
+Without --force, this script exits immediately with a deprecation notice.
+"""
+
 import os
 import sys
 import subprocess
@@ -8,13 +22,22 @@ from typing import List
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
+# ──────────────────────────────────────────────────────────────
+# DEPRECATION GATE — remove this block when YAML files are deleted
+# ──────────────────────────────────────────────────────────────
+_DEPRECATION_MSG = (
+    "⚠️  DEPRECATED: sync_yaml_to_supabase.py is deprecated.\n"
+    "    All registries now read directly from Supabase.\n"
+    "    To force-run for recovery, pass --force.\n"
+)
+
 def run_script(script_path: str):
     """Run a python script and stream output."""
     logger.info(f"Running {script_path}...")
     try:
-        # Use the same python interpreter
+        # Use the same python interpreter — pass --force so child scripts also run
         result = subprocess.run(
-            [sys.executable, script_path],
+            [sys.executable, script_path, "--force"],
             check=True,
             capture_output=True,
             text=True,
@@ -29,7 +52,11 @@ def run_script(script_path: str):
         raise
 
 def main():
-    logger.info("Starting unified sync from YAML to Supabase...")
+    if "--force" not in sys.argv:
+        print(_DEPRECATION_MSG)
+        sys.exit(0)
+
+    logger.info("Starting unified sync from YAML to Supabase (--force mode)...")
     
     # Check environment variables
     if not os.getenv("SUPABASE_URL") or not os.getenv("SUPABASE_SERVICE_ROLE_KEY"):

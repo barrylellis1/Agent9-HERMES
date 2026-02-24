@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 class BusinessTerm(BaseModel):
     """Model for a business glossary term with synonyms and technical mappings."""
+    id: Optional[str] = Field(None, description="Unique identifier (used as DB primary key)")
+    client_id: str = Field("default", description="Client/tenant scope ('default' = shared across all clients)")
     name: str = Field(..., description="Primary canonical name of the business term")
     synonyms: List[str] = Field(default_factory=list, description="Alternative terms/synonyms")
     description: Optional[str] = Field(None, description="Description of the business term")

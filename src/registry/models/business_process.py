@@ -18,6 +18,7 @@ class BusinessProcess(BaseModel):
     """
     
     id: str = Field(..., description="Unique identifier for the business process")
+    client_id: str = Field("default", description="Client/tenant scope ('default' = shared across all clients)")
     name: str = Field(..., description="Human-readable name of the business process")
     domain: str = Field(..., description="Business domain this process belongs to (e.g., Finance, HR, Sales)")
     description: Optional[str] = Field(None, description="Detailed description of the business process")

@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """
-Supabase Business Process Seeder
+DEPRECATED: Supabase Business Process Seeder
 
+As of 2026-02-19, business processes are managed directly in Supabase.
+Pass --force to run this script for disaster recovery only.
+
+Original description:
 Reads business processes from YAML and seeds them into Supabase.
 Handles normalization and transformation for Supabase schema.
 
@@ -93,9 +97,15 @@ def seed_to_supabase(
 
 
 def main():
+    # DEPRECATED — Supabase is now the sole registry backend
+    if "--force" not in sys.argv:
+        print("⚠️  DEPRECATED: supabase_seed_business_processes.py — registries now live in Supabase. Pass --force to run.")
+        return
+
     parser = argparse.ArgumentParser(description='Seed business processes to Supabase')
     parser.add_argument('--dry-run', action='store_true', help='Print rows without seeding')
     parser.add_argument('--truncate-first', action='store_true', help='Truncate table before seeding')
+    parser.add_argument('--force', action='store_true', help='Force run deprecated script')
     args = parser.parse_args()
     
     # Get environment variables

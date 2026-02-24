@@ -54,7 +54,10 @@ export const API_ENDPOINTS = {
   kpiAssistant: {
     base: '/api/v1/data-product-onboarding/kpi-assistant',
     suggest: '/api/v1/data-product-onboarding/kpi-assistant/suggest',
+    chat: '/api/v1/data-product-onboarding/kpi-assistant/chat',
+    validate: '/api/v1/data-product-onboarding/kpi-assistant/validate',
     finalize: '/api/v1/data-product-onboarding/kpi-assistant/finalize',
+    health: '/api/v1/data-product-onboarding/kpi-assistant/health',
   },
 
   /**

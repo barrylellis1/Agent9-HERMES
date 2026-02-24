@@ -9,22 +9,15 @@ Provides standardized initialization of registry providers and agent factories.
 
 import os
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from dotenv import load_dotenv
 load_dotenv()
 
 from src.registry.factory import RegistryFactory
-from src.registry.providers.principal_provider import PrincipalProfileProvider
 from src.agents.agent_bootstrap import AgentBootstrap
-from src.registry.providers.data_product_provider import DataProductProvider
-from src.registry.providers.kpi_provider import KPIProvider
-from src.registry.providers.business_glossary_provider import (
-    BusinessGlossaryProvider,
-    BusinessTerm,
-)
-from src.registry.providers.business_process_provider import BusinessProcessProvider
+from src.registry.providers.business_glossary_provider import BusinessTerm
 
-# New generic database imports
+# Database-backed registry providers (Supabase)
 from src.database.manager_factory import DatabaseManagerFactory
 from src.registry.providers.database_provider import DatabaseRegistryProvider
 from src.registry.models.kpi import KPI
@@ -128,14 +121,17 @@ class RegistryBootstrap:
                 registry_base_path = registry_path
 
             logger.info("Registry base path resolved to: %s", registry_base_path)
-            registry_references_path = os.path.join(base_path, "registry_references")
-            
+
             # Initialize registry factory
             cls._factory = RegistryFactory()
             
             # Try to initialize shared database connection
             db_manager = await cls._get_shared_db_manager(config)
-            
+
+            # Active client scope — determines which tenant's records are loaded
+            active_client_id = os.getenv("ACTIVE_CLIENT_ID", "lubricants")
+            logger.info("Active client ID: %s", active_client_id)
+
             # Helper to check if we should use DB provider
             def should_use_db(backend_var: str) -> bool:
                 choice = (os.getenv(backend_var, 'yaml') or 'yaml').lower()
@@ -145,9 +141,7 @@ class RegistryBootstrap:
             existing_principal_provider = cls._factory.get_provider('principal_profile')
             if existing_principal_provider is None:
                 principal_provider = None
-                principal_path = os.path.join(registry_base_path, "principal", "principal_registry.yaml")
-                
-                # 1. Try Generic Database Provider
+
                 if should_use_db('PRINCIPAL_PROFILE_BACKEND'):
                     try:
                         logger.info('Initializing DatabaseRegistryProvider for Principal Profiles')
@@ -155,7 +149,7 @@ class RegistryBootstrap:
                             db_manager=db_manager,
                             table_name="principal_profiles",
                             model_class=PrincipalProfile,
-                            key_fields=["id"]
+                            client_id=active_client_id
                         )
                         await principal_provider.load()
                         cls._factory.register_provider('principal_profile', principal_provider)
@@ -165,28 +159,15 @@ class RegistryBootstrap:
                         logger.warning(f"Database principal provider init failed: {e}")
                         principal_provider = None
 
-                # 2. Fallback to YAML
+                # YAML fallback removed (2026-02-19) — Supabase is the sole registry backend.
                 if principal_provider is None:
-                    logger.info("Initializing YAML principal profile provider")
-                    if os.path.exists(principal_path):
-                        principal_provider = PrincipalProfileProvider(source_path=principal_path, storage_format="yaml")
-                        cls._factory.register_provider('principal_profile', principal_provider)
-                        await principal_provider.load()
-                        cls._factory._provider_initialization_status['principal_profile'] = True
-                    else:
-                        logger.warning(f"Principal registry file not found at {principal_path}")
-                        principal_provider = PrincipalProfileProvider()
-                        principal_provider._load_default_profiles()
-                        cls._factory.register_provider('principal_profile', principal_provider)
-                        cls._factory._provider_initialization_status['principal_profile'] = True
+                    logger.error("Principal profile provider failed to initialize from Supabase. Check SUPABASE_DB_URL and PRINCIPAL_PROFILE_BACKEND env vars.")
             
             # --- Business Glossary ---
             existing_glossary_provider = cls._factory.get_provider('business_glossary')
             if existing_glossary_provider is None:
                 glossary_provider = None
-                glossary_path = os.path.join(registry_base_path, "data", "business_glossary.yaml")
 
-                # 1. Try Generic Database Provider
                 if should_use_db('BUSINESS_GLOSSARY_BACKEND'):
                     try:
                         logger.info('Initializing DatabaseRegistryProvider for Business Glossary')
@@ -194,7 +175,7 @@ class RegistryBootstrap:
                             db_manager=db_manager,
                             table_name="business_glossary_terms",
                             model_class=BusinessTerm,
-                            key_fields=["id"] 
+                            client_id=None  # shared across all clients
                         )
                         await glossary_provider.load()
                         cls._factory.register_provider('business_glossary', glossary_provider)
@@ -203,26 +184,15 @@ class RegistryBootstrap:
                         logger.warning(f"Database glossary provider init failed: {e}")
                         glossary_provider = None
 
-                # 2. Fallback to YAML
+                # YAML fallback removed (2026-02-19) — Supabase is the sole registry backend.
                 if glossary_provider is None:
-                    logger.info("Initializing YAML business glossary provider")
-                    glossary_provider = BusinessGlossaryProvider(glossary_path=glossary_path)
-                    cls._factory.register_provider('business_glossary', glossary_provider)
-                    cls._factory._provider_initialization_status['business_glossary'] = True
+                    logger.error("Business glossary provider failed to initialize from Supabase. Check SUPABASE_DB_URL and BUSINESS_GLOSSARY_BACKEND env vars.")
             
             # --- Data Product ---
             existing_data_product_provider = cls._factory.get_provider('data_product')
             if existing_data_product_provider is None:
                 data_product_provider = None
-                data_product_path = os.path.join(registry_base_path, "data_product", "data_product_registry.yaml")
-                data_product_reference_dir = None
-                if not os.getenv("REGISTRY_BASE_PATH"):
-                    candidate_reference_dir = os.path.join(registry_references_path, "data_product_registry", "data_products")
-                    if os.path.isdir(candidate_reference_dir):
-                        data_product_reference_dir = candidate_reference_dir
-                data_product_source = data_product_reference_dir or data_product_path
 
-                # 1. Try Generic Database Provider
                 if should_use_db('DATA_PRODUCT_BACKEND'):
                     try:
                         logger.info('Initializing DatabaseRegistryProvider for Data Products')
@@ -230,7 +200,7 @@ class RegistryBootstrap:
                             db_manager=db_manager,
                             table_name="data_products",
                             model_class=DataProduct,
-                            key_fields=["id"]
+                            client_id=None  # Load all clients' data products so SA agent can resolve any database
                         )
                         await data_product_provider.load()
                         cls._factory.register_provider('data_product', data_product_provider)
@@ -239,24 +209,15 @@ class RegistryBootstrap:
                         logger.warning(f"Database data product provider init failed: {e}")
                         data_product_provider = None
 
-                # 2. Fallback to YAML
+                # YAML fallback removed (2026-02-19) — Supabase is the sole registry backend.
                 if data_product_provider is None:
-                    logger.info("Initializing YAML data product provider")
-                    if os.path.exists(data_product_source):
-                        data_product_provider = DataProductProvider(source_path=data_product_source, storage_format="yaml")
-                        cls._factory.register_provider('data_product', data_product_provider)
-                        await data_product_provider.load()
-                        cls._factory._provider_initialization_status['data_product'] = True
-                    else:
-                        logger.warning(f"Data product registry file not found at {data_product_source}")
+                    logger.error("Data product provider failed to initialize from Supabase. Check SUPABASE_DB_URL and DATA_PRODUCT_BACKEND env vars.")
             
             # --- Business Process ---
             existing_bp_provider = cls._factory.get_provider('business_process')
             if existing_bp_provider is None:
                 bp_provider = None
-                bp_path = os.path.join(registry_base_path, "business_process", "business_process_registry.yaml")
 
-                # 1. Try Generic Database Provider
                 if should_use_db('BUSINESS_PROCESS_BACKEND'):
                     try:
                         logger.info('Initializing DatabaseRegistryProvider for Business Processes')
@@ -264,7 +225,7 @@ class RegistryBootstrap:
                             db_manager=db_manager,
                             table_name="business_processes",
                             model_class=BusinessProcess,
-                            key_fields=["id"]
+                            client_id=None  # shared across all clients
                         )
                         await bp_provider.load()
                         cls._factory.register_provider('business_process', bp_provider)
@@ -273,24 +234,15 @@ class RegistryBootstrap:
                         logger.warning(f"Database business process provider init failed: {e}")
                         bp_provider = None
 
-                # 2. Fallback to YAML
+                # YAML fallback removed (2026-02-19) — Supabase is the sole registry backend.
                 if bp_provider is None:
-                    logger.info("Initializing YAML business process provider")
-                    if os.path.exists(bp_path):
-                        bp_provider = BusinessProcessProvider(source_path=bp_path, storage_format="yaml")
-                        cls._factory.register_provider('business_process', bp_provider)
-                        await bp_provider.load()
-                        cls._factory._provider_initialization_status['business_process'] = True
-                    else:
-                        logger.warning(f"Business process registry file not found at {bp_path}")
+                    logger.error("Business process provider failed to initialize from Supabase. Check SUPABASE_DB_URL and BUSINESS_PROCESS_BACKEND env vars.")
             
             # --- KPI ---
             existing_kpi_provider = cls._factory.get_provider('kpi')
             if existing_kpi_provider is None:
                 kpi_provider = None
-                kpi_path = os.path.join(registry_base_path, "kpi", "kpi_registry.yaml")
 
-                # 1. Try Generic Database Provider
                 if should_use_db('KPI_REGISTRY_BACKEND'):
                     try:
                         logger.info('Initializing DatabaseRegistryProvider for KPIs')
@@ -298,7 +250,7 @@ class RegistryBootstrap:
                             db_manager=db_manager,
                             table_name="kpis",
                             model_class=KPI,
-                            key_fields=["id"]
+                            client_id=None  # Load all clients' KPIs; SA agent filters by kpi.client_id at request time
                         )
                         await kpi_provider.load()
                         cls._factory.register_provider('kpi', kpi_provider)
@@ -307,18 +259,9 @@ class RegistryBootstrap:
                         logger.warning(f"Database KPI provider init failed: {e}")
                         kpi_provider = None
 
-                # 2. Fallback to YAML
+                # YAML fallback removed (2026-02-19) — Supabase is the sole registry backend.
                 if kpi_provider is None:
-                    logger.info("Initializing YAML KPI provider")
-                    if os.path.exists(kpi_path):
-                        kpi_provider = KPIProvider(source_path=kpi_path, storage_format="yaml")
-                    else:
-                        logger.warning(f"KPI registry file not found at {kpi_path}, creating default provider")
-                        kpi_provider = KPIProvider()
-                    
-                    cls._factory.register_provider('kpi', kpi_provider)
-                    await kpi_provider.load()
-                    cls._factory._provider_initialization_status['kpi'] = True
+                    logger.error("KPI provider failed to initialize from Supabase. Check SUPABASE_DB_URL and KPI_REGISTRY_BACKEND env vars.")
             
             # Initialize agent factories using AgentBootstrap
             logger.info("Initializing agent bootstrap")

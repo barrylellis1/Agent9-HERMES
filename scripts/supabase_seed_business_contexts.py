@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """
-Seed business contexts into Supabase.
+DEPRECATED: Seed business contexts into Supabase.
 
+As of 2026-02-19, business contexts are managed directly in Supabase.
+Pass --force to run this script for disaster recovery only.
+
+Original description:
 This script reads business context data and inserts it into the business_contexts table.
 Supports both demo contexts and real customer contexts.
 
@@ -201,9 +205,15 @@ def upsert_rows(endpoint: str, headers: dict, rows: list[dict]):
 
 
 def main():
+    # DEPRECATED — Supabase is now the sole registry backend
+    if "--force" not in sys.argv:
+        print("⚠️  DEPRECATED: supabase_seed_business_contexts.py — registries now live in Supabase. Pass --force to run.")
+        return
+
     parser = argparse.ArgumentParser(description="Seed business contexts into Supabase")
     parser.add_argument("--dry-run", action="store_true", help="Print data without inserting")
     parser.add_argument("--truncate-first", action="store_true", help="Delete existing rows before inserting")
+    parser.add_argument("--force", action="store_true", help="Force run deprecated script")
     args = parser.parse_args()
     
     # Get configuration from environment

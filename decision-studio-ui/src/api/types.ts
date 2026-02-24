@@ -128,6 +128,13 @@ export interface Principal {
   color: string;
 }
 
+export interface Client {
+  id: string;
+  name: string;
+  industry: string;
+  data_product_ids: string[];
+}
+
 export interface Council {
   id: string;
   label: string;

@@ -429,6 +429,19 @@ class A9_Situation_Awareness_Agent:
                 request.principal_context,
                 request.business_processes
             )
+
+            # Filter by client_id if provided — uses kpi.client_id directly as the scoping key
+            client_id = getattr(request, "client_id", None)
+            if client_id:
+                before_count = len(relevant_kpis)
+                relevant_kpis = {
+                    name: kpi for name, kpi in relevant_kpis.items()
+                    if getattr(kpi, "client_id", None) == client_id
+                }
+                self.logger.info(
+                    f"client_id filter '{client_id}': {len(relevant_kpis)}/{before_count} KPIs retained"
+                )
+
             if not relevant_kpis:
                 self.logger.warning("No relevant KPIs found for principal context and business processes")
                 return SituationDetectionResponse(
@@ -955,6 +968,90 @@ class A9_Situation_Awareness_Agent:
             message=f"Processed {request.decision} feedback"
         )
     
+    # ──────────────────────────────────────────────────────────────────────────
+    # BigQuery date-filter helpers
+    # Used when a KPI carries a pre-built SQL with fully-qualified BQ table refs.
+    # These bypass the DuckDB/time_dim-centric generate_sql_for_kpi path entirely.
+    # ──────────────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _bq_get_period_dates(timeframe, is_comparison=False, comparison_type=None):
+        """Return (start_date_str, end_date_str) for a timeframe/comparison pair."""
+        from datetime import date
+        import calendar as _cal
+        today = date.today()
+        y, m = today.year, today.month
+
+        def quarter_dates(yr, qtr):
+            sm = (qtr - 1) * 3 + 1
+            em = qtr * 3
+            return date(yr, sm, 1), date(yr, em, _cal.monthrange(yr, em)[1])
+
+        tf = str(timeframe).strip().lower() if timeframe else "last_quarter"
+
+        # Determine current quarter
+        cur_q = (m - 1) // 3 + 1
+
+        if tf in ("last_quarter",):
+            bq = cur_q - 1 or 4
+            by = y if cur_q > 1 else y - 1
+            base_start, base_end = quarter_dates(by, bq)
+        elif tf in ("current_quarter", "quarter_to_date"):
+            base_start, base_end = quarter_dates(y, cur_q)
+            base_end = min(base_end, today)
+        elif tf in ("last_month",):
+            pm = m - 1 or 12
+            py = y if m > 1 else y - 1
+            base_start = date(py, pm, 1)
+            base_end = date(py, pm, _cal.monthrange(py, pm)[1])
+        elif tf in ("current_month", "month_to_date"):
+            base_start = date(y, m, 1)
+            base_end = min(date(y, m, _cal.monthrange(y, m)[1]), today)
+        elif tf in ("last_year",):
+            base_start, base_end = date(y - 1, 1, 1), date(y - 1, 12, 31)
+        elif tf in ("year_to_date", "current_year"):
+            base_start, base_end = date(y, 1, 1), today
+        else:
+            # Default to last quarter
+            bq = cur_q - 1 or 4
+            by = y if cur_q > 1 else y - 1
+            base_start, base_end = quarter_dates(by, bq)
+
+        if not is_comparison:
+            return str(base_start), str(base_end)
+
+        ct = str(comparison_type).strip().lower() if comparison_type else "year_over_year"
+        if "year" in ct:
+            return str(date(base_start.year - 1, base_start.month, base_start.day)), \
+                   str(date(base_end.year - 1, base_end.month, base_end.day))
+        elif "quarter" in ct:
+            # Previous quarter
+            pq = ((base_start.month - 1) // 3)  # 0-indexed quarter before current
+            py = base_start.year if pq > 0 else base_start.year - 1
+            pq = pq or 4
+            cs, ce = quarter_dates(py, pq)
+            return str(cs), str(ce)
+        else:  # month_over_month or default
+            pm = base_start.month - 1 or 12
+            py = base_start.year if base_start.month > 1 else base_start.year - 1
+            cs = date(py, pm, 1)
+            ce = date(py, pm, _cal.monthrange(py, pm)[1])
+            return str(cs), str(ce)
+
+    @staticmethod
+    def _bq_apply_period(sql, timeframe, is_comparison=False, comparison_type=None, date_col="transaction_date"):
+        """Append a BigQuery-compatible date range filter to an existing KPI SQL."""
+        import re as _re
+        start, end = A9_Situation_Awareness_Agent._bq_get_period_dates(
+            timeframe, is_comparison=is_comparison, comparison_type=comparison_type
+        )
+        cond = f"{date_col} BETWEEN '{start}' AND '{end}'"
+        if _re.search(r'\bWHERE\b', sql, _re.IGNORECASE):
+            return sql + f" AND {cond}"
+        return sql + f" WHERE {cond}"
+
+    # ──────────────────────────────────────────────────────────────────────────
+
     def _load_kpis_from_contract(self):
         """
         Load KPIs directly from the contract file as a fallback when registry is unavailable.
@@ -1357,6 +1454,7 @@ class A9_Situation_Awareness_Agent:
                 name=kpi_name,
                 description=kpi_desc,
                 unit=kpi_unit,
+                client_id=getattr(kpi, 'client_id', None),
                 calculation=sql_query,
                 filters=kpi_filters,
                 thresholds=thresholds,
@@ -1793,22 +1891,40 @@ class A9_Situation_Awareness_Agent:
                 pass
 
             # Single-source SQL generation (for both execution and later UI display)
-            # 1) Generate Base SQL via DPA
+            # Detect BigQuery KPIs: pre-built SQL that uses `project.dataset.view` refs.
+            # These bypass generate_sql_for_kpi (DuckDB/time_dim-centric) entirely.
+            _raw_kpi_sql = (getattr(kpi_definition, 'calculation', None) or
+                            getattr(kpi_definition, 'sql_query', None) or '')
+            _is_bq_kpi = bool(re.search(r'`[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_.-]+`', _raw_kpi_sql))
+            _bq_date_col = (
+                (kpi_definition.metadata or {}).get('date_column', 'transaction_date')
+                if hasattr(kpi_definition, 'metadata') and isinstance(getattr(kpi_definition, 'metadata', None), dict)
+                else 'transaction_date'
+            )
+
+            # 1) Generate Base SQL via DPA (or directly for BigQuery KPIs)
             base_sql = ""
-            try:
-                gen_resp = await self.data_product_agent.generate_sql_for_kpi(
-                    kpi_definition=kpi_definition,
-                    timeframe=timeframe,
-                    filters=merged_filters
-                )
-                if isinstance(gen_resp, dict) and gen_resp.get('success') and isinstance(gen_resp.get('sql', ''), str):
-                    base_sql = gen_resp['sql']
-                else:
-                    self.logger.error(f"Failed to generate base SQL for KPI {kpi_name}: {gen_resp}")
+            if _is_bq_kpi:
+                base_sql = self._bq_apply_period(_raw_kpi_sql, timeframe, is_comparison=False, date_col=_bq_date_col)
+                self.logger.info(f"[BQ path] base_sql for '{kpi_name}': {base_sql[:140]}")
+                if not base_sql:
+                    self.logger.error(f"[BQ path] Failed to build base SQL for {kpi_name}")
                     return None
-            except Exception as ge:
-                self.logger.error(f"Error generating base SQL for KPI {kpi_name}: {ge}")
-                return None
+            else:
+                try:
+                    gen_resp = await self.data_product_agent.generate_sql_for_kpi(
+                        kpi_definition=kpi_definition,
+                        timeframe=timeframe,
+                        filters=merged_filters
+                    )
+                    if isinstance(gen_resp, dict) and gen_resp.get('success') and isinstance(gen_resp.get('sql', ''), str):
+                        base_sql = gen_resp['sql']
+                    else:
+                        self.logger.error(f"Failed to generate base SQL for KPI {kpi_name}: {gen_resp}")
+                        return None
+                except Exception as ge:
+                    self.logger.error(f"Error generating base SQL for KPI {kpi_name}: {ge}")
+                    return None
 
             # Cache base SQL for UI
             try:
@@ -1856,14 +1972,26 @@ class A9_Situation_Awareness_Agent:
             comparison_value = None
             try:
                 comp_sql = ""
-                comp_sql_resp = await self.data_product_agent.generate_sql_for_kpi_comparison(
-                    kpi_definition=kpi_definition,
-                    timeframe=timeframe,
-                    comparison_type=comparison_type,
-                    filters=merged_filters
-                )
-                if isinstance(comp_sql_resp, dict) and comp_sql_resp.get('success') and isinstance(comp_sql_resp.get('sql', ''), str):
-                    comp_sql = comp_sql_resp['sql']
+                if _is_bq_kpi:
+                    comp_sql = self._bq_apply_period(
+                        _raw_kpi_sql, timeframe,
+                        is_comparison=True, comparison_type=comparison_type,
+                        date_col=_bq_date_col
+                    )
+                    self.logger.info(f"[BQ path] comp_sql for '{kpi_name}': {comp_sql[:140]}")
+                else:
+                    comp_sql_resp = await self.data_product_agent.generate_sql_for_kpi_comparison(
+                        kpi_definition=kpi_definition,
+                        timeframe=timeframe,
+                        comparison_type=comparison_type,
+                        filters=merged_filters
+                    )
+                    if isinstance(comp_sql_resp, dict) and comp_sql_resp.get('success') and isinstance(comp_sql_resp.get('sql', ''), str):
+                        comp_sql = comp_sql_resp['sql']
+                    else:
+                        self.logger.warning(f"No comparison SQL generated for KPI {kpi_name}: {comp_sql_resp}")
+
+                if comp_sql:
                     # Cache comparison SQL for UI
                     try:
                         if kpi_name not in self._last_sql_cache:
@@ -1884,8 +2012,6 @@ class A9_Situation_Awareness_Agent:
                                 comparison_value = float(cfirst['total_value'])
                             elif len(cfirst.values()) > 0:
                                 comparison_value = float(list(cfirst.values())[0])
-                else:
-                    self.logger.warning(f"No comparison SQL generated for KPI {kpi_name}: {comp_sql_resp}")
             except Exception as comp_error:
                 self.logger.warning(f"Error generating/executing comparison SQL for {kpi_name}: {str(comp_error)}")
                 # Continue without comparison value

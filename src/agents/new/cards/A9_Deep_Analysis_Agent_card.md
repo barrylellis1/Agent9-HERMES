@@ -94,6 +94,11 @@ The Deep Analysis Agent adapts its KT IS/IS-NOT output framing based on the prin
 - Deterministic core logic, narrative layer separated
 - Audit-first: plan, dimension choices (MECE), timeframe mapping (CURRENT vs PREVIOUS) are logged
 
+## Recent Updates (Feb 2026)
+- Fixed `UnboundLocalError: when_started` — variable now declared unconditionally before conditional block
+- Added RegistryFactory KPI lookup fallback: when YAML KPIProvider returns None, agent falls back to Supabase-backed provider (supports lubricants and other non-YAML KPIs)
+- Multi-tenant: passes `client_id` context through KPI resolution chain
+
 ## Notes
 - CURRENT timeframe honors Decision Studio selection; PREVIOUS derived relative to CURRENT (QoQ/MoM/YoY).
 - Optional percent growth `(curr - prev) / NULLIF(prev, 0)`; rankings remain deterministic.

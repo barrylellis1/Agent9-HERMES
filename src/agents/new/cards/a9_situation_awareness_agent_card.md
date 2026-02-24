@@ -161,6 +161,10 @@ for situation in response.situations:
 - Default contract path: `src/registry_references/data_product_registry/data_products/fi_star_schema.yaml`
 - Principal KPI preference support added: KPI ordering now respects principal profile metadata (`kpi_line_preference`, `kpi_altitude_preference`) and KPI registry metadata (`line`, `altitude`) before situation detection
 
+## Recent Updates (Feb 2026)
+- Multi-tenant `client_id` support: KPI scan filters by `client_id` from request; passes `client_id` to SA request model
+- BigQuery KPI detection: checks `sql_query`/`calculation` for backtick-qualified table refs; bypasses DuckDB/time_dim path and uses `_bq_apply_period()` for date filtering
+
 ## Future Enhancements
 - Integration with A9_NLP_Interface_Agent for advanced query parsing
 - Enhanced business impact analysis using LLM
