@@ -61,9 +61,17 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
     const whereIs = analysis?.kt_is_is_not?.where_is || []
     whereIs.slice(0, 5).forEach((item: any) => {
       if (item?.dimension && item?.key) {
+        // Build clean evidence string from structured fields; avoid raw snake_case item.text
+        const currVal = item?.current ?? item?.current_value
+        const prevVal = item?.previous ?? item?.previous_value
+        const evidenceStr = currVal != null
+          ? `Current: ${formatDelta(currVal)}${prevVal != null ? ` | Prior: ${formatDelta(prevVal)}` : ''}`
+          : (item?.text
+              ? String(item.text).replace(/^[a-z][a-z0-9_]*:\s*/i, '').trim()
+              : 'N/A')
         rootCauses.push({
           driver: `${formatDimLabel(item.dimension)}: ${item.key}`,
-          evidence: item?.text || `Current: ${item?.current?.toLocaleString() || 'N/A'}`,
+          evidence: evidenceStr,
           impact: `Δ ${formatDelta(item?.delta)}`
         })
       }
@@ -90,11 +98,37 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
       return 'Incremental Impact'
     }
 
+    // Format impact_estimate from LLM into a display string
+    // Falls back to qualitative roiMap label if LLM did not populate impact_estimate
+    const formatImpactEstimate = (opt: any): string => {
+      const ie = opt?.impact_estimate
+      if (ie && typeof ie === 'object') {
+        const unit = ie.unit || ''
+        const low = ie.recovery_range?.low
+        const high = ie.recovery_range?.high
+        if (low != null && high != null && (low !== 0 || high !== 0)) {
+          const fmt = (v: number) => {
+            const abs = Math.abs(v)
+            const sign = v > 0 ? '+' : ''
+            if (unit === '$') {
+              if (abs >= 1_000_000) return `${sign}$${(v / 1_000_000).toFixed(1)}M`
+              if (abs >= 1_000)     return `${sign}$${(v / 1_000).toFixed(0)}K`
+              return `${sign}$${v.toFixed(0)}`
+            }
+            return `${sign}${v.toFixed(1)}${unit}`
+          }
+          return `${fmt(low)} to ${fmt(high)}`
+        }
+      }
+      return roiMap(opt?.expected_impact || 0.5)
+    }
+
     const options = topOptions.slice(0, 3).map((opt: any, idx: number) => ({
       title: opt?.title || 'Option',
       subtitle: opt?.time_to_value ? `Time to value: ${opt.time_to_value}` : 'Operational intervention',
       description: opt?.description || opt?.rationale || '',
-      roi: roiMap(opt?.expected_impact || 0.5),
+      roi: formatImpactEstimate(opt),
+      impactBasis: opt?.impact_estimate?.basis || null,
       investment: investmentMap(opt?.cost || 0.5),
       timeline: opt?.time_to_value || '3-6 months',
       riskLevel: riskLevelMap(opt?.risk || 0.5),

@@ -7,6 +7,7 @@ A9 Solution Finder Agent (MVP with optional LLM debate)
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from typing import Dict, Any, Optional, List
@@ -211,6 +212,16 @@ def _extract_deep_analysis_summary(da_ctx: Any) -> Dict[str, Any]:
         summary["what_is_highlights"] = _collect_text_entries(kt.get("what_is"))
         summary["where_signals"] = _collect_text_entries(kt.get("where_is"))
         summary["when_signals"] = _collect_text_entries(kt.get("when_is"))
+        # IS-NOT side: which dimensions/segments are NOT affected — eliminates solution space
+        _where_not = _collect_text_entries(kt.get("where_is_not"))
+        _what_not = _collect_text_entries(kt.get("what_is_not"))
+        _when_not = _collect_text_entries(kt.get("when_is_not"))
+        if _where_not:
+            summary["where_is_not"] = _where_not
+        if _what_not:
+            summary["what_is_not"] = _what_not
+        if _when_not:
+            summary["when_is_not"] = _when_not
 
     when_started = _first_str(ctx.get("when_started"))
     if when_started:
@@ -357,6 +368,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
             blind_spots_list: List[str] = []
             next_steps_list: List[str] = []
             cross_review: Optional[Dict[str, Any]] = None
+            stage_1_hypotheses_final: Dict[str, Any] = {}
 
             # FORCE LLM for debugging/MVP
             use_llm = True 
@@ -609,23 +621,26 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             f"{persona_details}\n"
                         )
                         task_instruction = (
-                            "Given the problem context and data analysis, simulate a COUNCIL DEBATE where each firm applies its methodology.\n\n"
-                            "**STAGE 1 - INITIAL HYPOTHESES:**\n"
-                            "Each firm independently analyzes the problem using their signature frameworks:\n"
-                            f"{frameworks_text}\n\n"
+                            "Stage 1 persona hypotheses are already captured in INPUT DATA as 'stage_1_persona_hypotheses'.\n"
+                            "Each persona has independently proposed one intervention. Your tasks:\n\n"
                             "**STAGE 2 - CROSS-REVIEW:**\n"
-                            "Each firm reviews the others' Stage 1 outputs and provides:\n"
-                            "- Critiques: What blind spots or risks does the other firm's approach miss?\n"
+                            "Each firm reviews the other firms' Stage 1 proposed_options and provides:\n"
+                            "- Critiques: What blind spots or execution risks does the other firm's approach miss?\n"
                             "- Endorsements: What aspects of the other firm's approach are strong?\n"
-                            "Be specific - reference the actual options proposed.\n\n"
+                            "Be specific — reference the actual option titles from stage_1_persona_hypotheses.\n\n"
                             "**STAGE 3 - SYNTHESIS:**\n"
-                            "As Chair, synthesize into a Decision Briefing that captures the debate.\n"
+                            "Use each persona's 'proposed_option' from stage_1_persona_hypotheses as the basis for your 3 output options.\n"
+                            "Expand each proposal with: full perspectives (arguments_for, arguments_against, key_questions),\n"
+                            "prerequisites, implementation_triggers, and complete impact_estimate with a calibrated recovery_range.\n"
+                            "Firm-specific frameworks for reference:\n"
+                            f"{frameworks_text}\n"
                         )
                         output_instruction = (
                             "## OUTPUT FORMAT (STRICT JSON)\n"
                             "The 'cross_review' field MUST contain each firm's Stage 2 critiques and endorsements.\n"
                             "Each critique must have 'target' (option id or firm name) and 'concern' (specific issue).\n"
                             "Each endorsement must have 'target' and 'reason' (why they support it).\n"
+                            "Do NOT include a 'stage_1_hypotheses' field — those are already captured separately.\n"
                         )
                     else:
                         # Legacy / Generic Persona Path
@@ -669,6 +684,14 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         f"- MUST populate cross_review with SPECIFIC critiques and endorsements from each consulting firm ({persona_names}). Each firm should critique at least one option and endorse at least one option with concrete reasoning.\n"
                         "- CRITICAL: The Deep Analysis is COMPLETE. Do NOT suggest 'more data gathering' or 'implementing analytics' as a primary solution. Focus on OPERATIONAL INTERVENTIONS to address the identified drivers.\n"
                         f"- CONTEXT: The analysis focuses on '{target_kpi}'. Ensure the Problem Reframe explicitly mentions this KPI.\n"
+                        "- QUANTIFIED IMPACT REQUIREMENT: For each option, populate 'impact_estimate' using the actual numbers from INPUT DATA 'situation_metadata':\n"
+                        "  * 'metric' = the KPI name (from situation_metadata.kpi_name)\n"
+                        "  * 'unit' = the KPI unit (from situation_metadata.unit, e.g. '%' or '$')\n"
+                        "  * 'recovery_range' = {\"low\": <number>, \"high\": <number>} expressed in the KPI's own units — NOT as a generic percentage of improvement. If unit is '%', express as percentage points (e.g. 1.2 to 2.8). If unit is '$', express as dollar amounts (e.g. 2400000 to 4800000).\n"
+                        "  * 'basis' = one sentence grounding the estimate in the actual change_points magnitude and the option's mechanism (e.g. 'Supplier consolidation delivering 3-5% unit cost reduction on the $X COGS base identified in the where_is analysis').\n"
+                        "  * Calibrate the range against situation_metadata.current_value and comparison_value — your estimate should be directionally proportional to the observed variance.\n"
+                        "- SCOPING REQUIREMENT: Use 'where_is_not' and 'what_is_not' from deep_analysis_summary to explicitly scope each option — name which segments already perform well (no intervention needed) and which are the target. This prevents boiling-the-ocean recommendations.\n"
+                        "- OPTION DIVERSITY REQUIREMENT: Generate EXACTLY 3 options with meaningfully different primary mechanisms — do NOT collapse them into a single 'Strategic Realignment'. Example structure: (1) an immediate operational intervention (0-90 days, lower cost, higher reversibility), (2) a structural fix targeting the root cause dimension (3-12 months), (3) a strategic portfolio or pricing play (12+ months, higher investment). Each option must be independently actionable and have a distinct title reflecting the specific lever.\n"
                         "- CRITICAL ACCURACY REQUIREMENT:\n"
                         "  * The 'problem_statement' field contains the OVERALL KPI direction (e.g., 'decreased by 27.2%').\n"
                         "  * The Problem Reframe 'situation' field MUST reflect this OVERALL direction.\n"
@@ -677,6 +700,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "  * The 'complication' should acknowledge the mixed segment performance.\n"
                         "  * Solution options should address BOTH: fixing degraded segments AND leveraging successful ones.\n\n"
                         f"{output_instruction}"
+                        "IMPORTANT — fill in this JSON exactly as shown. Do NOT include a stage_1_hypotheses field.\n"
                         "{\n"
                         "  \"problem_reframe\": {\n"
                         "    \"situation\": \"...\",\n"
@@ -684,19 +708,74 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "    \"question\": \"...\",\n"
                         "    \"key_assumptions\": [\"...\"]\n"
                         "  },\n"
-                        "  \"stage_1_hypotheses\": {\n"
-                        "    \"mckinsey\": {\"framework\": \"MECE/Issue Tree\", \"hypothesis\": \"Root cause analysis finding...\", \"recommended_focus\": \"...\"},\n"
-                        "    \"bcg\": {\"framework\": \"Growth-Share/Portfolio\", \"hypothesis\": \"Value creation opportunity...\", \"recommended_focus\": \"...\"},\n"
-                        "    \"bain\": {\"framework\": \"Operational Excellence\", \"hypothesis\": \"Quick win opportunity...\", \"recommended_focus\": \"...\"}\n"
-                        "  },\n"
                         "  \"options\": [\n"
                         "    {\n"
                         "      \"id\": \"opt_1\",\n"
                         "      \"title\": \"...\",\n"
                         "      \"description\": \"...\",\n"
-                        "      \"expected_impact\": 0.0-1.0,\n"
-                        "      \"cost\": 0.0-1.0,\n"
-                        "      \"risk\": 0.0-1.0,\n"
+                        "      \"expected_impact\": 0.0,\n"
+                        "      \"cost\": 0.0,\n"
+                        "      \"risk\": 0.0,\n"
+                        "      \"impact_estimate\": {\n"
+                        "        \"metric\": \"<KPI name from situation_metadata>\",\n"
+                        "        \"unit\": \"<unit from situation_metadata, e.g. % or $>\",\n"
+                        "        \"recovery_range\": {\"low\": 0.0, \"high\": 0.0},\n"
+                        "        \"basis\": \"<one sentence: mechanism + data grounding>\"\n"
+                        "      },\n"
+                        "      \"rationale\": \"...\",\n"
+                        "      \"time_to_value\": \"...\",\n"
+                        "      \"reversibility\": \"high|medium|low\",\n"
+                        "      \"perspectives\": [\n"
+                        "        {\n"
+                        "          \"lens\": \"Financial\",\n"
+                        "          \"arguments_for\": [\"...\"],\n"
+                        "          \"arguments_against\": [\"...\"],\n"
+                        "          \"key_questions\": [\"...\"]\n"
+                        "        }\n"
+                        "      ],\n"
+                        "      \"implementation_triggers\": [\"...\"],\n"
+                        "      \"prerequisites\": [\"...\"]\n"
+                        "    },\n"
+                        "    {\n"
+                        "      \"id\": \"opt_2\",\n"
+                        "      \"title\": \"...\",\n"
+                        "      \"description\": \"...\",\n"
+                        "      \"expected_impact\": 0.0,\n"
+                        "      \"cost\": 0.0,\n"
+                        "      \"risk\": 0.0,\n"
+                        "      \"impact_estimate\": {\n"
+                        "        \"metric\": \"...\",\n"
+                        "        \"unit\": \"...\",\n"
+                        "        \"recovery_range\": {\"low\": 0.0, \"high\": 0.0},\n"
+                        "        \"basis\": \"...\"\n"
+                        "      },\n"
+                        "      \"rationale\": \"...\",\n"
+                        "      \"time_to_value\": \"...\",\n"
+                        "      \"reversibility\": \"high|medium|low\",\n"
+                        "      \"perspectives\": [\n"
+                        "        {\n"
+                        "          \"lens\": \"Financial\",\n"
+                        "          \"arguments_for\": [\"...\"],\n"
+                        "          \"arguments_against\": [\"...\"],\n"
+                        "          \"key_questions\": [\"...\"]\n"
+                        "        }\n"
+                        "      ],\n"
+                        "      \"implementation_triggers\": [\"...\"],\n"
+                        "      \"prerequisites\": [\"...\"]\n"
+                        "    },\n"
+                        "    {\n"
+                        "      \"id\": \"opt_3\",\n"
+                        "      \"title\": \"...\",\n"
+                        "      \"description\": \"...\",\n"
+                        "      \"expected_impact\": 0.0,\n"
+                        "      \"cost\": 0.0,\n"
+                        "      \"risk\": 0.0,\n"
+                        "      \"impact_estimate\": {\n"
+                        "        \"metric\": \"...\",\n"
+                        "        \"unit\": \"...\",\n"
+                        "        \"recovery_range\": {\"low\": 0.0, \"high\": 0.0},\n"
+                        "        \"basis\": \"...\"\n"
+                        "      },\n"
                         "      \"rationale\": \"...\",\n"
                         "      \"time_to_value\": \"...\",\n"
                         "      \"reversibility\": \"high|medium|low\",\n"
@@ -712,6 +791,8 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "      \"prerequisites\": [\"...\"]\n"
                         "    }\n"
                         "  ],\n"
+                        "  \"recommendation\": {\"id\": \"opt_1\", \"title\": \"...\"},\n"
+                        "  \"recommendation_rationale\": \"...\",\n"
                         "  \"unresolved_tensions\": [\n"
                         "    {\n"
                         "      \"tension\": \"...\",\n"
@@ -726,12 +807,12 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             f'    "{pid}": {{\n'
                             f'      "critiques": [{{"target": "opt_1", "concern": "Specific critique from {pid} lens"}}],\n'
                             f'      "endorsements": [{{"target": "opt_2", "reason": "Why {pid} supports this option"}}]\n'
-                            f'    }}{{"," if i < len(persona_ids) - 1 else ""}}\n'
+                            f'    }}{chr(44) if i < len(persona_ids) - 1 else ""}\n'
                             for i, pid in enumerate(persona_ids)
                         ])
                         + "  }\n"
                         "}\n"
-                        f"\nCRITICAL: The cross_review MUST use EXACTLY these persona IDs as keys: {persona_ids}. Do NOT use mckinsey, bcg, bain unless they are in this list.\n"
+                        f"\nCRITICAL: The options array MUST have EXACTLY 3 items (opt_1, opt_2, opt_3). The cross_review MUST use EXACTLY these persona IDs as keys: {persona_ids}. Do NOT include a stage_1_hypotheses field.\n"
                     )
                     self.logger.info(f"Cross-review will use persona_ids: {persona_ids}")
                     # Optional user-supplied context to guide the debate
@@ -810,53 +891,227 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     
                     dataset_recap = dataset_recap_lines if dataset_recap_lines else None
 
-                    # Fallback Business Context from registry if missing (MVP Enhancement)
+                    # Fallback Business Context — resolve correct file based on KPI's data_product_id
                     bc = getattr(request, "business_context", None)
                     if not bc:
-                         # Attempt to load specific Bicycle Retail context
-                         try:
-                             import yaml
-                             import os
-                             _here = os.path.dirname(os.path.abspath(__file__))
-                             _project_root = os.path.abspath(os.path.join(_here, "..", "..", ".."))
-                             ctx_path = os.path.join(_project_root, "src", "registry_references", "business_context", "bicycle_retail_context.yaml")
-                             if os.path.exists(ctx_path):
-                                 with open(ctx_path, "r", encoding="utf-8") as f:
-                                     bc = yaml.safe_load(f)
-                         except Exception as e:
-                             self.logger.warning(f"Failed to load business context yaml: {e}")
-                             pass
-                         
-                         if not bc:
-                             bc = {
-                                 "business_terms": {
-                                     "profit_center": "Operational unit responsible for generating revenue and managing costs.",
-                                     "customer_type": "Segment classification (Enterprise, SMB, Gov)."
-                                 },
-                                 "supported_processes": [
-                                     "Finance: Profitability Analysis",
-                                     "Finance: Expense Management"
-                                 ]
-                             }
-                         
-                         try:
+                        try:
+                            import yaml as _yaml
+                            import os as _os
+                            _here = _os.path.dirname(_os.path.abspath(__file__))
+                            _project_root = _os.path.abspath(_os.path.join(_here, "..", "..", ".."))
+                            _ctx_dir = _os.path.join(_project_root, "src", "registry_references", "business_context")
+
+                            # Resolve data_product_id from the current KPI so we load the right context
+                            _dp_id = None
+                            try:
+                                from src.registry.factory import RegistryFactory as _RF
+                                _kpi_provider = _RF().get_provider("kpi")
+                                if _kpi_provider:
+                                    _kpi_nm = (da_summary.get("kpi_name") or "").lower().strip()
+                                    for _k in _kpi_provider.get_all():
+                                        if (getattr(_k, "name", "") or "").lower().strip() == _kpi_nm:
+                                            _dp_id = getattr(_k, "data_product_id", None)
+                                            break
+                            except Exception:
+                                pass
+
+                            # Map data_product_id → business context filename
+                            _DP_CONTEXT_MAP: Dict[str, str] = {
+                                "dp_lubricants_financials": "lubricants_context.yaml",
+                            }
+                            _ctx_file = _DP_CONTEXT_MAP.get(_dp_id or "", "bicycle_retail_context.yaml")
+                            ctx_path = _os.path.join(_ctx_dir, _ctx_file)
+                            if not _os.path.exists(ctx_path):
+                                ctx_path = _os.path.join(_ctx_dir, "bicycle_retail_context.yaml")
+
+                            if _os.path.exists(ctx_path):
+                                with open(ctx_path, "r", encoding="utf-8") as f:
+                                    bc = _yaml.safe_load(f)
+                                self.logger.info(f"[SF] Business context loaded: {_ctx_file} (dp_id={_dp_id})")
+                        except Exception as e:
+                            self.logger.warning(f"Failed to load business context yaml: {e}")
+
+                        if not bc:
+                            bc = {
+                                "business_terms": {
+                                    "profit_center": "Operational unit responsible for generating revenue and managing costs.",
+                                    "customer_type": "Segment classification (Enterprise, SMB, Gov)."
+                                },
+                                "supported_processes": [
+                                    "Finance: Profitability Analysis",
+                                    "Finance: Expense Management"
+                                ]
+                            }
+
+                        try:
                             request.business_context = bc
-                         except:
+                        except:
                             pass
 
-                    # Pass FULL Deep Analysis context - do not trim critical quantitative data
-                    # The LLM needs complete context to generate accurate briefings
-                    full_da_context = _model_to_dict(da_ctx)
-                    
+                    # Use trimmed DA context to preserve output tokens for generating 3 distinct options.
+                    # da_summary + dataset_recap already carry the key quantitative signals;
+                    # full context risks exhausting the LLM's output budget on summarisation.
+                    full_da_context = _model_to_dict(trimmed_da)
+
+                    # Extract decision maker context for personalized recommendation framing
+                    decision_maker = None
+                    try:
+                        pc = getattr(request, "principal_context", None)
+                        if pc:
+                            pc_dict = pc if isinstance(pc, dict) else _model_to_dict(pc)
+                            if isinstance(pc_dict, dict):
+                                decision_maker = {k: v for k, v in {
+                                    "name": pc_dict.get("name") or pc_dict.get("principal_name"),
+                                    "role": pc_dict.get("role"),
+                                    "decision_style": pc_dict.get("decision_style"),
+                                    "priorities": pc_dict.get("current_focus") or pc_dict.get("priorities"),
+                                }.items() if v}
+                    except Exception:
+                        decision_maker = None
+
+                    # Extract situation metadata for urgency calibration (severity, unit, threshold)
+                    situation_metadata = None
+                    try:
+                        sctx = getattr(request, "situation_context", None)
+                        if sctx:
+                            sctx_dict = sctx if isinstance(sctx, dict) else _model_to_dict(sctx)
+                            if isinstance(sctx_dict, dict):
+                                _kv = sctx_dict.get("kpi_value") or {}
+                                if not isinstance(_kv, dict):
+                                    _kv = _model_to_dict(_kv) or {}
+                                situation_metadata = {k: v for k, v in {
+                                    "severity": str(sctx_dict.get("severity") or ""),
+                                    "kpi_name": sctx_dict.get("kpi_name"),
+                                    "current_value": _kv.get("value"),
+                                    "comparison_value": _kv.get("comparison_value"),
+                                    "unit": _kv.get("unit"),
+                                    "threshold": sctx_dict.get("threshold") or sctx_dict.get("threshold_value"),
+                                }.items() if v is not None and v != ""}
+                    except Exception:
+                        situation_metadata = None
+
+                    # ---- STAGE 1: Parallel per-persona hypothesis generation ----
+                    # Each persona independently proposes one hypothesis + one option with quantified impact.
+                    # Running in parallel cuts total latency to ~1 LLM call duration.
+                    # Skip for subsequent debate stages (cross_review/synthesis) — Stage 1 already done.
+                    import json as _json_s1
+                    _debate_stage = prefs.get("debate_stage") if isinstance(prefs, dict) else None
+                    _skip_stage1 = _debate_stage in ("cross_review", "synthesis")
+                    stage_1_hyps_dict: Dict[str, Any] = {}
+                    if consulting_personas and not _skip_stage1:
+                        da_compact_s1 = {
+                            "kpi_name": da_summary.get("kpi_name"),
+                            "top_change_points": da_summary.get("top_change_points", [])[:3],
+                            "where_signals": da_summary.get("where_signals", [])[:3],
+                            "where_is_not": da_summary.get("where_is_not", [])[:3],
+                            "what_is_not": da_summary.get("what_is_not", [])[:3],
+                        }
+                        bc_compact_s1: Dict[str, Any] = {}
+                        if isinstance(bc, dict):
+                            bc_compact_s1 = {k: v for k, v in {
+                                "name": bc.get("name"),
+                                "industry": bc.get("industry"),
+                                "operational_context": bc.get("operational_context"),
+                            }.items() if v}
+
+                        async def _run_stage1(p: ConsultingPersona) -> Optional[Dict]:
+                            try:
+                                persona_profile = p.to_prompt_context() if hasattr(p, "to_prompt_context") else f"{p.name}"
+                                s1_schema = (
+                                    '{\n'
+                                    f'  "persona_id": "{p.id}",\n'
+                                    '  "framework": "<signature diagnostic framework name>",\n'
+                                    '  "hypothesis": "<root cause hypothesis citing specific data>",\n'
+                                    '  "key_evidence": ["<data point 1>", "<data point 2>", "<data point 3>"],\n'
+                                    '  "recommended_focus": "<specific lever: name segment/channel/product>",\n'
+                                    '  "conviction": "High|Medium|Low",\n'
+                                    '  "proposed_option": {\n'
+                                    '    "title": "<action-oriented title reflecting your mechanism>",\n'
+                                    '    "description": "<2-3 sentences: what, how, why now>",\n'
+                                    '    "mechanism": "<how this directly addresses the identified driver>",\n'
+                                    '    "time_horizon": "0-90 days|3-12 months|12+ months",\n'
+                                    '    "impact_estimate": {\n'
+                                    '      "metric": "<KPI name from situation_metadata>",\n'
+                                    '      "unit": "<unit from situation_metadata>",\n'
+                                    '      "recovery_range": {"low": 0.0, "high": 0.0},\n'
+                                    '      "basis": "<mechanism + magnitude from change_points>"\n'
+                                    '    },\n'
+                                    '    "cost_signal": "High|Medium|Low",\n'
+                                    '    "risk_signal": "High|Medium|Low"\n'
+                                    '  }\n'
+                                    '}'
+                                )
+                                s1_prompt = (
+                                    f"## ROLE\nYou are a {p.name} consultant.\n\n"
+                                    f"## PERSONA\n{persona_profile}\n\n"
+                                    f"## PROBLEM\n{ps}\n\n"
+                                    "## KEY ANALYSIS SIGNALS\n"
+                                    f"{_json_s1.dumps(da_compact_s1, indent=2)}\n\n"
+                                    "## BUSINESS CONTEXT\n"
+                                    f"{_json_s1.dumps(bc_compact_s1, indent=2)}\n\n"
+                                    "## SITUATION METRICS\n"
+                                    f"{_json_s1.dumps(situation_metadata or {}, indent=2)}\n\n"
+                                    "## YOUR TASK\n"
+                                    f"As {p.name}, apply your methodology to:\n"
+                                    "1. Form ONE specific hypothesis about the primary driver of this KPI decline\n"
+                                    "2. Propose ONE actionable intervention with a distinct mechanism\n"
+                                    "3. Estimate the recovery impact using the KPI unit from situation_metadata\n"
+                                    "4. Provide 3 specific data points as evidence from the analysis signals\n\n"
+                                    f"## OUTPUT (JSON only, no markdown):\n{s1_schema}"
+                                )
+                                s1_req = A9_LLM_AnalysisRequest(
+                                    request_id=f"{req_id}_s1_{p.id}",
+                                    content=s1_prompt,
+                                    analysis_type="custom",
+                                    context="",
+                                )
+                                if self.orchestrator is not None:
+                                    s1_resp = await self.orchestrator.execute_agent_method(
+                                        "A9_LLM_Service_Agent", "analyze", {"request": s1_req}
+                                    )
+                                else:
+                                    s1_resp = await self.llm_service_agent.analyze(s1_req)  # type: ignore
+                                if getattr(s1_resp, "status", "error") == "success":
+                                    s1_result = getattr(s1_resp, "analysis", None)
+                                    if isinstance(s1_result, dict):
+                                        return s1_result
+                            except Exception as _s1e:
+                                self.logger.warning(f"[SF] Stage 1 call failed for {p.id}: {_s1e}")
+                            return None
+
+                        s1_raw = await asyncio.gather(*[_run_stage1(p) for p in consulting_personas])
+                        for _r in s1_raw:
+                            if isinstance(_r, dict) and _r.get("persona_id"):
+                                _pid = _r["persona_id"]
+                                stage_1_hyps_dict[_pid] = {
+                                    "framework": _r.get("framework"),
+                                    "hypothesis": _r.get("hypothesis"),
+                                    "key_evidence": _r.get("key_evidence", []),
+                                    "recommended_focus": _r.get("recommended_focus"),
+                                    "conviction": _r.get("conviction"),
+                                    "proposed_option": _r.get("proposed_option"),
+                                }
+                        audit_log.append({
+                            "event": "stage1_calls_complete",
+                            "personas": list(stage_1_hyps_dict.keys()),
+                        })
+                        self.logger.info(f"[SF] Stage 1 complete: {list(stage_1_hyps_dict.keys())}")
+
+                    # ---- STAGE 2: Synthesis call ----
                     # Separate the data payload from the instructions
                     # The debate_spec contains critical constraints that must be in the prompt prefix
                     data_payload = {
                         "problem_statement": ps,
-                        "deep_analysis_context": full_da_context,  # FULL context, not trimmed
-                        "deep_analysis_summary": da_summary,  # Summary for quick reference
+                        "situation_metadata": situation_metadata,
+                        "decision_maker": decision_maker,
+                        "business_context": _model_to_dict(bc) if bc else None,
+                        "deep_analysis_context": full_da_context,
+                        "deep_analysis_summary": da_summary,
                         "dataset_recap": dataset_recap,
                         "user_context": user_ctx,
                         "principal_input": _model_to_dict(principal_input) if principal_input else None,
+                        # Stage 1 results: each persona's hypothesis + proposed_option for synthesis
+                        "stage_1_persona_hypotheses": stage_1_hyps_dict if stage_1_hyps_dict else None,
                     }
                     import json as _json
                     data_json = _json.dumps(data_payload, indent=2)
@@ -977,6 +1232,17 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         blind_spots_list = parsed.get("blind_spots", [])
                         next_steps_list = parsed.get("next_steps", [])
                         cross_review = parsed.get("cross_review")
+
+                        # Use Stage 1 results as authoritative stage_1_hypotheses (dedicated calls = better quality)
+                        # Strip proposed_option from the display dict (it's been expanded into the full options)
+                        if stage_1_hyps_dict:
+                            stage_1_hypotheses_final = {
+                                pid: {k: v for k, v in hyp.items() if k != "proposed_option"}
+                                for pid, hyp in stage_1_hyps_dict.items()
+                            }
+                        else:
+                            # Fallback: synthesis LLM may not have generated this (removed from schema)
+                            stage_1_hypotheses_final = parsed.get("stage_1_hypotheses") or {}
 
                         # Fallback rationale
                         rationale = "Options generated via Decision Briefing analysis."
@@ -1105,6 +1371,8 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                 blind_spots=blind_spots_list,
                 next_steps=next_steps_list,
                 cross_review=cross_review,
+                # Multi-call Stage 1 per-persona hypotheses
+                stage_1_hypotheses=stage_1_hypotheses_final if stage_1_hypotheses_final else None,
                 # Principal-Driven Framing Context
                 framing_context=framing_context_payload,
             )

@@ -87,7 +87,8 @@ class SolutionFinderResponse(A9AgentBaseResponse):
     blind_spots: List[str] = Field(default_factory=list)
     next_steps: List[str] = Field(default_factory=list)
     cross_review: Optional[Dict[str, Any]] = None  # Hybrid Council debate artifacts
-    
+    stage_1_hypotheses: Optional[Dict[str, Any]] = None  # Per-persona Stage 1 hypotheses (multi-call)
+
     # Principal-Driven Framing Context (per PRD guardrails)
     framing_context: Optional[Dict[str, Any]] = None  # decision_style, personas_used, presentation_note, disclaimer
 

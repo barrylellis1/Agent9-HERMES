@@ -213,26 +213,93 @@ export function ExecutiveBriefing() {
           <section className="mb-12">
             <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
               <div className="w-8 h-8 bg-indigo-600 text-white rounded flex items-center justify-center text-sm font-bold">1</div>
-              Stage 1: Initial Hypotheses
+              Stage 1: Independent Firm Proposals
             </h2>
             <p className="text-slate-600 mb-6">
-              Each consulting firm independently analyzed the problem using their signature frameworks.
+              Each consulting firm independently analyzed the problem and proposed a specific intervention using their signature framework.
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {Object.entries(data.stage_1_hypotheses).map(([firmId, hyp]: [string, any]) => (
-                <div key={firmId} className="bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-lg p-5">
-                  <h4 className="font-bold text-slate-900 capitalize mb-2">{firmId.replace(/_/g, ' ')}</h4>
-                  <p className="text-xs text-indigo-600 font-medium mb-2">{hyp.framework}</p>
-                  <p className="text-sm text-slate-700 mb-3">{hyp.hypothesis}</p>
-                  {hyp.recommended_focus && (
-                    <div className="bg-white p-2 rounded border border-slate-200">
-                      <p className="text-xs text-slate-500 uppercase">Recommended Focus</p>
-                      <p className="text-sm font-medium text-slate-800">{hyp.recommended_focus}</p>
-                    </div>
-                  )}
+            {(() => {
+              // Firm-specific accent colours (top bar + left border + badge)
+              const FIRM_STYLES: Record<string, { bar: string; border: string; badge: string; dot: string }> = {
+                mckinsey:    { bar: 'bg-blue-700',   border: 'border-l-blue-700',   badge: 'bg-blue-50 text-blue-800',   dot: 'bg-blue-700' },
+                bcg:         { bar: 'bg-emerald-600',border: 'border-l-emerald-600',badge: 'bg-emerald-50 text-emerald-800',dot: 'bg-emerald-600' },
+                bain:        { bar: 'bg-red-600',    border: 'border-l-red-600',    badge: 'bg-red-50 text-red-800',     dot: 'bg-red-600' },
+                deloitte:    { bar: 'bg-green-700',  border: 'border-l-green-700',  badge: 'bg-green-50 text-green-800', dot: 'bg-green-700' },
+                accenture:   { bar: 'bg-purple-600', border: 'border-l-purple-600', badge: 'bg-purple-50 text-purple-800',dot: 'bg-purple-600' },
+                ey_parthenon:{ bar: 'bg-yellow-600', border: 'border-l-yellow-600', badge: 'bg-yellow-50 text-yellow-800',dot: 'bg-yellow-600' },
+                kpmg:        { bar: 'bg-sky-700',    border: 'border-l-sky-700',    badge: 'bg-sky-50 text-sky-800',     dot: 'bg-sky-700' },
+                pwc_strategy:{ bar: 'bg-orange-600', border: 'border-l-orange-600', badge: 'bg-orange-50 text-orange-800',dot: 'bg-orange-600' },
+              }
+              const convictionStyle: Record<string, string> = {
+                High:   'bg-emerald-100 text-emerald-800',
+                Medium: 'bg-amber-100 text-amber-800',
+                Low:    'bg-slate-100 text-slate-600',
+              }
+              const defaultStyle = { bar: 'bg-indigo-600', border: 'border-l-indigo-600', badge: 'bg-indigo-50 text-indigo-800', dot: 'bg-indigo-600' }
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {Object.entries(data.stage_1_hypotheses).map(([firmId, hyp]: [string, any]) => {
+                    const s = FIRM_STYLES[firmId] ?? defaultStyle
+                    const conviction = hyp.conviction || 'High'
+                    return (
+                      <div key={firmId} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm flex flex-col">
+                        {/* Coloured top accent bar */}
+                        <div className={`h-1.5 w-full ${s.bar}`} />
+                        <div className="p-5 flex flex-col flex-1">
+                          {/* Header */}
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2.5 h-2.5 rounded-full ${s.dot}`} />
+                              <h4 className="font-bold text-slate-900 capitalize text-base">
+                                {firmId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                              </h4>
+                            </div>
+                            {conviction && (
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${convictionStyle[conviction] ?? convictionStyle.Medium}`}>
+                                {conviction} Conviction
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Framework badge */}
+                          {hyp.framework && (
+                            <span className={`self-start text-xs font-medium px-2.5 py-0.5 rounded-full mb-3 ${s.badge}`}>
+                              {hyp.framework}
+                            </span>
+                          )}
+
+                          {/* Hypothesis */}
+                          <p className="text-sm text-slate-700 leading-relaxed mb-4 flex-1">{hyp.hypothesis}</p>
+
+                          {/* Key Evidence */}
+                          {Array.isArray(hyp.key_evidence) && hyp.key_evidence.length > 0 && (
+                            <div className="bg-slate-50 rounded-lg p-3 mb-4">
+                              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Evidence Base</p>
+                              <ul className="space-y-1.5">
+                                {hyp.key_evidence.slice(0, 3).map((ev: string, i: number) => (
+                                  <li key={i} className="flex items-start gap-1.5 text-xs text-slate-600">
+                                    <span className="text-slate-400 mt-0.5 shrink-0">▸</span>
+                                    <span>{ev}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Recommended Focus — the punchline */}
+                          {hyp.recommended_focus && (
+                            <div className={`border-l-4 ${s.border} pl-3 mt-auto`}>
+                              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Proposed Lever</p>
+                              <p className="text-sm font-semibold text-slate-900">{hyp.recommended_focus}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
-              ))}
-            </div>
+              )
+            })()}
           </section>
         )}
 

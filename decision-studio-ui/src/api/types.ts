@@ -115,7 +115,13 @@ export interface SolutionResponse {
   blind_spots?: string[];
   unresolved_tensions?: UnresolvedTension[];
   next_steps?: string[];
-  stage_1_hypotheses?: string[]; // or complex object?
+  stage_1_hypotheses?: Record<string, {
+    framework?: string;
+    hypothesis?: string;
+    key_evidence?: string[];
+    recommended_focus?: string;
+    conviction?: string;
+  }>;
   cross_review?: CrossReview;
 }
 
