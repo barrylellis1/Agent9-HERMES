@@ -765,8 +765,8 @@ class A9_Principal_Context_Agent:
                 # Create and return PrincipalContext
                 business_processes = []
                 
-                # Extract business processes
-                bp_list = profile_data.get('business_processes', [])
+                # Extract business processes — Supabase stores them as 'business_process_ids'
+                bp_list = profile_data.get('business_processes') or profile_data.get('business_process_ids', [])
                 for bp in bp_list:
                     # Try to get the business process from the registry provider
                     if self._business_process_provider:

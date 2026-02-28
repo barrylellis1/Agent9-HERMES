@@ -18,6 +18,7 @@ kpi_defaults:
 # List of KPIs
 kpis:
   - id: gross_revenue
+    client_id: bicycle
     name: "Gross Revenue"
     domain: "Finance"
     description: "Total gross revenue recognized in the period."
@@ -69,6 +70,7 @@ kpis:
       lens_affinity: "mckinsey,bcg"
 
   - id: cost_of_goods_sold
+    client_id: bicycle
     name: "Cost of Goods Sold"
     domain: "Finance"
     description: "Total cost of goods sold in the period."
@@ -119,6 +121,7 @@ kpis:
       lens_affinity: "bcg,bain"
 
   - id: gross_margin
+    client_id: bicycle
     name: "Gross Margin"
     domain: "Finance"
     description: "Gross Margin is calculated as Net Revenue (Gross Revenue - Sales Deductions) minus Cost of Goods Sold."
@@ -179,6 +182,7 @@ kpis:
       lens_affinity: "mckinsey,bcg"
 
   - id: utilities_expense
+    client_id: bicycle
     name: "Utilities Expense"
     domain: "Finance"
     description: "Total utilities expense."
@@ -226,6 +230,7 @@ kpis:
       lens_affinity: "bcg,bain"
 
   - id: office_expense
+    client_id: bicycle
     name: "Office Expense"
     domain: "Finance"
     description: "Total office expense."
@@ -273,6 +278,7 @@ kpis:
       lens_affinity: "bcg,bain"
 
   - id: payroll
+    client_id: bicycle
     name: "Payroll"
     domain: "Finance"
     description: "Total payroll expense."
@@ -322,6 +328,7 @@ kpis:
 
 
   - id: sales_deductions
+    client_id: bicycle
     name: "Sales Deductions"
     domain: "Finance"
     description: "Total sales deductions in the period."
@@ -365,6 +372,7 @@ kpis:
       lens_affinity: "bcg,bain"
 
   - id: periodic_building_expense
+    client_id: bicycle
     name: "Periodic Building Expense"
     domain: "Finance"
     description: "Total periodic building expense."
@@ -402,6 +410,7 @@ kpis:
       lens_affinity: "bcg,bain"
 
   - id: travel
+    client_id: bicycle
     name: "Travel"
     domain: "Finance"
     description: "Total travel expense."
@@ -438,6 +447,7 @@ kpis:
       lens_affinity: "bcg,bain"
 
   - id: employee_expense_other
+    client_id: bicycle
     name: "Employee Expense Other"
     domain: "Finance"
     description: "Total employee expense (other)."
@@ -475,6 +485,7 @@ kpis:
       lens_affinity: "bcg,bain"
 
   - id: other_operating_expense
+    client_id: bicycle
     name: "Other Operating Expense"
     domain: "Finance"
     description: "Total other operating expense."
@@ -510,6 +521,7 @@ kpis:
       lens_affinity: "bcg,bain"
 
   - id: net_revenue
+    client_id: bicycle
     name: "Net Revenue"
     domain: "Finance"
     description: "Total net revenue (Gross Revenue - Sales Deductions)."
@@ -547,6 +559,7 @@ kpis:
       lens_affinity: "mckinsey,bcg,bain"
 
   - id: operating_income
+    client_id: bicycle
     name: "Operating Income"
     domain: "Finance"
     description: "Operating Income."
@@ -594,6 +607,7 @@ kpis:
       profit_driver_type: "profitability"
       lens_affinity: "mckinsey,bcg,bain"
   - id: operating_expense
+    client_id: bicycle
     name: "Operating Expense"
     domain: "Finance"
     description: "Total Operating Expense."
@@ -632,6 +646,7 @@ kpis:
       profit_driver_type: "expense"
       lens_affinity: "bcg,bain"
   - id: building_expense
+    client_id: bicycle
     name: "Building Expense"
     domain: "Finance"
     description: "Total Building Expense (includes Periodic & Utilities)."
@@ -663,6 +678,7 @@ kpis:
       - "Finance Manager"
       - "COO"
   - id: employee_expense
+    client_id: bicycle
     name: "Employee Expense"
     domain: "Finance"
     description: "Total Employee Expense (includes Payroll, Travel, Office, Other)."
@@ -694,6 +710,7 @@ kpis:
       - "Finance Manager"
       - "CHRO"
   - id: net_income
+    client_id: bicycle
     name: "Net Income"
     domain: "Finance"
     description: "Net Income."
@@ -744,6 +761,7 @@ kpis:
       profit_driver_type: "profitability"
       lens_affinity: "mckinsey,bcg,bain"
   - id: earnings_before_interest_and_taxes
+    client_id: bicycle
     name: "Earnings Before Interest & Taxes"
     domain: "Finance"
     description: "Earnings Before Interest & Taxes (EBIT)."
@@ -795,6 +813,7 @@ kpis:
       profit_driver_type: "profitability"
       lens_affinity: "mckinsey,bcg,bain"
   - id: depreciation
+    client_id: bicycle
     name: "Depreciation"
     domain: "Finance"
     description: "Depreciation."
@@ -832,6 +851,7 @@ kpis:
       lens_affinity: "bcg,bain"
 
   - id: cash_flow_from_operating_activities
+    client_id: bicycle
     name: "Cash Flow from Operating Activities"
     domain: "Finance"
     description: "Cash Flow from Operating Activities (CFO)."

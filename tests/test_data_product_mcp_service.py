@@ -31,7 +31,7 @@ class TestDataProductMCPService(unittest.TestCase):
         # Create a test configuration
         self.config = A9_Data_Product_MCP_Service_Config(
             # Use the actual SAP data path
-            sap_data_path="C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI",
+            sap_data_path="C:/Users/Blell/Documents/Agent9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI",
             registry_path="src/registry_references",
             data_product_registry="data_product_registry/data_product_registry.csv",
             allow_custom_sql=True,

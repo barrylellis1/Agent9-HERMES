@@ -32,7 +32,7 @@ class TestSituationAwarenessKPIRegistry(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         # Create a mock registry factory
-        self.registry_factory_patcher = mock.patch('src.registry.registry_factory.RegistryFactory')
+        self.registry_factory_patcher = mock.patch('src.registry.factory.RegistryFactory')
         self.mock_registry_factory_class = self.registry_factory_patcher.start()
         self.mock_registry_factory = mock.MagicMock()
         self.mock_registry_factory_class.return_value = self.mock_registry_factory
@@ -58,7 +58,7 @@ class TestSituationAwarenessKPIRegistry(unittest.TestCase):
         """Test loading KPI registry."""
         # Create the Situation Awareness Agent
         agent = self.loop.run_until_complete(A9_Situation_Awareness_Agent.create({
-            "contract_path": "src/contracts/fi_star_schema.yaml",
+            "contract_path": "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml",
             "target_domains": ["Finance"]
         }))
         
@@ -75,7 +75,7 @@ class TestSituationAwarenessKPIRegistry(unittest.TestCase):
         """Test KPI domain matching."""
         # Create the Situation Awareness Agent
         agent = self.loop.run_until_complete(A9_Situation_Awareness_Agent.create({
-            "contract_path": "src/contracts/fi_star_schema.yaml",
+            "contract_path": "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml",
             "target_domains": ["Finance"]
         }))
         
@@ -98,7 +98,7 @@ class TestSituationAwarenessKPIRegistry(unittest.TestCase):
         """Test converting canonical KPI to internal KPIDefinition."""
         # Create the Situation Awareness Agent
         agent = self.loop.run_until_complete(A9_Situation_Awareness_Agent.create({
-            "contract_path": "src/contracts/fi_star_schema.yaml",
+            "contract_path": "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml",
             "target_domains": ["Finance"]
         }))
         

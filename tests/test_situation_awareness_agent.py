@@ -311,7 +311,7 @@ async def test_agent_initialization():
             # Await the async create method
             return await A9_Data_Product_Agent.create({
                 "contracts_path": "src/registry_references/data_product_registry/data_products",
-                "data_directory": "C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI",
+                "data_directory": "C:/Users/Blell/Documents/Agent9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI",
                 "registry_path": "src/registry/data_product/data_product_registry.yaml"  # Use YAML-based registry
             })
     

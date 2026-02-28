@@ -249,19 +249,24 @@ class A9_Situation_Awareness_Agent:
         Load KPIs from the registry asynchronously.
         """
         try:
-            try:
-                from src.registry.registry_factory import RegistryFactory as _RF
-            except Exception:
-                from src.registry.factory import RegistryFactory as _RF
-            registry_factory = _RF()
-            try:
-                if not registry_factory.is_initialized:
-                    await registry_factory.initialize()
-                    logger.info("Registry factory initialized successfully")
-                else:
-                    logger.info("Registry factory already initialized")
-            except Exception as e:
-                logger.warning(f"Error initializing registry factory: {str(e)}")
+            # Prefer the shared, already-initialized registry factory injected via config.
+            # Creating a new RegistryFactory() instance would bypass Supabase initialization
+            # and result in 0 KPIs loaded (and therefore no SQL statements executed).
+            registry_factory = self.config.get("registry_factory")
+            if registry_factory is None:
+                try:
+                    from src.registry.registry_factory import RegistryFactory as _RF
+                except Exception:
+                    from src.registry.factory import RegistryFactory as _RF
+                registry_factory = _RF()
+                try:
+                    if not registry_factory.is_initialized:
+                        await registry_factory.initialize()
+                        logger.info("Registry factory initialized successfully")
+                    else:
+                        logger.info("Registry factory already initialized")
+                except Exception as e:
+                    logger.warning(f"Error initializing registry factory: {str(e)}")
             kpi_provider = None
             try:
                 kpi_provider = registry_factory.get_kpi_provider()
@@ -423,7 +428,7 @@ class A9_Situation_Awareness_Agent:
             request_id = getattr(request, 'request_id', original_request_id)
             
             self.logger.info(f"Detecting situations for {request.principal_context.role}")
-            
+
             # Get relevant KPIs based on principal context and business processes
             relevant_kpis = self._get_relevant_kpis(
                 request.principal_context,
@@ -438,9 +443,6 @@ class A9_Situation_Awareness_Agent:
                     name: kpi for name, kpi in relevant_kpis.items()
                     if getattr(kpi, "client_id", None) == client_id
                 }
-                self.logger.info(
-                    f"client_id filter '{client_id}': {len(relevant_kpis)}/{before_count} KPIs retained"
-                )
 
             if not relevant_kpis:
                 self.logger.warning("No relevant KPIs found for principal context and business processes")
@@ -2643,6 +2645,43 @@ class A9_Situation_Awareness_Agent:
             return qs
         except Exception:
             return ["Show me key finance KPIs this period."]
+
+    async def get_kpi_definitions(
+        self,
+        principal_context: PrincipalContext,
+        business_process: Optional[BusinessProcess] = None
+    ) -> Dict[str, Any]:
+        """
+        Get KPI definitions relevant to the principal and business process.
+
+        Args:
+            principal_context: Context of the principal
+            business_process: Optional specific business process to filter by
+
+        Returns:
+            Dictionary of KPI definitions keyed by KPI name
+        """
+        try:
+            bp_list: Optional[List[str]] = None
+            if business_process is not None:
+                bp_name = (
+                    getattr(business_process, 'value', None)
+                    or getattr(business_process, 'name', None)
+                    or str(business_process)
+                )
+                bp_list = [bp_name]
+
+            relevant_kpis: Dict[str, KPIDefinition] = self._get_relevant_kpis(
+                principal_context, bp_list
+            )
+
+            return {
+                name: kpi_def.model_dump()
+                for name, kpi_def in relevant_kpis.items()
+            }
+        except Exception as e:
+            self.logger.error(f"Error retrieving KPI definitions: {e}")
+            return {}
 
 
 def create_situation_awareness_agent(config: Dict[str, Any]) -> "A9_Situation_Awareness_Agent":

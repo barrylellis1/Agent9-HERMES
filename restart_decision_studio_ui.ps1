@@ -38,7 +38,23 @@ function Kill-Port {
 
 Write-Host "=== Restarting Agent9 Decision Studio (Consumer Grade) ===" -ForegroundColor Cyan
 
-# 1. Kill Ports
+# 1a. Kill any non-venv Python processes that may be holding the DuckDB file open
+Write-Host "Checking for stale Python processes holding DuckDB..." -ForegroundColor Cyan
+$venvScripts = Join-Path $PSScriptRoot '.venv\Scripts'
+Get-Process python -ErrorAction SilentlyContinue | ForEach-Object {
+    try {
+        $exePath = $_.MainModule.FileName
+        if ($exePath -notlike "*\.venv\*") {
+            Write-Host "Killing non-venv Python PID $($_.Id): $exePath" -ForegroundColor DarkGray
+            Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+        }
+    } catch {
+        # Can't read process path (permissions) — skip silently
+    }
+}
+Start-Sleep -Seconds 1
+
+# 1b. Kill Ports
 Kill-Port -Port 8000
 Kill-Port -Port 5173
 
@@ -75,31 +91,41 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # 1.5 Check Supabase Status
+# Resolve supabase CLI: prefer system PATH, fall back to local binary in project root
 Write-Host "Checking Supabase Status..." -ForegroundColor Cyan
-try {
-    $null = supabase status 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Supabase is not running. Attempting to start..." -ForegroundColor Yellow
-        supabase start
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "Error: Failed to start Supabase. Please check Docker Desktop status." -ForegroundColor Red
-            Write-Host "Continuing anyway, but backend may fail if it relies on Supabase..." -ForegroundColor DarkYellow
-            # Pause removed for automation
-        } else {
-            Write-Host "Supabase started successfully." -ForegroundColor Green
-        }
-    } else {
-        Write-Host "Supabase is running." -ForegroundColor Green
-    }
-
-    # 1.6 Registry Sync - DEPRECATED (2026-02-19)
-    # All registries now live in Supabase. YAML seed scripts are deprecated.
-    # To force a recovery sync, run: python scripts/sync_yaml_to_supabase.py --force
-    Write-Host "Skipping YAML-to-Supabase sync (deprecated - registries read directly from Supabase)." -ForegroundColor DarkGray
-
-} catch {
-    Write-Host "Warning: 'supabase' command not found or error checking status. Skipping Supabase check." -ForegroundColor Yellow
+$supabaseCli = $null
+if (Get-Command supabase -ErrorAction SilentlyContinue) {
+    $supabaseCli = "supabase"
+} elseif (Test-Path (Join-Path $PSScriptRoot "supabase.exe")) {
+    $supabaseCli = Join-Path $PSScriptRoot "supabase.exe"
 }
+
+if ($supabaseCli) {
+    try {
+        $null = & $supabaseCli status 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Supabase is not running. Attempting to start..." -ForegroundColor Yellow
+            & $supabaseCli start
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "Error: Failed to start Supabase. Please check Docker Desktop status." -ForegroundColor Red
+                Write-Host "Continuing anyway, but backend may fail if it relies on Supabase..." -ForegroundColor DarkYellow
+            } else {
+                Write-Host "Supabase started successfully." -ForegroundColor Green
+            }
+        } else {
+            Write-Host "Supabase is running." -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "Warning: Error checking Supabase status: $_" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "Warning: Supabase CLI not found (checked PATH and .\supabase.exe). Skipping Supabase check." -ForegroundColor Yellow
+}
+
+# 1.6 Registry Sync - DEPRECATED (2026-02-19)
+# All registries now live in Supabase. YAML seed scripts are deprecated.
+# To force a recovery sync, run: python scripts/sync_yaml_to_supabase.py --force
+Write-Host "Skipping YAML-to-Supabase sync (deprecated - registries read directly from Supabase)." -ForegroundColor DarkGray
 
 # 2. Start Backend (FastAPI)
 Write-Host "Starting FastAPI Backend (Port 8000)..." -ForegroundColor Green

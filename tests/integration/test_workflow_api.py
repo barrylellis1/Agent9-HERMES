@@ -22,6 +22,34 @@ pytestmark = pytest.mark.anyio("asyncio")
 
 
 class _StubOrchestrator:
+    async def orchestrate_situation_detection(self, request):
+        return {
+            "status": "success",
+            "situations": [
+                {
+                    "situation_id": "stub-situation",
+                    "kpi_id": "Gross Margin",
+                    "status": "warning",
+                }
+            ],
+        }
+
+    async def orchestrate_deep_analysis(self, request):
+        from src.agents.models.deep_analysis_models import DeepAnalysisResponse, DeepAnalysisPlan
+        plan = DeepAnalysisPlan(kpi_name=getattr(request, "kpi_name", "test"))
+        return DeepAnalysisResponse(
+            status="success",
+            request_id=getattr(request, "request_id", "stub"),
+            plan=plan,
+        )
+
+    async def orchestrate_solution_finding(self, request):
+        from src.agents.models.solution_finder_models import SolutionFinderResponse
+        return SolutionFinderResponse(
+            status="success",
+            request_id=getattr(request, "request_id", "stub"),
+        )
+
     async def execute_agent_method(self, agent_name: str, method_name: str, params):
         if agent_name == "A9_Principal_Context_Agent" and method_name == "get_principal_context_by_id":
             principal_id = params.get("principal_id")

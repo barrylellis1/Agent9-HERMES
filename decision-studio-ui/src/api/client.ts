@@ -8,7 +8,7 @@ import {
 export type { ProblemRefinementRequest, ProblemRefinementResult, Situation };
 export * from './types';
 
-const API_BASE = 'http://localhost:8000/api/v1';
+const API_BASE = 'http://127.0.0.1:8000/api/v1';
 
 export type Envelope<T> = {
   status: string;

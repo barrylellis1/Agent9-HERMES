@@ -3,6 +3,16 @@
 ## Project Overview
 Agent9-HERMES is a multi-agent automation system designed to provide automated business insights and solutions through orchestrated workflows involving specialized agents. The system is built on protocol-driven, registry-based architecture with 100,000 lines of backend and UI code.
 
+## Development Workflow Rules
+
+### MANDATORY: Always Use restart_decision_studio_ui.ps1
+- **NEVER** start the backend or frontend independently (e.g. `uvicorn ...` or `npm run dev` directly)
+- **ALWAYS** use `.\restart_decision_studio_ui.ps1` to start/restart the full stack (FastAPI + React)
+- This script handles port cleanup, Docker/Supabase startup, and process sequencing in the correct order
+- To run: open PowerShell in the project root and run `.\restart_decision_studio_ui.ps1`
+
+---
+
 ## Current Status
 - **Development Duration**: 10 months
 - **Codebase Size**: ~100K lines (backend + UI)

@@ -97,41 +97,75 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         # Optional: orchestrator not stored; agents are resolved in connect()
 
     # --- Helpers -----------------------------------------------------------
+    _CONTRACTS_DIR = "src/registry_references/data_product_registry/data_products"
+    _FALLBACK_CONTRACT = "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
+
     def _contract_path(self) -> str:
+        """Return the default (bicycle FI) contract path. Use _contract_path_for_kpi() when a KPI name is known."""
+        canonical = self._FALLBACK_CONTRACT
+        if os.path.exists(canonical):
+            return canonical
+        here = os.path.dirname(__file__)
+        proj_root = os.path.abspath(os.path.join(here, "..", "..", ".."))
+        abs_canonical = os.path.join(proj_root, canonical)
+        return abs_canonical if os.path.exists(abs_canonical) else canonical
+
+    def _contract_path_for_kpi(self, kpi_name: str = None) -> str:
         """
-        Resolve contract path from the canonical registry_references location.
-        This ensures single source of truth for data product contracts.
+        Resolve the data product contract path for a given KPI name.
+        Looks up the KPI's data_product_id in the Supabase registry (via the shared
+        RegistryFactory singleton) and scans the contracts directory for a matching YAML.
+        Falls back to the bicycle FI contract if the KPI or contract is not found.
         """
         try:
-            # Canonical path in registry_references (single source of truth)
-            canonical = "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
-            if os.path.exists(canonical):
-                return canonical
-            
-            # Try from project root
-            here = os.path.dirname(__file__)
-            proj_root = os.path.abspath(os.path.join(here, "..", "..", ".."))
-            abs_canonical = os.path.join(proj_root, canonical)
-            if os.path.exists(abs_canonical):
-                return abs_canonical
-            
-            # Last resort
-            return canonical
-        except Exception:
-            return "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
+            if not kpi_name:
+                return self._contract_path()
+            # Look up the KPI in the shared registry factory singleton
+            data_product_id = None
+            try:
+                from src.registry.factory import RegistryFactory
+                kpi_provider = RegistryFactory().get_provider("kpi")
+                if kpi_provider:
+                    kpi_name_lower = kpi_name.lower().strip()
+                    for k in kpi_provider.get_all():
+                        if (getattr(k, "name", "") or "").lower().strip() == kpi_name_lower:
+                            data_product_id = getattr(k, "data_product_id", None)
+                            break
+            except Exception as e:
+                self.logger.debug(f"_contract_path_for_kpi: registry lookup failed: {e}")
 
-    def _dims_from_contract(self, limit: int) -> List[str]:
+            if data_product_id:
+                # Scan contracts directory for a YAML whose metadata.id matches
+                import glob as _glob
+                contracts_dir = self._CONTRACTS_DIR
+                if not os.path.isabs(contracts_dir) and not os.path.exists(contracts_dir):
+                    here = os.path.dirname(__file__)
+                    contracts_dir = os.path.abspath(os.path.join(here, "..", "..", "..", contracts_dir))
+                for fpath in _glob.glob(os.path.join(contracts_dir, "*.yaml")):
+                    try:
+                        with open(fpath, "r", encoding="utf-8") as f:
+                            doc = yaml.safe_load(f) or {}
+                        if (doc.get("metadata") or {}).get("id") == data_product_id:
+                            return fpath
+                    except Exception:
+                        continue
+        except Exception as e:
+            self.logger.debug(f"_contract_path_for_kpi error: {e}")
+        return self._contract_path()
+
+    def _dims_from_contract(self, limit: int, kpi_name: str = None) -> List[str]:
         dims: List[str] = []
         try:
-            cpath = self._contract_path()
+            cpath = self._contract_path_for_kpi(kpi_name)
             if not os.path.exists(cpath):
                 return []
             with open(cpath, "r", encoding="utf-8") as f:
                 doc = yaml.safe_load(f)
             views = (doc or {}).get("views", [])
+            # Use the first view found (contract may have only one view)
             target = None
             for v in views:
-                if isinstance(v, dict) and v.get("name") == "FI_Star_View":
+                if isinstance(v, dict) and v.get("llm_profile"):
                     target = v
                     break
             if not isinstance(target, dict):
@@ -140,11 +174,16 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             all_dims = llm_profile.get("dimension_semantics", []) or []
             def _keep(lbl: str) -> bool:
                 s = str(lbl or "").lower()
-                ban = ["flag", "hierarchy", "id", "transaction date", "version", "fiscal ytd", "fiscal qtd", "fiscal mtd"]
+                ban = ["flag", "hierarchy", "_id", "transaction_date", "transaction date",
+                       "version", "fiscal ytd", "fiscal qtd", "fiscal mtd"]
                 return bool(lbl) and not any(t in s for t in ban)
             kept = [d for d in all_dims if _keep(str(d))]
-            # Preference order
-            preferred = ["Profit Center Name", "Customer Type Name", "Customer Name", "Product Name"]
+            # Preference order covers both bicycle (spaces) and lubricants (snake_case)
+            preferred = [
+                "profit_center_name", "customer_name", "product_name", "product_line",
+                "channel_name", "customer_segment",
+                "Profit Center Name", "Customer Type Name", "Customer Name", "Product Name",
+            ]
             out: List[str] = [d for d in preferred if d in kept]
             for d in kept:
                 if d not in out:
@@ -358,7 +397,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 target_count = max(cfg_limit, 15)
             except Exception:
                 target_count = 15
-            dimensions: List[str] = self._dims_from_contract(limit=target_count)
+            dimensions: List[str] = self._dims_from_contract(limit=target_count, kpi_name=request.kpi_name)
             try:
                 self.logger.info(f"plan_deep_analysis: kpi={request.kpi_name} timeframe={request.timeframe} dims_from_contract={len(dimensions)}")
             except Exception:
@@ -477,7 +516,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
 
                     # Fallback: populate dimensions and steps from contract if missing
                     if not dims:
-                        dims = self._dims_from_contract(limit=self.config.max_dimensions)
+                        dims = self._dims_from_contract(limit=self.config.max_dimensions, kpi_name=getattr(plan, "kpi_name", None))
                         try:
                             # Update the incoming plan so UI shows correct counts
                             if hasattr(plan, "dimensions"):
@@ -526,7 +565,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     # Helper: read dimension hierarchies from contract (if provided)
                     def _hierarchies_from_contract() -> Dict[str, List[str]]:
                         try:
-                            cpath = self._contract_path()
+                            cpath = self._contract_path_for_kpi(getattr(plan, "kpi_name", None))
                             if not os.path.exists(cpath):
                                 return {}
                             with open(cpath, "r", encoding="utf-8") as f:
@@ -534,7 +573,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             views = (doc or {}).get("views", [])
                             target = None
                             for v in views:
-                                if isinstance(v, dict) and v.get("name") == "FI_Star_View":
+                                if isinstance(v, dict) and v.get("llm_profile"):
                                     target = v
                                     break
                             if not isinstance(target, dict):
@@ -1244,7 +1283,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     # Fallback: populate dimensions and steps from contract if missing
                     if not getattr(plan, "dimensions", None):
                         # Use contract dims; if still empty and hierarchies exist, seed from top-level hierarchy labels
-                        dims_from_contract = self._dims_from_contract(limit=self.config.max_dimensions)
+                        dims_from_contract = self._dims_from_contract(limit=self.config.max_dimensions, kpi_name=getattr(plan, "kpi_name", None))
                         if dims_from_contract:
                             plan.dimensions = dims_from_contract
                         elif hmap:
@@ -1417,7 +1456,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             # Ensure plan has non-empty counters for UI summary even if DP path didn't run
             try:
                 if not getattr(plan, "dimensions", None):
-                    plan.dimensions = self._dims_from_contract(limit=self.config.max_dimensions)
+                    plan.dimensions = self._dims_from_contract(limit=self.config.max_dimensions, kpi_name=getattr(plan, "kpi_name", None))
                 if not getattr(plan, "steps", None):
                     plan.steps = self._build_group_compare_steps(
                         getattr(plan, "dimensions", []) or [],

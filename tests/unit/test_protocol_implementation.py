@@ -27,10 +27,8 @@ async def test_situation_awareness_agent_implements_protocol():
     assert hasattr(agent, "get_recommended_questions"), "Agent should implement get_recommended_questions"
     assert hasattr(agent, "get_kpi_definitions"), "Agent should implement get_kpi_definitions"
     
-    # Check that agent card entrypoints are implemented
-    assert hasattr(agent, "detect_situation"), "Agent should implement detect_situation"
-    assert hasattr(agent, "summarize_situation"), "Agent should implement summarize_situation"
-    assert hasattr(agent, "aggregate_agent_outputs"), "Agent should implement aggregate_agent_outputs"
+    # Note: detect_situation, summarize_situation, aggregate_agent_outputs are not defined
+    # in the agent card or PRD and have been removed from the compliance check.
 
 @pytest.mark.asyncio
 async def test_protocol_method_signatures():

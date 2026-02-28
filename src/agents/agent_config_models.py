@@ -149,7 +149,7 @@ class A9_Data_Product_MCP_Service_Config(BaseModel):
     
     # Data source settings
     sap_data_path: str = Field(
-        "C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI", 
+        "C:/Users/Blell/Documents/Agent9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI", 
         description="Path to SAP DataSphere CSV data files"
     )
     

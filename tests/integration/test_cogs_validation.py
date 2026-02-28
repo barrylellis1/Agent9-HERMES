@@ -30,7 +30,7 @@ from src.agents.models.situation_awareness_models import (
 @pytest.mark.asyncio
 async def test_cogs_amounts_match_sql(orchestrator):
     # Ensure FI Star tables and view are prepared, same as Decision Studio
-    contract_path = os.path.join(ROOT, "src", "contracts", "fi_star_schema.yaml")
+    contract_path = os.path.join(ROOT, "src", "registry_references", "data_product_registry", "data_products", "fi_star_schema.yaml")
     prep = await orchestrator.prepare_environment(contract_path, view_name="FI_Star_View")
     assert prep.get("status") in {"success", "error"}, "Prep call should return a status key"
 
@@ -87,7 +87,7 @@ async def test_cogs_amounts_match_sql(orchestrator):
     baseline = kv.get("comparison_value") if isinstance(kv, dict) else getattr(kv, "comparison_value", None)
 
     # Compute the same via direct SQL on DuckDB
-    db_path = os.path.join(ROOT, "data", "agent9-hermes.duckdb")
+    db_path = os.path.join(ROOT, "data", "agent9-hermes-api.duckdb")
     if not os.path.exists(db_path):
         pytest.skip("DuckDB path not found; skipping COGS SQL validation")
 

@@ -98,7 +98,7 @@ class UIOrchestrator:
         base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         contracts_path = os.path.join(base_path, "contracts")
         sap_data_path = self.config.get("sap_data_path", 
-            "C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI")
+            "C:/Users/Blell/Documents/Agent9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI")
         registry_path = os.path.join(base_path, "registry")
         
         # Set up configuration with all necessary paths

@@ -15,7 +15,7 @@ load_dotenv()
 
 from src.registry.factory import RegistryFactory
 from src.agents.agent_bootstrap import AgentBootstrap
-from src.registry.providers.business_glossary_provider import BusinessTerm
+from src.registry.providers.business_glossary_provider import BusinessGlossaryProvider, BusinessTerm
 
 # Database-backed registry providers (Supabase)
 from src.database.manager_factory import DatabaseManagerFactory
@@ -170,23 +170,36 @@ class RegistryBootstrap:
 
                 if should_use_db('BUSINESS_GLOSSARY_BACKEND'):
                     try:
-                        logger.info('Initializing DatabaseRegistryProvider for Business Glossary')
-                        glossary_provider = DatabaseRegistryProvider(
+                        logger.info('Initializing BusinessGlossaryProvider (hydrated from Supabase)')
+                        # Load raw records from DB using the generic provider
+                        db_glossary_loader = DatabaseRegistryProvider(
                             db_manager=db_manager,
                             table_name="business_glossary_terms",
                             model_class=BusinessTerm,
                             client_id=None  # shared across all clients
                         )
-                        await glossary_provider.load()
+                        await db_glossary_loader.load()
+                        # Hydrate a BusinessGlossaryProvider in-memory so the registry
+                        # route isinstance check passes and term-specific methods work
+                        glossary_provider = BusinessGlossaryProvider(auto_load=False)
+                        for term in db_glossary_loader.get_all():
+                            glossary_provider.terms[term.name.lower()] = term
+                            for synonym in term.synonyms:
+                                glossary_provider.synonym_map[synonym.lower()] = term.name.lower()
                         cls._factory.register_provider('business_glossary', glossary_provider)
                         cls._factory._provider_initialization_status['business_glossary'] = True
+                        logger.info(f"Business glossary provider initialized with {len(glossary_provider.terms)} terms from Supabase")
                     except Exception as e:
                         logger.warning(f"Database glossary provider init failed: {e}")
                         glossary_provider = None
 
-                # YAML fallback removed (2026-02-19) — Supabase is the sole registry backend.
+                # Fallback: use an empty in-memory BusinessGlossaryProvider so the
+                # Registry Explorer works even if Supabase glossary table is empty/missing.
                 if glossary_provider is None:
-                    logger.error("Business glossary provider failed to initialize from Supabase. Check SUPABASE_DB_URL and BUSINESS_GLOSSARY_BACKEND env vars.")
+                    logger.warning("Business glossary Supabase init failed — using empty in-memory provider")
+                    glossary_provider = BusinessGlossaryProvider(auto_load=False)
+                    cls._factory.register_provider('business_glossary', glossary_provider)
+                    cls._factory._provider_initialization_status['business_glossary'] = True
             
             # --- Data Product ---
             existing_data_product_provider = cls._factory.get_provider('data_product')

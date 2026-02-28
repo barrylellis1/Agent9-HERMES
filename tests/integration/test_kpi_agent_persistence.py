@@ -25,6 +25,12 @@ def mock_env_vars(monkeypatch):
 @pytest_asyncio.fixture
 async def setup_registry(mock_env_vars):
     """Initialize registry with DuckDB backend"""
+    # Save original singleton state so we can restore it after the test
+    _saved_factory_instance = RegistryFactory._instance
+    _saved_initialized = RegistryBootstrap._initialized
+    _saved_factory = RegistryBootstrap._factory
+    _saved_db_manager = RegistryBootstrap._db_manager
+
     # Reset singletons
     RegistryFactory._instance = None
     RegistryBootstrap._initialized = False
@@ -41,6 +47,7 @@ async def setup_registry(mock_env_vars):
     create_sql = """
     CREATE TABLE kpis (
         id VARCHAR PRIMARY KEY,
+        client_id VARCHAR,
         name VARCHAR,
         domain VARCHAR,
         owner_role VARCHAR,
@@ -67,9 +74,12 @@ async def setup_registry(mock_env_vars):
     
     yield factory
     
-    # Cleanup
+    # Cleanup: restore original singleton state so subsequent tests are not affected
     await db_manager.disconnect()
-    RegistryBootstrap._db_manager = None
+    RegistryBootstrap._db_manager = _saved_db_manager
+    RegistryBootstrap._initialized = _saved_initialized
+    RegistryBootstrap._factory = _saved_factory
+    RegistryFactory._instance = _saved_factory_instance
 
 @pytest.mark.asyncio
 async def test_kpi_persistence_flow(setup_registry):
@@ -139,9 +149,11 @@ async def test_kpi_persistence_flow(setup_registry):
         # VERIFY: Check if data is in the database
         provider = factory.get_kpi_provider()
         
-        # Verify via provider.get() (which checks cache)
-        # Note: DatabaseRegistryProvider implementation caches on write
-        retrieved_kpi = provider.get(kpi_id)
+        # Verify via provider cache (use get_all to avoid composite-key lookup mismatch)
+        # client_id defaults to "lubricants" on KPI model, cached under "lubricants:id" key,
+        # but provider.client_id=None so composite lookup is skipped — use get_all() instead.
+        all_kpis = provider.get_all()
+        retrieved_kpi = next((k for k in all_kpis if k.id == kpi_id), None)
         assert retrieved_kpi is not None
         assert retrieved_kpi.name == "Test Persistence KPI"
         

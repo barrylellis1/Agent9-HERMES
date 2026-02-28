@@ -16,7 +16,7 @@ data_products:
     documentation: "Uses canonical YAML contract for schema, KPIs, and relationships. See yaml_contract_path."
     reviewed: true
     language: "EN"
-    output_path: "C:\\Users\\barry\\Documents\\Agent 9\\SAP DataSphere Data\\datasphere-content-1.7\\datasphere-content-1.7\\SAP_Sample_Content\\CSV\\FI"
+    output_path: "C:\\Users\\Blell\\Documents\\Agent9\\SAP DataSphere Data\\datasphere-content-1.7\\datasphere-content-1.7\\SAP_Sample_Content\\CSV\\FI"
     yaml_contract_path: "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
   
 

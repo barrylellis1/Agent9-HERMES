@@ -14,7 +14,7 @@ def reload_fi_star_view():
     db_path = "data/agent9-hermes-api.duckdb"
     
     # Path to CSVs provided by user
-    csv_dir = r"C:\Users\barry\Documents\Agent 9\SAP DataSphere Data\datasphere-content-1.7\datasphere-content-1.7\SAP_Sample_Content\CSV\FI"
+    csv_dir = r"C:\Users\Blell\Documents\Agent9\SAP DataSphere Data\datasphere-content-1.7\datasphere-content-1.7\SAP_Sample_Content\CSV\FI"
     
     # Use the rebalanced file and shift dates forward by 2 years to match 2026 simulation
     ft_csv = os.path.join(csv_dir, "FinancialTransactions.rebalanced.csv")

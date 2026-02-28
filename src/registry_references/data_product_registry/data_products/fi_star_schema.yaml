@@ -137,7 +137,7 @@ views:
 
 tables:
   - name: GLAccountsHierarchy
-    data_source_path: 'C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
+    data_source_path: 'C:/Users/Blell/Documents/Agent9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
     columns:
       - name: HIERARCHYID
         type: string
@@ -147,7 +147,7 @@ tables:
         type: string
 
   - name: FinancialTransactions
-    data_source_path: 'C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI/FinancialTransactions.csv'
+    data_source_path: 'C:/Users/Blell/Documents/Agent9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI/FinancialTransactions.csv'
     csv_options:
       delimiter: ";"
       decimal_separator: ","
@@ -176,7 +176,7 @@ tables:
         type: string
 
   - name: GLAccountsTexts
-    data_source_path: 'C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
+    data_source_path: 'C:/Users/Blell/Documents/Agent9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
     columns:
       - name: ACCOUNTID
         type: string
@@ -190,7 +190,7 @@ tables:
         type: string
 
   - name: GLAccounts
-    data_source_path: 'C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
+    data_source_path: 'C:/Users/Blell/Documents/Agent9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
     columns:
       - name: accountid
         type: string
@@ -200,7 +200,7 @@ tables:
         type: string
 
   - name: Products
-    data_source_path: 'C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
+    data_source_path: 'C:/Users/Blell/Documents/Agent9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
     columns:
       - name: productid
         type: string
@@ -208,7 +208,7 @@ tables:
         type: string
 
   - name: ProductHierarchy
-    data_source_path: 'C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
+    data_source_path: 'C:/Users/Blell/Documents/Agent9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
     columns:
       - name: HIERARCHYID
         type: string
@@ -218,7 +218,7 @@ tables:
         type: string
 
   - name: Customer
-    data_source_path: 'C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
+    data_source_path: 'C:/Users/Blell/Documents/Agent9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
     columns:
       - name: customerid
         type: string
@@ -228,7 +228,7 @@ tables:
         type: string
 
   - name: CustomersHierarchy
-    data_source_path: 'C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
+    data_source_path: 'C:/Users/Blell/Documents/Agent9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
     columns:
       - name: HIERARCHYID
         type: string
@@ -238,7 +238,7 @@ tables:
         type: string
 
   - name: CustomerType
-    data_source_path: 'C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
+    data_source_path: 'C:/Users/Blell/Documents/Agent9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
     columns:
       - name: customertypeid
         type: string
@@ -246,7 +246,7 @@ tables:
         type: string
 
   - name: ProductCategories
-    data_source_path: 'C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
+    data_source_path: 'C:/Users/Blell/Documents/Agent9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
     columns:
       - name: productcategoryid
         type: string
@@ -254,7 +254,7 @@ tables:
         type: string
 
   - name: ProfitCenter
-    data_source_path: 'C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
+    data_source_path: 'C:/Users/Blell/Documents/Agent9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
     columns:
       - name: profitcenterid
         type: string
@@ -262,7 +262,7 @@ tables:
         type: string
 
   - name: ProfitCenterHierarchy
-    data_source_path: 'C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
+    data_source_path: 'C:/Users/Blell/Documents/Agent9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
     columns:
       - name: HIERARCHYID
         type: string
@@ -272,7 +272,7 @@ tables:
         type: string
 
   - name: ProfitCenterTexts
-    data_source_path: 'C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
+    data_source_path: 'C:/Users/Blell/Documents/Agent9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
     columns:
       - name: PROFITCENTERID
         type: string
@@ -286,7 +286,7 @@ tables:
         type: string
 
   - name: CustomerTypeTexts
-    data_source_path: 'C:/Users/barry/Documents/Agent 9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
+    data_source_path: 'C:/Users/Blell/Documents/Agent9/SAP DataSphere Data/datasphere-content-1.7/datasphere-content-1.7/SAP_Sample_Content/CSV/FI'
     columns:
       - name: CUSTOMERTYPEID
         type: string

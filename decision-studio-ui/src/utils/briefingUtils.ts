@@ -42,16 +42,29 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
     }
     const decisionDeadline = deadlineMap[situation?.severity?.toLowerCase()] || 'TBD'
 
+    // Format snake_case dimension names to human-readable Title Case
+    const formatDimLabel = (dim: string): string =>
+      String(dim || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+
+    // Format a delta value at the appropriate scale (no unit assumption)
+    const formatDelta = (delta: number | undefined | null): string => {
+      if (delta == null || delta === 0) return 'Significant'
+      const abs = Math.abs(delta)
+      const sign = delta > 0 ? '+' : ''
+      if (abs >= 1_000_000) return `${sign}${(delta / 1_000_000).toFixed(1)}M`
+      if (abs >= 1_000)     return `${sign}${(delta / 1_000).toFixed(1)}K`
+      return `${sign}${delta.toFixed(2)}`
+    }
+
     // Extract root causes from Deep Analysis
     const rootCauses: any[] = []
     const whereIs = analysis?.kt_is_is_not?.where_is || []
     whereIs.slice(0, 5).forEach((item: any) => {
       if (item?.dimension && item?.key) {
-        const delta = item?.delta ? (item.delta > 0 ? `+${(item.delta/1000000).toFixed(1)}M` : `${(item.delta/1000000).toFixed(1)}M`) : 'Significant'
         rootCauses.push({
-          driver: `${item.dimension}: ${item.key}`,
+          driver: `${formatDimLabel(item.dimension)}: ${item.key}`,
           evidence: item?.text || `Current: ${item?.current?.toLocaleString() || 'N/A'}`,
-          impact: delta
+          impact: `Δ ${formatDelta(item?.delta)}`
         })
       }
     })
@@ -63,18 +76,18 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
       return 'Low'
     }
     
-    // Map investment from cost score
+    // Map investment effort from cost score (qualitative — avoids fake dollar amounts)
     const investmentMap = (cost: number) => {
-      if (cost >= 0.7) return 'High ($500K+)'
-      if (cost >= 0.4) return 'Medium ($100-500K)'
-      return 'Low (<$100K)'
+      if (cost >= 0.7) return 'High Effort'
+      if (cost >= 0.4) return 'Moderate Effort'
+      return 'Low Effort'
     }
-    
-    // Estimate ROI from impact score
+
+    // Map impact potential from impact score (qualitative — avoids fake % projections)
     const roiMap = (impact: number) => {
-      if (impact >= 0.7) return '15-25%'
-      if (impact >= 0.4) return '8-15%'
-      return '3-8%'
+      if (impact >= 0.7) return 'High Impact Potential'
+      if (impact >= 0.4) return 'Moderate Impact Potential'
+      return 'Incremental Impact'
     }
 
     const options = topOptions.slice(0, 3).map((opt: any, idx: number) => ({
