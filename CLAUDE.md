@@ -34,7 +34,7 @@ Agent9-HERMES is a multi-agent automation system designed to provide automated b
 - Sidebar: Select principal (8 profiles), business processes (39 available), timeframe, comparison type
 - Click "Detect Situations" → SA Agent queries KPIs against thresholds → generates situation cards
 - Per-situation "Initiate Deep Analysis" → DA Agent runs dimensional Is/Is Not analysis with change-point detection
-- Per-situation or standalone "Run Debate" → SF Agent generates multi-persona consulting debate with ranked solutions
+- Per-situation or standalone "Run Debate" → SF Agent runs **multi-call architecture**: 3 parallel Stage 1 LLM calls (one per persona) + 1 synthesis call → ranked solutions with quantified impact_estimate
 - Follow-up NL questions per situation → NLP Interface Agent parses → Data Product Agent executes SQL → inline results
 - HITL approval workflow for solution recommendations
 
@@ -63,7 +63,7 @@ Agent9-HERMES is a multi-agent automation system designed to provide automated b
 | **A9_Principal_Context_Agent** | 8 principal profiles, dual lookup (role-based legacy + ID-based), business process mapping, data product ownership identification | Operational |
 | **A9_Situation_Awareness_Agent** | KPI threshold monitoring, anomaly detection, situation card generation, per-KPI SQL generation, NL query processing | Operational |
 | **A9_Deep_Analysis_Agent** | Dimensional Is/Is Not analysis, grouped comparisons, variance analysis, change-point detection, SCQA framing | Operational |
-| **A9_Solution_Finder_Agent** | Multi-persona consulting debate, trade-off matrix, option ranking (impact/cost/risk weights), HITL events | Operational |
+| **A9_Solution_Finder_Agent** | Multi-call parallel architecture (3 Stage 1 + 1 synthesis LLM calls), consulting council debate, trade-off matrix, quantified impact_estimate per option, stage_1_hypotheses, HITL events | Operational |
 | **A9_Data_Product_Agent** | Schema inspection (DuckDB/BigQuery/Postgres), contract YAML generation, SQL execution, view management, data product registration | Operational — largest agent |
 | **A9_Data_Governance_Agent** | Business term translation, KPI-to-data-product mapping, registry integrity validation, top dimension computation | Operational (MVP: allows all access) |
 | **A9_NLP_Interface_Agent** | Deterministic regex-based parsing (no LLM), TopN intent, timeframe hints, grouping extraction, KPI resolution | Operational |
@@ -84,7 +84,7 @@ Agent9-HERMES is a multi-agent automation system designed to provide automated b
 - Per-situation: Details expander, diagnostic question buttons, Deep Analysis button, Solutions button
 - Per-situation: Follow-up question text input with SQL generation and execution
 - Solutions Studio: weight sliders (impact/cost/risk), problem statement, debate persona selector, Run Debate button
-- Solutions display: recommendation, option scores table, debate transcript, KT Is/Is Not, executive summary
+- Solutions display: recommendation, option scores table, debate transcript, KT Is/Is Not, executive summary with Stage 1 per-persona hypothesis cards and quantified impact estimates
 - Debug mode: SQL per KPI, data governance mappings, diagnostics trace, state HUD
 - NL Q&A section: free-text question → answer with generated SQL
 

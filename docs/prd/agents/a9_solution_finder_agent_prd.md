@@ -1,11 +1,20 @@
 # A9_Solution_Finder_Agent PRD
 
-<!-- 
+<!--
 CANONICAL PRD DOCUMENT
 This is the official, canonical PRD document for this agent.
-Last updated: 2025-07-17
+Last updated: 2026-02-28
 -->
 
+
+> **2026-02-28 Phase 10 Update — Multi-Call LLM Architecture:**
+> The Solution Finder Agent now uses a 4-call parallel architecture for the council debate:
+> - **Stage 1 (parallel):** 3 independent LLM calls, one per consulting persona. Each produces a focused hypothesis + one proposed option with a quantified `impact_estimate`. Runs concurrently via `asyncio.gather`.
+> - **Stage 2 (synthesis):** 1 synthesis LLM call receives all 3 Stage 1 proposals as `stage_1_persona_hypotheses`. Expands each into a full option with perspectives, prerequisites, and cross-review. No token budget shared with hypothesis generation.
+> - `SolutionFinderResponse` now includes `stage_1_hypotheses` field (per-persona hypothesis objects from Stage 1).
+> - `SolutionOption` now carries `impact_estimate` with `metric`, `unit`, `recovery_range: {low, high}`, `basis`.
+> - Input data enriched with: `situation_metadata` (KPI unit, current/comparison values), `decision_maker` (name, role, priorities), `business_context` (multi-tenant, resolved via `data_product_id` lookup), IS-NOT data from DA (`where_is_not`, `what_is_not`, `when_is_not`).
+> - `debate_stage` preference check skips Stage 1 for `cross_review`/`synthesis` frontend stages to prevent redundant calls.
 
 > **2025-05-13 Update:**
 > The A9_Solution_Finder_Agent is now fully refactored and compliant with Agent9 protocol and architectural standards. It uses a Pydantic config model, structured logging, orchestrator-driven registry integration (via `create_from_registry`), and protocol entrypoints with Pydantic models. HITL is supported for all actions. Card/config/code are now fully synchronized. Next steps: update/add tests, compliance, and monitoring as needed.
@@ -158,11 +167,24 @@ Agent9 agents are prioritized for LLM integration as follows (see BACKLOG_REFOCU
 - Optional: user-supplied constraints, preferences, and feedback
 
 ### Output Specifications (MVP)
-- Pydantic output model with:
-  - Ranked solution options
-  - Recommendation and rationale
-  - Confidence scores
-  - Trade-off matrix (if applicable)
+- Pydantic output model (`SolutionFinderResponse`) with:
+  - `options_ranked`: Ranked solution options (list of `SolutionOption`)
+  - `recommendation`: Recommended option
+  - `recommendation_rationale`: Rationale string
+  - `problem_reframe`: SCQA-style problem reframe (`situation`, `complication`, `question`, `key_assumptions`)
+  - `tradeoff_matrix`: Criteria + options matrix
+  - `unresolved_tensions`: Tensions requiring human judgment
+  - `blind_spots`: Identified risk areas
+  - `next_steps`: Actionable next steps
+  - `cross_review`: Per-persona critiques and endorsements (dict keyed by persona_id)
+  - `stage_1_hypotheses`: Per-persona Stage 1 hypothesis objects (dict keyed by persona_id) — *added Phase 10*
+  - `framing_context`: Persona selection source, presentation note, disclaimer
+  - `audit_log`: All events including Stage 1 call results
+  - HITL fields: `human_action_required`, `human_action_type`, `human_action_context`
+- Each `SolutionOption` includes:
+  - `id`, `title`, `description`, `expected_impact`, `cost`, `risk` (0–1 normalized)
+  - `impact_estimate`: `{metric, unit, recovery_range: {low, high}, basis}` — quantified KPI recovery estimate
+  - `time_to_value`, `reversibility`, `perspectives`, `implementation_triggers`, `prerequisites`
   - **Trade-Off Analysis Deliverable:**
     - Structured comparison of options (table/matrix format)
     - Narrative summary of tradeoffs, pros/cons, and recommendations
@@ -404,6 +426,94 @@ All Solution Finder outputs MUST include:
 
 ---
 
+---
+
+## Multi-Call LLM Architecture (Phase 10 — 2026-02-28)
+
+The single-call LLM bottleneck was replaced with a parallel 4-call architecture that solves the token budget problem (all personas + synthesis competing for output tokens in one call).
+
+### Call Topology
+
+```
+recommend_actions()
+  │
+  ├── STAGE 1 (parallel, asyncio.gather)
+  │     ├── LLM call: McKinsey hypothesis + proposed_option
+  │     ├── LLM call: BCG hypothesis + proposed_option
+  │     └── LLM call: Bain hypothesis + proposed_option
+  │           ↓ (3 compact results collected as stage_1_hyps_dict)
+  │
+  └── STAGE 2 (synthesis)
+        LLM call: receives stage_1_persona_hypotheses in data_payload
+        → expands each into full option with perspectives + impact_estimate
+        → generates cross_review (each firm critiques other firms' options)
+        → outputs: problem_reframe, options[3], recommendation, tensions, blind_spots
+```
+
+### Stage 1 Per-Persona Prompt (compact)
+
+Each Stage 1 call receives only:
+- Own persona profile (`to_prompt_context()`)
+- Problem statement
+- Compact DA signals: `kpi_name`, `top_change_points[:3]`, `where_signals[:3]`, `where_is_not[:3]`
+- Compact business context: `name`, `industry`, `operational_context`
+- `situation_metadata`: severity, kpi_name, current_value, comparison_value, unit
+
+Output per persona:
+```json
+{
+  "persona_id": "mckinsey",
+  "framework": "...",
+  "hypothesis": "...",
+  "key_evidence": ["...", "...", "..."],
+  "recommended_focus": "...",
+  "conviction": "High|Medium|Low",
+  "proposed_option": {
+    "title": "...",
+    "description": "...",
+    "mechanism": "...",
+    "time_horizon": "0-90 days|3-12 months|12+ months",
+    "impact_estimate": { "metric": "...", "unit": "...", "recovery_range": {"low": 0.0, "high": 0.0}, "basis": "..." },
+    "cost_signal": "High|Medium|Low",
+    "risk_signal": "High|Medium|Low"
+  }
+}
+```
+
+### Stage 2 Synthesis Prompt
+
+Receives `stage_1_persona_hypotheses` in `data_payload`. Instruction: use each persona's `proposed_option` as the basis for one of 3 output options, then expand with full `perspectives`, `prerequisites`, `implementation_triggers`. Output schema includes `problem_reframe`, `options[3]`, `recommendation`, `recommendation_rationale`, `unresolved_tensions`, `blind_spots`, `next_steps`, `cross_review`. Stage 1 hypotheses are **excluded** from synthesis output schema to save output tokens.
+
+### `debate_stage` Optimization
+
+The React frontend calls the SF API 3 times (stages: `hypothesis`, `cross_review`, `synthesis`). To prevent running Stage 1 three times:
+- If `prefs["debate_stage"] in ("cross_review", "synthesis")`: Stage 1 is skipped
+- Stage 1 only runs on the `hypothesis` stage (first call) or when `debate_stage` is unset
+
+### Enriched Input Data (`data_payload`)
+
+| Key | Source | Purpose |
+|-----|--------|---------|
+| `problem_statement` | situation_context.description + DA | Authoritative KPI direction |
+| `situation_metadata` | situation_context | KPI unit, current/comparison values, severity |
+| `decision_maker` | principal_context | Name, role, decision_style, priorities |
+| `business_context` | Resolved via `data_product_id` → YAML | Multi-tenant context (Summit Lubricants vs. Bicycle Retail) |
+| `deep_analysis_context` | Trimmed DA output | Change points, KT Is/Is-Not |
+| `deep_analysis_summary` | Extracted from DA | kpi_name, where_signals, where_is_not, what_is_not |
+| `stage_1_persona_hypotheses` | Stage 1 results | 3 proposed options for synthesis to expand |
+
+### Business Context Resolution (`_DP_CONTEXT_MAP`)
+
+Business context is resolved by looking up the KPI's `data_product_id` in the KPI registry, then mapping to a context YAML file:
+```python
+_DP_CONTEXT_MAP: Dict[str, str] = {
+    "dp_lubricants_financials": "lubricants_context.yaml",
+    # default → bicycle_retail_context.yaml
+}
+```
+
+---
+
 ## Technical Requirements
 - Modular, maintainable architecture
 - Registry integration and async operations
@@ -455,6 +565,9 @@ All Solution Finder outputs MUST include:
 - Agent learning from solution outcomes and user feedback
 
 ## Change Log
+- **2026-02-28 (Phase 10):** Multi-call LLM architecture. Replaced single monolithic LLM call with 3 parallel Stage 1 persona calls + 1 synthesis call. Added `stage_1_hypotheses` to `SolutionFinderResponse`. Added `impact_estimate` to `SolutionOption`. Enriched `data_payload` with `situation_metadata`, `decision_maker`, multi-tenant `business_context`. Added IS-NOT data extraction from DA output. Added `debate_stage` check to skip Stage 1 for `cross_review`/`synthesis` frontend calls. Expanded opt_2/opt_3 to full schemas (token budget freed). UI: Stage 1 rich consulting cards in `ExecutiveBriefing.tsx`.
+- **2026-02-xx (Phase 9):** Enriched data_payload with decision_maker, situation_metadata, business_context (explicit). Added IS-NOT side extraction from Deep Analysis (`where_is_not`, `what_is_not`, `when_is_not`). Fixed business context multi-tenant resolution via `_DP_CONTEXT_MAP` and KPI registry lookup. Added QUANTIFIED IMPACT REQUIREMENT, SCOPING REQUIREMENT, OPTION DIVERSITY REQUIREMENT constraints.
+- **2026-02-xx (Phase 8):** Added `impact_estimate` block to options schema. Expanded Stage 1 hypothesis display with `key_evidence`, `conviction`, consulting firm card UI. Added dynamic persona_ids template for `stage_1_hypotheses` and `cross_review` schema.
 - **2025-05-12:** Implemented full HITL escalation logic in Solution Finder Agent; output model and logging now strictly protocol-compliant. Documentation and checklist updated; unit tests cover HITL scenarios and protocol compliance.
 - **2025-04-20:** Updated PRD to reflect MVP debate outcomes and Product Owner answers (integration with Deep Analysis, mixed solution generation, human-in-the-loop, trade-off matrix, auditability, strict A2A/MCP compliance).
 
