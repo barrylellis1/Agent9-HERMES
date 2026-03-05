@@ -362,7 +362,9 @@ export function useDecisionStudio() {
             const stagePreferences = {
                 ...preferencesBase,
                 debate_stage: stage,
-                prior_transcript: stageResults[stageResults.length - 1]?.solutions?.debate_transcript
+                prior_transcript: stageResults[stageResults.length - 1]?.solutions?.debate_transcript,
+                // Pass Stage 1 hypotheses through to synthesis so backend can use recovery_range anchors
+                prior_stage1_hypotheses: stage === 'synthesis' ? stageOneHypotheses : undefined
             };
 
             const response = await runSolutionFinder(
@@ -387,11 +389,9 @@ export function useDecisionStudio() {
         };
 
         await runStage('hypothesis');
-        await new Promise(resolve => setTimeout(resolve, 1200));
         setDebatePhase(2);
 
         await runStage('cross_review');
-        await new Promise(resolve => setTimeout(resolve, 1200));
         setDebatePhase(3);
 
         const finalResult = await runStage('synthesis');

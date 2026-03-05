@@ -23,10 +23,11 @@ from src.agents.models.solution_finder_models import (
     PerspectiveAnalysis,
     UnresolvedTension,
 )
-from src.agents.a9_llm_service_agent import (
+from src.agents.new.a9_llm_service_agent import (
     A9_LLM_AnalysisRequest,
     A9_LLM_AnalysisResponse,
 )
+from src.llm_services.claude_service import get_claude_model_for_task, ClaudeTaskType
 from src.registry.consulting_personas import (
     get_consulting_persona,
     get_council_preset,
@@ -690,6 +691,10 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "  * 'recovery_range' = {\"low\": <number>, \"high\": <number>} expressed in the KPI's own units — NOT as a generic percentage of improvement. If unit is '%', express as percentage points (e.g. 1.2 to 2.8). If unit is '$', express as dollar amounts (e.g. 2400000 to 4800000).\n"
                         "  * 'basis' = one sentence grounding the estimate in the actual change_points magnitude and the option's mechanism (e.g. 'Supplier consolidation delivering 3-5% unit cost reduction on the $X COGS base identified in the where_is analysis').\n"
                         "  * Calibrate the range against situation_metadata.current_value and comparison_value — your estimate should be directionally proportional to the observed variance.\n"
+                        "- NUMERIC DIFFERENTIATION REQUIREMENT: Each option's expected_impact, cost, risk, AND recovery_range MUST differ from the others. "
+                        "Map each option's cost_signal from stage_1_persona_hypotheses.proposed_option: Low→0.25, Medium→0.50, High→0.80. "
+                        "Map risk_signal similarly. recovery_range MUST be non-zero — anchor from Stage 1 impact_estimates in stage_1_persona_hypotheses. "
+                        "Do NOT output 0.0 for any numeric field.\n"
                         "- SCOPING REQUIREMENT: Use 'where_is_not' and 'what_is_not' from deep_analysis_summary to explicitly scope each option — name which segments already perform well (no intervention needed) and which are the target. This prevents boiling-the-ocean recommendations.\n"
                         "- OPTION DIVERSITY REQUIREMENT: Generate EXACTLY 3 options with meaningfully different primary mechanisms — do NOT collapse them into a single 'Strategic Realignment'. Example structure: (1) an immediate operational intervention (0-90 days, lower cost, higher reversibility), (2) a structural fix targeting the root cause dimension (3-12 months), (3) a strategic portfolio or pricing play (12+ months, higher investment). Each option must be independently actionable and have a distinct title reflecting the specific lever.\n"
                         "- CRITICAL ACCURACY REQUIREMENT:\n"
@@ -713,13 +718,13 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "      \"id\": \"opt_1\",\n"
                         "      \"title\": \"...\",\n"
                         "      \"description\": \"...\",\n"
-                        "      \"expected_impact\": 0.0,\n"
-                        "      \"cost\": 0.0,\n"
-                        "      \"risk\": 0.0,\n"
+                        "      \"expected_impact\": 0.75,\n"
+                        "      \"cost\": 0.40,\n"
+                        "      \"risk\": 0.35,\n"
                         "      \"impact_estimate\": {\n"
                         "        \"metric\": \"<KPI name from situation_metadata>\",\n"
                         "        \"unit\": \"<unit from situation_metadata, e.g. % or $>\",\n"
-                        "        \"recovery_range\": {\"low\": 0.0, \"high\": 0.0},\n"
+                        "        \"recovery_range\": {\"low\": <S1_low_estimate>, \"high\": <S1_high_estimate>},\n"
                         "        \"basis\": \"<one sentence: mechanism + data grounding>\"\n"
                         "      },\n"
                         "      \"rationale\": \"...\",\n"
@@ -728,9 +733,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "      \"perspectives\": [\n"
                         "        {\n"
                         "          \"lens\": \"Financial\",\n"
-                        "          \"arguments_for\": [\"...\"],\n"
-                        "          \"arguments_against\": [\"...\"],\n"
-                        "          \"key_questions\": [\"...\"]\n"
+                        "          \"arguments_for\": [\"<complete sentence describing a specific benefit, e.g. 'Directly targets the highest-impact cost driver identified in the analysis'>\"],\n"
+                        "          \"arguments_against\": [\"<complete sentence describing a specific risk or limitation, e.g. 'Requires competitor pricing data not currently available'>\"],\n"
+                        "          \"key_questions\": [\"<actionable question for the decision maker>\"]\n"
                         "        }\n"
                         "      ],\n"
                         "      \"implementation_triggers\": [\"...\"],\n"
@@ -740,13 +745,13 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "      \"id\": \"opt_2\",\n"
                         "      \"title\": \"...\",\n"
                         "      \"description\": \"...\",\n"
-                        "      \"expected_impact\": 0.0,\n"
-                        "      \"cost\": 0.0,\n"
-                        "      \"risk\": 0.0,\n"
+                        "      \"expected_impact\": 0.55,\n"
+                        "      \"cost\": 0.60,\n"
+                        "      \"risk\": 0.55,\n"
                         "      \"impact_estimate\": {\n"
                         "        \"metric\": \"...\",\n"
                         "        \"unit\": \"...\",\n"
-                        "        \"recovery_range\": {\"low\": 0.0, \"high\": 0.0},\n"
+                        "        \"recovery_range\": {\"low\": <S1_low_estimate>, \"high\": <S1_high_estimate>},\n"
                         "        \"basis\": \"...\"\n"
                         "      },\n"
                         "      \"rationale\": \"...\",\n"
@@ -755,9 +760,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "      \"perspectives\": [\n"
                         "        {\n"
                         "          \"lens\": \"Financial\",\n"
-                        "          \"arguments_for\": [\"...\"],\n"
-                        "          \"arguments_against\": [\"...\"],\n"
-                        "          \"key_questions\": [\"...\"]\n"
+                        "          \"arguments_for\": [\"<complete sentence describing a specific benefit, e.g. 'Directly targets the highest-impact cost driver identified in the analysis'>\"],\n"
+                        "          \"arguments_against\": [\"<complete sentence describing a specific risk or limitation, e.g. 'Requires competitor pricing data not currently available'>\"],\n"
+                        "          \"key_questions\": [\"<actionable question for the decision maker>\"]\n"
                         "        }\n"
                         "      ],\n"
                         "      \"implementation_triggers\": [\"...\"],\n"
@@ -767,13 +772,13 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "      \"id\": \"opt_3\",\n"
                         "      \"title\": \"...\",\n"
                         "      \"description\": \"...\",\n"
-                        "      \"expected_impact\": 0.0,\n"
-                        "      \"cost\": 0.0,\n"
-                        "      \"risk\": 0.0,\n"
+                        "      \"expected_impact\": 0.38,\n"
+                        "      \"cost\": 0.80,\n"
+                        "      \"risk\": 0.70,\n"
                         "      \"impact_estimate\": {\n"
                         "        \"metric\": \"...\",\n"
                         "        \"unit\": \"...\",\n"
-                        "        \"recovery_range\": {\"low\": 0.0, \"high\": 0.0},\n"
+                        "        \"recovery_range\": {\"low\": <S1_low_estimate>, \"high\": <S1_high_estimate>},\n"
                         "        \"basis\": \"...\"\n"
                         "      },\n"
                         "      \"rationale\": \"...\",\n"
@@ -782,9 +787,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "      \"perspectives\": [\n"
                         "        {\n"
                         "          \"lens\": \"Financial\",\n"
-                        "          \"arguments_for\": [\"...\"],\n"
-                        "          \"arguments_against\": [\"...\"],\n"
-                        "          \"key_questions\": [\"...\"]\n"
+                        "          \"arguments_for\": [\"<complete sentence describing a specific benefit, e.g. 'Directly targets the highest-impact cost driver identified in the analysis'>\"],\n"
+                        "          \"arguments_against\": [\"<complete sentence describing a specific risk or limitation, e.g. 'Requires competitor pricing data not currently available'>\"],\n"
+                        "          \"key_questions\": [\"<actionable question for the decision maker>\"]\n"
                         "        }\n"
                         "      ],\n"
                         "      \"implementation_triggers\": [\"...\"],\n"
@@ -998,6 +1003,13 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     _debate_stage = prefs.get("debate_stage") if isinstance(prefs, dict) else None
                     _skip_stage1 = _debate_stage in ("cross_review", "synthesis")
                     stage_1_hyps_dict: Dict[str, Any] = {}
+                    # For synthesis stage, restore Stage 1 hypotheses passed through from UI
+                    # so recovery_range anchors can be injected into the synthesis prompt.
+                    if _skip_stage1 and _debate_stage == "synthesis" and isinstance(prefs, dict):
+                        _prior_s1 = prefs.get("prior_stage1_hypotheses")
+                        if isinstance(_prior_s1, dict):
+                            stage_1_hyps_dict = _prior_s1
+                            self.logger.info(f"[SF] Restored {len(stage_1_hyps_dict)} Stage 1 hypotheses from prior hypothesis call for recovery anchors")
                     if consulting_personas and not _skip_stage1:
                         da_compact_s1 = {
                             "kpi_name": da_summary.get("kpi_name"),
@@ -1014,6 +1026,29 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                 "operational_context": bc.get("operational_context"),
                             }.items() if v}
 
+                        # Build compact principal constraints for Stage 1 from Problem Refinement dialogue
+                        refinement_compact_s1: Dict[str, Any] = {}
+                        if refinement_result:
+                            excl = [
+                                e.get("value", str(e)) if isinstance(e, dict) else str(e)
+                                for e in refinement_result.get("exclusions", [])[:5]
+                            ]
+                            if excl:
+                                refinement_compact_s1["do_not_propose"] = excl
+                            if refinement_result.get("constraints"):
+                                refinement_compact_s1["constraints"] = refinement_result["constraints"][:5]
+                            if refinement_result.get("validated_hypotheses"):
+                                refinement_compact_s1["confirmed_causes"] = refinement_result["validated_hypotheses"][:3]
+                            if refinement_result.get("invalidated_hypotheses"):
+                                refinement_compact_s1["ruled_out_causes"] = refinement_result["invalidated_hypotheses"][:3]
+                            if refinement_result.get("external_context"):
+                                refinement_compact_s1["principal_context"] = refinement_result["external_context"][:3]
+
+                        # Use refined problem statement in Stage 1 if principal provided one
+                        ps_s1 = ps
+                        if refinement_result and refinement_result.get("refined_problem_statement"):
+                            ps_s1 = f"{ps}\nRefined focus: {refinement_result['refined_problem_statement']}"
+
                         async def _run_stage1(p: ConsultingPersona) -> Optional[Dict]:
                             try:
                                 persona_profile = p.to_prompt_context() if hasattr(p, "to_prompt_context") else f"{p.name}"
@@ -1023,7 +1058,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                     '  "framework": "<signature diagnostic framework name>",\n'
                                     '  "hypothesis": "<root cause hypothesis citing specific data>",\n'
                                     '  "key_evidence": ["<data point 1>", "<data point 2>", "<data point 3>"],\n'
-                                    '  "recommended_focus": "<specific lever: name segment/channel/product>",\n'
+                                    '  "recommended_focus": "<entity name only — e.g. \'High Mileage Engine Oil\' or \'Retail Products Division\'>",\n'
                                     '  "conviction": "High|Medium|Low",\n'
                                     '  "proposed_option": {\n'
                                     '    "title": "<action-oriented title reflecting your mechanism>",\n'
@@ -1033,7 +1068,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                     '    "impact_estimate": {\n'
                                     '      "metric": "<KPI name from situation_metadata>",\n'
                                     '      "unit": "<unit from situation_metadata>",\n'
-                                    '      "recovery_range": {"low": 0.0, "high": 0.0},\n'
+                                    '      "recovery_range": {"low": <estimated_low_number>, "high": <estimated_high_number>},\n'
                                     '      "basis": "<mechanism + magnitude from change_points>"\n'
                                     '    },\n'
                                     '    "cost_signal": "High|Medium|Low",\n'
@@ -1041,29 +1076,42 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                     '  }\n'
                                     '}'
                                 )
+                                principal_constraints_section = ""
+                                if refinement_compact_s1:
+                                    principal_constraints_section = (
+                                        "## PRINCIPAL CONSTRAINTS\n"
+                                        f"{_json_s1.dumps(refinement_compact_s1, indent=2)}\n\n"
+                                    )
                                 s1_prompt = (
                                     f"## ROLE\nYou are a {p.name} consultant.\n\n"
                                     f"## PERSONA\n{persona_profile}\n\n"
-                                    f"## PROBLEM\n{ps}\n\n"
+                                    f"## PROBLEM\n{ps_s1}\n\n"
                                     "## KEY ANALYSIS SIGNALS\n"
                                     f"{_json_s1.dumps(da_compact_s1, indent=2)}\n\n"
                                     "## BUSINESS CONTEXT\n"
                                     f"{_json_s1.dumps(bc_compact_s1, indent=2)}\n\n"
                                     "## SITUATION METRICS\n"
                                     f"{_json_s1.dumps(situation_metadata or {}, indent=2)}\n\n"
+                                    f"{principal_constraints_section}"
                                     "## YOUR TASK\n"
                                     f"As {p.name}, apply your methodology to:\n"
                                     "1. Form ONE specific hypothesis about the primary driver of this KPI decline\n"
                                     "2. Propose ONE actionable intervention with a distinct mechanism\n"
-                                    "3. Estimate the recovery impact using the KPI unit from situation_metadata\n"
-                                    "4. Provide 3 specific data points as evidence from the analysis signals\n\n"
+                                    "3. Estimate the recovery impact using the KPI unit from situation_metadata — recovery_range MUST be non-zero numbers proportional to the observed variance\n"
+                                    "4. Provide 3 specific data points as evidence from the analysis signals\n"
+                                    "RULES: recommended_focus = entity name only, NO field prefixes (e.g. 'High Mileage Engine Oil', NOT 'product_name: High Mileage Engine Oil'). "
+                                    "recovery_range low/high = actual numeric estimates (NEVER 0.0). cost_signal and risk_signal must reflect your mechanism's complexity. "
+                                    "Respect any do_not_propose items and constraints from PRINCIPAL CONSTRAINTS — do not propose excluded options.\n\n"
                                     f"## OUTPUT (JSON only, no markdown):\n{s1_schema}"
                                 )
                                 s1_req = A9_LLM_AnalysisRequest(
                                     request_id=f"{req_id}_s1_{p.id}",
+                                    principal_id=getattr(request, "principal_id", "system"),
                                     content=s1_prompt,
                                     analysis_type="custom",
                                     context="",
+                                    # Light model for focused single-persona call (overridable via CLAUDE_MODEL_STAGE1)
+                                    model=get_claude_model_for_task(ClaudeTaskType.STAGE1_PERSONA),
                                 )
                                 if self.orchestrator is not None:
                                     s1_resp = await self.orchestrator.execute_agent_method(
@@ -1115,10 +1163,42 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     }
                     import json as _json
                     data_json = _json.dumps(data_payload, indent=2)
-                    
+
+                    # Extract actual Stage 1 recovery_range values to inject as explicit anchors.
+                    # The <S1_low_estimate> placeholders in debate_spec are unreliable — LLMs often
+                    # output 0 when they have to locate the values themselves in a large JSON blob.
+                    # Injecting them as named constants guarantees non-zero synthesis output.
+                    recovery_anchors_section = ""
+                    if stage_1_hyps_dict:
+                        _opt_ids = ["opt_1", "opt_2", "opt_3"]
+                        _anchor_lines: List[str] = []
+                        for _i, (_pid, _hyp) in enumerate(list(stage_1_hyps_dict.items())[:3]):
+                            _po = _hyp.get("proposed_option") or {}
+                            _ie = _po.get("impact_estimate") or {} if isinstance(_po, dict) else {}
+                            _rr = _ie.get("recovery_range") or {} if isinstance(_ie, dict) else {}
+                            _low = _rr.get("low") if isinstance(_rr, dict) else None
+                            _high = _rr.get("high") if isinstance(_rr, dict) else None
+                            if _low is not None and _high is not None and (_low != 0 or _high != 0):
+                                _anchor_lines.append(
+                                    f"  {_opt_ids[_i]} (from {_pid}): "
+                                    f'recovery_range = {{"low": {_low}, "high": {_high}}}'
+                                )
+                        if _anchor_lines:
+                            recovery_anchors_section = (
+                                "## RECOVERY RANGE ANCHORS\n"
+                                "Use these EXACT numeric values for impact_estimate.recovery_range in your JSON output.\n"
+                                "Do NOT substitute 0 or null — these are the Stage 1 quantified estimates:\n"
+                                + "\n".join(_anchor_lines) + "\n\n"
+                            )
+
                     # Build the full prompt with debate_spec as the instruction prefix
                     # This ensures the LLM sees the constraints BEFORE the data
-                    full_prompt = f"{debate_spec}\n\n## INPUT DATA\n{data_json}\n\n## YOUR RESPONSE (JSON ONLY):"
+                    full_prompt = (
+                        f"{debate_spec}\n\n"
+                        f"## INPUT DATA\n{data_json}\n\n"
+                        f"{recovery_anchors_section}"
+                        f"## YOUR RESPONSE (JSON ONLY):"
+                    )
 
                     analysis_req = A9_LLM_AnalysisRequest(
                         request_id=req_id,
@@ -1130,6 +1210,10 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         content=full_prompt,  # Full prompt with instructions + data
                         analysis_type="custom",
                         context="",  # Empty context since debate_spec is now in content
+                        # Full-power model for synthesis/cross-review (overridable via CLAUDE_MODEL_SYNTHESIS)
+                        model=get_claude_model_for_task(ClaudeTaskType.SYNTHESIS),
+                        # Synthesis schema (3 options + cross_review) routinely exceeds 8192 tokens
+                        max_tokens=16384,
                     )
 
                     # Record the analysis request components in audit for UI/debug

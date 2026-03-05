@@ -51,3 +51,12 @@ node_modules/
 
 # Office temp files
 ~$*
+
+# Supabase binary (managed locally, not tracked)
+supabase.exe
+
+# Windows artifacts
+nul
+
+# Temp/scratch scripts
+scripts/_bq_test_tmp.py

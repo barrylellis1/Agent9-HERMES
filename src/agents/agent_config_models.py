@@ -13,29 +13,51 @@ from src.agents.models.nlp_models import (
 )
 
 
+def _default_llm_provider() -> str:
+    """Read LLM_PROVIDER env var; fall back to 'anthropic'."""
+    import os
+    from dotenv import load_dotenv
+    load_dotenv()
+    p = os.environ.get("LLM_PROVIDER", "anthropic").lower()
+    # Map legacy value "openai" to openai, everything else → anthropic
+    return p if p in ("openai", "anthropic") else "anthropic"
+
+
+def _default_api_key_env_var() -> str:
+    """Return the env-var name for the API key matching the configured provider."""
+    p = _default_llm_provider()
+    return "ANTHROPIC_API_KEY" if p == "anthropic" else "OPENAI_API_KEY"
+
+
 class A9_LLM_Service_Agent_Config(BaseModel):
     """
     Configuration for the A9_LLM_Service_Agent.
     Controls LLM provider settings, model selection, and guardrails.
-    
-    Task types for automatic model selection:
-    - sql_generation: Optimized for SQL output (gpt-4o-mini)
-    - nlp_parsing: Optimized for extraction (gpt-4o-mini)
-    - reasoning: Complex analysis (o1-mini)
-    - solution_finding: Solution debate (o1-mini)
-    - briefing: Executive briefing (gpt-4o)
-    - general: Balanced (gpt-4o)
+
+    Provider selection: set LLM_PROVIDER env var to 'anthropic' (default) or 'openai'.
+
+    Claude task types for automatic model selection:
+    - sql_generation / nlp_parsing  → claude-haiku-4-5-20251001 (cheap, fast)
+    - reasoning / solution_finding / briefing / synthesis → claude-sonnet-4-6
+    - stage1_persona → claude-haiku-4-5-20251001 (single-persona focused call)
+    - general → claude-sonnet-4-6
     """
     model_config = ConfigDict(extra="allow")
-    
-    # Provider settings
-    provider: str = Field("openai", description="LLM provider to use (anthropic, openai)")
-    model_name: Optional[str] = Field(None, 
-                           description="Model to use. If None, auto-selected based on task_type")
-    task_type: str = Field("general", 
-                          description="Task type for automatic model selection")
-    api_key_env_var: str = Field("OPENAI_API_KEY", 
-                               description="Environment variable containing API key")
+
+    # Provider settings — default driven by LLM_PROVIDER env var
+    provider: str = Field(
+        default_factory=_default_llm_provider,
+        description="LLM provider: 'anthropic' (default) or 'openai'. Set via LLM_PROVIDER env var."
+    )
+    model_name: Optional[str] = Field(
+        None,
+        description="Model to use. If None, auto-selected based on task_type."
+    )
+    task_type: str = Field("general", description="Task type for automatic model selection")
+    api_key_env_var: str = Field(
+        default_factory=_default_api_key_env_var,
+        description="Environment variable containing the API key (auto-set from provider)"
+    )
     
     # Generation settings
     max_tokens: int = Field(4096, description="Default maximum tokens for completion")

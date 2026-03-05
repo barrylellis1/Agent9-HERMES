@@ -80,10 +80,10 @@ export const CouncilDebate: React.FC<CouncilDebateProps> = ({
       ]);
 
       // Reset active speaker after a short burst
-      setTimeout(() => setActiveSpeakerId(null), 800);
+      setTimeout(() => setActiveSpeakerId(null), 400);
 
       // Schedule next thought
-      timeoutId = setTimeout(addThought, Math.random() * 1500 + 1000);
+      timeoutId = setTimeout(addThought, Math.random() * 500 + 400);
     };
 
     addThought();

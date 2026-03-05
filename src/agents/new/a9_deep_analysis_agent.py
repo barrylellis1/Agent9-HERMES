@@ -1808,8 +1808,9 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             return self._simple_extraction(user_message, current_topic)
         
         try:
-            from src.agents.a9_llm_service_agent import A9_LLM_Request
-            
+            from src.agents.new.a9_llm_service_agent import A9_LLM_Request
+            from src.llm_services.claude_service import get_claude_model_for_task, ClaudeTaskType
+
             extraction_prompt = f"""Extract structured refinements from the user's response.
 
 User's response: "{user_message}"
@@ -1839,6 +1840,8 @@ If nothing relevant is found for a category, use an empty list."""
                 prompt=extraction_prompt,
                 operation="generate",
                 temperature=0.1,  # Low temperature for structured extraction
+                # Haiku: pure JSON classification — no reasoning needed (overridable via CLAUDE_MODEL_NLP)
+                model=get_claude_model_for_task(ClaudeTaskType.NLP_PARSING),
             )
             
             response = await self.llm_service_agent.generate(request)
@@ -2037,7 +2040,7 @@ If nothing relevant is found for a category, use an empty list."""
             ))
         
         try:
-            from src.agents.a9_llm_service_agent import A9_LLM_Request
+            from src.agents.new.a9_llm_service_agent import A9_LLM_Request
             
             system_prompt = f"""You are a senior consultant conducting a problem refinement interview with a business principal.
 

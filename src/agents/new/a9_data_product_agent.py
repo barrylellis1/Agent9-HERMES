@@ -44,7 +44,7 @@ from src.agents.models.sql_models import SQLExecutionRequest, SQLExecutionRespon
 # Business glossary (neutral term mapping)
 from src.registry.providers.business_glossary_provider import BusinessGlossaryProvider
 from src.agents.models.data_governance_models import KPIViewNameRequest
-from src.agents.a9_llm_service_agent import A9_LLM_SQLGenerationRequest
+from src.agents.new.a9_llm_service_agent import A9_LLM_SQLGenerationRequest
 from src.agents.models.data_product_onboarding_models import (
     DataProductSchemaInspectionRequest,
     DataProductSchemaInspectionResponse,
@@ -244,7 +244,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
                         self.llm_service_agent = None
                     if not getattr(self, 'llm_service_agent', None):
                         try:
-                            from src.agents.a9_llm_service_agent import A9_LLM_Service_Agent
+                            from src.agents.new.a9_llm_service_agent import A9_LLM_Service_Agent
                             self.llm_service_agent = await A9_LLM_Service_Agent.create({})
                             try:
                                 await self.orchestrator.register_agent("A9_LLM_Service_Agent", self.llm_service_agent)

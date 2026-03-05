@@ -1165,7 +1165,7 @@ async def initialize_agent_registry():
     from src.agents.new.a9_data_product_agent import A9_Data_Product_Agent
     from src.agents.new.a9_data_governance_agent import A9_Data_Governance_Agent, create_data_governance_agent
     from src.agents.new.a9_nlp_interface_agent import A9_NLP_Interface_Agent
-    from src.agents.a9_llm_service_agent import A9_LLM_Service_Agent
+    from src.agents.new.a9_llm_service_agent import A9_LLM_Service_Agent
     from src.agents.new.a9_deep_analysis_agent import A9_Deep_Analysis_Agent, create_deep_analysis_agent
     from src.agents.new.a9_solution_finder_agent import A9_Solution_Finder_Agent, create_solution_finder_agent
     

@@ -249,9 +249,11 @@ class A9_LLM_Service_Agent:
             task_type = getattr(self.config, 'task_type', TaskType.GENERAL)
             if not model_name and self.config.provider.lower() == "openai":
                 model_name = get_model_for_task(task_type)
-                logger.info(f"Auto-selected model '{model_name}' for task type '{task_type}'")
-            elif not model_name:
-                model_name = "claude-3-sonnet-20240229"  # Default for Anthropic
+                logger.info(f"Auto-selected OpenAI model '{model_name}' for task type '{task_type}'")
+            elif not model_name and self.config.provider.lower() == "anthropic":
+                from src.llm_services.claude_service import get_claude_model_for_task
+                model_name = get_claude_model_for_task(task_type)
+                logger.info(f"Auto-selected Claude model '{model_name}' for task type '{task_type}'")
             
             # Convert agent config to service config
             service_config = {
@@ -422,11 +424,13 @@ class A9_LLM_Service_Agent:
             if provider == "anthropic":
                 try:
                     # Use the service layer to generate the response - await the coroutine
+                    # Pass model override so per-call model selection (e.g. Haiku vs Sonnet) works
                     result = await self.llm_service.generate(
                         prompt=request.prompt,
                         system_prompt=system_prompt,
                         max_tokens=max_tokens,
-                        temperature=temperature
+                        temperature=temperature,
+                        model=request.model or None,
                     )
                     
                     # Extract response text and usage from service result

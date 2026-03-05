@@ -95,7 +95,7 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
     const roiMap = (impact: number) => {
       if (impact >= 0.7) return 'High Impact Potential'
       if (impact >= 0.4) return 'Moderate Impact Potential'
-      return 'Incremental Impact'
+      return 'Strategic (Long Horizon)'
     }
 
     // Format impact_estimate from LLM into a display string

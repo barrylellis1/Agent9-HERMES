@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional, Union
 
 # Import service layer
-from src.llm_services.claude_service import ClaudeService, create_claude_service
+from src.llm_services.claude_service import ClaudeService, create_claude_service, get_claude_model_for_task, ClaudeTaskType
 from src.llm_services.openai_service import (
     OpenAIService, create_openai_service, TaskType, get_model_for_task
 )
@@ -67,6 +67,7 @@ class A9_LLM_AnalysisRequest(A9AgentBaseRequest):
     analysis_type: str = Field(..., description="Type of analysis to perform")
     context: Optional[str] = Field(None, description="Additional context for analysis")
     model: Optional[str] = Field(None, description="Override the default model")
+    max_tokens: Optional[int] = Field(None, description="Override the default max tokens")
     operation: str = Field("analyze", description="The operation to perform")
 
 
@@ -251,7 +252,8 @@ class A9_LLM_Service_Agent:
                 model_name = get_model_for_task(task_type)
                 logger.info(f"Auto-selected model '{model_name}' for task type '{task_type}'")
             elif not model_name:
-                model_name = "claude-3-sonnet-20240229"  # Default for Anthropic
+                model_name = get_claude_model_for_task(task_type)
+                logger.info(f"Auto-selected Claude model '{model_name}' for task type '{task_type}'")
             
             # Convert agent config to service config
             service_config = {
@@ -426,7 +428,8 @@ class A9_LLM_Service_Agent:
                         prompt=request.prompt,
                         system_prompt=system_prompt,
                         max_tokens=max_tokens,
-                        temperature=temperature
+                        temperature=temperature,
+                        model=model,
                     )
                     
                     # Extract response text and usage from service result
@@ -659,6 +662,7 @@ class A9_LLM_Service_Agent:
                 business_context=request.business_context,
                 prompt=prompt,
                 model=request.model,
+                max_tokens=request.max_tokens,
                 system_prompt="You are an analytical assistant. Respond only with valid JSON.",
                 operation=request.operation
             )
@@ -677,9 +681,16 @@ class A9_LLM_Service_Agent:
                     confidence=0.0
                 )
             
-            # Parse JSON response
+            # Parse JSON response — strip markdown code fences if present
             try:
-                analysis_data = json.loads(response.content)
+                raw = response.content.strip()
+                if raw.startswith("```"):
+                    # Strip opening fence (```json or ```)
+                    raw = raw[raw.index("\n") + 1:] if "\n" in raw else raw
+                    # Strip closing fence
+                    if raw.endswith("```"):
+                        raw = raw[: raw.rfind("```")].rstrip()
+                analysis_data = json.loads(raw)
                 confidence = analysis_data.get("confidence", 0.85)  # Default if not provided
             except json.JSONDecodeError:
                 # Fallback if response is not valid JSON

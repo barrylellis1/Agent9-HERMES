@@ -41,7 +41,7 @@ from src.registry.providers.kpi_provider import KPIProvider as KpiProvider
 from src.models.kpi_models import KPI, KPIThreshold, KPIComparisonMethod
 
 # LLM Service models for SQL generation
-from src.agents.a9_llm_service_agent import A9_LLM_SQLGenerationRequest
+from src.agents.new.a9_llm_service_agent import A9_LLM_SQLGenerationRequest
 
 # Data quality filtering utility
 from src.agents.utils.data_quality_filter import DataQualityFilter
@@ -226,7 +226,7 @@ class A9_Situation_Awareness_Agent:
                 # Fallback to direct instantiation if not available via orchestrator
                 logger.warning("LLM Service Agent not available via orchestrator, using direct instantiation")
                 try:
-                    from src.agents.a9_llm_service_agent import A9_LLM_Service_Agent
+                    from src.agents.new.a9_llm_service_agent import A9_LLM_Service_Agent
                     self.llm_service_agent = await A9_LLM_Service_Agent.create({})
                     # Register the directly instantiated agent with the orchestrator
                     await self.orchestrator_agent.register_agent("A9_LLM_Service_Agent", self.llm_service_agent)
