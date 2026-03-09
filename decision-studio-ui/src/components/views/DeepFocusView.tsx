@@ -40,6 +40,7 @@ interface DeepFocusViewProps {
   // Solutions / Debate
   findingSolutions: boolean;
   debatePhase: number;
+  debateHypotheses?: Record<string, any> | null;
   solutions: any;
   onStartDebate: (mode?: 'recommended' | 'manual') => void;
   // Council Config
@@ -76,6 +77,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   onStartRefinement,
   findingSolutions,
   debatePhase,
+  debateHypotheses,
   solutions,
   onStartDebate,
   useHybridCouncil,
@@ -500,8 +502,10 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                  {/* State E: Debate In Progress */}
                  {findingSolutions && (
                      <div className="animate-in fade-in">
-                         <CouncilDebate 
-                             phase={debatePhase} 
+                         <CouncilDebate
+                             phase={debatePhase}
+                             stageOneHypotheses={debateHypotheses}
+                             kpiName={situation?.kpi_name || 'KPI'}
                              activePersonas={(() => {
                                  if (selectedPersonas.length > 0) {
                                      return selectedPersonas;

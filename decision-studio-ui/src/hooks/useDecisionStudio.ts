@@ -83,6 +83,7 @@ export function useDecisionStudio() {
   const [solutions, setSolutions] = useState<any | null>(null);
   const [showPersonaSelector, setShowPersonaSelector] = useState(false);
   const [debatePhase, setDebatePhase] = useState<number>(0);
+  const [debateHypotheses, setDebateHypotheses] = useState<Record<string, any> | null>(null);
   
   // Council Configuration
   const [useHybridCouncil, setUseHybridCouncil] = useState(true);
@@ -299,6 +300,7 @@ export function useDecisionStudio() {
     setDebatePhase(1);
     setSolutions(null);
     setAnalysisError(null);
+    setDebateHypotheses(null);
     
     try {
         const deepAnalysisPayload = {
@@ -389,6 +391,8 @@ export function useDecisionStudio() {
         };
 
         await runStage('hypothesis');
+        const hyps = stageResults[stageResults.length - 1]?.solutions?.stage_1_hypotheses ?? null;
+        setDebateHypotheses(hyps);
         setDebatePhase(2);
 
         await runStage('cross_review');
@@ -447,6 +451,7 @@ export function useDecisionStudio() {
     solutions,
     showPersonaSelector,
     debatePhase,
+    debateHypotheses,
     useHybridCouncil,
     councilType,
     selectedPreset,

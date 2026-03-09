@@ -100,7 +100,7 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
 
     // Format impact_estimate from LLM into a display string
     // Falls back to qualitative roiMap label if LLM did not populate impact_estimate
-    const formatImpactEstimate = (opt: any): string => {
+    const formatImpactEstimate = (opt: any, optIdx: number = 0): string => {
       const ie = opt?.impact_estimate
       if (ie && typeof ie === 'object') {
         const unit = ie.unit || ''
@@ -120,6 +120,28 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
           return `${fmt(low)} to ${fmt(high)}`
         }
       }
+      // Last-resort fallback: attempt rough estimate from primary root cause delta
+      try {
+        const primaryImpact = rootCauses[0]?.impact  // e.g., "Δ -30.6" or "Δ +1.5K"
+        if (primaryImpact) {
+          const numMatch = primaryImpact.match(/Δ\s*([+-]?\d+\.?\d*)([KMkm]?)/)
+          if (numMatch) {
+            const raw = parseFloat(numMatch[1])
+            const scale = numMatch[2].toUpperCase()
+            const multiplier = scale === 'M' ? 1_000_000 : scale === 'K' ? 1_000 : 1
+            const delta = Math.abs(raw * multiplier)
+            if (delta > 0) {
+              // Different recovery fractions per option tier (opt_1 is fastest/partial, opt_3 is strategic/lower near-term)
+              const fractionsByTier = [[0.3, 0.5], [0.45, 0.7], [0.2, 0.35]]
+              const [lowFrac, highFrac] = fractionsByTier[Math.min(optIdx, 2)]
+              const low = delta * lowFrac
+              const high = delta * highFrac
+              const fmtNum = (v: number) => v >= 1_000_000 ? `${(v/1_000_000).toFixed(1)}M` : v >= 1_000 ? `${(v/1_000).toFixed(0)}K` : v.toFixed(1)
+              return `~+${fmtNum(low)} to +${fmtNum(high)} (est.)`
+            }
+          }
+        }
+      } catch { /* ignore parse errors */ }
       return roiMap(opt?.expected_impact || 0.5)
     }
 
@@ -127,7 +149,7 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
       title: opt?.title || 'Option',
       subtitle: opt?.time_to_value ? `Time to value: ${opt.time_to_value}` : 'Operational intervention',
       description: opt?.description || opt?.rationale || '',
-      roi: formatImpactEstimate(opt),
+      roi: formatImpactEstimate(opt, idx),
       impactBasis: opt?.impact_estimate?.basis || null,
       investment: investmentMap(opt?.cost || 0.5),
       timeline: opt?.time_to_value || '3-6 months',
@@ -147,13 +169,23 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
       implementation_triggers: opt?.implementation_triggers || [],
     }))
 
-    // CRITICAL: Use situation.description as authoritative source for title, NOT LLM's problem_reframe
-    // The LLM may hallucinate the wrong direction (e.g., "increased" when it actually "decreased")
-    const title = situation?.description 
-      ? `Decision Briefing: ${String(situation.description)}`
-      : (sol?.problem_reframe?.situation 
-          ? `Decision Briefing: ${String(sol.problem_reframe.situation)}`
-          : `Decision Briefing: ${kpiName}`)
+    const buildTitle = (): string => {
+      // Prefer LLM problem_reframe.situation — written for humans, not machines
+      if (sol?.problem_reframe?.situation) {
+        const sentence = String(sol.problem_reframe.situation).split('.')[0].trim()
+        if (sentence.length >= 20 && sentence.length <= 250) return `Decision Briefing: ${sentence}`
+      }
+      // Fallback: clean the raw situation.description
+      if (situation?.description) {
+        const cleaned = String(situation.description)
+          .replace(/\s*\(threshold=\w+\)/gi, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+        return `Decision Briefing: ${cleaned}`
+      }
+      return `Decision Briefing: ${kpiName}`
+    }
+    const title = buildTitle()
 
     // Build implementation roadmap from recommended option
     const roadmap: any[] = []
@@ -163,22 +195,77 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
     if (options[0]?.implementation_triggers?.length > 0) {
       roadmap.push({ phase: 'Phase 2: Implementation', items: options[0].implementation_triggers, timeline: 'Week 3-8' })
     }
-    roadmap.push({ phase: 'Phase 3: Monitor & Adjust', items: ['Track KPI recovery', 'Weekly progress reviews', 'Adjust tactics as needed'], timeline: 'Ongoing' })
+    const monitorItems = [
+      `Finance Controller to track ${kpiName} recovery weekly — target: restore to prior baseline`,
+      options[0]?.implementation_triggers?.[0]
+        ? `Escalation trigger: ${options[0].implementation_triggers[0]}`
+        : `Escalate to leadership if no improvement by day 30`,
+      `Monthly executive review: compare actuals vs. expected recovery range`,
+      `At 90 days: assess whether to proceed with secondary option based on results`,
+    ]
+    roadmap.push({ phase: 'Phase 3: Monitor & Adjust', items: monitorItems, timeline: 'Ongoing' })
 
     // Build risk matrix from blind spots and tensions
     const risks: any[] = []
     sol?.blind_spots?.slice(0, 3).forEach((bs: string) => {
-      risks.push({ risk: bs, likelihood: 'Medium', impact: 'Medium', mitigation: 'Monitor and reassess quarterly' })
+      const bsText = String(bs).toLowerCase()
+      const mitigation = /data|information|unknown|unclear|unavailable/i.test(bsText)
+        ? `Commission targeted analysis to close this information gap before implementation`
+        : /timing|sequence|when|order|before/i.test(bsText)
+        ? `Build a decision gate at Week 4 to validate timing assumptions before proceeding`
+        : /competitor|market|external|pricing/i.test(bsText)
+        ? `Conduct competitive pricing benchmarking (assign to strategy team, Week 1-2)`
+        : `Add to implementation risk register; review at each phase gate`
+      risks.push({ risk: bs, likelihood: 'Medium', impact: 'Medium', mitigation })
     })
     sol?.unresolved_tensions?.slice(0, 2).forEach((t: any) => {
       risks.push({ risk: t?.tension || 'Strategic tension', likelihood: 'High', impact: 'High', mitigation: t?.requires || 'Stakeholder alignment needed' })
     })
 
+    // Aggregate next steps from all available sources for a rich Section 6
+    const aggregatedNextSteps: string[] = []
+    // 1. LLM-generated next_steps (filter out generic boilerplate)
+    if (Array.isArray(sol?.next_steps) && sol.next_steps.length > 0) {
+      sol.next_steps.forEach((s: string) => {
+        const lower = (s || '').toLowerCase()
+        const isBoilerplate = ['review and approve', 'assign implementation owner', 'schedule kickoff'].some(g => lower.includes(g))
+        if (s && !isBoilerplate) aggregatedNextSteps.push(s)
+      })
+    }
+    // 2. Option prerequisites as concrete first actions
+    if (options[0]?.prerequisites?.length > 0) {
+      options[0].prerequisites.slice(0, 2).forEach((p: string) => {
+        const alreadyIncluded = aggregatedNextSteps.some(s => s.includes(String(p).substring(0, 30)))
+        if (!alreadyIncluded) aggregatedNextSteps.push(`Complete prerequisite: ${p}`)
+      })
+    }
+    // 3. KPI-specific tracking step
+    aggregatedNextSteps.push(`Assign ${kpiName} recovery tracking to Finance team with weekly reporting starting immediately`)
+    // 4. Implementation trigger as escalation watchpoint
+    if (options[0]?.implementation_triggers?.[0]) {
+      aggregatedNextSteps.push(`Monitor escalation trigger: ${options[0].implementation_triggers[0]}`)
+    }
+    // 5. Leadership reporting
+    aggregatedNextSteps.push(`Report initial results at next leadership review — decision owner accountable for progress`)
+    // Final: ensure minimum 4, maximum 6
+    const nextSteps = aggregatedNextSteps.length >= 4
+      ? aggregatedNextSteps.slice(0, 6)
+      : [
+          options[0]?.prerequisites?.[0]
+            ? `Complete prerequisite: ${options[0].prerequisites[0]}`
+            : `Assign implementation owner for "${options[0]?.title || 'recommended option'}"`,
+          `Establish ${kpiName} recovery target and weekly tracking cadence with Finance team`,
+          `Schedule executive kick-off within 48 hours to confirm resource allocation`,
+          `Report initial progress at next leadership review`,
+        ]
+
     const transformed = {
       title,
       urgency,
       metrics: {
-        financialImpact: situation?.description || `${kpiName} variance detected`,
+        financialImpact: situation?.description
+          ? String(situation.description).replace(/\s*\(threshold=\w+\)/gi, '').trim()
+          : `${kpiName} variance detected`,
         timeSensitivity,
         confidence,
         decisionDeadline,
@@ -195,13 +282,11 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
       roadmap,
       risks,
       recommendation: {
-        headline: sol?.recommendation?.title 
-          ? `Proceed with: ${sol.recommendation.title}` 
+        headline: sol?.recommendation?.title
+          ? `Proceed with: ${sol.recommendation.title}`
           : (options[0]?.title ? `Proceed with: ${options[0].title}` : 'Review options and approve next steps'),
         rationale: sol?.recommendation_rationale || options[0]?.description || '',
-        nextSteps: Array.isArray(sol?.next_steps) && sol.next_steps.length > 0 
-          ? sol.next_steps 
-          : ['Review and approve recommended option', 'Assign implementation owner', 'Schedule kickoff meeting'],
+        nextSteps,
         decisionOwner: 'Finance Leadership',
         deadline: decisionDeadline,
       },

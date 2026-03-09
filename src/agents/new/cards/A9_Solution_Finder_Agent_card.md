@@ -73,6 +73,14 @@ Environment variable override: `OPENAI_MODEL_SOLUTION`
 - **LLM Instruction**: Explicit instruction to LLM to use the exact persona IDs provided in the cross-review JSON template
 - **Persona Safety**: Initializes `persona_ids` before prompt construction to guarantee identifiers are always defined, even when debate presets are overridden.
 
+## Synthesis Prompt Quality Improvements (Mar 2026 — Phase 12)
+- **next_steps**: Requires minimum 4 items with action verb + named role + specific deliverable + deadline; rejects generic boilerplate
+- **recovery_range**: RECOVERY RANGE ANCHORS include failure-mode fallback (30–60% of observed variance) to prevent LLM outputting 0.0
+- **CONSISTENCY CHECK**: Validates that mix-shift recommendations target segments with better margins than the problem segment; forces explicit paradox resolution if not
+- **unresolved_tensions.requires**: Format instruction with concrete example replaces enum placeholder ("human judgment / more data / stakeholder input")
+- **recommendation_rationale**: Explicitly requires entity-specific rationale citing named data points; forbids generic boilerplate
+- **UnresolvedTension model**: `requires` field docstring corrected to describe expected format, preventing LLM from echoing meta-labels verbatim
+
 ## Compliance
 - A2A Pydantic IO for requests/responses
 - Orchestrator-driven lifecycle; single HITL event per cycle

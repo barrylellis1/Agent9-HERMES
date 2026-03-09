@@ -28,7 +28,9 @@ class PerspectiveAnalysis(A9AgentBaseModel):
 class UnresolvedTension(A9AgentBaseModel):
     tension: str
     options_affected: List[str] = Field(default_factory=list)
-    requires: str  # "human judgment", "more data", "stakeholder input"
+    requires: str  # Specific operational action to resolve this tension — NOT meta-labels.
+               # Must be: "Who does what specific task by when", e.g.:
+               # "Finance team to commission SKU cost-to-serve analysis before negotiating with [customer] (target: by Week 2)"
 
 
 class SolutionOption(A9AgentBaseModel):

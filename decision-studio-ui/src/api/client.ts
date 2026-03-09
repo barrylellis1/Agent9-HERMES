@@ -464,18 +464,18 @@ export async function runSolutionFinder(
   
     // 2. Poll for completion
     let attempts = 0;
-    while (attempts < 60) {
+    while (attempts < 120) {  // 2 min — synthesis (Sonnet) + 529 retries can exceed 60s
       const statusResponse = await fetch(`${API_BASE}/workflows/solutions/${request_id}/status`);
       const { data } = await statusResponse.json();
-      
+
       if (data.state === 'completed') {
         // Return full result envelope to access audit log (transcript) and solutions
-        return data.result; 
+        return data.result;
       }
       if (data.state === 'failed') {
         throw new Error(data.error || 'Workflow failed');
       }
-      
+
       await new Promise(resolve => setTimeout(resolve, 1000));
       attempts++;
     }

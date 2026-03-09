@@ -21,6 +21,7 @@ export function DecisionStudio() {
     solutions,
     showPersonaSelector,
     debatePhase,
+    debateHypotheses,
     useHybridCouncil,
     councilType,
     selectedPreset,
@@ -87,6 +88,7 @@ export function DecisionStudio() {
         // Solutions
         findingSolutions={findingSolutions}
         debatePhase={debatePhase}
+        debateHypotheses={debateHypotheses}
         solutions={solutions}
         onStartDebate={() => handleStartDebate()}
         

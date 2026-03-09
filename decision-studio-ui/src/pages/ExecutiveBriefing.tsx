@@ -230,6 +230,12 @@ export function ExecutiveBriefing() {
                 kpmg:        { bar: 'bg-sky-700',    border: 'border-l-sky-700',    badge: 'bg-sky-50 text-sky-800',     dot: 'bg-sky-700' },
                 pwc_strategy:{ bar: 'bg-orange-600', border: 'border-l-orange-600', badge: 'bg-orange-50 text-orange-800',dot: 'bg-orange-600' },
               }
+              const FIRM_DISPLAY_NAMES: Record<string, string> = {
+                mckinsey: 'McKinsey & Company',
+                bcg: 'BCG',
+                bain: 'Bain & Company',
+                mbb: 'MBB Council',
+              }
               const convictionStyle: Record<string, string> = {
                 High:   'bg-emerald-100 text-emerald-800',
                 Medium: 'bg-amber-100 text-amber-800',
@@ -241,6 +247,7 @@ export function ExecutiveBriefing() {
                   {Object.entries(data.stage_1_hypotheses).map(([firmId, hyp]: [string, any]) => {
                     const s = FIRM_STYLES[firmId] ?? defaultStyle
                     const conviction = hyp.conviction || 'High'
+                    const displayName = FIRM_DISPLAY_NAMES[firmId.toLowerCase()] ?? (firmId.charAt(0).toUpperCase() + firmId.slice(1).replace(/_/g, ' '))
                     return (
                       <div key={firmId} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm flex flex-col">
                         {/* Coloured top accent bar */}
@@ -250,8 +257,8 @@ export function ExecutiveBriefing() {
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center gap-2">
                               <div className={`w-2.5 h-2.5 rounded-full ${s.dot}`} />
-                              <h4 className="font-bold text-slate-900 capitalize text-base">
-                                {firmId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                              <h4 className="font-bold text-slate-900 text-base">
+                                {displayName}
                               </h4>
                             </div>
                             {conviction && (
@@ -289,8 +296,14 @@ export function ExecutiveBriefing() {
                           {/* Recommended Focus — the punchline */}
                           {hyp.recommended_focus && (
                             <div className={`border-l-4 ${s.border} pl-3 mt-auto`}>
-                              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Proposed Lever</p>
+                              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Primary Focus</p>
                               <p className="text-sm font-semibold text-slate-900">{hyp.recommended_focus}</p>
+                            </div>
+                          )}
+                          {hyp.proposed_option?.title && (
+                            <div className="mt-2">
+                              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Proposed Action</p>
+                              <p className="text-sm font-semibold text-blue-700 leading-snug">{hyp.proposed_option.title}</p>
                             </div>
                           )}
                         </div>

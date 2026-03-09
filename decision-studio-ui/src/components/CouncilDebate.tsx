@@ -13,44 +13,146 @@ interface CouncilDebateProps {
   phase: number; // 1=Hypothesis, 2=Cross-Review, 3=Synthesis
   activePersonas: string[]; // IDs of active personas
   availablePersonas: Persona[];
+  stageOneHypotheses?: Record<string, any> | null;
+  kpiName?: string;
 }
 
-// Mock "thoughts" for the live feed effect
-const MOCK_THOUGHTS = {
-  1: [
-    "Analyzing historical variance patterns...",
-    "Correlating with external market indices...",
-    "Checking inventory turnover rates...",
-    "Flagging pricing inconsistencies in Q3...",
-    "Reviewing supplier contracts for force majeure..."
-  ],
-  2: [
-    "Challenging the pricing hypothesis - demand was stable.",
-    "The inventory data contradicts the supply chain argument.",
-    "Have we considered the currency fluctuation impact?",
-    "Risk assessment: Proposed solution ignores compliance mandates.",
-    "Validating financial feasibility of Option A..."
-  ],
-  3: [
-    "Synthesizing findings into coherent options...",
-    "Ranking solutions by ROI and Time-to-Value...",
-    "Drafting the executive summary...",
-    "Finalizing implementation roadmap...",
-    "Generating risk mitigation strategies..."
-  ]
-};
-
-export const CouncilDebate: React.FC<CouncilDebateProps> = ({ 
-  phase, 
-  activePersonas, 
-  availablePersonas 
+export const CouncilDebate: React.FC<CouncilDebateProps> = ({
+  phase,
+  activePersonas,
+  availablePersonas,
+  stageOneHypotheses,
+  kpiName = 'KPI',
 }) => {
+  // Phase 1: Independent hypothesis formation — persona-specific framework language
+  const PHASE1_THOUGHTS: Record<string, string[]> = {
+    mckinsey: [
+      'Applying MECE decomposition to isolate primary cost drivers...',
+      'Three Horizons profit pool mapping in progress...',
+      'Hypothesis-driven analysis: identifying the critical lever...',
+      'Structuring the problem using pyramid principle...',
+      'Separating structural shift from cyclical variance...',
+      'Where-else analysis: which segments are NOT affected?',
+      'Quantifying the addressable opportunity within the variance...',
+      'Stress-testing the leading hypothesis against contrary evidence...',
+    ],
+    bcg: [
+      'Growth-Share Matrix positioning across business units...',
+      'Experience curve analysis on unit economics...',
+      'Mapping competitive cost position vs. industry benchmark...',
+      'Deconstruction: fixed vs. variable cost absorption at current volume...',
+      'Identifying advantage segments vs. disadvantage segments...',
+      'Portfolio view: where is value being created vs. destroyed?',
+      'Relative market share implications for pricing power...',
+      'Advantage Matrix: assessing scale vs. differentiation trade-off...',
+    ],
+    bain: [
+      'Full Potential assessment: where is performance falling short?',
+      'Rapid diagnostic: which levers have the fastest payback?',
+      'Net value identification — separating noise from signal...',
+      "Founder's Mentality lens: is this a complexity tax?",
+      'Implementation risk calibration for each intervention...',
+      "Owner's economics: what would the best operator do here?",
+      'Prioritising interventions by effort-to-impact ratio...',
+      'Decision effectiveness check: who owns this outcome?',
+    ],
+    default: [
+      'Forming independent hypothesis from first principles...',
+      'Reviewing dimensional analysis for primary driver...',
+      'Calibrating confidence against available evidence...',
+      'Structuring intervention options by time horizon...',
+    ],
+  };
+
+  // Phase 2: Cross-review — adversarial critique language
+  const PHASE2_THOUGHTS: Record<string, string[]> = {
+    mckinsey: [
+      'Reviewing BCG proposal: does the experience curve logic hold at this volume?',
+      "Stress-testing Bain's implementation timeline against resource constraints...",
+      'MECE check: are the proposed options mutually exclusive?',
+      'Flagging overlap between option mechanisms — are these truly distinct?',
+      'Identifying the assumption most likely to break under execution...',
+      'Which proposal has the weakest evidence base? Flagging now...',
+    ],
+    bcg: [
+      "Pressure-testing McKinsey's structural hypothesis against market data...",
+      'Reviewing Bain proposal: is the quick-win sustainable or one-time?',
+      'Portfolio coherence check: do these options conflict at the margin?',
+      'Growth-Share lens: does the recommended option protect the core?',
+      'Flagging pricing assumptions — are competitor responses modelled?',
+      'Experience curve: does option A accelerate or delay cost improvement?',
+    ],
+    bain: [
+      'McKinsey option: strong diagnosis, but who owns the execution?',
+      'Reviewing BCG proposal: robust analysis, implementation plan is thin...',
+      'Sequencing risk: can option B be executed before option A is resolved?',
+      'NPS implication: how does each option affect customer relationships?',
+      'Flagging missing BATNA — what if the primary option stalls?',
+      'Results delivery check: are 90-day milestones achievable as stated?',
+    ],
+    default: [
+      'Cross-reviewing peer proposals for logical consistency...',
+      'Flagging contradictions between recommended approaches...',
+      'Adversarial stress-test in progress...',
+      'Identifying blind spots in alternative hypotheses...',
+    ],
+  };
+
+  // Phase 3: Synthesis — council convergence language
+  const PHASE3_THOUGHTS: Record<string, string[]> = {
+    mckinsey: [
+      'Synthesising three frameworks into MECE option set...',
+      'Pyramid principle: structuring the recommendation narrative...',
+      'Ensuring options span full time-horizon spectrum...',
+      'Quantifying recovery range anchored to observed variance...',
+    ],
+    bcg: [
+      'Portfolio view: ranking options by risk-adjusted impact...',
+      'Mapping option trade-offs on the Advantage Matrix...',
+      'Calibrating investment-to-return ratio across all three options...',
+      'Ensuring structural option addresses root cause, not symptom...',
+    ],
+    bain: [
+      'Translating analysis into actionable next steps...',
+      'Owner assignment: every action needs a name and a date...',
+      'Implementation sequencing: what must happen in Week 1?',
+      'Results framework: defining what success looks like in 90 days...',
+    ],
+    default: [
+      'Council converging on ranked options...',
+      'Synthesising three analytical frameworks...',
+      'Building implementation roadmap from debate output...',
+      'Calibrating confidence scores across option set...',
+    ],
+  };
+
+  // Inject kpiName into a few context-specific phrases
+  if (kpiName && kpiName !== 'KPI') {
+    PHASE1_THOUGHTS.mckinsey.unshift(`Isolating root drivers of ${kpiName} variance using MECE...`);
+    PHASE1_THOUGHTS.bcg.unshift(`Experience curve analysis on ${kpiName} cost structure...`);
+    PHASE1_THOUGHTS.bain.unshift(`Full Potential gap: what is the ${kpiName} recovery opportunity?`);
+    PHASE2_THOUGHTS.default.unshift(`Cross-reviewing all proposals against ${kpiName} data signals...`);
+  }
+
+  const getThoughtsForPersona = (personaId: string): string[] => {
+    const dict = phase === 1 ? PHASE1_THOUGHTS
+               : phase === 2 ? PHASE2_THOUGHTS
+               : PHASE3_THOUGHTS;
+    const lower = personaId.toLowerCase();
+    return dict[lower] ?? dict['default'] ?? [];
+  };
   const [feed, setFeed] = useState<Array<{ id: string, text: string, personaId: string }>>([]);
   const [activeSpeakerId, setActiveSpeakerId] = useState<string | null>(null);
 
+  const FIRM_NAMES: Record<string, string> = {
+    mckinsey: 'McKinsey & Company',
+    bcg: 'BCG',
+    bain: 'Bain & Company',
+  };
+
   // Get full persona objects
   const councilMembers = useMemo(() => (
-    activePersonas.map(id => 
+    activePersonas.map(id =>
       availablePersonas.find(p => p.id === id) || { id, label: id, color: 'text-slate-400' }
     )
   ), [activePersonas, availablePersonas]);
@@ -59,14 +161,16 @@ export const CouncilDebate: React.FC<CouncilDebateProps> = ({
   useEffect(() => {
     if (phase === 0) return;
 
-    const thoughts = MOCK_THOUGHTS[phase as keyof typeof MOCK_THOUGHTS] || [];
     let timeoutId: ReturnType<typeof setTimeout>;
 
     const addThought = () => {
       const randomPersona = councilMembers[Math.floor(Math.random() * councilMembers.length)];
-      const randomThought = thoughts[Math.floor(Math.random() * thoughts.length)];
-      
       if (!randomPersona) return;
+
+      const thoughts = getThoughtsForPersona(randomPersona.id);
+      const randomThought = thoughts.length > 0
+        ? thoughts[Math.floor(Math.random() * thoughts.length)]
+        : 'Analysing...';
 
       setActiveSpeakerId(randomPersona.id);
       
@@ -133,33 +237,74 @@ export const CouncilDebate: React.FC<CouncilDebateProps> = ({
         })}
       </div>
 
-      {/* Live Feed Terminal */}
-      <div className="bg-slate-950/80 rounded-lg p-4 h-48 overflow-hidden border border-slate-800 relative z-10">
-        <div className="absolute top-2 right-3 text-[9px] text-slate-600 uppercase tracking-wider">Live Transcript</div>
-        <div className="flex flex-col-reverse h-full gap-3">
-          <AnimatePresence initial={false}>
-            {feed.map((item) => {
-              const persona = councilMembers.find(p => p.id === item.personaId);
-              return (
-                <motion.div
-                  key={item.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="flex gap-3 items-start"
-                >
-                  <span className={`text-[10px] font-bold uppercase min-w-[60px] text-right mt-0.5 ${persona?.color || 'text-slate-500'}`}>
-                    {persona?.label || 'Unknown'}
-                  </span>
-                  <p className="text-xs text-slate-300 font-mono leading-relaxed">
-                    {item.text}
-                  </p>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+      {/* Live Feed Terminal — hidden when real Stage 1 data is available */}
+      {(!stageOneHypotheses || phase < 2) && (
+        <div className="bg-slate-950/80 rounded-lg p-4 h-48 overflow-hidden border border-slate-800 relative z-10">
+          <div className="absolute top-2 right-3 text-[9px] text-slate-600 uppercase tracking-wider">Live Transcript</div>
+          <div className="flex flex-col-reverse h-full gap-3">
+            <AnimatePresence initial={false}>
+              {feed.map((item) => {
+                const persona = councilMembers.find(p => p.id === item.personaId);
+                return (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="flex gap-3 items-start"
+                  >
+                    <span className={`text-[10px] font-bold uppercase min-w-[60px] text-right mt-0.5 ${persona?.color || 'text-slate-500'}`}>
+                      {persona?.label || 'Unknown'}
+                    </span>
+                    <p className="text-xs text-slate-300 font-mono leading-relaxed">
+                      {item.text}
+                    </p>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Real Stage 1 Firm Hypothesis Cards */}
+      {stageOneHypotheses && phase >= 2 && (
+        <div className="mt-4 space-y-3">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+            Stage 1 Hypotheses — {phase === 2 ? 'Cross-review in progress...' : 'Synthesis in progress...'}
+          </p>
+          {Object.entries(stageOneHypotheses).map(([firmId, hyp]: [string, any]) => (
+            <div key={firmId} className="bg-slate-800/60 border border-slate-700 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-bold text-white">
+                  {FIRM_NAMES[firmId.toLowerCase()] ?? (firmId.charAt(0).toUpperCase() + firmId.slice(1))}
+                </span>
+                {hyp.framework && (
+                  <span className="text-xs text-slate-400 italic">{hyp.framework}</span>
+                )}
+              </div>
+              {hyp.hypothesis && (
+                <p className="text-sm text-slate-300 leading-snug mb-2">{hyp.hypothesis}</p>
+              )}
+              {hyp.proposed_option?.title && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">Proposed:</span>
+                  <span className="text-xs text-blue-300 font-medium">{hyp.proposed_option.title}</span>
+                </div>
+              )}
+              {hyp.conviction && (
+                <div className="mt-1.5">
+                  <span className="text-[10px] font-semibold text-slate-500 uppercase">Conviction: </span>
+                  <span className={`text-xs font-semibold ${
+                    hyp.conviction === 'High' ? 'text-emerald-400' :
+                    hyp.conviction === 'Medium' ? 'text-amber-400' : 'text-slate-400'
+                  }`}>{hyp.conviction}</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Progress Stepper */}
       <div className="flex items-center gap-2 mt-6 relative z-10">
