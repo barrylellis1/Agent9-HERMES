@@ -65,7 +65,11 @@ const VarianceBarList: React.FC<{
           {isProblematic ? <TrendingDown className="w-4 h-4" /> : <TrendingUp className="w-4 h-4" />}
           {title}
         </h4>
-        <div className="text-slate-500 text-sm italic">No items in this category</div>
+        <div className="text-slate-500 text-sm italic">
+          {isProblematic
+            ? 'No problem areas detected'
+            : 'No outperforming segments this period — all measured segments are at or below baseline'}
+        </div>
       </div>
     )
   }
@@ -85,9 +89,9 @@ const VarianceBarList: React.FC<{
             <div className="space-y-1.5">
               {dimItems.map((item, idx) => {
                 const barWidth = Math.min(100, Math.abs(item.delta || 0) / maxDelta * 100)
-                const formattedDelta = item.delta >= 0 
-                  ? `+${item.delta.toLocaleString()}` 
-                  : item.delta.toLocaleString()
+                const formattedDelta = item.delta >= 0
+                  ? `+${item.delta.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 })}`
+                  : item.delta.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 })
                 
                 return (
                   <motion.div
@@ -156,10 +160,10 @@ const VarianceSummary: React.FC<{
         <div className="bg-slate-800/50 rounded p-2">
           <div className="text-[10px] text-slate-500 uppercase">Healthy Areas</div>
           <div className="text-sm font-mono text-emerald-400">
-            {totalIsNotVariance >= 0 ? '+' : ''}{totalIsNotVariance.toLocaleString()}
+            {totalIsNotVariance >= 0 ? '+' : ''}{totalIsNotVariance.toLocaleString(undefined, { maximumFractionDigits: 3 })}
           </div>
           <div className="text-[10px] text-slate-600">
-            {isNotItems.length} items • avg {avgIsNotVariance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            {isNotItems.length} items • avg {avgIsNotVariance.toLocaleString(undefined, { maximumFractionDigits: 3 })}
           </div>
         </div>
 

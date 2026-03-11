@@ -236,8 +236,8 @@ KPIS: List[Dict[str, Any]] = [
         "sql_query": f"SELECT (SUM(CASE WHEN account_type IN ('Revenue','COGS') THEN amount ELSE 0 END) / NULLIF(SUM(CASE WHEN account_type = 'Revenue' THEN amount ELSE 0 END), 0)) * 100 AS value FROM `agent9-465818.LubricantsBusiness.{VIEW}` WHERE version = 'Actual'",
         "filters": {"version": "Actual"},
         "thresholds": [
-            {"comparison_type": "qoq", "green_threshold": 34.0, "yellow_threshold": 30.0, "red_threshold": 28.0, "inverse_logic": False},
-            {"comparison_type": "yoy", "green_threshold": 34.0, "yellow_threshold": 30.0, "red_threshold": 28.0, "inverse_logic": False},
+            {"comparison_type": "qoq", "green_threshold": 0.05, "yellow_threshold": -0.02, "red_threshold": -0.07, "inverse_logic": False},
+            {"comparison_type": "yoy", "green_threshold": 0.05, "yellow_threshold": -0.02, "red_threshold": -0.07, "inverse_logic": False},
         ],
         "dimensions": DIMENSIONS,
         "tags": ["finance", "profitability", "margin", "lubricants"],
