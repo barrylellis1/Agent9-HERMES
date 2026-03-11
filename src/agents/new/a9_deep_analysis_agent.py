@@ -477,26 +477,18 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             # If DP Agent is available, compute where/when by executing grouped queries
             if self.data_product_agent is not None and getattr(plan, "kpi_name", None):
                 try:
-                    # Load KPI definition — try YAML registry first, then Supabase-backed RegistryFactory
-                    from src.registry.providers.kpi_provider import KPIProvider
-                    kp = KPIProvider(source_path="src/registry/kpi/kpi_registry.yaml", storage_format="yaml")
-                    await kp.load()
-                    kpi_def = kp.get(plan.kpi_name)
-                    # Fallback: look up in Supabase-backed provider (e.g. lubricants KPIs)
-                    if kpi_def is None:
-                        try:
-                            from src.registry.factory import RegistryFactory
-                            rf_provider = RegistryFactory().get_provider("kpi")
-                            if rf_provider:
-                                kpi_name_lower = (plan.kpi_name or "").lower().strip()
-                                for k in rf_provider.get_all():
-                                    if (getattr(k, "name", "") or "").lower().strip() == kpi_name_lower:
-                                        kpi_def = k
-                                        break
-                                if kpi_def is None:
-                                    kpi_def = rf_provider.get(plan.kpi_name)
-                        except Exception as e2:
-                            self.logger.debug(f"execute_deep_analysis: RegistryFactory KPI lookup failed: {e2}")
+                    # Load KPI definition from Supabase-backed RegistryFactory (single source of truth)
+                    from src.registry.factory import RegistryFactory
+                    rf_provider = RegistryFactory().get_provider("kpi")
+                    kpi_def = None
+                    if rf_provider:
+                        kpi_name_lower = (plan.kpi_name or "").lower().strip()
+                        for k in rf_provider.get_all():
+                            if (getattr(k, "name", "") or "").lower().strip() == kpi_name_lower:
+                                kpi_def = k
+                                break
+                        if kpi_def is None:
+                            kpi_def = rf_provider.get(plan.kpi_name)
                 except Exception as e:
                     kpi_def = None
                     self.logger.debug(f"execute_deep_analysis: KPI load failed: {e}")

@@ -68,6 +68,9 @@ Environment variable override: `OPENAI_MODEL_REASONING`
 - Change points are globally sorted by absolute delta and truncated to top 5 for focused analysis.
 - Output fields include: `plan`, `dimensions_suggested`, `scqa_summary`, `kt_is_is_not`, `change_points`, `timeframe_mapping`, and `when_started` (earliest significant time bucket derived from time deltas).
 
+## KPI Registry Source (Mar 2026)
+KPI definitions are loaded exclusively from the Supabase-backed `RegistryFactory` (single source of truth). The legacy YAML-first `KPIProvider` load path has been removed — it was bypassing Supabase and returning stale objects without metadata extensions.
+
 ## Bridge Analysis for Ratio KPIs (Mar 2026)
 When a KPI carries `metadata.kpi_type = "ratio"` with `bridge_numerator_sql` and `bridge_denominator_sql` fields, the `_maps_for_level` helper switches to a bridge decomposition instead of running the full ratio formula per segment:
 1. Fetches numerator (e.g. Gross Profit) and denominator (e.g. Revenue) per dimension — current and previous periods — via four separate BigQuery queries.
