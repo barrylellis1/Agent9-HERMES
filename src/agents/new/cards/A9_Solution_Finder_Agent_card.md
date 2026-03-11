@@ -73,6 +73,13 @@ Environment variable override: `OPENAI_MODEL_SOLUTION`
 - **LLM Instruction**: Explicit instruction to LLM to use the exact persona IDs provided in the cross-review JSON template
 - **Persona Safety**: Initializes `persona_ids` before prompt construction to guarantee identifiers are always defined, even when debate presets are overridden.
 
+## Multi-Call Architecture + Quality Fixes (Mar 2026 — Phase 11)
+- **Multi-call debate stages**: `stage1_only` → `hypothesis` → `cross_review` → `synthesis`; Stage 1 runs 3 parallel Haiku calls (McKinsey/BCG/Bain); synthesis uses Sonnet
+- **`impact_estimate` field**: Added to `SolutionOption` Pydantic model; LLM-generated recovery range extracted from synthesis output (e.g. "2.1–3.4pp Gross Margin recovery")
+- **Recommendation rationale**: Fixed extraction — now reads `parsed.get("recommendation_rationale")` instead of hardcoded boilerplate text
+- **Stage 1 hypothesis restoration**: `stage_1_hypotheses` re-attached to cross_review/synthesis responses for progressive reveal in Council In Session UI
+- **`max_tokens`**: Raised to 16384 to prevent synthesis truncation on complex briefings
+
 ## Synthesis Prompt Quality Improvements (Mar 2026 — Phase 12)
 - **next_steps**: Requires minimum 4 items with action verb + named role + specific deliverable + deadline; rejects generic boilerplate
 - **recovery_range**: RECOVERY RANGE ANCHORS include failure-mode fallback (30–60% of observed variance) to prevent LLM outputting 0.0

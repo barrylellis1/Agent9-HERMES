@@ -385,7 +385,7 @@ export async function refineProblem(
   return data as ProblemRefinementResult;
 }
 
-export async function runDeepAnalysis(situationId: string, kpiName: string, principalId: string = 'cfo_001') {
+export async function runDeepAnalysis(situationId: string, kpiName: string, principalId: string = 'cfo_001', timeframe?: string) {
     // 1. Trigger the workflow
     const runResponse = await fetch(`${API_BASE}/workflows/deep-analysis/run`, {
       method: 'POST',
@@ -394,7 +394,8 @@ export async function runDeepAnalysis(situationId: string, kpiName: string, prin
         principal_id: principalId,
         situation_id: situationId,
         scope: {
-            kpi_id: kpiName
+            kpi_id: kpiName,
+            timeframe: timeframe
         },
         include_supporting_evidence: true
       })

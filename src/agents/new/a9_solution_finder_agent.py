@@ -685,12 +685,12 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         f"- MUST populate cross_review with SPECIFIC critiques and endorsements from each consulting firm ({persona_names}). Each firm should critique at least one option and endorse at least one option with concrete reasoning.\n"
                         "- CRITICAL: The Deep Analysis is COMPLETE. Do NOT suggest 'more data gathering' or 'implementing analytics' as a primary solution. Focus on OPERATIONAL INTERVENTIONS to address the identified drivers.\n"
                         f"- CONTEXT: The analysis focuses on '{target_kpi}'. Ensure the Problem Reframe explicitly mentions this KPI.\n"
-                        "- QUANTIFIED IMPACT REQUIREMENT: For each option, populate 'impact_estimate' using the actual numbers from INPUT DATA 'situation_metadata':\n"
-                        "  * 'metric' = the KPI name (from situation_metadata.kpi_name)\n"
-                        "  * 'unit' = the KPI unit (from situation_metadata.unit, e.g. '%' or '$')\n"
+                        "- QUANTIFIED IMPACT REQUIREMENT: For each option, populate 'impact_estimate' using the actual numbers from the SITUATION METRICS section:\n"
+                        "  * 'metric' = the KPI name (from SITUATION METRICS kpi_name field)\n"
+                        "  * 'unit' = the KPI unit (from SITUATION METRICS unit field, e.g. '%' or '$')\n"
                         "  * 'recovery_range' = {\"low\": <number>, \"high\": <number>} expressed in the KPI's own units — NOT as a generic percentage of improvement. If unit is '%', express as percentage points (e.g. 1.2 to 2.8). If unit is '$', express as dollar amounts (e.g. 2400000 to 4800000).\n"
                         "  * 'basis' = one sentence grounding the estimate in the actual change_points magnitude and the option's mechanism (e.g. 'Supplier consolidation delivering 3-5% unit cost reduction on the $X COGS base identified in the where_is analysis').\n"
-                        "  * Calibrate the range against situation_metadata.current_value and comparison_value — your estimate should be directionally proportional to the observed variance.\n"
+                        "  * Calibrate the range against the current_value and comparison_value from SITUATION METRICS — your estimate should be directionally proportional to the observed variance.\n"
                         "- NUMERIC DIFFERENTIATION REQUIREMENT: Each option's expected_impact, cost, risk, AND recovery_range MUST differ from the others. "
                         "Map each option's cost_signal from stage_1_persona_hypotheses.proposed_option: Low→0.25, Medium→0.50, High→0.80. "
                         "Map risk_signal similarly. recovery_range MUST be non-zero — anchor from Stage 1 impact_estimates in stage_1_persona_hypotheses. "
@@ -723,8 +723,8 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "      \"cost\": 0.40,\n"
                         "      \"risk\": 0.35,\n"
                         "      \"impact_estimate\": {\n"
-                        "        \"metric\": \"<KPI name from situation_metadata>\",\n"
-                        "        \"unit\": \"<unit from situation_metadata, e.g. % or $>\",\n"
+                        "        \"metric\": \"<KPI name from SITUATION METRICS>\",\n"
+                        "        \"unit\": \"<unit from SITUATION METRICS, e.g. % or $>\",\n"
                         "        \"recovery_range\": {\"low\": <S1_low_estimate>, \"high\": <S1_high_estimate>},\n"
                         "        \"basis\": \"<one sentence: mechanism + data grounding>\"\n"
                         "      },\n"
@@ -803,7 +803,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "    {\n"
                         "      \"tension\": \"...\",\n"
                         "      \"options_affected\": [\"opt_1\", \"opt_2\"],\n"
-                        "      \"requires\": \"<Specific operational action to resolve this tension — NOT meta-labels like 'human judgment' or 'more data'. Format: 'Who does what specific task by when', e.g.: 'Finance team to complete SKU-level cost-to-serve analysis before National Auto Parts Chain A negotiation begins (target: Week 2)'>\"\n"
+                        "      \"requires\": \"<Specific operational action to resolve this tension — NOT meta-labels like 'human judgment' or 'more data'. Format: 'Role title does what specific task by when'. Use ROLE TITLES only — do NOT use personal names (e.g., use 'CFO' or 'VP Sales' not a person's name). E.g.: 'Finance team to complete SKU-level cost-to-serve analysis before National Auto Parts Chain A negotiation begins (target: Week 2)'>\"\n"
                         "    }\n"
                         "  ],\n"
                         "  \"blind_spots\": [\"...\"],\n"
@@ -1010,15 +1010,25 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     # Skip for subsequent debate stages (cross_review/synthesis) — Stage 1 already done.
                     import json as _json_s1
                     _debate_stage = prefs.get("debate_stage") if isinstance(prefs, dict) else None
-                    _skip_stage1 = _debate_stage in ("cross_review", "synthesis")
+                    # Skip Stage 1 Haiku calls for stages that already have prior hypotheses.
+                    # 'hypothesis' stage also skips Stage 1 when prior_stage1_hypotheses is provided
+                    # (used when stage1_only pre-call already collected them for fast card reveal).
+                    _skip_stage1 = (
+                        _debate_stage in ("cross_review", "synthesis")
+                        or (
+                            _debate_stage == "hypothesis"
+                            and isinstance(prefs, dict)
+                            and isinstance(prefs.get("prior_stage1_hypotheses"), dict)
+                        )
+                    )
                     stage_1_hyps_dict: Dict[str, Any] = {}
-                    # For synthesis stage, restore Stage 1 hypotheses passed through from UI
-                    # so recovery_range anchors can be injected into the synthesis prompt.
-                    if _skip_stage1 and _debate_stage == "synthesis" and isinstance(prefs, dict):
+                    # Restore Stage 1 hypotheses for any stage that skips the parallel Haiku calls
+                    if _skip_stage1 and isinstance(prefs, dict):
                         _prior_s1 = prefs.get("prior_stage1_hypotheses")
                         if isinstance(_prior_s1, dict):
                             stage_1_hyps_dict = _prior_s1
-                            self.logger.info(f"[SF] Restored {len(stage_1_hyps_dict)} Stage 1 hypotheses from prior hypothesis call for recovery anchors")
+                            self.logger.info(f"[SF] Restored {len(stage_1_hyps_dict)} Stage 1 hypotheses from prior call")
+                    _skip_synthesis_llm = False  # Set True for stage1_only after Stage 1 completes
                     if consulting_personas and not _skip_stage1:
                         da_compact_s1 = {
                             "kpi_name": da_summary.get("kpi_name"),
@@ -1075,8 +1085,8 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                     '    "mechanism": "<how this directly addresses the identified driver>",\n'
                                     '    "time_horizon": "0-90 days|3-12 months|12+ months",\n'
                                     '    "impact_estimate": {\n'
-                                    '      "metric": "<KPI name from situation_metadata>",\n'
-                                    '      "unit": "<unit from situation_metadata>",\n'
+                                    '      "metric": "<KPI name from SITUATION METRICS section>",\n'
+                                    '      "unit": "<unit from SITUATION METRICS section>",\n'
                                     '      "recovery_range": {"low": <estimated_low_number>, "high": <estimated_high_number>},\n'
                                     '      "basis": "<mechanism + magnitude from change_points>"\n'
                                     '    },\n'
@@ -1106,7 +1116,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                     f"As {p.name}, apply your methodology to:\n"
                                     "1. Form ONE specific hypothesis about the primary driver of this KPI decline\n"
                                     "2. Propose ONE actionable intervention with a distinct mechanism\n"
-                                    "3. Estimate the recovery impact using the KPI unit from situation_metadata — recovery_range MUST be non-zero numbers proportional to the observed variance\n"
+                                    "3. Estimate the recovery impact using the KPI unit from the SITUATION METRICS section above — recovery_range MUST be non-zero numbers proportional to the observed variance\n"
                                     "4. Provide 3 specific data points as evidence from the analysis signals\n"
                                     "RULES: recommended_focus = entity name only, NO field prefixes (e.g. 'High Mileage Engine Oil', NOT 'product_name: High Mileage Engine Oil'). "
                                     "recovery_range low/high = actual numeric estimates (NEVER 0.0). cost_signal and risk_signal must reflect your mechanism's complexity. "
@@ -1153,6 +1163,21 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             "personas": list(stage_1_hyps_dict.keys()),
                         })
                         self.logger.info(f"[SF] Stage 1 complete: {list(stage_1_hyps_dict.keys())}")
+                        # stage1_only: return Stage 1 results immediately — skip synthesis Sonnet call.
+                        # The frontend shows firm cards as soon as this returns, then fires the
+                        # 'hypothesis' stage call (Sonnet-only, using prior_stage1_hypotheses).
+                        if _debate_stage == "stage1_only":
+                            _skip_synthesis_llm = True
+                            stage_1_hypotheses_final = stage_1_hyps_dict
+                            for _idx, (_pid, _hyp) in enumerate(stage_1_hyps_dict.items()):
+                                _po = _hyp.get("proposed_option") or {}
+                                options.append(SolutionOption(
+                                    id=_po.get("id") or f"opt_{_idx + 1}",
+                                    title=str(_po.get("title") or f"Hypothesis ({_pid})"),
+                                    description=_po.get("description"),
+                                    expected_impact=0.6, cost=0.4, risk=0.3,
+                                ))
+                            self.logger.info(f"[SF] stage1_only: {len(options)} Stage 1 options captured, synthesis LLM skipped")
 
                     # ---- STAGE 2: Synthesis call ----
                     # Separate the data payload from the instructions
@@ -1226,7 +1251,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         context="",  # Empty context since debate_spec is now in content
                         # Full-power model for synthesis/cross-review (overridable via CLAUDE_MODEL_SYNTHESIS)
                         model=get_claude_model_for_task(ClaudeTaskType.SYNTHESIS),
-                        # Synthesis schema (3 options + cross_review) routinely exceeds 8192 tokens
+                        # Synthesis JSON for complex datasets can exceed 10000 tokens — use full budget
                         max_tokens=16384,
                     )
 
@@ -1254,7 +1279,10 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         pass
 
                     # Prefer orchestrator routing per LLM PRD; fallback to direct agent if missing
-                    if self.orchestrator is not None:
+                    # stage1_only skips the synthesis LLM — Stage 1 Haiku results are sufficient
+                    if _skip_synthesis_llm:
+                        llm_resp = None
+                    elif self.orchestrator is not None:
                         llm_resp = await self.orchestrator.execute_agent_method(
                             "A9_LLM_Service_Agent", "analyze", {"request": analysis_req}
                         )
@@ -1303,7 +1331,8 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                         reversibility=o.get("reversibility"),
                                         perspectives=pers_list,
                                         implementation_triggers=o.get("implementation_triggers", []),
-                                        prerequisites=o.get("prerequisites", [])
+                                        prerequisites=o.get("prerequisites", []),
+                                        impact_estimate=o.get("impact_estimate"),
                                     )
                                 )
                             except Exception:
@@ -1342,8 +1371,8 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             # Fallback: synthesis LLM may not have generated this (removed from schema)
                             stage_1_hypotheses_final = parsed.get("stage_1_hypotheses") or {}
 
-                        # Fallback rationale
-                        rationale = "Options generated via Decision Briefing analysis."
+                        # Use LLM-generated rationale if available
+                        rationale = parsed.get("recommendation_rationale") or "Options generated via Decision Briefing analysis."
 
                         # Add briefing dump to audit log
                         audit_log.append({
@@ -1363,6 +1392,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
 
             # Heuristic fallback or augmentation if LLM didn't yield options
             if not options:
+                # Preserve Stage 1 hypotheses so progressive reveal still works even in fallback
+                if stage_1_hyps_dict and not stage_1_hypotheses_final:
+                    stage_1_hypotheses_final = stage_1_hyps_dict
                 options = [
                     SolutionOption(id="opt1", title="Tighten spend controls", expected_impact=0.6, cost=0.3, risk=0.3),
                     SolutionOption(id="opt2", title="Optimize pricing", expected_impact=0.7, cost=0.5, risk=0.4),

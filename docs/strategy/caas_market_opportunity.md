@@ -1,7 +1,15 @@
 # Consulting-as-a-Service (CaaS) Market Opportunity for Agent9
 
+> **Strategy Context (March 2026):** The CaaS/branded-agent marketplace model described in this document is a **Year 3+ strategy** (2028+), contingent on 10+ paying customers. The near-term primary market is **direct subscription** — mid-market companies ($50M–$500M revenue) that have never engaged MBB consulting at all. This segment requires no competitive displacement narrative and has a faster sales cycle. The CaaS partnership layer becomes viable only after Agent9 has proven ROI with real customers. No consulting firm will encode their IP in a pre-revenue platform. See `docs/strategy/roadmap.md` and `docs/strategy/Agent9_Business_Plan.md` for the current phased strategy.
+>
+> This document remains valuable for **understanding the Year 3+ opportunity** and **informing partner outreach preparation**. Do not use this as the basis for current GTM positioning.
+
+---
+
 ## Executive Summary
 Agent9’s Consulting-as-a-Service (CaaS) model positions the platform to disrupt the traditional consulting industry by enabling branded, partner-controlled, and auditable digital consulting agents. This approach allows leading consultancies and technology providers to deliver their proprietary knowledge at scale, while empowering customers to dynamically select, blend, and benchmark consulting expertise in real time.
+
+**CaaS/Partnership Timeline:** Year 3+ (2028). Prerequisites: 10+ paying direct customers, proven ROI case studies, SOC 2 readiness. Target partners: mid-tier firms (FTI, A&M, Huron) before MBB. MBB RAG IP partnership (McKinsey/BCG methodology + Agent9 data pipeline as joint product) is a longer-term vision as LLM trust grows exponentially — the trust trajectory makes this increasingly viable, but execution requires customer proof first.
 
 ---
 
@@ -127,6 +135,39 @@ Despite the AI agent marketplace growth, major consulting firms have NOT:
 
 ---
 
+## 8b. The Near-Term Direct Market (Phase 0–2, 2026–2027)
+
+*This section was added March 2026 to contextualise the CaaS opportunity against the primary near-term market.*
+
+### The Never-Engaged Mid-Market
+
+The largest addressable market for Agent9 in Years 1-2 is not consulting firm partnerships — it is the **50,000+ mid-market companies ($50M–$500M revenue) that have never engaged MBB consulting** due to cost.
+
+| | Traditional Consulting Market | Never-Engaged Mid-Market |
+|---|---|---|
+| **Companies** | 5,000-10,000 (MBB clients) | 50,000+ |
+| **Sales motion** | Displacement (overcome incumbent) | Net-new capability (no incumbent) |
+| **Sales cycle** | 4-6 months (committee, competitive review) | 4-8 weeks (clear ROI, no competition) |
+| **Pilot pricing** | Needs to beat ~$500K/year spend | $15K-$25K pilot is an obvious yes |
+| **ACV** | $60K-$120K | $44K-$80K |
+
+**Why this market is easier to close:**
+- No "but we have McKinsey" objection — they don't
+- Pain is immediate (CFO + spreadsheet + gut instinct on $200M company)
+- ROI is net-new, not incremental — any structured analysis is better than nothing
+- Pilot risk is minimal relative to the alternative (no analysis at all)
+
+**How the 5 pillars map to this segment:**
+- Pillar 1 (monitoring): replaces manual KPI tracking they've been doing in Excel
+- Pillar 2 (insight): provides access to structured analysis they've never had
+- Pillar 3 (institutional memory): encodes knowledge that currently lives only in the CFO's head
+- Pillar 4 (opportunity detection): surfaces growth signals they were missing entirely
+- Pillar 5 (ROI validation): proves the platform's own value — self-reinforcing retention driver
+
+This segment is the **primary GTM focus through 2027**. The CaaS/partner marketplace becomes relevant after this segment generates case studies that attract consulting firm interest.
+
+---
+
 ## 9. Agent9 Moat Strategy
 
 ### 9.1 What Is NOT a Moat
@@ -193,4 +234,4 @@ SAP and Oracle are not competitors—they're potential **integration partners**.
 
 ---
 
-*Last updated: December 2024*
+*Last updated: March 2026. Original document: December 2024. See strategy context note at top of document.*

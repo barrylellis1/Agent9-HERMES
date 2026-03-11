@@ -1,7 +1,7 @@
 # Agent9: AI-Powered Decision Intelligence
 
 ## One-Page Executive Summary
-**Last Updated:** February 13, 2026
+**Last Updated:** March 10, 2026
 
 ---
 
@@ -13,6 +13,7 @@ Enterprise decision-makers spend **$800B+ annually** on consulting, yet:
 - **No audit trail** for how conclusions were reached
 - **IP is trapped** in slide decks and consultants' heads
 - **Scaling requires linear headcount** growth
+- **Critical decisions receive no structured analysis at all** — mid-market companies ($50M–$500M) are priced out of MBB engagements and make decisions with a CFO, a spreadsheet, and gut instinct
 
 ---
 
@@ -56,7 +57,7 @@ Enterprise decision-makers spend **$800B+ annually** on consulting, yet:
 └─────────────────────────────────────────────────────────┘
 ```
 
-*Note: Branded consulting firm agents (McKinsey, BCG, etc.) are a Year 3+ marketplace feature. The platform today delivers consulting-methodology-quality analysis through encoded frameworks (SCQA, KT Is/Is-Not, multi-lens trade-off analysis) — not through external firm partnerships.*
+*Note: The MBB partnership model (MBB methodology RAG + Agent9 data pipeline = joint product) is a Year 3+ roadmap item. LLM model trust is on a rapid growth trajectory; operational decisions are reaching the trust threshold now.*
 
 ---
 
@@ -70,10 +71,12 @@ Enterprise decision-makers spend **$800B+ annually** on consulting, yet:
 | Branded expertise | ✅ | ✅ | ❌ |
 | Human-in-the-loop | ✅ | ✅ | ⚠️ |
 | Scalable delivery | ✅ | ❌ | ✅ |
+| Market intelligence (real-time) | ✅ (Market Analysis Agent) | ⚠️ (quarterly) | ❌ |
+| ROI validation (post-implementation) | ✅ | ❌ | ❌ |
 
 ---
 
-### Value Snapshot (Three Independent Pillars)
+### Value Snapshot (Five Independent Pillars)
 
 **Pillar 1 — Always-On Monitoring**
 | Metric | Without Agent9 | With Agent9 |
@@ -85,7 +88,7 @@ Enterprise decision-makers spend **$800B+ annually** on consulting, yet:
 **Pillar 2 — Consulting-Quality Insight on Demand**
 | Metric | Traditional Consulting | Agent9 |
 |--------|----------------------|--------|
-| Annual cost | $500K-$3M | $60K-$120K |
+| Annual cost | $500K-$3M | $44K-$100K |
 | Time to first insight | 4-8 weeks | 4-24 hours |
 | Perspectives per decision | 1 firm | 3-5 lenses (Financial, Operational, Strategic, Risk, Technical) |
 
@@ -96,6 +99,20 @@ Enterprise decision-makers spend **$800B+ annually** on consulting, yet:
 | Decision rationale | Email threads, slide decks | Structured debate transcript |
 | Outcome tracking | Manual follow-up | Continuous monitoring vs target |
 | Executive turnover risk | High (knowledge walks out) | Zero (registry persists) |
+
+**Pillar 4 — Opportunity Detection (not just problem response)**
+| Metric | Without Agent9 | With Agent9 |
+|--------|---------------|-------------|
+| Positive KPI signals | Noticed eventually, acted on slowly | Proactively detected; market context surfaced; capture options generated |
+| Competitive intelligence | Quarterly review at best | Continuous (via Market Analysis Agent) |
+| Innovation triggers | Ad hoc, dependent on individual awareness | Systematic signal-to-opportunity workflow |
+
+**Pillar 5 — Initiative Tracking & Proven ROI**
+| Metric | Without Agent9 | With Agent9 |
+|--------|---------------|-------------|
+| Recommendation follow-through | Slide deck → forgotten | Stored at acceptance; KPI tracked post-implementation |
+| ROI attribution | Assumed; rarely measured | Measured: intervention impact isolated from market tailwinds |
+| Learning loop | None (recommendations don't improve over time) | Reinforced: outcomes feed back into future recommendation quality |
 
 ---
 
@@ -141,9 +158,11 @@ Enterprise decision-makers spend **$800B+ annually** on consulting, yet:
 - ✅ Database-agnostic backend (DuckDB, Supabase, BigQuery)
 
 **Next Milestones:**
-- Demo video: Apr 2026
-- First pilot signed: Sep 2026
-- 5 customers, $200K ARR: Dec 2027
+- Market Analysis Agent built: April 2026 (accelerated from June 2026)
+- Positive KPI opportunity detection: March 2026
+- First pilot signed: September 2026
+- Initiative tracking (Value Assurance): October 2026
+- 5 customers, $250K ARR: December 2027
 
 ---
 
@@ -170,4 +189,4 @@ Enterprise decision-makers spend **$800B+ annually** on consulting, yet:
 
 ---
 
-*Confidential | February 2026*
+*Confidential | March 2026*

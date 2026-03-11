@@ -1,20 +1,26 @@
 # Agent9 Adoption Realism & Timeline
-**Last Updated:** February 13, 2026
+**Last Updated:** March 2026
 
-## Actual Progress (As of Feb 2026)
+## Actual Progress (As of March 2026)
 
 ### ✅ Completed
 - Multi-agent orchestration framework (SA, Deep Analysis, Solution Finder)
-- Decision Studio UI (React, functional)
+- Decision Studio UI (React, functional — production-quality)
 - Registry Explorer (KPIs, principals, processes, data products, glossary)
 - Principal-driven analysis (decision style → consulting persona framing)
 - Database-agnostic backend (DuckDB, Supabase/Postgres, BigQuery)
 - Audit trail and HITL checkpoints
+- SA → DA → SF multi-call pipeline stable (stage1_only → hypothesis → cross_review → synthesis)
+- Executive Decision Briefing: 19-page output, McKinsey/BCG/Bain progressive reveal
+- 5-pillar value proposition defined and strategy docs updated
 
-### 🔄 In Progress (Feb-Apr 2026)
-- Demo video production
+### 🔄 In Progress (Mar-Apr 2026) — Active Development Sprint
+- Market Analysis Agent (Perplexity + Claude synthesis → market signals, competitor context)
+- Positive KPI opportunity detection in SA → green opportunity cards in Decision Studio
+- Value Assurance data model (AcceptedSolution + Supabase persistence)
+- Demo video production (lubricants + bikes scenarios)
 - Landing page and pitch deck
-- Warm network identification (20 contacts)
+- Warm network identification (20 contacts — never-engaged mid-market CFOs + VP FP&A)
 
 ## Revised Timeline (Bootstrapped, Solo Founder)
 
@@ -46,18 +52,22 @@ gantt
 
 | **Phase** | **Target Date** | **Success Criteria** | **Kill Criteria** |
 |-----------|----------------|---------------------|-------------------|
-| **Phase 0: Demo-Ready** | Apr 2026 | Demo video recorded, 20 warm contacts identified | N/A (sunk cost) |
-| **Phase 1: First Pilot** | Sep 2026 | 1-2 signed pilots ($15K-$25K) | No signed pilots by Oct 2026 → pause/pivot |
-| **Phase 2: Prove & Grow** | Dec 2027 | 5-8 customers, $200K-$320K ARR (base) | <3 customers by Jun 2027 → reassess |
-| **Phase 3: Scale** | 2028+ | 10-20 customers, $600K-$1.2M ARR (base) | Negative unit economics after 10 customers |
+| **Phase 0: Demo-Ready** | Apr 2026 | Demo video, MA Agent wired, opportunity detection live, 20 warm contacts | N/A (sunk cost) |
+| **Phase 1: First Pilot** | Sep 2026 | 1-2 signed pilots ($15K-$25K) — prioritise never-engaged segment | No signed pilots by Oct 2026 → pause/pivot |
+| **Phase 2: Prove & Grow** | Dec 2027 | 4-7 customers, $260K-$595K ARR (base — 5-pillar model) | <3 customers by Jun 2027 → reassess |
+| **Phase 3: Scale** | 2028+ | 10-20 customers, $800K-$1.6M ARR (base); first partner pilot | Negative unit economics after 10 customers |
+
+*ARR targets raised from v1 (was $200K-$320K base for Phase 2) to reflect 5-pillar multi-budget ACV uplift and never-engaged market as primary target.*
 
 ## Customer Readiness Assumptions
 
 ### Must-Haves (Non-Negotiable)
 1. **Existing data infrastructure** (ERP, BI, data warehouse)
-2. **Analytics team** that can validate outputs
-3. **Executive sponsor** with innovation budget
-4. **$1M+ annual consulting spend** (pain is real)
+2. **Analytics capability** that can validate outputs (dedicated analyst or CFO-level data fluency)
+3. **Executive sponsor** with innovation budget (or clear pain that justifies pilot spend)
+4. **Real KPI pain** — either reactive (problem detection) or proactive (opportunity capture)
+
+*Note: "$1M+ annual consulting spend" is no longer a must-have. The never-engaged mid-market ($50M-$500M companies that never hired MBB) is the primary target. Their pain is real even without consulting spend — they're making decisions with insufficient analysis, not with consultants they're trying to replace.*
 
 ### Nice-to-Haves (Can Work Around)
 - Centralized business glossary (Agent9 can help build)

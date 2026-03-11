@@ -1,5 +1,6 @@
 export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) => {
     const kpiName = situation?.kpi_name || analysis?.kpi_name || sol?.problem_reframe?.situation || 'KPI'
+    const kpiUnit: string = situation?.kpi_value?.unit || ''
     const topOptions = Array.isArray(sol?.options_ranked) ? sol.options_ranked : []
 
     const urgency = situation?.severity ? String(situation.severity) : 'High Priority'
@@ -70,7 +71,8 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
               ? String(item.text).replace(/^[a-z][a-z0-9_]*:\s*/i, '').trim()
               : 'N/A')
         rootCauses.push({
-          driver: `${formatDimLabel(item.dimension)}: ${item.key}`,
+          driver: String(item.key),
+          dimension: formatDimLabel(item.dimension),
           evidence: evidenceStr,
           impact: `Δ ${formatDelta(item?.delta)}`
         })
@@ -103,19 +105,21 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
     const formatImpactEstimate = (opt: any, optIdx: number = 0): string => {
       const ie = opt?.impact_estimate
       if (ie && typeof ie === 'object') {
-        const unit = ie.unit || ''
+        const rawUnit = ie.unit || kpiUnit || ''
+        // Percentage KPIs recover in percentage points (pp), not raw %
+        const displayUnit = rawUnit === '%' ? 'pp' : rawUnit
         const low = ie.recovery_range?.low
         const high = ie.recovery_range?.high
         if (low != null && high != null && (low !== 0 || high !== 0)) {
           const fmt = (v: number) => {
             const abs = Math.abs(v)
             const sign = v > 0 ? '+' : ''
-            if (unit === '$') {
+            if (rawUnit === '$') {
               if (abs >= 1_000_000) return `${sign}$${(v / 1_000_000).toFixed(1)}M`
               if (abs >= 1_000)     return `${sign}$${(v / 1_000).toFixed(0)}K`
               return `${sign}$${v.toFixed(0)}`
             }
-            return `${sign}${v.toFixed(1)}${unit}`
+            return `${sign}${v.toFixed(1)}${displayUnit}`
           }
           return `${fmt(low)} to ${fmt(high)}`
         }
@@ -136,7 +140,11 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
               const [lowFrac, highFrac] = fractionsByTier[Math.min(optIdx, 2)]
               const low = delta * lowFrac
               const high = delta * highFrac
-              const fmtNum = (v: number) => v >= 1_000_000 ? `${(v/1_000_000).toFixed(1)}M` : v >= 1_000 ? `${(v/1_000).toFixed(0)}K` : v.toFixed(1)
+              const fallbackUnit = kpiUnit === '%' ? 'pp' : kpiUnit === '$' ? '' : kpiUnit
+              const fmtNum = (v: number) => {
+                if (kpiUnit === '$') return v >= 1_000_000 ? `$${(v/1_000_000).toFixed(1)}M` : v >= 1_000 ? `$${(v/1_000).toFixed(0)}K` : `$${v.toFixed(0)}`
+                return v >= 1_000_000 ? `${(v/1_000_000).toFixed(1)}M${fallbackUnit}` : v >= 1_000 ? `${(v/1_000).toFixed(0)}K${fallbackUnit}` : `${v.toFixed(1)}${fallbackUnit}`
+              }
               return `~+${fmtNum(low)} to +${fmtNum(high)} (est.)`
             }
           }
@@ -172,8 +180,14 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
     const buildTitle = (): string => {
       // Prefer LLM problem_reframe.situation — written for humans, not machines
       if (sol?.problem_reframe?.situation) {
-        const sentence = String(sol.problem_reframe.situation).split('.')[0].trim()
-        if (sentence.length >= 20 && sentence.length <= 250) return `Decision Briefing: ${sentence}`
+        const rawSit = String(sol.problem_reframe.situation)
+        const sentence = (rawSit.match(/^[^.]*(?:\.\d[^.]*)*(?=\.\s+[A-Z]|$)/)?.[0] ?? rawSit).trim()
+        if (sentence.length >= 20) {
+          const capped = sentence.length > 90
+            ? sentence.substring(0, 87).replace(/\s+\S*$/, '') + '...'
+            : sentence
+          return `Decision Briefing: ${capped}`
+        }
       }
       // Fallback: clean the raw situation.description
       if (situation?.description) {
@@ -192,8 +206,22 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
     if (options[0]?.prerequisites?.length > 0) {
       roadmap.push({ phase: 'Phase 1: Prerequisites', items: options[0].prerequisites, timeline: 'Week 1-2' })
     }
-    if (options[0]?.implementation_triggers?.length > 0) {
-      roadmap.push({ phase: 'Phase 2: Implementation', items: options[0].implementation_triggers, timeline: 'Week 3-8' })
+    // Phase 2: derive implementation steps from the option itself (not escalation triggers)
+    if (options[0]) {
+      const phase2Items: string[] = [
+        options[0]?.title
+          ? `Execute primary intervention: ${options[0].title}`
+          : 'Activate primary intervention per approved plan',
+        options[0]?.description
+          ? (() => {
+              const s = (String(options[0].description).match(/^[^.]*(?:\.\d[^.]*)*(?=\.\s+[A-Z]|$)/)?.[0] ?? String(options[0].description)).trim()
+              return s.length > 250 ? s.substring(0, 247).replace(/\s+\S*$/, '') + '...' : s
+            })()
+          : 'Implement the approved operational changes',
+        `Brief all stakeholders and assign task owners by name`,
+        `Week 4 checkpoint: compare early actuals against expected recovery trajectory`,
+      ]
+      roadmap.push({ phase: 'Phase 2: Implementation', items: phase2Items, timeline: 'Week 3-8' })
     }
     const monitorItems = [
       `Finance Controller to track ${kpiName} recovery weekly — target: restore to prior baseline`,
@@ -259,6 +287,12 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
           `Report initial progress at next leadership review`,
         ]
 
+    const rawRationale = sol?.recommendation_rationale || options[0]?.description || ''
+    const isBoilerplateRationale = /options generated via/i.test(rawRationale) || /based on our analysis/i.test(rawRationale) || rawRationale.trim().length < 30
+    const rationale = isBoilerplateRationale
+      ? `${options[0]?.title || 'The recommended action'} was selected based on the analysis: it targets the primary identified driver (${rootCauses[0]?.driver || kpiName + ' variance'}) with the most favourable balance of speed, reversibility, and impact relative to the structural alternatives.`
+      : rawRationale
+
     const transformed = {
       title,
       urgency,
@@ -272,11 +306,13 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
       },
       executiveSummary,
       situation: {
-        currentState: situation?.description || `Context for ${kpiName}.`,
+        currentState: situation?.description ? String(situation.description).replace(/\s*\(threshold=\w+\)/gi, '').trim() : `Context for ${kpiName}.`,
         problem: sol?.problem_reframe?.complication || `Variance detected in ${kpiName}.`,
         rootCauses,
         keyQuestion: sol?.problem_reframe?.question || null,
-        assumptions: sol?.problem_reframe?.key_assumptions || [],
+        assumptions: (sol?.problem_reframe?.key_assumptions || []).filter(
+        (a: string) => !/situation_metadata/i.test(a) && !/^\s*null\s*$/i.test(a)
+      ),
       },
       options,
       roadmap,
@@ -285,7 +321,7 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
         headline: sol?.recommendation?.title
           ? `Proceed with: ${sol.recommendation.title}`
           : (options[0]?.title ? `Proceed with: ${options[0].title}` : 'Review options and approve next steps'),
-        rationale: sol?.recommendation_rationale || options[0]?.description || '',
+        rationale,
         nextSteps,
         decisionOwner: 'Finance Leadership',
         deadline: decisionDeadline,

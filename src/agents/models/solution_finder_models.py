@@ -49,6 +49,7 @@ class SolutionOption(A9AgentBaseModel):
     perspectives: List[PerspectiveAnalysis] = Field(default_factory=list)
     implementation_triggers: List[str] = Field(default_factory=list)
     prerequisites: List[str] = Field(default_factory=list)
+    impact_estimate: Optional[Dict[str, Any]] = None  # {metric, unit, recovery_range: {low, high}, basis}
 
 
 class TradeOffMatrix(A9AgentBaseModel):

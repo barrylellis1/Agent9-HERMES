@@ -1,6 +1,6 @@
 # Agent9 Product Roadmap
-**Last Updated:** February 2026
-**Version:** 2.0 — Agent-sequenced, business-value-driven
+**Last Updated:** March 2026
+**Version:** 2.1 — Accelerated MA agent; 5-pillar value proposition; initiative tracking added
 
 ---
 
@@ -44,38 +44,47 @@
 ---
 
 ## Phase 0 — Demo Ready (Now → April 2026)
-*Goal: One compelling 5-minute demo. Zero new agent builds except Risk Analysis.*
+*Goal: Stable pipeline + external intelligence layer + opportunity detection. This is the full 5-value-pillar foundation.*
 
-### Product Work
-- [ ] Fix hardcoded path in a9_solution_finder_agent.py:821
+### ✅ Completed (March 2026)
+- ✅ SA → DA → SF pipeline stable and production-quality
+- ✅ Executive Decision Briefing: 19-page output with firm proposals, cross-review, options, roadmap, risk
+- ✅ Progressive reveal: real McKinsey/BCG/Bain cards in Council In Session
+- ✅ Multi-call SF architecture (stage1_only → hypothesis → cross_review → synthesis)
+- ✅ ROI units (`pp`), LLM-generated recommendation rationale, argument formatting fixed
+
+### Sprint: March–April 2026 (see `docs/strategy/sprint_plan_march_2026.md`)
+- [ ] **Day 1:** MA Agent — Pydantic models + skeleton (`src/agents/models/market_analysis_models.py`, `src/agents/new/a9_market_analysis_agent.py`)
+- [ ] **Day 2:** Perplexity service + Haiku KPI classification (`src/llm_services/perplexity_service.py`)
+- [ ] **Day 3:** Sonnet synthesis + `analyze_market_opportunity` full flow
+- [ ] **Day 4:** Wire MA into SA→SF pipeline; SF uses `market_analysis_input`; Market Intelligence badge in UI
+- [ ] **Day 5:** Positive KPI opportunity detection in SA; green opportunity card in Decision Studio UI
+- [ ] **Day 6:** Value Assurance data model — `AcceptedSolution` Pydantic model + Supabase persistence
+- [ ] **Day 7:** Polish, end-to-end test, agent card, unit tests
+
+### Remaining Phase 0 (Post-Sprint)
 - [ ] Fix business process field name mismatch across registries
 - [ ] Complete KPI Assistant Agent LLM integration (4 TODOs)
 - [ ] Demo flow polish: Situation → Deep Analysis → Solution Finder → Audit Trail
-- [ ] **A9_Risk_Analysis_Agent** — Build now (simple/MVP scope, 3 risk types, standalone)
-  - *Why now:* Completes the core workflow loop; every solution recommendation currently has no risk score
-  - *Spec:* Market risk, operational risk, financial risk; weighted scoring; plain-language summary
-  - *Effort:* 1-2 sprints
-
-### GTM Work
-- [ ] Record 5-minute demo video
+- [ ] Record 5-minute demo video (lubricants + bikes)
 - [ ] Build landing page (agent9.ai)
 - [ ] List 20 warm contacts (FP&A and CFO-level)
 - [ ] Draft 2-slide pitch deck: FP&A entry pitch + CFO expansion pitch
+- [ ] **A9_Risk_Analysis_Agent** — MVP scope: market/operational/financial risk; weighted scoring
+  - *Deferred from immediate sprint to allow MA to stabilise first*
+  - *Effort:* 1–2 sprints
 
 ---
 
 ## Phase 1 — Pilot Delivery (May 2026 → March 2027)
-*Goal: 1-2 signed pilots, deliver successfully, build first case study. Build agents that make pilots stickier and more valuable.*
+*Goal: 1-2 signed pilots, deliver successfully, build first case study.*
 
 ### Agent Builds
 
-**A9_Market_Analysis_Agent** *(High priority — build during pilot delivery)*
-- **Why now:** LLM problem-refinement questions already point to regulatory/market context gaps (observed in Decision Studio testing). Agent needed before second demo cycle.
-- **What it does:** Continuously monitors market trends, competitor actions, regulatory signals; contextualises internal KPI situations with external intelligence
-- **Customer value:** "Your margin decline isn't just internal — raw material costs rose 8% industry-wide this quarter"
-- **Partner value:** Automates the 2-3 week research phase consulting firms charge premium rates to deliver
-- **Dependency:** LLM Service Agent (for web research queries)
-- **Effort:** 3-4 sprints
+**A9_Market_Analysis_Agent** *(Accelerated to Phase 0 — see above)*
+- PRD complete: `docs/prd/agents/a9_market_analysis_agent_prd.md`
+- Target delivery: April 2026 (accelerated from June 2026)
+- ~~3-4 sprints~~ → 1 sprint (7 days)
 
 **A9_Stakeholder_Analysis_Agent** *(Medium priority — build in second half of Phase 1)*
 - **Why Phase 1:** When pilots produce their first solution recommendations, the CFO's next question is "who do I need to get on board?" This agent answers that.
@@ -200,11 +209,14 @@
 ## Agent Sequencing Summary
 
 ```
-PHASE 0 (Now)
+PHASE 0 (Now — April 2026)
+  Market Analysis ────────────────────────────── External intelligence layer (ACCELERATED)
+  Positive KPI detection ─────────────────────── Opportunity detection pillar
+  Value Assurance data model ─────────────────── Initiative tracking foundation
   Risk Analysis ─────────────────────────────── Completes core workflow loop
 
 PHASE 1 (2026 pilots)
-  Market Analysis ────────────────────────────── External intelligence layer
+  Value Assurance UI (T+30/60/90) ────────────── Proven ROI pillar
   Stakeholder Analysis + Engagement ──────────── Makes recommendations actionable
 
 PHASE 2 (2027 growth)
@@ -230,25 +242,30 @@ PHASE 4 (2028+ marketplace)
 
 | Milestone | Target Date | Status |
 |-----------|-------------|--------|
-| Risk Analysis Agent built | Mar 2026 | 📋 Pending |
-| Hardcoded path + BP field name fixes | Mar 2026 | 📋 Pending |
-| KPI Assistant Agent LLM integration complete | Mar 2026 | 📋 Pending |
-| Demo video recorded | Apr 2026 | 🔄 In progress |
+| Executive Decision Briefing stable (SA→DA→SF) | Mar 2026 | ✅ Complete |
+| 5-pillar value proposition + updated strategy docs | Mar 2026 | ✅ Complete |
+| MA Agent PRD complete | Mar 2026 | ✅ Complete |
+| MA Agent built + wired into SF pipeline | Apr 2026 | 📋 Sprint |
+| Positive KPI opportunity detection (SA) | Mar 2026 | 📋 Sprint |
+| Value Assurance data model (AcceptedSolution) | Apr 2026 | 📋 Sprint |
+| Risk Analysis Agent built | Apr 2026 | 📋 Pending |
+| BP field name fixes + KPI Assistant LLM complete | Apr 2026 | 📋 Pending |
+| Demo video recorded (lubricants + bikes) | Apr 2026 | 📋 Pending |
 | Landing page live | Apr 2026 | 📋 Pending |
-| Market Analysis Agent built | Jun 2026 | 📋 Pending |
 | First pilot signed | Sep 2026 | 📋 Pending |
 | Stakeholder Analysis + Engagement built | Oct 2026 | 📋 Pending |
+| Value Assurance full UI (T+30/60/90 tracking) | Oct 2026 | 📋 Pending |
 | 5-day onboarding template v1 (SAP) | Oct 2026 | 📋 Pending |
 | First case study documented | Jan 2027 | 📋 Pending |
 | Change Management Agent built | Apr 2027 | 📋 Pending |
 | Implementation Tracker + Risk Management built | Jun 2027 | 📋 Pending |
 | Hire #1 (Sales/CS) | Jun 2027 | 📋 Pending |
 | Opportunity Analysis Agent built | Aug 2027 | 📋 Pending |
-| 5 customers / $300K-$480K ARR (base) | Dec 2027 | 📋 Pending |
+| 5 customers / $250K+ ARR | Dec 2027 | 📋 Pending |
 | SOC 2 readiness | H1 2028 | 📋 Pending |
-| First consulting firm partner pilot | H2 2028 | 📋 Pending |
+| First consulting firm partner pilot (MBB RAG) | H2 2028 | 📋 Pending |
 | Performance + Business Optimization built | H2 2028 | 📋 Pending |
-| 10+ customers / $800K+ ARR (base) | Jan 2029 | 📋 Pending |
+| 10+ customers / $800K+ ARR | Jan 2029 | 📋 Pending |
 
 ---
 

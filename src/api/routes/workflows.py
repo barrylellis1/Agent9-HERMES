@@ -133,6 +133,7 @@ class SituationWorkflowRequest(BaseModel):
 class DeepAnalysisScope(BaseModel):
     kpi_id: str = Field(..., description="Target KPI identifier")
     time_range: Optional[Dict[str, Any]] = Field(None, description="Custom time range with start/end")
+    timeframe: Optional[str] = Field(None, description="Timeframe token matching SA selection (e.g., 'year_to_date', 'current_quarter')")
 
 
 class DeepAnalysisWorkflowRequest(BaseModel):
@@ -512,6 +513,7 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
             "request_id": request_id,
             "principal_id": request.principal_id,
             "kpi_name": request.scope.kpi_id,
+            "timeframe": request.scope.timeframe or "current_quarter",
             "filters": {},
         }
         if principal_context is not None:

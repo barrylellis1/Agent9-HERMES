@@ -1,21 +1,26 @@
 # Agent9 Business Plan
-**Last Updated:** February 12, 2026
+**Last Updated:** March 2026
+**Version:** 1.1 — 5-pillar value proposition; never-engaged mid-market segment added; MA Agent accelerated; 2-year ARR projection updated
 
 ---
 
 ## Executive Summary
 
-**Agent9** is an AI-powered decision intelligence platform that delivers continuous financial monitoring, multi-perspective analysis, and structured decision support for mid-market CFOs and PE portfolio operations teams. The platform combines registry-driven domain context with multi-agent analysis to surface the right insight for the right executive — automatically, continuously, and with a complete audit trail.
+**Agent9** is an AI-powered decision intelligence platform that delivers continuous financial monitoring, multi-perspective analysis, structured decision support, and post-implementation ROI validation for mid-market CFOs and PE portfolio operations teams. The platform combines registry-driven domain context, continuous KPI monitoring, and external market intelligence to surface the right insight for the right executive — automatically, continuously, and with a complete audit trail.
 
-Agent9 addresses three distinct value propositions, each independent of the others:
+Agent9 addresses five independent value propositions — each justifiable on its own, compounding together:
 1. **Always-on monitoring** — proactive situation detection across KPIs before problems become crises
 2. **Consulting-quality insight on demand** — structured root cause analysis, multi-perspective options debate, and board-ready narrative in hours not weeks
 3. **Institutional memory and decision audit trail** — KPI definitions, decision rationale, and outcome tracking that survives executive turnover and satisfies compliance requirements
+4. **Opportunity detection** — positive KPI outperformance detected, market context surfaced, capture options generated (not just problem response)
+5. **Initiative tracking and proven ROI** — accepted solutions tracked post-implementation; actual KPI recovery attributed to the intervention vs. market tailwinds
+
+**The primary market is not consulting displacement.** The largest addressable segment is the mid-market ($50M–$500M revenue) that never engaged MBB consulting because of cost. Agent9 is net-new capability for these companies — not a cheaper substitute.
 
 **Current Stage:** Pre-revenue, platform built (~100K LOC), moonlighting development
 **Go-to-Market Launch:** Q2 2026 (demo-ready, warm network outreach)
 **Primary Entry Buyer:** VP FP&A / Head of Financial Planning (faster cycle) → CFO champion for expansion
-**Target:** $100K-$250K ARR within 18 months of first customer
+**Target:** $150K-$350K ARR within 18 months of first customer (raised from $100K-$250K — 5-pillar model enables higher ACV from multiple budget pools)
 **Exit Strategy:** Strategic acquisition at $2M-$3M ARR for $15M-$30M (infrastructure/data platform framing)
 
 ---
@@ -42,7 +47,7 @@ Agent9 addresses three distinct value propositions, each independent of the othe
 ### Core Value Proposition
 "AI-powered decision intelligence for mid-market CFOs — continuous monitoring, structured analysis, and board-ready recommendations with a complete audit trail."
 
-### Three Value Pillars (Independent, Compounding)
+### Five Value Pillars (Independent, Compounding)
 
 **Pillar 1 — Always-On Monitoring (replaces absence of something)**
 - 24/7 KPI surveillance across Finance and Sales domains with multi-timeframe thresholds
@@ -50,17 +55,31 @@ Agent9 addresses three distinct value propositions, each independent of the othe
 - Situation lifecycle management (Open → Acknowledged → Assigned → Resolved)
 - *Replaces:* Manual weekly dashboard reviews, reactive fire-fighting
 
-**Pillar 2 — Consulting-Quality Insight on Demand (replaces expensive substitute)**
+**Pillar 2 — Consulting-Quality Insight on Demand (replaces expensive substitute OR net-new for never-engaged market)**
 - Structured SCQA root cause analysis (Situation, Complication, Question, Answer)
 - Multi-perspective solution debate with trade-off matrix (Financial, Operational, Strategic, Risk lenses)
 - Role-personalised output: same KPI, different framing for CFO (analytical), COO (pragmatic), CEO (visionary)
-- *Replaces:* $500K-$2M consulting engagements; delivers in hours not weeks
+- External market intelligence via Market Analysis Agent (Perplexity + Claude synthesis)
+- *For consulting users:* replaces $500K-$2M engagements; delivers in hours not weeks
+- *For never-engaged mid-market:* net-new structured analysis capability at a fraction of the cost ($44K-$100K ACV)
 
 **Pillar 3 — Institutional Memory and Decision Audit Trail (fills gap nothing else addresses)**
 - KPI definitions encoded with exact SQL logic, data lineage, and GL account mappings
 - Decision provenance: every option considered, trade-off evaluated, outcome tracked
 - Survives executive turnover — the definition of "Gross Margin" never walks out the door again
 - *Replaces:* Nothing currently — this capability does not exist in any comparable tool
+
+**Pillar 4 — Opportunity Detection (proactive, not just reactive)**
+- Positive KPI outperformance detected automatically alongside problem alerts
+- Market Analysis Agent surfaces external market context for organic growth signals
+- Opportunity framing in Solution Finder: "capitalise on" rather than "resolve"
+- *Replaces:* Ad hoc awareness; systematic opportunity capture that previously required a dedicated strategy team
+
+**Pillar 5 — Initiative Tracking and Proven ROI (self-validating feedback loop)**
+- At HITL approval: KPI baseline captured, estimated ROI range recorded
+- Post-implementation: KPI monitored against baseline; recovery attributed to intervention vs. market tailwind
+- Creates a reinforced learning loop — Agent9 gets better as it accumulates decision outcomes
+- *Replaces:* Nothing currently — ROI attribution from business intelligence decisions does not exist in any tool
 
 ### Key Differentiators
 1. **Registry-driven domain intelligence** — KPIs, principals, business processes, data products encoded per customer; deep context no generic AI provides
@@ -70,19 +89,22 @@ Agent9 addresses three distinct value propositions, each independent of the othe
 5. **5-day onboarding** — first situation card in one week, not 8-12 weeks (see Onboarding Moat doc)
 6. **Branded expertise** — partner consulting methodology encoded as agents (Year 3+)
 
-### Platform Capabilities (As of February 2026)
+### Platform Capabilities (As of March 2026)
 - ✅ Multi-agent orchestration framework (A2A protocol-compliant)
-- ✅ Situation Awareness workflow
-- ✅ Deep Analysis workflow
-- ✅ Solution Finder with LLM debate
+- ✅ Situation Awareness workflow (problem detection + positive KPI opportunity detection)
+- ✅ Deep Analysis workflow (SCQA, Is/Is Not, BigQuery routing)
+- ✅ Solution Finder with multi-call LLM debate (Stage 1 parallel Haiku × 3 + Sonnet synthesis)
+- ✅ Executive Decision Briefing (19-page structured output with McKinsey/BCG/Bain framing)
 - ✅ Data product onboarding (YAML contract-driven)
 - ✅ Audit trail and human-in-the-loop checkpoints
 - ✅ Registry system (KPIs, principals, business processes, data products, glossary)
-- ✅ Decision Studio UI (React, functional — final polish phase)
+- ✅ Decision Studio UI (React, functional — production-quality)
 - ✅ Registry Explorer UI (browse/edit all registry entities)
 - ✅ Database-agnostic backend (DuckDB, Supabase/Postgres, BigQuery)
+- 🔄 Market Analysis Agent — external intelligence layer via Perplexity + Claude (Sprint: March–April 2026)
+- 🔄 Value Assurance data model — AcceptedSolution persistence + T+30/60/90 tracking (Sprint: April 2026)
 - 🔄 Demo video and landing page (in progress)
-- 📋 Branded agent marketplace (post-first-revenue roadmap)
+- 📋 Branded agent marketplace (post-first-revenue, Year 3+ roadmap)
 
 ---
 
@@ -103,6 +125,15 @@ Agent9 addresses three distinct value propositions, each independent of the othe
 - **Pain:** Reactive decision-making, consulting spend with no continuous coverage, no institutional memory
 - **Trigger Events:** New CFO hire, cost reduction initiative, board demanding faster insights
 - **Relationship to FP&A:** FP&A team entry → CFO becomes champion for expansion to full platform
+
+#### 2a. Never-Engaged Mid-Market ⭐⭐⭐ *(New — Primary TAM)*
+- **Size:** 50,000+ companies ($50M-$500M revenue) — larger than the consulting-displacement segment
+- **ARPU:** $44K-$80K (net-new capability, not a substitute comparison)
+- **Pain:** CFO + spreadsheet + gut instinct; no structured analysis; no access to MBB-quality frameworks at their scale
+- **Why they buy:** Not "cheaper consulting" — *capability they've never had*. First structured multi-perspective decision support. Easier sell: no competitive displacement, no incumbent to displace.
+- **Trigger Events:** Margin squeeze, rapid growth, PE acquisition, new CFO mandate
+- **Sales note:** Shorter sales cycle than consulting-displacement customers. No "but we have McKinsey" objection. Pain is immediate and tangible.
+- **Relationship to other segments:** Best entry point for early pilots. Reference customer proof unlocks higher-ACV CFO and PE deals.
 
 #### 3. PE Portfolio Operations ⭐⭐⭐
 - **Size:** 500 firms
@@ -351,32 +382,47 @@ LOW SCALE ────────────┼──────────�
 
 ---
 
-## 7. Financial Projections (Stress-Tested February 2026)
+## 7. Financial Projections (Revised March 2026)
 
-*All projections rebased to Feb 2026 GTM launch. Three scenarios provided to bracket uncertainty.*
+*Rebased to March 2026. Three scenarios bracket uncertainty. 5-pillar model enables higher ACV from multiple budget pools (FP&A efficiency + CFO oversight + compliance/audit + opportunity capture + ROI validation). Never-engaged mid-market is the primary near-term target — no competitive displacement friction.*
 
-### Year 1: Moonlighting Phase (Feb 2026 - Jan 2027)
+### 2-Year ARR Opportunity (March 2026 — March 2028)
+
+**What changes with the 5-pillar model and never-engaged market:**
+- Higher ACV: multiple budget pools (FP&A, CFO, Compliance) can each justify the spend independently
+- Easier sales: never-engaged segment has no incumbent; net-new capability justification, not consulting displacement
+- Stronger retention: Value Assurance (Pillar 5) creates a self-validating loop — customer sees ROI evidence in platform, not just takes it on faith
+- PE multiplier: one PE firm = multiple portfolio companies at $30K-$50K each; one deal can double total ARR
+
+### Year 1: Moonlighting Phase (Mar 2026 - Feb 2027)
 
 | Period | Activity | Revenue | Costs | Net |
 |--------|----------|---------|-------|-----|
-| Feb-Apr 2026 | Demo-ready, landing page | $0 | $5K | -$5K |
-| May-Sep 2026 | Warm network outreach, first pilots | $0-$25K | $5K | -$5K to +$20K |
-| Oct 2026-Jan 2027 | Pilot delivery, second customer | $15K-$50K | $5K | +$10K to +$45K |
-| **Year 1 Total** | | **$15K-$75K** | **$15K** | **$0 to +$60K** |
+| Mar-May 2026 | Sprint completion, demo-ready, landing page | $0 | $3K | -$3K |
+| Jun-Sep 2026 | Warm network outreach (FP&A + never-engaged CFO targets) | $0-$30K | $3K | -$3K to +$27K |
+| Oct 2026-Feb 2027 | Pilot delivery, second customer, Value Assurance data | $15K-$60K | $5K | +$10K to +$55K |
+| **Year 1 Total** | | **$15K-$90K** | **$11K** | **+$4K to +$79K** |
 
-*Plus day job salary = No financial stress. Year 1 goal is learning and validation, not revenue maximization.*
+*Upside raised vs prior plan: never-engaged mid-market pilots close faster (no incumbent friction). Plus day job salary = no financial pressure.*
 
-### Year 2: Growth Phase (Feb 2027 - Jan 2028)
+### Year 2: Growth Phase (Mar 2027 - Feb 2028)
 
 | Scenario | Customers | Avg ACV | ARR | Costs | Net | Driver |
 |----------|-----------|---------|-----|-------|-----|--------|
-| **Downside** | 2-3 | $30K | $60K-$90K | $20K | +$40K-$70K | Slow sales cycle, no FP&A entry |
-| **Base** | 5-8 | $60K-$80K | $300K-$480K | $60K | +$240K-$420K | Multi-pillar value + FP&A entry point |
-| **Upside** | 10-15 | $80K-$100K | $800K-$1.2M | $120K | +$680K-$1.1M | One PE firm portfolio adoption |
+| **Downside** | 2-3 | $35K | $70K-$105K | $20K | +$50K-$85K | Slow sales; only never-engaged segment; no FP&A entry |
+| **Base** | 4-7 | $65K-$85K | $260K-$595K | $60K | +$200K-$535K | 5-pillar value + FP&A entry + 1-2 PE portfolio wins |
+| **Upside** | 8-15 | $80K-$100K | $640K-$1.5M | $120K | +$520K-$1.38M | One PE firm multi-portfolio + consulting-augmentation segment |
 
-*Base ACV raised from $40K to $60K-$80K reflecting multi-budget expansion (FP&A + CFO + compliance). Upside assumes one PE firm deploys across 3-5 portfolio companies at $150K-$200K total.*
+**2-Year ARR Summary (end of Year 2, Feb 2028):**
+| Scenario | ARR | Customers | ACV |
+|----------|-----|-----------|-----|
+| Downside | $70K-$105K | 2-3 | $35K (never-engaged only) |
+| Base | $260K-$595K | 4-7 | $65K-$85K (multi-pillar multi-budget) |
+| Upside | $640K-$1.5M | 8-15 | $80K-$100K (PE portfolio expansion) |
 
-### Year 3: Scale Phase (Feb 2028 - Jan 2029)
+*Base ACV raised from $60K-$80K to $65K-$85K. Rationale: 5-pillar model unlocks multiple budget pools; Value Assurance (Pillar 5) creates a self-reinforcing ROI case that accelerates annual contract renewals. PE upside: 1 firm × 5 portfolio companies × $40K = $200K incremental ARR in single deal.*
+
+### Year 3: Scale Phase (Mar 2028 - Feb 2029)
 
 | Scenario | Customers | Avg ACV | Direct ARR | Partner Revenue | Total ARR | Team |
 |----------|-----------|---------|-----------|----------------|-----------|------|
@@ -384,7 +430,17 @@ LOW SCALE ────────────┼──────────�
 | **Base** | 10-20 | $80K | $800K-$1.6M | $50K-$200K | $850K-$1.8M | 3-5 |
 | **Upside** | 20-30 | $100K | $2M-$3M | $300K-$800K | $2.3M-$3.8M | 6-8 |
 
-*Year 3 partner revenue reflects first mid-tier consulting firm partnership (FTI, A&M, or Huron) generating lead referral fees and branded agent usage. Enterprise tier ($100K+ with SOC 2) launches H1 2028.*
+*Year 3 partner revenue reflects first mid-tier consulting firm partnership (FTI, A&M, or Huron). MBB partnership (RAG IP + Agent9 data pipeline as joint product) is a Year 3+ roadmap item contingent on 10+ paying customers. Enterprise tier ($100K+ with SOC 2) launches H1 2028.*
+
+### ARR Sensitivity: What Drives the Range
+
+| Driver | Effect on ARR | Notes |
+|--------|--------------|-------|
+| 1 PE portfolio firm (5 companies) | +$150K-$200K in Year 2 | Single deal; single sales conversation |
+| Never-engaged pilot converts to annual at $65K | +$65K ARR per customer | Year 1 pilot → Year 2 renewal |
+| FP&A entry → CFO expansion | +$30K-$40K per account | 2nd budget pool; same account |
+| Value Assurance creates renewal confidence | Churn reduced: 5% vs 15% | Pillar 5 creates measurable evidence |
+| MA Agent enriches SF output | Faster demo → close cycle | Fuller demo = more convincing pilots |
 
 ---
 
@@ -505,22 +561,29 @@ LOW SCALE ────────────┼──────────�
 - Net revenue retention: >110%
 - Reference-ability: >80%
 
-### Milestones (Rebased to February 2026)
+### Milestones (Rebased to March 2026)
 
 | Milestone | Target Date | Status |
 |-----------|-------------|--------|
-| Demo video recorded | Apr 2026 | 🔄 In progress |
+| SA→DA→SF pipeline stable (19-page Executive Briefing) | Mar 2026 | ✅ Complete |
+| 5-pillar value proposition + updated strategy docs | Mar 2026 | ✅ Complete |
+| Market Analysis Agent PRD complete | Mar 2026 | ✅ Complete |
+| Market Analysis Agent built + wired into SF pipeline | Apr 2026 | 📋 Sprint |
+| Positive KPI opportunity detection (SA) | Apr 2026 | 📋 Sprint |
+| Value Assurance data model (AcceptedSolution) | Apr 2026 | 📋 Sprint |
+| Demo video recorded (lubricants + bikes) | Apr 2026 | 📋 Pending |
 | Landing page live | Apr 2026 | 📋 Pending |
+| First 20 warm contacts identified (FP&A + never-engaged CFO) | May 2026 | 📋 Pending |
 | First 10 discovery calls | Jun 2026 | 📋 Pending |
 | First pilot signed | Sep 2026 | 📋 Pending |
 | First case study documented | Jan 2027 | 📋 Pending |
 | Second paying customer | Mar 2027 | 📋 Pending |
 | Quit day job decision point | Apr 2027 | 📋 Pending |
-| First hire (if full-time) | Jun 2027 | 📋 Pending |
-| 5 customers / $200K ARR (base) | Dec 2027 | 📋 Pending |
+| First hire Sales/CS (if full-time) | Jun 2027 | 📋 Pending |
+| 5 customers / $250K+ ARR (base) | Dec 2027 | 📋 Pending |
 | SOC 2 readiness | H1 2028 | 📋 Pending |
-| First partner pilot (mid-tier firm) | H2 2028 | 📋 Pending |
-| 10+ customers / $600K+ ARR (base) | Jan 2029 | 📋 Pending |
+| First partner pilot (mid-tier consulting firm) | H2 2028 | 📋 Pending |
+| 10+ customers / $800K+ ARR (base) | Jan 2029 | 📋 Pending |
 
 **Kill Criteria:**
 - Zero pipeline after 30 discovery calls (by Q3 2026) → Reassess ICP and positioning
@@ -677,27 +740,29 @@ LOW SCALE ────────────┼──────────�
 
 ---
 
-## 15. Next Steps (30/60/90 Days from February 2026)
+## 15. Next Steps (30/60/90 Days from March 2026)
 
-### Next 30 Days (Feb-Mar 2026)
-- [ ] Final Decision Studio UI polish (demo-critical flows only)
-- [ ] Record 5-minute demo video (Situation Awareness → Deep Analysis → Solution Finder → Audit Trail)
-- [ ] Build simple landing page
-- [ ] List 20 warm contacts (potential customers or referrers)
-- [ ] Draft 3-slide pitch deck for discovery calls
+### Next 30 Days (Mar-Apr 2026) — Development Sprint
+*Full 7-day sprint plan: `docs/strategy/sprint_plan_march_2026.md`*
+- [ ] Build Market Analysis Agent (Pydantic models, Perplexity service, Sonnet synthesis)
+- [ ] Wire MA into SF pipeline → Market Intelligence badge in Executive Briefing
+- [ ] Add positive KPI opportunity detection in SA → green opportunity card in Decision Studio
+- [ ] Build Value Assurance data model (AcceptedSolution + Supabase persistence)
+- [ ] End-to-end lubricants run with all changes; record 5-minute demo video
+- [ ] Draft 2-slide pitch deck: FP&A entry pitch + CFO expansion pitch
 
-### Next 60 Days (Apr-May 2026)
-- [ ] Schedule and complete first 10 discovery calls
-- [ ] Refine pitch and positioning based on feedback ("AI Decision Intelligence for CFOs" vs. "Agentic Consulting Marketplace")
-- [ ] Identify 3-5 serious prospects from discovery calls
-- [ ] Create tailored demos for top prospects
+### Next 60 Days (May-Jun 2026) — Outreach Begins
+- [ ] Launch landing page (agent9.ai)
+- [ ] Begin warm network outreach — 20 contacts prioritising never-engaged mid-market CFOs and VP FP&A
+- [ ] Schedule first 10 discovery calls (position as "AI Decision Intelligence", not "consulting marketplace")
+- [ ] First discovery insight: are prospects more receptive as never-engaged (net-new) or consulting-augmentation buyers?
 
-### Next 90 Days (Jun-Jul 2026)
-- [ ] Send first pilot proposal(s) at $15K-$25K
-- [ ] Close first pilot customer
-- [ ] Begin pilot delivery (weekly check-ins)
-- [ ] Start documenting learnings for case study
-- [ ] Assess: Is the ICP right? Is the pricing right? Adjust if needed.
+### Next 90 Days (Jul-Sep 2026) — First Pilot
+- [ ] Identify 3-5 serious prospects; create tailored demos
+- [ ] Send first pilot proposals at $15K-$25K (Fast Start Pilot tier)
+- [ ] Close first pilot customer (target: Sep 2026)
+- [ ] Begin delivery — weekly check-ins, Value Assurance baseline capture
+- [ ] Assess: Is ICP right? Is pricing right? Never-engaged vs FP&A vs PE — which converts fastest?
 
 ---
 
@@ -770,7 +835,7 @@ LOW SCALE ────────────┼──────────�
 ---
 
 **Document Control:**
-- **Version:** 1.0
-- **Last Updated:** January 26, 2026
-- **Next Review:** Monthly
+- **Version:** 1.1
+- **Last Updated:** March 2026
+- **Next Review:** After first pilot signed (Sep 2026)
 - **Owner:** Founder/CEO

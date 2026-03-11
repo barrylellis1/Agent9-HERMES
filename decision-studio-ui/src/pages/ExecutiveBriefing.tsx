@@ -51,6 +51,13 @@ export function ExecutiveBriefing() {
 
   const data = briefing
 
+  const FIRM_DISPLAY_NAMES: Record<string, string> = {
+    mckinsey: 'McKinsey & Company',
+    bcg: 'BCG',
+    bain: 'Bain & Company',
+    mbb: 'MBB Council',
+  }
+
   return (
     <div className="min-h-screen bg-white text-slate-900 print:bg-white">
       {/* Top Navigation Bar (hidden on print) */}
@@ -230,12 +237,6 @@ export function ExecutiveBriefing() {
                 kpmg:        { bar: 'bg-sky-700',    border: 'border-l-sky-700',    badge: 'bg-sky-50 text-sky-800',     dot: 'bg-sky-700' },
                 pwc_strategy:{ bar: 'bg-orange-600', border: 'border-l-orange-600', badge: 'bg-orange-50 text-orange-800',dot: 'bg-orange-600' },
               }
-              const FIRM_DISPLAY_NAMES: Record<string, string> = {
-                mckinsey: 'McKinsey & Company',
-                bcg: 'BCG',
-                bain: 'Bain & Company',
-                mbb: 'MBB Council',
-              }
               const convictionStyle: Record<string, string> = {
                 High:   'bg-emerald-100 text-emerald-800',
                 Medium: 'bg-amber-100 text-amber-800',
@@ -335,7 +336,9 @@ export function ExecutiveBriefing() {
                       <Users className="w-4 h-4 text-purple-600" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-slate-900 capitalize">{personaId.replace(/_/g, ' ')}</h4>
+                      <h4 className="font-bold text-slate-900">
+                        {FIRM_DISPLAY_NAMES[personaId.toLowerCase()] ?? (personaId.charAt(0).toUpperCase() + personaId.slice(1).replace(/_/g, ' '))}
+                      </h4>
                       <p className="text-xs text-slate-500">Council Member</p>
                     </div>
                   </div>
@@ -522,7 +525,7 @@ export function ExecutiveBriefing() {
                         {option.prosDetailed.map((pro: any, j: number) => (
                           <li key={j} className="text-sm text-slate-700 flex items-start gap-2">
                             <ChevronRight className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
-                            <span><strong>{pro.point}:</strong> {pro.detail}</span>
+                            <span>{pro.point.replace(/[:]+$/, '')}</span>
                           </li>
                         ))}
                       </ul>
@@ -536,7 +539,7 @@ export function ExecutiveBriefing() {
                         {option.consDetailed.map((con: any, j: number) => (
                           <li key={j} className="text-sm text-slate-700 flex items-start gap-2">
                             <ChevronRight className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-                            <span><strong>{con.point}:</strong> {con.detail}</span>
+                            <span>{con.point.replace(/[:]+$/, '')}</span>
                           </li>
                         ))}
                       </ul>
@@ -714,7 +717,7 @@ export function ExecutiveBriefing() {
             <div className="bg-white/10 backdrop-blur rounded-lg p-4 mb-6">
               <h4 className="font-semibold mb-3">Immediate Actions Required:</h4>
               <ol className="space-y-2">
-                {data.recommendation.nextSteps.map((step: string, i: number) => (
+                {(data.recommendation.nextSteps || []).map((step: string, i: number) => (
                   <li key={i} className="flex items-start gap-3">
                     <span className="w-6 h-6 bg-white text-blue-600 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
                       {i + 1}

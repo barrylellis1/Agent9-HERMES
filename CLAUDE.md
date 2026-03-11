@@ -5,6 +5,10 @@
 - **NEVER** start backend or frontend independently (`uvicorn ...` or `npm run dev` directly)
 - **ALWAYS** use `.\restart_decision_studio_ui.ps1` to start/restart the full stack (FastAPI + React)
 - This script handles port cleanup, Docker/Supabase startup, and process sequencing
+- **When running via Claude Code (bash tool)**, always use the execution policy bypass form:
+  ```
+  powershell.exe -ExecutionPolicy Bypass -File restart_decision_studio_ui.ps1
+  ```
 - Run from project root in PowerShell: `.\restart_decision_studio_ui.ps1`
 
 ---

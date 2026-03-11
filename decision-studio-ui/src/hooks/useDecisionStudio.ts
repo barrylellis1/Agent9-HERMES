@@ -236,7 +236,7 @@ export function useDecisionStudio() {
     setAnalyzing(true);
     setAnalysisError(null);
     try {
-        const result = await runDeepAnalysis(sitId, selectedSituation.kpi_name, selectedPrincipal);
+        const result = await runDeepAnalysis(sitId, selectedSituation.kpi_name, selectedPrincipal, timeframe);
         
         if (!result || !result.execution) {
             throw new Error("Analysis completed but returned no results.");
@@ -360,13 +360,13 @@ export function useDecisionStudio() {
         let stageOneHypotheses: any = null;
         let stageTwoCrossReview: any = null;
 
-        const runStage = async (stage: 'hypothesis' | 'cross_review' | 'synthesis') => {
+        const runStage = async (stage: 'stage1_only' | 'hypothesis' | 'cross_review' | 'synthesis') => {
             const stagePreferences = {
                 ...preferencesBase,
                 debate_stage: stage,
                 prior_transcript: stageResults[stageResults.length - 1]?.solutions?.debate_transcript,
-                // Pass Stage 1 hypotheses through to synthesis so backend can use recovery_range anchors
-                prior_stage1_hypotheses: stage === 'synthesis' ? stageOneHypotheses : undefined
+                // Pass Stage 1 hypotheses to all stages except stage1_only itself
+                prior_stage1_hypotheses: stage !== 'stage1_only' ? stageOneHypotheses : undefined
             };
 
             const response = await runSolutionFinder(
@@ -381,7 +381,8 @@ export function useDecisionStudio() {
             stageResults.push(response);
 
             const stageSolutions = response?.solutions;
-            if (stage === 'hypothesis' && stageSolutions?.stage_1_hypotheses) {
+            // Capture Stage 1 hypotheses from either the quick stage1_only call or full hypothesis call
+            if ((stage === 'stage1_only' || stage === 'hypothesis') && stageSolutions?.stage_1_hypotheses) {
                 stageOneHypotheses = stageSolutions.stage_1_hypotheses;
             }
             if (stage === 'cross_review' && stageSolutions?.cross_review) {
@@ -390,11 +391,16 @@ export function useDecisionStudio() {
             return response;
         };
 
-        await runStage('hypothesis');
+        // Stage 1: Quick Haiku-only call — returns firm hypotheses in ~5 seconds for immediate card reveal
+        await runStage('stage1_only');
         const hyps = stageResults[stageResults.length - 1]?.solutions?.stage_1_hypotheses ?? null;
         setDebateHypotheses(hyps);
         setDebatePhase(2);
 
+        // Stage 2: Hypothesis synthesis — Sonnet-only (skips Stage 1, uses prior hypotheses)
+        await runStage('hypothesis');
+
+        // Stage 3: Cross-review
         await runStage('cross_review');
         setDebatePhase(3);
 
