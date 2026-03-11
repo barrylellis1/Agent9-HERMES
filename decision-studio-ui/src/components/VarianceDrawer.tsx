@@ -43,10 +43,17 @@ const VarianceBarList: React.FC<{
   title: string
 }> = ({ items, maxDelta, type, title }) => {
   const isProblematic = type === 'is'
+  const isHealthy = type === 'isNot'
   const barColor = isProblematic ? 'bg-red-500' : 'bg-emerald-500'
   const textColor = isProblematic ? 'text-red-400' : 'text-emerald-400'
   const bgColor = isProblematic ? 'bg-red-500/10' : 'bg-emerald-500/10'
   const borderColor = isProblematic ? 'border-red-500/20' : 'border-emerald-500/20'
+
+  // Max current value across healthy items (for bar scaling when delta ≈ 0)
+  const maxCurrent = useMemo(() => {
+    if (!isHealthy) return 1
+    return Math.max(...items.map(i => Math.abs(i.current || 0)), 1)
+  }, [isHealthy, items])
 
   // Group by dimension
   const grouped = useMemo(() => {
@@ -80,6 +87,9 @@ const VarianceBarList: React.FC<{
         {isProblematic ? <TrendingDown className="w-4 h-4" /> : <TrendingUp className="w-4 h-4" />}
         {title}
         <span className="text-xs font-normal text-slate-500">({items.length} items)</span>
+        {isHealthy && items.every(i => Math.abs(i.delta || 0) < 0.001) && (
+          <span className="text-[10px] font-normal text-slate-600 ml-1">· current level</span>
+        )}
       </h4>
       
       <div className="space-y-4">
@@ -88,10 +98,17 @@ const VarianceBarList: React.FC<{
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">{dimension}</div>
             <div className="space-y-1.5">
               {dimItems.map((item, idx) => {
-                const barWidth = Math.min(100, Math.abs(item.delta || 0) / maxDelta * 100)
-                const formattedDelta = item.delta >= 0
-                  ? `+${item.delta.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 })}`
-                  : item.delta.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 })
+                // For healthy items where delta ≈ 0, show current value instead (more meaningful)
+                const absDelta = Math.abs(item.delta || 0)
+                const showCurrent = isHealthy && absDelta < 0.001 && (item.current || 0) !== 0
+                const barWidth = showCurrent
+                  ? Math.min(100, Math.abs(item.current || 0) / maxCurrent * 100)
+                  : Math.min(100, absDelta / maxDelta * 100)
+                const formattedDelta = showCurrent
+                  ? item.current!.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })
+                  : (item.delta >= 0
+                    ? `+${item.delta.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 })}`
+                    : item.delta.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 }))
                 
                 return (
                   <motion.div

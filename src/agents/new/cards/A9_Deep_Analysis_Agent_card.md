@@ -68,6 +68,15 @@ Environment variable override: `OPENAI_MODEL_REASONING`
 - Change points are globally sorted by absolute delta and truncated to top 5 for focused analysis.
 - Output fields include: `plan`, `dimensions_suggested`, `scqa_summary`, `kt_is_is_not`, `change_points`, `timeframe_mapping`, and `when_started` (earliest significant time bucket derived from time deltas).
 
+## Bridge Analysis for Ratio KPIs (Mar 2026)
+When a KPI carries `metadata.kpi_type = "ratio"` with `bridge_numerator_sql` and `bridge_denominator_sql` fields, the `_maps_for_level` helper switches to a bridge decomposition instead of running the full ratio formula per segment:
+1. Fetches numerator (e.g. Gross Profit) and denominator (e.g. Revenue) per dimension — current and previous periods — via four separate BigQuery queries.
+2. Computes `gm_i = numerator_i / denominator_i × 100` per segment for each period.
+3. Produces `delta = rev_share_i × (gm_i_cur − gm_i_prev)` — the segment's **weighted pp contribution** to the overall margin change.
+4. Falls back to standard path for budget comparisons or on any query failure.
+
+This prevents the "100% margin" artifact that occurs when COGS is not allocated at the same dimensional granularity as Revenue in the source data.
+
 ## Recent Updates (Dec 2025)
 - Contract path consolidated to single source of truth in `registry_references`
 - Added default timeframe (`current_quarter`) when none specified

@@ -645,6 +645,85 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     # Helper: compute grouped maps for a level using DP Agent
                     async def _maps_for_level(level_label: str, comparator: str) -> List[Dict[str, Any]]:
                         groups: List[Dict[str, Any]] = []
+
+                        # --- Bridge analysis path for ratio KPIs ---
+                        # Activated when kpi_def carries kpi_type='ratio' metadata with
+                        # bridge_numerator_sql and bridge_denominator_sql fields.
+                        # Computes per-segment margin % from separate GP and Revenue queries,
+                        # then produces a weighted pp-contribution for each segment.
+                        # Falls through to standard path on any failure or budget comparisons.
+                        try:
+                            _md = getattr(kpi_def, "metadata", None) or {}
+                            if isinstance(_md, dict) and _md.get("kpi_type") == "ratio" and comparator != "budget":
+                                _num_sql = _md.get("bridge_numerator_sql")
+                                _den_sql = _md.get("bridge_denominator_sql")
+                                if _num_sql and _den_sql:
+                                    if not prev_tf:
+                                        raise ValueError("bridge: no prev_tf")
+
+                                    class _SqlProxy:
+                                        """Thin KPI-like object carrying a substitute sql_query."""
+                                        def __init__(self, base_kpi: Any, sql_override: str) -> None:
+                                            self.sql_query = sql_override
+                                            self.calculation = sql_override
+                                            self.name = getattr(base_kpi, "name", "bridge")
+                                            self.id = getattr(base_kpi, "id", "bridge")
+                                            self.metadata = getattr(base_kpi, "metadata", {})
+                                            self.unit = getattr(base_kpi, "unit", None)
+                                            self.data_product_id = getattr(base_kpi, "data_product_id", None)
+
+                                    _num_proxy = _SqlProxy(kpi_def, _num_sql)
+                                    _den_proxy = _SqlProxy(kpi_def, _den_sql)
+                                    _base_f = getattr(plan, "filters", None)
+
+                                    _gen_nc = await self.data_product_agent.generate_sql_for_kpi(
+                                        _num_proxy, timeframe=cur_tf, filters=_base_f, breakdown=True, override_group_by=[level_label])
+                                    _gen_np = await self.data_product_agent.generate_sql_for_kpi(
+                                        _num_proxy, timeframe=prev_tf, filters=_base_f, breakdown=True, override_group_by=[level_label])
+                                    _gen_dc = await self.data_product_agent.generate_sql_for_kpi(
+                                        _den_proxy, timeframe=cur_tf, filters=_base_f, breakdown=True, override_group_by=[level_label])
+                                    _gen_dp = await self.data_product_agent.generate_sql_for_kpi(
+                                        _den_proxy, timeframe=prev_tf, filters=_base_f, breakdown=True, override_group_by=[level_label])
+
+                                    if not all(g.get("success") for g in [_gen_nc, _gen_np, _gen_dc, _gen_dp]):
+                                        raise ValueError("bridge: SQL generation failed for one or more components")
+
+                                    _m_nc = _as_map(await self.data_product_agent.execute_sql(_gen_nc["sql"]))
+                                    _m_np = _as_map(await self.data_product_agent.execute_sql(_gen_np["sql"]))
+                                    _m_dc = _as_map(await self.data_product_agent.execute_sql(_gen_dc["sql"]))
+                                    _m_dp = _as_map(await self.data_product_agent.execute_sql(_gen_dp["sql"]))
+
+                                    _total_den_cur = sum(_m_dc.values()) or 1.0
+
+                                    for _k in set(_m_dc) | set(_m_dp):
+                                        _num_c = float(_m_nc.get(_k, 0.0))
+                                        _den_c = float(_m_dc.get(_k, 0.0))
+                                        _num_p = float(_m_np.get(_k, 0.0))
+                                        _den_p = float(_m_dp.get(_k, 0.0))
+
+                                        _gm_c = (_num_c / _den_c * 100.0) if _den_c != 0.0 else 0.0
+                                        _gm_p = (_num_p / _den_p * 100.0) if _den_p != 0.0 else 0.0
+                                        _rate  = _gm_c - _gm_p
+
+                                        _rev_share = _den_c / _total_den_cur
+                                        _contrib   = _rev_share * _rate
+
+                                        _ratio_i = (_rate / abs(_gm_p)) if _gm_p != 0.0 else (0.0 if _rate == 0.0 else (1.0 if _rate > 0.0 else -1.0))
+
+                                        groups.append({
+                                            "dimension":    level_label,
+                                            "key":          _k,
+                                            "current":      round(_gm_c, 4),
+                                            "previous":     round(_gm_p, 4),
+                                            "delta":        round(_contrib, 4),
+                                            "ratio":        _ratio_i,
+                                        })
+                                    return groups
+                        except Exception as _bridge_exc:
+                            self.logger.debug(f"[bridge] skipped for {level_label}: {_bridge_exc}")
+                            groups = []
+                        # --- End bridge analysis path ---
+
                         try:
                             # Current map
                             gen_cur = await self.data_product_agent.generate_sql_for_kpi(

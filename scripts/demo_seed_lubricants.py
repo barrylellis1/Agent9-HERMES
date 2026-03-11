@@ -243,7 +243,14 @@ KPIS: List[Dict[str, Any]] = [
         "tags": ["finance", "profitability", "margin", "lubricants"],
         "owner_role": "CFO",
         "stakeholder_roles": ["CEO", "COO", "Finance Manager"],
-        "metadata": {"line": "middle", "altitude": "strategic", "positive_trend_is_good": "true"},
+        "metadata": {
+            "line": "middle",
+            "altitude": "strategic",
+            "positive_trend_is_good": "true",
+            "kpi_type": "ratio",
+            "bridge_numerator_sql": f"SELECT SUM(CASE WHEN account_type IN ('Revenue','COGS') THEN amount ELSE 0 END) AS value FROM `agent9-465818.LubricantsBusiness.{VIEW}` WHERE version = 'Actual'",
+            "bridge_denominator_sql": f"SELECT SUM(CASE WHEN account_type = 'Revenue' THEN amount ELSE 0 END) AS value FROM `agent9-465818.LubricantsBusiness.{VIEW}` WHERE version = 'Actual'",
+        },
     },
     {
         "id": "lub_operating_income",
