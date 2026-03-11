@@ -13,6 +13,24 @@ export interface Situation {
   timestamp?: string;
 }
 
+export interface OpportunitySignal {
+  kpi_name: string;
+  kpi_display_name: string;
+  current_value: number;
+  baseline_value: number;
+  delta_pct: number;
+  dimension?: string;
+  dimension_value?: string;
+  opportunity_type: string;
+  headline: string;
+  confidence: number;
+}
+
+export interface SituationDetectionResult {
+  situations: Situation[];
+  opportunities: OpportunitySignal[];
+}
+
 export interface ChangePoint {
   dimension: string;
   key: string;

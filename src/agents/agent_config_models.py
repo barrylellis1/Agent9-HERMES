@@ -303,6 +303,50 @@ class A9_Data_Product_Agent_Config(BaseModel):
     )
 
 
+class A9_Situation_Awareness_Agent_Config(BaseModel):
+    """
+    Configuration for the A9_Situation_Awareness_Agent.
+    Controls KPI monitoring, threshold evaluation, and opportunity detection settings.
+    """
+    model_config = ConfigDict(extra="allow")
+
+    # Contract / registry settings
+    contract_path: Optional[str] = Field(
+        None,
+        description="Path to the data contract YAML file. Defaults to fi_star_schema.yaml when None."
+    )
+    target_domains: List[str] = Field(
+        default_factory=lambda: ["Finance"],
+        description="Domain prefixes used to filter KPIs from the registry."
+    )
+
+    # Opportunity detection settings
+    opportunity_threshold_multiplier: float = Field(
+        1.5,
+        ge=1.0,
+        description=(
+            "How much better than the threshold a KPI must be to qualify as an outperformance "
+            "opportunity. E.g. 1.5 means the current value must exceed threshold * 1.5."
+        )
+    )
+    opportunity_recovery_min_delta_pct: float = Field(
+        5.0,
+        ge=0.0,
+        description=(
+            "Minimum positive percent change required to flag a 'recovery' opportunity "
+            "when a KPI crosses back above its warning threshold."
+        )
+    )
+
+    # Orchestration & logging
+    require_orchestrator: bool = Field(
+        True, description="All calls must be orchestrator-driven"
+    )
+    log_all_requests: bool = Field(
+        True, description="Log structured inputs/outputs for audit"
+    )
+
+
 class A9_NLP_Interface_Agent_Config(BaseModel):
     """
     Configuration for the A9_NLP_Interface_Agent.
@@ -475,6 +519,34 @@ class A9RiskAnalysisAgentConfig(BaseModel):
     weight_financial: Optional[float] = Field(0.30, ge=0.0, le=1.0, description="Default weight for financial risk in composite score calculation")
     require_orchestrator: bool = Field(True, description="All calls must be orchestrator-driven")
     log_all_requests: bool = Field(True, description="Log structured inputs/outputs for audit")
+
+
+class A9_Market_Analysis_Agent_Config(BaseModel):
+    """
+    Configuration for the A9_Market_Analysis_Agent.
+    Controls Perplexity integration, signal limits, synthesis model, and logging.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    enable_perplexity: bool = Field(
+        True,
+        description="Enable Perplexity web search for market signals. Set False for LLM-only mode.",
+    )
+    max_signals: int = Field(
+        5, description="Default maximum number of market signals to retrieve per request"
+    )
+    synthesis_model: str = Field(
+        "claude-sonnet-4-6",
+        description="Claude model to use for market signal synthesis",
+    )
+    require_orchestrator: bool = Field(
+        False,
+        description="When False the agent can acquire A9_LLM_Service_Agent directly from AgentRegistry",
+    )
+    log_all_requests: bool = Field(
+        True, description="Log all incoming requests and outgoing responses for audit"
+    )
 
 
 # Protocol model references for compliance checks and documentation

@@ -183,6 +183,22 @@ class AssignmentDecision(BaseModel):
     rationale: Optional[str] = Field(None, description="Reason for the decision")
 
 # Situation Models
+class OpportunitySignal(BaseModel):
+    """A positive KPI movement worthy of attention."""
+    kpi_name: str = Field(description="Internal KPI name")
+    kpi_display_name: str = Field(description="Human-readable KPI display name")
+    current_value: float = Field(description="Current period value")
+    baseline_value: float = Field(description="Baseline (prior period) value used for comparison")
+    delta_pct: float = Field(description="Percentage change vs baseline — positive means improvement")
+    dimension: Optional[str] = Field(None, description="Dimension name if signal is dimension-specific")
+    dimension_value: Optional[str] = Field(None, description="Dimension member value if dimension-specific")
+    opportunity_type: str = Field(
+        description="Class of opportunity: 'outperformance' | 'recovery' | 'trend_reversal'"
+    )
+    headline: str = Field(description="One-line summary, e.g. 'Gross Margin up 3.2pp vs prior period'")
+    confidence: float = Field(default=0.7, ge=0.0, le=1.0, description="Confidence score (0–1)")
+
+
 class Situation(BaseModel):
     """Detected situation for a KPI."""
     situation_id: str = Field(description="Unique ID for the situation")
@@ -190,6 +206,7 @@ class Situation(BaseModel):
     kpi_name: str = Field(description="Name of the KPI")
     kpi_value: KPIValue = Field(description="Value of the KPI")
     severity: SituationSeverity = Field(description="Severity of the situation")
+    card_type: str = Field(default="problem", description="Card type: 'problem' (red) or 'opportunity' (green)")
     status: SituationStatus = Field(default=SituationStatus.OPEN, description="Lifecycle status of the situation")
     description: str = Field(description="Description of the situation")
     business_impact: str = Field(description="Business impact of the situation")
@@ -225,6 +242,10 @@ class SituationDetectionRequest(BaseRequest):
 class SituationDetectionResponse(BaseResponse):
     """Response with detected situations."""
     situations: List[Situation] = Field(description="Detected situations")
+    opportunities: List[OpportunitySignal] = Field(
+        default_factory=list,
+        description="Positive KPI opportunity signals detected alongside problems"
+    )
     sql_query: Optional[str] = Field(None, description="Sample SQL query used for detection")
     kpi_evaluated_count: Optional[int] = Field(None, description="Number of KPIs evaluated")
     kpis_evaluated: Optional[List[str]] = Field(None, description="Names of KPIs evaluated")

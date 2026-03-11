@@ -370,6 +370,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
             next_steps_list: List[str] = []
             cross_review: Optional[Dict[str, Any]] = None
             stage_1_hypotheses_final: Dict[str, Any] = {}
+            ma_response: Optional[Dict[str, Any]] = None
 
             # FORCE LLM for debugging/MVP
             use_llm = True 
@@ -1382,6 +1383,39 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             "blind_spots": blind_spots_list
                         })
 
+                    # ---- Market Intelligence enrichment (optional) ----
+                    # Called after synthesis so a failure here never blocks the main response.
+                    try:
+                        from src.agents.new.a9_orchestrator_agent import AgentRegistry
+                        from src.agents.models.market_analysis_models import MarketAnalysisRequest
+
+                        _ma_agent = await AgentRegistry.get_agent("A9_Market_Analysis_Agent")
+                        _session_id = str(getattr(request, "request_id", req_id))
+                        _ma_req = MarketAnalysisRequest(
+                            session_id=_session_id,
+                            kpi_name=target_kpi,
+                            kpi_context=ps[:500] if ps else target_kpi,
+                            industry=self._get_industry_from_context(request),
+                            principal_id=str(getattr(request, "principal_id", "system") or "system"),
+                            max_signals=3,
+                        )
+                        _ma_resp = await _ma_agent.analyze_market(_ma_req)
+                        ma_response = _ma_resp.model_dump()
+                        self.logger.info(
+                            "[SF] Market intelligence enrichment complete — confidence=%.2f signals=%d",
+                            _ma_resp.confidence,
+                            len(_ma_resp.signals),
+                        )
+                        audit_log.append({
+                            "event": "market_intelligence_enriched",
+                            "kpi": target_kpi,
+                            "signals_count": len(_ma_resp.signals),
+                            "confidence": _ma_resp.confidence,
+                        })
+                    except Exception as _mae:
+                        self.logger.warning("[SF] Market intelligence enrichment skipped: %s", _mae)
+                        ma_response = None
+
                 except Exception as le:
                     # LLM path failed; fall back to heuristic
                     print(f"DEBUG: LLM Debate FAILED: {le}")
@@ -1505,6 +1539,8 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                 stage_1_hypotheses=stage_1_hypotheses_final if stage_1_hypotheses_final else None,
                 # Principal-Driven Framing Context
                 framing_context=framing_context_payload,
+                # Market Intelligence enrichment (None when MA agent unavailable or skipped)
+                market_intelligence=ma_response,
             )
         except Exception as e:
             return SolutionFinderResponse.error(request_id=req_id, error_message=str(e))
@@ -1540,6 +1576,45 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
             )
         except Exception as e:
             return SolutionFinderResponse.error(request_id=req_id, error_message=str(e))
+
+    def _get_industry_from_context(self, request: SolutionFinderRequest) -> Optional[str]:
+        """
+        Extract an industry label from the request context.
+
+        Priority:
+          1. ``request.business_context`` dict/object with an ``industry`` key.
+          2. KPI name keyword matching (lubricant → 'lubricants', bike/bicycle → 'bicycles').
+          3. Returns None so the MA agent uses its own default.
+        """
+        try:
+            bc = getattr(request, "business_context", None)
+            if bc:
+                if isinstance(bc, dict):
+                    industry = bc.get("industry")
+                else:
+                    industry = getattr(bc, "industry", None)
+                if isinstance(industry, str) and industry.strip():
+                    return industry.strip()
+        except Exception:
+            pass
+
+        # Keyword fallback from KPI name
+        try:
+            kpi_name = ""
+            da_ctx = request.deep_analysis_output or {}
+            da_summary = _extract_deep_analysis_summary(da_ctx)
+            kpi_name = (da_summary.get("kpi_name") or "").lower()
+            if not kpi_name:
+                ps = (getattr(request, "problem_statement", None) or "").lower()
+                kpi_name = ps
+            if "lubricant" in kpi_name:
+                return "lubricants"
+            if "bike" in kpi_name or "bicycle" in kpi_name:
+                return "bicycles"
+        except Exception:
+            pass
+
+        return None
 
     def _rank_options(self, options: List[SolutionOption], criteria: List[TradeOffCriterion]) -> List[SolutionOption]:
         # Simple weighted score: impact positive, cost and risk negative

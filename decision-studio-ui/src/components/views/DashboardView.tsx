@@ -1,13 +1,15 @@
 import React from 'react';
 import { KPITile } from '../dashboard/KPITile';
-import { RefreshCw, Settings, ChevronRight, Scan, Activity, Clock } from 'lucide-react';
-import { Situation, Client } from '../../api/types';
+import { RefreshCw, Settings, ChevronRight, Scan, Activity, Clock, TrendingUp } from 'lucide-react';
+import { Situation, Client, OpportunitySignal } from '../../api/types';
 import { Principal } from '../../api/types';
+import { OpportunityCard } from '../OpportunityCard';
 
 interface DashboardViewProps {
   scanComplete: boolean;
   loading: boolean;
   situations: Situation[];
+  opportunities?: OpportunitySignal[];
   kpisScanned: number;
   breachCount: number;
   impactLevel: string;
@@ -31,6 +33,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   scanComplete,
   loading,
   situations,
+  opportunities = [],
   kpisScanned,
   breachCount,
   impactLevel,
@@ -245,11 +248,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* State 2: Situation Grid (Post-Scan) */}
         {scanComplete && (
             <div className="space-y-4">
+                {/* Opportunities section — shown only when the backend returns opportunities */}
+                {opportunities.length > 0 && (
+                    <div className="mb-6">
+                        <h3 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                            <TrendingUp className="w-3.5 h-3.5" />
+                            Opportunities Detected ({opportunities.length})
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {opportunities.map((signal, i) => (
+                                <OpportunityCard
+                                    key={`${signal.kpi_name}-${i}`}
+                                    signal={signal}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 <h2 className="text-lg font-semibold text-white mb-4">Priority Briefings</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {situations.map((sit, idx) => (
                         <div key={idx} className="h-48">
-                            <KPITile 
+                            <KPITile
                                 situation={sit}
                                 onClick={() => onSelectSituation(sit)}
                             />

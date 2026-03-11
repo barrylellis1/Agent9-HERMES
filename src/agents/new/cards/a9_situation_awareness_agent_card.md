@@ -165,9 +165,75 @@ for situation in response.situations:
 - Multi-tenant `client_id` support: KPI scan filters by `client_id` from request; passes `client_id` to SA request model
 - BigQuery KPI detection: checks `sql_query`/`calculation` for backtick-qualified table refs; bypasses DuckDB/time_dim path and uses `_bq_apply_period()` for date filtering
 
+## Opportunity Detection (Mar 2026)
+
+### Overview
+Alongside problem detection, the agent now detects **positive KPI opportunities** — KPIs that are
+trending significantly better than expected or crossing back above performance thresholds. These
+surface as `OpportunitySignal` objects in `SituationDetectionResponse.opportunities`.
+
+### Card Type
+`Situation.card_type` distinguishes display intent:
+- `"problem"` (default) — red card in the UI; existing behaviour unchanged.
+- `"opportunity"` — green card (used when a `Situation` is created from an opportunity signal
+  in future UI wiring; `card_type` is set at creation time).
+
+### Opportunity Types
+| Type | When fired |
+|---|---|
+| `outperformance` | Current value exceeds the best defined threshold × `opportunity_threshold_multiplier` |
+| `recovery` | KPI was previously below a threshold and has now crossed back above it, with ≥ `opportunity_recovery_min_delta_pct` % improvement |
+| `trend_reversal` | No absolute threshold but period-on-period improvement ≥ `opportunity_threshold_multiplier × 10` % |
+
+### Configuration (`A9_Situation_Awareness_Agent_Config`)
+| Field | Default | Description |
+|---|---|---|
+| `opportunity_threshold_multiplier` | `1.5` | How much above threshold (×) the current value must be for outperformance. Must be ≥ 1.0. |
+| `opportunity_recovery_min_delta_pct` | `5.0` | Minimum % improvement to qualify as a recovery signal. |
+
+Pass config overrides via the `config` dict on agent construction:
+```python
+agent = A9_Situation_Awareness_Agent({
+    "opportunity_threshold_multiplier": 2.0,
+    "opportunity_recovery_min_delta_pct": 8.0,
+})
+```
+
+### `OpportunitySignal` Model
+```python
+class OpportunitySignal(BaseModel):
+    kpi_name: str                      # Internal KPI name
+    kpi_display_name: str              # Human-readable name
+    current_value: float               # Current period value
+    baseline_value: float              # Comparison baseline (threshold or prior period)
+    delta_pct: float                   # Positive = improvement
+    dimension: Optional[str]           # Populated if signal is dimension-specific
+    dimension_value: Optional[str]
+    opportunity_type: str              # "outperformance" | "recovery" | "trend_reversal"
+    headline: str                      # e.g. "Gross Margin up 3.2pp vs prior period"
+    confidence: float                  # 0.0–1.0
+```
+
+### `SituationDetectionResponse` — new field
+```python
+class SituationDetectionResponse(BaseResponse):
+    situations: List[Situation]             # Unchanged — problem cards
+    opportunities: List[OpportunitySignal]  # NEW — opportunity signals (default [])
+    ...
+```
+
+### Design Notes
+- Opportunity detection is additive: problem detection logic is **not** changed.
+- `_detect_opportunities()` is called per-KPI immediately after `_detect_kpi_situations()`.
+- Errors in `_detect_opportunities` are caught and logged at WARNING level — they never
+  interrupt the main problem-detection pipeline.
+- Directional awareness: inverse-logic KPIs (lower is better, e.g. COGS) use inverted
+  comparison logic so "doing better" always maps to a positive `delta_pct`.
+
 ## Future Enhancements
 - Integration with A9_NLP_Interface_Agent for advanced query parsing
 - Enhanced business impact analysis using LLM
 - Machine learning-based anomaly detection
 - Multi-dimensional trend analysis
 - Enhanced visualization capabilities in Decision Studio UI
+- UI green card rendering for `card_type = "opportunity"` in Decision Studio

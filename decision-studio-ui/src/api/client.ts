@@ -1,11 +1,13 @@
-import { 
-  ProblemRefinementRequest, 
-  ProblemRefinementResult, 
-  Situation 
+import {
+  ProblemRefinementRequest,
+  ProblemRefinementResult,
+  Situation,
+  OpportunitySignal,
+  SituationDetectionResult
 } from './types';
 
 // Re-export types for backward compatibility
-export type { ProblemRefinementRequest, ProblemRefinementResult, Situation };
+export type { ProblemRefinementRequest, ProblemRefinementResult, Situation, OpportunitySignal, SituationDetectionResult };
 export * from './types';
 
 const API_BASE = 'http://127.0.0.1:8000/api/v1';
@@ -323,7 +325,7 @@ export async function detectSituations(
   timeframe: string = 'year_to_date',
   comparisonType: string = 'year_over_year',
   clientId?: string
-): Promise<Situation[]> {
+): Promise<SituationDetectionResult> {
   // 1. Trigger the workflow
   const body: Record<string, any> = {
     principal_id: principalId,
@@ -337,12 +339,12 @@ export async function detectSituations(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  
+
   if (!runResponse.ok) {
     const errorText = await runResponse.text();
     throw new Error(`Failed to start detection: ${errorText}`);
   }
-  
+
   const { data: { request_id } } = await runResponse.json();
 
   // 2. Poll for completion
@@ -350,17 +352,19 @@ export async function detectSituations(
   while (attempts < 30) { // Timeout after 30s
     const statusResponse = await fetch(`${API_BASE}/workflows/situations/${request_id}/status`);
     const { data } = await statusResponse.json();
-    
+
     if (data.state === 'completed') {
-      // The result structure is: result: { situations: { status: "success", situations: [...], ... } }
-      // We want to return the normalized list
+      // The result structure is: result: { situations: { status: "success", situations: [...], opportunities: [...], ... } }
       const output = data.result.situations;
-      return output.situations || []; 
+      return {
+        situations: (output.situations || []) as Situation[],
+        opportunities: (output.opportunities || []) as OpportunitySignal[],
+      };
     }
     if (data.state === 'failed') {
       throw new Error(data.error || 'Workflow failed');
     }
-    
+
     await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s
     attempts++;
   }

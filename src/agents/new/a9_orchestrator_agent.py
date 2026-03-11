@@ -1168,7 +1168,8 @@ async def initialize_agent_registry():
     from src.agents.new.a9_llm_service_agent import A9_LLM_Service_Agent
     from src.agents.new.a9_deep_analysis_agent import A9_Deep_Analysis_Agent, create_deep_analysis_agent
     from src.agents.new.a9_solution_finder_agent import A9_Solution_Finder_Agent, create_solution_finder_agent
-    
+    from src.agents.new.a9_market_analysis_agent import A9_Market_Analysis_Agent
+
     # Register agent factories
     agent_registry.register_agent_factory("A9_Principal_Context_Agent", A9_Principal_Context_Agent.create)
     agent_registry.register_agent_factory("A9_Situation_Awareness_Agent", create_situation_awareness_agent)
@@ -1178,13 +1179,15 @@ async def initialize_agent_registry():
     agent_registry.register_agent_factory("A9_LLM_Service_Agent", A9_LLM_Service_Agent.create)
     agent_registry.register_agent_factory("A9_Deep_Analysis_Agent", create_deep_analysis_agent)
     agent_registry.register_agent_factory("A9_Solution_Finder_Agent", create_solution_finder_agent)
-    
+    agent_registry.register_agent_factory("A9_Market_Analysis_Agent", A9_Market_Analysis_Agent.create)
+
     # Register agent dependencies
     agent_registry.register_agent_dependency("A9_Data_Product_Agent", ["A9_Data_Governance_Agent"])
     agent_registry.register_agent_dependency("A9_Situation_Awareness_Agent", ["A9_Data_Product_Agent", "A9_Principal_Context_Agent"])
     agent_registry.register_agent_dependency("A9_Deep_Analysis_Agent", ["A9_Data_Product_Agent", "A9_Data_Governance_Agent", "A9_LLM_Service_Agent"])
     agent_registry.register_agent_dependency("A9_Solution_Finder_Agent", ["A9_Deep_Analysis_Agent", "A9_LLM_Service_Agent"])
-    
+    agent_registry.register_agent_dependency("A9_Market_Analysis_Agent", ["A9_LLM_Service_Agent"])
+
     logger.info("Agent registry initialized with common agent factories and dependencies")
 
 
@@ -1317,6 +1320,20 @@ async def create_and_connect_agents(orchestrator: A9_Orchestrator_Agent, registr
         await sf_agent.connect(orchestrator)
     except TypeError:
         await sf_agent.connect()
-    
+
+    # 7. Market Analysis Agent
+    logger.info("Creating Market Analysis Agent")
+    ma_agent_config = {
+        "orchestrator": orchestrator,
+    }
+    ma_agent = await orchestrator.create_agent_with_dependencies("A9_Market_Analysis_Agent", ma_agent_config)
+    agents["A9_Market_Analysis_Agent"] = ma_agent
+
+    logger.info("Connecting Market Analysis Agent")
+    try:
+        await ma_agent.connect(orchestrator)
+    except TypeError:
+        await ma_agent.connect()
+
     logger.info("All agents created and connected successfully")
     return agents

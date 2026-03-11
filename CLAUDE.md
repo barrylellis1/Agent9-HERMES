@@ -40,19 +40,20 @@ orchestrated AI workflows. ~100K lines of backend and UI code, 10 months of deve
 3. **KPI Assistant (API Only — No UI)**
    - 4 endpoints at `/api/v1/data-product-onboarding/kpi-assistant/`
 
-### Implemented Agents (12 Total)
+### Implemented Agents (13 Total)
 
 | Agent | Key Capabilities | Status |
 |---|---|---|
 | **A9_Orchestrator_Agent** | Agent registry (singleton), dependency resolution, 7 workflow methods | Operational |
 | **A9_Principal_Context_Agent** | 8 principal profiles, dual lookup, business process mapping | Operational |
-| **A9_Situation_Awareness_Agent** | KPI monitoring, anomaly detection, situation cards, NL query processing | Operational |
+| **A9_Situation_Awareness_Agent** | KPI monitoring, anomaly + opportunity detection, situation + opportunity cards, NL query | Operational |
 | **A9_Deep_Analysis_Agent** | Is/Is Not analysis, change-point detection, SCQA framing, BigQuery routing | Operational |
-| **A9_Solution_Finder_Agent** | 3×Stage1 parallel LLM + synthesis, trade-off matrix, quantified impact, HITL | Operational |
+| **A9_Solution_Finder_Agent** | 3×Stage1 parallel LLM + synthesis, trade-off matrix, quantified impact, HITL, MA enrichment | Operational |
+| **A9_Market_Analysis_Agent** | Perplexity web search + Claude synthesis → market signals, competitor context (LLM-only fallback) | Operational |
 | **A9_Data_Product_Agent** | Schema inspection (DuckDB/BigQuery/Postgres), contract YAML, SQL execution | Operational |
 | **A9_Data_Governance_Agent** | Business term translation, KPI mapping, registry validation; MVP allows all | Operational |
 | **A9_NLP_Interface_Agent** | Deterministic regex parsing (no LLM), TopN/timeframe/grouping extraction | Operational |
-| **A9_LLM_Service_Agent** | Multi-provider (Claude/OpenAI), model routing, token tracking, guardrails | Operational |
+| **A9_LLM_Service_Agent** | Multi-provider (Claude/Anthropic), model routing, token tracking, guardrails | Operational |
 | **A9_KPI_Assistant_Agent** | LLM KPI suggestions, conversational refinement, contract updates | API-only (no UI) |
 | **A9_Data_Product_MCP_Service_Agent** | SQL execution via MCP | **DEPRECATED** (remove after 2025-11-30) |
 | **A9_Risk_Analysis_Agent** | Weighted risk scoring | **Dead code** — no tests, no registration |
@@ -60,15 +61,17 @@ orchestrated AI workflows. ~100K lines of backend and UI code, 10 months of deve
 ### What's NOT Built Yet
 
 - KPI Assistant Streamlit/React UI — API routes exist, no frontend panel
-- 13+ agents referenced in workflow YAMLs (Market Analysis, Risk Management, Stakeholder, etc.)
+- Remaining agents referenced in workflow YAMLs (Risk Management, Stakeholder, etc.)
 - Registry Maintenance UI — placeholder in Admin Console
 - Data Governance Admin UI — placeholder in Admin Console
 - Scheduled/offline SA execution — `run_cfo_assessment.py` exists but no built-in scheduler
 - Email/Slack notification to principals — data model ready, no sending code
+- Value Assurance Supabase persistence — in-memory store only (MVP)
 
-### API Surface (55 endpoints)
+### API Surface (60 endpoints)
 
 - `/api/v1/workflows/` — situations, deep-analysis, solutions, data-product-onboarding
+- `/api/v1/value-assurance/` — accepted solutions CRUD + ROI validation check (5 endpoints)
 - `/api/v1/registry/` — full CRUD for KPIs, Principals, Data Products, Business Processes, Glossary
 - `/api/v1/data-product-onboarding/kpi-assistant/` — suggest, chat, validate, finalize
 - `/api/v1/connection-profiles/` — CRUD for database connection profiles

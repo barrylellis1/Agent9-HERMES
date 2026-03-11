@@ -18,10 +18,11 @@ from typing import List, Dict, Any, Optional, Tuple, Protocol, runtime_checkable
 
 # Import data models and enums
 from src.agents.models.situation_awareness_models import (
-    BusinessProcess, PrincipalRole, TimeFrame, ComparisonType, 
+    BusinessProcess, PrincipalRole, TimeFrame, ComparisonType,
     SituationSeverity, KPIDefinition, Situation, KPIValue,
     PrincipalContext, SituationDetectionRequest, SituationDetectionResponse,
-    NLQueryRequest, NLQueryResponse, HITLRequest, HITLResponse, HITLDecision
+    NLQueryRequest, NLQueryResponse, HITLRequest, HITLResponse, HITLDecision,
+    OpportunitySignal
 )
 from src.agents.models.principal_context_models import PrincipalProfileResponse
 
@@ -116,6 +117,14 @@ class A9_Situation_Awareness_Agent:
         self.kpi_registry = {}
         # Cache for last generated SQL per KPI to avoid regenerating for UI display
         self._last_sql_cache: Dict[str, Dict[str, str]] = {}
+
+        # Opportunity detection configuration
+        self._opportunity_threshold_multiplier: float = float(
+            config.get("opportunity_threshold_multiplier", 1.5)
+        )
+        self._opportunity_recovery_min_delta_pct: float = float(
+            config.get("opportunity_recovery_min_delta_pct", 5.0)
+        )
     
     async def connect(self, orchestrator=None):
         """Initialize connections to dependent services."""
@@ -461,6 +470,7 @@ class A9_Situation_Awareness_Agent:
             kpi_values = []
             
             # Process each relevant KPI to fetch actual values from database (no cap)
+            opportunities: List[OpportunitySignal] = []
             for kpi_name, kpi_definition in relevant_kpis.items():
                 try:
                     # Get actual KPI value from database using Data Product Agent
@@ -471,24 +481,40 @@ class A9_Situation_Awareness_Agent:
                         request.filters,
                         request.principal_context
                     )
-                    
+
                     if kpi_value:
                         kpi_values.append(kpi_value)
                         self.logger.info(f"Retrieved KPI value: {kpi_name} = {kpi_value.value}")
-                        
-                        # Detect situations based on thresholds, trends, etc.
+
+                        # Detect problems based on thresholds, trends, etc.
                         detected_situations = self._detect_kpi_situations(
                             kpi_definition,
                             kpi_value,
                             request.principal_context
                         )
-                        
                         self.logger.info(f"Detected {len(detected_situations)} situations for {kpi_name}")
                         situations.extend(detected_situations)
+
+                        # Detect positive opportunity signals
+                        try:
+                            detected_opportunities = self._detect_opportunities(
+                                kpi_definition,
+                                kpi_value,
+                            )
+                            if detected_opportunities:
+                                self.logger.info(
+                                    f"Detected {len(detected_opportunities)} opportunity signal(s) for {kpi_name}"
+                                )
+                            opportunities.extend(detected_opportunities)
+                        except Exception as opp_err:
+                            self.logger.warning(
+                                f"Error detecting opportunities for KPI {kpi_name}: {opp_err}"
+                            )
+
                 except Exception as kpi_error:
                     self.logger.warning(f"Error processing KPI {kpi_name}: {str(kpi_error)}")
                     # Continue with other KPIs
-            
+
             # Sort situations by severity (critical first)
             situations.sort(key=lambda s: list(SituationSeverity).index(s.severity) if s.severity in SituationSeverity else 99)
             
@@ -530,8 +556,12 @@ class A9_Situation_Awareness_Agent:
             return SituationDetectionResponse(
                 request_id=request.request_id,
                 status="success",
-                message=f"Detected {len(situations)} situations across {len(kpi_values)} KPIs",
+                message=(
+                    f"Detected {len(situations)} situations and "
+                    f"{len(opportunities)} opportunity signal(s) across {len(kpi_values)} KPIs"
+                ),
                 situations=situations,
+                opportunities=opportunities,
                 sql_query=sample_sql,
                 kpi_evaluated_count=len(kpi_values),
                 kpis_evaluated=[kv.kpi_name for kv in kpi_values],
@@ -2226,6 +2256,196 @@ class A9_Situation_Awareness_Agent:
         except Exception as e:
             self.logger.warning(f"_get_comparison_sql_for_kpi error: {e}")
             return ""
+
+    def _detect_opportunities(
+        self,
+        kpi_definition: KPIDefinition,
+        kpi_value: KPIValue,
+    ) -> List[OpportunitySignal]:
+        """
+        Detect positive KPI opportunity signals for a single KPI.
+
+        Three opportunity types are recognised:
+
+        1. **outperformance** — the current value exceeds the highest defined
+           threshold multiplied by ``_opportunity_threshold_multiplier``.  This
+           applies when positive trend is good and the metric is performing well
+           above its own warning/critical bar.
+
+        2. **recovery** — the KPI previously sat below a warning/critical
+           threshold but the current value is now above it, AND the period-on-
+           period improvement is at least
+           ``_opportunity_recovery_min_delta_pct`` percent.
+
+        3. **trend_reversal** — no absolute threshold is defined but the KPI has
+           improved by at least ``_opportunity_threshold_multiplier * 10`` percent
+           vs the comparison period (e.g. a 15 % improvement when the multiplier
+           is 1.5).
+
+        Args:
+            kpi_definition: KPI definition with thresholds and directional flag.
+            kpi_value:       Current KPI value, optionally with comparison data.
+
+        Returns:
+            List of ``OpportunitySignal`` objects (may be empty).
+        """
+        signals: List[OpportunitySignal] = []
+
+        current = kpi_value.value
+        kpi_name = kpi_definition.name
+        positive_trend_is_good = getattr(kpi_definition, "positive_trend_is_good", True)
+
+        # ── helpers ───────────────────────────────────────────────────────────
+
+        def _pct_change(new_val: float, old_val: float) -> Optional[float]:
+            if old_val is None or old_val == 0:
+                return None
+            return ((new_val - old_val) / abs(old_val)) * 100.0
+
+        def _make_signal(
+            opportunity_type: str,
+            headline: str,
+            delta_pct: float,
+            baseline: float,
+            confidence: float = 0.7,
+        ) -> OpportunitySignal:
+            return OpportunitySignal(
+                kpi_name=kpi_name,
+                kpi_display_name=kpi_name,
+                current_value=current,
+                baseline_value=baseline,
+                delta_pct=delta_pct,
+                opportunity_type=opportunity_type,
+                headline=headline,
+                confidence=confidence,
+            )
+
+        # ── outperformance check (threshold-based) ────────────────────────────
+        if kpi_definition.thresholds:
+            # Collect the highest threshold value defined (warning or critical)
+            threshold_values = []
+            for th_key, th_val in kpi_definition.thresholds.items():
+                if th_key == "_inverse_logic":
+                    continue
+                if isinstance(th_val, (int, float)):
+                    threshold_values.append(float(th_val))
+
+            if threshold_values:
+                # For positive metrics use the max threshold; for inverse metrics
+                # (lower is better) treat the minimum threshold as the reference.
+                inverse_logic = kpi_definition.thresholds.get("_inverse_logic", False)
+                if not isinstance(inverse_logic, bool):
+                    inverse_logic = bool(not positive_trend_is_good)
+
+                ref_threshold = min(threshold_values) if inverse_logic else max(threshold_values)
+
+                # For positive-trend metrics: outperformance = current > threshold * multiplier
+                # For inverse-trend metrics:  outperformance = current < threshold / multiplier
+                if not inverse_logic:
+                    target_bar = ref_threshold * self._opportunity_threshold_multiplier
+                    if current > target_bar:
+                        delta = _pct_change(current, ref_threshold)
+                        if delta is not None:
+                            signals.append(_make_signal(
+                                opportunity_type="outperformance",
+                                headline=(
+                                    f"{kpi_name} is {abs(delta):.1f}% above its performance threshold "
+                                    f"(threshold: {ref_threshold:,.2f}, current: {current:,.2f})"
+                                ),
+                                delta_pct=delta,
+                                baseline=ref_threshold,
+                                confidence=0.8,
+                            ))
+                else:
+                    # Lower is better — outperformance = metric is well below threshold
+                    target_bar = ref_threshold / self._opportunity_threshold_multiplier
+                    if current < target_bar:
+                        delta = _pct_change(ref_threshold, current)  # positive = improvement
+                        if delta is not None:
+                            signals.append(_make_signal(
+                                opportunity_type="outperformance",
+                                headline=(
+                                    f"{kpi_name} is {abs(delta):.1f}% below its performance threshold "
+                                    f"(threshold: {ref_threshold:,.2f}, current: {current:,.2f})"
+                                ),
+                                delta_pct=delta,
+                                baseline=ref_threshold,
+                                confidence=0.8,
+                            ))
+
+        # ── recovery and trend-reversal checks (comparison-based) ────────────
+        comparison = kpi_value.comparison_value
+        if comparison is not None:
+            pct = _pct_change(current, comparison)
+            if pct is None:
+                return signals
+
+            # Determine whether the change is an improvement
+            if positive_trend_is_good:
+                is_improvement = pct > 0
+                improvement_pct = pct
+            else:
+                is_improvement = pct < 0
+                improvement_pct = abs(pct)  # magnitude of improvement
+
+            if not is_improvement:
+                return signals  # worsening — not an opportunity
+
+            # Recovery: KPI was previously below a threshold and is now above it.
+            # We infer "was previously below threshold" from comparison < threshold.
+            if kpi_definition.thresholds:
+                threshold_values_all = [
+                    float(v) for k, v in kpi_definition.thresholds.items()
+                    if k != "_inverse_logic" and isinstance(v, (int, float))
+                ]
+                if threshold_values_all:
+                    inverse_logic = kpi_definition.thresholds.get("_inverse_logic", False)
+                    if not isinstance(inverse_logic, bool):
+                        inverse_logic = bool(not positive_trend_is_good)
+
+                    # For positive metrics use min threshold as the "floor to recover above"
+                    recovery_threshold = min(threshold_values_all) if not inverse_logic else max(threshold_values_all)
+
+                    previously_below = (
+                        (not inverse_logic and comparison < recovery_threshold and current >= recovery_threshold)
+                        or (inverse_logic and comparison > recovery_threshold and current <= recovery_threshold)
+                    )
+
+                    if previously_below and improvement_pct >= self._opportunity_recovery_min_delta_pct:
+                        # Avoid duplicating with an outperformance signal already emitted above
+                        already_outperformance = any(
+                            s.opportunity_type == "outperformance" for s in signals
+                        )
+                        if not already_outperformance:
+                            signals.append(_make_signal(
+                                opportunity_type="recovery",
+                                headline=(
+                                    f"{kpi_name} recovered — up {improvement_pct:.1f}% vs prior period, "
+                                    f"now above performance threshold ({recovery_threshold:,.2f})"
+                                ),
+                                delta_pct=improvement_pct,
+                                baseline=comparison,
+                                confidence=0.75,
+                            ))
+                        return signals  # recovery already captured; skip trend_reversal
+
+            # Trend reversal: no absolute threshold but strong % improvement.
+            reversal_bar = self._opportunity_threshold_multiplier * 10.0  # e.g. 1.5 * 10 = 15 %
+            if improvement_pct >= reversal_bar:
+                # Do not emit if we already have a signal for this KPI
+                if not signals:
+                    signals.append(_make_signal(
+                        opportunity_type="trend_reversal",
+                        headline=(
+                            f"{kpi_name} up {improvement_pct:.1f}% vs prior period "
+                            f"— significant positive trend reversal"
+                        ),
+                        delta_pct=improvement_pct,
+                        baseline=comparison,
+                        confidence=0.65,
+                    ))
+
+        return signals
 
     def _detect_kpi_situations(
         self,

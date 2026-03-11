@@ -11,6 +11,7 @@ from src.api.routes.workflows import router as workflows_router
 from src.api.routes.upload import router as upload_router
 from src.api.routes.connection_profiles import router as connection_profiles_router
 from src.api.routes.kpi_assistant import router as kpi_assistant_router
+from src.api.routes.value_assurance import router as value_assurance_router
 
 app = FastAPI(
     title="Agent9 API",
@@ -33,6 +34,7 @@ app.include_router(workflows_router, prefix="/api/v1")
 app.include_router(upload_router, prefix="/api/v1")
 app.include_router(connection_profiles_router)
 app.include_router(kpi_assistant_router)
+app.include_router(value_assurance_router)
 
 
 @app.on_event("startup")

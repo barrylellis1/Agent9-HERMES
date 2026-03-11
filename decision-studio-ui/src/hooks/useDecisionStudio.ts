@@ -7,7 +7,8 @@ import {
   listPrincipals,
   listClients,
   ProblemRefinementResult,
-  Situation
+  Situation,
+  OpportunitySignal
 } from '../api/client';
 import {
   AVAILABLE_PRINCIPALS,
@@ -61,6 +62,7 @@ export function useDecisionStudio() {
   
   // Scanner / Situations
   const [situations, setSituations] = useState<Situation[]>([]);
+  const [opportunities, setOpportunities] = useState<OpportunitySignal[]>([]);
   const [scanComplete, setScanComplete] = useState(false);
   const [selectedSituation, setSelectedSituation] = useState<Situation | null>(null);
   
@@ -176,21 +178,24 @@ export function useDecisionStudio() {
     setSolutions(null);
     setShowPersonaSelector(false);
     setRefinementResult(null); // Reset refinement
-    
+
     try {
       console.log(`Calling Agent9 API for principal: ${selectedPrincipal} timeframe: ${timeframe}...`);
       // Use proper comparison type based on timeframe
       const comparisonType = timeframe === 'current_month' ? 'month_over_month' : 'year_over_year';
       const result = await detectSituations(selectedPrincipal, timeframe, comparisonType, selectedClientId);
       console.log("Agent9 Response:", result);
-      
-      if (result && result.length > 0) {
-        setSituations(result);
-        setScanComplete(true);
-        setStatusMsg(`Scan Complete: ${result.length} situations detected.`);
+
+      setSituations(result.situations);
+      setOpportunities(result.opportunities);
+      setScanComplete(true);
+
+      if (result.situations.length > 0 || result.opportunities.length > 0) {
+        const parts: string[] = [];
+        if (result.situations.length > 0) parts.push(`${result.situations.length} situation${result.situations.length !== 1 ? 's' : ''}`);
+        if (result.opportunities.length > 0) parts.push(`${result.opportunities.length} opportunit${result.opportunities.length !== 1 ? 'ies' : 'y'}`);
+        setStatusMsg(`Scan Complete: ${parts.join(', ')} detected.`);
       } else {
-        setSituations([]);
-        setScanComplete(true);
         setStatusMsg("Scan Complete: No anomalies detected.");
       }
     } catch (err) {
@@ -443,6 +448,7 @@ export function useDecisionStudio() {
     error,
     statusMsg,
     situations,
+    opportunities,
     scanComplete,
     selectedSituation,
     analyzing,

@@ -9,6 +9,7 @@ export function DecisionStudio() {
     error,
     statusMsg,
     situations,
+    opportunities,
     scanComplete,
     selectedSituation,
     analyzing,
@@ -124,6 +125,7 @@ export function DecisionStudio() {
       scanComplete={scanComplete}
       loading={loading}
       situations={situations}
+      opportunities={opportunities}
       kpisScanned={14} // Mock
       breachCount={situations.length}
       impactLevel={situations.length > 3 ? 'High' : situations.length > 0 ? 'Medium' : 'Low'}

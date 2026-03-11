@@ -95,6 +95,9 @@ class SolutionFinderResponse(A9AgentBaseResponse):
     # Principal-Driven Framing Context (per PRD guardrails)
     framing_context: Optional[Dict[str, Any]] = None  # decision_style, personas_used, presentation_note, disclaimer
 
+    # Market Intelligence enrichment (optional — populated when A9_Market_Analysis_Agent is available)
+    market_intelligence: Optional[Dict[str, Any]] = None
+
     # Single HITL event fields per PRD
     human_action_required: bool = False
     human_action_type: Optional[str] = None
