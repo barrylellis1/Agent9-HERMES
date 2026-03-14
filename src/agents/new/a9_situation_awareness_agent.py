@@ -2657,18 +2657,51 @@ class A9_Situation_Awareness_Agent:
         Returns:
             Situation object
         """
-        # Generate business impact based on severity and principal's role
+        # Generate business impact with actual KPI numbers
+        _val = kpi_value.value
+        _cmp = kpi_value.comparison_value
+        _pct = kpi_value.percent_change
+        _unit = kpi_value.unit or ""
+        _role = getattr(principal_context, "role", None)
+
+        def _fmt(v: float) -> str:
+            if abs(v) >= 1_000_000:
+                return f"${v/1_000_000:.1f}M"
+            if abs(v) >= 1_000:
+                return f"${v/1_000:.0f}K"
+            return f"{v:,.1f}{(' ' + _unit) if _unit else ''}"
+
+        _val_str = _fmt(_val)
+        _cmp_str = _fmt(_cmp) if _cmp is not None else None
+        _pct_str = f"{_pct:+.1f}%" if _pct is not None else None
+
         if severity == SituationSeverity.CRITICAL:
-            if principal_context.role == PrincipalRole.CFO:
-                business_impact = f"Immediate attention required: {kpi_definition.name} is significantly outside expected range, potentially impacting financial targets and shareholder expectations."
-            else:
-                business_impact = f"Immediate attention required: {kpi_definition.name} is significantly outside expected range, potentially impacting financial targets."
+            _vs = f" vs. {_cmp_str}" if _cmp_str else ""
+            _chg = f" ({_pct_str})" if _pct_str else ""
+            _audience = "shareholder expectations and " if _role == PrincipalRole.CFO else ""
+            business_impact = (
+                f"Immediate attention required: {kpi_definition.name} is {_val_str}{_vs}{_chg}, "
+                f"significantly outside target — at risk of impacting {_audience}financial targets."
+            )
         elif severity == SituationSeverity.HIGH:
-            business_impact = f"Attention needed: {kpi_definition.name} is outside normal parameters, potentially indicating an emerging financial issue."
+            _vs = f" vs. target {_cmp_str}" if _cmp_str else ""
+            _chg = f" ({_pct_str} variance)" if _pct_str else ""
+            business_impact = (
+                f"Attention needed: {kpi_definition.name} is {_val_str}{_vs}{_chg}, "
+                f"outside normal parameters and may indicate an emerging financial issue."
+            )
         elif severity == SituationSeverity.MEDIUM:
-            business_impact = f"Monitor closely: {kpi_definition.name} shows notable variation from expected values."
+            _chg = f" ({_pct_str} from target)" if _pct_str else ""
+            business_impact = (
+                f"Monitor closely: {kpi_definition.name} is {_val_str}{_chg}, "
+                f"showing notable variation from expected values."
+            )
         else:
-            business_impact = f"For information: {kpi_definition.name} has changed but remains within expected parameters."
+            _chg = f" ({_pct_str} change)" if _pct_str else ""
+            business_impact = (
+                f"For information: {kpi_definition.name} is {_val_str}{_chg}, "
+                f"within expected parameters."
+            )
         
         # Get diagnostic questions if available
         diagnostic_questions = kpi_definition.diagnostic_questions

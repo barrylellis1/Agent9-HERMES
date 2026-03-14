@@ -66,6 +66,12 @@ export interface DeepAnalysisExecution {
   kpi_name?: string;
 }
 
+export interface DeepAnalysisResult {
+  plan?: any;
+  execution: DeepAnalysisExecution;
+  market_signals?: MarketSignal[];
+}
+
 export interface Perspective {
   lens: string;
   key_questions: string[];
@@ -198,6 +204,15 @@ export interface CouncilMemberRecommendation {
   rationale: string;
 }
 
+export interface MarketSignal {
+  source: string
+  title: string
+  summary: string
+  relevance_score: number
+  published_at?: string
+  url?: string
+}
+
 export interface ProblemRefinementResult {
   agent_message: string;
   suggested_responses: string[];
@@ -216,4 +231,5 @@ export interface ProblemRefinementResult {
   recommended_council_members?: CouncilMemberRecommendation[];
   turn_count: number;
   conversation_history: Array<{ role: string; content: string }>;
+  market_signals?: MarketSignal[];
 }

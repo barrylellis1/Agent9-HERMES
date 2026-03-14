@@ -1,4 +1,4 @@
-export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) => {
+export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, marketSignals?: any[]) => {
     const kpiName = situation?.kpi_name || analysis?.kpi_name || sol?.problem_reframe?.situation || 'KPI'
     const kpiUnit: string = situation?.kpi_value?.unit || ''
     const topOptions = Array.isArray(sol?.options_ranked) ? sol.options_ranked : []
@@ -331,6 +331,8 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any) 
       cross_review: sol?.cross_review || null,
       blind_spots: sol?.blind_spots || [],
       unresolved_tensions: sol?.unresolved_tensions || [],
+      // Market Intelligence from DA/MA agent
+      market_signals: (marketSignals && marketSignals.length > 0) ? marketSignals : null,
     }
     
     return transformed

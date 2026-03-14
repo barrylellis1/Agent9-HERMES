@@ -48,7 +48,15 @@ Environment variable override: `CLAUDE_MODEL_SYNTHESIS`
 
 ## Integration Points (Mar 2026)
 - **SF Agent**: Called after synthesis completes; result stored in `SolutionFinderResponse.market_intelligence`
+- **Refinement endpoint**: Called in parallel with turn 0 of Problem Refinement Chat; signals injected as `initial_external_context` so refinement LLM asks targeted questions
 - **Perplexity model**: `sonar` (search-enabled); override via `PERPLEXITY_MODEL` env var
+
+## LLM-Only Signal Generation (Mar 2026)
+When `PERPLEXITY_API_KEY` is not set, `_llm_generate_signals()` asks the LLM (claude-sonnet-4-6)
+to produce structured `MarketSignal` JSON objects from its training knowledge of the KPI and
+industry. Signals are tagged `source="llm_knowledge"` and `sources_queried=["llm_knowledge"]`.
+This ensures `MarketAnalysisResponse.signals` is always populated (not empty) so the refinement
+amber panel renders and `external_context` is seeded even without a Perplexity subscription.
 
 ## Compliance
 - A2A Pydantic IO for requests/responses

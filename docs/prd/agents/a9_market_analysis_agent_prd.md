@@ -24,7 +24,13 @@ The A9_Market_Analysis_Agent (MA Agent) is an external intelligence layer that m
 
 ### Why This Agent Exists
 
-The SA → DA → SF pipeline is internally grounded: it detects KPI anomalies, drills into root causes, and generates solutions. But without external market context, solutions risk being:
+The SA → DA → SF pipeline is internally grounded: it detects KPI anomalies, drills into root causes, and generates solutions. MA serves two critical roles:
+
+1. **Problem Refinement Input** (Turn 0, pre-synthesis): MA runs parallel with Problem Refinement Chat, seeding `external_context` with market signals so the refinement LLM asks targeted questions referencing competitor moves, industry trends, and benchmarks. This sharpens problem definition by anchoring tacit knowledge gathering in concrete external facts.
+
+2. **Solution Synthesis Enrichment** (Legacy): During SF synthesis, MA provides differentiation context so options avoid commoditised responses and leverage market tailwinds.
+
+Without external market context, solutions risk being:
 - **Commoditised:** Proposing actions competitors already execute (e.g., "reduce SKU complexity" when the entire industry is consolidating)
 - **Naïve to constraints:** Missing regulatory/supply-chain headwinds that make an option infeasible
 - **Blind to tailwinds:** Missing demand-side or technology tailwinds that amplify impact
@@ -542,9 +548,10 @@ All LLM calls route through `A9_LLM_Service_Agent` via the Orchestrator. Provide
 
 | Workflow | Step | MA Entrypoint | Input | Role | Status |
 |----------|------|---------------|-------|------|--------|
+| **Problem Deep Analysis** | At END of DA workflow | `analyze_market_opportunity` | Situation object + DA insights | Attach market signals as `market_signals` to DA output payload | Active (Mar 2026) |
+| **Problem Refinement Chat** | Turn 0 (post-DA) | market_signals from DA | Received via `external_context` | Seed refinement questions with market signals for targeted inquiry | Active (Mar 2026) |
+| **Solution Finding** | Pre-synthesis (receives signals) | None (passthrough) | Market signals via DA output → SF preferences | SF uses market context for differentiated option generation; no separate MA call | Active (Mar 2026) |
 | **Opportunity Deep Analysis** | After Data Product Agent queries | `analyze_market_opportunity` | Situation object | Assess market context for scaling/replicating opportunity | Optional |
-| **Problem Deep Analysis** | After Deep Analysis Agent | `analyze_market_opportunity` | Situation object + DA insights | Provide market threat/constraint context for SF | Optional |
-| **Solution Finding** | During SF synthesis (optional enrichment) | `get_competitive_context` | Each candidate option | Validate option differentiation vs. competitors | Optional |
 | **Innovation Driver** | MA feeds opportunity signals | `scan_for_opportunities` | Sector list | Surface emerging opportunities to trigger innovation workflows | Optional |
 | **Business Optimization** | Optional enrichment step | `analyze_market_opportunity` | KPI + company context | Contextualize optimization targets with market benchmarks | Optional |
 | **Value Assurance** | 30/60/90-day post-implementation review | `analyze_market_opportunity` | Same KPI as original solution | Isolate intervention impact from market-wide tailwinds | Optional |
@@ -810,4 +817,5 @@ class PerplexityService:
 
 ## 15. Change Log
 
+- **2026-03-11:** Market Analysis integration moved from post-synthesis enrichment to end-of-DA workflow. MA Agent now runs at the END of Deep Analysis (not during Problem Refinement or Solution Finding separately). Market signals are attached to DA output as `market_signals` field. Problem Refinement Chat receives signals from DA output via `external_context` in preferences, enabling targeted questions anchored in concrete market facts. Solution Finder no longer calls MA independently; signals flow through DA output → SF preferences for differentiated option generation. Post-synthesis MA enrichment in SF has been removed.
 - **2026-03-10:** Created comprehensive MVP PRD. Defined three trigger modes (reactive, proactive, lightweight), all entrypoints with Pydantic models, sf_context integration contract, LLM query design (Haiku classification + Perplexity research + Sonnet synthesis), Perplexity API integration with Claude fallback, Value Assurance hook for honest ROI attribution, technical requirements (A2A protocol, async, logging, error handling), implementation guidance (27-hour estimate), and success metrics.

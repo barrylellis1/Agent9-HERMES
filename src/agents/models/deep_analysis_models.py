@@ -96,6 +96,13 @@ class ProblemRefinementInput(A9AgentBaseModel):
     user_message: Optional[str] = Field(None, description="Latest principal response")
     current_topic: Optional[str] = Field(None, description="Current topic in sequence (auto-managed)")
     turn_count: int = Field(0, description="Current turn number (auto-managed)")
+    # Market Analysis signals pre-fetched by the endpoint on turn 0.
+    # These are injected into accumulated.external_context so the refinement LLM references
+    # specific market signals in its questions rather than asking generic open-ended questions.
+    initial_external_context: List[str] = Field(
+        default_factory=list,
+        description="MA-derived external context strings to seed the refinement (turn 0 only)."
+    )
 
 
 class ExtractedRefinements(A9AgentBaseModel):
@@ -142,3 +149,9 @@ class ProblemRefinementResult(A9AgentBaseModel):
     # Conversation state
     turn_count: int = Field(0, description="Current turn number")
     conversation_history: List[Dict[str, str]] = Field(default_factory=list, description="Full conversation history")
+
+    # Market Intelligence signals detected at turn 0 (for display in the refinement UI)
+    market_signals: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="MA signals returned on turn 0; shown as context cards above the refinement chat."
+    )

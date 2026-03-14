@@ -3592,7 +3592,9 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     s, e = qd(by, bq)
                 return str(s), str(e)
 
-            # Derive "previous" period (one quarter back) for TopN curr/prev comparison
+            # Derive "previous" period for TopN curr/prev comparison.
+            # Year-based timeframes compare same period one year earlier;
+            # quarter-based timeframes compare one quarter back.
             def _prev_period_dates(tf_str):
                 tf = str(tf_str or "last_quarter").strip().lower()
                 today = date.today()
@@ -3602,6 +3604,16 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     em = qtr * 3
                     return date(yr, sm, 1), date(yr, em, _cal.monthrange(yr, em)[1])
                 cur_q = (m - 1) // 3 + 1
+
+                # Year-based: same date range one year earlier
+                if tf in ("year_to_date", "current_year"):
+                    s = date(y - 1, 1, 1)
+                    e = date(y - 1, m, min(today.day, _cal.monthrange(y - 1, m)[1]))
+                    return str(s), str(e)
+                if tf == "last_year":
+                    return str(date(y - 2, 1, 1)), str(date(y - 2, 12, 31))
+
+                # Quarter-based: one quarter back
                 if tf in ("current_quarter", "quarter_to_date"):
                     base_q = cur_q
                     base_y = y

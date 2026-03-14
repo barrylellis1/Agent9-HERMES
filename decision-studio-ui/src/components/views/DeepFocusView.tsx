@@ -13,7 +13,7 @@ import {
   CircleDot,
   ShieldCheck
 } from 'lucide-react';
-import { Situation, ProblemRefinementResult } from '../../api/types';
+import { Situation, ProblemRefinementResult, MarketSignal } from '../../api/types';
 import { ProblemRefinementChat } from '../ProblemRefinementChat';
 import { VarianceBarList, VarianceSummary } from '../visualizations/VarianceCharts';
 import { DivergingBarChart } from '../visualizations/DivergingBarChart';
@@ -59,6 +59,7 @@ interface DeepFocusViewProps {
   availablePersonas: any[];
   principalContext: any;
   principalId: string;
+  initialMarketSignals?: MarketSignal[];
 }
 
 export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
@@ -93,7 +94,8 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   availableCouncils,
   availablePersonas,
   principalContext,
-  principalId
+  principalId,
+  initialMarketSignals
 }) => {
   const navigate = useNavigate();
   const currentAnalysis = analysisResults;
@@ -229,7 +231,39 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
 
                             {/* Embedded Variance Analysis (Is/Is Not) */}
                             {renderVarianceAnalysis()}
-                            
+
+                            {/* Market Intelligence Card — renders when MA signals arrive from DA */}
+                            {initialMarketSignals && initialMarketSignals.length > 0 && (
+                                <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+                                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                        <Sparkles className="w-4 h-4 text-amber-400" />
+                                        Market Intelligence
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {initialMarketSignals.map((signal, i) => (
+                                            <div key={i} className="bg-slate-950 border border-slate-800 rounded-lg p-4">
+                                                <div className="flex items-start justify-between mb-1">
+                                                    <h4 className="text-sm font-semibold text-white">{signal.title}</h4>
+                                                    {signal.relevance_score != null && (
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                                                            signal.relevance_score >= 0.7 ? 'bg-amber-900/50 text-amber-300' :
+                                                            signal.relevance_score >= 0.4 ? 'bg-slate-800 text-slate-300' :
+                                                            'bg-slate-800 text-slate-500'
+                                                        }`}>
+                                                            {Math.round(signal.relevance_score * 100)}% relevant
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-slate-400 leading-relaxed">{signal.summary}</p>
+                                                {signal.source && (
+                                                    <span className="text-[10px] text-slate-600 mt-2 block">Source: {signal.source}</span>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Snowflake / Change Points */}
                             <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
                                  <div className="flex items-center justify-between mb-4">
@@ -349,10 +383,11 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                  {/* State C: Refinement Chat Active */}
                  {showRefinementChat && (
                      <div className="h-full flex flex-col animate-in fade-in">
-                         <ProblemRefinementChat 
+                         <ProblemRefinementChat
                              deepAnalysisOutput={{
                                  plan: currentAnalysis.plan || {},
                                  execution: currentAnalysis,
+                                 market_signals: initialMarketSignals && initialMarketSignals.length > 0 ? initialMarketSignals : undefined,
                                  situation_context: {
                                      kpi_name: situation.kpi_name,
                                      description: situation.description,
@@ -364,6 +399,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                              principalId={principalId}
                              onComplete={onRefinementComplete}
                              onCancel={onRefinementCancel}
+                             initialMarketSignals={initialMarketSignals}
                          />
                      </div>
                  )}
@@ -508,13 +544,13 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                              kpiName={situation?.kpi_name || 'KPI'}
                              activePersonas={(() => {
                                  if (selectedPersonas.length > 0) {
-                                     return selectedPersonas;
+                                     return [...new Set(selectedPersonas)];
                                  }
                                  const recommended = refinementResult?.recommended_council_members?.map(m => m.persona_id) ?? [];
                                  if (recommended.length > 0) {
-                                     return recommended;
+                                     return [...new Set(recommended)];
                                  }
-                                 return availablePersonas.map(p => p.id).slice(0, 3);
+                                 return availablePersonas.filter(p => p.type === 'firm').map(p => p.id).slice(0, 3);
                              })()}
                              availablePersonas={availablePersonas}
                          />

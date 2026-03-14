@@ -274,23 +274,47 @@ async def refine_deep_analysis(
     try:
         orchestrator = runtime.get_orchestrator()
         
-        # Build the input model for the agent
-        refinement_input = ProblemRefinementInput(
-            deep_analysis_output=request.deep_analysis_output,
-            principal_context=request.principal_context,
-            conversation_history=request.conversation_history,
-            user_message=request.user_message,
-            current_topic=request.current_topic,
-            turn_count=request.turn_count,
-        )
-        
+        # --- On turn 0: run Market Analysis in parallel to seed external_context ---
+        initial_external_context: List[str] = []
+        pending_signals: Optional[List[Dict]] = None
+
+        if request.turn_count == 0:
+            # Read market signals from DA output (MA already ran at end of DA workflow)
+            _da_out = request.deep_analysis_output or {}
+            _raw_signals = _da_out.get("market_signals") or []
+            if _raw_signals:
+                initial_external_context = [
+                    f"Market signal: {s.get('title', '')} — {s.get('summary', '')}"
+                    for s in _raw_signals
+                ]
+                pending_signals = _raw_signals
+
+            refinement_input = ProblemRefinementInput(
+                deep_analysis_output=request.deep_analysis_output,
+                principal_context=request.principal_context,
+                conversation_history=request.conversation_history,
+                user_message=request.user_message,
+                current_topic=request.current_topic,
+                turn_count=request.turn_count,
+                initial_external_context=initial_external_context,
+            )
+        else:
+            refinement_input = ProblemRefinementInput(
+                deep_analysis_output=request.deep_analysis_output,
+                principal_context=request.principal_context,
+                conversation_history=request.conversation_history,
+                user_message=request.user_message,
+                current_topic=request.current_topic,
+                turn_count=request.turn_count,
+            )
+
         # Call the Deep Analysis Agent's refine_analysis method
         result = await orchestrator.execute_agent_method(
             "A9_Deep_Analysis_Agent",
             "refine_analysis",
             {"input_model": refinement_input}
         )
-        
+
         # Handle response - could be dict or ProblemRefinementResult
         if hasattr(result, "model_dump"):
             result_data = result.model_dump()
@@ -298,7 +322,11 @@ async def refine_deep_analysis(
             result_data = result
         else:
             result_data = serialize(result)
-        
+
+        # Attach market_signals on turn 0 (overrides model default of None)
+        if pending_signals:
+            result_data["market_signals"] = pending_signals
+
         return wrap(result_data)
         
     except Exception as e:
@@ -529,16 +557,46 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
 
         # Use Orchestrator to run the full Deep Analysis workflow (Plan + Execute)
         response = await orchestrator.orchestrate_deep_analysis(deep_request)
-        
+
+        # Run Market Analysis to enrich DA results with external market context
+        market_signals = None
+        try:
+            from src.agents.models.market_analysis_models import MarketAnalysisRequest
+            _kpi_name = request.scope.kpi_id or "KPI"
+            _scqa = getattr(response, "scqa_summary", None) or str(_kpi_name)
+            _industry = None
+            if principal_context and isinstance(principal_context, dict):
+                _industry = principal_context.get("industry")
+            _ma_req = MarketAnalysisRequest(
+                session_id=f"da-{request_id}",
+                kpi_name=str(_kpi_name),
+                kpi_context=str(_scqa)[:500],
+                industry=_industry,
+                principal_id=request.principal_id,
+                max_signals=4,
+            )
+            _ma_resp = await orchestrator.execute_agent_method(
+                "A9_Market_Analysis_Agent",
+                "analyze_market",
+                {"request": _ma_req},
+            )
+            if _ma_resp and hasattr(_ma_resp, "signals") and _ma_resp.signals:
+                market_signals = [s.model_dump() for s in _ma_resp.signals]
+        except Exception as _mae:
+            import logging as _lg
+            import traceback as _tb
+            _lg.getLogger("workflows.deep_analysis").warning("[DA] MA enrichment skipped: %s\n%s", _mae, _tb.format_exc())
+
         # Maintain backward compatibility with UI result structure
         # UI expects { "plan": ..., "execution": ... }
         # The orchestrator response (DeepAnalysisResponse) contains the plan
         plan_serialized = serialize(response.plan) if response.plan else None
         execution_serialized = serialize(response)
-        
+
         result_payload = {
             "plan": plan_serialized,
             "execution": execution_serialized,
+            "market_signals": market_signals,
         }
         
         status = "failed" if response.status == "error" else "completed"
@@ -550,6 +608,9 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
              await _update_record(request_id, state="completed", result=result_payload)
              
     except Exception as exc:  # pragma: no cover - defensive
+        import traceback as _tb
+        import logging as _lg
+        _lg.getLogger("workflows.deep_analysis").error("TRACEBACK:\n%s", _tb.format_exc())
         await _update_record(request_id, state="failed", error=str(exc))
 
 

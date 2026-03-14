@@ -732,6 +732,9 @@ The Decision Studio UI should provide:
 
 ## Modification History
 
+### 2026-03-11
+- **Market Analysis integration into Deep Analysis workflow:** DA workflow now includes an optional MA enrichment step at the end. After DA execution completes, the API route handler (`_run_deep_analysis_workflow`) runs MA to attach market signals to the DA result payload as `market_signals` field. MA failure does not block DA results. Market signals then flow downstream: Problem Refinement Chat reads them from DA output (no separate MA call), and Solution Finder receives them via `external_context` in preferences for differentiated option generation.
+
 ### 2025-12-27
 - **Executive Briefing Enhancement**: Refinement Q&A and Hypothesis Stage 1 results now included in executive solution briefing
   - Full conversation history from Problem Refinement Chat displayed in briefing

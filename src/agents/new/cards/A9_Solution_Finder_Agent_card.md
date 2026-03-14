@@ -88,6 +88,13 @@ Environment variable override: `OPENAI_MODEL_SOLUTION`
 - **recommendation_rationale**: Explicitly requires entity-specific rationale citing named data points; forbids generic boilerplate
 - **UnresolvedTension model**: `requires` field docstring corrected to describe expected format, preventing LLM from echoing meta-labels verbatim
 
+## Market Analysis Integration (Mar 2026)
+- **Deep Analysis Workflow**: Market Analysis Agent now runs at the END of Deep Analysis workflow. Market signals are attached to DA output as `market_signals` field and passed downstream.
+- **Problem Refinement Pipeline**: Problem Refinement Chat receives signals from DA output via `external_context`, enabling targeted questions anchored in market facts.
+- **Solution Finding**: Market signals arrive via DA output → SF preferences as external_context. No separate MA call in SF. Post-synthesis enrichment has been removed.
+- **`pending_market_signals` field**: Reserved on `SolutionFinderResponse` for future HITL signal confirmation workflow (not yet actively populated).
+- **Backward Compatibility**: `market_intelligence` field is now always None (deprecated).
+
 ## Compliance
 - A2A Pydantic IO for requests/responses
 - Orchestrator-driven lifecycle; single HITL event per cycle

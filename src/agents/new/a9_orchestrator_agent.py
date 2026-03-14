@@ -931,7 +931,8 @@ class A9_Orchestrator_Agent:
             return execution_response
             
         except Exception as e:
-            self.logger.error(f"Deep analysis orchestration failed: {str(e)}")
+            import traceback as _tb
+            self.logger.error(f"Deep analysis orchestration TRACEBACK:\n{_tb.format_exc()}")
             return DeepAnalysisResponse.error(
                 request_id=request.request_id,
                 error_message=f"Deep analysis failed: {str(e)}"

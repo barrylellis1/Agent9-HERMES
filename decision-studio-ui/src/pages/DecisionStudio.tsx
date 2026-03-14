@@ -18,6 +18,7 @@ export function DecisionStudio() {
     daViewMode,
     showRefinementChat,
     refinementResult,
+    marketSignals,
     findingSolutions,
     solutions,
     showPersonaSelector,
@@ -109,12 +110,14 @@ export function DecisionStudio() {
         availableCouncils={AVAILABLE_COUNCILS}
         availablePersonas={AVAILABLE_PERSONAS}
         principalId={selectedPrincipal}
+        initialMarketSignals={marketSignals}
         principalContext={{
             principal_id: selectedPrincipal,
             role: currentPrincipal.title,
             decision_style: currentPrincipal.decision_style,
             name: currentPrincipal.name,
-            input: principalInput
+            input: principalInput,
+            client_id: selectedClientId
         }}
       />
     );
@@ -144,7 +147,7 @@ export function DecisionStudio() {
       onSelectClient={setSelectedClientId}
 
       onRefresh={handleRefresh}
-      onSelectSituation={setSelectedSituation}
+      onSelectSituation={(sit) => { setSelectedSituation(sit); handleDeepAnalysis(sit); }}
       statusMsg={statusMsg}
       error={error}
     />

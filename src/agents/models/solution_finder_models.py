@@ -98,6 +98,13 @@ class SolutionFinderResponse(A9AgentBaseResponse):
     # Market Intelligence enrichment (optional — populated when A9_Market_Analysis_Agent is available)
     market_intelligence: Optional[Dict[str, Any]] = None
 
+    # Pending market signals for HITL confirmation before synthesis
+    # Populated after Stage 1 (stage1_only); empty on subsequent debate stages.
+    pending_market_signals: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="Market signals returned after Stage 1 for user HITL confirmation before synthesis."
+    )
+
     # Single HITL event fields per PRD
     human_action_required: bool = False
     human_action_type: Optional[str] = None

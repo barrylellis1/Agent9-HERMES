@@ -188,6 +188,21 @@ class A9_Market_Analysis_Agent:
                 "%s: Perplexity skipped (enable_perplexity=%s, client=%s)",
                 self.name, self.config.enable_perplexity, self._perplexity is not None,
             )
+            # LLM-only fallback: generate structured signals from model knowledge
+            if self._llm_service is not None or self.orchestrator is not None:
+                signals = await self._llm_generate_signals(request)
+                if signals:
+                    sources_queried.append("llm_knowledge")
+                    logger.info("%s: LLM-generated %d signal(s)", self.name, len(signals))
+
+        # ------------------------------------------------------------------
+        # Step 1b — LLM fallback if Perplexity returned no signals
+        # ------------------------------------------------------------------
+        if not signals and (self._llm_service is not None or self.orchestrator is not None):
+            signals = await self._llm_generate_signals(request)
+            if signals:
+                sources_queried.append("llm_knowledge")
+                logger.info("%s: LLM fallback generated %d signal(s)", self.name, len(signals))
 
         # ------------------------------------------------------------------
         # Step 2 — LLM synthesis
@@ -276,6 +291,91 @@ class A9_Market_Analysis_Agent:
 
         return signals
 
+    async def _llm_generate_signals(
+        self, request: MarketAnalysisRequest
+    ) -> List[MarketSignal]:
+        """
+        Generate structured MarketSignal objects via LLM when Perplexity is unavailable.
+
+        Asks the LLM to return a JSON array of signals based on its training knowledge
+        of the KPI, industry, and known market dynamics.  Returns an empty list on any
+        failure so the caller degrades gracefully.
+        """
+        import json as _json
+        import re as _re
+
+        industry_label = request.industry or "the relevant industry"
+        prompt = (
+            f"You are a market intelligence analyst with deep knowledge of {industry_label}.\n\n"
+            f"A business is investigating why '{request.kpi_name}' has changed significantly.\n"
+            f"Business context: {request.kpi_context}\n\n"
+            f"Generate {request.max_signals} distinct external market signals that could explain "
+            f"or provide context for this KPI movement. Draw on your knowledge of recent market "
+            f"trends, commodity prices, competitive dynamics, and macroeconomic factors relevant "
+            f"to {industry_label}.\n\n"
+            f"Return ONLY valid JSON with this exact structure (no other text):\n"
+            f'{{"signals": [\n'
+            f'  {{"title": "Brief headline", "summary": "1-2 sentence explanation of the signal and its relevance", '
+            f'"source": "llm_knowledge", "relevance_score": 0.85}}\n'
+            f']}}\n\n'
+            f"relevance_score must be a float between 0 and 1. Be specific and quantitative."
+        )
+
+        try:
+            from src.agents.new.a9_llm_service_agent import A9_LLM_Request
+
+            gen_req = A9_LLM_Request(
+                request_id=str(uuid.uuid4()),
+                principal_id=request.principal_id or "system",
+                prompt=prompt,
+                system_prompt="You are a market intelligence analyst. Return only valid JSON, no other text.",
+                model=_SYNTHESIS_MODEL,
+                operation="generate",
+                temperature=0.3,
+            )
+
+            if self.orchestrator is not None:
+                llm_resp = await self.orchestrator.execute_agent_method(
+                    "A9_LLM_Service_Agent", "generate", {"request": gen_req}
+                )
+            else:
+                llm_resp = await self._llm_service.generate(gen_req)
+
+            if getattr(llm_resp, "status", "error") != "success":
+                logger.warning("%s: LLM generate returned non-success: %s", self.name, getattr(llm_resp, "status", "?"))
+                return []
+
+            raw_text = getattr(llm_resp, "content", "") or ""
+            # Strip markdown code fences if present
+            raw_text = raw_text.strip()
+            if raw_text.startswith("```"):
+                raw_text = raw_text[raw_text.index("\n") + 1:] if "\n" in raw_text else raw_text[3:]
+                if raw_text.endswith("```"):
+                    raw_text = raw_text[:raw_text.rfind("```")].rstrip()
+
+            # Parse the {"signals": [...]} object
+            parsed = _json.loads(raw_text)
+            raw_signals = parsed.get("signals", []) if isinstance(parsed, dict) else []
+
+            signals: List[MarketSignal] = []
+            for item in raw_signals[:request.max_signals]:
+                if not isinstance(item, dict):
+                    continue
+                try:
+                    signals.append(MarketSignal(
+                        source=str(item.get("source", "llm_knowledge")),
+                        title=str(item.get("title", "Market Signal")),
+                        summary=str(item.get("summary", "")),
+                        relevance_score=min(1.0, max(0.0, float(item.get("relevance_score", 0.7)))),
+                    ))
+                except Exception:
+                    continue
+            return signals
+
+        except Exception as exc:
+            logger.warning("%s: LLM signal generation failed: %s", self.name, exc)
+            return []
+
     async def _synthesize(
         self,
         request: MarketAnalysisRequest,
@@ -304,7 +404,7 @@ class A9_Market_Analysis_Agent:
             f"Be specific and quantitative where possible. Do not be vague."
         )
 
-        if self._llm_service is None:
+        if self._llm_service is None and self.orchestrator is None:
             logger.warning(
                 "%s: LLM service unavailable — returning plain-text synthesis fallback", self.name
             )

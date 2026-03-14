@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MessageCircle, Send, SkipForward, AlertCircle, Loader2 } from 'lucide-react';
-import { refineProblem, ProblemRefinementResult, ProblemRefinementRequest } from '../api/client';
+import { refineProblem, ProblemRefinementResult, ProblemRefinementRequest, MarketSignal } from '../api/client';
 
 interface ProblemRefinementChatProps {
   deepAnalysisOutput: any;
@@ -8,6 +8,7 @@ interface ProblemRefinementChatProps {
   principalId: string;
   onComplete: (result: ProblemRefinementResult) => void;
   onCancel: () => void;
+  initialMarketSignals?: MarketSignal[];
 }
 
 const TOPIC_LABELS: Record<string, string> = {
@@ -30,6 +31,7 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
   principalId,
   onComplete,
   onCancel,
+  initialMarketSignals,
 }) => {
   const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
   const [inputValue, setInputValue] = useState('');
@@ -40,6 +42,7 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
   const [refinementState, setRefinementState] = useState<Partial<ProblemRefinementResult>>({});
   const [suggestedResponses, setSuggestedResponses] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [marketSignals, setMarketSignals] = useState<MarketSignal[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const decisionStyle = principalContext?.decision_style || 'analytical';
@@ -52,6 +55,14 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    if (refinementState?.market_signals && refinementState.market_signals.length > 0) {
+      setMarketSignals(refinementState.market_signals);
+    } else if (initialMarketSignals && initialMarketSignals.length > 0) {
+      setMarketSignals(initialMarketSignals);
+    }
+  }, [refinementState?.market_signals, initialMarketSignals]);
 
   const handleRefinementResult = useCallback((result: ProblemRefinementResult) => {
     // Add agent message to chat
@@ -182,6 +193,8 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Market Intelligence signals moved to left panel (DeepFocusView) */}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px] max-h-[400px]">

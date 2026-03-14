@@ -114,3 +114,13 @@ The Deep Analysis Agent adapts its KT IS/IS-NOT output framing based on the prin
 ## Notes
 - CURRENT timeframe honors Decision Studio selection; PREVIOUS derived relative to CURRENT (QoQ/MoM/YoY).
 - Optional percent growth `(curr - prev) / NULLIF(prev, 0)`; rankings remain deterministic.
+
+### Market Analysis Context Injection (Mar 2026)
+
+On turn 0 of the Problem Refinement Chat, the `refine_deep_analysis` endpoint calls
+`A9_Market_Analysis_Agent` in parallel with the first LLM question generation. The resulting
+market signals are converted to plain strings and passed as `initial_external_context` in
+`ProblemRefinementInput`. The `refine_analysis` method injects these into `accumulated.external_context`
+via `_merge_refinements()` before calling `_generate_refinement_question()`. This ensures the
+refinement LLM sees real external market signals in its system prompt for the `external_context`
+topic, generating targeted follow-up questions rather than generic open-ended ones.

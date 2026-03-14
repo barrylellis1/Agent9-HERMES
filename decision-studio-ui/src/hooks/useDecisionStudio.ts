@@ -15,7 +15,7 @@ import {
   AVAILABLE_COUNCILS,
   AVAILABLE_PERSONAS
 } from '../config/uiConstants';
-import { Client, Principal } from '../api/types';
+import { Client, Principal, MarketSignal } from '../api/types';
 import { buildExecutiveBriefing } from '../utils/briefingUtils';
 
 // ── Principal mapping helpers ─────────────────────────────────────────────────
@@ -79,6 +79,7 @@ export function useDecisionStudio() {
   // Refinement Chat
   const [showRefinementChat, setShowRefinementChat] = useState(false);
   const [refinementResult, setRefinementResult] = useState<ProblemRefinementResult | null>(null);
+  const [marketSignals, setMarketSignals] = useState<MarketSignal[]>([]);
   
   // Solution Finder / Council
   const [findingSolutions, setFindingSolutions] = useState(false);
@@ -234,14 +235,23 @@ export function useDecisionStudio() {
     }
   }, [selectedPrincipal, timeframe, selectedClientId, handleRefresh]);
 
-  const handleDeepAnalysis = async () => {
-    if (!selectedSituation) return;
-    const sitId = selectedSituation.situation_id;
-    
+  const handleDeepAnalysis = async (overrideSituation?: typeof selectedSituation) => {
+    const sit = overrideSituation ?? selectedSituation;
+    if (!sit) return;
+    const sitId = sit.situation_id;
+
+    console.log('[DA] sit object:', JSON.stringify(sit, null, 2));
+
+    if (!sit.kpi_name) {
+      console.error('[DA] kpi_name missing from situation:', sit);
+      setAnalysisError(`Cannot run analysis: situation is missing kpi_name (id=${sitId})`);
+      return;
+    }
+
     setAnalyzing(true);
     setAnalysisError(null);
     try {
-        const result = await runDeepAnalysis(sitId, selectedSituation.kpi_name, selectedPrincipal, timeframe);
+        const result = await runDeepAnalysis(sitId, sit.kpi_name, selectedPrincipal, timeframe);
         
         if (!result || !result.execution) {
             throw new Error("Analysis completed but returned no results.");
@@ -251,7 +261,11 @@ export function useDecisionStudio() {
             ...prev,
             [sitId]: result.execution
         }));
-        
+
+        // Extract market signals from DA result (MA agent runs at end of DA)
+        const signals: MarketSignal[] = result.market_signals || [];
+        setMarketSignals(signals);
+
     } catch (err) {
         console.error("Analysis Failed", err);
         setAnalysisError(err instanceof Error ? err.message : "Analysis failed unexpectedly");
@@ -311,6 +325,7 @@ export function useDecisionStudio() {
         const deepAnalysisPayload = {
             plan: currentAnalysis.plan || {},
             execution: currentAnalysis,
+            market_signals: marketSignals.length > 0 ? marketSignals : undefined,
             situation_context: selectedSituation ? {
                 kpi_name: selectedSituation.kpi_name,
                 description: selectedSituation.description,
@@ -358,7 +373,8 @@ export function useDecisionStudio() {
             principal_id: selectedPrincipal,
             role: currentPrincipal.title,
             decision_style: currentPrincipal.decision_style,
-            name: currentPrincipal.name
+            name: currentPrincipal.name,
+            client_id: selectedClientId
         };
         
         const stageResults: any[] = [];
@@ -427,7 +443,7 @@ export function useDecisionStudio() {
         try {
           if (enrichedSolutions && selectedSituation?.situation_id) {
             localStorage.setItem(`solutions_${selectedSituation.situation_id}`, JSON.stringify(enrichedSolutions));
-            const briefingPayload = buildExecutiveBriefing(selectedSituation, currentAnalysis, enrichedSolutions);
+            const briefingPayload = buildExecutiveBriefing(selectedSituation, currentAnalysis, enrichedSolutions, marketSignals);
             localStorage.setItem(`briefing_${selectedSituation.situation_id}`, JSON.stringify(briefingPayload));
           }
         } catch (e) {
@@ -459,6 +475,7 @@ export function useDecisionStudio() {
     comparisonData,
     showRefinementChat,
     refinementResult,
+    marketSignals,
     findingSolutions,
     solutions,
     showPersonaSelector,

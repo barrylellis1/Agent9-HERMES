@@ -1383,38 +1383,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             "blind_spots": blind_spots_list
                         })
 
-                    # ---- Market Intelligence enrichment (optional) ----
-                    # Called after synthesis so a failure here never blocks the main response.
-                    try:
-                        from src.agents.new.a9_orchestrator_agent import AgentRegistry
-                        from src.agents.models.market_analysis_models import MarketAnalysisRequest
-
-                        _ma_agent = await AgentRegistry.get_agent("A9_Market_Analysis_Agent")
-                        _session_id = str(getattr(request, "request_id", req_id))
-                        _ma_req = MarketAnalysisRequest(
-                            session_id=_session_id,
-                            kpi_name=target_kpi,
-                            kpi_context=ps[:500] if ps else target_kpi,
-                            industry=self._get_industry_from_context(request),
-                            principal_id=str(getattr(request, "principal_id", "system") or "system"),
-                            max_signals=3,
-                        )
-                        _ma_resp = await _ma_agent.analyze_market(_ma_req)
-                        ma_response = _ma_resp.model_dump()
-                        self.logger.info(
-                            "[SF] Market intelligence enrichment complete — confidence=%.2f signals=%d",
-                            _ma_resp.confidence,
-                            len(_ma_resp.signals),
-                        )
-                        audit_log.append({
-                            "event": "market_intelligence_enriched",
-                            "kpi": target_kpi,
-                            "signals_count": len(_ma_resp.signals),
-                            "confidence": _ma_resp.confidence,
-                        })
-                    except Exception as _mae:
-                        self.logger.warning("[SF] Market intelligence enrichment skipped: %s", _mae)
-                        ma_response = None
+                    # Market signals flow in from DA → Problem Refinement → external_context
+                    # (MA call removed — no longer duplicated here)
+                    ma_response = None
 
                 except Exception as le:
                     # LLM path failed; fall back to heuristic

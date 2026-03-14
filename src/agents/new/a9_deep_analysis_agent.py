@@ -473,6 +473,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             change_points: List[ChangePoint] = []
             queries_executed: int = 0
             when_started: Optional[str] = None
+            spec_main: Dict[str, Any] = {"comparison_type": "previous", "inverse_logic": False, "yellow_threshold": 0.0}
 
             # If DP Agent is available, compute where/when by executing grouped queries
             if self.data_product_agent is not None and getattr(plan, "kpi_name", None):
@@ -595,24 +596,26 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         try:
                             thrs = getattr(kpi_def, "thresholds", None)
                             if isinstance(thrs, list) and thrs:
-                                # Prefer budget thresholds if present
+                                # Match timeframe-derived comparison FIRST (yoy/qoq/mom),
+                                # fall back to budget only if no timeframe match found.
+                                # This keeps SA→DA alignment: SA detects YoY breach → DA drills YoY.
                                 chosen = None
                                 for t in thrs:
                                     try:
                                         ct = getattr(t, "comparison_type", None) or (t.get("comparison_type") if isinstance(t, dict) else None)
                                         ct_str = str(getattr(ct, "value", ct)).lower() if ct is not None else ""
-                                        if ct_str == "budget":
+                                        if ct_str == comp:
                                             chosen = (ct_str, t)
                                             break
                                     except Exception:
                                         continue
-                                # If no budget threshold chosen, try match to timeframe-derived comp
+                                # Fallback: use budget threshold if no timeframe match
                                 if chosen is None:
                                     for t in thrs:
                                         try:
                                             ct = getattr(t, "comparison_type", None) or (t.get("comparison_type") if isinstance(t, dict) else None)
                                             ct_str = str(getattr(ct, "value", ct)).lower() if ct is not None else ""
-                                            if ct_str == comp:
+                                            if ct_str == "budget":
                                                 chosen = (ct_str, t)
                                                 break
                                         except Exception:
@@ -1025,14 +1028,19 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             try:
                                 # Fetch ALL data for this dimension to apply hybrid threshold selection
                                 # This gives us richer context for the LLM vs fixed Top 3/Bottom 3
-                                all_req = await self.data_product_agent.generate_sql_for_kpi(
-                                    kpi_def,
-                                    timeframe=cur_tf,
-                                    filters=getattr(plan, "filters", None),
-                                    breakdown=True,
-                                    override_group_by=[dim],
-                                    topn={"type": "top", "n": 50, "metric": "delta_prev"}  # Fetch more for threshold analysis
-                                )
+                                # Budget comparator: skip period-over-period TopN (delta_prev is vs prior period,
+                                # not vs budget) — fall through to the dual-query budget path below.
+                                if comp_fb == "budget":
+                                    all_req = {"success": False}
+                                else:
+                                    all_req = await self.data_product_agent.generate_sql_for_kpi(
+                                        kpi_def,
+                                        timeframe=cur_tf,
+                                        filters=getattr(plan, "filters", None),
+                                        breakdown=True,
+                                        override_group_by=[dim],
+                                        topn={"type": "top", "n": 50, "metric": "delta_prev"}  # Fetch more for threshold analysis
+                                    )
                                 if all_req.get("success"):
                                     all_exec = await self.data_product_agent.execute_sql(all_req.get("sql"))
                                     queries_executed += 1
@@ -1519,11 +1527,17 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     except Exception:
                         when_started = None
 
-            scqa_summary = (
-                f"Situation: Reviewing {plan.kpi_name}. "
-                f"Complication: Variance detected? (MVP skeleton). "
-                f"Question: Which segments drive change? "
-            )
+            try:
+                scqa_summary = await self._generate_scqa_summary(
+                    plan=plan,
+                    kt=kt,
+                    change_points=change_points,
+                    spec=spec_main,
+                    principal_id=getattr(plan, "principal_id", "system"),
+                )
+            except Exception as _scqa_err:
+                self.logger.warning("[DA] SCQA generation failed: %s", _scqa_err)
+                scqa_summary = f"Situation: Reviewing {getattr(plan, 'kpi_name', 'KPI')}. Complication: Variance detected vs target. Question: Which segments drive the change?"
             # Ensure plan has non-empty counters for UI summary even if DP path didn't run
             try:
                 if not getattr(plan, "dimensions", None):
@@ -1577,6 +1591,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 dimensions_suggested=getattr(plan, "dimensions", [])
             )
         except Exception as e:
+            import traceback as _tb
+            self.logger.error("[DA] execute_deep_analysis TRACEBACK:\n%s", _tb.format_exc())
             return DeepAnalysisResponse.error(request_id=req_id, error_message=str(e))
 
     # ========================================================================
@@ -1659,7 +1675,17 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             
             # Accumulate refinements from previous turns
             accumulated = self._accumulate_refinements(history)
-            
+
+            # On turn 0, seed external_context with MA signals if provided
+            if turn_count == 0 and input_model.initial_external_context:
+                accumulated = self._merge_refinements(
+                    accumulated,
+                    ExtractedRefinements(external_context=list(input_model.initial_external_context))
+                )
+                # Auto-skip external_context topic — MA signals already provide this
+                if "external_context" not in topics_completed:
+                    topics_completed.append("external_context")
+
             # If user provided a message, extract refinements from it
             extracted = ExtractedRefinements()
             if user_message and not topic_skipped:
@@ -1937,6 +1963,82 @@ If nothing relevant is found for a category, use an empty list."""
             self.logger.warning(f"LLM extraction failed, using simple extraction: {e}")
         
         return self._simple_extraction(user_message, current_topic)
+
+    async def _generate_scqa_summary(
+        self,
+        plan: "DeepAnalysisPlan",
+        kt: "KTIsIsNot",
+        change_points: List["ChangePoint"],
+        spec: Optional[Dict[str, Any]],
+        principal_id: str,
+    ) -> str:
+        """Generate a Situation-Complication-Question-Answer narrative via LLM.
+
+        Falls back to a deterministic summary if the LLM call fails.
+        """
+        import json as _json
+
+        # Build compact context strings from available data
+        # DA agent populates where_is/where_is_not (dimensional segments), not what_is/what_is_not
+        is_items = [r.get("key", "") for r in (getattr(kt, "where_is", []) or []) if isinstance(r, dict)][:5]
+        is_not_items = [r.get("key", "") for r in (getattr(kt, "where_is_not", []) or []) if isinstance(r, dict)][:5]
+        top_cps = [
+            f"{cp.dimension}={cp.key} ({cp.delta:+.1f})" if cp.delta is not None else f"{cp.dimension}={cp.key}"
+            for cp in (change_points or [])[:4]
+            if cp.dimension and cp.key
+        ]
+        comparator = (spec or {}).get("comparison_type", "prior period")
+        inv = (spec or {}).get("inverse_logic", False)
+        direction = "over" if inv else "under"
+
+        # Deterministic fallback (used when LLM unavailable or fails)
+        def _fallback() -> str:
+            is_str = ", ".join(is_items) if is_items else "certain segments"
+            is_not_str = ", ".join(is_not_items) if is_not_items else "others"
+            cp_str = "; ".join(top_cps) if top_cps else "key contributors identified"
+            return (
+                f"Situation: {plan.kpi_name} is {direction}-performing vs. {comparator}. "
+                f"Complication: The variance is concentrated in {is_str}, while {is_not_str} are within range. "
+                f"Key drivers: {cp_str}. "
+                f"Question: What actions can address the identified contributors?"
+            )
+
+        try:
+            from src.agents.new.a9_llm_service_agent import A9_LLM_Request
+            from src.llm_services.claude_service import get_claude_model_for_task, ClaudeTaskType
+
+            prompt = (
+                f"Write a concise SCQA (Situation-Complication-Question-Answer) narrative for a CFO "
+                f"investigating the KPI '{plan.kpi_name}' ({plan.timeframe or 'current period'}).\n\n"
+                f"Comparator: {comparator} | Direction: {direction}-performing vs target\n"
+                f"Top problem segments (IS): {', '.join(is_items) or 'see change points'}\n"
+                f"Healthy segments (IS NOT): {', '.join(is_not_items) or 'none identified'}\n"
+                f"Largest change-points: {'; '.join(top_cps) or 'none'}\n\n"
+                f"Output exactly 4 labelled sentences: 'Situation: ...', 'Complication: ...', "
+                f"'Question: ...', 'Answer: ...'. Be specific and quantitative. No bullet points."
+            )
+
+            req = A9_LLM_Request(
+                request_id=str(uuid.uuid4()),
+                principal_id=principal_id,
+                prompt=prompt,
+                operation="generate",
+                temperature=0.3,
+                model=get_claude_model_for_task(ClaudeTaskType.NLP_PARSING),
+            )
+            resp = await self.llm_service_agent.generate(req)
+            content = (getattr(resp, "content", "") or "").strip()
+            # Accept only if it looks like a real SCQA (has all 4 labels and no placeholder brackets)
+            if (content and "Situation:" in content and "Complication:" in content
+                    and "[" not in content and "MISSING" not in content
+                    and "please provide" not in content.lower()
+                    and "missing" not in content.lower()):
+                return content
+            self.logger.info("[DA] SCQA LLM returned placeholder/incomplete — using deterministic fallback")
+        except Exception as _e:
+            self.logger.warning("[DA] SCQA LLM call failed, using deterministic fallback: %s", _e)
+
+        return _fallback()
 
     def _simple_extraction(self, user_message: str, current_topic: str) -> ExtractedRefinements:
         """Simple keyword-based extraction fallback."""

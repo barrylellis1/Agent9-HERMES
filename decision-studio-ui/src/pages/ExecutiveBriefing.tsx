@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Download, Share2, Printer, AlertTriangle, CheckCircle, ChevronRight, Users, Target, Zap, Clock } from 'lucide-react'
+import { ArrowLeft, Download, Share2, Printer, AlertTriangle, CheckCircle, ChevronRight, Users, Target, Zap, Clock, Sparkles } from 'lucide-react'
 
 // Full-page Executive Briefing - Consultant-style deliverable
 export function ExecutiveBriefing() {
@@ -214,6 +214,39 @@ export function ExecutiveBriefing() {
             </div>
           )}
         </section>
+
+        {/* Market Intelligence */}
+        {data.market_signals && data.market_signals.length > 0 && (
+          <section className="mb-12">
+            <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
+              <div className="w-8 h-8 bg-amber-500 text-white rounded flex items-center justify-center">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              Market Intelligence
+            </h2>
+            <p className="text-slate-600 mb-6">
+              External signals collected at the time of analysis that provide market and competitive context for the strategic options below.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {data.market_signals.map((signal: any, i: number) => (
+                <div key={i} className="bg-amber-50 border border-amber-200 rounded-lg p-5">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <h3 className="font-semibold text-slate-900 text-sm leading-snug">{signal.title}</h3>
+                    {signal.relevance_score != null && (
+                      <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-200 text-amber-800">
+                        {Math.round(signal.relevance_score * 100)}% relevant
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-slate-700 leading-relaxed mb-3">{signal.summary}</p>
+                  {signal.source && (
+                    <p className="text-xs text-slate-500">Source: {signal.source}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Stage 1: Initial Hypotheses */}
         {data.stage_1_hypotheses && (
