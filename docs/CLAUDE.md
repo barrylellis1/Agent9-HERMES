@@ -10,6 +10,7 @@ Read before designing changes to agents, registries, or workflows:
 | `orchestration_architecture.md` | Orchestrator-driven design principles |
 | `orchestrator_implementation.md` | Dependency resolution implementation detail |
 | `core_workflow_diagram.md` | Visual workflow diagrams, agent interaction sequences |
+| `analytical_methodology_positioning.md` | KT + MBB architecture rationale, IS NOT as control group, competitive positioning |
 
 Technical debt and known issue plans:
 
@@ -35,6 +36,7 @@ One PRD per implemented agent. **Read the PRD before adding new capabilities to 
 - `a9_llm_service_prd.md`
 - `a9_nlp_interface_agent_prd.md`
 - `a9_kpi_assistant_agent_prd.md`
+- `a9_value_assurance_agent_prd.md`
 
 ## Update Rule
 
@@ -46,4 +48,5 @@ When adding new agent capabilities:
 
 - `AGENT_SPECIFICATIONS.md` — extracted PRD requirements and protocol violations checklist
 - `TECHNICAL_DEBT.md` — full technical debt inventory
-- `IMPLEMENTATION_PLAN.md` / `HERMES_IMPLEMENTATION_PLAN.md` — historical implementation plans
+- `DEVELOPMENT_PLAN.md` — **Active development plan** (Phase 7+: VA, Opportunity DA, Business Optimization)
+- `IMPLEMENTATION_PLAN.md` / `HERMES_IMPLEMENTATION_PLAN.md` — **DEPRECATED** historical plans (Phases 1-6, completed)

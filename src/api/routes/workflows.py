@@ -469,6 +469,11 @@ async def _record_solution_action(request_id: str, action_type: str, request: Ac
     }
     record.actions.append(entry)
     await _update_record(request_id, actions=record.actions)
+    # TODO Phase 7C: when action_type == "approve", call VA Agent register_solution() here.
+    # The required fields (situation_id, kpi_id, principal_id, solution_description,
+    # expected_impact_lower/upper) are embedded in record.payload from the SF workflow
+    # result — extract them and POST to POST /api/v1/value-assurance/register or call
+    # A9_Value_Assurance_Agent.register_solution() directly via the orchestrator.
     return wrap({"request_id": request_id, "actions": record.actions})
 
 
@@ -519,6 +524,29 @@ async def _run_situations_workflow(request_id: str, runtime: AgentRuntime, reque
             state="completed",
             result={"situations": serialize(response)},
         )
+
+        # Persist situations and opportunities to Supabase (non-blocking)
+        try:
+            from src.database.situations_store import SituationsStore
+            import logging as _lg
+            _situations_logger = _lg.getLogger("workflows.situations")
+            store = SituationsStore()
+            if store.enabled:
+                for situation in response.situations:
+                    await store.upsert_situation(situation)
+                for opportunity in response.opportunities:
+                    await store.upsert_opportunity(opportunity)
+                _situations_logger.info(
+                    "Persisted %d situations and %d opportunities to Supabase",
+                    len(response.situations),
+                    len(response.opportunities),
+                )
+        except Exception as e:
+            import logging as _lg
+            _lg.getLogger("workflows.situations").warning(
+                "Supabase situation persistence failed (non-fatal): %s", e
+            )
+
     except Exception as exc:  # pragma: no cover - defensive
         await _update_record(request_id, state="failed", error=str(exc))
 
@@ -606,7 +634,23 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
              await _update_record(request_id, state="failed", error=error_msg)
         else:
              await _update_record(request_id, state="completed", result=result_payload)
-             
+
+        # Update situation status to ANALYZING when DA completes (non-blocking)
+        try:
+            from src.database.situations_store import SituationsStore
+            _store = SituationsStore()
+            if _store.enabled and request.situation_id:
+                await _store.update_status(
+                    request.situation_id,
+                    "ANALYZING",
+                    da_request_id=request_id,
+                )
+        except Exception as _se:
+            import logging as _lg
+            _lg.getLogger("workflows.deep_analysis").warning(
+                "Supabase status update failed (non-fatal): %s", _se
+            )
+
     except Exception as exc:  # pragma: no cover - defensive
         import traceback as _tb
         import logging as _lg

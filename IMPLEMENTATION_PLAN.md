@@ -1,5 +1,7 @@
 # Agent9 MVP Implementation Plan (November 2025 Refresh)
 
+> **DEPRECATED (2026-03-14):** This plan is superseded by `DEVELOPMENT_PLAN.md`. Phases 1-6 are complete. Phase 7+ is covered in the new plan. Retained for historical reference only.
+
 ## 1. Current State Snapshot
 
 | Area | Status | Notes |

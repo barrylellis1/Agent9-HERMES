@@ -1,5 +1,7 @@
 # 🚀 HERMES Project Implementation Plan
 
+> **DEPRECATED (2026-03-14):** This plan is superseded by `DEVELOPMENT_PLAN.md`. All items in this plan are either completed or overtaken by events. Retained for historical reference only.
+
 ## 📋 Executive Summary
 
 This implementation plan outlines the approach for the HERMES project - a head-to-head LLM productivity study using Claude 3 Sonnet with guardrails and structured prompt templates. The project will develop Agent9's core workflow system following the blind competition framework specified in MVP_GUIDE.md, focusing on three primary workflows: Situation Awareness, Deep Analysis, and Solution Finding.

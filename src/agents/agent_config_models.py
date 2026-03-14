@@ -549,6 +549,37 @@ class A9_Market_Analysis_Agent_Config(BaseModel):
     )
 
 
+class A9ValueAssuranceAgentConfig(BaseModel):
+    """
+    Configuration for the A9_Value_Assurance_Agent.
+    Controls measurement windows, confidence thresholds, and persistence settings.
+    """
+    model_config = ConfigDict(extra="allow")
+
+    agent_name: str = Field("A9_Value_Assurance_Agent", description="Agent identifier")
+    measurement_window_days: int = Field(
+        30, description="Default measurement window in days"
+    )
+    min_confidence_for_roi: str = Field(
+        "MODERATE",
+        description="Minimum ConfidenceLevel to include attribution in ROI totals"
+    )
+    inaction_cost_revenue_multiplier: float = Field(
+        0.005,
+        description="Heuristic: 0.5% revenue impact per 1% KPI change (flagged LOW confidence)"
+    )
+    supabase_enabled: bool = Field(
+        False,
+        description="Phase 7A: in-memory store; Phase 7B: Supabase persistence"
+    )
+    require_orchestrator: bool = Field(
+        True, description="All calls should be orchestrator-driven"
+    )
+    log_all_requests: bool = Field(
+        True, description="Log structured inputs/outputs for audit"
+    )
+
+
 # Protocol model references for compliance checks and documentation
 NLP_PROTOCOL_MODELS: Dict[str, Dict[str, Any]] = {
     "parse_business_query": {

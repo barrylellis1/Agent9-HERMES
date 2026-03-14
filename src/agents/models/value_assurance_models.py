@@ -1,8 +1,17 @@
 """
 Pydantic models for Value Assurance — Initiative Tracking / Proven ROI (Pillar 5).
 
-Tracks whether accepted AI recommendations (from Solution Finder HITL approval)
-actually delivered measurable business results against expected KPI outcomes.
+Phase 7A: full PRD model set with counterfactual attribution, strategy alignment,
+composite verdict, and portfolio summary.
+
+Legacy models (SolutionStatus, UpdateAcceptedSolutionRequest,
+ValueAssuranceCheckRequest, ValueAssuranceCheckResponse) are preserved at the
+bottom so the existing /api/v1/value-assurance routes continue to work unchanged.
+
+The alias CreateAcceptedSolutionRequest is intentionally NOT applied to
+RegisterSolutionRequest here so that the old API route (which creates solutions
+with legacy fields like session_id / kpi_name / option_title) keeps importing
+the legacy shape.  The canonical Phase 7A entry-point is RegisterSolutionRequest.
 """
 from __future__ import annotations
 
@@ -13,38 +22,277 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
-class SolutionStatus(str, Enum):
-    ACCEPTED = "accepted"          # HITL approved, implementation pending
-    IMPLEMENTING = "implementing"  # In progress
-    MEASURING = "measuring"        # Implemented, tracking outcomes
-    VALIDATED = "validated"        # Outcome confirmed positive
-    FAILED = "failed"              # Outcome did not materialize
-    ABANDONED = "abandoned"        # Cancelled before measurement
+# ---------------------------------------------------------------------------
+# Phase 7A enums
+# ---------------------------------------------------------------------------
+
+class SolutionVerdict(str, Enum):
+    VALIDATED = "VALIDATED"
+    PARTIAL = "PARTIAL"
+    FAILED = "FAILED"
+    MEASURING = "MEASURING"
+
+
+class ConfidenceLevel(str, Enum):
+    HIGH = "HIGH"
+    MODERATE = "MODERATE"
+    LOW = "LOW"
+
+
+class StrategyAlignment(str, Enum):
+    ALIGNED = "ALIGNED"
+    DRIFTED = "DRIFTED"
+    SUPERSEDED = "SUPERSEDED"
+
+
+# ---------------------------------------------------------------------------
+# Phase 7A core models
+# ---------------------------------------------------------------------------
+
+class StrategySnapshot(BaseModel):
+    """Captures the strategic context at the moment a solution is approved."""
+    principal_priorities: List[str]
+    principal_role: str
+    business_process_domain: str
+    data_product_id: str
+    kpi_threshold_at_approval: float
+    key_assumptions: List[str]
+    business_context_name: str
+    strategic_rationale: Optional[str] = None
+    captured_at: str  # ISO datetime string
+
+
+class StrategyAlignmentCheck(BaseModel):
+    """Result of comparing the strategy snapshot against current registry state."""
+    original_priorities: List[str]
+    current_priorities: List[str]
+    priority_drift: bool
+    priority_overlap: float  # 0.0–1.0
+    kpi_still_monitored: bool
+    threshold_changed: bool
+    current_threshold: Optional[float] = None
+    business_process_active: bool
+    data_product_active: bool
+    principal_still_accountable: bool
+    current_principal_id: Optional[str] = None
+    alignment_verdict: StrategyAlignment
+    drift_factors: List[str]
+    drift_summary: Optional[str] = None
+
+
+class CompositeVerdict(BaseModel):
+    """
+    Combined KPI-outcome × strategy-alignment verdict.
+
+    composite_label examples:
+        "Full success", "Misdirected win", "Obsolete win",
+        "Work in progress", "Partial misdirection", "Acceptable loss",
+        "Failure", "Strategic waste", "Irrelevant failure"
+    """
+    kpi_verdict: SolutionVerdict
+    strategy_verdict: StrategyAlignment
+    composite_label: str
+    include_in_roi_totals: bool
+    recommended_action: str
+    executive_attention_required: bool
+
+
+class ImpactEvaluation(BaseModel):
+    """Difference-in-Differences attribution result for a single solution."""
+    solution_id: str
+    baseline_kpi_value: float
+    current_kpi_value: float
+    total_kpi_change: float
+    control_group_change: float
+    market_driven_recovery: float
+    seasonal_component: float
+    attributable_impact: float
+    expected_impact_lower: float
+    expected_impact_upper: float
+    verdict: SolutionVerdict
+    confidence: ConfidenceLevel
+    confidence_rationale: str
+    attribution_method: str
+    control_group_description: Optional[str] = None
+    market_context_summary: Optional[str] = None
+    strategy_check: StrategyAlignmentCheck
+    composite_verdict: CompositeVerdict
+    evaluated_at: str  # ISO datetime string
+
+
+class InactionCostProjection(BaseModel):
+    """Forward projection of KPI trajectory if no action had been taken."""
+    solution_id: str
+    kpi_id: str
+    current_kpi_value: float
+    projected_kpi_value_30d: float
+    projected_kpi_value_90d: float
+    estimated_revenue_impact_30d: Optional[float] = None
+    estimated_revenue_impact_90d: Optional[float] = None
+    trend_direction: str  # "deteriorating" | "stable" | "recovering"
+    trend_confidence: ConfidenceLevel
+    projection_method: str
+    projected_at: str
 
 
 class AcceptedSolution(BaseModel):
-    """Tracks a human-approved recommendation from Solution Finder."""
+    """
+    Full lifecycle record for a human-approved solution recommendation.
 
-    id: Optional[str] = None  # UUID, set on insert
+    Phase 7A model with strategy snapshot, attribution evaluation, inaction cost,
+    and composite verdict.
+    """
+    solution_id: str
+    situation_id: str
+    kpi_id: str
+    principal_id: str
+    approved_at: str
+    solution_description: str
+    expected_impact_lower: float
+    expected_impact_upper: float
+    measurement_window_days: int = 30
+    status: SolutionVerdict = SolutionVerdict.MEASURING
+    strategy_snapshot: StrategySnapshot
+    impact_evaluation: Optional[ImpactEvaluation] = None
+    inaction_cost: Optional[InactionCostProjection] = None
+    narrative: Optional[str] = None
+    da_is_not_dimensions: Optional[List[str]] = None  # control group source
+    ma_market_signals: Optional[List[str]] = None     # market context at approval
+
+
+# ---------------------------------------------------------------------------
+# Phase 7A request / response models
+# ---------------------------------------------------------------------------
+
+class RegisterSolutionRequest(BaseModel):
+    request_id: str
+    principal_id: str
+    situation_id: str
+    kpi_id: str
+    solution_description: str
+    expected_impact_lower: float
+    expected_impact_upper: float
+    measurement_window_days: int = 30
+    da_is_not_dimensions: Optional[List[str]] = None
+    ma_market_signals: Optional[List[str]] = None
+    strategy_snapshot: Optional[StrategySnapshot] = None
+
+
+class RegisterSolutionResponse(BaseModel):
+    solution_id: str
+    status: SolutionVerdict
+    message: str
+
+
+class EvaluateSolutionRequest(BaseModel):
+    request_id: str
+    principal_id: str
+    solution_id: str
+    current_kpi_value: float
+    control_group_kpi_values: Optional[List[float]] = None
+    market_recovery_estimate: Optional[float] = None
+    seasonal_estimate: Optional[float] = None
+
+
+class EvaluateSolutionResponse(BaseModel):
+    solution_id: str
+    evaluation: ImpactEvaluation
+
+
+class CheckStrategyAlignmentRequest(BaseModel):
+    request_id: str
+    principal_id: str
+    solution_id: str
+
+
+class CheckStrategyAlignmentResponse(BaseModel):
+    solution_id: str
+    alignment: StrategyAlignmentCheck
+    composite: CompositeVerdict
+
+
+class ProjectInactionCostRequest(BaseModel):
+    request_id: str
+    principal_id: str
+    situation_id: str
+    kpi_id: str
+    current_kpi_value: float
+    historical_trend: List[float]  # recent KPI values for trend fitting
+
+
+class ProjectInactionCostResponse(BaseModel):
+    projection: InactionCostProjection
+
+
+class PortfolioSummaryRequest(BaseModel):
+    request_id: str
+    principal_id: str
+    include_superseded: bool = False
+
+
+class StrategyAwarePortfolio(BaseModel):
+    total_solutions: int
+    validated_count: int
+    partial_count: int
+    failed_count: int
+    measuring_count: int
+    total_attributable_impact: float
+    roi_eligible_solutions: int  # include_in_roi_totals = True
+    strategy_aligned_count: int
+    strategy_drifted_count: int
+    strategy_superseded_count: int
+    executive_attention_required: List[str]  # solution_ids
+    solutions: List[AcceptedSolution]
+
+
+class GenerateNarrativeRequest(BaseModel):
+    request_id: str
+    principal_id: str
+    solution_id: str
+
+
+class GenerateNarrativeResponse(BaseModel):
+    solution_id: str
+    narrative: str
+
+
+# ---------------------------------------------------------------------------
+# Legacy models — kept intact so the existing /api/v1/value-assurance routes
+# continue to work without modification.
+# ---------------------------------------------------------------------------
+
+class SolutionStatus(str, Enum):
+    ACCEPTED = "accepted"
+    IMPLEMENTING = "implementing"
+    MEASURING = "measuring"
+    VALIDATED = "validated"
+    FAILED = "failed"
+    ABANDONED = "abandoned"
+
+
+class LegacyAcceptedSolution(BaseModel):
+    """Legacy AcceptedSolution shape used by the existing API routes."""
+
+    id: Optional[str] = None
     session_id: str
     principal_id: str
     kpi_name: str
     option_title: str
     option_description: str
-    expected_impact: Optional[str] = None          # e.g. "2.1–3.4pp Gross Margin recovery"
-    expected_impact_lower: Optional[float] = None  # numeric lower bound
-    expected_impact_upper: Optional[float] = None  # numeric upper bound
+    expected_impact: Optional[str] = None
+    expected_impact_lower: Optional[float] = None
+    expected_impact_upper: Optional[float] = None
     status: SolutionStatus = SolutionStatus.ACCEPTED
     accepted_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     implementation_start: Optional[str] = None
     measurement_start: Optional[str] = None
     resolved_at: Optional[str] = None
-    actual_impact: Optional[float] = None  # measured KPI delta
+    actual_impact: Optional[float] = None
     notes: Optional[str] = None
 
 
 class CreateAcceptedSolutionRequest(BaseModel):
-    """API request to record a newly approved solution."""
+    """API request to record a newly approved solution (legacy route)."""
 
     session_id: str
     principal_id: str
@@ -58,7 +306,7 @@ class CreateAcceptedSolutionRequest(BaseModel):
 
 
 class UpdateAcceptedSolutionRequest(BaseModel):
-    """API request to update mutable fields on an accepted solution."""
+    """API request to update mutable fields on an accepted solution (legacy route)."""
 
     status: Optional[SolutionStatus] = None
     actual_impact: Optional[float] = None
@@ -68,14 +316,14 @@ class UpdateAcceptedSolutionRequest(BaseModel):
 
 
 class ListAcceptedSolutionsResponse(BaseModel):
-    """List of accepted solutions with total count."""
+    """List of accepted solutions with total count (legacy route)."""
 
-    solutions: List[AcceptedSolution]
+    solutions: List[LegacyAcceptedSolution]
     total: int
 
 
 class ValueAssuranceCheckRequest(BaseModel):
-    """Request to check whether an accepted solution has delivered results."""
+    """Request to check whether an accepted solution has delivered results (legacy route)."""
 
     accepted_solution_id: str
     current_kpi_value: float
@@ -84,13 +332,13 @@ class ValueAssuranceCheckRequest(BaseModel):
 
 
 class ValueAssuranceCheckResponse(BaseModel):
-    """Result of a value assurance check."""
+    """Result of a value assurance check (legacy route)."""
 
     accepted_solution_id: str
     kpi_name: str
     expected_impact_lower: Optional[float]
     expected_impact_upper: Optional[float]
-    actual_delta: float       # current_kpi_value - baseline_kpi_value
+    actual_delta: float
     within_expected_range: bool
     status: SolutionStatus
     message: str

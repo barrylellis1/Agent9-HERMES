@@ -1,14 +1,22 @@
 """
 API routes for Value Assurance — Initiative Tracking / Proven ROI (Pillar 5).
 
-Endpoints:
+Legacy endpoints (unchanged — backwards-compatible):
   POST   /api/v1/value-assurance/solutions              — record a newly approved solution
   GET    /api/v1/value-assurance/solutions              — list all solutions (filterable)
   GET    /api/v1/value-assurance/solutions/{id}         — retrieve one solution
   PATCH  /api/v1/value-assurance/solutions/{id}         — update status / actual_impact / notes
   POST   /api/v1/value-assurance/solutions/{id}/check   — run a value assurance check
 
-Storage: in-memory dict (keyed by UUID) for MVP.  Supabase persistence is Phase 2.
+Phase 7A endpoints (delegate to A9_Value_Assurance_Agent via AgentRegistry):
+  POST   /api/v1/value-assurance/register                       — register solution (DiD tracking)
+  POST   /api/v1/value-assurance/solutions/{id}/evaluate        — DiD attribution
+  GET    /api/v1/value-assurance/portfolio/{principal_id}       — portfolio summary
+  POST   /api/v1/value-assurance/inaction-cost                  — project inaction cost
+
+Storage: legacy routes use in-memory dict (MVP).
+         Phase 7A routes delegate to the agent's own in-memory store.
+         Supabase persistence is Phase 7B.
 """
 from __future__ import annotations
 
@@ -20,10 +28,18 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 
 from src.agents.models.value_assurance_models import (
-    AcceptedSolution,
+    LegacyAcceptedSolution as AcceptedSolution,
     CreateAcceptedSolutionRequest,
+    EvaluateSolutionRequest,
+    EvaluateSolutionResponse,
     ListAcceptedSolutionsResponse,
+    PortfolioSummaryRequest,
+    ProjectInactionCostRequest,
+    ProjectInactionCostResponse,
+    RegisterSolutionRequest,
+    RegisterSolutionResponse,
     SolutionStatus,
+    StrategyAwarePortfolio,
     UpdateAcceptedSolutionRequest,
     ValueAssuranceCheckRequest,
     ValueAssuranceCheckResponse,
@@ -37,13 +53,55 @@ router = APIRouter(
 )
 
 # ---------------------------------------------------------------------------
-# In-memory store (MVP).  Replace with DB calls in Phase 2.
+# In-memory store for legacy endpoints (MVP).  Replace with DB calls in Phase 2.
 # ---------------------------------------------------------------------------
 _solutions_store: dict[str, AcceptedSolution] = {}
 
 
 # ---------------------------------------------------------------------------
-# POST /solutions  — create
+# Internal helper — acquire VA Agent (singleton via AgentRegistry)
+# ---------------------------------------------------------------------------
+
+async def _get_va_agent():
+    """
+    Get (or lazily create) the Value Assurance Agent.
+
+    Tries the AgentRegistry first so the agent is reused across requests.
+    Falls back to direct instantiation when the registry is unavailable.
+
+    Raises HTTPException(503) when the agent cannot be obtained.
+    """
+    try:
+        from src.agents.new.a9_orchestrator_agent import AgentRegistry
+        agent = await AgentRegistry.get_agent("A9_Value_Assurance_Agent")
+        if agent is not None:
+            return agent
+    except Exception as exc:
+        logger.warning("VA agent registry lookup failed, falling back to direct create: %s", exc)
+
+    # Fallback: create directly (connects without an orchestrator)
+    try:
+        from src.agents.new.a9_value_assurance_agent import A9_Value_Assurance_Agent
+        from src.agents.agent_config_models import A9ValueAssuranceAgentConfig
+        config = A9ValueAssuranceAgentConfig()
+        agent = await A9_Value_Assurance_Agent.create_from_registry(config)
+        # Cache in registry so subsequent requests reuse the same instance
+        try:
+            from src.agents.new.a9_orchestrator_agent import AgentRegistry as _AR
+            _AR.register_agent("A9_Value_Assurance_Agent", agent)
+        except Exception:
+            pass
+        return agent
+    except Exception as exc:
+        logger.error("VA agent fallback creation failed: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="Value Assurance Agent is unavailable. Please retry later.",
+        ) from exc
+
+
+# ---------------------------------------------------------------------------
+# Legacy POST /solutions  — create
 # ---------------------------------------------------------------------------
 @router.post("/solutions", response_model=AcceptedSolution, status_code=201)
 async def create_accepted_solution(request: CreateAcceptedSolutionRequest) -> AcceptedSolution:
@@ -74,7 +132,7 @@ async def create_accepted_solution(request: CreateAcceptedSolutionRequest) -> Ac
 
 
 # ---------------------------------------------------------------------------
-# GET /solutions  — list (optional filters: principal_id, status)
+# Legacy GET /solutions  — list (optional filters: principal_id, status)
 # ---------------------------------------------------------------------------
 @router.get("/solutions", response_model=ListAcceptedSolutionsResponse)
 async def list_accepted_solutions(
@@ -94,7 +152,7 @@ async def list_accepted_solutions(
 
 
 # ---------------------------------------------------------------------------
-# GET /solutions/{id}  — retrieve one
+# Legacy GET /solutions/{id}  — retrieve one
 # ---------------------------------------------------------------------------
 @router.get("/solutions/{solution_id}", response_model=AcceptedSolution)
 async def get_accepted_solution(solution_id: str) -> AcceptedSolution:
@@ -109,7 +167,7 @@ async def get_accepted_solution(solution_id: str) -> AcceptedSolution:
 
 
 # ---------------------------------------------------------------------------
-# PATCH /solutions/{id}  — update mutable fields
+# Legacy PATCH /solutions/{id}  — update mutable fields
 # ---------------------------------------------------------------------------
 @router.patch("/solutions/{solution_id}", response_model=AcceptedSolution)
 async def update_accepted_solution(
@@ -138,7 +196,7 @@ async def update_accepted_solution(
 
 
 # ---------------------------------------------------------------------------
-# POST /solutions/{id}/check  — run value assurance check
+# Legacy POST /solutions/{id}/check  — run value assurance check
 # ---------------------------------------------------------------------------
 @router.post("/solutions/{solution_id}/check", response_model=ValueAssuranceCheckResponse)
 async def check_value_assurance(
@@ -214,3 +272,133 @@ async def check_value_assurance(
         status=new_status,
         message=message,
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 7A POST /register  — register solution for DiD tracking
+# ---------------------------------------------------------------------------
+@router.post("/register", response_model=RegisterSolutionResponse, status_code=201)
+async def register_solution(request: RegisterSolutionRequest) -> RegisterSolutionResponse:
+    """
+    Register a HITL-approved solution with the Value Assurance Agent for measurement.
+
+    The agent captures a strategy snapshot (principal priorities, KPI threshold,
+    data product) and begins tracking the solution in its measurement window.
+    """
+    # If da_is_not_dimensions not provided, try to retrieve from Supabase situation record
+    if not request.da_is_not_dimensions or not request.strategy_snapshot:
+        try:
+            from src.database.situations_store import SituationsStore
+            _store = SituationsStore()
+            if _store.enabled and request.situation_id:
+                situation_data = await _store.get_situation(request.situation_id)
+                if situation_data:
+                    payload = situation_data.get("full_payload", {})
+                    # Extract IS NOT dimensions if available in the stored payload
+                    if not request.da_is_not_dimensions:
+                        request = request.model_copy(update={
+                            "da_is_not_dimensions": payload.get("is_not_dimensions", [])
+                        })
+        except Exception as e:
+            logger.warning("Situation lookup failed (non-fatal): %s", e)
+
+    agent = await _get_va_agent()
+    try:
+        response: RegisterSolutionResponse = await agent.register_solution(request)
+        logger.info(
+            "VA register_solution: solution_id=%s principal=%s kpi=%s",
+            response.solution_id,
+            request.principal_id,
+            request.kpi_id,
+        )
+        return response
+    except Exception as exc:
+        logger.error("VA register_solution failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 7A POST /solutions/{solution_id}/evaluate  — DiD attribution
+# ---------------------------------------------------------------------------
+@router.post("/solutions/{solution_id}/evaluate", response_model=EvaluateSolutionResponse)
+async def evaluate_solution(
+    solution_id: str,
+    request: EvaluateSolutionRequest,
+) -> EvaluateSolutionResponse:
+    """
+    Run Difference-in-Differences attribution and determine the solution verdict.
+
+    Requires the solution to have been previously registered via POST /register.
+    """
+    if request.solution_id != solution_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Path solution_id and body solution_id must match",
+        )
+
+    agent = await _get_va_agent()
+    try:
+        response: EvaluateSolutionResponse = await agent.evaluate_solution_impact(request)
+        logger.info(
+            "VA evaluate_solution_impact: solution_id=%s verdict=%s",
+            solution_id,
+            response.evaluation.verdict,
+        )
+        return response
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.error("VA evaluate_solution_impact failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 7A GET /portfolio/{principal_id}  — portfolio summary
+# ---------------------------------------------------------------------------
+@router.get("/portfolio/{principal_id}", response_model=StrategyAwarePortfolio)
+async def get_portfolio(
+    principal_id: str,
+    include_superseded: bool = False,
+) -> StrategyAwarePortfolio:
+    """
+    Aggregate all tracked solutions into a strategy-aware portfolio summary for a principal.
+
+    When include_superseded=False (default), solutions whose strategy alignment is
+    SUPERSEDED are excluded from ROI totals but still appear in the solutions list.
+    """
+    portfolio_req = PortfolioSummaryRequest(
+        request_id=str(uuid.uuid4()),
+        principal_id=principal_id,
+        include_superseded=include_superseded,
+    )
+    agent = await _get_va_agent()
+    try:
+        portfolio: StrategyAwarePortfolio = await agent.get_portfolio_summary(portfolio_req)
+        return portfolio
+    except Exception as exc:
+        logger.error("VA get_portfolio_summary failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 7A POST /inaction-cost  — project inaction cost
+# ---------------------------------------------------------------------------
+@router.post("/inaction-cost", response_model=ProjectInactionCostResponse)
+async def project_inaction_cost(
+    request: ProjectInactionCostRequest,
+) -> ProjectInactionCostResponse:
+    """
+    Fit a linear trend to historical KPI values and project forward 30 and 90 days.
+
+    Revenue impact is a heuristic (0.5% revenue per 1% KPI change, LOW confidence).
+    Requires at least one value in historical_trend.
+    """
+    agent = await _get_va_agent()
+    try:
+        response: ProjectInactionCostResponse = await agent.project_inaction_cost(request)
+        return response
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.error("VA project_inaction_cost failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

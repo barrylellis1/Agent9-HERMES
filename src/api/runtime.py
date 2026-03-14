@@ -129,6 +129,13 @@ class AgentRuntime:
                     "registry_factory": self._registry_factory,
                 },
             ),
+            (
+                "A9_Value_Assurance_Agent",
+                {
+                    "orchestrator": self._orchestrator,
+                    "registry_factory": self._registry_factory,
+                },
+            ),
         ]
 
         for agent_name, config in agent_plan:

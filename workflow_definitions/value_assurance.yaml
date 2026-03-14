@@ -1,90 +1,245 @@
 workflow:
   name: Value Assurance
-  category: process_people_driven
+  category: data_driven
   description: >
-    Reviews implemented solutions to track actual business benefit gains versus projections, measures stakeholder adoption,
+    Closes the insight-to-outcome loop by measuring whether HITL-approved solutions actually delivered
+    their predicted KPI impact. Constructs counterfactual baselines using DA (Is/Is Not control groups),
+    MA (market factor adjustment), and SA (seasonal baselines) to produce honest, causal ROI attribution.
+    Assesses strategic alignment drift and generates executive-ready narratives.
+
+    Triggered by: (a) HITL approval in Solution Finding workflow (registration), (b) scheduled measurement
+    after time_to_value window, or (c) on-demand portfolio review. May re-trigger SA → DA cycle if a
+    solution fails on a strategically aligned KPI.
+
+  # ─────────────────────────────────────────────────────────────
+  # PHASE 1: Solution Registration (triggered at HITL approval)
+  # ─────────────────────────────────────────────────────────────
+
   steps:
     - agent: A9_Orchestrator_Agent
       entrypoint: orchestrate_workflow
       input_model: OrchestratorWorkflowInput
       output_model: OrchestratorWorkflowOutput
-      purpose: Oversee and coordinate the workflow execution, including step routing and monitoring.
+      purpose: Oversee and coordinate the Value Assurance workflow, route between registration and evaluation phases.
 
-    - agent: A9_LLM_Service_Agent
-      entrypoint: process_text
-      input_model: LLMServiceInput
-      output_model: LLMServiceOutput
-      optional: true
-      purpose: Provide LLM-powered interpretation, summarization, or consensus-building for relevant TEXT fields.
-    confirms completion of data governance, change management, and organizational changes, and tracks data product usage by principals.
-    Provides feedback and learning for Agent9 process improvement. Escalates to executives if the solution is implemented
-    but fails to achieve the perceived value at inception.
+    - agent: A9_Value_Assurance_Agent
+      entrypoint: register_solution
+      input_model: RegisterSolutionRequest
+      output_model: RegisteredSolution
+      purpose: >
+        Record the HITL-approved solution with all context needed for future measurement:
+        solution details + impact_estimate from SF, IS/IS NOT dimensions from DA (treatment and control groups),
+        market signals from MA, baseline KPI value, and a strategy snapshot (principal priorities, KPI thresholds,
+        key assumptions, business context). Persisted to Supabase value_assurance_solutions table.
 
-  steps:
-    - agent: A9_Change_Management_Agent
-      entrypoint: review_implementation
-      input_model: ImplementationReviewInput
-      output_model: ImplementationReviewOutput
-      purpose: Review solution implementation status and collect initial feedback.
+  # ─────────────────────────────────────────────────────────────
+  # PHASE 2: Counterfactual Baseline Construction (at measurement time)
+  # ─────────────────────────────────────────────────────────────
 
-    - agent: A9_Data_Governance_Agent
-      entrypoint: analyze_data_quality
-      input_model: DataQualityAnalysisInput
-      output_model: DataQualityAnalysisOutput
-      purpose: Confirm data governance and compliance for the implemented solution.
-
-    - agent: A9_Quality_Assurance_Agent
-      entrypoint: execute_tests
-      input_model: QATestExecutionInput
-      output_model: QATestExecutionOutput
-      purpose: Validate that solution meets quality standards in production.
-
-    - agent: A9_Stakeholder_Engagement_Agent
-      entrypoint: get_active_engagement_workflows
-      input_model: StakeholderEngagementQueryInput
-      output_model: List[EngagementWorkflowState]
-      purpose: Identify and track stakeholder adoption and engagement.
+    - agent: A9_Situation_Awareness_Agent
+      entrypoint: detect_situations
+      input_model: A9_Situation_Awareness_Input
+      output_model: A9_Situation_Awareness_Output
+      purpose: >
+        Re-monitor the KPI post-implementation. Provides current KPI value, historical trend data for
+        seasonal adjustment, and confirms whether SA is still actively tracking this KPI.
 
     - agent: A9_Data_Product_Agent
-      entrypoint: summarize_data_product_usage
-      input_model: DataProductUsageSummaryInput
-      output_model: DataProductUsageSummaryOutput
-      purpose: Track data product usage by principals and measure adoption.
+      entrypoint: execute_sql
+      input_model: DataProductSQLRequest
+      output_model: DataProductSQLResponse
+      repeatable: true
+      purpose: >
+        Query the same data product that sourced the original KPI to retrieve current values for both
+        affected dimensions (treatment group) and unaffected dimensions (control group from DA Is/Is Not).
+        Repeatable for multiple dimension queries.
 
-    - agent: A9_Change_Management_Agent
-      entrypoint: compare_kpi_actual_vs_projected
-      input_model: KPIComparisonInput
-      output_model: KPIComparisonOutput
-      purpose: Analyze KPI actuals versus projections to assess realized value.
+    - agent: A9_Market_Analysis_Agent
+      entrypoint: analyze_market
+      input_model: A9_Market_Analysis_Input
+      output_model: A9_Market_Analysis_Output
+      optional: true
+      purpose: >
+        Re-analyze market conditions at measurement time. Compare against market signals captured at
+        breach time to isolate market-driven recovery (e.g., commodity price drops, industry-wide trends)
+        from intervention-driven recovery.
 
-    - agent: A9_Change_Management_Agent
-      entrypoint: document_lessons_learned
-      input_model: LessonsLearnedInput
-      output_model: LessonsLearnedOutput
-      purpose: Capture learnings and feedback for continuous improvement of Agent9 processes.
+  # ─────────────────────────────────────────────────────────────
+  # PHASE 3: Impact Evaluation & Attribution
+  # ─────────────────────────────────────────────────────────────
+
+    - agent: A9_Value_Assurance_Agent
+      entrypoint: evaluate_solution_impact
+      input_model: EvaluateImpactRequest
+      output_model: ImpactEvaluation
+      purpose: >
+        Core attribution logic. Computes counterfactual baseline using four adjustments:
+        (1) Control group comparison — DA Is/Is Not unaffected dimensions as difference-in-differences,
+        (2) Market factor adjustment — MA market-driven recovery subtracted,
+        (3) Seasonal adjustment — SA historical seasonal patterns subtracted,
+        (4) Trend projection — DA change-point pre-intervention slope extrapolated.
+        Produces attributable_impact, confidence score, and KPI verdict (VALIDATED/PARTIAL/FAILED/MEASURING).
+
+  # ─────────────────────────────────────────────────────────────
+  # PHASE 4: Strategy Alignment Check
+  # ─────────────────────────────────────────────────────────────
+
+    - agent: A9_Value_Assurance_Agent
+      entrypoint: check_strategy_alignment
+      input_model: StrategyCheckRequest
+      output_model: StrategyAlignmentCheck
+      purpose: >
+        Diff current strategic context against the approval-time snapshot. Checks: principal priorities
+        drift, KPI threshold recalibration, business process status, data product status, principal
+        accountability changes. Produces alignment verdict (ALIGNED/DRIFTED/SUPERSEDED) and composite
+        two-dimensional verdict (KPI impact × strategic fit).
+
+    - agent: A9_Principal_Context_Agent
+      entrypoint: get_principal_context
+      input_model: PrincipalContextRequest
+      output_model: PrincipalContextResponse
+      purpose: >
+        Retrieve current principal profile for strategy drift detection — compare current priorities,
+        role, and accountability against the strategy snapshot captured at registration.
+
+  # ─────────────────────────────────────────────────────────────
+  # PHASE 5: Narrative Generation & Reporting
+  # ─────────────────────────────────────────────────────────────
+
+    - agent: A9_Value_Assurance_Agent
+      entrypoint: generate_narrative
+      input_model: NarrativeRequest
+      output_model: NarrativeResponse
+      purpose: >
+        Use LLM Service Agent (via orchestrator) to generate executive-ready narrative from the
+        quantitative attribution data and strategy alignment context. Includes attribution breakdown,
+        confidence rationale, strategy drift explanation, and recommended next actions.
+        Model routing: claude-haiku-4-5-20251001 (cost-efficient structured output).
+
+  # ─────────────────────────────────────────────────────────────
+  # PHASE 6: Portfolio Aggregation
+  # ─────────────────────────────────────────────────────────────
+
+    - agent: A9_Value_Assurance_Agent
+      entrypoint: get_portfolio_summary
+      input_model: PortfolioRequest
+      output_model: StrategyAwarePortfolio
+      optional: true
+      purpose: >
+        Aggregate across all tracked solutions and unaddressed situations. Segments by strategic
+        alignment: ALIGNED solutions count in active ROI totals, DRIFTED solutions flagged for
+        executive review, SUPERSEDED solutions archived. Includes cost of inaction projections
+        for strategically aligned unaddressed situations.
+
+  # ─────────────────────────────────────────────────────────────
+  # PHASE 7: Cost of Inaction (for unaddressed situations)
+  # ─────────────────────────────────────────────────────────────
+
+    - agent: A9_Value_Assurance_Agent
+      entrypoint: project_inaction_cost
+      input_model: InactionCostRequest
+      output_model: InactionCostProjection
+      optional: true
+      purpose: >
+        For situations where the principal chose NOT to act, project ongoing KPI deterioration using
+        DA trend data. Translates KPI delta to estimated business impact. Only calculated for
+        strategically aligned situations — don't alarm executives about KPIs they've deprioritized.
+
+  # ─────────────────────────────────────────────────────────────
+  # PHASE 8: Escalation & Re-trigger
+  # ─────────────────────────────────────────────────────────────
 
     - agent: A9_Situation_Awareness_Agent
       entrypoint: notify_principal
       input_model: HITLNotificationInput
       output_model: None
-      purpose: Escalate to executives if solution is implemented but value is not achieved as projected.
+      optional: true
+      purpose: >
+        Escalation for three scenarios:
+        (1) FAILED + ALIGNED — solution didn't work on a KPI that still matters. Notify principal,
+            recommend re-triggering SA → DA cycle for fresh analysis.
+        (2) DRIFTED — strategy context has changed. Notify principal for review and judgment on
+            whether to continue tracking, reclassify, or archive.
+        (3) Strategy shift detected — 3+ solutions drifted simultaneously, signaling org-wide
+            strategic change. Surface portfolio rebalancing recommendation.
 
   outputs:
-    - implementation_status: str
-    - data_governance_status: str
-    - qa_results: List[Dict[str, Any]]
-    - stakeholder_adoption: List[Dict[str, Any]]
-    - data_product_usage: Dict[str, Any]
-    - kpi_comparison: Dict[str, Any]
-    - lessons_learned: str
+    # Per-solution evaluation
+    - registered_solution: RegisteredSolution
+    - impact_evaluation: ImpactEvaluation
+    - strategy_alignment: StrategyAlignmentCheck
+    - composite_verdict: CompositeVerdict
+    - narrative: NarrativeResponse
+
+    # Portfolio-level (optional)
+    - portfolio_summary: StrategyAwarePortfolio
+    - inaction_costs: List[InactionCostProjection]
+
+    # Escalation
     - escalation_sent: bool
+    - escalation_type: Optional[str]  # "failed_aligned" | "strategy_drifted" | "strategy_shift"
 
   validations:
-    - All agent entrypoints must use Pydantic models as specified.
-    - KPI actuals must be compared against projections for value tracking.
-    - Stakeholder and principal adoption must be measured and auditable.
-    - Lessons learned must be documented and available for process improvement.
+    - All agent entrypoints must use Pydantic models (A2A protocol compliance).
+    - Attribution must NEVER claim 100% credit — always decompose into attributable, market, seasonal, and control group components.
+    - Confidence scoring must accompany every evaluation with explicit rationale.
+    - Only ALIGNED solutions count in active portfolio ROI totals.
+    - Strategy snapshot must be captured at registration time and diffed at each evaluation.
+    - All evaluations persisted to Supabase value_assurance_evaluations table for audit trail.
+    - Cost of inaction calculated only for strategically aligned situations.
+    - LLM calls routed through A9_LLM_Service_Agent via Orchestrator (no direct API calls).
+
+  data_flow:
+    # What VA receives from upstream agents (captured at registration or queried at evaluation)
+    from_solution_finder:
+      - impact_estimate (metric, unit, recovery_range {low, high}, basis)
+      - approved option details (title, description, time_to_value)
+      - problem_reframe.key_assumptions
+      - HITL approval timestamp
+    from_deep_analysis:
+      - IS dimensions (affected — treatment group)
+      - IS NOT dimensions (unaffected — control group for difference-in-differences)
+      - change-point detection data (pre-intervention trend slope)
+      - SCQA framing
+    from_market_analysis:
+      - market signals at breach time (snapshot)
+      - market signals at measurement time (re-query)
+      - industry benchmark data for market factor isolation
+    from_situation_awareness:
+      - current KPI value (re-monitored post-implementation)
+      - historical KPI baselines (seasonal pattern data)
+      - KPI threshold definitions
+      - active monitoring status
+    from_principal_context:
+      - principal priorities (at registration and at measurement)
+      - principal role and accountability
+      - decision style (for narrative framing)
+
+  methodology:
+    primary: difference_in_differences
+    description: >
+      Compare KPI movement in affected dimensions (treatment group from DA IS) against unaffected
+      dimensions (control group from DA IS NOT), adjusted for market-wide recovery (MA) and
+      seasonal normalization (SA). The same KT Is/Is Not analysis that diagnosed the problem
+      creates the measurement framework for proving the fix worked.
+    formula: >
+      attributable_impact = total_kpi_change - control_group_change - market_driven_recovery - seasonal_component
+    fallbacks:
+      - trend_projection: When no control group available, extrapolate pre-intervention trend from DA change-point data. Confidence: LOW.
+      - simple_before_after: When neither control group nor trend data available. Confidence: LOW.
+    confidence_factors:
+      - control_group_quality: "HIGH if DA IS NOT dimensions available, LOW if not"
+      - data_volume: "HIGH if 8+ weeks post-intervention, LOW if < 4 weeks"
+      - market_data: "HIGH if MA re-analysis at measurement time, LOW if no market data"
+      - seasonal_data: "HIGH if 2+ years historical, LOW if no seasonal baseline"
+      - confounders: "HIGH if no other initiatives on same KPI, LOW if multiple simultaneous"
 
   notes:
-    - This workflow is triggered post-implementation and may iterate until value is confirmed or escalation is required.
-    - Supports continuous improvement and organizational learning for Agent9 and stakeholders.
+    - This workflow replaces the legacy value_assurance.yaml which routed KPI comparison through Change Management Agent.
+    - The VA Agent now owns all attribution logic — Change Management is out of scope (handled by external PM tools).
+    - The existing 5 API endpoints at /api/v1/value-assurance/ delegate to the VA Agent.
+    - Phase 1 (registration) is triggered automatically by HITL approval in Solution Finding workflow.
+    - Phases 2-5 (evaluation) are triggered by schedule (after time_to_value window) or on-demand.
+    - Phases 6-7 (portfolio/inaction) are triggered on-demand from the Decision Studio dashboard.
+    - Phase 8 (escalation) is triggered automatically when verdicts warrant it.
+    - The Opportunity Deep Analysis workflow (positive anomalies) can also feed into VA to measure whether opportunity replication succeeded.

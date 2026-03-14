@@ -1133,13 +1133,87 @@ class A9_Orchestrator_Agent:
         )
         return resp
     
+    async def run_value_assurance(
+        self,
+        solution_id: str,
+        principal_id: str,
+        current_kpi_value: float,
+        control_group_kpi_values: Optional[List[float]] = None,
+        market_recovery_estimate: Optional[float] = None,
+        seasonal_estimate: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """
+        Evaluate whether an approved solution delivered its expected KPI impact.
+
+        Calls:
+            1. VA Agent evaluate_solution_impact() — DiD attribution
+            2. VA Agent generate_narrative()       — LLM executive summary
+
+        Returns:
+            dict with 'evaluation' and 'narrative' keys, or an 'error' key on failure.
+        """
+        import uuid as _uuid
+        from src.agents.models.value_assurance_models import (
+            EvaluateSolutionRequest,
+            GenerateNarrativeRequest,
+        )
+
+        request_id = str(_uuid.uuid4())
+        self.logger.info(
+            "run_value_assurance: solution=%s principal=%s", solution_id, principal_id
+        )
+
+        try:
+            await self.get_agent("A9_Value_Assurance_Agent")
+
+            eval_req = EvaluateSolutionRequest(
+                request_id=request_id,
+                principal_id=principal_id,
+                solution_id=solution_id,
+                current_kpi_value=current_kpi_value,
+                control_group_kpi_values=control_group_kpi_values,
+                market_recovery_estimate=market_recovery_estimate,
+                seasonal_estimate=seasonal_estimate,
+            )
+            eval_resp = await self.execute_agent_method(
+                "A9_Value_Assurance_Agent",
+                "evaluate_solution_impact",
+                {"request": eval_req},
+            )
+
+            narrative_req = GenerateNarrativeRequest(
+                request_id=request_id,
+                principal_id=principal_id,
+                solution_id=solution_id,
+            )
+            narrative_resp = await self.execute_agent_method(
+                "A9_Value_Assurance_Agent",
+                "generate_narrative",
+                {"request": narrative_req},
+            )
+
+            evaluation_dict = (
+                eval_resp.model_dump() if hasattr(eval_resp, "model_dump") else eval_resp
+            )
+            narrative_str = (
+                narrative_resp.narrative
+                if hasattr(narrative_resp, "narrative")
+                else str(narrative_resp)
+            )
+
+            return {"evaluation": evaluation_dict, "narrative": narrative_str}
+
+        except Exception as exc:
+            self.logger.error("run_value_assurance failed: %s", exc)
+            return {"error": str(exc)}
+
     async def orchestrate_workflow(self, workflow_config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Orchestrate a workflow involving multiple agents.
-        
+
         Args:
             workflow_config: Configuration for the workflow.
-            
+
         Returns:
             Workflow result.
         """
@@ -1181,6 +1255,8 @@ async def initialize_agent_registry():
     agent_registry.register_agent_factory("A9_Deep_Analysis_Agent", create_deep_analysis_agent)
     agent_registry.register_agent_factory("A9_Solution_Finder_Agent", create_solution_finder_agent)
     agent_registry.register_agent_factory("A9_Market_Analysis_Agent", A9_Market_Analysis_Agent.create)
+    from src.agents.new.a9_value_assurance_agent import A9_Value_Assurance_Agent
+    agent_registry.register_agent_factory("A9_Value_Assurance_Agent", A9_Value_Assurance_Agent.create)
 
     # Register agent dependencies
     agent_registry.register_agent_dependency("A9_Data_Product_Agent", ["A9_Data_Governance_Agent"])
