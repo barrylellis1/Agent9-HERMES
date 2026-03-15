@@ -142,6 +142,7 @@ class DeepAnalysisWorkflowRequest(BaseModel):
     scope: DeepAnalysisScope = Field(..., description="Scope for the deep analysis")
     hypotheses: Optional[List[str]] = Field(None, description="Optional hypotheses to evaluate")
     include_supporting_evidence: bool = Field(True, description="Whether to compute supporting evidence artifacts")
+    analysis_mode: Optional[str] = Field(default="problem", description="Analysis framing: 'problem' or 'opportunity'")
 
 
 class SolutionWorkflowRequest(BaseModel):
@@ -581,6 +582,7 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
             deep_request_payload["filters"]["time_range"] = request.scope.time_range
         if request.hypotheses:
             deep_request_payload["extra"] = {"hypotheses": request.hypotheses}
+        deep_request_payload["analysis_mode"] = request.analysis_mode or "problem"
         deep_request = DeepAnalysisRequest(**deep_request_payload)
 
         # Use Orchestrator to run the full Deep Analysis workflow (Plan + Execute)

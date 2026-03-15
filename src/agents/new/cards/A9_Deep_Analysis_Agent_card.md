@@ -80,6 +80,18 @@ When a KPI carries `metadata.kpi_type = "ratio"` with `bridge_numerator_sql` and
 
 This prevents the "100% margin" artifact that occurs when COGS is not allocated at the same dimensional granularity as Revenue in the source data.
 
+## Phase 8 — Unified Opportunity Analysis (Mar 2026)
+DA now always produces both problem segments AND internal benchmarks from the same IS/IS NOT table — no separate opportunity analysis agent.
+
+**New fields:**
+- `DeepAnalysisRequest.analysis_mode`: `"problem"` (default) | `"opportunity"` — controls SCQA framing
+- `KTIsIsNot.benchmark_segments: List[BenchmarkSegment]` — IS NOT items classified into `internal_benchmark` (top quartile by |delta|) or `control_group`
+- `BenchmarkSegment`: `dimension`, `key`, `current_value`, `previous_value`, `delta`, `delta_pct`, `benchmark_type`, `replication_potential`
+
+**New logic:**
+- `_classify_benchmark_segments()`: classifies IS NOT items; top-quartile delta items become `internal_benchmark` with a `replication_potential` score (0–1)
+- `_generate_scqa_summary(analysis_mode)`: when `analysis_mode="opportunity"`, uses McKinsey "the gap IS the strategy" framing — IS NOT outperformers are replication targets, not just healthy segments
+
 ## Recent Updates (Dec 2025)
 - Contract path consolidated to single source of truth in `registry_references`
 - Added default timeframe (`current_quarter`) when none specified

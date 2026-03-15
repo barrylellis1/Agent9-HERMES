@@ -22,6 +22,7 @@ from src.agents.models.deep_analysis_models import (
     DeepAnalysisResponse,
     KTIsIsNot,
     ChangePoint,
+    BenchmarkSegment,
     ProblemRefinementInput,
     ProblemRefinementResult,
     RefinementExclusion,
@@ -32,6 +33,35 @@ from src.agents.utils.data_quality_filter import DataQualityFilter, filter_anoma
 
 
 logger = logging.getLogger(__name__)
+
+
+def _classify_benchmark_segments(is_not_items):
+    """Classify IS NOT items into control_group vs internal_benchmark (top quartile by absolute delta)."""
+    if not is_not_items:
+        return []
+    deltas = [abs(item.get("delta", 0)) for item in is_not_items]
+    threshold = sorted(deltas, reverse=True)[max(0, len(deltas) // 4 - 1)] if deltas else 0
+
+    segments = []
+    for item in is_not_items:
+        abs_delta = abs(item.get("delta", 0))
+        is_bmark = abs_delta >= threshold and threshold > 0
+        delta = item.get("delta", 0)
+        current = float(item.get("current", 0) or 0.0)
+        previous = float(item.get("previous", 0) or 0.0)
+        delta_pct = ((current - previous) / previous * 100) if previous else None
+        rep_potential = min(1.0, abs_delta / threshold) if is_bmark and threshold > 0 else None
+        segments.append(BenchmarkSegment(
+            dimension=item.get("dimension", ""),
+            key=str(item.get("key", "")),
+            current_value=current,
+            previous_value=previous,
+            delta=float(delta),
+            delta_pct=delta_pct,
+            benchmark_type="internal_benchmark" if is_bmark else "control_group",
+            replication_potential=rep_potential,
+        ))
+    return segments
 
 
 # ============================================================================
@@ -1534,6 +1564,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     change_points=change_points,
                     spec=spec_main,
                     principal_id=getattr(plan, "principal_id", "system"),
+                    analysis_mode=getattr(request, "analysis_mode", "problem"),
                 )
             except Exception as _scqa_err:
                 self.logger.warning("[DA] SCQA generation failed: %s", _scqa_err)
@@ -1569,6 +1600,15 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             kt.where_is, dq_issues_is = dq_filter.filter_and_dedupe(kt.where_is)
             kt.where_is_not, dq_issues_is_not = dq_filter.filter_and_dedupe(kt.where_is_not)
             self.logger.info(f"[POST-FILTER] where_is has {len(kt.where_is)} items, dq_issues_is has {len(dq_issues_is)} items")
+
+            # Classify IS NOT items into benchmark segments
+            if kt.where_is_not:
+                kt.benchmark_segments = _classify_benchmark_segments(kt.where_is_not)
+                self.logger.info(
+                    f"[BENCHMARK] Classified {len(kt.benchmark_segments)} IS NOT items: "
+                    f"{sum(1 for s in kt.benchmark_segments if s.benchmark_type == 'internal_benchmark')} internal_benchmark, "
+                    f"{sum(1 for s in kt.benchmark_segments if s.benchmark_type == 'control_group')} control_group"
+                )
             
             # Create data quality alert if anomalies found
             all_dq_issues = dq_issues_is + dq_issues_is_not
@@ -1971,6 +2011,7 @@ If nothing relevant is found for a category, use an empty list."""
         change_points: List["ChangePoint"],
         spec: Optional[Dict[str, Any]],
         principal_id: str,
+        analysis_mode: str = "problem",
     ) -> str:
         """Generate a Situation-Complication-Question-Answer narrative via LLM.
 
@@ -2007,16 +2048,29 @@ If nothing relevant is found for a category, use an empty list."""
             from src.agents.new.a9_llm_service_agent import A9_LLM_Request
             from src.llm_services.claude_service import get_claude_model_for_task, ClaudeTaskType
 
-            prompt = (
-                f"Write a concise SCQA (Situation-Complication-Question-Answer) narrative for a CFO "
-                f"investigating the KPI '{plan.kpi_name}' ({plan.timeframe or 'current period'}).\n\n"
-                f"Comparator: {comparator} | Direction: {direction}-performing vs target\n"
-                f"Top problem segments (IS): {', '.join(is_items) or 'see change points'}\n"
-                f"Healthy segments (IS NOT): {', '.join(is_not_items) or 'none identified'}\n"
-                f"Largest change-points: {'; '.join(top_cps) or 'none'}\n\n"
-                f"Output exactly 4 labelled sentences: 'Situation: ...', 'Complication: ...', "
-                f"'Question: ...', 'Answer: ...'. Be specific and quantitative. No bullet points."
-            )
+            if analysis_mode == "opportunity":
+                prompt = (
+                    f"Write a concise SCQA narrative for a CFO reviewing a growth opportunity in "
+                    f"'{plan.kpi_name}' ({plan.timeframe or 'current period'}).\n\n"
+                    f"High-performing segments (IS): {', '.join(is_items) or 'see change points'}\n"
+                    f"Segments yet to capture the same performance (IS NOT — replication targets): "
+                    f"{', '.join(is_not_items) or 'none identified'}\n"
+                    f"Largest change-points: {'; '.join(top_cps) or 'none'}\n\n"
+                    f"Frame the Answer as: the gap between IS and IS NOT segments IS the strategy. "
+                    f"Output exactly 4 labelled sentences: 'Situation:', 'Complication:', 'Question:', 'Answer:'. "
+                    f"Be specific and quantitative. No bullet points."
+                )
+            else:
+                prompt = (
+                    f"Write a concise SCQA (Situation-Complication-Question-Answer) narrative for a CFO "
+                    f"investigating the KPI '{plan.kpi_name}' ({plan.timeframe or 'current period'}).\n\n"
+                    f"Comparator: {comparator} | Direction: {direction}-performing vs target\n"
+                    f"Top problem segments (IS): {', '.join(is_items) or 'see change points'}\n"
+                    f"Healthy segments (IS NOT): {', '.join(is_not_items) or 'none identified'}\n"
+                    f"Largest change-points: {'; '.join(top_cps) or 'none'}\n\n"
+                    f"Output exactly 4 labelled sentences: 'Situation: ...', 'Complication: ...', "
+                    f"'Question: ...', 'Answer: ...'. Be specific and quantitative. No bullet points."
+                )
 
             req = A9_LLM_Request(
                 request_id=str(uuid.uuid4()),

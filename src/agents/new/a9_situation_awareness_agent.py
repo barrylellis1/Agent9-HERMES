@@ -506,6 +506,19 @@ class A9_Situation_Awareness_Agent:
                                     f"Detected {len(detected_opportunities)} opportunity signal(s) for {kpi_name}"
                                 )
                             opportunities.extend(detected_opportunities)
+                            # Convert high-confidence opportunity signals into clickable Situation cards
+                            for signal in detected_opportunities:
+                                if signal.confidence >= 0.7:
+                                    opp_dedupe_key = f"opp_{signal.kpi_name}_{signal.opportunity_type}"
+                                    if not any(s.dedupe_key == opp_dedupe_key for s in situations):
+                                        try:
+                                            opp_situation = Situation.from_opportunity_signal(signal, kpi_value)
+                                            opp_situation.dedupe_key = opp_dedupe_key
+                                            situations.append(opp_situation)
+                                        except Exception as _opp_conv_err:
+                                            self.logger.warning(
+                                                f"Could not convert opportunity signal to Situation for {signal.kpi_name}: {_opp_conv_err}"
+                                            )
                         except Exception as opp_err:
                             self.logger.warning(
                                 f"Error detecting opportunities for KPI {kpi_name}: {opp_err}"

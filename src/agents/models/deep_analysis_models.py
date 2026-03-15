@@ -3,7 +3,7 @@ Pydantic models for the Deep Analysis Agent (A2A-compliant).
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from pydantic import Field
 
 from src.agents.shared.a9_agent_base_model import (
@@ -24,6 +24,10 @@ class DeepAnalysisRequest(A9AgentBaseRequest):
         default=None,
         description="Optional threshold spec to guide breach detection (e.g., metric: budget|mom, inverse_logic: bool, yellow_threshold: float, budget_version: 'Budget')."
     )
+    analysis_mode: Literal["problem", "opportunity"] = Field(
+        default="problem",
+        description="Analysis framing: 'problem' (variance investigation) or 'opportunity' (growth/outperformance investigation)"
+    )
 
 
 class DeepAnalysisPlan(A9AgentBaseModel):
@@ -36,6 +40,26 @@ class DeepAnalysisPlan(A9AgentBaseModel):
     notes: Optional[str] = None
 
 
+class BenchmarkSegment(A9AgentBaseModel):
+    """An IS NOT segment classified as control group or internal benchmark."""
+    dimension: str = Field(..., description="Dimension name (e.g., 'Profit Center')")
+    key: str = Field(..., description="Dimension member value (e.g., 'Mountain Bikes')")
+    current_value: float = Field(..., description="Current period value for this segment")
+    previous_value: float = Field(..., description="Previous period value for this segment")
+    delta: float = Field(..., description="Absolute delta (current - previous)")
+    delta_pct: Optional[float] = Field(None, description="Percentage change vs previous")
+    benchmark_type: Literal["control_group", "internal_benchmark"] = Field(
+        default="control_group",
+        description="'internal_benchmark' = top-quartile outperformer (replication candidate); 'control_group' = stable segment (DiD baseline)"
+    )
+    replication_potential: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Estimated replication potential (0.0–1.0); set for internal_benchmark segments only"
+    )
+
+
 class KTIsIsNot(A9AgentBaseModel):
     """Structured KT table representation."""
     what_is: List[Dict[str, Any]] = Field(default_factory=list)
@@ -46,6 +70,10 @@ class KTIsIsNot(A9AgentBaseModel):
     when_is_not: List[Dict[str, Any]] = Field(default_factory=list)
     extent_is: List[Dict[str, Any]] = Field(default_factory=list)
     extent_is_not: List[Dict[str, Any]] = Field(default_factory=list)
+    benchmark_segments: List[BenchmarkSegment] = Field(
+        default_factory=list,
+        description="IS NOT items classified as control_group or internal_benchmark after analysis"
+    )
 
 
 class ChangePoint(A9AgentBaseModel):
