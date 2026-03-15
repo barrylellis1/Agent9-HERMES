@@ -146,6 +146,7 @@ class DeepAnalysisWorkflowRequest(BaseModel):
 
 class SolutionWorkflowRequest(BaseModel):
     principal_id: str = Field(..., description="ID of the requesting principal")
+    situation_id: Optional[str] = Field(None, description="Situation ID from SA — forwarded to VA on approval")
     analysis_request_id: Optional[str] = Field(None, description="Prior deep-analysis request ID (deprecated, prefer deep_analysis_output)")
     deep_analysis_output: Optional[Dict[str, Any]] = Field(None, description="Full Deep Analysis result for direct agent-to-agent data exchange")
     problem_statement: Optional[str] = Field(None, description="Problem statement to solve")
@@ -393,8 +394,11 @@ async def deep_analysis_request_revision(request_id: str, request: ActionRequest
 
 
 @router.post("/solutions/{request_id}/actions/approve", response_model=Envelope)
-async def approve_solution(request_id: str, request: ActionRequest) -> Envelope:
-    return await _record_solution_action(request_id, "approve", request)
+async def approve_solution(
+    request_id: str, request: ActionRequest,
+    runtime: AgentRuntime = Depends(get_agent_runtime),
+) -> Envelope:
+    return await _record_solution_action(request_id, "approve", request, runtime)
 
 
 @router.post("/solutions/{request_id}/actions/request-changes", response_model=Envelope)
@@ -459,7 +463,10 @@ async def validate_kpi_queries(
         )
 
 
-async def _record_solution_action(request_id: str, action_type: str, request: ActionRequest) -> Envelope:
+async def _record_solution_action(
+    request_id: str, action_type: str, request: ActionRequest,
+    runtime: Optional["AgentRuntime"] = None,
+) -> Envelope:
     record = await _ensure_record(request_id, "solutions")
     entry = {
         "action": action_type,
@@ -467,13 +474,97 @@ async def _record_solution_action(request_id: str, action_type: str, request: Ac
         "payload": serialize(request.payload) if request.payload else None,
         "timestamp": datetime.utcnow().isoformat(),
     }
+
+    # VA registration on approve — reconstruct from workflow record
+    if action_type == "approve" and runtime is not None:
+        try:
+            import logging as _lg
+            _va_log = _lg.getLogger("workflows.solutions.approve")
+            orchestrator = runtime.get_orchestrator()
+
+            action_payload = request.payload or {}
+            solution_option_id = action_payload.get("solution_option_id")
+
+            # Resolve the approved option from the SF result
+            result_solutions = (record.result or {}).get("solutions") or {}
+            options = result_solutions.get("options_ranked") or []
+            matched = next(
+                (o for o in options if o.get("id") == solution_option_id),
+                options[0] if options else {},
+            )
+
+            # Build description
+            sol_desc = matched.get("title", "Approved solution")
+            if matched.get("description"):
+                sol_desc = f"{sol_desc}: {matched['description']}"
+
+            # Extract impact bounds
+            impact_est = matched.get("impact_estimate") or {}
+            recovery = impact_est.get("recovery_range") or {}
+            impact_lower = float(recovery.get("low") or matched.get("expected_impact") or 0.0)
+            impact_upper = float(recovery.get("high") or matched.get("expected_impact") or 0.0)
+
+            # Extract upstream context from workflow payload
+            wf_payload = record.payload or {}
+            situation_id = wf_payload.get("situation_id") or action_payload.get("situation_id") or ""
+            da_output = wf_payload.get("deep_analysis_output") or {}
+            kpi_id = da_output.get("kpi_name") or ""
+
+            # DA IS NOT dimensions for DiD control group
+            kt = da_output.get("kt_is_is_not") or {}
+            is_not_items = kt.get("where_is_not") or []
+            da_dims = list({
+                item.get("dimension") for item in is_not_items if item.get("dimension")
+            }) or None
+
+            # Market signals from SF result
+            mkt_intel = result_solutions.get("market_intelligence")
+            ma_signals = None
+            if isinstance(mkt_intel, list):
+                ma_signals = [
+                    s.get("summary") or s.get("title") or str(s)
+                    for s in mkt_intel if s
+                ] or None
+            elif isinstance(mkt_intel, dict):
+                signals_list = mkt_intel.get("signals") or mkt_intel.get("market_signals") or []
+                ma_signals = [
+                    s.get("summary") or s.get("title") or str(s)
+                    for s in signals_list if s
+                ] or None
+
+            from src.agents.models.value_assurance_models import RegisterSolutionRequest
+
+            va_req = RegisterSolutionRequest(
+                request_id=str(uuid.uuid4()),
+                principal_id=wf_payload.get("principal_id", ""),
+                situation_id=situation_id,
+                kpi_id=kpi_id,
+                solution_description=sol_desc,
+                expected_impact_lower=impact_lower,
+                expected_impact_upper=impact_upper,
+                da_is_not_dimensions=da_dims,
+                ma_market_signals=ma_signals,
+            )
+
+            va_resp = await orchestrator.execute_agent_method(
+                "A9_Value_Assurance_Agent",
+                "register_solution",
+                {"request": va_req},
+            )
+            va_solution_id = getattr(va_resp, "solution_id", None)
+            _va_log.info("VA registered: solution_id=%s kpi=%s", va_solution_id, kpi_id)
+
+            # Append VA solution_id to the action entry for audit trail
+            entry["va_solution_id"] = va_solution_id
+
+        except Exception as _va_exc:
+            import logging as _lg
+            _lg.getLogger("workflows.solutions.approve").warning(
+                "VA register_solution failed (non-fatal): %s", _va_exc,
+            )
+
     record.actions.append(entry)
     await _update_record(request_id, actions=record.actions)
-    # TODO Phase 7C: when action_type == "approve", call VA Agent register_solution() here.
-    # The required fields (situation_id, kpi_id, principal_id, solution_description,
-    # expected_impact_lower/upper) are embedded in record.payload from the SF workflow
-    # result — extract them and POST to POST /api/v1/value-assurance/register or call
-    # A9_Value_Assurance_Agent.register_solution() directly via the orchestrator.
     return wrap({"request_id": request_id, "actions": record.actions})
 
 
