@@ -229,6 +229,26 @@ class Situation(BaseModel):
     provenance: Optional[Dict[str, Any]] = Field(None, description="Upstream txns and references")
     lineage: Optional[List[Dict[str, Any]]] = Field(None, description="Data lineage references")
 
+    @classmethod
+    def from_opportunity_signal(cls, signal: "OpportunitySignal", kpi_value: "KPIValue") -> "Situation":
+        """Create an opportunity Situation card from an OpportunitySignal."""
+        severity_map = {
+            "outperformance": SituationSeverity.HIGH,
+            "recovery": SituationSeverity.MEDIUM,
+            "trend_reversal": SituationSeverity.LOW,
+        }
+        return cls(
+            situation_id=f"opp_{signal.kpi_name}_{signal.opportunity_type}_{int(abs(signal.delta_pct or 0))}",
+            kpi_name=signal.kpi_name,
+            kpi_value=kpi_value,
+            severity=severity_map.get(signal.opportunity_type, SituationSeverity.MEDIUM),
+            card_type="opportunity",
+            description=signal.headline,
+            business_impact=f"{signal.opportunity_type.replace('_', ' ').title()} of {abs(signal.delta_pct or 0):.1f}%",
+            hitl_required=False,
+            tags=["opportunity", signal.opportunity_type],
+        )
+
 # Situation Detection Request/Response
 class SituationDetectionRequest(BaseRequest):
     """Request for situation detection."""

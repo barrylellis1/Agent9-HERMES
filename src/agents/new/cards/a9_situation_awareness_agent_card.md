@@ -175,8 +175,9 @@ surface as `OpportunitySignal` objects in `SituationDetectionResponse.opportunit
 ### Card Type
 `Situation.card_type` distinguishes display intent:
 - `"problem"` (default) — red card in the UI; existing behaviour unchanged.
-- `"opportunity"` — green card (used when a `Situation` is created from an opportunity signal
-  in future UI wiring; `card_type` is set at creation time).
+- `"opportunity"` — green card; `Situation` objects with this type are now created automatically
+  from `OpportunitySignal` objects with `confidence >= 0.7` via `Situation.from_opportunity_signal()`.
+  These appear as clickable cards in the Decision Studio dashboard alongside problem cards.
 
 ### Opportunity Types
 | Type | When fired |
@@ -230,10 +231,13 @@ class SituationDetectionResponse(BaseResponse):
 - Directional awareness: inverse-logic KPIs (lower is better, e.g. COGS) use inverted
   comparison logic so "doing better" always maps to a positive `delta_pct`.
 
+## Phase 8 Update (Mar 2026)
+- `Situation.from_opportunity_signal(signal, kpi_value)` classmethod added to `situation_awareness_models.py` — converts an `OpportunitySignal` with `confidence >= 0.7` into a `Situation` with `card_type="opportunity"`, dedupe key `opp_{kpi_name}_{opportunity_type}`, and severity mapped from opportunity type (`outperformance` → HIGH, `recovery` → MEDIUM, `trend_reversal` → LOW).
+- SA agent `detect_situations` now appends these opportunity Situations to the main situations list after each per-KPI opportunity scan.
+
 ## Future Enhancements
 - Integration with A9_NLP_Interface_Agent for advanced query parsing
 - Enhanced business impact analysis using LLM
 - Machine learning-based anomaly detection
 - Multi-dimensional trend analysis
 - Enhanced visualization capabilities in Decision Studio UI
-- UI green card rendering for `card_type = "opportunity"` in Decision Studio
