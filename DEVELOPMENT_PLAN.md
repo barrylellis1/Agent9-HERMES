@@ -34,8 +34,7 @@ SA (Detect) → DA (Diagnose) → MA (Context) → SF (Prescribe) → HITL (Deci
 
 | Capability | Status |
 |-----------|--------|
-| Value Assurance (outcome measurement) | PRD + workflow YAML done, no agent code |
-| Opportunity Deep Analysis (positive anomalies) | Workflow YAML exists, no agent code |
+| Enterprise Assessment Pipeline (offline SA→DA batch) | Planned (Phase 9) — replaces `run_cfo_assessment.py` |
 | Business Optimization (top-down strategic) | Workflow YAML exists, no agent code |
 | Extended Solution Finding (Risk/Stakeholder agents) | Workflow YAML exists, agents not built |
 | Innovation Driver | Workflow YAML exists, agents not built |
@@ -47,115 +46,115 @@ SA (Detect) → DA (Diagnose) → MA (Context) → SF (Prescribe) → HITL (Deci
 
 ## Development Phases: Forward Plan
 
-### Phase 7: Value Assurance Agent
+### Phase 7: Value Assurance Agent ✅ COMPLETE
 
-**Goal:** Close the insight-to-outcome loop. Prove that HITL-approved solutions actually delivered KPI impact with honest, causal attribution.
+**Status:** Shipped (commit `a5a1e74`, Mar 2026). SF→VA approval handoff wired (commit `79a3f3b`).
 
-**Why first:** This is Agent9's most defensible differentiator. It leverages DA's IS/IS NOT output as control groups for difference-in-differences attribution — the same analysis that diagnosed the problem proves the fix worked. No competing platform does this.
+**Delivered:**
+- VA Agent: 6 entrypoints, DiD attribution, composite verdict matrix, confidence scoring
+- 4 API endpoints + Supabase persistence (situations, solutions, evaluations tables)
+- React components: ValueAssurancePanel, AttributionBreakdown, PortfolioDashboard, CostOfInactionBanner
+- SF HITL approve → VA `register_solution` wired in `_record_solution_action()` — reconstructs RegisterSolutionRequest from workflow record (DA output, SF result, situation_id)
+- "Approve & Track" button in DeepFocusView State F with loading/error/success states
+- 42 unit tests passing
 
-**Reference docs:**
-- PRD: `docs/prd/agents/a9_value_assurance_agent_prd.md`
-- Workflow YAML: `workflow_definitions/value_assurance.yaml`
-- Methodology: `docs/architecture/analytical_methodology_positioning.md`
-
-#### Phase 7A: Agent Core + Supabase Persistence
-
-| Deliverable | Description |
-|------------|-------------|
-| `a9_value_assurance_agent.py` | Agent implementation with `create_from_registry`, async lifecycle |
-| `A9ValueAssuranceAgentConfig` | Pydantic config model in `agent_config_models.py` |
-| Agent card | `cards/a9_value_assurance_agent_card.md` |
-| Pydantic models | `value_assurance_models.py` — rewrite existing models + add attribution types |
-| Supabase migration | `value_assurance_solutions` + `value_assurance_evaluations` tables |
-| `register_solution` entrypoint | Capture SF output + DA context + MA context + strategy snapshot |
-| `evaluate_solution_impact` entrypoint | Counterfactual attribution (control group, market, seasonal, trend) |
-| `check_strategy_alignment` entrypoint | Diff current registry state against approval-time snapshot |
-| Confidence scoring | Factor-based confidence (control group quality, data volume, market data, confounders) |
-| Unit tests | Attribution math, confidence scoring, verdict logic, strategy drift detection |
-
-**Dependencies:** None — all upstream agents (SA, DA, MA, SF) already produce the required data.
-
-#### Phase 7B: API Routes + Existing Endpoint Migration
-
-| Deliverable | Description |
-|------------|-------------|
-| Refactor `value_assurance.py` routes | Delegate existing 5 endpoints to VA Agent (replace in-memory dict) |
-| `GET /portfolio` | Aggregated portfolio dashboard data (strategy-aware) |
-| `POST /solutions/{id}/narrative` | LLM-generated executive narrative |
-| `GET /inaction-costs` | Projected cost of unaddressed situations |
-| `POST /inaction-costs/{situation_id}` | Calculate specific inaction cost |
-| Integration tests | End-to-end: SF HITL → VA registration → measurement → evaluation |
-
-#### Phase 7C: Decision Studio UI
-
-| Deliverable | Description |
-|------------|-------------|
-| Value Assurance panel | Post-HITL tracking view: expected impact, measurement countdown, interim trend |
-| Attribution breakdown chart | Waterfall/stacked bar: attributable vs. market vs. seasonal vs. control |
-| Verdict badge | VALIDATED / PARTIAL / FAILED with confidence indicator |
-| Strategy alignment indicator | ALIGNED / DRIFTED / SUPERSEDED badges with drift explanation |
-| Portfolio dashboard | Summary cards, solution table, cost of inaction, cumulative value chart |
-| Cost of Inaction display | Show at HITL decision point alongside SF options |
-| Narrative display | LLM-generated executive summary per solution |
-
-#### Phase 7D: Orchestrator Integration
-
-| Deliverable | Description |
-|------------|-------------|
-| Auto-registration trigger | Wire SF HITL approval event → VA `register_solution` |
-| Orchestrator workflow method | `run_value_assurance()` on Orchestrator |
-| Agent dependency graph update | VA depends on SA, DA, MA, SF, PC, DP |
-| CLAUDE.md update | Add VA to Current Capabilities table |
+**Remaining (deferred):**
+- VA UI components (ValueAssurancePanel, PortfolioDashboard) not yet wired into DeepFocusView post-approval — show after HITL approval or in briefing view
+- Orchestrator `run_value_assurance()` method not added — VA is called directly from workflow route
 
 ---
 
-### Phase 8: Opportunity Deep Analysis
+### Phase 8: Opportunity Deep Analysis ✅ COMPLETE (with design revision)
 
-**Goal:** Mirror the Problem DA pipeline for positive anomalies. Use the same KT Is/Is Not methodology to discover WHY something is working well and whether it can be replicated.
+**Status:** Shipped (commits `6869ed0`–`1b602b8`, Mar 2026).
 
-**Why second:** Same methodology, same data infrastructure, same UI patterns. High leverage — executives love hearing "here's what's working and why" as much as "here's what's broken." Feeds directly into VA for replication measurement.
+**Delivered:**
+- `BenchmarkSegment` Pydantic model — classifies DA IS NOT items as `internal_benchmark` (top quartile |delta|) or `control_group`
+- `_classify_benchmark_segments()` function in DA agent
+- `analysis_mode` field on `DeepAnalysisRequest` ("problem" | "opportunity") — controls SCQA framing
+- Opportunity SCQA prompt variant: "the gap IS the strategy" McKinsey framing
+- `Situation.from_opportunity_signal()` classmethod — converts OpportunitySignals to Situation cards
+- Frontend: green KPI tiles, Replication Targets section in DeepFocusView
+- `analysisMode` threaded from frontend through API to DA
 
-**Reference docs:**
-- Workflow YAML: `workflow_definitions/opportunity_deep_analysis.yaml`
+**Design revision (Mar 2026):**
+The initial design had SA pre-labeling situations as "problem" or "opportunity" via `card_type`. After review, we determined:
+- **SA should be a sensor** — it reports KPI performance (facts only)
+- **DA is the analyst** — it identifies both problems AND opportunities from the same Is/Is Not table
+- One KPI should not produce duplicate cards (one problem, one opportunity)
+- The `BenchmarkSegment` and Replication Targets UI work correctly regardless of `card_type`
 
-#### Phase 8A: SA Opportunity Detection
+The SA→opportunity labeling code (`from_opportunity_signal`, `card_type="opportunity"`) ships as-is but will be **revisited** when the Enterprise Assessment Pipeline (Phase 9) is built. The correct model: assessment runs enterprise-wide, DA always produces unified output, and findings surface as pre-analyzed results — not as separate problem/opportunity cards.
 
-| Deliverable | Description |
-|------------|-------------|
-| SA opportunity cards | Detect positive anomalies (KPI significantly ABOVE threshold or improving rapidly) |
-| Opportunity card model | Extend `SituationCard` or create `OpportunityCard` with positive framing |
-| UI opportunity cards | Green-themed cards in Decision Studio (vs. red/amber for problems) |
-
-#### Phase 8B: Opportunity Analysis via DA
-
-| Deliverable | Description |
-|------------|-------------|
-| DA opportunity mode | Is/Is Not analysis for positive anomalies — "WHERE is it working? WHERE is it NOT?" |
-| Replication candidates | IS NOT column = dimensions where the opportunity hasn't spread yet |
-| MA integration | "Is this a market tailwind we're riding, or did we do something unique?" |
-| SCQA for opportunities | Situation/Complication/Question/Answer framed positively |
-
-#### Phase 8C: Opportunity → Solution Finding → VA
-
-| Deliverable | Description |
-|------------|-------------|
-| SF opportunity mode | Generate options for scaling/replicating the opportunity |
-| VA opportunity tracking | Measure whether replication attempts succeed in IS NOT dimensions |
-
-**Decision:** Implement as a mode on DA Agent (not a separate `A9_Opportunity_Analysis_Agent`). The methodology is identical — only the framing differs.
+**Decision:** Unified DA — no separate Opportunity Analysis Agent. IS NOT outperformers = internal benchmarks = replication candidates.
 
 ---
 
-### Phase 9: Business Optimization Workflow
+### Phase 9: Enterprise Assessment Pipeline
+
+**Goal:** Replace the interactive dashboard-first model with offline, enterprise-wide analysis. Agent9 should not be perceived as "just another dashboard" — executives already have dashboards. The value is automated analysis, not KPI display.
+
+**Why next:** This is the original product vision. The SA dashboard was a necessary stepping stone to demonstrate capabilities, but the core differentiator is pre-computed analysis: when an executive opens Agent9, they see findings, not raw numbers. This also enables the Briefing Agent (audio/mindmap output) and scheduled VA measurement.
+
+**Design principles:**
+- Assessment is **enterprise-level first** — all registered KPIs across all data products and business processes
+- SA is a **sensor** — fetches values and computes severity from threshold distance. No problem/opportunity labeling.
+- DA is the **analyst** — for each flagged KPI, runs Is/Is Not to produce both problem segments AND benchmark segments
+- Principal-specific views are **layered on top** — the same assessment data, filtered by the principal's business processes
+- SF and HITL remain **interactive** — pre-compute the analysis, keep humans in the decision loop
+
+#### Phase 9A: Data Model + Persistence
+
+| Deliverable | Description |
+|------------|-------------|
+| Supabase migration | `assessment_runs` (id, timestamp, status, kpi_count, config) |
+| Supabase migration | `kpi_assessments` (id, run_id, kpi_id, kpi_value, severity, da_result JSONB, benchmark_segments JSONB) |
+| Assessment models | Pydantic models: `AssessmentRun`, `KPIAssessment`, `AssessmentConfig` |
+
+#### Phase 9B: Assessment Engine (replaces `run_cfo_assessment.py`)
+
+| Deliverable | Description |
+|------------|-------------|
+| `run_enterprise_assessment.py` | New script: iterates ALL registered KPIs, runs SA measurement + DA analysis per KPI, persists to Supabase |
+| Proper agent instantiation | Uses RegistryFactory + Orchestrator (not legacy `create_situation_awareness_agent`) |
+| Configurable severity floor | Only run DA for KPIs above a configurable severity threshold |
+| Idempotent runs | Assessment run ID prevents duplicate analysis for the same KPI in the same period |
+| Progress logging | Per-KPI progress with timing, errors logged but non-fatal |
+
+#### Phase 9C: API + UI
+
+| Deliverable | Description |
+|------------|-------------|
+| `GET /assessments/latest` | Returns most recent assessment run with findings, filterable by principal/business_process |
+| `GET /assessments/{run_id}` | Full assessment detail |
+| `POST /assessments/run` | Trigger assessment on-demand (optional — may be CLI-only initially) |
+| Landing page refactor | Dashboard reads from assessment API, shows pre-analyzed findings with headline summaries |
+| KPI tile redesign | One tile per KPI showing DA headline (not just value + threshold), click drills into pre-loaded DeepFocusView |
+
+#### Phase 9D: Principal-Specific Layering
+
+| Deliverable | Description |
+|------------|-------------|
+| Assessment filtering | Filter assessment results by principal's business processes and KPI ownership |
+| Personalized findings | "3 findings require your attention" — ranked by relevance to the principal |
+| Future: Briefing Agent input | Assessment results become the input for audio Flash Briefings and mindmap generation |
+
+**Dependencies:** Phases 7-8 complete (VA tracking, benchmark segments). Supabase operational.
+
+**Replaces:** `run_cfo_assessment.py` (outdated, SA-only, legacy agent instantiation, CFO-specific).
+
+---
+
+### Phase 10: Business Optimization Workflow
 
 **Goal:** Top-down strategic entry point for board/executive-driven initiatives. Complements the bottom-up SA → DA pipeline with a strategy-first approach.
 
-**Why third:** Shows Agent9 handles proactive strategy, not just reactive KPI monitoring. Requires new agents but reuses SF and VA.
+**Why after assessment:** Shows Agent9 handles proactive strategy, not just reactive KPI monitoring. Requires new agents but reuses SF and VA. The Enterprise Assessment Pipeline (Phase 9) provides the data foundation.
 
 **Reference docs:**
 - Workflow YAML: `workflow_definitions/business_optimization.yaml`
 
-#### Phase 9A: New Agents Required
+#### Phase 10A: New Agents Required
 
 | Agent | Purpose | Complexity |
 |-------|---------|-----------|
@@ -163,7 +162,7 @@ SA (Detect) → DA (Diagnose) → MA (Context) → SF (Prescribe) → HITL (Deci
 | `A9_Stakeholder_Analysis_Agent` | Identify stakeholders, estimate support/resistance | Medium — new |
 | `A9_Business_Optimization_Agent` | Assess operations, identify optimization signals | Medium — new |
 
-#### Phase 9B: Workflow Integration
+#### Phase 10B: Workflow Integration
 
 | Deliverable | Description |
 |------------|-------------|
@@ -173,7 +172,7 @@ SA (Detect) → DA (Diagnose) → MA (Context) → SF (Prescribe) → HITL (Deci
 | SF connection | Route optimization recommendations through existing SF pipeline |
 | VA connection | Track whether strategic initiatives deliver expected value |
 
-#### Phase 9C: UI
+#### Phase 10C: UI
 
 | Deliverable | Description |
 |------------|-------------|
@@ -182,11 +181,11 @@ SA (Detect) → DA (Diagnose) → MA (Context) → SF (Prescribe) → HITL (Deci
 
 ---
 
-### Phase 10: Extended Solution Finding
+### Phase 11: Extended Solution Finding
 
 **Goal:** Heavyweight solution evaluation for strategic decisions. Adds Risk Analysis, Stakeholder Analysis, Solution Architect, and Implementation Planner to the SF pipeline.
 
-**Why fourth:** The current SF (3×Stage1 + synthesis) handles routine KPI fixes well. Extended SF is for large-scale decisions where risk assessment and stakeholder buy-in matter more.
+**Why later:** The current SF (3×Stage1 + synthesis) handles routine KPI fixes well. Extended SF is for large-scale decisions where risk assessment and stakeholder buy-in matter more.
 
 **Reference docs:**
 - Workflow YAML: `workflow_definitions/solution_finding.yaml` (extended version)
@@ -204,7 +203,7 @@ SA (Detect) → DA (Diagnose) → MA (Context) → SF (Prescribe) → HITL (Deci
 
 ---
 
-### Phase 11: Innovation Driver (Future)
+### Phase 12: Innovation Driver (Future)
 
 **Goal:** LLM-powered brainstorming, idea incubation, and opportunity shaping.
 
@@ -227,7 +226,8 @@ SA (Detect) → DA (Diagnose) → MA (Context) → SF (Prescribe) → HITL (Deci
 |------|------|-------------|
 | Supabase VA tables | Phase 7A | Migration script for `value_assurance_solutions` + `value_assurance_evaluations` |
 | Value Assurance persistence | Phase 7A | Replace in-memory dict with Supabase |
-| Scheduled SA execution | Phase 7D or 8A | Trigger SA scans on schedule (cron or timer) for automated VA measurement |
+| Enterprise Assessment Pipeline | Phase 9 | Replace `run_cfo_assessment.py` with enterprise-wide SA→DA batch, Supabase persistence |
+| Scheduled assessment execution | Phase 9B+ | Trigger assessment runs on schedule (cron or timer) for automated VA measurement |
 | Email/Slack notifications | Phase 7C or later | Notify principals when solutions are VALIDATED / FAILED |
 
 ### Testing Strategy
@@ -352,11 +352,12 @@ Each form includes:
 
 ## Summary: Build Priority
 
-| Priority | Phase | Scope | Key Deliverable | Video-Ready? |
-|----------|-------|-------|-----------------|-------------|
-| **Now** | 7 | Value Assurance | Counterfactual attribution, portfolio ROI, cost of inaction | Yes — closes the loop |
-| **Pre-Video** | — | UI Polish | Chat sticky footer, DA accordion, registry forms | Required before recording |
-| **Next** | 8 | Opportunity Deep Analysis | Positive anomaly Is/Is Not, replication candidates | Yes — "what's working" |
-| **After** | 9 | Business Optimization | Top-down strategic entry, risk/stakeholder agents | Yes — strategy-driven |
-| **Later** | 10 | Extended Solution Finding | Heavyweight evaluation, solution architecture | Incremental |
-| **Future** | 11 | Innovation Driver | LLM brainstorming, idea incubation | Requires 4 new agents |
+| Priority | Phase | Scope | Key Deliverable | Status |
+|----------|-------|-------|-----------------|--------|
+| ~~Done~~ | 7 | Value Assurance | Counterfactual attribution, SF→VA approval handoff | ✅ Complete |
+| ~~Done~~ | 8 | Opportunity Deep Analysis | BenchmarkSegment, unified DA, Replication Targets UI | ✅ Complete (design revised) |
+| **Pre-Video** | — | UI Polish | Chat sticky footer, DA accordion, registry forms | Not started |
+| **Next** | 9 | Enterprise Assessment Pipeline | Offline SA→DA batch for all KPIs, Supabase persistence, pre-analyzed findings | Planned |
+| **After** | 10 | Business Optimization | Top-down strategic entry, risk/stakeholder agents | Planned |
+| **Later** | 11 | Extended Solution Finding | Heavyweight evaluation, solution architecture | Planned |
+| **Future** | 12 | Innovation Driver | LLM brainstorming, idea incubation | Requires 4 new agents |
