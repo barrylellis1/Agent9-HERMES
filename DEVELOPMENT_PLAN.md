@@ -137,9 +137,33 @@ The SA→opportunity labeling code (`from_opportunity_signal`, `card_type="oppor
 |------------|-------------|
 | Assessment filtering | Filter assessment results by principal's business processes and KPI ownership |
 | Personalized findings | "3 findings require your attention" — ranked by relevance to the principal |
-| Future: Briefing Agent input | Assessment results become the input for audio Flash Briefings and mindmap generation |
 
-**Dependencies:** Phases 7-8 complete (VA tracking, benchmark segments). Supabase operational.
+#### Phase 9E: Briefing Agent — Audio Intelligence
+
+**Goal:** Transform assessment results into consumable audio briefings. This is the "not a dashboard" differentiator — an executive gets a 60-second Flash Briefing during their commute instead of clicking through tiles.
+
+**Prerequisite:** Phase 9B (assessment engine produces persisted results to summarize).
+
+**PRD revision required:** The existing concept PRD (`docs/prd/agents/a9_briefing_agent_concept.md`) needs updating:
+- Input model: `assessment_run_id` / `kpi_assessment_ids` instead of `source_uris`
+- Personas: CFO, CEO, COO, Finance Manager (not Investor, Product Owner, Lead Engineer)
+- Remove references to `A9_Implementation_Tracker_Agent` and `A9_Risk_Management_Agent` (don't exist)
+- Mindmap capability deferred to Phase 10+ (requires graph visualization frontend)
+
+| Deliverable | Description |
+|------------|-------------|
+| `a9_briefing_agent.py` | Agent with `generate_audio_briefing` entrypoint. LLM summarization → TTS API call |
+| Briefing models | `BriefingRequest` (assessment_run_id, principal_id, workflow_stage), `BriefingResponse` (audio_url, transcript, bullet_points) |
+| TTS integration | One provider to start (OpenAI TTS, ElevenLabs, or Google Cloud TTS) |
+| Workflow-stage framing | SA → "Flash Briefing", DA → "Detective's Summary", SF → "Council Debate", VA → "ROI Post-Mortem" |
+| Audio player UI | Inline audio player + transcript + bullet points in Decision Studio |
+| API endpoint | `POST /api/v1/briefings/generate` — trigger on-demand or auto-generate after assessment |
+
+**Deferred to Phase 10+:**
+- Mindmap generation (graph visualization frontend, entity extraction)
+- Multi-speaker podcast-style audio (conversational TTS — requires more complex TTS orchestration)
+
+**Dependencies:** Phase 9B (assessment results in Supabase), LLM Service Agent (summarization), external TTS API key.
 
 **Replaces:** `run_cfo_assessment.py` (outdated, SA-only, legacy agent instantiation, CFO-specific).
 
@@ -357,7 +381,8 @@ Each form includes:
 | ~~Done~~ | 7 | Value Assurance | Counterfactual attribution, SF→VA approval handoff | ✅ Complete |
 | ~~Done~~ | 8 | Opportunity Deep Analysis | BenchmarkSegment, unified DA, Replication Targets UI | ✅ Complete (design revised) |
 | **Pre-Video** | — | UI Polish | Chat sticky footer, DA accordion, registry forms | Not started |
-| **Next** | 9 | Enterprise Assessment Pipeline | Offline SA→DA batch for all KPIs, Supabase persistence, pre-analyzed findings | Planned |
+| **Next** | 9A-D | Enterprise Assessment Pipeline | Offline SA→DA batch, Supabase persistence, pre-analyzed findings | Planned |
+| **Next** | 9E | Briefing Agent — Audio Intelligence | Flash Briefings, persona-tailored TTS, workflow-stage framing | Planned (after 9B) |
 | **After** | 10 | Business Optimization | Top-down strategic entry, risk/stakeholder agents | Planned |
 | **Later** | 11 | Extended Solution Finding | Heavyweight evaluation, solution architecture | Planned |
 | **Future** | 12 | Innovation Driver | LLM brainstorming, idea incubation | Requires 4 new agents |
