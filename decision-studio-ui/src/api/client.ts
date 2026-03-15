@@ -438,11 +438,12 @@ export async function runDeepAnalysis(
 
 export async function runSolutionFinder(
   deepAnalysisOutput: any,
-  personas: string[] = ["CFO", "Supply Chain Expert", "Data Scientist"], 
+  personas: string[] = ["CFO", "Supply Chain Expert", "Data Scientist"],
   principalInput: any = null,
   principalId: string = 'cfo_001',
   preferencesOverride: any = null,
-  principalContext: any = null  // NEW: Principal context with decision_style
+  principalContext: any = null,  // NEW: Principal context with decision_style
+  situationId?: string
 ) {
     // 1. Trigger the workflow - pass full Deep Analysis result for agent-to-agent data exchange
     const body: any = {
@@ -453,10 +454,14 @@ export async function runSolutionFinder(
             principal_input: principalInput
         }
     };
-    
+
     // Add principal_context if provided (for Principal-driven approach)
     if (principalContext) {
         body.principal_context = principalContext;
+    }
+
+    if (situationId) {
+        body.situation_id = situationId;
     }
 
     const runResponse = await fetch(`${API_BASE}/workflows/solutions/run`, {
@@ -464,14 +469,14 @@ export async function runSolutionFinder(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
-    
+
     if (!runResponse.ok) {
       const errorText = await runResponse.text();
       throw new Error(`Failed to start solution finder: ${errorText}`);
     }
-    
+
     const { data: { request_id } } = await runResponse.json();
-  
+
     // 2. Poll for completion
     let attempts = 0;
     while (attempts < 120) {  // 2 min — synthesis (Sonnet) + 529 retries can exceed 60s
@@ -479,8 +484,8 @@ export async function runSolutionFinder(
       const { data } = await statusResponse.json();
 
       if (data.state === 'completed') {
-        // Return full result envelope to access audit log (transcript) and solutions
-        return data.result;
+        // Return result + request_id so callers can use request_id for HITL actions
+        return { result: data.result, request_id };
       }
       if (data.state === 'failed') {
         throw new Error(data.error || 'Workflow failed');
@@ -491,3 +496,24 @@ export async function runSolutionFinder(
     }
     throw new Error('Workflow timed out');
   }
+
+export async function approveSolution(
+  requestId: string,
+  solutionOptionId: string,
+  comment?: string
+) {
+  const response = await fetch(`${API_BASE}/workflows/solutions/${requestId}/actions/approve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'approve',
+      comment: comment || 'Approved via Decision Studio',
+      payload: { solution_option_id: solutionOptionId },
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Approve failed: ${await response.text()}`);
+  }
+  const { data } = await response.json();
+  return data;
+}

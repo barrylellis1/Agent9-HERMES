@@ -4,6 +4,7 @@ import {
   detectSituations,
   runDeepAnalysis,
   runSolutionFinder,
+  approveSolution,
   listPrincipals,
   listClients,
   ProblemRefinementResult,
@@ -84,6 +85,8 @@ export function useDecisionStudio() {
   // Solution Finder / Council
   const [findingSolutions, setFindingSolutions] = useState(false);
   const [solutions, setSolutions] = useState<any | null>(null);
+  const [solutionRequestId, setSolutionRequestId] = useState<string | null>(null);
+  const [approveState, setApproveState] = useState<'idle' | 'approving' | 'approved' | 'error'>('idle');
   const [showPersonaSelector, setShowPersonaSelector] = useState(false);
   const [debatePhase, setDebatePhase] = useState<number>(0);
   const [debateHypotheses, setDebateHypotheses] = useState<Record<string, any> | null>(null);
@@ -177,6 +180,8 @@ export function useDecisionStudio() {
     setAnalysisError(null);
     setComparisonData(null);
     setSolutions(null);
+    setSolutionRequestId(null);
+    setApproveState('idle');
     setShowPersonaSelector(false);
     setRefinementResult(null); // Reset refinement
 
@@ -386,6 +391,7 @@ export function useDecisionStudio() {
         const stageResults: any[] = [];
         let stageOneHypotheses: any = null;
         let stageTwoCrossReview: any = null;
+        let lastSolutionRequestId: string | null = null;
 
         const runStage = async (stage: 'stage1_only' | 'hypothesis' | 'cross_review' | 'synthesis') => {
             const stagePreferences = {
@@ -396,14 +402,17 @@ export function useDecisionStudio() {
                 prior_stage1_hypotheses: stage !== 'stage1_only' ? stageOneHypotheses : undefined
             };
 
-            const response = await runSolutionFinder(
+            const sfResult = await runSolutionFinder(
                 deepAnalysisPayload,
                 [],
                 null,
                 selectedPrincipal,
                 stagePreferences,
-                principalContext
+                principalContext,
+                selectedSituation?.situation_id  // NEW: pass situation_id
             );
+            const response = sfResult.result;  // unwrap
+            lastSolutionRequestId = sfResult.request_id;
 
             stageResults.push(response);
 
@@ -445,6 +454,8 @@ export function useDecisionStudio() {
         }
 
         setSolutions(enrichedSolutions || null);
+        setSolutionRequestId(lastSolutionRequestId);
+        setApproveState('idle');
 
         try {
           if (enrichedSolutions && selectedSituation?.situation_id) {
@@ -463,6 +474,18 @@ export function useDecisionStudio() {
         setDebatePhase(0);
     }
   };
+
+  const handleApproveSolution = useCallback(async (optionId: string) => {
+    if (!solutionRequestId) return;
+    setApproveState('approving');
+    try {
+      await approveSolution(solutionRequestId, optionId);
+      setApproveState('approved');
+    } catch (err) {
+      console.error('Approve failed:', err);
+      setApproveState('error');
+    }
+  }, [solutionRequestId]);
 
   return {
     // State
@@ -484,6 +507,8 @@ export function useDecisionStudio() {
     marketSignals,
     findingSolutions,
     solutions,
+    solutionRequestId,
+    approveState,
     showPersonaSelector,
     debatePhase,
     debateHypotheses,
@@ -521,6 +546,7 @@ export function useDecisionStudio() {
     handleDeepAnalysis,
     handleCompare,
     handleStartDebate,
+    handleApproveSolution,
 
     // Constants
     AVAILABLE_COUNCILS,
