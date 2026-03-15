@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, TrendingUp } from 'lucide-react';
 import { LinePath } from '@visx/shape';
 import { scaleLinear } from '@visx/scale';
 import { curveMonotoneX } from '@visx/curve';
@@ -19,6 +19,8 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick }) => {
     }));
   }, [situation.severity]);
 
+  const isOpportunity = situation.card_type === 'opportunity';
+
   // Color mapping
   const colors = {
     critical: { border: 'border-red-500', bg: 'bg-red-500/10', text: 'text-red-400', stroke: '#ef4444' },
@@ -27,8 +29,9 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick }) => {
     low: { border: 'border-emerald-500', bg: 'bg-emerald-500/10', text: 'text-emerald-400', stroke: '#10b981' },
   };
 
-  const status = colors[situation.severity as keyof typeof colors] || colors.medium;
-  const isNegative = situation.severity === 'critical' || situation.severity === 'high';
+  const opportunityColors = { border: 'border-green-500', bg: 'bg-green-500/10', text: 'text-green-400', stroke: '#22c55e' };
+  const status = isOpportunity ? opportunityColors : (colors[situation.severity as keyof typeof colors] || colors.medium);
+  const isNegative = !isOpportunity && (situation.severity === 'critical' || situation.severity === 'high');
 
   // Scales for sparkline
   const width = 120;
@@ -50,14 +53,14 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick }) => {
       <div className="flex justify-between items-start w-full mb-4">
         <div>
           <span className={`text-[10px] font-bold uppercase tracking-wider ${status.text} border border-current px-1.5 py-0.5 rounded`}>
-            {situation.severity}
+            {isOpportunity ? 'Growth Opportunity' : situation.severity}
           </span>
           <h3 className="text-lg font-bold text-white mt-2 leading-tight group-hover:text-blue-400 transition-colors">
             {situation.kpi_name}
           </h3>
         </div>
         <div className={`p-2 rounded-full bg-slate-900/50 ${status.text}`}>
-          {isNegative ? <ArrowDownRight className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+          {isOpportunity ? <TrendingUp className="w-5 h-5" /> : isNegative ? <ArrowDownRight className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
         </div>
       </div>
 

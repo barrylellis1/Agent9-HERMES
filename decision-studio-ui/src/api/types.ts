@@ -7,6 +7,7 @@ export interface Situation {
     currency?: string;
   };
   severity: 'low' | 'medium' | 'high' | 'critical';
+  card_type?: 'problem' | 'opportunity';
   description: string;
   business_impact?: string;
   suggested_actions?: string[];
@@ -48,6 +49,17 @@ export interface IsIsNotItem {
   text?: string;
 }
 
+export interface BenchmarkSegment {
+  dimension: string;
+  key: string;
+  current_value: number;
+  previous_value: number;
+  delta: number;
+  delta_pct?: number;
+  benchmark_type: 'control_group' | 'internal_benchmark';
+  replication_potential?: number;
+}
+
 export interface KTIsIsNotData {
   where_is: IsIsNotItem[];
   where_is_not: IsIsNotItem[];
@@ -55,6 +67,7 @@ export interface KTIsIsNotData {
   what_is_not?: any[];
   when_is?: any[];
   when_is_not?: any[];
+  benchmark_segments?: BenchmarkSegment[];
 }
 
 export interface DeepAnalysisExecution {

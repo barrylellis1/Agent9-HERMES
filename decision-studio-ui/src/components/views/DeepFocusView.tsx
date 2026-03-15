@@ -1,17 +1,18 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  AlertTriangle, 
-  CheckCircle2, 
-  Microscope, 
-  Lightbulb, 
-  Loader2, 
+import {
+  ArrowLeft,
+  AlertTriangle,
+  CheckCircle2,
+  Microscope,
+  Lightbulb,
+  Loader2,
   Users,
   X,
   Sparkles,
   CircleDot,
-  ShieldCheck
+  ShieldCheck,
+  TrendingUp
 } from 'lucide-react';
 import { Situation, ProblemRefinementResult, MarketSignal } from '../../api/types';
 import { ProblemRefinementChat } from '../ProblemRefinementChat';
@@ -145,14 +146,14 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
           </button>
           <div>
             <div className="flex items-center gap-2 mb-1">
-               <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs font-bold rounded uppercase">
-                 {situation.severity}
+               <span className={`px-2 py-0.5 text-xs font-bold rounded uppercase ${situation.card_type === 'opportunity' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                 {situation.card_type === 'opportunity' ? 'Opportunity' : situation.severity}
                </span>
                <span className="text-slate-500 text-xs uppercase tracking-wider">
                  ID: {situation.situation_id?.substring(0, 8)}
                </span>
             </div>
-            <h1 className="text-xl font-bold text-white">{situation.kpi_name} Variance</h1>
+            <h1 className="text-xl font-bold text-white">{situation.kpi_name} {situation.card_type === 'opportunity' ? 'Opportunity' : 'Variance'}</h1>
           </div>
         </div>
         
@@ -231,6 +232,54 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
 
                             {/* Embedded Variance Analysis (Is/Is Not) */}
                             {renderVarianceAnalysis()}
+
+                            {/* Replication Targets — only shown when DA returns benchmark_segments */}
+                            {currentAnalysis?.kt_is_is_not?.benchmark_segments && currentAnalysis.kt_is_is_not.benchmark_segments.length > 0 && (() => {
+                              const benchmarks = currentAnalysis.kt_is_is_not.benchmark_segments.filter((s: any) => s.benchmark_type === 'internal_benchmark');
+                              const controls = currentAnalysis.kt_is_is_not.benchmark_segments.filter((s: any) => s.benchmark_type === 'control_group');
+                              return (
+                                <div className="bg-slate-900/50 border border-green-500/20 rounded-xl p-6 mb-6">
+                                  <h3 className="text-sm font-bold text-green-400 uppercase tracking-wider mb-1 flex items-center gap-2">
+                                    <TrendingUp className="w-4 h-4" />
+                                    Replication Targets
+                                  </h3>
+                                  <p className="text-xs text-slate-500 mb-4">These segments are outperforming the KPI target — internal proof that the gap is closeable.</p>
+                                  {benchmarks.length > 0 && (
+                                    <div className="space-y-2 mb-4">
+                                      {benchmarks.map((seg: any, i: number) => (
+                                        <div key={i} className="flex items-center justify-between bg-slate-950 border border-green-500/10 rounded-lg px-4 py-3">
+                                          <div>
+                                            <span className="text-xs text-slate-500 uppercase">{seg.dimension}</span>
+                                            <div className="text-sm font-medium text-white">{seg.key}</div>
+                                          </div>
+                                          <div className="flex items-center gap-3">
+                                            <span className="text-sm font-mono text-green-400">{seg.delta > 0 ? '+' : ''}{seg.delta?.toLocaleString()}</span>
+                                            {seg.replication_potential != null && (
+                                              <span className="text-[10px] px-2 py-0.5 bg-green-900/40 text-green-300 rounded-full font-medium">
+                                                {Math.round(seg.replication_potential * 100)}% potential
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {controls.length > 0 && (
+                                    <details className="group">
+                                      <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-400 select-none">Control Group ({controls.length} segments)</summary>
+                                      <div className="mt-2 space-y-1">
+                                        {controls.map((seg: any, i: number) => (
+                                          <div key={i} className="flex items-center justify-between bg-slate-950/50 rounded px-3 py-2 text-xs text-slate-400">
+                                            <span>{seg.dimension}: {seg.key}</span>
+                                            <span className="font-mono">{seg.delta > 0 ? '+' : ''}{seg.delta?.toLocaleString()}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </details>
+                                  )}
+                                </div>
+                              );
+                            })()}
 
                             {/* Market Intelligence Card — renders when MA signals arrive from DA */}
                             {initialMarketSignals && initialMarketSignals.length > 0 && (
@@ -311,7 +360,6 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                 </section>
 
                 {/* 3. Strategic Options (Trade-off Analysis) */}
-                {solutions && console.log("[DeepFocusView] solutions:", solutions, "options_ranked:", solutions?.options_ranked)}
                 {solutions && (
                     <section className="bg-slate-900 border border-slate-800 rounded-xl p-6">
                         {solutions.status === 'error' ? (

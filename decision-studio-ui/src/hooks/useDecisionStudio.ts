@@ -251,7 +251,13 @@ export function useDecisionStudio() {
     setAnalyzing(true);
     setAnalysisError(null);
     try {
-        const result = await runDeepAnalysis(sitId, sit.kpi_name, selectedPrincipal, timeframe);
+        const result = await runDeepAnalysis(
+          sitId,
+          sit.kpi_name,
+          selectedPrincipal,
+          timeframe,
+          sit.card_type === 'opportunity' ? 'opportunity' : 'problem'
+        );
         
         if (!result || !result.execution) {
             throw new Error("Analysis completed but returned no results.");

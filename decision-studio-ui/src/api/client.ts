@@ -389,20 +389,25 @@ export async function refineProblem(
   return data as ProblemRefinementResult;
 }
 
-export async function runDeepAnalysis(situationId: string, kpiName: string, principalId: string = 'cfo_001', timeframe?: string) {
+export async function runDeepAnalysis(
+  situationId: string,
+  kpiName: string,
+  principalId: string = 'cfo_001',
+  timeframe?: string,
+  analysisMode?: 'problem' | 'opportunity'
+) {
     // 1. Trigger the workflow
+    const body: Record<string, any> = {
+      principal_id: principalId,
+      situation_id: situationId,
+      scope: { kpi_id: kpiName, timeframe: timeframe },
+      include_supporting_evidence: true,
+    };
+    if (analysisMode) body.analysis_mode = analysisMode;
     const runResponse = await fetch(`${API_BASE}/workflows/deep-analysis/run`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        principal_id: principalId,
-        situation_id: situationId,
-        scope: {
-            kpi_id: kpiName,
-            timeframe: timeframe
-        },
-        include_supporting_evidence: true
-      })
+      body: JSON.stringify(body)
     });
     
     if (!runResponse.ok) {
