@@ -242,6 +242,21 @@ The SA→opportunity labeling code (`from_opportunity_signal`, `card_type="oppor
 
 ---
 
+### Future: Enterprise Tier Roadmap
+
+These features go beyond CaaS core and into per-customer enterprise customization. They require significant data accumulation, organizational integration, or workflow complexity that only makes sense for dedicated enterprise deployments. Documented here as a roadmap — not planned for near-term development.
+
+| Feature | Description | Why Enterprise-Only |
+|---------|-------------|---------------------|
+| **Decision Journal** | Capture principal's reasoning for approve/reject/defer decisions. Build institutional decision memory that informs future SF recommendations and VA evaluations | Requires months of decision data per customer; overlaps with existing board portals and decision-tracking tools |
+| **Conditional Approval** | "Approve, but only if legal confirms by Week 2." Track prerequisites as blockers before implementation starts | This is project management — customers already have Jira, Monday, Asana for prerequisite tracking |
+| **Scenario Exploration** | Let the principal adjust SF parameters ("What if we only pass through 50%?") and see re-estimated impact without re-running the full pipeline | Massive complexity for uncertain value; requires lightweight LLM re-estimation model |
+| **Stakeholder Pre-Briefing Generator** | Generate scoped briefing extracts for specific stakeholders (VP Sales gets franchise impact, Legal gets contractual constraints) | Assumes deep organizational knowledge per customer; connects to Briefing Agent but requires per-role content filtering |
+| **VA Feedback Loop** | When VA evaluates a past solution, surface historical results in future SF recommendations ("A similar intervention recovered 60% vs. the 85% estimate") | Requires multiple completed VA cycles to be meaningful; calibration data accumulates slowly |
+| **Principal Learning Profile** | Track what the principal always asks vs. never questions; pre-surface relevant information, reduce emphasis on areas they consistently accept | Requires dozens of decision cycles per principal; risks perception of manipulative framing if not handled carefully |
+
+---
+
 ## Cross-Cutting Concerns (All Phases)
 
 ### Infrastructure Improvements
@@ -437,3 +452,4 @@ Each form includes:
 | **After** | 10 | Business Optimization | Top-down strategic entry, risk/stakeholder agents | Planned |
 | **Later** | 11 | Extended Solution Finding | Heavyweight evaluation, solution architecture | Planned |
 | **Future** | 12 | Innovation Driver | LLM brainstorming, idea incubation | Requires 4 new agents |
+| **Enterprise** | — | Enterprise Tier Roadmap | Decision Journal, Conditional Approval, Scenario Exploration, Stakeholder Pre-Briefing, VA Feedback Loop, Principal Learning Profile | Per-customer customization — not CaaS core |

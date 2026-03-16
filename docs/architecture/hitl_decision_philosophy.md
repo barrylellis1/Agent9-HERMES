@@ -129,7 +129,6 @@ This philosophy has implications for existing agent PRDs:
 ### Principal Context Agent
 - PC Agent profile data (decision style, priorities, risk tolerance, business process ownership) must be available to the Q&A context assembly — not just for access control but for **framing**
 - Q&A responses should be tailored to the principal's decision style: an analytical CFO gets quantified trade-offs, an intuitive CEO gets strategic narrative
-- Future: PC Agent could learn from Q&A patterns (which questions does this principal always ask?) to pre-surface relevant information
 
 ### Business Context Registry
 - Business process hierarchy and strategic objectives must be queryable during Q&A — not just for filtering but for **alignment assessment**
@@ -155,7 +154,6 @@ This philosophy has implications for existing agent PRDs:
 
 ### Value Assurance Agent
 - Approval payload should capture whether the principal completed Q&A before approving (engagement signal)
-- Future: VA evaluation results should be presentable back through the same Q&A interface
 
 ### Executive Briefing (UI)
 - Must evolve from static document to interactive decision workspace
