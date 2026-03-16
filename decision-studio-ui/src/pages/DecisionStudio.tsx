@@ -21,7 +21,6 @@ export function DecisionStudio() {
     marketSignals,
     findingSolutions,
     solutions,
-    approveState,
     showPersonaSelector,
     debatePhase,
     debateHypotheses,
@@ -41,7 +40,6 @@ export function DecisionStudio() {
     handleRefresh,
     handleDeepAnalysis,
     handleStartDebate,
-    handleApproveSolution,
     setSelectedSituation,
     setDaViewMode,
     setShowRefinementChat,
@@ -95,9 +93,6 @@ export function DecisionStudio() {
         debateHypotheses={debateHypotheses}
         solutions={solutions}
         onStartDebate={() => handleStartDebate()}
-        onApprove={handleApproveSolution}
-        approveState={approveState}
-        
         // Council Config
         useHybridCouncil={useHybridCouncil}
         setUseHybridCouncil={setUseHybridCouncil}

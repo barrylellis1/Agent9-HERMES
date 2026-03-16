@@ -11,6 +11,7 @@ Read before designing changes to agents, registries, or workflows:
 | `orchestrator_implementation.md` | Dependency resolution implementation detail |
 | `core_workflow_diagram.md` | Visual workflow diagrams, agent interaction sequences |
 | `analytical_methodology_positioning.md` | KT + MBB architecture rationale, IS NOT as control group, competitive positioning |
+| `hitl_decision_philosophy.md` | HITL gate design, Solution Q&A, cognitive dissonance principle, context stack, approval flow |
 
 Technical debt and known issue plans:
 

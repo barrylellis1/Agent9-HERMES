@@ -44,8 +44,6 @@ interface DeepFocusViewProps {
   debateHypotheses?: Record<string, any> | null;
   solutions: any;
   onStartDebate: (mode?: 'recommended' | 'manual') => void;
-  onApprove?: (optionId: string) => void;
-  approveState?: 'idle' | 'approving' | 'approved' | 'error';
   // Council Config
   useHybridCouncil: boolean;
   setUseHybridCouncil: (val: boolean) => void;
@@ -84,8 +82,6 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   debateHypotheses,
   solutions,
   onStartDebate,
-  onApprove,
-  approveState = 'idle',
   useHybridCouncil,
   setUseHybridCouncil,
   councilType,
@@ -634,27 +630,6 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                 <p className="text-xs text-slate-400 leading-relaxed">
                                     {solutions.recommendation_rationale}
                                 </p>
-                            </div>
-                        )}
-
-                        {solutions.recommendation && onApprove && approveState !== 'approved' && (
-                            <button
-                                onClick={() => onApprove(solutions.recommendation.id)}
-                                disabled={approveState === 'approving'}
-                                className="w-full py-3 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-center rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
-                            >
-                                {approveState === 'approving' ? (
-                                    <><Loader2 className="w-4 h-4 animate-spin" /> Registering...</>
-                                ) : approveState === 'error' ? (
-                                    <><AlertTriangle className="w-4 h-4" /> Retry Approval</>
-                                ) : (
-                                    <><ShieldCheck className="w-4 h-4" /> Approve &amp; Track</>
-                                )}
-                            </button>
-                        )}
-                        {approveState === 'approved' && (
-                            <div className="w-full py-3 bg-emerald-900/30 border border-emerald-500/30 text-emerald-400 text-center rounded-lg font-medium flex items-center justify-center gap-2">
-                                <CheckCircle2 className="w-4 h-4" /> Approved — Value Assurance Tracking Started
                             </div>
                         )}
 

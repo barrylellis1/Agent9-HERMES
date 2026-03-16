@@ -55,7 +55,7 @@ SA (Detect) → DA (Diagnose) → MA (Context) → SF (Prescribe) → HITL (Deci
 - 4 API endpoints + Supabase persistence (situations, solutions, evaluations tables)
 - React components: ValueAssurancePanel, AttributionBreakdown, PortfolioDashboard, CostOfInactionBanner
 - SF HITL approve → VA `register_solution` wired in `_record_solution_action()` — reconstructs RegisterSolutionRequest from workflow record (DA output, SF result, situation_id)
-- "Approve & Track" button in DeepFocusView State F with loading/error/success states
+- "Approve & Track" button moved to Executive Briefing page (post-review, not pre-review) with post-approval confirmation card showing approved strategy, expected recovery, monitoring window, and next steps
 - 42 unit tests passing
 
 **Remaining (deferred):**
@@ -374,6 +374,56 @@ Each form includes:
 
 ---
 
+### Refinement: Interactive Decision Briefing
+
+**Goal:** Transform the Executive Briefing from a static 18-page report into an interactive decision workspace with Solution Q&A. This is the defining HITL moment of Decision Studio — where the principal does due diligence before committing organizational resources.
+
+**Why now:** Completes the existing SA → DA → SF → Approve pipeline. No new agents required — extends existing Problem Refinement Chat pattern with richer context. Makes the pipeline genuinely production-ready before building new capabilities (Phase 9+).
+
+**Architecture reference:** `docs/architecture/hitl_decision_philosophy.md` — core principles, context stack, question tiers, ripple effects.
+
+**Design principles:**
+- **Present, don't defend.** When the principal challenges a recommendation, provide context — don't argue. If they disagree, the system is working correctly.
+- **Transparent boundaries.** Distinguish between context recall (high confidence), data queries (verifiable via NLP → DPA), and strategic judgment (flag as requiring organizational knowledge).
+- **Earned approval.** The approval gate exists because the decision matters. The principal should feel they've done their due diligence.
+
+#### Refinement A: Briefing Page Interactivity
+
+| Deliverable | Description |
+|------------|-------------|
+| Collapsible sections | Briefing sections collapse/expand (not a flat 18-page wall). Smart defaults — executive summary expanded, details collapsed with one-line previews |
+| Solution Q&A chat panel | Slide-in or sidebar chat panel on the Decision Briefing page. Same neutral voice as Problem Refinement Chat |
+| Suggested questions | Seeded from the briefing's own Stakeholder Perspectives and Unresolved Tensions sections |
+| Approval flow | "Approve Recommendation" button at bottom, after review and Q&A. Post-approval confirmation card with approved strategy, expected recovery, monitoring window, and what happens next |
+
+#### Refinement B: Solution Q&A Backend
+
+| Deliverable | Description |
+|------------|-------------|
+| Q&A API endpoint | `POST /api/v1/workflows/solutions/{request_id}/qa` — accepts question, returns answer with confidence tier |
+| Context assembly | Full context stack: DA SCQA + IS/IS NOT, SF Stage 1/2/3, MA signals, Problem Refinement history, blind spots, unresolved tensions |
+| Tier classification | LLM classifies each question as context_recall / data_query / strategic_judgment and responds accordingly |
+| NLP → DPA integration | Tier 2 data queries route through existing NLP Interface → Data Product Agent pipeline (same as Problem Refinement) |
+| Pydantic models | `SolutionQARequest` / `SolutionQAResponse` with confidence_tier, suggested_followups, stakeholder_questions |
+
+#### Refinement C: Agent PRD Updates (Ripple Effects)
+
+| Agent PRD | Update Required |
+|-----------|----------------|
+| Solution Finder | SF output must include structured fields supporting Q&A retrieval: `blind_spots`, `unresolved_tensions`, stakeholder perspectives per option. Recommendation should include suggested pre-approval questions |
+| NLP Interface | Document support for Solution Q&A context (not just Problem Refinement) |
+| LLM Service | Document Solution Q&A prompt context requirements and task routing (Haiku for recall, Sonnet for synthesis) |
+| Value Assurance | Capture whether principal completed Q&A before approving (engagement signal) |
+
+**Effort:** Medium (~1 week). Heaviest lift is context assembly and the Q&A system prompt.
+
+**Files:**
+- Backend: new route in `src/api/routes/workflows.py`, context assembly logic
+- Frontend: `decision-studio-ui/src/pages/ExecutiveBriefing.tsx` (chat panel, collapsible sections)
+- Architecture: `docs/architecture/hitl_decision_philosophy.md` (already written)
+
+---
+
 ## Summary: Build Priority
 
 | Priority | Phase | Scope | Key Deliverable | Status |
@@ -381,6 +431,7 @@ Each form includes:
 | ~~Done~~ | 7 | Value Assurance | Counterfactual attribution, SF→VA approval handoff | ✅ Complete |
 | ~~Done~~ | 8 | Opportunity Deep Analysis | BenchmarkSegment, unified DA, Replication Targets UI | ✅ Complete (design revised) |
 | **Pre-Video** | — | UI Polish | Chat sticky footer, DA accordion, registry forms | Not started |
+| **Next** | Refinement | Interactive Decision Briefing | Solution Q&A, collapsible briefing, earned approval flow | Planned — architecture doc written |
 | **Next** | 9A-D | Enterprise Assessment Pipeline | Offline SA→DA batch, Supabase persistence, pre-analyzed findings | Planned |
 | **Next** | 9E | Briefing Agent — Audio Intelligence | Flash Briefings, persona-tailored TTS, workflow-stage framing | Planned (after 9B) |
 | **After** | 10 | Business Optimization | Top-down strategic entry, risk/stakeholder agents | Planned |

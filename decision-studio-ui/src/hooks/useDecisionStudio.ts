@@ -462,6 +462,9 @@ export function useDecisionStudio() {
             localStorage.setItem(`solutions_${selectedSituation.situation_id}`, JSON.stringify(enrichedSolutions));
             const briefingPayload = buildExecutiveBriefing(selectedSituation, currentAnalysis, enrichedSolutions, marketSignals);
             localStorage.setItem(`briefing_${selectedSituation.situation_id}`, JSON.stringify(briefingPayload));
+            if (lastSolutionRequestId) {
+              localStorage.setItem(`solution_request_${selectedSituation.situation_id}`, lastSolutionRequestId);
+            }
           }
         } catch (e) {
           console.error('Failed to persist briefing/solutions payload', e);

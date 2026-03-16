@@ -1,13 +1,30 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Download, Share2, Printer, AlertTriangle, CheckCircle, ChevronRight, Users, Target, Zap, Clock, Sparkles } from 'lucide-react'
+import { ArrowLeft, Download, Share2, Printer, AlertTriangle, CheckCircle, ChevronRight, Users, Target, Zap, Clock, Sparkles, ShieldCheck, Loader2, CheckCircle2 } from 'lucide-react'
+import { approveSolution } from '../api/client'
 
 // Full-page Executive Briefing - Consultant-style deliverable
 export function ExecutiveBriefing() {
   const { situationId } = useParams()
   const [briefing, setBriefing] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [approveState, setApproveState] = useState<'idle' | 'approving' | 'approved' | 'error'>('idle')
+  const [approvalResult, setApprovalResult] = useState<any>(null)
+
+  const handleApprove = useCallback(async (optionId: string) => {
+    const requestId = localStorage.getItem(`solution_request_${situationId}`)
+    if (!requestId) return
+    setApproveState('approving')
+    try {
+      const result = await approveSolution(requestId, optionId)
+      setApprovalResult(result)
+      setApproveState('approved')
+    } catch (err) {
+      console.error('Approve failed:', err)
+      setApproveState('error')
+    }
+  }, [situationId])
 
   useEffect(() => {
     // Load briefing data from localStorage or fetch from API
@@ -773,6 +790,67 @@ export function ExecutiveBriefing() {
             </div>
           </div>
         </section>
+
+        {/* Principal Approval */}
+        {data.recommendation?.optionId && approveState !== 'approved' && (
+          <section className="mb-12 print:hidden">
+            <button
+              onClick={() => handleApprove(data.recommendation.optionId)}
+              disabled={approveState === 'approving'}
+              className="w-full py-4 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-center rounded-xl font-bold text-lg transition-colors flex items-center justify-center gap-3"
+            >
+              {approveState === 'approving' ? (
+                <><Loader2 className="w-5 h-5 animate-spin" /> Registering with Value Assurance...</>
+              ) : approveState === 'error' ? (
+                <><AlertTriangle className="w-5 h-5" /> Retry Approval</>
+              ) : (
+                <><ShieldCheck className="w-5 h-5" /> Approve Recommendation &amp; Start Value Assurance Tracking</>
+              )}
+            </button>
+          </section>
+        )}
+        {approveState === 'approved' && (() => {
+          const approvedOption = data.options?.find((o: any) => o.recommended) || data.options?.[0]
+          return (
+            <section className="mb-12 print:hidden">
+              <div className="bg-emerald-50 border-2 border-emerald-300 rounded-xl p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center">
+                    <CheckCircle2 className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-emerald-900">Decision Approved</h3>
+                    <p className="text-sm text-emerald-700">Value Assurance tracking has been initiated</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div className="bg-white rounded-lg p-3 border border-emerald-200">
+                    <p className="text-xs text-slate-500 uppercase mb-1">Approved Strategy</p>
+                    <p className="text-sm font-semibold text-slate-900">{approvedOption?.title || data.recommendation?.headline}</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-emerald-200">
+                    <p className="text-xs text-slate-500 uppercase mb-1">Expected Recovery</p>
+                    <p className="text-sm font-semibold text-slate-900">{approvedOption?.roi || 'See option details'}</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-emerald-200">
+                    <p className="text-xs text-slate-500 uppercase mb-1">Monitoring Window</p>
+                    <p className="text-sm font-semibold text-slate-900">{approvedOption?.timeline || '30 days'}</p>
+                  </div>
+                </div>
+
+                <div className="bg-emerald-100/50 rounded-lg p-3 text-sm text-emerald-800">
+                  <p className="font-medium mb-1">What happens next:</p>
+                  <ul className="space-y-1 text-emerald-700">
+                    <li>1. Value Assurance Agent will monitor KPI performance against the expected recovery range</li>
+                    <li>2. Difference-in-Differences attribution will separate your intervention's impact from market movements</li>
+                    <li>3. You will receive an evaluation at the end of the monitoring window</li>
+                  </ul>
+                </div>
+              </div>
+            </section>
+          )
+        })()}
 
         {/* Footer */}
         <footer className="border-t border-slate-200 pt-8 text-center text-sm text-slate-500">

@@ -325,6 +325,7 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
         nextSteps,
         decisionOwner: 'Finance Leadership',
         deadline: decisionDeadline,
+        optionId: sol?.recommendation?.id || topOptions[0]?.id || null,
       },
       // Hybrid Council artifacts - 3-stage debate
       stage_1_hypotheses: sol?.stage_1_hypotheses || null,
