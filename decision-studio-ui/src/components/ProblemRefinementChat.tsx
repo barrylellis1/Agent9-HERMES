@@ -160,34 +160,34 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
   const progressPercentage = (topicsCompleted.length / 5) * 100;
 
   return (
-    <div className="flex flex-col h-full bg-slate-800 rounded-lg shadow-lg">
+    <div className="flex flex-col flex-1 min-h-0 bg-slate-800 rounded-lg shadow-lg">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-slate-700 bg-slate-900 rounded-t-lg">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <MessageCircle className="w-5 h-5 text-indigo-400" />
-            <h3 className="font-semibold text-white">Problem Refinement</h3>
-            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${styleInfo.color}`}>
-              {styleInfo.label} Style
+      <div className="flex-shrink-0 px-3 py-2 border-b border-slate-700 bg-slate-900 rounded-t-lg">
+        <div className="flex items-center justify-between gap-1">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <MessageCircle className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+            <h3 className="text-sm font-semibold text-white truncate">Refinement</h3>
+            <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded-full flex-shrink-0 ${styleInfo.color}`}>
+              {styleInfo.label}
             </span>
           </div>
           <button
             onClick={onCancel}
-            className="text-slate-400 hover:text-white text-sm"
+            className="text-slate-400 hover:text-white text-xs flex-shrink-0"
           >
             Cancel
           </button>
         </div>
-        
+
         {/* Progress bar */}
-        <div className="mt-2">
-          <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+        <div className="mt-1">
+          <div className="flex items-center justify-between text-[10px] text-slate-400 mb-0.5">
             <span>{TOPIC_LABELS[currentTopic] || currentTopic}</span>
-            <span>{topicsCompleted.length}/5 topics</span>
+            <span>{topicsCompleted.length}/5</span>
           </div>
-          <div className="w-full bg-slate-700 rounded-full h-1.5">
+          <div className="w-full bg-slate-700 rounded-full h-1">
             <div
-              className="bg-indigo-500 h-1.5 rounded-full transition-all duration-300"
+              className="bg-indigo-500 h-1 rounded-full transition-all duration-300"
               style={{ width: `${progressPercentage}%` }}
             />
           </div>
@@ -197,7 +197,7 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
       {/* Market Intelligence signals moved to left panel (DeepFocusView) */}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px] max-h-[400px]">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
         {messages.map((msg, idx) => (
           <div
             key={idx}
@@ -235,15 +235,17 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Sticky footer */}
+      <div className="flex-shrink-0">
       {/* Suggested responses */}
       {suggestedResponses.length > 0 && !isLoading && (
-        <div className="px-4 py-2 border-t border-slate-700">
-          <div className="flex flex-wrap gap-2">
+        <div className="px-3 py-1.5 border-t border-slate-700">
+          <div className="flex flex-col gap-1">
             {suggestedResponses.map((response, idx) => (
               <button
                 key={idx}
                 onClick={() => handleSuggestedResponse(response)}
-                className="px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-full transition-colors"
+                className="px-2.5 py-1 text-xs text-left bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition-colors line-clamp-2"
               >
                 {response}
               </button>
@@ -253,24 +255,24 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
       )}
 
       {/* Accumulated refinements summary */}
-      {(refinementState.exclusions?.length || refinementState.external_context?.length || 
+      {(refinementState.exclusions?.length || refinementState.external_context?.length ||
         refinementState.constraints?.length || refinementState.validated_hypotheses?.length) && (
-        <div className="px-4 py-2 border-t border-slate-700 bg-slate-900">
-          <div className="text-xs text-slate-400 space-y-1">
+        <div className="px-3 py-1.5 border-t border-slate-700 bg-slate-900 max-h-16 overflow-y-auto">
+          <div className="text-[10px] text-slate-400 space-y-0.5">
             {refinementState.exclusions && refinementState.exclusions.length > 0 && (
-              <div>
+              <div className="truncate">
                 <span className="font-medium text-slate-300">Exclusions:</span>{' '}
                 {refinementState.exclusions.map(e => e.value).join(', ')}
               </div>
             )}
             {refinementState.external_context && refinementState.external_context.length > 0 && (
-              <div>
+              <div className="line-clamp-2">
                 <span className="font-medium text-slate-300">Context:</span>{' '}
-                {refinementState.external_context.slice(0, 2).join('; ')}
+                {refinementState.external_context.slice(0, 2).map(c => c.length > 80 ? c.substring(0, 80) + '…' : c).join('; ')}
               </div>
             )}
             {refinementState.constraints && refinementState.constraints.length > 0 && (
-              <div>
+              <div className="truncate">
                 <span className="font-medium text-slate-300">Constraints:</span>{' '}
                 {refinementState.constraints.slice(0, 2).join('; ')}
               </div>
@@ -280,8 +282,8 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
       )}
 
       {/* Input area */}
-      <div className="px-4 py-3 border-t border-slate-700">
-        <div className="flex items-center gap-2">
+      <div className="px-3 py-2 border-t border-slate-700">
+        <div className="flex items-center gap-1.5">
           <input
             type="text"
             value={inputValue}
@@ -289,7 +291,7 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
             onKeyPress={handleKeyPress}
             placeholder="Type your response..."
             disabled={isLoading}
-            className="flex-1 px-4 py-2 bg-slate-700 text-white border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-slate-800 placeholder-slate-400"
+            className="flex-1 px-3 py-1.5 text-sm bg-slate-700 text-white border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-slate-800 placeholder-slate-400"
           />
           <button
             onClick={() => sendMessage(inputValue)}
@@ -307,6 +309,7 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
             <SkipForward className="w-5 h-5" />
           </button>
         </div>
+      </div>
       </div>
     </div>
   );

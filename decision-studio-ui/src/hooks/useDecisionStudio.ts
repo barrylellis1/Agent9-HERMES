@@ -364,12 +364,14 @@ export function useDecisionStudio() {
             } : null
         };
 
-        if (
-            mode === 'recommended' &&
-            refinementResult?.recommended_council_members &&
-            refinementResult.recommended_council_members.length > 0
-        ) {
-            preferencesBase.consulting_personas = refinementResult.recommended_council_members.map(m => m.persona_id);
+        // Persona selection: 'recommended' mode always wins, then hybrid council, then legacy
+        if (mode === 'recommended') {
+            const members = refinementResult?.recommended_council_members
+                ?? preferencesBase.refinement_result?.recommended_council_members
+                ?? [];
+            if (members.length > 0) {
+                preferencesBase.consulting_personas = members.map((m: any) => m.persona_id);
+            }
         } else if (useHybridCouncil) {
             if (councilType === 'preset') {
                 preferencesBase.council_preset = selectedPreset;

@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
   Microscope,
   Lightbulb,
   Loader2,
@@ -101,6 +102,42 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   const navigate = useNavigate();
   const currentAnalysis = analysisResults;
 
+  // Accordion state — Executive Briefing and Root Cause expanded by default
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['executive-briefing', 'root-cause']));
+
+  const toggleSection = (id: string) => {
+    setOpenSections(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const AccordionSection = ({ id, title, icon, summary, children }: { id: string; title: string; icon: React.ReactNode; summary?: string; children: React.ReactNode }) => {
+    const isOpen = openSections.has(id);
+    return (
+      <section className="bg-slate-900 border border-slate-800 rounded-xl shadow-lg overflow-hidden">
+        <button
+          onClick={() => toggleSection(id)}
+          className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-800/50 transition-colors"
+        >
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            {icon}
+            {title}
+          </h2>
+          <div className="flex items-center gap-3">
+            {!isOpen && summary && (
+              <span className="text-xs text-slate-500">{summary}</span>
+            )}
+            <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+          </div>
+        </button>
+        {isOpen && <div className="px-6 pb-6">{children}</div>}
+      </section>
+    );
+  };
+
   // Render Variance Analysis Section (Embedded)
   const renderVarianceAnalysis = () => {
     if (!currentAnalysis?.kt_is_is_not) return null;
@@ -134,7 +171,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans flex flex-col">
+    <div className="h-screen bg-slate-950 text-white font-sans flex flex-col overflow-hidden">
       {/* Header */}
       <header className="px-8 py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-4">
@@ -172,11 +209,12 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
             <div className="max-w-4xl mx-auto space-y-8">
                 
                 {/* 1. Executive Briefing Card */}
-                <section className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg">
-                    <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                        <AlertTriangle className="w-5 h-5 text-amber-500" />
-                        Executive Briefing
-                    </h2>
+                <AccordionSection
+                    id="executive-briefing"
+                    title="Executive Briefing"
+                    icon={<AlertTriangle className="w-5 h-5 text-amber-500" />}
+                    summary={situation.description?.substring(0, 80) + (situation.description && situation.description.length > 80 ? '...' : '') || "Significant variance detected"}
+                >
                     <p className="text-lg text-slate-200 mb-4 leading-relaxed">
                         {situation.description || "The system has detected a significant anomaly in this KPI."}
                     </p>
@@ -186,25 +224,26 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                              {situation.business_impact || "Significant variance detected against operational thresholds. Immediate attention recommended."}
                          </p>
                     </div>
-                </section>
+                </AccordionSection>
 
                 {/* 2. Deep Analysis Results (or Trigger) */}
                 <section>
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                            <Microscope className="w-5 h-5 text-blue-400" />
-                            Root Cause Analysis
-                        </h2>
-                        {!currentAnalysis && !analyzing && (
-                             <button 
+                    {/* Trigger button + loading — always visible outside accordion */}
+                    {!currentAnalysis && !analyzing && (
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                                <Microscope className="w-5 h-5 text-blue-400" />
+                                Root Cause Analysis
+                            </h2>
+                            <button
                                 onClick={onRunAnalysis}
                                 className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-                             >
+                            >
                                 <Microscope className="w-4 h-4" />
                                 Run Deep Analysis
-                             </button>
-                        )}
-                    </div>
+                            </button>
+                        </div>
+                    )}
 
                     {analyzing && (
                         <div className="p-12 border border-blue-500/20 bg-blue-500/5 rounded-xl flex flex-col items-center justify-center animate-pulse">
@@ -218,8 +257,16 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                              {analysisError}
                          </div>
                     )}
+                </section>
 
-                    {currentAnalysis && (
+                {/* Root Cause Results — collapsible accordion */}
+                {currentAnalysis && (
+                    <AccordionSection
+                        id="root-cause"
+                        title="Root Cause Analysis"
+                        icon={<Microscope className="w-5 h-5 text-blue-400" />}
+                        summary={`${currentAnalysis.change_points?.length || 0} dimensions analyzed`}
+                    >
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
                             {/* SCQA Summary */}
                             {currentAnalysis.scqa_summary && (
@@ -318,13 +365,13 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                  <div className="flex items-center justify-between mb-4">
                                      <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Dimension Breakdown</h3>
                                      <div className="flex bg-slate-950 rounded p-1 border border-slate-800">
-                                        <button 
+                                        <button
                                             onClick={() => setDaViewMode("list")}
                                             className={`px-3 py-1 text-xs rounded transition-all ${daViewMode === 'list' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}
                                         >
                                             List
                                         </button>
-                                        <button 
+                                        <button
                                             onClick={() => setDaViewMode("snowflake")}
                                             className={`px-3 py-1 text-xs rounded transition-all ${daViewMode === 'snowflake' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}
                                         >
@@ -332,12 +379,12 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                         </button>
                                      </div>
                                  </div>
-                                 
+
                                  {daViewMode === 'snowflake' && currentAnalysis.kt_is_is_not ? (
-                                     <DivergingBarChart 
-                                        data={currentAnalysis.kt_is_is_not} 
-                                        kpiName={situation.kpi_name} 
-                                        width={600} 
+                                     <DivergingBarChart
+                                        data={currentAnalysis.kt_is_is_not}
+                                        kpiName={situation.kpi_name}
+                                        width={600}
                                      />
                                  ) : (
                                      <div className="space-y-2">
@@ -356,12 +403,17 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                  )}
                             </div>
                         </div>
-                    )}
-                </section>
+                    </AccordionSection>
+                )}
 
                 {/* 3. Strategic Options (Trade-off Analysis) */}
                 {solutions && (
-                    <section className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+                    <AccordionSection
+                        id="strategic-options"
+                        title="Strategic Options"
+                        icon={<Lightbulb className="w-5 h-5 text-emerald-400" />}
+                        summary={`${solutions.options_ranked?.length || 0} options generated`}
+                    >
                         {solutions.status === 'error' ? (
                             <div className="p-4 bg-red-900/20 border border-red-500/30 rounded-lg flex items-center gap-3">
                                 <AlertTriangle className="w-5 h-5 text-red-400" />
@@ -371,19 +423,19 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                 </div>
                             </div>
                         ) : (
-                            <TradeOffAnalysis 
+                            <TradeOffAnalysis
                                 options={solutions.options_ranked || []}
                                 recommendedId={solutions.recommendation?.id}
                                 onViewBriefing={() => navigate(`/briefing/${situation.situation_id}`)}
                             />
                         )}
-                    </section>
+                    </AccordionSection>
                 )}
             </div>
         </div>
 
         {/* RIGHT COLUMN: Action Center (Chat & Debate) */}
-        <div className="w-[450px] bg-slate-900 border-l border-slate-800 flex flex-col">
+        <div className="w-[450px] min-h-0 bg-slate-900 border-l border-slate-800 flex flex-col">
              
              {/* Mode Switcher / Header */}
              <div className="p-4 border-b border-slate-800 bg-slate-900 z-10">
@@ -393,7 +445,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                  <p className="text-xs text-slate-500">Refine context and generate solutions</p>
              </div>
 
-             <div className="flex-1 overflow-y-auto p-4 space-y-4">
+             <div className={`flex-1 min-h-0 ${showRefinementChat ? 'overflow-hidden flex flex-col p-2' : 'overflow-y-auto p-4 space-y-4'}`}>
                  {/* State A: Waiting for Analysis */}
                  {!currentAnalysis && (
                      <div className="flex flex-col items-center justify-center h-64 text-center p-6 opacity-50">
@@ -430,7 +482,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
 
                  {/* State C: Refinement Chat Active */}
                  {showRefinementChat && (
-                     <div className="h-full flex flex-col animate-in fade-in">
+                     <div className="flex-1 min-h-0 flex flex-col animate-in fade-in">
                          <ProblemRefinementChat
                              deepAnalysisOutput={{
                                  plan: currentAnalysis.plan || {},

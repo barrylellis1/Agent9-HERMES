@@ -92,7 +92,7 @@ export function DecisionStudio() {
         debatePhase={debatePhase}
         debateHypotheses={debateHypotheses}
         solutions={solutions}
-        onStartDebate={() => handleStartDebate()}
+        onStartDebate={(mode) => handleStartDebate(mode)}
         // Council Config
         useHybridCouncil={useHybridCouncil}
         setUseHybridCouncil={setUseHybridCouncil}

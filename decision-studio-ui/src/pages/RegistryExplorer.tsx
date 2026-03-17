@@ -1,6 +1,6 @@
 import { type ComponentType, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, BookOpen, Box, Briefcase, Database, KeyRound, Loader2, Save, Trash2, Plus } from 'lucide-react'
+import { ArrowLeft, BookOpen, Box, Briefcase, Code2, Database, KeyRound, Loader2, Save, Trash2, Plus, X } from 'lucide-react'
 import {
   type BusinessTerm,
   listGlossaryTerms,
@@ -173,6 +173,10 @@ export function RegistryExplorer() {
   // Generic JSON editor state
   const [genericJsonText, setGenericJsonText] = useState('')
 
+  // Form-based editor state
+  const [formDraft, setFormDraft] = useState<Record<string, any> | null>(null)
+  const [showJsonEditor, setShowJsonEditor] = useState(false)
+
   const selectedItem = useMemo(() => {
     if (!selectedId) return null
     return items.find((it) => rowId(it) === selectedId) || null
@@ -202,6 +206,8 @@ export function RegistryExplorer() {
 
       // Reset generic state
       setGenericJsonText('')
+      setFormDraft(null)
+      setShowJsonEditor(false)
 
       // Reset glossary state
       setTermDraft(null)
@@ -250,7 +256,9 @@ export function RegistryExplorer() {
       setTermSynonymsText(formatSynonyms(term.synonyms))
       setTermMappingsText(JSON.stringify(term.technical_mappings || {}, null, 2))
     } else {
-      // For other registries, load into generic JSON editor
+      // For other registries, load into form + JSON editor
+      setFormDraft({ ...selectedItem })
+      setShowJsonEditor(false)
       setGenericJsonText(JSON.stringify(selectedItem, null, 2))
     }
   }, [registryKey, selectedItem])
@@ -274,32 +282,35 @@ export function RegistryExplorer() {
       setTermSynonymsText('')
       setTermMappingsText('{}')
     } else {
-      // Template for generic items
+      setShowJsonEditor(false)
       let template: any = { id: 'new_item', name: 'New Item' }
 
       if (registryKey === 'kpis') {
         template = {
-          id: 'new_kpi',
-          name: 'New KPI',
-          domain: 'General',
-          description: '',
-          unit: '',
-          data_product_id: '',
-          owner_role: '',
-          sql_query: 'SELECT * FROM ...',
-          thresholds: []
+          id: 'new_kpi', name: 'New KPI', domain: 'Finance', description: '',
+          unit: '', data_product_id: '', view_name: '', owner_role: '',
+          tags: [], thresholds: [], metadata: {}
         }
       } else if (registryKey === 'principals') {
         template = {
-          id: 'new_principal',
-          name: 'New Principal',
-          role: 'Role',
-          title: 'Title',
-          department: '',
-          preferences: {}
+          id: 'new_principal', name: 'New Principal', title: '', description: '',
+          business_processes: [], kpis: [], responsibilities: [],
+          decision_style: 'analytical', metadata: {}
+        }
+      } else if (registryKey === 'data-products') {
+        template = {
+          id: 'new_data_product', name: 'New Data Product', domain: '', description: '',
+          owner: '', version: '1.0.0', source_system: 'duckdb',
+          tags: [], tables: {}, views: {}
+        }
+      } else if (registryKey === 'business-processes') {
+        template = {
+          id: 'new_business_process', name: 'New Business Process', domain: '',
+          description: '', owner_role: '', tags: [], metadata: {}
         }
       }
 
+      setFormDraft(template)
       setGenericJsonText(JSON.stringify(template, null, 2))
     }
   }
@@ -350,14 +361,19 @@ export function RegistryExplorer() {
   }
 
   const saveGeneric = async () => {
-    if (!genericJsonText) return
-
     let payload: any
-    try {
-      payload = JSON.parse(genericJsonText)
-    } catch (e) {
-      setError('Invalid JSON format')
-      return
+
+    if (showJsonEditor) {
+      if (!genericJsonText) return
+      try {
+        payload = JSON.parse(genericJsonText)
+      } catch (e) {
+        setError('Invalid JSON format')
+        return
+      }
+    } else {
+      if (!formDraft) return
+      payload = { ...formDraft }
     }
 
     if (!payload.id) {
@@ -432,12 +448,328 @@ export function RegistryExplorer() {
       await reload()
       setSelectedId(null)
       setGenericJsonText('')
+      setFormDraft(null)
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to delete item'
       setError(message)
     } finally {
       setLoading(false)
     }
+  }
+
+  // --- Form helpers ---
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-slate-900/40 border border-slate-700 text-white text-sm'
+  const labelCls = 'block text-xs text-slate-400 mb-1'
+  const isEditing = selectedId !== '__new__'
+
+  const updateDraft = (key: string, value: any) => {
+    setFormDraft(prev => prev ? { ...prev, [key]: value } : prev)
+  }
+
+  const csvToArray = (text: string) => text.split(',').map(s => s.trim()).filter(Boolean)
+  const arrayToCsv = (arr: any) => (Array.isArray(arr) ? arr.join(', ') : '')
+
+  const handleToggleJsonEditor = () => {
+    if (showJsonEditor) {
+      // Switching from JSON to form — parse JSON into formDraft
+      try {
+        const parsed = JSON.parse(genericJsonText)
+        setFormDraft(parsed)
+        setShowJsonEditor(false)
+      } catch {
+        setError('Invalid JSON — fix before switching to form view')
+      }
+    } else {
+      // Switching from form to JSON — serialize formDraft
+      if (formDraft) setGenericJsonText(JSON.stringify(formDraft, null, 2))
+      setShowJsonEditor(true)
+    }
+  }
+
+  const renderFormActions = () => (
+    <div className="flex items-center gap-2 mt-4">
+      <button onClick={saveGeneric} disabled={loading}
+        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-sm">
+        <Save className="w-4 h-4" /> Save
+      </button>
+      <button onClick={deleteGeneric} disabled={loading || selectedId === '__new__'}
+        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 disabled:opacity-60 text-white text-sm">
+        <Trash2 className="w-4 h-4" /> Delete
+      </button>
+      <button onClick={handleToggleJsonEditor}
+        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-sm ml-auto">
+        <Code2 className="w-4 h-4" /> {showJsonEditor ? 'Form View' : 'View JSON'}
+      </button>
+    </div>
+  )
+
+  const renderJsonFallback = () => (
+    <div className="space-y-4">
+      <div>
+        <label className={labelCls}>JSON Payload</label>
+        <textarea value={genericJsonText} onChange={(e) => setGenericJsonText(e.target.value)}
+          rows={20} className={inputCls + ' font-mono'} />
+      </div>
+      {renderFormActions()}
+    </div>
+  )
+
+  const renderKpiForm = () => {
+    if (!formDraft) return null
+    const thresholds = formDraft.thresholds || []
+    return (
+      <div className="space-y-4">
+        <p className="text-xs text-slate-500">Edit KPI configuration, thresholds, and data source binding.</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>ID</label>
+            <input value={formDraft.id || ''} onChange={e => updateDraft('id', e.target.value)}
+              disabled={isEditing} className={inputCls + (isEditing ? ' opacity-50' : '')} />
+          </div>
+          <div>
+            <label className={labelCls}>Name</label>
+            <input value={formDraft.name || ''} onChange={e => updateDraft('name', e.target.value)} className={inputCls} />
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className={labelCls}>Domain</label>
+            <input value={formDraft.domain || ''} onChange={e => updateDraft('domain', e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Unit</label>
+            <input value={formDraft.unit || ''} onChange={e => updateDraft('unit', e.target.value)} className={inputCls} placeholder="$, %, #" />
+          </div>
+          <div>
+            <label className={labelCls}>Owner Role</label>
+            <input value={formDraft.owner_role || ''} onChange={e => updateDraft('owner_role', e.target.value)} className={inputCls} />
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Description</label>
+          <textarea value={formDraft.description || ''} onChange={e => updateDraft('description', e.target.value)}
+            rows={2} className={inputCls} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Data Product ID</label>
+            <input value={formDraft.data_product_id || ''} onChange={e => updateDraft('data_product_id', e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>View Name</label>
+            <input value={formDraft.view_name || ''} onChange={e => updateDraft('view_name', e.target.value)} className={inputCls} />
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Tags (comma-separated)</label>
+          <input value={arrayToCsv(formDraft.tags)} onChange={e => updateDraft('tags', csvToArray(e.target.value))} className={inputCls} />
+        </div>
+
+        {/* Thresholds */}
+        <div>
+          <label className={labelCls}>Thresholds</label>
+          <div className="space-y-2">
+            {thresholds.map((t: any, i: number) => (
+              <div key={i} className="flex items-center gap-2">
+                <select value={t.comparison_type || 'target'} onChange={e => {
+                  const next = [...thresholds]; next[i] = { ...next[i], comparison_type: e.target.value }; updateDraft('thresholds', next)
+                }} className={inputCls + ' w-32'}>
+                  {['qoq','yoy','mom','target','budget','greater_than','less_than'].map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+                <input type="number" placeholder="Green" value={t.green_threshold ?? ''} onChange={e => {
+                  const next = [...thresholds]; next[i] = { ...next[i], green_threshold: e.target.value ? Number(e.target.value) : null }; updateDraft('thresholds', next)
+                }} className={inputCls + ' w-24'} />
+                <input type="number" placeholder="Yellow" value={t.yellow_threshold ?? ''} onChange={e => {
+                  const next = [...thresholds]; next[i] = { ...next[i], yellow_threshold: e.target.value ? Number(e.target.value) : null }; updateDraft('thresholds', next)
+                }} className={inputCls + ' w-24'} />
+                <input type="number" placeholder="Red" value={t.red_threshold ?? ''} onChange={e => {
+                  const next = [...thresholds]; next[i] = { ...next[i], red_threshold: e.target.value ? Number(e.target.value) : null }; updateDraft('thresholds', next)
+                }} className={inputCls + ' w-24'} />
+                <button onClick={() => { const next = thresholds.filter((_: any, j: number) => j !== i); updateDraft('thresholds', next) }}
+                  className="p-1 text-slate-500 hover:text-red-400"><X className="w-4 h-4" /></button>
+              </div>
+            ))}
+            <button onClick={() => updateDraft('thresholds', [...thresholds, { comparison_type: 'target', green_threshold: null, yellow_threshold: null, red_threshold: null }])}
+              className="text-xs text-blue-400 hover:text-blue-300">+ Add Threshold</button>
+          </div>
+        </div>
+
+        <div>
+          <label className={labelCls}>Metadata (JSON)</label>
+          <textarea value={JSON.stringify(formDraft.metadata || {}, null, 2)}
+            onChange={e => { try { updateDraft('metadata', JSON.parse(e.target.value)) } catch { /* ignore parse errors while typing */ } }}
+            rows={3} className={inputCls + ' font-mono'} />
+        </div>
+        {renderFormActions()}
+      </div>
+    )
+  }
+
+  const renderPrincipalForm = () => {
+    if (!formDraft) return null
+    return (
+      <div className="space-y-4">
+        <p className="text-xs text-slate-500">Edit principal profile, responsibilities, and preferences.</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>ID</label>
+            <input value={formDraft.id || ''} onChange={e => updateDraft('id', e.target.value)}
+              disabled={isEditing} className={inputCls + (isEditing ? ' opacity-50' : '')} />
+          </div>
+          <div>
+            <label className={labelCls}>Name</label>
+            <input value={formDraft.name || ''} onChange={e => updateDraft('name', e.target.value)} className={inputCls} />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Title</label>
+            <input value={formDraft.title || ''} onChange={e => updateDraft('title', e.target.value)} className={inputCls} placeholder="CFO, CEO, Finance Manager" />
+          </div>
+          <div>
+            <label className={labelCls}>Decision Style</label>
+            <input value={formDraft.decision_style || ''} onChange={e => updateDraft('decision_style', e.target.value)} className={inputCls} placeholder="analytical, visionary, pragmatic" />
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Description</label>
+          <textarea value={formDraft.description || ''} onChange={e => updateDraft('description', e.target.value)}
+            rows={2} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Business Processes (comma-separated)</label>
+          <input value={arrayToCsv(formDraft.business_processes)} onChange={e => updateDraft('business_processes', csvToArray(e.target.value))} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>KPIs (comma-separated)</label>
+          <input value={arrayToCsv(formDraft.kpis)} onChange={e => updateDraft('kpis', csvToArray(e.target.value))} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Responsibilities (comma-separated)</label>
+          <input value={arrayToCsv(formDraft.responsibilities)} onChange={e => updateDraft('responsibilities', csvToArray(e.target.value))} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Metadata (JSON)</label>
+          <textarea value={JSON.stringify(formDraft.metadata || {}, null, 2)}
+            onChange={e => { try { updateDraft('metadata', JSON.parse(e.target.value)) } catch { /* ignore */ } }}
+            rows={3} className={inputCls + ' font-mono'} />
+        </div>
+        {renderFormActions()}
+      </div>
+    )
+  }
+
+  const renderDataProductForm = () => {
+    if (!formDraft) return null
+    return (
+      <div className="space-y-4">
+        <p className="text-xs text-slate-500">Edit data product metadata and source configuration.</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>ID</label>
+            <input value={formDraft.id || ''} onChange={e => updateDraft('id', e.target.value)}
+              disabled={isEditing} className={inputCls + (isEditing ? ' opacity-50' : '')} />
+          </div>
+          <div>
+            <label className={labelCls}>Name</label>
+            <input value={formDraft.name || ''} onChange={e => updateDraft('name', e.target.value)} className={inputCls} />
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className={labelCls}>Domain</label>
+            <input value={formDraft.domain || ''} onChange={e => updateDraft('domain', e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Owner</label>
+            <input value={formDraft.owner || ''} onChange={e => updateDraft('owner', e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Source System</label>
+            <select value={formDraft.source_system || 'duckdb'} onChange={e => updateDraft('source_system', e.target.value)} className={inputCls}>
+              <option value="duckdb">DuckDB</option>
+              <option value="bigquery">BigQuery</option>
+              <option value="postgresql">PostgreSQL</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Description</label>
+          <textarea value={formDraft.description || ''} onChange={e => updateDraft('description', e.target.value)}
+            rows={2} className={inputCls} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Version</label>
+            <input value={formDraft.version || ''} onChange={e => updateDraft('version', e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Tags (comma-separated)</label>
+            <input value={arrayToCsv(formDraft.tags)} onChange={e => updateDraft('tags', csvToArray(e.target.value))} className={inputCls} />
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Tables (JSON)</label>
+          <textarea value={JSON.stringify(formDraft.tables || {}, null, 2)}
+            onChange={e => { try { updateDraft('tables', JSON.parse(e.target.value)) } catch { /* ignore */ } }}
+            rows={6} className={inputCls + ' font-mono'} />
+        </div>
+        <div>
+          <label className={labelCls}>Views (JSON)</label>
+          <textarea value={JSON.stringify(formDraft.views || {}, null, 2)}
+            onChange={e => { try { updateDraft('views', JSON.parse(e.target.value)) } catch { /* ignore */ } }}
+            rows={6} className={inputCls + ' font-mono'} />
+        </div>
+        {renderFormActions()}
+      </div>
+    )
+  }
+
+  const renderBusinessProcessForm = () => {
+    if (!formDraft) return null
+    return (
+      <div className="space-y-4">
+        <p className="text-xs text-slate-500">Edit business process details and ownership.</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>ID</label>
+            <input value={formDraft.id || ''} onChange={e => updateDraft('id', e.target.value)}
+              disabled={isEditing} className={inputCls + (isEditing ? ' opacity-50' : '')} />
+          </div>
+          <div>
+            <label className={labelCls}>Name</label>
+            <input value={formDraft.name || ''} onChange={e => updateDraft('name', e.target.value)} className={inputCls} />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Domain</label>
+            <input value={formDraft.domain || ''} onChange={e => updateDraft('domain', e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Owner Role</label>
+            <input value={formDraft.owner_role || ''} onChange={e => updateDraft('owner_role', e.target.value)} className={inputCls} />
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Description</label>
+          <textarea value={formDraft.description || ''} onChange={e => updateDraft('description', e.target.value)}
+            rows={2} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Tags (comma-separated)</label>
+          <input value={arrayToCsv(formDraft.tags)} onChange={e => updateDraft('tags', csvToArray(e.target.value))} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Metadata (JSON)</label>
+          <textarea value={JSON.stringify(formDraft.metadata || {}, null, 2)}
+            onChange={e => { try { updateDraft('metadata', JSON.parse(e.target.value)) } catch { /* ignore */ } }}
+            rows={3} className={inputCls + ' font-mono'} />
+        </div>
+        {renderFormActions()}
+      </div>
+    )
   }
 
   return (
@@ -651,43 +983,18 @@ export function RegistryExplorer() {
                           </div>
                         </div>
                       </div>
+                    ) : showJsonEditor ? (
+                      renderJsonFallback()
+                    ) : registryKey === 'kpis' ? (
+                      renderKpiForm()
+                    ) : registryKey === 'principals' ? (
+                      renderPrincipalForm()
+                    ) : registryKey === 'data-products' ? (
+                      renderDataProductForm()
+                    ) : registryKey === 'business-processes' ? (
+                      renderBusinessProcessForm()
                     ) : (
-                      /* Generic JSON Editor for other registries */
-                      <div className="space-y-4">
-                        <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-200 text-xs mb-4">
-                          This registry uses a generic JSON editor. Ensure the <code>id</code> field is present and unique.
-                        </div>
-
-                        <div>
-                          <label className="block text-xs text-slate-400 mb-1">JSON Payload</label>
-                          <textarea
-                            value={genericJsonText}
-                            onChange={(e) => setGenericJsonText(e.target.value)}
-                            rows={20}
-                            className="w-full px-3 py-2 rounded-lg bg-slate-900/40 border border-slate-700 text-white text-sm font-mono"
-                          />
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={saveGeneric}
-                            disabled={loading}
-                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-sm"
-                          >
-                            <Save className="w-4 h-4" />
-                            Save
-                          </button>
-
-                          <button
-                            onClick={deleteGeneric}
-                            disabled={loading || selectedId === '__new__'}
-                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 disabled:opacity-60 text-white text-sm"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            Delete
-                          </button>
-                        </div>
-                      </div>
+                      renderJsonFallback()
                     )}
                   </>
                 )}
