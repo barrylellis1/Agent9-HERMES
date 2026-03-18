@@ -88,6 +88,12 @@ Environment variable override: `OPENAI_MODEL_SOLUTION`
 - **recommendation_rationale**: Explicitly requires entity-specific rationale citing named data points; forbids generic boilerplate
 - **UnresolvedTension model**: `requires` field docstring corrected to describe expected format, preventing LLM from echoing meta-labels verbatim
 
+## Dual-Framing Pipeline — Benchmark Replication (Mar 2026)
+- **`_extract_deep_analysis_summary()`**: Extracts top-3 `internal_benchmark` segments from DA output into `summary["benchmark_segments"]`
+- **`_trim_deep_analysis_context()`**: Passes benchmark segments through in the trimmed DA context dict
+- **Stage 1 prompts**: When `internal_benchmarks` present, task item 5 instructs each persona to consider replication strategies
+- **Synthesis prompt**: `INTERNAL BENCHMARK FEASIBILITY` section added — at least one option MUST address replication when benchmark_segments are present
+
 ## Market Analysis Integration (Mar 2026)
 - **Deep Analysis Workflow**: Market Analysis Agent now runs at the END of Deep Analysis workflow. Market signals are attached to DA output as `market_signals` field and passed downstream.
 - **Problem Refinement Pipeline**: Problem Refinement Chat receives signals from DA output via `external_context`, enabling targeted questions anchored in market facts.

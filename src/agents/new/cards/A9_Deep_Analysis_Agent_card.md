@@ -20,6 +20,16 @@ The `refine_analysis` method implements MBB-style principal engagement:
 - Identifies constraints and exclusions
 - Recommends a diverse consulting council based on problem characteristics
 
+### Replication Topic (Mar 2026)
+When internal benchmarks exist in the DA output, `refine_analysis` adds a 6th dynamic topic
+`replication_potential` via `_get_topic_sequence(da_output)`. This topic asks the principal about
+structural barriers to replicating high-performing segments. Extracted barriers are stored as
+`replication_constraints: List[str]` on `ExtractedRefinements` and `ProblemRefinementResult`.
+
+Key methods:
+- `_get_topic_sequence(da_output)` — returns 5 base topics + `replication_potential` when benchmarks present
+- `_build_benchmark_summary(da_output)` — formats internal benchmarks as context for the replication question
+
 ### Diverse Council Recommendation
 The agent recommends one consulting firm from each category:
 - **MBB**: McKinsey, BCG, or Bain (based on keyword matching)

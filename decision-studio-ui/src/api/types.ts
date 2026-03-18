@@ -83,6 +83,7 @@ export interface DeepAnalysisResult {
   plan?: any;
   execution: DeepAnalysisExecution;
   market_signals?: MarketSignal[];
+  replication_constraints?: string[];
 }
 
 export interface Perspective {
@@ -245,4 +246,5 @@ export interface ProblemRefinementResult {
   turn_count: number;
   conversation_history: Array<{ role: string; content: string }>;
   market_signals?: MarketSignal[];
+  replication_constraints?: string[];
 }

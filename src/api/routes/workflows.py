@@ -412,6 +412,207 @@ async def iterate_solution(request_id: str, request: ActionRequest) -> Envelope:
     return await _record_solution_action(request_id, "iterate", request)
 
 
+# ---------------------------------------------------------------------------
+# Briefing Q&A
+# ---------------------------------------------------------------------------
+
+class BriefingQARequest(BaseModel):
+    question: str = Field(..., description="Question about the decision briefing")
+    principal_id: str = Field(..., description="ID of the principal asking the question")
+    conversation_history: List[Dict[str, str]] = Field(
+        default_factory=list,
+        description="Prior Q&A turns as [{role, content}]",
+    )
+
+
+class BriefingQAResponse(BaseModel):
+    answer: str
+    transparency_tier: int = Field(..., description="1=direct data, 2=calculated, 3=inferred, 4=opinion")
+    tier_label: str
+    sources: List[str] = Field(default_factory=list)
+    suggested_followups: List[str] = Field(default_factory=list)
+
+
+def _detect_transparency_tier(question: str):
+    q = question.lower()
+    if any(kw in q for kw in ["recommend", "should we", "what would you", "your opinion", "best option", "advise"]):
+        return 4, "Opinion / Recommendation"
+    if any(kw in q for kw in ["why", "implication", "impact of", "what does it mean", "suggest about", "indicate", "tell us"]):
+        return 3, "Inferred from analysis"
+    if any(kw in q for kw in ["compare", "difference", "higher", "lower", "rank", "how much", "how many", "percentage", "ratio"]):
+        return 2, "Calculated from analysis data"
+    return 1, "Direct from analysis data"
+
+
+def _build_briefing_context(record: WorkflowRecord) -> str:
+    result = record.result or {}
+    solutions = result.get("solutions") or {}
+    payload = record.payload or {}
+    sections: List[str] = []
+
+    problem = (
+        payload.get("problem_statement")
+        or (payload.get("deep_analysis_output") or {}).get("scqa_summary")
+        or "Not available"
+    )
+    sections.append(f"## Problem Statement\n{problem}")
+
+    da = payload.get("deep_analysis_output") or {}
+    exec_da = da.get("execution", da)
+    kpi = exec_da.get("kpi_name") or da.get("kpi_id") or ""
+    if kpi:
+        sections.append(f"## KPI Under Analysis\n{kpi}")
+    scqa = exec_da.get("scqa_summary") or ""
+    if scqa:
+        sections.append(f"## SCQA Summary\n{scqa}")
+    kt = exec_da.get("kt_is_is_not") or {}
+    where_is = (kt.get("where_is") or [])[:5]
+    if where_is:
+        driver_lines = [f"- {d.get('key','?')}: delta {d.get('delta',0):+.0f}" if isinstance(d, dict) else f"- {d}" for d in where_is]
+        sections.append("## Key Drivers (Where IS)\n" + "\n".join(driver_lines))
+    benchmarks = (kt.get("benchmark_segments") or [])[:3]
+    if benchmarks:
+        bench_lines = [f"- {b.get('dimension','')}: {b.get('key','')} (replication potential: {b.get('replication_potential','?')})" if isinstance(b, dict) else f"- {b}" for b in benchmarks]
+        sections.append("## Internal Benchmarks\n" + "\n".join(bench_lines))
+
+    stage1 = solutions.get("stage_1_persona_hypotheses") or solutions.get("stage_1_hypotheses") or {}
+    if stage1:
+        hyp_lines = []
+        for persona, hyp in stage1.items():
+            if isinstance(hyp, dict):
+                h = hyp.get("hypothesis") or hyp.get("proposed_option", {}).get("title", "")
+                if h:
+                    hyp_lines.append(f"- [{persona}] {h}")
+        if hyp_lines:
+            sections.append("## Stage 1 Hypotheses\n" + "\n".join(hyp_lines))
+
+    options = solutions.get("options_ranked") or solutions.get("options") or []
+    if options:
+        opt_lines = []
+        for opt in options:
+            if not isinstance(opt, dict):
+                continue
+            title = opt.get("title", "Unnamed option")
+            desc = opt.get("description") or opt.get("rationale") or ""
+            impact_est = opt.get("impact_estimate") or {}
+            rng = impact_est.get("recovery_range") or {} if isinstance(impact_est, dict) else {}
+            low, high = rng.get("low") if isinstance(rng, dict) else None, rng.get("high") if isinstance(rng, dict) else None
+            unit = impact_est.get("unit", "") if isinstance(impact_est, dict) else ""
+            impact = f" | Impact: {low}–{high} {unit}".strip() if (low is not None and high is not None) else ""
+            opt_lines.append(f"### {title}{impact}\n{desc}")
+        if opt_lines:
+            sections.append("## Solution Options\n\n" + "\n\n".join(opt_lines))
+
+    blind_spots = solutions.get("blind_spots") or []
+    if blind_spots:
+        sections.append("## Blind Spots\n" + "\n".join(f"- {b}" for b in blind_spots))
+
+    tensions = solutions.get("unresolved_tensions") or []
+    if tensions:
+        t_lines = [f"- {t.get('tension', str(t))}" if isinstance(t, dict) else f"- {t}" for t in tensions]
+        sections.append("## Unresolved Tensions\n" + "\n".join(t_lines))
+
+    return "\n\n".join(sections) if sections else "No briefing context available."
+
+
+@router.post("/solutions/{request_id}/qa", response_model=Envelope)
+async def briefing_qa(
+    request_id: str,
+    request: BriefingQARequest,
+    runtime: AgentRuntime = Depends(get_agent_runtime),
+) -> Envelope:
+    """Interactive Q&A for the Decision Briefing — answers questions about analysis, options, recommendation."""
+    import logging as _lg
+    _log = _lg.getLogger("workflows.solutions.qa")
+
+    record = await _get_record(request_id)
+    if record is None or record.workflow_type != "solutions":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Solutions workflow '{request_id}' not found.",
+        )
+
+    tier, tier_label = _detect_transparency_tier(request.question)
+    briefing_context = _build_briefing_context(record)
+
+    history_block = ""
+    if request.conversation_history:
+        history_lines = [
+            f"{turn.get('role', 'user').capitalize()}: {turn.get('content', '')}"
+            for turn in request.conversation_history[-6:]
+        ]
+        history_block = "\n\n### Previous Q&A\n" + "\n".join(history_lines)
+
+    from src.llm_services.claude_service import get_claude_model_for_task, ClaudeTaskType
+    model = get_claude_model_for_task(ClaudeTaskType.NLP_PARSING if tier <= 2 else ClaudeTaskType.BRIEFING)
+
+    prompt = (
+        "You are an executive briefing analyst. Answer the principal's question based ONLY "
+        "on the briefing context below. Be concise and direct.\n\n"
+        f"### Briefing Context\n{briefing_context}"
+        f"{history_block}\n\n"
+        f"### Principal's Question\n{request.question}\n\n"
+        "### Instructions\n"
+        "- Answer in 2–4 sentences.\n"
+        "- After the answer, on a new line starting with 'SOURCES:', list 1–3 labels from: "
+        "'Deep Analysis', 'Stage 1 hypotheses', 'Solution options', 'Recommendation', 'Blind spots', 'Unresolved tensions'.\n"
+        "- After sources, on a new line starting with 'FOLLOWUPS:', list 3 suggested follow-up questions separated by ' | '.\n"
+        "- If the answer is not in the briefing context, say 'This information is not available in the current briefing.'"
+    )
+
+    try:
+        orchestrator = runtime.get_orchestrator()
+        from src.agents.new.a9_llm_service_agent import A9_LLM_Request
+
+        llm_req = A9_LLM_Request(
+            request_id=str(uuid.uuid4()),
+            principal_id=request.principal_id,
+            prompt=prompt,
+            model=model,
+            max_tokens=800,
+            operation="generate",
+        )
+        llm_resp = await orchestrator.execute_agent_method(
+            "A9_LLM_Service_Agent", "generate", {"request": llm_req}
+        )
+
+        raw = (getattr(llm_resp, "content", None) or (llm_resp.get("content") if isinstance(llm_resp, dict) else None) or str(llm_resp))
+        answer_text = raw
+        sources: List[str] = []
+        followups: List[str] = []
+
+        if "SOURCES:" in raw:
+            a_part, rest = raw.split("SOURCES:", 1)
+            answer_text = a_part.strip()
+            if "FOLLOWUPS:" in rest:
+                s_part, f_part = rest.split("FOLLOWUPS:", 1)
+                sources = [s.strip() for s in s_part.strip().split(",") if s.strip()]
+                followups = [f.strip() for f in f_part.strip().split("|") if f.strip()]
+            else:
+                sources = [s.strip() for s in rest.strip().split(",") if s.strip()]
+        elif "FOLLOWUPS:" in raw:
+            a_part, f_part = raw.split("FOLLOWUPS:", 1)
+            answer_text = a_part.strip()
+            followups = [f.strip() for f in f_part.strip().split("|") if f.strip()]
+
+        if not followups:
+            followups = ["What are the key drivers?", "Which option has the lowest risk?", "What blind spots should we watch?"]
+
+        return wrap(BriefingQAResponse(
+            answer=answer_text, transparency_tier=tier, tier_label=tier_label,
+            sources=sources, suggested_followups=followups[:3],
+        ).model_dump())
+
+    except Exception as exc:
+        _log.warning("Briefing Q&A LLM call failed, returning fallback: %s", exc)
+        return wrap(BriefingQAResponse(
+            answer=f"Q&A service temporarily unavailable. Context: {briefing_context[:500]}",
+            transparency_tier=tier, tier_label=tier_label,
+            sources=["Briefing data (fallback)"],
+            suggested_followups=["What are the key drivers?", "Which option is recommended?", "What are the main risks?"],
+        ).model_dump())
+
+
 @router.post("/data-product-onboarding/run", response_model=Envelope, status_code=status.HTTP_202_ACCEPTED)
 async def run_data_product_onboarding_workflow(
     request: DataProductOnboardingWorkflowApiRequest,

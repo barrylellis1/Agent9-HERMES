@@ -82,6 +82,7 @@ TOPIC_OBJECTIVES = {
     "external_context": "Capture external factors not visible in the data (market changes, supplier issues, etc.)",
     "constraints": "Identify levers that are off-limits or actions that cannot be taken",
     "success_criteria": "Define what 'solved' looks like and how success will be measured",
+    "replication_potential": "Assess whether internal benchmark segments can serve as replication templates and what structural barriers exist",
 }
 
 STYLE_GUIDANCE = {
@@ -1667,18 +1668,21 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             # Get principal role and ID
             principal_role = principal_ctx.get("role", "")
             principal_id = principal_ctx.get("principal_id", "system")
-            
+
+            # Compute dynamic topic sequence (may include replication_potential)
+            topic_sequence = self._get_topic_sequence(da_output)
+
             # Determine current topic
             current_topic = input_model.current_topic
             topics_completed = []
-            
+
             # Parse topics_completed from history if not first turn
             if history:
                 topics_completed = self._extract_completed_topics(history)
-            
+
             if not current_topic:
                 # First turn - start with first topic
-                current_topic = REFINEMENT_TOPIC_SEQUENCE[0]
+                current_topic = topic_sequence[0]
             
             # Check for early exit commands
             if user_message and self._is_early_exit(user_message):
@@ -1693,8 +1697,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             if user_message and self._is_skip_command(user_message):
                 topic_skipped = True
                 topics_completed.append(current_topic)
-                current_topic = self._get_next_topic(current_topic, topics_completed)
-            
+                current_topic = self._get_next_topic(current_topic, topics_completed, topic_sequence)
+
             # Check max turns
             if turn_count >= MAX_TOTAL_TURNS:
                 self.logger.info(f"Max turns ({MAX_TOTAL_TURNS}) reached, finalizing refinement")
@@ -1702,9 +1706,9 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 return self._create_final_result(
                     da_output, principal_ctx, history, topics_completed, turn_count, accumulated
                 )
-            
+
             # If all topics completed, finalize
-            if current_topic is None or len(topics_completed) >= len(REFINEMENT_TOPIC_SEQUENCE):
+            if current_topic is None or len(topics_completed) >= len(topic_sequence):
                 accumulated = self._accumulate_refinements(history)
                 return self._create_final_result(
                     da_output, principal_ctx, history, topics_completed, turn_count, accumulated
@@ -1746,7 +1750,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             # Advance topic if complete
             if topic_complete:
                 topics_completed.append(current_topic)
-                current_topic = self._get_next_topic(current_topic, topics_completed)
+                current_topic = self._get_next_topic(current_topic, topics_completed, topic_sequence)
                 
                 # If no more topics, finalize
                 if current_topic is None:
@@ -1765,6 +1769,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 accumulated=accumulated,
                 principal_role=principal_role,
                 principal_id=principal_id,
+                da_output=da_output,
             )
             
             # Update conversation history
@@ -1781,6 +1786,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 constraints=accumulated.constraints,
                 validated_hypotheses=accumulated.validated_hypotheses,
                 invalidated_hypotheses=accumulated.invalidated_hypotheses,
+                replication_constraints=accumulated.replication_constraints,
                 current_topic=current_topic,
                 topic_complete=topic_complete,
                 topics_completed=topics_completed,
@@ -1826,17 +1832,18 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         msg_lower = message.lower().strip()
         return any(phrase in msg_lower for phrase in skip_phrases)
 
-    def _get_next_topic(self, current: str, completed: List[str]) -> Optional[str]:
+    def _get_next_topic(self, current: str, completed: List[str], topic_sequence: List[str] = None) -> Optional[str]:
         """Get the next topic in sequence that hasn't been completed."""
+        seq = topic_sequence or REFINEMENT_TOPIC_SEQUENCE
         try:
-            current_idx = REFINEMENT_TOPIC_SEQUENCE.index(current)
-            for topic in REFINEMENT_TOPIC_SEQUENCE[current_idx + 1:]:
+            current_idx = seq.index(current)
+            for topic in seq[current_idx + 1:]:
                 if topic not in completed:
                     return topic
         except ValueError:
             pass
         # Check if any earlier topics were skipped
-        for topic in REFINEMENT_TOPIC_SEQUENCE:
+        for topic in seq:
             if topic not in completed:
                 return topic
         return None
@@ -1905,6 +1912,47 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         
         return "\n\n".join(summary_parts) if summary_parts else "No KT analysis data available."
 
+    def _get_topic_sequence(self, da_output: Dict[str, Any]) -> List[str]:
+        """Return topic sequence — 5 base topics + replication_potential when internal benchmarks exist."""
+        execution = da_output.get("execution", da_output)
+        kt = execution.get("kt_is_is_not", {})
+        if not isinstance(kt, dict):
+            kt = {}
+        benchmark_segments = kt.get("benchmark_segments", [])
+        has_internal = any(
+            (s.get("benchmark_type") if isinstance(s, dict) else getattr(s, "benchmark_type", None)) == "internal_benchmark"
+            for s in (benchmark_segments or [])
+        )
+        if has_internal:
+            return list(REFINEMENT_TOPIC_SEQUENCE) + ["replication_potential"]
+        return list(REFINEMENT_TOPIC_SEQUENCE)
+
+    def _build_benchmark_summary(self, da_output: Dict[str, Any]) -> str:
+        """Build a summary of internal benchmark segments for the replication_potential topic."""
+        execution = da_output.get("execution", da_output)
+        kt = execution.get("kt_is_is_not", {})
+        if not isinstance(kt, dict):
+            return ""
+        benchmark_segments = kt.get("benchmark_segments", [])
+        internal = []
+        for s in (benchmark_segments or []):
+            seg = s if isinstance(s, dict) else (s.model_dump() if hasattr(s, "model_dump") else {})
+            if seg.get("benchmark_type") == "internal_benchmark":
+                internal.append(seg)
+        if not internal:
+            return ""
+        lines = ["Internal Benchmark Segments (Replication Targets):"]
+        for seg in internal[:5]:
+            key = seg.get("key", "Unknown")
+            delta = seg.get("delta", 0)
+            rep = seg.get("replication_potential")
+            rep_str = f" | replication potential: {rep:.0%}" if rep is not None else ""
+            try:
+                lines.append(f"- {seg.get('dimension', '')} = {key}: delta {delta:+,.0f}{rep_str}")
+            except Exception:
+                lines.append(f"- {seg.get('dimension', '')} = {key}: delta {delta}{rep_str}")
+        return "\n".join(lines)
+
     def _accumulate_refinements(self, history: List[Dict[str, str]]) -> ExtractedRefinements:
         """Accumulate refinements from conversation history by re-extracting from user messages."""
         accumulated = ExtractedRefinements()
@@ -1929,6 +1977,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             constraints=accumulated.constraints + extracted.constraints,
             validated_hypotheses=accumulated.validated_hypotheses + extracted.validated_hypotheses,
             invalidated_hypotheses=accumulated.invalidated_hypotheses + extracted.invalidated_hypotheses,
+            replication_constraints=accumulated.replication_constraints + extracted.replication_constraints,
         )
 
     async def _extract_refinements_from_response(
@@ -1959,6 +2008,7 @@ Extract any of the following that are mentioned:
 3. CONSTRAINTS: Actions or levers that are off-limits
 4. VALIDATED: Hypotheses or drivers the user confirmed as real issues
 5. INVALIDATED: Hypotheses or drivers the user said are known/expected/not relevant
+6. REPLICATION_CONSTRAINTS: Structural barriers preventing replication of benchmark segments (capacity, contracts, timing, resources) — extract only when current_topic is 'replication_potential'
 
 Respond in JSON format:
 {{
@@ -1966,7 +2016,8 @@ Respond in JSON format:
   "external_context": ["..."],
   "constraints": ["..."],
   "validated_hypotheses": ["..."],
-  "invalidated_hypotheses": ["..."]
+  "invalidated_hypotheses": ["..."],
+  "replication_constraints": ["..."]
 }}
 
 If nothing relevant is found for a category, use an empty list."""
@@ -1998,6 +2049,7 @@ If nothing relevant is found for a category, use an empty list."""
                     constraints=data.get("constraints", []),
                     validated_hypotheses=data.get("validated_hypotheses", []),
                     invalidated_hypotheses=data.get("invalidated_hypotheses", []),
+                    replication_constraints=data.get("replication_constraints", []),
                 )
         except Exception as e:
             self.logger.warning(f"LLM extraction failed, using simple extraction: {e}")
@@ -2199,7 +2251,12 @@ If nothing relevant is found for a category, use an empty list."""
             # Complete if user provided any success criteria
             if len(user_message) > 20:  # Assume substantive response
                 return True
-        
+
+        elif current_topic == "replication_potential":
+            # Complete if user gave any substantive answer (template valid or identified barriers)
+            if extracted.replication_constraints or len(user_message) > 20:
+                return True
+
         return False
 
     async def _generate_refinement_question(
@@ -2212,16 +2269,23 @@ If nothing relevant is found for a category, use an empty list."""
         accumulated: ExtractedRefinements,
         principal_role: str,
         principal_id: str = "system",
+        da_output: Optional[Dict[str, Any]] = None,
     ) -> tuple:
         """Generate the next question using LLM with style guidance."""
-        
+
+        # For replication_potential, enrich kt_summary with benchmark segment details
+        if current_topic == "replication_potential" and da_output:
+            benchmark_summary = self._build_benchmark_summary(da_output)
+            if benchmark_summary:
+                kt_summary = kt_summary + "\n\n" + benchmark_summary
+
         # Build conversation history string
         history_str = ""
         for msg in history[-6:]:  # Last 6 messages for context
             role = msg.get("role", "unknown")
             content = msg.get("content", "")[:300]
             history_str += f"{role.upper()}: {content}\n"
-        
+
         # Build accumulated refinements string
         acc_str = ""
         if accumulated.exclusions:
@@ -2234,7 +2298,9 @@ If nothing relevant is found for a category, use an empty list."""
             acc_str += f"Validated: {accumulated.validated_hypotheses}\n"
         if accumulated.invalidated_hypotheses:
             acc_str += f"Invalidated: {accumulated.invalidated_hypotheses}\n"
-        
+        if accumulated.replication_constraints:
+            acc_str += f"Replication barriers: {accumulated.replication_constraints}\n"
+
         # Default questions if LLM unavailable
         default_questions = {
             "hypothesis_validation": (
@@ -2256,6 +2322,10 @@ If nothing relevant is found for a category, use an empty list."""
             "success_criteria": (
                 "What does 'solved' look like for you? How will we measure success?",
                 ["Return to prior performance", "Specific improvement target", "Stabilize the trend"]
+            ),
+            "replication_potential": (
+                "The analysis identified internal segments performing above baseline. Are these a valid replication template, or do structural barriers prevent direct replication?",
+                ["Yes, these are a valid template", "There are capacity constraints", "There are contractual barriers", "The timing context was different"]
             ),
         }
         
@@ -2552,6 +2622,7 @@ OUTPUT REQUIREMENTS:
             constraints=accumulated.constraints,
             validated_hypotheses=accumulated.validated_hypotheses,
             invalidated_hypotheses=accumulated.invalidated_hypotheses,
+            replication_constraints=accumulated.replication_constraints,
             current_topic=topics_completed[-1] if topics_completed else "complete",
             topic_complete=True,
             topics_completed=topics_completed,

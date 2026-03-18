@@ -69,7 +69,6 @@ export function DecisionStudio() {
         analyzing={analyzing}
         analysisResults={analysisResults[selectedSituation.situation_id]}
         analysisError={analysisError}
-        onRunAnalysis={handleDeepAnalysis}
         daViewMode={daViewMode}
         setDaViewMode={setDaViewMode}
         

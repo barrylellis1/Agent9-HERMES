@@ -17,6 +17,7 @@ const TOPIC_LABELS: Record<string, string> = {
   external_context: 'External Context',
   constraints: 'Constraints',
   success_criteria: 'Success Criteria',
+  replication_potential: 'Replication Targets',
 };
 
 const STYLE_LABELS: Record<string, { label: string; color: string }> = {
@@ -31,7 +32,7 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
   principalId,
   onComplete,
   onCancel,
-  initialMarketSignals,
+  initialMarketSignals: _initialMarketSignals,
 }) => {
   const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
   const [inputValue, setInputValue] = useState('');
@@ -42,7 +43,6 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
   const [refinementState, setRefinementState] = useState<Partial<ProblemRefinementResult>>({});
   const [suggestedResponses, setSuggestedResponses] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [marketSignals, setMarketSignals] = useState<MarketSignal[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const decisionStyle = principalContext?.decision_style || 'analytical';
@@ -56,13 +56,6 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
     scrollToBottom();
   }, [messages]);
 
-  useEffect(() => {
-    if (refinementState?.market_signals && refinementState.market_signals.length > 0) {
-      setMarketSignals(refinementState.market_signals);
-    } else if (initialMarketSignals && initialMarketSignals.length > 0) {
-      setMarketSignals(initialMarketSignals);
-    }
-  }, [refinementState?.market_signals, initialMarketSignals]);
 
   const handleRefinementResult = useCallback((result: ProblemRefinementResult) => {
     // Add agent message to chat
@@ -157,7 +150,17 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
     sendMessage('Proceed to solutions');
   };
 
-  const progressPercentage = (topicsCompleted.length / 5) * 100;
+  const hasBenchmarks = (
+    deepAnalysisOutput?.execution?.kt_is_is_not?.benchmark_segments?.some(
+      (s: any) => s.benchmark_type === 'internal_benchmark'
+    ) ??
+    deepAnalysisOutput?.kt_is_is_not?.benchmark_segments?.some(
+      (s: any) => s.benchmark_type === 'internal_benchmark'
+    ) ??
+    false
+  );
+  const totalTopics = hasBenchmarks ? 6 : 5;
+  const progressPercentage = (topicsCompleted.length / totalTopics) * 100;
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-slate-800 rounded-lg shadow-lg">
@@ -183,7 +186,7 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
         <div className="mt-1">
           <div className="flex items-center justify-between text-[10px] text-slate-400 mb-0.5">
             <span>{TOPIC_LABELS[currentTopic] || currentTopic}</span>
-            <span>{topicsCompleted.length}/5</span>
+            <span>{topicsCompleted.length}/{totalTopics}</span>
           </div>
           <div className="w-full bg-slate-700 rounded-full h-1">
             <div
@@ -275,6 +278,12 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
               <div className="truncate">
                 <span className="font-medium text-slate-300">Constraints:</span>{' '}
                 {refinementState.constraints.slice(0, 2).join('; ')}
+              </div>
+            )}
+            {refinementState.replication_constraints && refinementState.replication_constraints.length > 0 && (
+              <div className="truncate">
+                <span className="font-medium text-slate-300">Replication barriers:</span>{' '}
+                {refinementState.replication_constraints.slice(0, 2).join('; ')}
               </div>
             )}
           </div>

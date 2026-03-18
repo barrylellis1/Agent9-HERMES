@@ -517,3 +517,25 @@ export async function approveSolution(
   const { data } = await response.json();
   return data;
 }
+
+export interface BriefingQAResponse {
+  answer: string;
+  transparency_tier: number;
+  tier_label: string;
+  sources: string[];
+  suggested_followups: string[];
+}
+
+export async function askBriefingQuestion(
+  requestId: string,
+  question: string,
+  principalId: string,
+  conversationHistory: Array<{ role: string; content: string }> = []
+): Promise<BriefingQAResponse> {
+  const envelope = await requestJson<Envelope<BriefingQAResponse>>(`/workflows/solutions/${requestId}/qa`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question, principal_id: principalId, conversation_history: conversationHistory }),
+  });
+  return envelope.data;
+}

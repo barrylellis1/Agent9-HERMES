@@ -140,6 +140,7 @@ class ExtractedRefinements(A9AgentBaseModel):
     constraints: List[str] = Field(default_factory=list)
     validated_hypotheses: List[str] = Field(default_factory=list)
     invalidated_hypotheses: List[str] = Field(default_factory=list)
+    replication_constraints: List[str] = Field(default_factory=list)
 
 
 class ProblemRefinementResult(A9AgentBaseModel):
@@ -182,4 +183,10 @@ class ProblemRefinementResult(A9AgentBaseModel):
     market_signals: Optional[List[Dict[str, Any]]] = Field(
         default=None,
         description="MA signals returned on turn 0; shown as context cards above the refinement chat."
+    )
+
+    # Replication opportunity findings
+    replication_constraints: List[str] = Field(
+        default_factory=list,
+        description="Structural barriers preventing replication of internal benchmark segments."
     )

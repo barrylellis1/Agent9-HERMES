@@ -224,6 +224,23 @@ def _extract_deep_analysis_summary(da_ctx: Any) -> Dict[str, Any]:
         if _when_not:
             summary["when_is_not"] = _when_not
 
+        # Benchmark segments: internal_benchmark = replication targets (top quartile IS NOT)
+        benchmarks_raw = kt.get("benchmark_segments") or []
+        internal_benchmarks: List[Dict[str, Any]] = []
+        for seg in benchmarks_raw:
+            seg_dict = _model_to_dict(seg)
+            if isinstance(seg_dict, dict) and seg_dict.get("benchmark_type") == "internal_benchmark":
+                internal_benchmarks.append({
+                    "dimension": seg_dict.get("dimension"),
+                    "key": seg_dict.get("key"),
+                    "current_value": seg_dict.get("current_value"),
+                    "previous_value": seg_dict.get("previous_value"),
+                    "delta": seg_dict.get("delta"),
+                    "replication_potential": seg_dict.get("replication_potential"),
+                })
+        if internal_benchmarks:
+            summary["benchmark_segments"] = _limit(internal_benchmarks, 3)
+
     when_started = _first_str(ctx.get("when_started"))
     if when_started:
         summary["when_started"] = when_started
@@ -296,6 +313,22 @@ def _trim_deep_analysis_context(da_ctx: Any) -> Any:
                     else:
                         trimmed_entries.append(entry_dict)
                 trimmed_kt[key] = trimmed_entries
+        # Include internal_benchmark segments for replication opportunity framing
+        benchmarks_raw = kt.get("benchmark_segments") or []
+        trimmed_benchmarks = []
+        for seg in benchmarks_raw:
+            seg_dict = _model_to_dict(seg)
+            if isinstance(seg_dict, dict) and seg_dict.get("benchmark_type") == "internal_benchmark":
+                trimmed_benchmarks.append({
+                    "dimension": seg_dict.get("dimension"),
+                    "key": seg_dict.get("key"),
+                    "current_value": seg_dict.get("current_value"),
+                    "previous_value": seg_dict.get("previous_value"),
+                    "delta": seg_dict.get("delta"),
+                    "replication_potential": seg_dict.get("replication_potential"),
+                })
+        if trimmed_benchmarks:
+            trimmed_kt["benchmark_segments"] = _limit(trimmed_benchmarks, 3)
         if trimmed_kt:
             trimmed["kt_is_is_not"] = trimmed_kt
 
@@ -697,6 +730,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "Map risk_signal similarly. recovery_range MUST be non-zero — anchor from Stage 1 impact_estimates in stage_1_persona_hypotheses. "
                         "Do NOT output 0.0 for any numeric field.\n"
                         "- SCOPING REQUIREMENT: Use 'where_is_not' and 'what_is_not' from deep_analysis_summary to explicitly scope each option — name which segments already perform well (no intervention needed) and which are the target. This prevents boiling-the-ocean recommendations.\n"
+                        "- INTERNAL BENCHMARK FEASIBILITY: If benchmark_segments (internal_benchmark type) are present in deep_analysis_summary or kt_is_is_not, at least one option MUST address replication: how the outperforming segment's practices can be scaled to underperforming areas. Name the benchmark segment explicitly and quantify the replication upside using its delta.\n"
                         "- OPTION DIVERSITY REQUIREMENT: Generate EXACTLY 3 options with meaningfully different primary mechanisms — do NOT collapse them into a single 'Strategic Realignment'. Example structure: (1) an immediate operational intervention (0-90 days, lower cost, higher reversibility), (2) a structural fix targeting the root cause dimension (3-12 months), (3) a strategic portfolio or pricing play (12+ months, higher investment). Each option must be independently actionable and have a distinct title reflecting the specific lever.\n"
                         "- CONSISTENCY CHECK (mandatory before writing opt_2/opt_3): Before recommending mix shift toward a product category or customer segment, verify from the where_is data that the TARGET category has BETTER margin performance than the PROBLEM category. If the target segment is ALSO underperforming in the data, you MUST explicitly acknowledge this in the option description AND provide a resolution path (e.g., 'Step 1 is to restore that segment's margins via [mechanism], then accelerate shift'). Never recommend moving volume toward a segment with worse margins than the one being abandoned without resolving the contradiction.\n"
                         "- CRITICAL ACCURACY REQUIREMENT:\n"
@@ -1038,6 +1072,8 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             "where_is_not": da_summary.get("where_is_not", [])[:3],
                             "what_is_not": da_summary.get("what_is_not", [])[:3],
                         }
+                        if da_summary.get("benchmark_segments"):
+                            da_compact_s1["internal_benchmarks"] = da_summary["benchmark_segments"]
                         bc_compact_s1: Dict[str, Any] = {}
                         if isinstance(bc, dict):
                             bc_compact_s1 = {k: v for k, v in {
@@ -1115,10 +1151,15 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                     f"{principal_constraints_section}"
                                     "## YOUR TASK\n"
                                     f"As {p.name}, apply your methodology to:\n"
-                                    "1. Form ONE specific hypothesis about the primary driver of this KPI decline\n"
+                                    "1. Form ONE specific hypothesis about the primary driver of this KPI situation\n"
                                     "2. Propose ONE actionable intervention with a distinct mechanism\n"
-                                    "3. Estimate the recovery impact using the KPI unit from the SITUATION METRICS section above — recovery_range MUST be non-zero numbers proportional to the observed variance\n"
+                                    "3. Estimate the recovery/uplift impact using the KPI unit from the SITUATION METRICS section above — recovery_range MUST be non-zero numbers proportional to the observed variance\n"
                                     "4. Provide 3 specific data points as evidence from the analysis signals\n"
+                                    + (
+                                        "5. If internal_benchmarks are present in KEY ANALYSIS SIGNALS, consider replication strategies — "
+                                        "how can the outperforming segment's practices be scaled to underperforming areas?\n"
+                                        if da_compact_s1.get("internal_benchmarks") else ""
+                                    ) +
                                     "RULES: recommended_focus = entity name only, NO field prefixes (e.g. 'High Mileage Engine Oil', NOT 'product_name: High Mileage Engine Oil'). "
                                     "recovery_range low/high = actual numeric estimates (NEVER 0.0). cost_signal and risk_signal must reflect your mechanism's complexity. "
                                     "Respect any do_not_propose items and constraints from PRINCIPAL CONSTRAINTS — do not propose excluded options.\n\n"

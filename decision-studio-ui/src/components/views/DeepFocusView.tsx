@@ -29,7 +29,6 @@ interface DeepFocusViewProps {
   analyzing: boolean;
   analysisResults: any;
   analysisError: string | null;
-  onRunAnalysis: () => void;
   // Variance/Deep Analysis View
   daViewMode: 'list' | 'snowflake';
   setDaViewMode: (mode: 'list' | 'snowflake') => void;
@@ -70,7 +69,6 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   analyzing,
   analysisResults,
   analysisError,
-  onRunAnalysis,
   daViewMode,
   setDaViewMode,
   showRefinementChat,
@@ -228,20 +226,13 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
 
                 {/* 2. Deep Analysis Results (or Trigger) */}
                 <section>
-                    {/* Trigger button + loading — always visible outside accordion */}
+                    {/* Section header — shown when DA not yet run */}
                     {!currentAnalysis && !analyzing && (
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center mb-4">
                             <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                                 <Microscope className="w-5 h-5 text-blue-400" />
                                 Root Cause Analysis
                             </h2>
-                            <button
-                                onClick={onRunAnalysis}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-                            >
-                                <Microscope className="w-4 h-4" />
-                                Run Deep Analysis
-                            </button>
                         </div>
                     )}
 

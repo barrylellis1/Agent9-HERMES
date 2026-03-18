@@ -1,24 +1,283 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Download, Share2, Printer, AlertTriangle, CheckCircle, ChevronRight, Users, Target, Zap, Clock, Sparkles, ShieldCheck, Loader2, CheckCircle2 } from 'lucide-react'
-import { approveSolution } from '../api/client'
+import {
+  ArrowLeft, Download, Printer, AlertTriangle, CheckCircle, ChevronRight,
+  Users, Target, Zap, Clock, Sparkles, ShieldCheck, Loader2, CheckCircle2,
+  ChevronDown, Send, MessageSquare, BookOpen
+} from 'lucide-react'
+import { approveSolution, askBriefingQuestion, BriefingQAResponse } from '../api/client'
 
-// Full-page Executive Briefing - Consultant-style deliverable
+// ─────────────────────────────────────────────────
+// Accordion section wrapper
+// ─────────────────────────────────────────────────
+function AccordionSection({
+  id, title, icon, badge,
+  openSections, onToggle, children,
+}: {
+  id: string; title: string; icon?: React.ReactNode; badge?: string;
+  openSections: Set<string>; onToggle: (id: string) => void; children: React.ReactNode;
+}) {
+  const isOpen = openSections.has(id)
+  return (
+    <div className="mb-3 rounded-xl overflow-hidden border border-slate-200 print:border-0 print:mb-8">
+      <button
+        onClick={() => onToggle(id)}
+        className="w-full flex items-center justify-between px-5 py-3 bg-slate-800 text-white hover:bg-slate-700 transition-colors print:hidden"
+      >
+        <div className="flex items-center gap-2">
+          {icon}
+          <span className="font-semibold text-sm">{title}</span>
+          {badge && <span className="px-2 py-0.5 text-[10px] bg-indigo-600 text-white rounded-full">{badge}</span>}
+        </div>
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      <div className={`${isOpen ? 'block' : 'hidden'} print:block bg-white`}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────
+// Decision Chat (right panel)
+// ─────────────────────────────────────────────────
+const TIER_COLORS: Record<number, string> = {
+  1: 'text-emerald-400',
+  2: 'text-blue-400',
+  3: 'text-amber-400',
+  4: 'text-purple-400',
+}
+
+function DecisionChat({
+  data, situationId, principalId,
+  approveState, onApprove,
+}: {
+  data: any; situationId: string | undefined; principalId: string;
+  approveState: 'idle' | 'approving' | 'approved' | 'error';
+  onApprove: (optionId: string) => void;
+}) {
+  const [messages, setMessages] = useState<Array<{ role: string; content: string; qa?: BriefingQAResponse }>>([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [selectedOption, setSelectedOption] = useState<string>(() => {
+    const rec = data?.options?.find((o: any) => o.recommended)
+    return rec?.id || data?.recommendation?.optionId || data?.options?.[0]?.id || 'opt_1'
+  })
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const sendQuestion = async (question: string) => {
+    if (!question.trim() || loading) return
+    const userMsg = { role: 'user', content: question }
+    const newHistory = [...messages.filter(m => m.role !== 'assistant' || !m.qa).map(m => ({ role: m.role, content: m.content })), { role: 'user', content: question }]
+    setMessages(prev => [...prev, userMsg])
+    setInput('')
+    setLoading(true)
+    try {
+      const requestId = localStorage.getItem(`solution_request_${situationId}`)
+      if (!requestId) throw new Error('No request ID found')
+      const qa = await askBriefingQuestion(requestId, question, principalId, newHistory)
+      setMessages(prev => [...prev, { role: 'assistant', content: qa.answer, qa }])
+    } catch (err) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'Q&A service unavailable. Please refer to the briefing content for details.',
+        qa: { answer: '', transparency_tier: 4, tier_label: 'Unavailable', sources: [], suggested_followups: [] }
+      }])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendQuestion(input) }
+  }
+
+  const SUGGESTED_QUESTIONS = [
+    'What is the primary root cause driving this KPI decline?',
+    'Which option has the fastest time to impact?',
+    'What are the biggest risks with the recommended option?',
+    'Are there any internal benchmarks we can replicate?',
+  ]
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex-shrink-0 px-4 py-3 border-b border-slate-700 bg-slate-800">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="w-4 h-4 text-indigo-400" />
+          <h3 className="text-sm font-semibold text-white">Decision Workspace</h3>
+        </div>
+        <p className="text-[10px] text-slate-400 mt-0.5">Ask questions · Select your initiative · Approve</p>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
+        {messages.length === 0 && (
+          <div className="space-y-2 pt-2">
+            <p className="text-xs text-slate-400 text-center mb-3">Ask a question about this briefing</p>
+            {SUGGESTED_QUESTIONS.map((q, i) => (
+              <button
+                key={i}
+                onClick={() => sendQuestion(q)}
+                className="w-full text-left text-xs px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition-colors"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        )}
+        {messages.map((msg, i) => (
+          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[90%] rounded-lg px-3 py-2 ${msg.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-100'}`}>
+              <p className="text-xs whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+              {msg.qa && msg.qa.tier_label && (
+                <p className={`text-[10px] mt-1 ${TIER_COLORS[msg.qa.transparency_tier] || 'text-slate-500'}`}>
+                  {msg.qa.tier_label}
+                  {msg.qa.sources?.length > 0 && ` · ${msg.qa.sources.join(', ')}`}
+                </p>
+              )}
+              {msg.qa?.suggested_followups && msg.qa.suggested_followups.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {msg.qa.suggested_followups.map((f, j) => (
+                    <button key={j} onClick={() => sendQuestion(f)}
+                      className="block w-full text-left text-[10px] text-indigo-300 hover:text-indigo-200 truncate">
+                      → {f}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-slate-800 rounded-lg px-3 py-2">
+              <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Sticky footer: initiative selection + approve */}
+      <div className="flex-shrink-0 border-t border-slate-700">
+        {/* Input */}
+        <div className="px-3 py-2 border-b border-slate-700">
+          <div className="flex gap-1.5">
+            <input
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask about this briefing..."
+              disabled={loading}
+              className="flex-1 px-3 py-1.5 text-xs bg-slate-800 text-white border border-slate-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder-slate-500 disabled:opacity-50"
+            />
+            <button
+              onClick={() => sendQuestion(input)}
+              disabled={!input.trim() || loading}
+              className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40 transition-colors"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Initiative selection */}
+        {data?.options && data.options.length > 0 && approveState !== 'approved' && (
+          <div className="px-3 py-2 border-b border-slate-700">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Select Initiative</p>
+            <div className="space-y-1.5">
+              {data.options.map((opt: any, i: number) => {
+                const optId = opt.id || `opt_${i + 1}`
+                const label = String.fromCharCode(65 + i)
+                return (
+                  <label key={optId} className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer transition-colors ${selectedOption === optId ? 'bg-indigo-900/40 border border-indigo-600' : 'bg-slate-800 border border-slate-700 hover:border-slate-600'}`}>
+                    <input
+                      type="radio"
+                      name="initiative"
+                      value={optId}
+                      checked={selectedOption === optId}
+                      onChange={() => setSelectedOption(optId)}
+                      className="mt-0.5 accent-indigo-500"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-slate-400">{label}</span>
+                        {opt.recommended && <span className="text-[9px] bg-emerald-700 text-emerald-100 px-1 rounded">REC</span>}
+                      </div>
+                      <p className="text-xs text-slate-200 leading-snug truncate">{opt.title}</p>
+                      {opt.roi && <p className="text-[10px] text-emerald-400">{opt.roi}</p>}
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Approve button */}
+        <div className="px-3 py-2">
+          {approveState === 'approved' ? (
+            <div className="flex items-center gap-2 px-3 py-2 bg-emerald-900/40 border border-emerald-700 rounded-lg">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+              <div>
+                <p className="text-xs font-semibold text-emerald-300">Decision Approved</p>
+                <p className="text-[10px] text-emerald-500">Value Assurance tracking initiated</p>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => onApprove(selectedOption)}
+              disabled={approveState === 'approving' || !selectedOption}
+              className="w-full py-2 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+              {approveState === 'approving' ? (
+                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Registering...</>
+              ) : approveState === 'error' ? (
+                <><AlertTriangle className="w-3.5 h-3.5" /> Retry Approval</>
+              ) : (
+                <><ShieldCheck className="w-3.5 h-3.5" /> Approve &amp; Track</>
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────
+// Main page
+// ─────────────────────────────────────────────────
 export function ExecutiveBriefing() {
   const { situationId } = useParams()
   const [briefing, setBriefing] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [approveState, setApproveState] = useState<'idle' | 'approving' | 'approved' | 'error'>('idle')
-  const [approvalResult, setApprovalResult] = useState<any>(null)
+  const [openSections, setOpenSections] = useState<Set<string>>(
+    new Set(['summary', 'situation', 'options', 'recommendation'])
+  )
+
+  const toggleSection = (id: string) => {
+    setOpenSections(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   const handleApprove = useCallback(async (optionId: string) => {
     const requestId = localStorage.getItem(`solution_request_${situationId}`)
     if (!requestId) return
     setApproveState('approving')
     try {
-      const result = await approveSolution(requestId, optionId)
-      setApprovalResult(result)
+      await approveSolution(requestId, optionId)
       setApproveState('approved')
     } catch (err) {
       console.error('Approve failed:', err)
@@ -27,37 +286,33 @@ export function ExecutiveBriefing() {
   }, [situationId])
 
   useEffect(() => {
-    // Load briefing data from localStorage or fetch from API
     const stored = localStorage.getItem(`briefing_${situationId}`)
     if (stored) {
       setBriefing(JSON.parse(stored))
-      setLoading(false)
-    } else {
-      // Fetch from API if not cached
-      setLoading(false)
     }
+    setLoading(false)
   }, [situationId])
+
+  const principalId = briefing?.principalId || briefing?.principal_id || 'cfo_001'
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="animate-pulse text-slate-400">Loading briefing...</div>
+      <div className="h-screen bg-slate-950 flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
       </div>
     )
   }
 
   if (!briefing) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-8">
+      <div className="h-screen bg-slate-950 flex items-center justify-center p-8">
         <div className="max-w-xl w-full bg-slate-900/60 border border-slate-800 rounded-xl p-6">
           <h2 className="text-xl font-bold text-white mb-2">Briefing not generated yet</h2>
           <p className="text-slate-400 mb-6">
-            Go back to Decision Studio, run Deep Analysis, then click "Generate Solution Options" to create the Executive Briefing.
+            Go back to Decision Studio, run Deep Analysis, then click "Generate Solution Options".
           </p>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
-          >
+          <Link to="/dashboard"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors">
             <ArrowLeft className="w-4 h-4" />
             Back to Decision Studio
           </Link>
@@ -69,806 +324,619 @@ export function ExecutiveBriefing() {
   const data = briefing
 
   const FIRM_DISPLAY_NAMES: Record<string, string> = {
-    mckinsey: 'McKinsey & Company',
-    bcg: 'BCG',
-    bain: 'Bain & Company',
-    mbb: 'MBB Council',
+    mckinsey: 'McKinsey & Company', bcg: 'BCG', bain: 'Bain & Company', mbb: 'MBB Council',
   }
+  const FIRM_STYLES: Record<string, { bar: string; border: string; badge: string; dot: string }> = {
+    mckinsey:     { bar: 'bg-blue-700',    border: 'border-l-blue-700',    badge: 'bg-blue-50 text-blue-800',      dot: 'bg-blue-700' },
+    bcg:          { bar: 'bg-emerald-600', border: 'border-l-emerald-600', badge: 'bg-emerald-50 text-emerald-800', dot: 'bg-emerald-600' },
+    bain:         { bar: 'bg-red-600',     border: 'border-l-red-600',     badge: 'bg-red-50 text-red-800',         dot: 'bg-red-600' },
+    deloitte:     { bar: 'bg-green-700',   border: 'border-l-green-700',   badge: 'bg-green-50 text-green-800',     dot: 'bg-green-700' },
+    accenture:    { bar: 'bg-purple-600',  border: 'border-l-purple-600',  badge: 'bg-purple-50 text-purple-800',   dot: 'bg-purple-600' },
+    ey_parthenon: { bar: 'bg-yellow-600',  border: 'border-l-yellow-600',  badge: 'bg-yellow-50 text-yellow-800',   dot: 'bg-yellow-600' },
+    kpmg:         { bar: 'bg-sky-700',     border: 'border-l-sky-700',     badge: 'bg-sky-50 text-sky-800',         dot: 'bg-sky-700' },
+    pwc_strategy: { bar: 'bg-orange-600',  border: 'border-l-orange-600',  badge: 'bg-orange-50 text-orange-800',   dot: 'bg-orange-600' },
+  }
+  const convictionStyle: Record<string, string> = {
+    High: 'bg-emerald-100 text-emerald-800', Medium: 'bg-amber-100 text-amber-800', Low: 'bg-slate-100 text-slate-600',
+  }
+  const defaultFirmStyle = { bar: 'bg-indigo-600', border: 'border-l-indigo-600', badge: 'bg-indigo-50 text-indigo-800', dot: 'bg-indigo-600' }
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 print:bg-white">
-      {/* Top Navigation Bar (hidden on print) */}
-      <nav className="bg-slate-900 text-white py-4 px-6 flex justify-between items-center print:hidden sticky top-0 z-50">
-        <Link to="/" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
+    <div className="h-screen flex flex-col bg-slate-950 overflow-hidden">
+      {/* Nav */}
+      <nav className="flex-shrink-0 bg-slate-900 border-b border-slate-800 py-3 px-6 flex justify-between items-center print:hidden z-50">
+        <Link to="/dashboard" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors text-sm">
           <ArrowLeft className="w-4 h-4" />
-          Back to Decision Studio
+          Decision Studio
         </Link>
-        <div className="flex items-center gap-4">
-          <button className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors">
-            <Share2 className="w-4 h-4" />
-            Share
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors">
-            <Download className="w-4 h-4" />
-            Export PDF
-          </button>
-          <button 
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors"
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 mr-3">
+            <BookOpen className="w-4 h-4 text-indigo-400" />
+            <span className="text-sm font-semibold text-white truncate max-w-xs">{data.title}</span>
+          </div>
+          <button
+            onClick={() => setOpenSections(new Set(['summary', 'situation', 'market', 'stage1', 'crossreview', 'options', 'roadmap', 'risks', 'blindspots', 'recommendation']))}
+            className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
           >
-            <Printer className="w-4 h-4" />
+            Expand All
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+          >
+            <Printer className="w-3.5 h-3.5" />
             Print
+          </button>
+          <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors">
+            <Download className="w-3.5 h-3.5" />
+            Export
           </button>
         </div>
       </nav>
 
-      {/* Document Container */}
-      <div className="max-w-4xl mx-auto py-12 px-8 print:py-0 print:px-0">
-        
-        {/* Document Header */}
-        <header className="mb-12 border-b-4 border-slate-900 pb-8">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                Executive Decision Briefing
-              </p>
-              <h1 className="text-4xl font-bold text-slate-900 leading-tight">
-                {data.title}
-              </h1>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-slate-500">Prepared by Agent9 Decision Studio</p>
-              <p className="text-sm text-slate-500">{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-              <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
-                <AlertTriangle className="w-4 h-4" />
-                {data.urgency}
+      {/* Two-panel body */}
+      <div className="flex-1 min-h-0 flex overflow-hidden">
+        {/* ── Left: Briefing content ── */}
+        <div className="flex-1 overflow-y-auto bg-slate-950 p-4 print:p-0 print:bg-white">
+          <div className="max-w-3xl mx-auto">
+
+            {/* Key metrics strip (always visible) */}
+            <div className="grid grid-cols-4 gap-3 mb-4 print:hidden">
+              <div className="bg-slate-900 border border-slate-700 rounded-lg p-3">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Financial Impact</p>
+                <p className="text-lg font-bold text-red-400">{data.metrics?.financialImpact || '—'}</p>
+              </div>
+              <div className="bg-slate-900 border border-slate-700 rounded-lg p-3">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Time Sensitivity</p>
+                <p className="text-lg font-bold text-amber-400">{data.metrics?.timeSensitivity || '—'}</p>
+              </div>
+              <div className="bg-slate-900 border border-slate-700 rounded-lg p-3">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Confidence</p>
+                <p className="text-lg font-bold text-blue-400">{data.metrics?.confidence || '—'}</p>
+              </div>
+              <div className="bg-slate-900 border border-slate-700 rounded-lg p-3">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Decision By</p>
+                <p className="text-lg font-bold text-slate-300">{data.metrics?.decisionDeadline || '—'}</p>
               </div>
             </div>
-          </div>
-          
-          {/* Key Metrics Strip */}
-          <div className="grid grid-cols-4 gap-4 mt-8">
-            <div className="bg-slate-100 rounded-lg p-4">
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Financial Impact</p>
-              <p className="text-2xl font-bold text-red-600">{data.metrics.financialImpact}</p>
-            </div>
-            <div className="bg-slate-100 rounded-lg p-4">
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Time Sensitivity</p>
-              <p className="text-2xl font-bold text-amber-600">{data.metrics.timeSensitivity}</p>
-            </div>
-            <div className="bg-slate-100 rounded-lg p-4">
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Confidence Level</p>
-              <p className="text-2xl font-bold text-blue-600">{data.metrics.confidence}</p>
-            </div>
-            <div className="bg-slate-100 rounded-lg p-4">
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Decision Required By</p>
-              <p className="text-2xl font-bold text-slate-900">{data.metrics.decisionDeadline}</p>
-            </div>
-          </div>
-        </header>
 
-        {/* Executive Summary */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 text-white rounded flex items-center justify-center text-sm font-bold">1</div>
-            Executive Summary
-          </h2>
-          <div className="bg-blue-50 border-l-4 border-blue-600 p-6 rounded-r-lg">
-            <p className="text-lg text-slate-700 leading-relaxed whitespace-pre-line">
-              {data.executiveSummary}
-            </p>
-          </div>
-        </section>
-
-        {/* Situation Analysis */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 text-white rounded flex items-center justify-center text-sm font-bold">2</div>
-            Situation Analysis
-          </h2>
-          
-          <div className="grid grid-cols-2 gap-6 mb-6">
-            <div className="bg-slate-50 p-6 rounded-lg">
-              <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                <Target className="w-5 h-5 text-blue-600" />
-                Current State
-              </h3>
-              <p className="text-slate-700 leading-relaxed">{data.situation.currentState}</p>
-            </div>
-            <div className="bg-red-50 p-6 rounded-lg">
-              <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
-                The Problem
-              </h3>
-              <p className="text-slate-700 leading-relaxed">{data.situation.problem}</p>
-            </div>
-          </div>
-
-          {/* Root Cause Analysis */}
-          {data.situation.rootCauses && data.situation.rootCauses.length > 0 && (
-            <div className="bg-slate-900 text-white p-6 rounded-lg mb-6">
-              <h3 className="font-semibold mb-4 flex items-center gap-2">
-                <Zap className="w-5 h-5 text-amber-400" />
-                Root Cause Analysis (Data-Driven)
-              </h3>
-              <div className="space-y-3">
-                {data.situation.rootCauses.map((cause: any, i: number) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-amber-500 text-slate-900 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">
-                      {i + 1}
-                    </div>
-                    <div>
-                      <p className="font-medium text-white">{cause.driver}</p>
-                      <p className="text-slate-400 text-sm">{cause.evidence}</p>
-                      <p className="text-amber-400 text-sm font-medium mt-1">Impact: {cause.impact}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Key Question */}
-          {data.situation.keyQuestion && (
-            <div className="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-r-lg mb-6">
-              <h3 className="font-semibold text-blue-900 mb-2">Key Question</h3>
-              <p className="text-blue-800 italic">{data.situation.keyQuestion}</p>
-            </div>
-          )}
-
-          {/* Key Assumptions */}
-          {data.situation.assumptions && data.situation.assumptions.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
-              <h3 className="font-semibold text-amber-900 mb-2">Key Assumptions</h3>
-              <ul className="space-y-1">
-                {data.situation.assumptions.map((assumption: string, i: number) => (
-                  <li key={i} className="text-amber-800 text-sm flex items-start gap-2">
-                    <span className="text-amber-500">•</span>
-                    {assumption}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </section>
-
-        {/* Market Intelligence */}
-        {data.market_signals && data.market_signals.length > 0 && (
-          <section className="mb-12">
-            <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
-              <div className="w-8 h-8 bg-amber-500 text-white rounded flex items-center justify-center">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              Market Intelligence
-            </h2>
-            <p className="text-slate-600 mb-6">
-              External signals collected at the time of analysis that provide market and competitive context for the strategic options below.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {data.market_signals.map((signal: any, i: number) => (
-                <div key={i} className="bg-amber-50 border border-amber-200 rounded-lg p-5">
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <h3 className="font-semibold text-slate-900 text-sm leading-snug">{signal.title}</h3>
-                    {signal.relevance_score != null && (
-                      <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-200 text-amber-800">
-                        {Math.round(signal.relevance_score * 100)}% relevant
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-slate-700 leading-relaxed mb-3">{signal.summary}</p>
-                  {signal.source && (
-                    <p className="text-xs text-slate-500">Source: {signal.source}</p>
-                  )}
+            {/* Executive Summary */}
+            <AccordionSection id="summary" title="Executive Summary" openSections={openSections} onToggle={toggleSection}
+              icon={<div className="w-5 h-5 bg-blue-600 text-white rounded flex items-center justify-center text-[10px] font-bold">1</div>}>
+              <div className="p-5">
+                <div className="bg-blue-50 border-l-4 border-blue-600 p-5 rounded-r-lg">
+                  <p className="text-base text-slate-700 leading-relaxed whitespace-pre-line">{data.executiveSummary}</p>
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
+              </div>
+            </AccordionSection>
 
-        {/* Stage 1: Initial Hypotheses */}
-        {data.stage_1_hypotheses && (
-          <section className="mb-12">
-            <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
-              <div className="w-8 h-8 bg-indigo-600 text-white rounded flex items-center justify-center text-sm font-bold">1</div>
-              Stage 1: Independent Firm Proposals
-            </h2>
-            <p className="text-slate-600 mb-6">
-              Each consulting firm independently analyzed the problem and proposed a specific intervention using their signature framework.
-            </p>
-            {(() => {
-              // Firm-specific accent colours (top bar + left border + badge)
-              const FIRM_STYLES: Record<string, { bar: string; border: string; badge: string; dot: string }> = {
-                mckinsey:    { bar: 'bg-blue-700',   border: 'border-l-blue-700',   badge: 'bg-blue-50 text-blue-800',   dot: 'bg-blue-700' },
-                bcg:         { bar: 'bg-emerald-600',border: 'border-l-emerald-600',badge: 'bg-emerald-50 text-emerald-800',dot: 'bg-emerald-600' },
-                bain:        { bar: 'bg-red-600',    border: 'border-l-red-600',    badge: 'bg-red-50 text-red-800',     dot: 'bg-red-600' },
-                deloitte:    { bar: 'bg-green-700',  border: 'border-l-green-700',  badge: 'bg-green-50 text-green-800', dot: 'bg-green-700' },
-                accenture:   { bar: 'bg-purple-600', border: 'border-l-purple-600', badge: 'bg-purple-50 text-purple-800',dot: 'bg-purple-600' },
-                ey_parthenon:{ bar: 'bg-yellow-600', border: 'border-l-yellow-600', badge: 'bg-yellow-50 text-yellow-800',dot: 'bg-yellow-600' },
-                kpmg:        { bar: 'bg-sky-700',    border: 'border-l-sky-700',    badge: 'bg-sky-50 text-sky-800',     dot: 'bg-sky-700' },
-                pwc_strategy:{ bar: 'bg-orange-600', border: 'border-l-orange-600', badge: 'bg-orange-50 text-orange-800',dot: 'bg-orange-600' },
-              }
-              const convictionStyle: Record<string, string> = {
-                High:   'bg-emerald-100 text-emerald-800',
-                Medium: 'bg-amber-100 text-amber-800',
-                Low:    'bg-slate-100 text-slate-600',
-              }
-              const defaultStyle = { bar: 'bg-indigo-600', border: 'border-l-indigo-600', badge: 'bg-indigo-50 text-indigo-800', dot: 'bg-indigo-600' }
-              return (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {Object.entries(data.stage_1_hypotheses).map(([firmId, hyp]: [string, any]) => {
-                    const s = FIRM_STYLES[firmId] ?? defaultStyle
-                    const conviction = hyp.conviction || 'High'
-                    const displayName = FIRM_DISPLAY_NAMES[firmId.toLowerCase()] ?? (firmId.charAt(0).toUpperCase() + firmId.slice(1).replace(/_/g, ' '))
-                    return (
-                      <div key={firmId} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm flex flex-col">
-                        {/* Coloured top accent bar */}
-                        <div className={`h-1.5 w-full ${s.bar}`} />
-                        <div className="p-5 flex flex-col flex-1">
-                          {/* Header */}
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <div className={`w-2.5 h-2.5 rounded-full ${s.dot}`} />
-                              <h4 className="font-bold text-slate-900 text-base">
-                                {displayName}
-                              </h4>
-                            </div>
-                            {conviction && (
-                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${convictionStyle[conviction] ?? convictionStyle.Medium}`}>
-                                {conviction} Conviction
-                              </span>
-                            )}
+            {/* Situation Analysis */}
+            <AccordionSection id="situation" title="Situation Analysis" openSections={openSections} onToggle={toggleSection}
+              icon={<div className="w-5 h-5 bg-blue-600 text-white rounded flex items-center justify-center text-[10px] font-bold">2</div>}>
+              <div className="p-5 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-50 p-5 rounded-lg">
+                    <h3 className="font-semibold text-slate-900 mb-2 flex items-center gap-2 text-sm">
+                      <Target className="w-4 h-4 text-blue-600" /> Current State
+                    </h3>
+                    <p className="text-slate-700 text-sm leading-relaxed">{data.situation?.currentState}</p>
+                  </div>
+                  <div className="bg-red-50 p-5 rounded-lg">
+                    <h3 className="font-semibold text-slate-900 mb-2 flex items-center gap-2 text-sm">
+                      <AlertTriangle className="w-4 h-4 text-red-600" /> The Problem
+                    </h3>
+                    <p className="text-slate-700 text-sm leading-relaxed">{data.situation?.problem}</p>
+                  </div>
+                </div>
+                {data.situation?.rootCauses?.length > 0 && (
+                  <div className="bg-slate-900 text-white p-5 rounded-lg">
+                    <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
+                      <Zap className="w-4 h-4 text-amber-400" /> Root Cause Analysis
+                    </h3>
+                    <div className="space-y-3">
+                      {data.situation.rootCauses.map((cause: any, i: number) => (
+                        <div key={i} className="flex items-start gap-3">
+                          <div className="w-5 h-5 bg-amber-500 text-slate-900 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">{i + 1}</div>
+                          <div>
+                            <p className="font-medium text-white text-sm">{cause.driver}</p>
+                            <p className="text-slate-400 text-xs">{cause.evidence}</p>
+                            <p className="text-amber-400 text-xs font-medium mt-0.5">Impact: {cause.impact}</p>
                           </div>
-
-                          {/* Framework badge */}
-                          {hyp.framework && (
-                            <span className={`self-start text-xs font-medium px-2.5 py-0.5 rounded-full mb-3 ${s.badge}`}>
-                              {hyp.framework}
-                            </span>
-                          )}
-
-                          {/* Hypothesis */}
-                          <p className="text-sm text-slate-700 leading-relaxed mb-4 flex-1">{hyp.hypothesis}</p>
-
-                          {/* Key Evidence */}
-                          {Array.isArray(hyp.key_evidence) && hyp.key_evidence.length > 0 && (
-                            <div className="bg-slate-50 rounded-lg p-3 mb-4">
-                              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Evidence Base</p>
-                              <ul className="space-y-1.5">
-                                {hyp.key_evidence.slice(0, 3).map((ev: string, i: number) => (
-                                  <li key={i} className="flex items-start gap-1.5 text-xs text-slate-600">
-                                    <span className="text-slate-400 mt-0.5 shrink-0">▸</span>
-                                    <span>{ev}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-
-                          {/* Recommended Focus — the punchline */}
-                          {hyp.recommended_focus && (
-                            <div className={`border-l-4 ${s.border} pl-3 mt-auto`}>
-                              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Primary Focus</p>
-                              <p className="text-sm font-semibold text-slate-900">{hyp.recommended_focus}</p>
-                            </div>
-                          )}
-                          {hyp.proposed_option?.title && (
-                            <div className="mt-2">
-                              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Proposed Action</p>
-                              <p className="text-sm font-semibold text-blue-700 leading-snug">{hyp.proposed_option.title}</p>
-                            </div>
-                          )}
                         </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )
-            })()}
-          </section>
-        )}
-
-        {/* Stage 2: Council Cross-Review */}
-        {data.cross_review && (
-          <section className="mb-12">
-            <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
-              <div className="w-8 h-8 bg-purple-600 text-white rounded flex items-center justify-center text-sm font-bold">2</div>
-              Stage 2: Cross-Review
-            </h2>
-            <p className="text-slate-600 mb-6">
-              Each firm reviewed the others' hypotheses to surface blind spots and tensions.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {Object.entries(data.cross_review).map(([personaId, review]: [string, any]) => (
-                <div key={personaId} className="bg-slate-50 border border-slate-200 rounded-lg p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
-                      <Users className="w-4 h-4 text-purple-600" />
+                      ))}
                     </div>
-                    <div>
-                      <h4 className="font-bold text-slate-900">
-                        {FIRM_DISPLAY_NAMES[personaId.toLowerCase()] ?? (personaId.charAt(0).toUpperCase() + personaId.slice(1).replace(/_/g, ' '))}
-                      </h4>
-                      <p className="text-xs text-slate-500">Council Member</p>
-                    </div>
-                  </div>
-                  
-                  {review.critiques && review.critiques.length > 0 && (
-                    <div className="mb-3">
-                      <h5 className="text-xs font-semibold text-red-600 uppercase tracking-wider mb-2">Key Critiques</h5>
-                      <ul className="space-y-2">
-                        {review.critiques.map((c: any, i: number) => (
-                          <li key={i} className="text-sm text-slate-700 bg-white p-2 rounded border border-slate-100">
-                            <span className="font-medium text-slate-900 block mb-0.5">Re: {c.target}</span>
-                            "{c.concern}"
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {review.endorsements && review.endorsements.length > 0 && (
-                    <div>
-                      <h5 className="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-2">Endorsements</h5>
-                      <ul className="space-y-2">
-                        {review.endorsements.map((e: any, i: number) => (
-                          <li key={i} className="text-sm text-slate-700 bg-white p-2 rounded border border-slate-100">
-                            <span className="font-medium text-slate-900 block mb-0.5">Re: {e.target}</span>
-                            "{e.reason}"
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Strategic Options */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 text-white rounded flex items-center justify-center text-sm font-bold">3</div>
-            Strategic Options
-          </h2>
-          <p className="text-slate-600 mb-6">
-            Based on the analysis, we have identified three strategic pathways. Each option has been evaluated 
-            against financial impact, implementation complexity, risk profile, and alignment with stated priorities.
-          </p>
-
-          {/* Comparative Table */}
-          <div className="overflow-x-auto rounded-lg border border-slate-200 mb-8">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-slate-100 text-slate-900 font-bold uppercase text-xs">
-                <tr>
-                  <th className="p-4 border-b border-slate-200 min-w-[150px]">Criteria</th>
-                  {data.options.map((opt: any, i: number) => (
-                    <th key={i} className={`p-4 border-b border-slate-200 min-w-[200px] ${opt.recommended ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : ''}`}>
-                      {opt.recommended && <div className="text-[10px] text-emerald-600 mb-1 flex items-center gap-1"><CheckCircle className="w-3 h-3"/> RECOMMENDED</div>}
-                      Option {String.fromCharCode(65 + i)}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                <tr>
-                  <td className="p-4 font-semibold text-slate-700 bg-slate-50">Strategy</td>
-                  {data.options.map((opt: any, i: number) => (
-                    <td key={i} className={`p-4 font-medium text-slate-900 ${opt.recommended ? 'bg-emerald-50/30' : ''}`}>
-                      {opt.title}
-                    </td>
-                  ))}
-                </tr>
-                <tr>
-                  <td className="p-4 font-semibold text-slate-700 bg-slate-50">Est. ROI</td>
-                  {data.options.map((opt: any, i: number) => (
-                    <td key={i} className={`p-4 font-bold text-emerald-600 ${opt.recommended ? 'bg-emerald-50/30' : ''}`}>
-                      {opt.roi}
-                    </td>
-                  ))}
-                </tr>
-                <tr>
-                  <td className="p-4 font-semibold text-slate-700 bg-slate-50">Investment</td>
-                  {data.options.map((opt: any, i: number) => (
-                    <td key={i} className={`p-4 text-slate-600 ${opt.recommended ? 'bg-emerald-50/30' : ''}`}>
-                      {opt.investment}
-                    </td>
-                  ))}
-                </tr>
-                <tr>
-                  <td className="p-4 font-semibold text-slate-700 bg-slate-50">Timeline</td>
-                  {data.options.map((opt: any, i: number) => (
-                    <td key={i} className={`p-4 text-slate-600 ${opt.recommended ? 'bg-emerald-50/30' : ''}`}>
-                      {opt.timeline}
-                    </td>
-                  ))}
-                </tr>
-                <tr>
-                  <td className="p-4 font-semibold text-slate-700 bg-slate-50">Risk Level</td>
-                  {data.options.map((opt: any, i: number) => (
-                    <td key={i} className={`p-4 ${opt.recommended ? 'bg-emerald-50/30' : ''}`}>
-                       <span className={`px-2 py-1 rounded text-xs font-bold ${
-                          opt.riskLevel === 'Low' ? 'bg-emerald-100 text-emerald-700' : 
-                          opt.riskLevel === 'Medium' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                       }`}>
-                         {opt.riskLevel}
-                       </span>
-                    </td>
-                  ))}
-                </tr>
-                <tr>
-                  <td className="p-4 font-semibold text-slate-700 bg-slate-50">Reversibility</td>
-                  {data.options.map((opt: any, i: number) => (
-                    <td key={i} className={`p-4 text-slate-600 capitalize ${opt.recommended ? 'bg-emerald-50/30' : ''}`}>
-                      {opt.reversibility}
-                    </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="space-y-8">
-            {data.options.map((option: any, i: number) => (
-              <motion.div 
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className={`border-2 rounded-xl overflow-hidden ${
-                  option.recommended ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 bg-white'
-                }`}
-              >
-                {option.recommended && (
-                  <div className="bg-emerald-500 text-white px-4 py-2 text-sm font-semibold flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4" />
-                    RECOMMENDED OPTION
                   </div>
                 )}
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-xl font-bold text-slate-900">
-                        Option {String.fromCharCode(65 + i)}: {option.title}
-                      </h3>
-                      <p className="text-slate-600 mt-1">{option.subtitle}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-slate-500">Est. ROI</p>
-                      <p className="text-2xl font-bold text-emerald-600">{option.roi}</p>
-                    </div>
+                {data.situation?.keyQuestion && (
+                  <div className="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-r-lg">
+                    <h3 className="font-semibold text-blue-900 mb-1 text-sm">Key Question</h3>
+                    <p className="text-blue-800 italic text-sm">{data.situation.keyQuestion}</p>
                   </div>
-
-                  <p className="text-slate-700 leading-relaxed mb-6">{option.description}</p>
-
-                  {/* Option Metrics */}
-                  <div className="grid grid-cols-4 gap-4 mb-6">
-                    <div className="text-center p-3 bg-slate-100 rounded-lg">
-                      <p className="text-xs text-slate-500 uppercase">Investment</p>
-                      <p className="font-bold text-slate-900">{option.investment}</p>
-                    </div>
-                    <div className="text-center p-3 bg-slate-100 rounded-lg">
-                      <p className="text-xs text-slate-500 uppercase">Timeline</p>
-                      <p className="font-bold text-slate-900">{option.timeline}</p>
-                    </div>
-                    <div className="text-center p-3 bg-slate-100 rounded-lg">
-                      <p className="text-xs text-slate-500 uppercase">Risk Level</p>
-                      <p className={`font-bold ${option.riskLevel === 'Low' ? 'text-emerald-600' : option.riskLevel === 'Medium' ? 'text-amber-600' : 'text-red-600'}`}>
-                        {option.riskLevel}
-                      </p>
-                    </div>
-                    <div className="text-center p-3 bg-slate-100 rounded-lg">
-                      <p className="text-xs text-slate-500 uppercase">Reversibility</p>
-                      <p className="font-bold text-slate-900">{option.reversibility}</p>
-                    </div>
+                )}
+                {data.situation?.assumptions?.length > 0 && (
+                  <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
+                    <h3 className="font-semibold text-amber-900 mb-2 text-sm">Key Assumptions</h3>
+                    <ul className="space-y-1">
+                      {data.situation.assumptions.map((a: string, i: number) => (
+                        <li key={i} className="text-amber-800 text-sm flex items-start gap-2">
+                          <span className="text-amber-500">•</span>{a}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
+                )}
+              </div>
+            </AccordionSection>
 
-                  {/* Pros and Cons */}
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="font-semibold text-emerald-700 mb-2 flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4" />
-                        Arguments For
-                      </h4>
-                      <ul className="space-y-2">
-                        {option.prosDetailed.map((pro: any, j: number) => (
-                          <li key={j} className="text-sm text-slate-700 flex items-start gap-2">
-                            <ChevronRight className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
-                            <span>{pro.point.replace(/[:]+$/, '')}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-red-700 mb-2 flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4" />
-                        Arguments Against
-                      </h4>
-                      <ul className="space-y-2">
-                        {option.consDetailed.map((con: any, j: number) => (
-                          <li key={j} className="text-sm text-slate-700 flex items-start gap-2">
-                            <ChevronRight className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-                            <span>{con.point.replace(/[:]+$/, '')}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-
-                  {/* Stakeholder Perspectives */}
-                  {option.perspectives && (
-                    <div className="mt-6 pt-6 border-t border-slate-200">
-                      <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                        <Users className="w-4 h-4" />
-                        Stakeholder Perspectives
-                      </h4>
-                      <div className="grid grid-cols-3 gap-4">
-                        {option.perspectives.map((p: any, j: number) => (
-                          <div key={j} className="bg-slate-50 p-3 rounded-lg">
-                            <p className="font-medium text-slate-900 text-sm">{p.role}</p>
-                            <p className="text-xs text-slate-600 mt-1">{p.view}</p>
-                          </div>
-                        ))}
+            {/* Market Intelligence */}
+            {data.market_signals?.length > 0 && (
+              <AccordionSection id="market" title="Market Intelligence" openSections={openSections} onToggle={toggleSection}
+                badge={`${data.market_signals.length} signals`}
+                icon={<Sparkles className="w-4 h-4 text-amber-400" />}>
+                <div className="p-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {data.market_signals.map((signal: any, i: number) => (
+                      <div key={i} className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <h3 className="font-semibold text-slate-900 text-sm leading-snug">{signal.title}</h3>
+                          {signal.relevance_score != null && (
+                            <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-200 text-amber-800">
+                              {Math.round(signal.relevance_score * 100)}%
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-700 leading-relaxed mb-2">{signal.summary}</p>
+                        {signal.source && <p className="text-xs text-slate-500">Source: {signal.source}</p>}
                       </div>
-                    </div>
-                  )}
+                    ))}
+                  </div>
                 </div>
-              </motion.div>
-            ))}
-          </div>
-        </section>
+              </AccordionSection>
+            )}
 
-        {/* Implementation Roadmap */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 text-white rounded flex items-center justify-center text-sm font-bold">4</div>
-            Implementation Roadmap
-          </h2>
-          <p className="text-slate-600 mb-6">
-            Should the recommended option be approved, the following phased approach is proposed:
-          </p>
+            {/* Stage 1: Firm Proposals */}
+            {data.stage_1_hypotheses && (
+              <AccordionSection id="stage1" title="Stage 1: Independent Firm Proposals" openSections={openSections} onToggle={toggleSection}
+                icon={<div className="w-5 h-5 bg-indigo-600 text-white rounded flex items-center justify-center text-[10px] font-bold">1</div>}>
+                <div className="p-5">
+                  <p className="text-slate-600 text-sm mb-4">Each firm independently analyzed the problem and proposed an intervention using their signature framework.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {Object.entries(data.stage_1_hypotheses).map(([firmId, hyp]: [string, any]) => {
+                      const s = FIRM_STYLES[firmId] ?? defaultFirmStyle
+                      const conviction = hyp.conviction || 'High'
+                      const displayName = FIRM_DISPLAY_NAMES[firmId.toLowerCase()] ?? (firmId.charAt(0).toUpperCase() + firmId.slice(1).replace(/_/g, ' '))
+                      return (
+                        <div key={firmId} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm flex flex-col">
+                          <div className={`h-1.5 w-full ${s.bar}`} />
+                          <div className="p-4 flex flex-col flex-1">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${s.dot}`} />
+                                <h4 className="font-bold text-slate-900 text-sm">{displayName}</h4>
+                              </div>
+                              {conviction && (
+                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${convictionStyle[conviction] ?? convictionStyle.Medium}`}>
+                                  {conviction}
+                                </span>
+                              )}
+                            </div>
+                            {hyp.framework && (
+                              <span className={`self-start text-xs font-medium px-2 py-0.5 rounded-full mb-2 ${s.badge}`}>{hyp.framework}</span>
+                            )}
+                            <p className="text-sm text-slate-700 leading-relaxed mb-3 flex-1">{hyp.hypothesis}</p>
+                            {Array.isArray(hyp.key_evidence) && hyp.key_evidence.length > 0 && (
+                              <div className="bg-slate-50 rounded-lg p-2 mb-3">
+                                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Evidence</p>
+                                <ul className="space-y-1">
+                                  {hyp.key_evidence.slice(0, 3).map((ev: string, i: number) => (
+                                    <li key={i} className="flex items-start gap-1 text-xs text-slate-600">
+                                      <span className="text-slate-400 shrink-0">▸</span><span>{ev}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {hyp.recommended_focus && (
+                              <div className={`border-l-4 ${s.border} pl-2 mt-auto`}>
+                                <p className="text-[10px] font-semibold text-slate-400 uppercase">Primary Focus</p>
+                                <p className="text-sm font-semibold text-slate-900">{hyp.recommended_focus}</p>
+                              </div>
+                            )}
+                            {hyp.proposed_option?.title && (
+                              <div className="mt-2">
+                                <p className="text-[10px] font-semibold text-slate-400 uppercase">Proposed Action</p>
+                                <p className="text-sm font-semibold text-blue-700 leading-snug">{hyp.proposed_option.title}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </AccordionSection>
+            )}
 
-          <div className="relative">
-            {/* Timeline Line */}
-            <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-slate-300"></div>
-            
-            <div className="space-y-6">
-              {data.roadmap.map((phase: any, i: number) => (
-                <div key={i} className="relative pl-16">
-                  <div className={`absolute left-4 w-5 h-5 rounded-full border-2 ${
-                    i === 0 ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-300'
-                  }`}></div>
-                  <div className="bg-slate-50 p-4 rounded-lg">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-semibold text-slate-900">{phase.phase}</h4>
-                      <span className="text-sm text-slate-500 flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        {phase.timeline || phase.duration}
-                      </span>
-                    </div>
-                    {phase.description && <p className="text-slate-700 text-sm mb-3">{phase.description}</p>}
-                    <div className="flex flex-wrap gap-2">
-                      {(phase.items || phase.deliverables || []).map((d: string, j: number) => (
-                        <span key={j} className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
-                          {d}
-                        </span>
+            {/* Stage 2: Cross-Review */}
+            {data.cross_review && (
+              <AccordionSection id="crossreview" title="Stage 2: Cross-Review" openSections={openSections} onToggle={toggleSection}
+                icon={<div className="w-5 h-5 bg-purple-600 text-white rounded flex items-center justify-center text-[10px] font-bold">2</div>}>
+                <div className="p-5">
+                  <p className="text-slate-600 text-sm mb-4">Each firm reviewed the others' hypotheses to surface blind spots and tensions.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(data.cross_review).map(([personaId, review]: [string, any]) => (
+                      <div key={personaId} className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center">
+                            <Users className="w-3.5 h-3.5 text-purple-600" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-slate-900 text-sm">
+                              {FIRM_DISPLAY_NAMES[personaId.toLowerCase()] ?? (personaId.charAt(0).toUpperCase() + personaId.slice(1).replace(/_/g, ' '))}
+                            </h4>
+                            <p className="text-xs text-slate-500">Council Member</p>
+                          </div>
+                        </div>
+                        {review.critiques?.length > 0 && (
+                          <div className="mb-2">
+                            <h5 className="text-xs font-semibold text-red-600 uppercase tracking-wider mb-1">Critiques</h5>
+                            <ul className="space-y-1">
+                              {review.critiques.map((c: any, i: number) => (
+                                <li key={i} className="text-xs text-slate-700 bg-white p-2 rounded border border-slate-100">
+                                  <span className="font-medium text-slate-900 block mb-0.5">Re: {c.target}</span>
+                                  "{c.concern}"
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {review.endorsements?.length > 0 && (
+                          <div>
+                            <h5 className="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-1">Endorsements</h5>
+                            <ul className="space-y-1">
+                              {review.endorsements.map((e: any, i: number) => (
+                                <li key={i} className="text-xs text-slate-700 bg-white p-2 rounded border border-slate-100">
+                                  <span className="font-medium text-slate-900 block mb-0.5">Re: {e.target}</span>
+                                  "{e.reason}"
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </AccordionSection>
+            )}
+
+            {/* Strategic Options */}
+            <AccordionSection id="options" title="Strategic Options" openSections={openSections} onToggle={toggleSection}
+              badge={`${data.options?.length || 0} options`}
+              icon={<div className="w-5 h-5 bg-blue-600 text-white rounded flex items-center justify-center text-[10px] font-bold">3</div>}>
+              <div className="p-5">
+                <p className="text-slate-600 text-sm mb-4">Three strategic pathways evaluated against financial impact, complexity, risk, and priority alignment.</p>
+                {/* Comparison table */}
+                <div className="overflow-x-auto rounded-lg border border-slate-200 mb-6">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-slate-100 text-slate-900 font-bold uppercase">
+                      <tr>
+                        <th className="p-3 border-b border-slate-200 min-w-[120px]">Criteria</th>
+                        {data.options?.map((opt: any, i: number) => (
+                          <th key={i} className={`p-3 border-b border-slate-200 min-w-[160px] ${opt.recommended ? 'bg-emerald-50 text-emerald-800' : ''}`}>
+                            {opt.recommended && <div className="text-[9px] text-emerald-600 mb-0.5 flex items-center gap-1"><CheckCircle className="w-2.5 h-2.5" /> RECOMMENDED</div>}
+                            Option {String.fromCharCode(65 + i)}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {[
+                        { label: 'Strategy', key: 'title', cls: 'font-medium text-slate-900' },
+                        { label: 'Est. ROI', key: 'roi', cls: 'font-bold text-emerald-600' },
+                        { label: 'Investment', key: 'investment', cls: 'text-slate-600' },
+                        { label: 'Timeline', key: 'timeline', cls: 'text-slate-600' },
+                      ].map(({ label, key, cls }) => (
+                        <tr key={key}>
+                          <td className="p-3 font-semibold text-slate-700 bg-slate-50">{label}</td>
+                          {data.options?.map((opt: any, i: number) => (
+                            <td key={i} className={`p-3 ${cls} ${opt.recommended ? 'bg-emerald-50/30' : ''}`}>{opt[key]}</td>
+                          ))}
+                        </tr>
+                      ))}
+                      <tr>
+                        <td className="p-3 font-semibold text-slate-700 bg-slate-50">Risk</td>
+                        {data.options?.map((opt: any, i: number) => (
+                          <td key={i} className={`p-3 ${opt.recommended ? 'bg-emerald-50/30' : ''}`}>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              opt.riskLevel === 'Low' ? 'bg-emerald-100 text-emerald-700' :
+                              opt.riskLevel === 'Medium' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                              {opt.riskLevel}
+                            </span>
+                          </td>
+                        ))}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                {/* Option detail cards */}
+                <div className="space-y-6">
+                  {data.options?.map((option: any, i: number) => (
+                    <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                      className={`border-2 rounded-xl overflow-hidden ${option.recommended ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
+                      {option.recommended && (
+                        <div className="bg-emerald-500 text-white px-4 py-1.5 text-xs font-semibold flex items-center gap-2">
+                          <CheckCircle className="w-3.5 h-3.5" /> RECOMMENDED OPTION
+                        </div>
+                      )}
+                      <div className="p-5">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <h3 className="text-lg font-bold text-slate-900">Option {String.fromCharCode(65 + i)}: {option.title}</h3>
+                            <p className="text-slate-600 text-sm mt-0.5">{option.subtitle}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-slate-500">Est. ROI</p>
+                            <p className="text-xl font-bold text-emerald-600">{option.roi}</p>
+                          </div>
+                        </div>
+                        <p className="text-slate-700 text-sm leading-relaxed mb-4">{option.description}</p>
+                        <div className="grid grid-cols-4 gap-3 mb-4">
+                          {[{ label: 'Investment', val: option.investment }, { label: 'Timeline', val: option.timeline },
+                            { label: 'Risk', val: option.riskLevel, cls: option.riskLevel === 'Low' ? 'text-emerald-600' : option.riskLevel === 'Medium' ? 'text-amber-600' : 'text-red-600' },
+                            { label: 'Reversibility', val: option.reversibility }].map(({ label, val, cls }) => (
+                            <div key={label} className="text-center p-2 bg-slate-100 rounded-lg">
+                              <p className="text-[10px] text-slate-500 uppercase">{label}</p>
+                              <p className={`font-bold text-xs text-slate-900 ${cls || ''}`}>{val}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <h4 className="font-semibold text-emerald-700 mb-2 flex items-center gap-1.5 text-sm">
+                              <CheckCircle className="w-3.5 h-3.5" /> Arguments For
+                            </h4>
+                            <ul className="space-y-1.5">
+                              {option.prosDetailed?.map((pro: any, j: number) => (
+                                <li key={j} className="text-xs text-slate-700 flex items-start gap-1.5">
+                                  <ChevronRight className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                                  <span>{pro.point?.replace(/[:]+$/, '')}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-red-700 mb-2 flex items-center gap-1.5 text-sm">
+                              <AlertTriangle className="w-3.5 h-3.5" /> Arguments Against
+                            </h4>
+                            <ul className="space-y-1.5">
+                              {option.consDetailed?.map((con: any, j: number) => (
+                                <li key={j} className="text-xs text-slate-700 flex items-start gap-1.5">
+                                  <ChevronRight className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />
+                                  <span>{con.point?.replace(/[:]+$/, '')}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                        {option.perspectives && (
+                          <div className="mt-4 pt-4 border-t border-slate-200">
+                            <h4 className="font-semibold text-slate-900 mb-2 flex items-center gap-1.5 text-sm">
+                              <Users className="w-3.5 h-3.5" /> Stakeholder Perspectives
+                            </h4>
+                            <div className="grid grid-cols-3 gap-3">
+                              {option.perspectives.map((p: any, j: number) => (
+                                <div key={j} className="bg-slate-50 p-2.5 rounded-lg">
+                                  <p className="font-medium text-slate-900 text-xs">{p.role}</p>
+                                  <p className="text-xs text-slate-600 mt-0.5">{p.view}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </AccordionSection>
+
+            {/* Implementation Roadmap */}
+            {data.roadmap?.length > 0 && (
+              <AccordionSection id="roadmap" title="Implementation Roadmap" openSections={openSections} onToggle={toggleSection}
+                icon={<div className="w-5 h-5 bg-blue-600 text-white rounded flex items-center justify-center text-[10px] font-bold">4</div>}>
+                <div className="p-5">
+                  <div className="relative">
+                    <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-slate-300" />
+                    <div className="space-y-4">
+                      {data.roadmap.map((phase: any, i: number) => (
+                        <div key={i} className="relative pl-12">
+                          <div className={`absolute left-3.5 w-4 h-4 rounded-full border-2 ${i === 0 ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-300'}`} />
+                          <div className="bg-slate-50 p-3 rounded-lg">
+                            <div className="flex justify-between items-start mb-1.5">
+                              <h4 className="font-semibold text-slate-900 text-sm">{phase.phase}</h4>
+                              <span className="text-xs text-slate-500 flex items-center gap-1">
+                                <Clock className="w-3 h-3" />{phase.timeline || phase.duration}
+                              </span>
+                            </div>
+                            {phase.description && <p className="text-slate-700 text-xs mb-2">{phase.description}</p>}
+                            <div className="flex flex-wrap gap-1.5">
+                              {(phase.items || phase.deliverables || []).map((d: string, j: number) => (
+                                <span key={j} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">{d}</span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
+              </AccordionSection>
+            )}
+
+            {/* Risk Analysis */}
+            {data.risks?.length > 0 && (
+              <AccordionSection id="risks" title="Risk Analysis & Mitigation" openSections={openSections} onToggle={toggleSection}
+                icon={<div className="w-5 h-5 bg-blue-600 text-white rounded flex items-center justify-center text-[10px] font-bold">5</div>}>
+                <div className="p-5">
+                  <div className="overflow-hidden rounded-lg border border-slate-200">
+                    <table className="w-full text-xs">
+                      <thead className="bg-slate-100">
+                        <tr>
+                          {['Risk', 'Likelihood', 'Impact', 'Mitigation'].map(h => (
+                            <th key={h} className="text-left p-3 font-semibold text-slate-900">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.risks.map((risk: any, i: number) => (
+                          <tr key={i} className="border-t border-slate-200">
+                            <td className="p-3 text-slate-700">{risk.risk}</td>
+                            <td className="p-3">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${risk.likelihood === 'High' ? 'bg-red-100 text-red-700' : risk.likelihood === 'Medium' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>{risk.likelihood}</span>
+                            </td>
+                            <td className="p-3">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${risk.impact === 'High' ? 'bg-red-100 text-red-700' : risk.impact === 'Medium' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>{risk.impact}</span>
+                            </td>
+                            <td className="p-3 text-slate-700">{risk.mitigation}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </AccordionSection>
+            )}
+
+            {/* Blind Spots & Tensions */}
+            {((data.blind_spots?.length > 0) || (data.unresolved_tensions?.length > 0)) && (
+              <AccordionSection id="blindspots" title="Considerations & Blind Spots" openSections={openSections} onToggle={toggleSection}
+                icon={<AlertTriangle className="w-4 h-4 text-amber-400" />}>
+                <div className="p-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {data.blind_spots?.length > 0 && (
+                      <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
+                        <h3 className="font-semibold text-amber-900 mb-2 text-sm">Potential Blind Spots</h3>
+                        <ul className="space-y-1.5">
+                          {data.blind_spots.map((bs: string, i: number) => (
+                            <li key={i} className="text-amber-800 text-xs flex items-start gap-1.5">
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />{bs}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {data.unresolved_tensions?.length > 0 && (
+                      <div className="bg-purple-50 border border-purple-200 p-4 rounded-lg">
+                        <h3 className="font-semibold text-purple-900 mb-2 text-sm">Unresolved Tensions</h3>
+                        <ul className="space-y-2">
+                          {data.unresolved_tensions.map((t: any, i: number) => (
+                            <li key={i} className="text-purple-800 text-xs">
+                              <p className="font-medium">{t.tension || t}</p>
+                              {t.requires && <p className="text-purple-600 mt-0.5">Requires: {t.requires}</p>}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </AccordionSection>
+            )}
+
+            {/* Recommendation */}
+            <AccordionSection id="recommendation" title="Recommendation & Next Steps" openSections={openSections} onToggle={toggleSection}
+              icon={<div className="w-5 h-5 bg-blue-600 text-white rounded flex items-center justify-center text-[10px] font-bold">6</div>}>
+              <div className="p-5">
+                <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 rounded-xl">
+                  <h3 className="text-lg font-bold mb-3">{data.recommendation?.headline}</h3>
+                  <p className="text-blue-100 leading-relaxed text-sm mb-5">{data.recommendation?.rationale}</p>
+                  <div className="bg-white/10 backdrop-blur rounded-lg p-4 mb-5">
+                    <h4 className="font-semibold mb-2 text-sm">Immediate Actions Required:</h4>
+                    <ol className="space-y-1.5">
+                      {(data.recommendation?.nextSteps || []).map((step: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2.5">
+                          <span className="w-5 h-5 bg-white text-blue-600 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">{i + 1}</span>
+                          <span className="text-sm">{step}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                  <div className="flex items-center justify-between pt-3 border-t border-white/20 text-sm">
+                    <div>
+                      <p className="text-blue-200 text-xs">Decision Owner</p>
+                      <p className="font-semibold">{data.recommendation?.decisionOwner}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-blue-200 text-xs">Decision Deadline</p>
+                      <p className="font-semibold">{data.recommendation?.deadline}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Approval confirmation (shown after approval) */}
+                {approveState === 'approved' && (() => {
+                  const approvedOption = data.options?.find((o: any) => o.recommended) || data.options?.[0]
+                  return (
+                    <div className="mt-4 bg-emerald-50 border-2 border-emerald-300 rounded-xl p-5 print:hidden">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-9 h-9 bg-emerald-600 rounded-full flex items-center justify-center">
+                          <CheckCircle2 className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-bold text-emerald-900">Decision Approved</h3>
+                          <p className="text-xs text-emerald-700">Value Assurance tracking has been initiated</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3 mb-3">
+                        {[
+                          { label: 'Approved Strategy', val: approvedOption?.title || data.recommendation?.headline },
+                          { label: 'Expected Recovery', val: approvedOption?.roi || 'See option details' },
+                          { label: 'Monitoring Window', val: approvedOption?.timeline || '30 days' },
+                        ].map(({ label, val }) => (
+                          <div key={label} className="bg-white rounded-lg p-2.5 border border-emerald-200">
+                            <p className="text-[10px] text-slate-500 uppercase mb-0.5">{label}</p>
+                            <p className="text-xs font-semibold text-slate-900">{val}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="bg-emerald-100/50 rounded-lg p-3 text-xs text-emerald-800">
+                        <p className="font-medium mb-1">What happens next:</p>
+                        <ol className="space-y-0.5 text-emerald-700 list-decimal list-inside">
+                          <li>Value Assurance Agent monitors KPI performance against the expected recovery range</li>
+                          <li>Difference-in-Differences attribution separates your intervention's impact from market movements</li>
+                          <li>You will receive an evaluation at the end of the monitoring window</li>
+                        </ol>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            </AccordionSection>
+
+            {/* Footer */}
+            <footer className="py-6 text-center text-xs text-slate-500 print:block">
+              <p>Generated by Agent9 Decision Studio · AI-assisted analysis</p>
+              <p className="mt-1 text-slate-600">
+                <strong>Disclaimer:</strong> Provided as decision support. AI-generated insights require human judgment for final decisions.
+              </p>
+            </footer>
           </div>
-        </section>
+        </div>
 
-        {/* Risk Analysis */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 text-white rounded flex items-center justify-center text-sm font-bold">5</div>
-            Risk Analysis & Mitigation
-          </h2>
-
-          <div className="overflow-hidden rounded-lg border border-slate-200">
-            <table className="w-full">
-              <thead className="bg-slate-100">
-                <tr>
-                  <th className="text-left p-4 font-semibold text-slate-900">Risk</th>
-                  <th className="text-left p-4 font-semibold text-slate-900">Likelihood</th>
-                  <th className="text-left p-4 font-semibold text-slate-900">Impact</th>
-                  <th className="text-left p-4 font-semibold text-slate-900">Mitigation Strategy</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.risks.map((risk: any, i: number) => (
-                  <tr key={i} className="border-t border-slate-200">
-                    <td className="p-4 text-slate-700">{risk.risk}</td>
-                    <td className="p-4">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        risk.likelihood === 'High' ? 'bg-red-100 text-red-700' :
-                        risk.likelihood === 'Medium' ? 'bg-amber-100 text-amber-700' :
-                        'bg-emerald-100 text-emerald-700'
-                      }`}>
-                        {risk.likelihood}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        risk.impact === 'High' ? 'bg-red-100 text-red-700' :
-                        risk.impact === 'Medium' ? 'bg-amber-100 text-amber-700' :
-                        'bg-emerald-100 text-emerald-700'
-                      }`}>
-                        {risk.impact}
-                      </span>
-                    </td>
-                    <td className="p-4 text-slate-700 text-sm">{risk.mitigation}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* Blind Spots & Unresolved Tensions */}
-        {((data.blind_spots && data.blind_spots.length > 0) || (data.unresolved_tensions && data.unresolved_tensions.length > 0)) && (
-          <section className="mb-12">
-            <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
-              <div className="w-8 h-8 bg-amber-600 text-white rounded flex items-center justify-center text-sm font-bold">
-                <AlertTriangle className="w-4 h-4" />
-              </div>
-              Considerations & Blind Spots
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {data.blind_spots && data.blind_spots.length > 0 && (
-                <div className="bg-amber-50 border border-amber-200 p-5 rounded-lg">
-                  <h3 className="font-semibold text-amber-900 mb-3">Potential Blind Spots</h3>
-                  <ul className="space-y-2">
-                    {data.blind_spots.map((bs: string, i: number) => (
-                      <li key={i} className="text-amber-800 text-sm flex items-start gap-2">
-                        <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                        {bs}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              
-              {data.unresolved_tensions && data.unresolved_tensions.length > 0 && (
-                <div className="bg-purple-50 border border-purple-200 p-5 rounded-lg">
-                  <h3 className="font-semibold text-purple-900 mb-3">Unresolved Tensions</h3>
-                  <ul className="space-y-3">
-                    {data.unresolved_tensions.map((t: any, i: number) => (
-                      <li key={i} className="text-purple-800 text-sm">
-                        <p className="font-medium">{t.tension || t}</p>
-                        {t.requires && (
-                          <p className="text-purple-600 text-xs mt-1">Requires: {t.requires}</p>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* Call to Action */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 text-white rounded flex items-center justify-center text-sm font-bold">6</div>
-            Recommendation & Next Steps
-          </h2>
-
-          <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-8 rounded-xl">
-            <h3 className="text-xl font-bold mb-4">{data.recommendation.headline}</h3>
-            <p className="text-blue-100 leading-relaxed mb-6">{data.recommendation.rationale}</p>
-            
-            <div className="bg-white/10 backdrop-blur rounded-lg p-4 mb-6">
-              <h4 className="font-semibold mb-3">Immediate Actions Required:</h4>
-              <ol className="space-y-2">
-                {(data.recommendation.nextSteps || []).map((step: string, i: number) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <span className="w-6 h-6 bg-white text-blue-600 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
-                      {i + 1}
-                    </span>
-                    <span>{step}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-
-            <div className="flex items-center justify-between pt-4 border-t border-white/20">
-              <div>
-                <p className="text-sm text-blue-200">Decision Owner</p>
-                <p className="font-semibold">{data.recommendation.decisionOwner}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-blue-200">Decision Deadline</p>
-                <p className="font-semibold">{data.recommendation.deadline}</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Principal Approval */}
-        {data.recommendation?.optionId && approveState !== 'approved' && (
-          <section className="mb-12 print:hidden">
-            <button
-              onClick={() => handleApprove(data.recommendation.optionId)}
-              disabled={approveState === 'approving'}
-              className="w-full py-4 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-center rounded-xl font-bold text-lg transition-colors flex items-center justify-center gap-3"
-            >
-              {approveState === 'approving' ? (
-                <><Loader2 className="w-5 h-5 animate-spin" /> Registering with Value Assurance...</>
-              ) : approveState === 'error' ? (
-                <><AlertTriangle className="w-5 h-5" /> Retry Approval</>
-              ) : (
-                <><ShieldCheck className="w-5 h-5" /> Approve Recommendation &amp; Start Value Assurance Tracking</>
-              )}
-            </button>
-          </section>
-        )}
-        {approveState === 'approved' && (() => {
-          const approvedOption = data.options?.find((o: any) => o.recommended) || data.options?.[0]
-          return (
-            <section className="mb-12 print:hidden">
-              <div className="bg-emerald-50 border-2 border-emerald-300 rounded-xl p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center">
-                    <CheckCircle2 className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-emerald-900">Decision Approved</h3>
-                    <p className="text-sm text-emerald-700">Value Assurance tracking has been initiated</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div className="bg-white rounded-lg p-3 border border-emerald-200">
-                    <p className="text-xs text-slate-500 uppercase mb-1">Approved Strategy</p>
-                    <p className="text-sm font-semibold text-slate-900">{approvedOption?.title || data.recommendation?.headline}</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-emerald-200">
-                    <p className="text-xs text-slate-500 uppercase mb-1">Expected Recovery</p>
-                    <p className="text-sm font-semibold text-slate-900">{approvedOption?.roi || 'See option details'}</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-emerald-200">
-                    <p className="text-xs text-slate-500 uppercase mb-1">Monitoring Window</p>
-                    <p className="text-sm font-semibold text-slate-900">{approvedOption?.timeline || '30 days'}</p>
-                  </div>
-                </div>
-
-                <div className="bg-emerald-100/50 rounded-lg p-3 text-sm text-emerald-800">
-                  <p className="font-medium mb-1">What happens next:</p>
-                  <ul className="space-y-1 text-emerald-700">
-                    <li>1. Value Assurance Agent will monitor KPI performance against the expected recovery range</li>
-                    <li>2. Difference-in-Differences attribution will separate your intervention's impact from market movements</li>
-                    <li>3. You will receive an evaluation at the end of the monitoring window</li>
-                  </ul>
-                </div>
-              </div>
-            </section>
-          )
-        })()}
-
-        {/* Footer */}
-        <footer className="border-t border-slate-200 pt-8 text-center text-sm text-slate-500">
-          <p>This briefing was generated by Agent9 Decision Studio using AI-assisted analysis.</p>
-          <p className="mt-2">
-            Data sources: Deep Analysis Engine, KPI Registry, Business Context Registry
-          </p>
-          <p className="mt-4 text-xs">
-            <strong>Disclaimer:</strong> This analysis is provided as decision support and should be validated 
-            against current business conditions. AI-generated insights require human judgment for final decisions.
-          </p>
-        </footer>
+        {/* ── Right: Decision Workspace ── */}
+        <div className="w-80 flex-shrink-0 border-l border-slate-800 print:hidden">
+          <DecisionChat
+            data={data}
+            situationId={situationId}
+            principalId={principalId}
+            approveState={approveState}
+            onApprove={handleApprove}
+          />
+        </div>
       </div>
     </div>
   )
 }
-
-// Mock data for demonstration - this would come from the LLM in production
-// const MOCK_BRIEFING = { ... } (Removed to fix lint)
 
 export default ExecutiveBriefing
