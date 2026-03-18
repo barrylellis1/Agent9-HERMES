@@ -64,6 +64,41 @@ SA (Detect) → DA (Diagnose) → MA (Context) → SF (Prescribe) → HITL (Deci
 
 ---
 
+### Phase 7C: Value Assurance UI Integration
+
+**Status:** Planned. Components built, not wired.
+
+**Context:** Phase 7 delivered 4 React components (ValueAssurancePanel, AttributionBreakdown, PortfolioDashboard, CostOfInactionBanner) and 7 VA API endpoints. None of the components are imported or used anywhere in the UI. No VA API calls exist in `client.ts`. The VA backend is fully operational — the gap is entirely in the frontend.
+
+**Goal:** Surface outcome tracking to the principal so they can see whether approved decisions are delivering. This closes the Agent9 value loop visually: detect → diagnose → decide → **did it work?**
+
+#### Deliverables
+
+| Deliverable | Description |
+|------------|-------------|
+| VA API types + client functions | Add VA response types to `types.ts`; add `getPortfolio()`, `checkValueAssurance()`, `projectInactionCost()` to `client.ts` |
+| Post-approval panel in ExecutiveBriefing | After "Approve & Track" succeeds, replace the confirmation card with `ValueAssurancePanel` showing the registered solution's monitoring window, expected recovery range, and current verdict |
+| Portfolio view in Decision Studio | Add a "Value Assurance" tab or section to the main dashboard showing `PortfolioDashboard` — all approved solutions with their attribution verdicts (VALIDATED / PARTIALLY_VALIDATED / INSUFFICIENT_DATA / FAILED) |
+| Cost of Inaction banner | Show `CostOfInactionBanner` on the SA dashboard for situations that have been open > N days without an approved solution |
+| Attribution breakdown | `AttributionBreakdown` shown within `ValueAssurancePanel` — waterfall chart of intervention vs. market vs. seasonal attribution |
+
+#### Where each component slots in
+
+| Component | Location | Trigger |
+|-----------|----------|---------|
+| `ValueAssurancePanel` | `ExecutiveBriefing.tsx` | Shown after `approveState === 'approved'`; fetches via `checkValueAssurance(solutionId)` |
+| `AttributionBreakdown` | Inside `ValueAssurancePanel` | Always rendered when panel is visible |
+| `PortfolioDashboard` | New "Value Assurance" tab in `DecisionStudio.tsx` or standalone `/va` route | On-demand; fetches via `getPortfolio(principalId)` |
+| `CostOfInactionBanner` | `DashboardView.tsx` / SA situation cards | When situation age > threshold and no solution registered |
+
+**Files:** `decision-studio-ui/src/api/client.ts`, `decision-studio-ui/src/api/types.ts`, `ExecutiveBriefing.tsx`, `DecisionStudio.tsx`, `DashboardView.tsx`
+
+**Effort:** Medium (~1 day). Components exist — this is wiring and layout work.
+
+**Dependency:** None — VA API is fully operational.
+
+---
+
 ### Phase 8: Opportunity Deep Analysis ✅ COMPLETE (with design revision)
 
 **Status:** Shipped (commits `6869ed0`–`1b602b8`, Mar 2026).
@@ -492,6 +527,7 @@ The Executive Briefing page becomes the venue for Solution Refinement — the pr
 | Priority | Phase | Scope | Key Deliverable | Status |
 |----------|-------|-------|-----------------|--------|
 | ~~Done~~ | 7 | Value Assurance | Counterfactual attribution, SF→VA approval handoff | ✅ Complete |
+| **Next** | 7C | Value Assurance UI | Wire VA components into Executive Briefing, Dashboard, portfolio view | Planned — components built, not wired |
 | ~~Done~~ | 8 | Opportunity Deep Analysis | BenchmarkSegment, unified DA, Replication Targets UI | ✅ Complete (design revised) |
 | ~~Done~~ | Pre-Video | UI Polish | Chat sticky footer, DA accordion, registry forms, persona passthrough | ✅ Complete |
 | ~~Done~~ | Refinement | Dual-Framing + Interactive Decision Briefing | Steps 1-3 complete: benchmark-aware debate, two-panel briefing workspace, Q&A endpoint. Step 4 (multi-initiative approval) deferred. Step 5 (PRD updates) complete. | ✅ Steps 1-3 + 5 complete |
