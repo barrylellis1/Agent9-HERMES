@@ -389,53 +389,101 @@ Each form includes:
 
 ---
 
-### Refinement: Interactive Decision Briefing
+### Refinement: Dual-Framing Pipeline + Interactive Decision Briefing
 
-**Goal:** Transform the Executive Briefing from a static 18-page report into an interactive decision workspace with Solution Q&A. This is the defining HITL moment of Decision Studio — where the principal does due diligence before committing organizational resources.
+**Goal:** Complete the HITL pipeline by (1) surfacing both problem and opportunity framings through debate, (2) transforming the Executive Briefing from a static report into an interactive decision workspace with Solution Refinement, and (3) supporting multi-initiative approval.
 
-**Why now:** Completes the existing SA → DA → SF → Approve pipeline. No new agents required — extends existing Problem Refinement Chat pattern with richer context. Makes the pipeline genuinely production-ready before building new capabilities (Phase 9+).
+**Why now:** The pipeline generates both problem segments and benchmark segments (Phase 8), but only the problem path flows through refinement and debate. The benchmark data (replication targets, internal outperformance) is displayed passively but never enters the HITL conversation. Meanwhile, the Executive Briefing is an 18-page static PDF — the principal can only approve or reject a single recommendation. Completing this makes the pipeline genuinely production-ready before building new capabilities (Phase 9+).
 
-**Architecture reference:** `docs/architecture/hitl_decision_philosophy.md` — core principles, context stack, question tiers, ripple effects.
+**Architecture reference:** `docs/architecture/hitl_decision_philosophy.md`
+
+**Updated pipeline:**
+```
+SA → DA → Problem Refinement → Council Debate → Interactive Decision Briefing → VA Tracking
+         (problem + opportunity)  (both framings)  (Solution Refinement + Q&A     (multi-initiative)
+                                                    + Multi-Initiative Approval)
+```
 
 **Design principles:**
-- **Present, don't defend.** When the principal challenges a recommendation, provide context — don't argue. If they disagree, the system is working correctly.
-- **Transparent boundaries.** Distinguish between context recall (high confidence), data queries (verifiable via NLP → DPA), and strategic judgment (flag as requiring organizational knowledge).
-- **Earned approval.** The approval gate exists because the decision matters. The principal should feel they've done their due diligence.
+- **Always surface both framings** — when DA finds benchmark segments alongside problems, the debate and briefing must address both. Most KPI breaches (90%+) have dimensional variance, meaning both exist.
+- **The Briefing IS the decision workspace.** Solution Refinement, Q&A, and approval all happen on the Interactive Decision Briefing page — not scattered across DeepFocusView and a separate briefing page.
+- **Present, don't defend.** When the principal challenges a recommendation, provide context — don't argue.
+- **Multi-initiative selection.** Real decisions are rarely "approve one option." Principals pursue portfolios: "Execute A immediately, begin B scoping in parallel, table C."
 
-#### Refinement A: Briefing Page Interactivity
+#### Step 1: Dual-Framing Through the Pipeline
+
+**Problem:** SF agent's `_extract_deep_analysis_summary()` and `_trim_deep_analysis_context()` omit `benchmark_segments`. Stage 1 prompts and synthesis don't reference internal benchmarks. Problem Refinement only validates the problem, never asks about replication potential.
 
 | Deliverable | Description |
 |------------|-------------|
-| Collapsible sections | Briefing sections collapse/expand (not a flat 18-page wall). Smart defaults — executive summary expanded, details collapsed with one-line previews |
-| Solution Q&A chat panel | Slide-in or sidebar chat panel on the Decision Briefing page. Same neutral voice as Problem Refinement Chat |
-| Suggested questions | Seeded from the briefing's own Stakeholder Perspectives and Unresolved Tensions sections |
-| Approval flow | "Approve Recommendation" button at bottom, after review and Q&A. Post-approval confirmation card with approved strategy, expected recovery, monitoring window, and what happens next |
+| SF context enrichment | Include `benchmark_segments` in the DA summary passed to Stage 1 and synthesis prompts. Internal benchmarks become evidence for solution feasibility |
+| Problem Refinement expansion | Add a 6th topic: `replication_potential` — "Are the outperforming segments a valid template? What structural differences might prevent replication?" |
+| Council recommendation awareness | Refinement LLM considers whether the KPI has strong benchmarks (favoring operational/replication personas) vs. no benchmarks (favoring creative/strategic personas) |
+| Debate synthesis enrichment | Synthesis prompt explicitly asks: "How do the internal benchmarks validate or challenge each proposed option?" |
 
-#### Refinement B: Solution Q&A Backend
+**Files:** `a9_solution_finder_agent.py`, `ProblemRefinementChat.tsx`, refinement API endpoint
+
+#### Step 2: Interactive Decision Briefing (Briefing Page Transformation)
+
+The Executive Briefing page becomes the venue for Solution Refinement — the principal's decision workspace.
+
+**Layout:** Two-panel design (briefing content left, Solution Refinement chat right) — same pattern as DeepFocusView but on the briefing page.
+
+| Deliverable | Description |
+|------------|-------------|
+| Collapsible sections | Briefing sections collapse/expand with smart defaults — executive summary expanded, Stage 1/2 details collapsed with one-line previews. Accordion pattern from DeepFocusView |
+| Solution Refinement chat panel | Right-panel chat embedded in the briefing page. Same neutral voice as Problem Refinement. Activated when principal clicks "Refine & Decide" |
+| Suggested questions | Seeded from the briefing's Stakeholder Perspectives and Unresolved Tensions sections — these are the questions the analysis itself identifies as unresolved |
+| 4-tier transparency | Each answer tagged with confidence tier: Context Recall (high), Data Query (verifiable via NLP→DPA), Contextual Judgment (medium-high via PC/BC/MA), Organizational Knowledge (honest limitation) |
+
+**What the principal does in Solution Refinement:**
+1. **Questions recommendations** — "Why is Option A better given our Q3 cash position?" System responds with data-backed answers
+2. **Surfaces opportunity angle** — "C&I's -$9.3M is evidence for Option A, but should replicating their hedging be a standalone initiative?"
+3. **Combines or modifies options** — "I want Option A's speed with Option B's governance controls from Day 1"
+4. **Selects initiative(s)** — Choose a portfolio: execute A, scope B, table C
+
+**Files:** `ExecutiveBriefing.tsx` (two-panel layout, collapsible sections, chat integration), new `SolutionRefinementChat.tsx` component
+
+#### Step 3: Solution Refinement Backend
 
 | Deliverable | Description |
 |------------|-------------|
 | Q&A API endpoint | `POST /api/v1/workflows/solutions/{request_id}/qa` — accepts question, returns answer with confidence tier |
-| Context assembly | Full context stack: DA SCQA + IS/IS NOT, SF Stage 1/2/3, MA signals, Problem Refinement history, blind spots, unresolved tensions |
-| Tier classification | LLM classifies each question as context_recall / data_query / strategic_judgment and responds accordingly |
-| NLP → DPA integration | Tier 2 data queries route through existing NLP Interface → Data Product Agent pipeline (same as Problem Refinement) |
-| Pydantic models | `SolutionQARequest` / `SolutionQAResponse` with confidence_tier, suggested_followups, stakeholder_questions |
+| Context assembly | Full context stack: DA SCQA + IS/IS NOT + benchmarks, SF Stage 1/2/3, MA signals, Problem Refinement history, blind spots, unresolved tensions |
+| Tier classification | LLM classifies each question as context_recall / data_query / contextual_judgment / organizational_knowledge and responds accordingly |
+| NLP → DPA integration | Tier 2 data queries route through existing NLP Interface → Data Product Agent pipeline |
+| Topic sequence | 4 topics: `challenge_assumptions` → `explore_combinations` → `assess_risks` → `select_initiatives` |
+| Pydantic models | `SolutionRefinementResult` — list of `SelectedInitiative` (option_id, modifications, conditions, priority, timeline_override) |
 
-#### Refinement C: Agent PRD Updates (Ripple Effects)
+**Files:** New route in `src/api/routes/workflows.py`, context assembly logic, new models
+
+#### Step 4: Multi-Initiative Approval + VA Tracking
+
+**Problem:** Current approval is single-option ("Approve & Track" for one recommendation). Solution Refinement outputs a portfolio of initiatives.
+
+| Deliverable | Description |
+|------------|-------------|
+| Initiative selection UI | Checkbox + priority selector per option on the briefing page. Principal marks which to approve, defer, or reject |
+| Multi-initiative VA registration | Each approved initiative becomes a separate VA-tracked solution with its own ROI target and monitoring window |
+| Briefing update | Post-approval, the briefing page shows all approved initiatives with the principal's modifications and combined expected impact |
+| Approval confirmation | Confirmation card: approved initiatives, combined impact range, timeline, monitoring plan, "what happens next" |
+
+**Files:** `ExecutiveBriefing.tsx` (initiative selection UI, approval confirmation), `workflows.py` (multi-initiative approval handler), `a9_value_assurance_agent.py` (batch registration)
+
+#### Step 5: Agent PRD Updates (Ripple Effects)
 
 | Agent PRD | Update Required |
 |-----------|----------------|
-| Solution Finder | SF output must include structured fields supporting Q&A retrieval: `blind_spots`, `unresolved_tensions`, stakeholder perspectives per option. Recommendation should include suggested pre-approval questions |
-| NLP Interface | Document support for Solution Q&A context (not just Problem Refinement) |
-| LLM Service | Document Solution Q&A prompt context requirements and task routing (Haiku for recall, Sonnet for synthesis) |
-| Value Assurance | Capture whether principal completed Q&A before approving (engagement signal) |
+| Solution Finder | Output must include `blind_spots`, `unresolved_tensions`, stakeholder perspectives per option, `benchmark_evidence` per option. Suggested pre-approval questions |
+| Deep Analysis | Document that `benchmark_segments` are a required output consumed by SF and Solution Refinement (not just a UI artifact) |
+| NLP Interface | Document support for Solution Refinement context (post-debate data queries) |
+| LLM Service | Document Solution Refinement prompt requirements and task routing (Haiku for recall, Sonnet for synthesis) |
+| Value Assurance | Support batch `register_solution` for multiple initiatives. Capture Solution Refinement engagement signal |
+| HITL Decision Philosophy | Update Gate 2 to describe Interactive Decision Briefing as the primary decision venue with Solution Refinement embedded |
 
-**Effort:** Medium (~1 week). Heaviest lift is context assembly and the Q&A system prompt.
+**Effort:** Medium-Large (~2 weeks total). Step 1 (dual-framing) ~2 days. Step 2-3 (Interactive Briefing + backend) ~1 week. Step 4 (multi-initiative) ~3 days. Step 5 (PRDs) ~1 day.
 
-**Files:**
-- Backend: new route in `src/api/routes/workflows.py`, context assembly logic
-- Frontend: `decision-studio-ui/src/pages/ExecutiveBriefing.tsx` (chat panel, collapsible sections)
-- Architecture: `docs/architecture/hitl_decision_philosophy.md` (already written)
+**Build order:** Step 1 → Step 2+3 (parallel frontend/backend) → Step 4 → Step 5
 
 ---
 
@@ -445,8 +493,8 @@ Each form includes:
 |----------|-------|-------|-----------------|--------|
 | ~~Done~~ | 7 | Value Assurance | Counterfactual attribution, SF→VA approval handoff | ✅ Complete |
 | ~~Done~~ | 8 | Opportunity Deep Analysis | BenchmarkSegment, unified DA, Replication Targets UI | ✅ Complete (design revised) |
-| **Pre-Video** | — | UI Polish | Chat sticky footer, DA accordion, registry forms | Not started |
-| **Next** | Refinement | Interactive Decision Briefing | Solution Q&A, collapsible briefing, earned approval flow | Planned — architecture doc written |
+| ~~Done~~ | Pre-Video | UI Polish | Chat sticky footer, DA accordion, registry forms, persona passthrough | ✅ Complete |
+| ~~Done~~ | Refinement | Dual-Framing + Interactive Decision Briefing | Steps 1-3 complete: benchmark-aware debate, two-panel briefing workspace, Q&A endpoint. Step 4 (multi-initiative approval) deferred. Step 5 (PRD updates) complete. | ✅ Steps 1-3 + 5 complete |
 | **Next** | 9A-D | Enterprise Assessment Pipeline | Offline SA→DA batch, Supabase persistence, pre-analyzed findings | Planned |
 | **Next** | 9E | Briefing Agent — Audio Intelligence | Flash Briefings, persona-tailored TTS, workflow-stage framing | Planned (after 9B) |
 | **After** | 10 | Business Optimization | Top-down strategic entry, risk/stakeholder agents | Planned |
