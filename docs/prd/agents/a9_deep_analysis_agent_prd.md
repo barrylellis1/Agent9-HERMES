@@ -732,6 +732,9 @@ The Decision Studio UI should provide:
 
 ## Modification History
 
+### 2026-03-18
+- **Refinement Phase — benchmark_segments as Required Pipeline Output:** `benchmark_segments: List[BenchmarkSegment]` on `KTIsIsNot` is not a UI artifact — it is a required output consumed downstream by SF (for option generation) and the Solution Q&A (for context assembly). `BenchmarkSegment` fields: `dimension`, `key`, `current_value`, `previous_value`, `delta`, `delta_pct`, `benchmark_type` (`internal_benchmark` | `control_group`), `replication_potential` (float 0-1). The `replication_potential` refinement topic (6th dynamic topic) uses `_build_benchmark_summary()` to inject benchmark context into the question. Extracted `replication_constraints` are stored on `ProblemRefinementResult`. Downstream consumers: SF agent reads `benchmark_segments` from DA output; `/solutions/{request_id}/qa` endpoint reads them for Q&A context assembly. Key files: `src/agents/new/a9_deep_analysis_agent.py`, `src/agents/models/deep_analysis_models.py`.
+
 ### 2026-03-11
 - **Market Analysis integration into Deep Analysis workflow:** DA workflow now includes an optional MA enrichment step at the end. After DA execution completes, the API route handler (`_run_deep_analysis_workflow`) runs MA to attach market signals to the DA result payload as `market_signals` field. MA failure does not block DA results. Market signals then flow downstream: Problem Refinement Chat reads them from DA output (no separate MA call), and Solution Finder receives them via `external_context` in preferences for differentiated option generation.
 

@@ -84,6 +84,12 @@ SA: Detect KPI breach
 | **Principal Context** | Principal profile for reporting preferences and accountability routing |
 | **Data Product Agent** | SQL execution for KPI re-measurement queries |
 
+### HITL Integration Notes (2026-03-18)
+
+**Solution Q&A Engagement Signal (Planned, not yet built):** The approval payload should capture whether the principal completed Q&A before approving. This is tracked as `qa_engagement: bool` — true if the principal sent at least one question via the Decision Workspace before clicking Approve & Track. This engagement signal will be used in future VA analysis to correlate Q&A engagement with solution success rates.
+
+**Multi-initiative Batch Registration (Deferred):** Batch `register_solution` for multiple initiatives from a single briefing is designed but deferred. The current flow registers one solution per approval. When multi-initiative is built, each approved initiative will become a separate VA-tracked solution with its own `impact_estimate` and monitoring window.
+
 ---
 
 ## 4. Core Capabilities (MVP)

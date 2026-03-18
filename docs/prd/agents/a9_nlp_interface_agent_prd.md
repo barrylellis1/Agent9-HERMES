@@ -8,6 +8,7 @@ Last updated: 2025-07-17
 
 
 ## Modification History
+- 2026-03-18: **Refinement Phase — Solution Q&A Context Support:** The NLP Interface Agent is invoked in two pipeline contexts: (1) Problem Refinement (Gate 1, post-DA) — existing capability; (2) Solution Q&A (Gate 2, post-SF, during briefing review) — new context. The mechanism is identical in both contexts: deterministic regex parsing, no LLM, TopN/timeframe/grouping extraction. When a principal asks a data query during Solution Q&A (transparency tier 2), the Q&A endpoint can route through NLP Interface → Data Product Agent for SQL execution and inline results. This turns apparent organizational-knowledge questions into verifiable data queries. No code changes required — the agent already supports this context.
 - 2025-05-26: Added async method `parse_business_query` for orchestrator-driven, LLM-powered business query parsing. Updated Functional Requirements and compliance notes. (Cascade)
 
 ## 1. Overview

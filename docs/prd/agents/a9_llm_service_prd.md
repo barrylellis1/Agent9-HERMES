@@ -68,7 +68,8 @@ Centralize and standardize all LLM (Large Language Model) operations for Agent9 
 
 8. SQL generation endpoints (`parse_business_query`, `nl2sql`/`kpi_sql`) are implemented with strict Pydantic request/response models and orchestrator logging.
 
-
+> **2026-03-18 Refinement Phase — Solution Q&A Task Routing:**
+> New task type: `ClaudeTaskType.BRIEFING = "briefing"` — routes to `claude-sonnet-4-6`. Used for Solution Q&A tiers 3-4 (inferred / opinion questions requiring synthesis). Task routing for Solution Q&A: tiers 1-2 (direct data / calculated) use `ClaudeTaskType.NLP_PARSING` → `claude-haiku-4-5-20251001`. Tiers 3-4 (inferred / opinion) use `ClaudeTaskType.BRIEFING` → `claude-sonnet-4-6`. Env var override: `CLAUDE_MODEL_BRIEFING` overrides the default Sonnet model for briefing tasks. The Q&A endpoint calls the LLM Service via orchestrator using `A9_LLM_Request` with `model=get_claude_model_for_task(ClaudeTaskType.BRIEFING)`. Key file: `src/llm_services/claude_service.py` — `ClaudeTaskType`, `DEFAULT_CLAUDE_TASK_MODELS`, `CLAUDE_TASK_ENV_OVERRIDES` updated.
 
 ## Hackathon Quick Start
 

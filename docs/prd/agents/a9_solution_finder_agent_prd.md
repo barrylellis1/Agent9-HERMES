@@ -16,6 +16,9 @@ Last updated: 2026-02-28
 > - Input data enriched with: `situation_metadata` (KPI unit, current/comparison values), `decision_maker` (name, role, priorities), `business_context` (multi-tenant, resolved via `data_product_id` lookup), IS-NOT data from DA (`where_is_not`, `what_is_not`, `when_is_not`).
 > - `debate_stage` preference check skips Stage 1 for `cross_review`/`synthesis` frontend stages to prevent redundant calls.
 
+> **2026-03-18 Refinement Phase — Dual-Framing + Interactive Briefing Integration:**
+> SF now extracts `benchmark_segments` (top-3 internal benchmarks) from DA output and passes them into Stage 1 and synthesis prompts. When benchmarks are present, at least one option must address replication strategy. Required SF output fields for Solution Q&A support: `blind_spots` (list of analytical limitations), `unresolved_tensions` (list of `{tension, requires}` objects), stakeholder perspectives per option, `benchmark_evidence` per option. The synthesis prompt includes suggested pre-approval questions seeded from `blind_spots` and `unresolved_tensions` — these become starter questions in the Decision Workspace chat. `_extract_deep_analysis_summary()` extracts `benchmark_segments`. Key files: `src/agents/new/a9_solution_finder_agent.py`, `src/agents/new/cards/A9_Solution_Finder_Agent_card.md`.
+
 > **2025-05-13 Update:**
 > The A9_Solution_Finder_Agent is now fully refactored and compliant with Agent9 protocol and architectural standards. It uses a Pydantic config model, structured logging, orchestrator-driven registry integration (via `create_from_registry`), and protocol entrypoints with Pydantic models. HITL is supported for all actions. Card/config/code are now fully synchronized. Next steps: update/add tests, compliance, and monitoring as needed.
 

@@ -1,6 +1,6 @@
 # Agent9 HITL Decision Philosophy
 
-**Last updated:** 2026-03-15
+**Last updated:** 2026-03-18
 **Status:** Core architecture principle
 
 ---
@@ -42,6 +42,8 @@ The Agent9 pipeline has two primary HITL gates where the principal interacts wit
 - Builds personal conviction before approving
 
 **Design:** Solution Q&A Chat — same neutral voice as Problem Refinement, but with the full context stack (DA + SF Stage 1/2/3 + MA signals). Embedded in the Decision Briefing page, transforming it from a static document into an interactive decision workspace.
+
+**Implementation status (Mar 2026):** Gate 2 is now implemented. The Executive Briefing page has been rewritten as a two-panel interactive workspace: left panel shows accordion-collapsed briefing sections (executive summary, situation, market intelligence, Stage 1 proposals, cross-review, options, roadmap, risks, blind spots, recommendation); right panel is the Decision Workspace with Q&A chat, initiative selector, and Approve & Track. The Q&A endpoint (`POST /api/v1/workflows/solutions/{request_id}/qa`) assembles context from the `WorkflowRecord` and routes questions through the LLM Service with transparency tier tagging.
 
 ### Approval Gate: Post-Q&A
 
