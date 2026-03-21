@@ -1,8 +1,13 @@
 # Consulting-as-a-Service (CaaS) Market Opportunity for Agent9
 
-> **Strategy Context (March 2026):** The CaaS/branded-agent marketplace model described in this document is a **Year 3+ strategy** (2028+), contingent on 10+ paying customers. The near-term primary market is **direct subscription** — mid-market companies ($50M–$500M revenue) that have never engaged MBB consulting at all. This segment requires no competitive displacement narrative and has a faster sales cycle. The CaaS partnership layer becomes viable only after Agent9 has proven ROI with real customers. No consulting firm will encode their IP in a pre-revenue platform. See `docs/strategy/roadmap.md` and `docs/strategy/Agent9_Business_Plan.md` for the current phased strategy.
+> **Strategy Context (March 2026):** The CaaS branded-agent marketplace described in this document is a **Year 3+ build** (2028+), contingent on 25+ paying customers and validated partner demand. However, the **pipeline model** — Agent9 surfaces consulting-ready situations that route to partner firms — is activating now with Tier 0 partners (fractional CFOs). See `docs/strategy/consulting_partner_strategy.md` for the phased activation plan.
 >
-> This document remains valuable for **understanding the Year 3+ opportunity** and **informing partner outreach preparation**. Do not use this as the basis for current GTM positioning.
+> **What changed (March 2026):** Three shipped capabilities make the partner value prop concrete earlier than originally planned:
+> - **Value Assurance trajectory tracking** — partners can prove their engagement delivered measurable ROI (three-trajectory chart with DiD attribution)
+> - **Market Analysis Agent** — diagnostic handoff packages now include real-time competitive and market context
+> - **Opportunity Detection** — doubles the lead surface (growth opportunities, not just problem situations)
+>
+> The CaaS marketplace infrastructure (branded agents, routing rules, white-label cards, revenue share tracking) remains a Year 3+ build. But the underlying value proposition — "Agent9 generates qualified leads for consulting firms" — is viable today.
 
 ---
 
@@ -18,6 +23,38 @@ Agent9’s Consulting-as-a-Service (CaaS) model positions the platform to disrup
 - **Dynamic Selection:** Customers can select, swap, or blend CaaS inputs (branded agents or frameworks) at runtime for any workflow.
 - **Solution Debates:** Agent9 orchestrates collaborative/competitive debates among multiple branded agents, synthesizing the best recommendations for complex challenges.
 - **Auditability & IP Control:** All partner IP is protected, with fine-grained audit trails, explainability, and compliance built in.
+
+### 1b. The Pipeline Model (Near-Term, 2026-2027)
+
+Before the full CaaS marketplace exists, Agent9 operates as a **consulting lead pipeline**:
+
+```
+Agent9 Platform                              Partner Firm
+┌──────────────────┐                        ┌──────────────────┐
+│ SA detects KPI   │                        │                  │
+│ anomaly/oppty    │                        │ Receives:        │
+│       ↓          │                        │ • Situation card  │
+│ DA diagnoses     │    Escalation          │ • DA analysis     │
+│ root cause       │ ──────────────────────→│ • MA market ctx   │
+│       ↓          │    (exceeds platform   │ • Benchmark segs  │
+│ SF recommends    │     scope)             │ • Impact estimates│
+│       ↓          │                        │       ↓           │
+│ Platform handles │                        │ Firm delivers     │
+│ 80% of cases     │    VA tracks outcome   │ engagement        │
+│                  │ ←──────────────────────│       ↓           │
+│ Trajectory chart │                        │ Proven ROI        │
+│ proves results   │                        │ (case study data) │
+└──────────────────┘                        └──────────────────┘
+```
+
+**Key insight:** The consulting firm doesn’t need to build anything or encode any IP. They receive qualified leads with more structured context than their own associate would gather in week 1. Agent9’s VA trajectory tracking then proves the engagement delivered results — data the firm can use in their own case studies and renewal conversations.
+
+**Pipeline triggers (situations that exceed platform scope):**
+- Multi-department change management required
+- Regulatory/compliance implications beyond analytical assessment
+- Stakeholder alignment across 5+ decision-makers
+- Capital expenditure decisions above client-defined thresholds
+- Cross-entity restructuring or M&A implications
 
 ---
 
@@ -166,6 +203,14 @@ The largest addressable market for Agent9 in Years 1-2 is not consulting firm pa
 
 This segment is the **primary GTM focus through 2027**. The CaaS/partner marketplace becomes relevant after this segment generates case studies that attract consulting firm interest.
 
+### The Partner Pipeline Overlay
+
+The direct mid-market customer base described above is also the **source of partner pipeline**. Every direct customer using Agent9 generates situations. A fraction of those situations (estimated 15-25%) will exceed what the platform handles autonomously. Those become consulting engagement opportunities.
+
+With 10 direct customers generating ~50 situations/year each, that's 75-125 consulting-ready escalations per year. At an average engagement value of $50K-$150K, the pipeline value to partner firms is **$3.75M-$18.75M annually** — from just 10 Agent9 customers.
+
+This is the number that makes partner conversations credible. Not "partner with our platform" — but "we're generating $X million in qualified leads that need a delivery partner."
+
 ---
 
 ## 9. Agent9 Moat Strategy
@@ -187,6 +232,7 @@ This segment is the **primary GTM focus through 2027**. The CaaS/partner marketp
 | **Partner Outcome Analytics** | Show partners their methodology's win rate | ✅ Value back to partners, creates stickiness |
 | **First-Mover Partner Lock-in** | Exclusive/preferred deals with 2-3 top firms | ⚠️ Medium - firms may hedge bets |
 | **Enterprise Integration Depth** | Deep hooks into customer data (ERP, CRM, BI) | ✅ High switching cost |
+| **Partner Outcome Attribution** | VA trajectory tracking proves partner-delivered engagement ROI | ✅ Unique — no competitor offers post-engagement outcome proof for consulting firms |
 
 ### 9.3 The Decision Outcome Corpus (Primary Moat)
 
@@ -205,6 +251,11 @@ This corpus is:
 - **Impossible for Google/AWS to replicate** without the platform
 - **Valuable to partners** (they learn what works)
 
+**Partner-specific value of the corpus:**
+- Partners see which of their engagement types deliver the best outcomes (anonymised across clients)
+- The corpus creates a **switching cost** for partners: leaving Agent9 means losing access to outcome data that improves their own methodology
+- Over time, the corpus enables Agent9 to recommend which *type* of partner engagement works best for a given situation — "For COGS problems in manufacturing, implementation-focused engagements outperformed strategy-only by 2.3x"
+
 ### 9.4 Strategic Timeline
 
 | Phase | Focus | Moat Building |
@@ -218,6 +269,9 @@ This corpus is:
 ## 10. Positioning Statement
 
 > *"Agent9 enables consulting firms to digitize and monetize their proprietary methodologies as AI agents—without commoditizing their IP or losing brand control. Enterprises get multiple expert perspectives debated and synthesized, with full audit trails and outcome tracking."*
+
+**Near-term positioning (2026-2027):**
+> *"Agent9 monitors your clients' KPIs continuously. When a situation needs more than AI can deliver, we route it to you — pre-diagnosed, with market context and benchmark data. After you deliver, our trajectory tracking proves it worked. You get qualified leads and measurable case studies. Your clients get faster, better-scoped engagements."*
 
 ### Why SAP/Oracle Won't Compete
 
@@ -234,4 +288,4 @@ SAP and Oracle are not competitors—they're potential **integration partners**.
 
 ---
 
-*Last updated: March 2026. Original document: December 2024. See strategy context note at top of document.*
+*Last updated: March 2026 (revised — pipeline model + shipped capabilities update). Original document: December 2024.*

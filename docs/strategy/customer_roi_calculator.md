@@ -11,7 +11,7 @@ This ROI calculator is based on:
 
 **Use with caution:** These projections represent realistic scenarios informed by the design and capabilities of Agent9, but they should not be used for financial planning until Agent9 has 3+ paying customers with documented ROI.
 
-**Last Updated:** March 10, 2026
+**Last Updated:** March 19, 2026
 
 ---
 
@@ -233,6 +233,7 @@ Agent9 is positioned for operational and tactical decisions *within the context 
 **Entry Point:** CFO, Finance Director, Chief of Staff (2–3 quarters after Agent9 or consulting implementation)
 **Time to purchase decision:** 4–6 weeks
 **Strategic Significance:** This is the *only* way to systematically prove decision quality and build enterprise confidence in AI-assisted decision-making.
+**Implementation Status:** ✅ SHIPPED (March 2026) — Value Assurance Agent with three-trajectory tracking, DiD attribution, Portfolio Dashboard with trajectory chart, Cost of Inaction banner in Executive Briefing.
 
 **Current State: Black Box Decision Outcomes**
 
@@ -244,19 +245,19 @@ Agent9 is positioned for operational and tactical decisions *within the context 
 
 **With Agent9: Structured Initiative Tracking**
 
-Agent9 stores:
+Agent9 captures and tracks:
 1. **The original recommendation** (quantified, with assumptions and personas that debated it)
 2. **The approval and implementation date** (HITL decision point)
-3. **The KPIs intended to shift** (linked to ongoing monitoring)
-4. **The actual outcome vs. estimate** (6–12 months of post-implementation monitoring)
+3. **Three-trajectory projections: inaction trend (what happens with no action), expected trend (predicted recovery), actual trend (measured monthly)**
+4. **Visual trajectory chart showing actual vs projected recovery — CFO can see at a glance whether the decision is working**
 
 | Element | Captured | Used For |
 |---------|----------|----------|
 | Original KPI state (baseline) | Yes | Measure: actual change vs. baseline |
 | Forecasted impact (from recommendation) | Yes | Calculate: forecast error, accuracy by recommendation type |
-| Market context (macro trends, competitor moves) | Yes (via Market Analysis Agent) | Isolate: recommendation impact vs. tailwinds |
-| Actual KPI trajectory (post-implementation) | Yes | Measure: realized value |
-| Attribution model | Yes | Answer: how much was recommendation vs. market? |
+| Market context (macro trends, competitor moves) | Yes (via Market Analysis Agent — SHIPPED, real-time Perplexity + Claude synthesis) | Isolate: recommendation impact vs. tailwinds |
+| Actual KPI trajectory (post-implementation) | Yes (Portfolio Dashboard with monthly measurement recording) | Measure: realized value |
+| Attribution model | Yes (Difference-in-Differences with control group segments from DA analysis) | Answer: how much was recommendation vs. market? |
 
 **Business Outcomes**
 
@@ -291,6 +292,18 @@ Agent9 learns what types of recommendations work in *this specific company*, at 
 | **Indirect:** Improves decision quality over time | Over 18 months, CFO confidence in Agent9-assisted decisions grows; better recommendations are implemented instead of rejected; successful initiatives are replicated | 1 fewer bad decision/year at mid-market scale = $5M–$25M avoided loss |
 | **Indirect:** Reduces implementation risk on recommendations | Playbook shows which types of changes succeed; PM/operations can adjust tactics accordingly | Reduces rework, scope creep; improves first-time success rate by ~15% |
 | **Indirect:** Enables consulting firm partnership (MBB Scenario C) | Agent9 + MBB can jointly claim outcome tracking; becomes joint product IP | Increases consulting partnership value; creates retention loop |
+
+**What's Now Built (March 2026):**
+
+The Value Assurance infrastructure described in this scenario is now operational:
+- **HITL Approve & Track** — solution registered at approval with KPI baseline, impact projections, and control group segments
+- **Three-trajectory model** — inaction trend (escalating cost of doing nothing), expected trend (predicted recovery), actual trend (measured monthly)
+- **Portfolio Dashboard** — table of all tracked decisions with trajectory chart detail panel
+- **Cost of Inaction Banner** — pre-approval projection in Executive Briefing showing 30d/90d impact
+- **Supabase persistence** — solutions and evaluations survive server restarts
+- **DiD attribution** — Difference-in-Differences model using DA's control group benchmark segments
+
+This means Scenario D is no longer a future value proposition — it's a demonstrable capability in the current product.
 
 **Enabling Conditions & ROI Calculation**
 

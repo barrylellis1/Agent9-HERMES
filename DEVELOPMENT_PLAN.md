@@ -292,6 +292,107 @@ These features go beyond CaaS core and into per-customer enterprise customizatio
 
 ---
 
+## Infrastructure Phases (Interleaved with Feature Work)
+
+*These phases are gated by business milestones, not feature dependencies. See `docs/strategy/Agent9_Business_Plan.md` Section 12b for full cost breakdown.*
+
+### Infra Phase A: Production Deployment ← BLOCKER for outreach
+
+**When:** April-May 2026 — must complete before first discovery call.
+**Why:** Platform runs locally. A prospect who sees a demo will ask "when can we start?" and the answer must be "next week."
+
+| Deliverable | Priority | Effort | Notes |
+|------------|----------|--------|-------|
+| **Cloud deployment** | 🔴 Critical | 2-3 days | Railway or Render (FastAPI backend); Vercel (React frontend); Supabase Cloud (database) |
+| **Authentication** | 🔴 Critical | 2-3 days | Supabase Auth (email + password); API keys for programmatic access. No SSO yet. |
+| **Error monitoring** | High | 1 day | Sentry free tier — capture backend exceptions before customers report them |
+| **Domain + SSL** | 🔴 Critical | 1 day | agent9.ai — landing page + app subdomain |
+| **Transactional email** | Medium | 1 day | Resend or SendGrid free tier — situation alerts, password reset, welcome email |
+| **Environment parity** | High | 1 day | `.env.production` template; document deployment steps; ensure local dev matches cloud config |
+
+**Cost:** $100-$200/month recurring. One-time effort: ~1 week.
+
+**Dependency:** None — can run in parallel with Phase 7C or Phase 9A.
+
+---
+
+### Infra Phase B: Customer Infrastructure ← BLOCKER for first pilot
+
+**When:** May-August 2026 — must complete before first pilot customer starts.
+**Trigger:** First signed pilot (target Sep 2026).
+
+| Deliverable | Priority | Effort | Notes |
+|------------|----------|--------|-------|
+| **Multi-tenant isolation** | 🔴 Critical | 1-2 weeks | Per-customer Supabase project; separate registries, KPI sets, data products per tenant |
+| **Customer provisioning script** | 🔴 Critical | 3-5 days | Automate: create Supabase project → seed registries → configure data product contracts → generate API keys → send welcome email |
+| **CI/CD pipeline** | High | 2-3 days | GitHub Actions: run unit tests → build → deploy to staging → manual promote to production |
+| **Staging environment** | High | 1 day | Separate Railway/Render instance; test changes before customer environments |
+| **Automated backups** | High | 1 day | Supabase handles Postgres; add nightly registry YAML export as belt-and-suspenders |
+| **Uptime monitoring** | High | 1 day | Better Uptime or UptimeRobot; customer-facing SLA requires monitoring |
+| **Log aggregation** | Medium | 1 day | Logtail or Papertrail; debug customer issues without SSH access |
+| **Customer data export** | Medium | 2-3 days | Self-service export (situations, analyses, VA trajectory); required for enterprise procurement |
+
+**Cost:** $200-$500/month base + $50-$100/month per customer.
+
+**Dependency:** Infra Phase A (cloud deployment must exist first).
+
+---
+
+### Infra Phase C: Partner Infrastructure ← Required for Tier 1 activation
+
+**When:** March-December 2027 — builds when 5+ customers and Tier 1 partner conversations begin.
+**Trigger:** 5+ paying customers + VA trajectory data from 1+ completed measurement windows.
+
+| Deliverable | Priority | Effort | Notes |
+|------------|----------|--------|-------|
+| **Lead attribution tracking** | High | 2-3 weeks | New Supabase table: `partner_attributions` (situation_id, escalation_type, partner_id, engagement_value, outcome). API endpoints for recording and querying. |
+| **Escalation routing engine** | High | 1-2 weeks | Rule engine: situation type + severity + industry → partner assignment. Initially manual (founder routes); automated in Year 3. |
+| **Diagnostic handoff export** | High | 1 week | PDF + structured JSON export: situation card, DA analysis, MA market context, benchmark segments, impact estimates. Partner intake format. |
+| **Partner portal (basic)** | Medium | 3-4 weeks | Dashboard: referred clients (anonymised), attributed engagements, revenue share earned, VA trajectory summaries for partner-delivered engagements. |
+| **VA trajectory API (partner read-only)** | Medium | 1 week | Scoped API keys for partners to pull outcome data for case studies. Client consent required per situation. |
+| **Revenue share tracking** | Medium | 1 week | Track: partner referral → customer subscription → revenue share owed. Manual payout initially. |
+
+**Cost:** $15K-$30K development effort; minimal incremental hosting cost.
+
+**Dependency:** Infra Phase B (customer infrastructure), Phase 9 (enterprise assessment for automated VA measurements).
+
+---
+
+### Infra Phase D: Enterprise & Compliance ← Required for Enterprise tier ($100K+ ACV)
+
+**When:** H1 2028 — triggered by pursuit of enterprise-tier deals.
+**Trigger:** 10+ customers, demand for Enterprise tier.
+
+| Deliverable | Priority | Effort | Notes |
+|------------|----------|--------|-------|
+| **SOC 2 Type II** | 🔴 Required | 6-12 months | $30K-$50K. Access controls, encryption, monitoring, incident response, vendor management. |
+| **SSO / SAML** | High | 1-2 weeks | Enterprise customers require SSO (Okta, Azure AD). Supabase Auth supports SAML. |
+| **Data residency controls** | High | 2-4 weeks | EU customers may require EU-hosted data. Supabase supports regional projects. |
+| **Audit log export** | Medium | 1 week | SOC 2 requires exportable audit logs. Build on existing audit trail infrastructure. |
+| **Partner branding engine** | Medium | 4-6 weeks | White-label situation cards, partner logos, branded exports. Only when 3+ partners active. |
+| **Revenue share automation** | Medium | 2-3 weeks | Stripe Connect or similar. Only when partner volume justifies. |
+
+**Cost:** $50K-$100K. Largest single item is SOC 2 ($30K-$50K).
+
+**Dependency:** Infra Phase C (partner infrastructure), stable customer base.
+
+---
+
+### HR Milestones (Mapped to Development Phases)
+
+*See `docs/strategy/Agent9_Business_Plan.md` Section 12 for full role descriptions and compensation.*
+
+| Milestone | Trigger | Role | Impact on Development |
+|-----------|---------|------|----------------------|
+| **Decision point** | Month 12 (~Mar 2027): 2+ customers + 6mo runway | Founder goes full-time | Doubles development velocity; enables Infra Phase C |
+| **Hire #1** | Month 13 (~Apr 2027) | Sales / Account Executive | Founder shifts to product + partnerships; frees ~10 hrs/week for engineering |
+| **Hire #1b** | Month 15 (~Jun 2027) | Customer Success / Partner Ops | Manages pilot customers + Tier 0 practitioners; enables founder to focus on Tier 1 partner conversations |
+| **Hire #2** | Month 18 (~Sep 2027) | Senior Engineer | Takes over Infra Phase C (partner infra), platform stability, CI/CD ownership. Frees founder from production coding. |
+| **Hire #3** | Month 24 (~Mar 2028) | Product/Design | Partner portal design, enterprise tier UX, product-led growth. Coincides with Infra Phase D. |
+| **Year 3 scale** | 10+ customers / $800K+ ARR | +6-8 FTEs (Partner Manager, 2 engineers, 2 CSMs, marketing, ops) | Partner Manager owns Tier 1-2 firm relationships; dedicated engineer for partner infrastructure |
+
+---
+
 ## Cross-Cutting Concerns (All Phases)
 
 ### Infrastructure Improvements
@@ -300,8 +401,13 @@ These features go beyond CaaS core and into per-customer enterprise customizatio
 |------|------|-------------|
 | Supabase VA tables | Phase 7A | Migration script for `value_assurance_solutions` + `value_assurance_evaluations` |
 | Value Assurance persistence | Phase 7A | Replace in-memory dict with Supabase |
+| Cloud deployment + auth + monitoring | **Infra Phase A** | Railway/Render + Supabase Cloud + Supabase Auth + Sentry — BLOCKER for outreach |
+| Multi-tenant isolation | **Infra Phase B** | Per-customer Supabase project — BLOCKER for first pilot |
+| CI/CD pipeline | **Infra Phase B** | GitHub Actions: test → build → deploy to staging |
 | Enterprise Assessment Pipeline | Phase 9 | Replace `run_cfo_assessment.py` with enterprise-wide SA→DA batch, Supabase persistence |
 | Scheduled assessment execution | Phase 9B+ | Trigger assessment runs on schedule (cron or timer) for automated VA measurement |
+| Partner attribution + escalation routing | **Infra Phase C** | Lead tracking, handoff export, partner portal — enables Tier 1 partnerships |
+| SOC 2 + SSO + data residency | **Infra Phase D** | Enterprise compliance — enables $100K+ ACV tier |
 | Email/Slack notifications | Phase 7C or later | Notify principals when solutions are VALIDATED / FAILED |
 
 ### Testing Strategy
@@ -531,9 +637,13 @@ The Executive Briefing page becomes the venue for Solution Refinement — the pr
 | ~~Done~~ | 8 | Opportunity Deep Analysis | BenchmarkSegment, unified DA, Replication Targets UI | ✅ Complete (design revised) |
 | ~~Done~~ | Pre-Video | UI Polish | Chat sticky footer, DA accordion, registry forms, persona passthrough | ✅ Complete |
 | ~~Done~~ | Refinement | Dual-Framing + Interactive Decision Briefing | Steps 1-3 complete: benchmark-aware debate, two-panel briefing workspace, Q&A endpoint. Step 4 (multi-initiative approval) deferred. Step 5 (PRD updates) complete. | ✅ Steps 1-3 + 5 complete |
+| **BLOCKER** | Infra A | Production Deployment | Cloud hosting, auth, monitoring, domain — gates all outreach | Planned (Apr-May 2026) |
 | **Next** | 9A-D | Enterprise Assessment Pipeline | Offline SA→DA batch, Supabase persistence, pre-analyzed findings | Planned |
 | **Next** | 9E | Briefing Agent — Audio Intelligence | Flash Briefings, persona-tailored TTS, workflow-stage framing | Planned (after 9B) |
+| **BLOCKER** | Infra B | Customer Infrastructure | Multi-tenant isolation, CI/CD, provisioning — gates first pilot | Planned (May-Aug 2026) |
 | **After** | 10 | Business Optimization | Top-down strategic entry, risk/stakeholder agents | Planned |
+| **Year 2** | Infra C | Partner Infrastructure | Lead attribution, escalation routing, handoff export, partner portal | Planned (Mar-Dec 2027, triggered by 5+ customers) |
 | **Later** | 11 | Extended Solution Finding | Heavyweight evaluation, solution architecture | Planned |
 | **Future** | 12 | Innovation Driver | LLM brainstorming, idea incubation | Requires 4 new agents |
+| **Year 3** | Infra D | Enterprise & Compliance | SOC 2, SSO, data residency, partner branding automation | Planned (H1 2028, triggered by Enterprise tier demand) |
 | **Enterprise** | — | Enterprise Tier Roadmap | Decision Journal, Conditional Approval, Scenario Exploration, Stakeholder Pre-Briefing, VA Feedback Loop, Principal Learning Profile | Per-customer customization — not CaaS core |

@@ -476,7 +476,7 @@ export function DataProductOnboardingNew() {
             <header className="mb-8 flex justify-between items-center max-w-6xl mx-auto">
                 <div className="flex items-center gap-4">
                     {workflowMode === 'select' ? (
-                        <Link to="/admin" className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors">
+                        <Link to="/settings" className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors">
                             <ArrowLeft className="w-5 h-5" />
                         </Link>
                     ) : currentStep === 0 && workflowMode === 'new' ? (
@@ -490,7 +490,7 @@ export function DataProductOnboardingNew() {
                             <ArrowLeft className="w-5 h-5" />
                         </button>
                     ) : (
-                        <Link to="/admin" className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors">
+                        <Link to="/settings" className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors">
                             <ArrowLeft className="w-5 h-5" />
                         </Link>
                     )}

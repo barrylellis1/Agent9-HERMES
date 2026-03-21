@@ -1,6 +1,6 @@
 # Agent9 Product Roadmap
-**Last Updated:** March 2026
-**Version:** 2.1 — Accelerated MA agent; 5-pillar value proposition; initiative tracking added
+**Last Updated:** March 19, 2026
+**Version:** 2.2 — MA Agent shipped; Value Assurance full UI shipped; Opportunity Detection shipped; Phase 7-8 complete
 
 ---
 
@@ -27,6 +27,8 @@
 - ✅ A9_NLP_Interface_Agent — natural language query parsing, intent recognition
 - ✅ A9_Data_Product_MCP_Service_Agent — SQL execution against DuckDB/Snowflake/BigQuery
 - 🔄 A9_KPI_Assistant_Agent — partial build; LLM integration and SQL validation TODOs pending
+- ✅ A9_Market_Analysis_Agent — real-time market intelligence via Perplexity + Claude synthesis
+- ✅ A9_Value_Assurance_Agent — solution registration, three-trajectory tracking, DiD attribution, composite verdict
 
 ### Platform Infrastructure
 - ✅ Decision Studio UI (React, functional)
@@ -34,6 +36,11 @@
 - ✅ Database-agnostic backend (DuckDB, Supabase/Postgres, BigQuery)
 - ✅ Audit trail and HITL checkpoints
 - ✅ Principal-driven analysis (decision style → consulting persona framing)
+- ✅ Value Assurance Portfolio Dashboard (trajectory chart, measurement recording)
+- ✅ Cost of Inaction Banner in Executive Briefing
+- ✅ Opportunity Detection (positive KPI, benchmark segments, replication targets, green KPI tiles)
+- ✅ HITL Approve & Track workflow with VA solution registration
+- ✅ Supabase persistence for situations, opportunities, VA solutions, VA evaluations
 
 ### Known Issues to Resolve Before First Demo
 - 🔴 Hardcoded `C:\Users\barry\` path in a9_solution_finder_agent.py:821
@@ -54,13 +61,13 @@
 - ✅ ROI units (`pp`), LLM-generated recommendation rationale, argument formatting fixed
 
 ### Sprint: March–April 2026 (see `docs/strategy/sprint_plan_march_2026.md`)
-- [ ] **Day 1:** MA Agent — Pydantic models + skeleton (`src/agents/models/market_analysis_models.py`, `src/agents/new/a9_market_analysis_agent.py`)
-- [ ] **Day 2:** Perplexity service + Haiku KPI classification (`src/llm_services/perplexity_service.py`)
-- [ ] **Day 3:** Sonnet synthesis + `analyze_market_opportunity` full flow
-- [ ] **Day 4:** Wire MA into SA→SF pipeline; SF uses `market_analysis_input`; Market Intelligence badge in UI
-- [ ] **Day 5:** Positive KPI opportunity detection in SA; green opportunity card in Decision Studio UI
-- [ ] **Day 6:** Value Assurance data model — `AcceptedSolution` Pydantic model + Supabase persistence
-- [ ] **Day 7:** Polish, end-to-end test, agent card, unit tests
+- [x] **Day 1:** MA Agent — Pydantic models + skeleton (`src/agents/models/market_analysis_models.py`, `src/agents/new/a9_market_analysis_agent.py`)
+- [x] **Day 2:** Perplexity service + Haiku KPI classification (`src/llm_services/perplexity_service.py`)
+- [x] **Day 3:** Sonnet synthesis + `analyze_market_opportunity` full flow
+- [x] **Day 4:** Wire MA into SA→SF pipeline; SF uses `market_analysis_input`; Market Intelligence badge in UI
+- [x] **Day 5:** Positive KPI opportunity detection in SA; green opportunity card in Decision Studio UI
+- [x] **Day 6:** Value Assurance data model — `AcceptedSolution` Pydantic model + Supabase persistence
+- [x] **Day 7:** Polish, end-to-end test, agent card, unit tests
 
 ### Remaining Phase 0 (Post-Sprint)
 - [ ] Fix business process field name mismatch across registries
@@ -81,10 +88,10 @@
 
 ### Agent Builds
 
-**A9_Market_Analysis_Agent** *(Accelerated to Phase 0 — see above)*
+**A9_Market_Analysis_Agent** *(SHIPPED — March 2026)*
 - PRD complete: `docs/prd/agents/a9_market_analysis_agent_prd.md`
-- Target delivery: April 2026 (accelerated from June 2026)
-- ~~3-4 sprints~~ → 1 sprint (7 days)
+- ✅ Delivered March 2026 (accelerated from original June 2026 target)
+- Perplexity web search + Claude synthesis → competitor signals, market trends, strategic context
 
 **A9_Stakeholder_Analysis_Agent** *(Medium priority — build in second half of Phase 1)*
 - **Why Phase 1:** When pilots produce their first solution recommendations, the CFO's next question is "who do I need to get on board?" This agent answers that.
@@ -210,13 +217,14 @@
 
 ```
 PHASE 0 (Now — April 2026)
-  Market Analysis ────────────────────────────── External intelligence layer (ACCELERATED)
-  Positive KPI detection ─────────────────────── Opportunity detection pillar
-  Value Assurance data model ─────────────────── Initiative tracking foundation
+  Market Analysis ────────────────────────────── ✅ SHIPPED Mar 2026
+  Positive KPI detection ─────────────────────── ✅ SHIPPED Mar 2026
+  Value Assurance data model + full UI ──────── ✅ SHIPPED Mar 2026 (trajectory chart, portfolio, CostOfInaction)
   Risk Analysis ─────────────────────────────── Completes core workflow loop
 
 PHASE 1 (2026 pilots)
-  Value Assurance UI (T+30/60/90) ────────────── Proven ROI pillar
+  Value Assurance UI (T+30/60/90) ────────────── ✅ SHIPPED Mar 2026 (pulled forward from Phase 1)
+  Enterprise Assessment Pipeline ────────────── Autonomous scheduled KPI monitoring (Phase 9)
   Stakeholder Analysis + Engagement ──────────── Makes recommendations actionable
 
 PHASE 2 (2027 growth)
@@ -245,16 +253,16 @@ PHASE 4 (2028+ marketplace)
 | Executive Decision Briefing stable (SA→DA→SF) | Mar 2026 | ✅ Complete |
 | 5-pillar value proposition + updated strategy docs | Mar 2026 | ✅ Complete |
 | MA Agent PRD complete | Mar 2026 | ✅ Complete |
-| MA Agent built + wired into SF pipeline | Apr 2026 | 📋 Sprint |
-| Positive KPI opportunity detection (SA) | Mar 2026 | 📋 Sprint |
-| Value Assurance data model (AcceptedSolution) | Apr 2026 | 📋 Sprint |
+| MA Agent built + wired into SF pipeline | Mar 2026 | ✅ Complete (shipped early) |
+| Positive KPI opportunity detection (SA+DA) | Mar 2026 | ✅ Complete |
+| Value Assurance full UI (trajectory chart, portfolio, CostOfInaction) | Mar 2026 | ✅ Complete (shipped early) |
+| Enterprise Assessment Pipeline (Phase 9) | Apr 2026 | 📋 Next |
 | Risk Analysis Agent built | Apr 2026 | 📋 Pending |
 | BP field name fixes + KPI Assistant LLM complete | Apr 2026 | 📋 Pending |
 | Demo video recorded (lubricants + bikes) | Apr 2026 | 📋 Pending |
 | Landing page live | Apr 2026 | 📋 Pending |
 | First pilot signed | Sep 2026 | 📋 Pending |
 | Stakeholder Analysis + Engagement built | Oct 2026 | 📋 Pending |
-| Value Assurance full UI (T+30/60/90 tracking) | Oct 2026 | 📋 Pending |
 | 5-day onboarding template v1 (SAP) | Oct 2026 | 📋 Pending |
 | First case study documented | Jan 2027 | 📋 Pending |
 | Change Management Agent built | Apr 2027 | 📋 Pending |

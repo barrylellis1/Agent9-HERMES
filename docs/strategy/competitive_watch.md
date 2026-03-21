@@ -1,5 +1,5 @@
 ﻿# Agent9 Competitive Watch
-**Last Updated:** February 13, 2026
+**Last Updated:** March 19, 2026
 
 ---
 
@@ -12,6 +12,9 @@
 | Multi-Agent Debate | Protocol-governed, auditable | None | Basic multi-agent (no debate) | None |
 | Registry Context | KPIs, principals, processes, data products | Manual/tribal knowledge | None | Limited (financial only) |
 | Audit Trails | Full protocol traces | Slide decks | Limited query history | Transaction logs |
+| Market Intelligence | Real-time (Perplexity + Claude) | Quarterly reports | Cloud marketplace signals | Limited/none |
+| Post-Decision ROI Tracking | Three-trajectory chart (inaction/expected/actual) | None (engagement ends) | None | None |
+| Opportunity Detection | Positive KPI + benchmark segments + replication targets | Ad hoc | Anomaly-based only | None |
 
 ---
 
@@ -34,12 +37,12 @@ These target the same ICP (mid-market CFOs, PE ops) with well-funded teams.
 
 | Startup | Funding | Focus | Threat | Agent9 Differentiation |
 |---------|---------|-------|--------|----------------------|
-| **Hebbia** | $130M | AI analyst for PE/finance | High | Document-centric vs Agent9 data-centric with live KPI monitoring |
-| **Runway Financial** | $60M+ | AI-driven FP&A | Medium | Narrow FP&A scope vs strategic advisory |
-| **Mosaic** | $48M | Strategic finance platform | Medium | Overlaps on CFO persona; Agent9 adds multi-perspective debate |
-| **Numeric** | $28M | AI financial close | Low | Financial close != strategic decision intelligence |
-| **Clockwork** | $25M | AI financial modeling | Low | Modeling tool, not advisory platform |
-| **Rogo** | $22M | AI research analyst | Medium | Research-focused; Agent9 goes to recommendation and action |
+| **Hebbia** | $130M | AI analyst for PE/finance | High | Document-centric vs Agent9 data-centric with live KPI monitoring + MA market intelligence + VA post-decision tracking |
+| **Runway Financial** | $60M+ | AI-driven FP&A | Medium | Narrow FP&A scope vs strategic advisory + opportunity detection + ROI attribution |
+| **Mosaic** | $48M | Strategic finance platform | Medium | Overlaps on CFO persona; Agent9 adds multi-perspective debate + market intelligence + trajectory tracking |
+| **Numeric** | $28M | AI financial close | Low | Financial close != strategic decision intelligence; Agent9 tracks decision outcomes |
+| **Clockwork** | $25M | AI financial modeling | Low | Modeling tool, not advisory platform; Agent9 provides end-to-end decision lifecycle |
+| **Rogo** | $22M | AI research analyst | Medium | Research-focused; Agent9 goes from detection → analysis → solution → approval → ROI tracking |
 
 **Strategic implication:** CFO/PE space is crowded. Differentiate on multi-perspective analysis, registry context, and audit trails.
 
@@ -51,9 +54,9 @@ Building AI internally but NOT productizing for mid-market.
 
 | Firm | AI Initiative | Threat | Notes |
 |------|--------------|--------|-------|
-| **McKinsey** | Lilli (30K+ internal users), QuantumBlack expanding | Medium | Won't serve $500M-$2B companies with AI tools |
-| **BCG** | BCG X agentic AI capabilities | Medium | Building for own delivery, not a marketplace |
-| **Deloitte** | AI-powered audit/advisory in production | Medium | Focuses on large enterprise |
+| **McKinsey** | Lilli (30K+ internal users), QuantumBlack expanding | Medium | Won't serve $500M-$2B companies with AI tools; Agent9 now has market intelligence (MA) and post-decision tracking (VA) that MBB doesn't offer even to large clients |
+| **BCG** | BCG X agentic AI capabilities | Medium | Building for own delivery, not a marketplace; Agent9's VA trajectory tracking is a capability BCG doesn't productize |
+| **Deloitte** | AI-powered audit/advisory in production | Medium | Focuses on large enterprise; Agent9's three-trajectory ROI attribution is unique across all consulting firms |
 | **Accenture** | $3B+ AI investment | Low | Serves F500 only |
 
 **Strategic implication:** 18-24 month window before consulting firms expand AI downmarket. Agent9 must establish mid-market position before then.
@@ -100,3 +103,5 @@ Building AI internally but NOT productizing for mid-market.
 3. **The "agentic consulting marketplace" positioning is premature.** Year 1 positioning should be "AI Decision Intelligence for CFOs"  a vertical application, not a platform.
 4. **Mid-tier consulting firms (FTI, A&M, Huron) are more realistic partners than BCG/McKinsey.** They lack internal AI capabilities and are more likely to engage with a startup.
 5. **First paying customer by September 2026 is the single most important competitive move.** Everything else is secondary.
+6. **Value Assurance trajectory tracking is a unique competitive feature.** No competitor — consulting firm, AI startup, or cloud platform — offers post-decision three-trajectory KPI tracking with DiD attribution. This is the self-validating loop that justifies renewal.
+7. **Market Analysis Agent transforms every briefing.** Real-time competitor and market context from Perplexity + Claude synthesis means Agent9 briefings include external intelligence that previously required a dedicated research team or expensive consulting add-on.

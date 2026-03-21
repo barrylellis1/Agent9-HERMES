@@ -774,49 +774,43 @@ export function RegistryExplorer() {
 
   return (
     <div className="min-h-screen bg-background text-foreground p-8 font-sans">
-      <header className="mb-8 flex justify-between items-center max-w-6xl mx-auto">
+      <header className="mb-6 flex justify-between items-center max-w-6xl mx-auto">
         <div className="flex items-center gap-4">
-          <Link to="/admin" className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors">
+          <Link to="/dashboard" className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">Registry Explorer</h1>
-            <p className="text-sm text-slate-400">Manage registry entities</p>
+            <h1 className="text-2xl font-bold tracking-tight text-white">Settings</h1>
+            <p className="text-sm text-slate-400">Registry management &amp; data product onboarding</p>
           </div>
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-6">
-          <div className="bg-card border border-border rounded-xl p-3">
-            <div className="space-y-1">
-              {REGISTRIES.map((r) => {
-                const Icon = r.icon
-                const isActive = r.key === registryKey
-                return (
-                  <button
-                    key={r.key}
-                    onClick={() => setRegistryKey(r.key)}
-                    className={
-                      'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ' +
-                      (isActive ? 'bg-slate-800/60 border border-slate-700' : 'hover:bg-slate-800/40')
-                    }
-                  >
-                    <span className={
-                      'inline-flex items-center justify-center w-9 h-9 rounded-lg ' + r.colorClass
-                    }>
-                      <Icon className="w-5 h-5" />
-                    </span>
-                    <div className="flex-1">
-                      <div className="text-sm font-semibold text-white">{r.label}</div>
-                      <div className="text-xs text-slate-400">{r.editable ? 'CRUD' : 'Read-only'}</div>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+        {/* Horizontal registry tabs */}
+        <div className="flex items-center gap-1 mb-6 border-b border-slate-800 pb-0">
+          {REGISTRIES.map((r) => {
+            const Icon = r.icon
+            const isActive = r.key === registryKey
+            return (
+              <button
+                key={r.key}
+                onClick={() => setRegistryKey(r.key)}
+                className={
+                  'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ' +
+                  (isActive
+                    ? 'border-indigo-400 text-white'
+                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600')
+                }
+              >
+                <Icon className="w-4 h-4" />
+                {r.label}
+              </button>
+            )
+          })}
+        </div>
 
+        <div>
           <div className="bg-card border border-border rounded-xl p-6">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
@@ -832,7 +826,15 @@ export function RegistryExplorer() {
                   </div>
                 ) : null}
 
-                {active.editable ? (
+                {active.editable && registryKey === 'data-products' ? (
+                  <Link
+                    to="/settings/onboarding"
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Onboard Data Product
+                  </Link>
+                ) : active.editable ? (
                   <button
                     onClick={onNewItem}
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-sm"

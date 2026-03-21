@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { KPITile } from '../dashboard/KPITile';
-import { RefreshCw, Settings, ChevronRight, Scan, Activity, Clock, TrendingUp } from 'lucide-react';
+import { RefreshCw, Settings, GitBranch, ChevronRight, Scan, Activity, Clock, TrendingUp, BarChart3 } from 'lucide-react';
 import { Situation, Client, OpportunitySignal } from '../../api/types';
 import { Principal } from '../../api/types';
 import { OpportunityCard } from '../OpportunityCard';
+import { getVAPortfolio } from '../../api/client';
+import type { StrategyAwarePortfolio } from '../../types/valueAssurance';
 
 interface DashboardViewProps {
   scanComplete: boolean;
@@ -52,6 +55,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   statusMsg,
   error
 }) => {
+  const [portfolio, setPortfolio] = useState<StrategyAwarePortfolio | null>(null);
+
+  useEffect(() => {
+    if (!selectedPrincipal) return;
+    getVAPortfolio(selectedPrincipal)
+      .then(setPortfolio)
+      .catch(() => setPortfolio(null));
+  }, [selectedPrincipal]);
+
   return (
     <div className="min-h-screen bg-background text-foreground p-8 font-sans relative overflow-x-hidden">
       <header className="mb-8 flex justify-between items-end">
@@ -144,7 +156,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             )}
             </div>
             
-            <a href="/admin" className="p-2 text-slate-400 hover:text-white transition-colors" title="Admin Console">
+            <a href="/context" className="p-2 text-slate-400 hover:text-white transition-colors" title="Context Explorer">
+                <GitBranch className="w-5 h-5" />
+            </a>
+            <a href="/settings" className="p-2 text-slate-400 hover:text-white transition-colors" title="Settings">
                 <Settings className="w-5 h-5" />
             </a>
         </div>
@@ -192,7 +207,42 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       )}
 
       <main className="max-w-7xl mx-auto space-y-8 pb-20">
-        
+
+        {/* Decisions in Progress — Phase 7C */}
+        {portfolio && portfolio.total_solutions > 0 && (
+          <section className="animate-in slide-in-from-top-4 fade-in duration-500">
+            <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-indigo-600/20 rounded-lg flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5 text-indigo-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white">Decisions in Progress</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {portfolio.measuring_count} measuring
+                    {portfolio.validated_count > 0 && <> · <span className="text-emerald-400">{portfolio.validated_count} validated</span></>}
+                    {portfolio.partial_count > 0 && <> · <span className="text-amber-400">{portfolio.partial_count} partial</span></>}
+                    {portfolio.failed_count > 0 && <> · <span className="text-red-400">{portfolio.failed_count} failed</span></>}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                {portfolio.executive_attention_required.length > 0 && (
+                  <span className="text-xs text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full">
+                    {portfolio.executive_attention_required.length} need attention
+                  </span>
+                )}
+                <Link
+                  to={`/portfolio?principal=${encodeURIComponent(selectedPrincipal)}`}
+                  className="flex items-center gap-1.5 text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  View All <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* State 1: Scanner View (Initial) */}
         {!scanComplete && (
             <section className="bg-card border border-border rounded-xl p-8 shadow-2xl relative overflow-hidden">

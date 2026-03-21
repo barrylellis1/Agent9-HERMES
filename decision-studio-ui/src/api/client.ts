@@ -5,6 +5,12 @@ import {
   OpportunitySignal,
   SituationDetectionResult
 } from './types';
+import type {
+  AcceptedSolution as VAAcceptedSolution,
+  StrategyAwarePortfolio,
+  RecordKPIMeasurementResponse,
+  InactionCostProjection,
+} from '../types/valueAssurance';
 
 // Re-export types for backward compatibility
 export type { ProblemRefinementRequest, ProblemRefinementResult, Situation, OpportunitySignal, SituationDetectionResult };
@@ -538,4 +544,64 @@ export async function askBriefingQuestion(
     body: JSON.stringify({ question, principal_id: principalId, conversation_history: conversationHistory }),
   });
   return envelope.data;
+}
+
+// ---------------------------------------------------------------------------
+// Value Assurance — Phase 7C API functions
+// ---------------------------------------------------------------------------
+
+export async function getVASolution(solutionId: string): Promise<VAAcceptedSolution> {
+  return requestJson<VAAcceptedSolution>(`/value-assurance/solutions/${solutionId}`);
+}
+
+export async function getVAPortfolio(principalId: string): Promise<StrategyAwarePortfolio> {
+  return requestJson<StrategyAwarePortfolio>(`/value-assurance/portfolio/${principalId}`);
+}
+
+export async function projectInactionCost(
+  situationId: string,
+  kpiId: string,
+  currentKpiValue: number,
+  historicalTrend: number[],
+  principalId: string = ''
+): Promise<InactionCostProjection> {
+  const resp = await requestJson<{ projection: InactionCostProjection }>(`/value-assurance/inaction-cost`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      request_id: crypto.randomUUID(),
+      principal_id: principalId,
+      situation_id: situationId,
+      kpi_id: kpiId,
+      current_kpi_value: currentKpiValue,
+      historical_trend: historicalTrend,
+    }),
+  });
+  return resp.projection;
+}
+
+export async function recordKPIMeasurement(
+  solutionId: string,
+  kpiValue: number,
+  principalId: string = ''
+): Promise<RecordKPIMeasurementResponse> {
+  return requestJson<RecordKPIMeasurementResponse>(
+    `/value-assurance/solutions/${solutionId}/measure?kpi_value=${kpiValue}&principal_id=${encodeURIComponent(principalId)}`,
+    { method: 'POST' }
+  );
+}
+
+export async function storeBriefingSnapshot(solutionId: string, snapshot: Record<string, unknown>): Promise<void> {
+  const response = await fetch(`${API_BASE}/value-assurance/solutions/${solutionId}/briefing`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(snapshot),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to store briefing snapshot: ${response.status}`);
+  }
+}
+
+export async function getBriefingSnapshot(solutionId: string): Promise<Record<string, unknown>> {
+  return requestJson<Record<string, unknown>>(`/value-assurance/solutions/${solutionId}/briefing`);
 }

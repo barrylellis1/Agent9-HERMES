@@ -1,6 +1,6 @@
 # A9_Value_Assurance_Agent Card
 
-Status: MVP Active (Phase 7A)
+Status: Active (Phase 7C)
 
 ## Overview
 
@@ -16,6 +16,7 @@ It uses **Difference-in-Differences (DiD) counterfactual attribution** — explo
 - `project_inaction_cost(request: ProjectInactionCostRequest) -> ProjectInactionCostResponse`
 - `get_portfolio_summary(request: PortfolioSummaryRequest) -> StrategyAwarePortfolio`
 - `generate_narrative(request: GenerateNarrativeRequest) -> GenerateNarrativeResponse`
+- `record_kpi_measurement(request: RecordKPIMeasurementRequest) -> RecordKPIMeasurementResponse`
 
 Models defined in `src/agents/models/value_assurance_models.py`.
 
@@ -91,13 +92,16 @@ At evaluation: the agent diffs the snapshot against the live registry:
 
 ## Storage
 
-**Phase 7A (MVP):** In-memory `_solutions_store: Dict[str, AcceptedSolution]` — resets on restart.
+**Dual persistence:** In-memory `_solutions_store` + Supabase REST API (`VASolutionsStore`).
 
-**Phase 7B (Supabase):** Set `supabase_enabled: True` in config and run:
-```
-supabase/migrations/20260314_value_assurance_tables.sql
-```
-Tables: `value_assurance_solutions`, `value_assurance_evaluations`
+Supabase tables: `value_assurance_solutions`, `value_assurance_evaluations`
+Migrations:
+- `supabase/migrations/20260314_value_assurance_tables.sql` — base tables
+- `supabase/migrations/20260318_va_trend_columns.sql` — trend arrays, benchmark segments
+- `supabase/migrations/20260321_va_briefing_snapshot.sql` — briefing replay JSONB
+
+Persistence layer: `src/database/va_solutions_store.py` (follows `SituationsStore` pattern).
+On `connect()`, loads all solutions from Supabase into memory. Falls back gracefully when Supabase is unavailable.
 
 ## Compliance
 

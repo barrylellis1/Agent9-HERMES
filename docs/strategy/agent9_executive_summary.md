@@ -1,7 +1,7 @@
 # Agent9: AI-Powered Decision Intelligence
 
 ## One-Page Executive Summary
-**Last Updated:** March 10, 2026
+**Last Updated:** March 19, 2026
 
 ---
 
@@ -73,6 +73,8 @@ Enterprise decision-makers spend **$800B+ annually** on consulting, yet:
 | Scalable delivery | ✅ | ❌ | ✅ |
 | Market intelligence (real-time) | ✅ (Market Analysis Agent) | ⚠️ (quarterly) | ❌ |
 | ROI validation (post-implementation) | ✅ | ❌ | ❌ |
+| Post-decision ROI tracking | ✅ (trajectory chart) | ❌ | ❌ |
+| Opportunity detection (positive KPI) | ✅ | ⚠️ (ad hoc) | ❌ |
 
 ---
 
@@ -103,16 +105,16 @@ Enterprise decision-makers spend **$800B+ annually** on consulting, yet:
 **Pillar 4 — Opportunity Detection (not just problem response)**
 | Metric | Without Agent9 | With Agent9 |
 |--------|---------------|-------------|
-| Positive KPI signals | Noticed eventually, acted on slowly | Proactively detected; market context surfaced; capture options generated |
+| Positive KPI signals | Noticed eventually, acted on slowly | Proactively detected; DA classifies benchmark segments (control group vs replication targets); market context surfaced via MA Agent; capture options generated with quantified impact |
 | Competitive intelligence | Quarterly review at best | Continuous (via Market Analysis Agent) |
 | Innovation triggers | Ad hoc, dependent on individual awareness | Systematic signal-to-opportunity workflow |
 
 **Pillar 5 — Initiative Tracking & Proven ROI**
 | Metric | Without Agent9 | With Agent9 |
 |--------|---------------|-------------|
-| Recommendation follow-through | Slide deck → forgotten | Stored at acceptance; KPI tracked post-implementation |
-| ROI attribution | Assumed; rarely measured | Measured: intervention impact isolated from market tailwinds |
-| Learning loop | None (recommendations don't improve over time) | Reinforced: outcomes feed back into future recommendation quality |
+| Recommendation follow-through | Slide deck → forgotten | HITL Approve & Track → VA registers solution with baseline, projections; three-trajectory tracking (inaction/expected/actual) on Portfolio dashboard |
+| ROI attribution | Assumed; rarely measured | Difference-in-Differences attribution: intervention impact isolated from market tailwinds using control group segments from DA analysis |
+| Learning loop | None (recommendations don't improve over time) | Reinforced: trajectory chart shows CFO whether each decision is working; outcomes feed back into future recommendation quality |
 
 ---
 
@@ -150,18 +152,23 @@ Enterprise decision-makers spend **$800B+ annually** on consulting, yet:
 
 ### Traction & Roadmap
 
-**Completed (Feb 2026):**
+**Completed (March 2026):**
 - ✅ Multi-agent orchestration (SA, Deep Analysis, Solution Finder)
 - ✅ Decision Studio UI (React, functional)
 - ✅ Registry Explorer (KPIs, principals, processes, data products)
 - ✅ Principal-driven analysis (decision style → consulting persona)
 - ✅ Database-agnostic backend (DuckDB, Supabase, BigQuery)
+- ✅ Market Analysis Agent (Perplexity + Claude synthesis — competitor signals, market context)
+- ✅ Value Assurance Agent (three-trajectory tracking, DiD attribution, Supabase persistence)
+- ✅ Portfolio Dashboard with trajectory chart (inaction/expected/actual KPI recovery)
+- ✅ Cost of Inaction banner in Executive Briefing (pre-approval projection)
+- ✅ Opportunity Detection (positive KPI outperformance, benchmark segments, replication targets)
+- ✅ HITL Approve & Track workflow with VA solution registration
 
 **Next Milestones:**
-- Market Analysis Agent built: April 2026 (accelerated from June 2026)
-- Positive KPI opportunity detection: March 2026
+- Enterprise Assessment Pipeline (autonomous scheduled monitoring): April 2026
+- Pre-video UI polish and demo recording: April 2026
 - First pilot signed: September 2026
-- Initiative tracking (Value Assurance): October 2026
 - 5 customers, $250K ARR: December 2027
 
 ---

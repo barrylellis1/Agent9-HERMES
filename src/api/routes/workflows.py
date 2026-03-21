@@ -712,12 +712,15 @@ async def _record_solution_action(
             da_output = wf_payload.get("deep_analysis_output") or {}
             kpi_id = da_output.get("kpi_name") or ""
 
-            # DA IS NOT dimensions for DiD control group
+            # DA benchmark segments for DiD control group (Phase 7C)
             kt = da_output.get("kt_is_is_not") or {}
-            is_not_items = kt.get("where_is_not") or []
-            da_dims = list({
-                item.get("dimension") for item in is_not_items if item.get("dimension")
-            }) or None
+            all_benchmarks = kt.get("benchmark_segments") or []
+            control_segments = [s for s in all_benchmarks if s.get("benchmark_type") == "control_group"] or None
+            benchmark_segments = all_benchmarks or None
+
+            # Pre-approval KPI value for slope calculation
+            aggregates = da_output.get("aggregates") or {}
+            pre_approval_kpi_value = aggregates.get("comparison_value") or aggregates.get("previous_value")
 
             # Market signals from SF result
             mkt_intel = result_solutions.get("market_intelligence")
@@ -744,7 +747,9 @@ async def _record_solution_action(
                 solution_description=sol_desc,
                 expected_impact_lower=impact_lower,
                 expected_impact_upper=impact_upper,
-                da_is_not_dimensions=da_dims,
+                control_group_segments=control_segments,
+                benchmark_segments=benchmark_segments,
+                pre_approval_kpi_value=pre_approval_kpi_value,
                 ma_market_signals=ma_signals,
             )
 

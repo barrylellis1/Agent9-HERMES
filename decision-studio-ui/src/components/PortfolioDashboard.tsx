@@ -106,6 +106,17 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
 }) => {
   const total = solutions.length;
   const pct = (n: number) => (total > 0 ? `${Math.round((n / total) * 100)}%` : '0%');
+  const hasAnyEvaluation = solutions.some((s) => !!s.impact_evaluation);
+
+  // Compute total realized impact from trend data when no formal evaluation exists
+  const computedImpact = totalAttributableImpact !== 0
+    ? totalAttributableImpact
+    : solutions.reduce((sum, sol) => {
+        if (sol.actual_trend.length > 1) {
+          return sum + (sol.actual_trend[sol.actual_trend.length - 1] - sol.actual_trend[0]);
+        }
+        return sum;
+      }, 0);
 
   return (
     <div className="space-y-6">
@@ -113,9 +124,9 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
           label="Total ROI (est.)"
-          value={formatDelta(totalAttributableImpact)}
+          value={formatDelta(computedImpact)}
           subtext="Attributable impact across validated solutions"
-          valueClass={totalAttributableImpact >= 0 ? 'text-emerald-400' : 'text-red-400'}
+          valueClass={computedImpact >= 0 ? 'text-emerald-400' : 'text-red-400'}
           borderClass="border-emerald-800/40"
         />
         <SummaryCard
@@ -170,8 +181,13 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
       ) : (
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
           {/* Table header */}
-          <div className="grid grid-cols-[2fr_1fr_auto_auto_1fr_auto_auto_auto] gap-3 px-5 py-3 border-b border-slate-800 bg-slate-950">
-            {['KPI / Description', 'Approved', 'Verdict', 'Strategy', 'Composite', 'Impact', 'ROI?', ''].map((h, i) => (
+          <div
+            className={`grid ${hasAnyEvaluation ? 'grid-cols-[2fr_1fr_auto_auto_1fr_auto_auto_auto]' : 'grid-cols-[2fr_1fr_auto_auto_auto]'} gap-3 px-5 py-3 border-b border-slate-800 bg-slate-950`}
+          >
+            {(hasAnyEvaluation
+              ? ['KPI / Description', 'Approved', 'Verdict', 'Strategy', 'Composite', 'Impact', 'ROI?', '']
+              : ['KPI / Description', 'Approved', 'Verdict', 'Impact', '']
+            ).map((h, i) => (
               <span key={i} className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                 {h}
               </span>
@@ -185,12 +201,15 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
               const evaluation = sol.impact_evaluation;
               const composite = evaluation?.composite_verdict;
               const strategy = evaluation?.strategy_check?.alignment_verdict;
-              const attributable = evaluation?.attributable_impact;
+              const attributable = evaluation?.attributable_impact
+                ?? (sol.actual_trend.length > 1
+                  ? sol.actual_trend[sol.actual_trend.length - 1] - sol.actual_trend[0]
+                  : undefined);
 
               return (
                 <div
                   key={sol.solution_id}
-                  className={`grid grid-cols-[2fr_1fr_auto_auto_1fr_auto_auto_auto] gap-3 px-5 py-4 items-center transition-colors hover:bg-slate-800/30 ${
+                  className={`grid ${hasAnyEvaluation ? 'grid-cols-[2fr_1fr_auto_auto_1fr_auto_auto_auto]' : 'grid-cols-[2fr_1fr_auto_auto_auto]'} gap-3 px-5 py-4 items-center transition-colors hover:bg-slate-800/30 ${
                     needsAttention ? 'border-l-4 border-amber-500' : 'border-l-4 border-transparent'
                   }`}
                 >
@@ -206,17 +225,21 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
                   {/* Verdict badge */}
                   <VerdictBadge status={sol.status} />
 
-                  {/* Strategy badge */}
-                  {strategy ? (
-                    <StrategyBadge verdict={strategy} />
-                  ) : (
-                    <span className="text-[10px] text-slate-600 italic">—</span>
+                  {/* Strategy badge — only when evaluations exist */}
+                  {hasAnyEvaluation && (
+                    strategy ? (
+                      <StrategyBadge verdict={strategy} />
+                    ) : (
+                      <span className="text-[10px] text-slate-600 italic">—</span>
+                    )
                   )}
 
-                  {/* Composite label */}
-                  <p className="text-xs text-slate-300 truncate">
-                    {composite?.composite_label ?? '—'}
-                  </p>
+                  {/* Composite label — only when evaluations exist */}
+                  {hasAnyEvaluation && (
+                    <p className="text-xs text-slate-300 truncate">
+                      {composite?.composite_label ?? '—'}
+                    </p>
+                  )}
 
                   {/* Attributable impact */}
                   <span
@@ -231,15 +254,17 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
                     {attributable !== undefined ? formatDelta(attributable) : '—'}
                   </span>
 
-                  {/* ROI eligible */}
-                  {composite ? (
-                    composite.include_in_roi_totals ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  {/* ROI eligible — only when evaluations exist */}
+                  {hasAnyEvaluation && (
+                    composite ? (
+                      composite.include_in_roi_totals ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      ) : (
+                        <XCircle className="w-4 h-4 text-slate-600" />
+                      )
                     ) : (
-                      <XCircle className="w-4 h-4 text-slate-600" />
+                      <span className="text-slate-600 text-xs">—</span>
                     )
-                  ) : (
-                    <span className="text-slate-600 text-xs">—</span>
                   )}
 
                   {/* Action */}

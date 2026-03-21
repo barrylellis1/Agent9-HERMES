@@ -1,7 +1,7 @@
 # Agent9: Consulting Partner Strategy
 
-**Last Updated:** February 2026
-**Status:** Pre-activation — prerequisites not yet met. Activation planned for Year 3 (2028).
+**Last Updated:** March 2026
+**Status:** Tier 0 activation in progress. Tier 1 activation at 5+ customers. Full CaaS marketplace deferred to Year 3+.
 
 ---
 
@@ -9,17 +9,17 @@
 
 Agent9's long-term revenue model includes a consulting firm partner channel. This document covers the strategy, framing, prerequisites, target partner profile, and activation timeline.
 
-**Important:** This channel does not exist yet and should not be presented to prospects as a current capability. Premature partner conversations — before Agent9 has paying customers and a validated delivery track record — waste credibility and create false expectations on both sides.
+**Important:** Tier 0 (fractional CFO) conversations can begin now. Tier 1+ partner conversations require paying customers and validated delivery track record. See Prerequisites section for activation gates.
 
 ---
 
 ## The Partner Model in One Sentence
 
-Consulting firms partner with Agent9 to generate qualified leads among their mid-market clients and to protect their recurring revenue against the AI-driven displacement of traditional engagement work.
+Agent9 generates qualified, pre-diagnosed consulting leads for partner firms — every situation that exceeds platform scope becomes a data-rich engagement opportunity with supporting analysis, market context, and outcome tracking built in.
 
 ---
 
-## Why Consulting Firms Will Eventually Want This
+## Why Consulting Firms Will Want This
 
 The consulting industry faces a structural threat it has not yet fully priced in: AI tools are beginning to compress the billable hours in the discovery, analysis, and reporting phases of engagements — exactly the phases that generate 60-70% of mid-tier firm revenue.
 
@@ -34,6 +34,8 @@ The firms most exposed are mid-tier generalists (FTI Consulting, Alvarez & Marsa
 1. **Lead generation:** Every client using Agent9 generates a continuous stream of structured decision situations. When a situation exceeds what the platform handles automatically, Agent9 surfaces it as a consulting engagement opportunity — pre-qualified, pre-diagnosed, with supporting analysis ready. The firm closes faster on better-scoped work.
 
 2. **Revenue assurance:** Firms that partner with Agent9 can shift from selling analytical hours to selling implementation, change management, and strategic advisory — the work that AI cannot replace. Agent9 becomes the diagnostic layer; the firm remains the delivery layer. Total client spend may be lower, but the firm's share of that spend on higher-margin work improves.
+
+3. **Outcome proof:** Agent9's Value Assurance trajectory tracking (shipped March 2026) means the partner firm can prove their engagement delivered measurable results. The three-trajectory chart (inaction vs expected vs actual) provides post-engagement ROI attribution that no consulting firm can generate on their own. This transforms the partner's renewal conversation from "trust us, it worked" to "here's the chart — margin recovered $1.2M against a $1.8M projection, and here's the control group that proves it wasn't just a market tailwind."
 
 The framing that works: *"We help you survive the AI transition by making you the firm that adopted it, not the firm it displaced."*
 
@@ -56,6 +58,8 @@ The framing that doesn't work: *"Encode your methodology in our platform."* This
 - **Revenue share:** Partners earn a percentage of Agent9 subscription revenue from clients they refer (TBD at negotiation; likely 10-20% of Year 1 platform subscription)
 - **White-label option (Phase 4):** Branded reporting and situation cards that carry the firm's visual identity
 - **Priority support:** Dedicated onboarding lane for partner-referred clients
+- **Diagnostic handoff package (shipped):** Every escalated situation includes the full SA situation card, DA dimensional analysis with Is/Is Not decomposition, MA market intelligence context, benchmark segments (control groups + replication targets), and quantified impact estimates. The partner firm starts with more structured context than their associate would gather in week 1.
+- **VA outcome tracking:** Post-engagement, the three-trajectory chart continues measuring KPI recovery. Partner firms can use this data in their own case studies and renewal conversations.
 
 ### What Partners Do NOT Do
 
@@ -71,7 +75,21 @@ The framing that doesn't work: *"Encode your methodology in our platform."* This
 
 ## Target Partner Profile
 
-### Tier 1: Boutique FP&A and Finance Advisory Specialists *(First Target)*
+### Tier 0: Fractional CFOs and CFO Advisory Networks *(Activate Now)*
+
+These are not traditional partners — they are practitioners who become both users AND referral sources:
+
+| Firm Type | Why They Partner | Agent9 Gives Them |
+|-----------|-----------------|-------------------|
+| Fractional/interim CFO practitioners | Serve 3-5 companies simultaneously; need leverage | AI-augmented practice — serve more clients at higher quality |
+| CFO advisory networks (e.g., CFO Leadership Council) | Members share tools and approaches | Platform recommendation that makes their members more effective |
+| Solo FP&A consultants | One-person shops competing with larger firms | Enterprise-grade analytical capability without enterprise headcount |
+
+**Why start here:** These practitioners ARE the buyer persona. They don't need case studies — they need a demo showing how Agent9 makes their practice more valuable. A fractional CFO using Agent9 across 4 client companies generates 4 subscriptions, 4 sets of situations, and 4 potential consulting escalations. The partnership conversation is: "We make you better at your job, and when your clients need more than you can deliver, we route to you first."
+
+**Activation gate:** Demo-ready platform (✅ met as of March 2026). No case studies required — the fractional CFO IS the case study as they adopt.
+
+### Tier 1: Boutique FP&A and Finance Advisory Specialists *(5+ Customers)*
 
 These are the first and most natural partners:
 
@@ -83,7 +101,7 @@ These are the first and most natural partners:
 
 **Why start here:** Boutique firms have faster decision cycles, less IP anxiety, and the partner conversation is with the founder — not a committee. First 2-3 partner relationships should be boutique specialists.
 
-### Tier 2: Mid-Tier Generalists *(Year 3+ Target)*
+### Tier 2: Mid-Tier Generalists *(Year 2, 10+ Customers)*
 
 These firms have the scale and client relationships to drive meaningful volume:
 
@@ -110,6 +128,8 @@ McKinsey, BCG, Bain, Deloitte, PwC, EY, KPMG — not the right partners:
 
 The opportunity with these firms is eventual — not imminent.
 
+**However:** The escalation path matters. When Agent9 situations surface problems that require the strategic depth and brand credibility of a top-tier firm, the platform should be able to facilitate that referral — even without a formal partnership. This becomes a natural conversation starter once Agent9 has 25+ customers generating escalation-worthy situations.
+
 ---
 
 ## Prerequisites Before Activating Partner Conversations
@@ -118,15 +138,16 @@ These gates must be met before investing time in partner conversations:
 
 | Gate | Target Date | Why Required |
 |------|-------------|-------------|
-| 3+ paying customers with documented ROI | Dec 2027 | Partners won't refer clients to unproven platforms |
-| $200K+ ARR | Dec 2027 | Signals commercial viability to partner risk committees |
-| At least 1 published case study | Jan 2027 | Partners need a story to tell clients |
+| Demo-ready platform with MA + VA + Opportunity | Mar 2026 | ✅ Met — Tier 0 conversations can begin |
+| 3+ paying customers with documented ROI | Dec 2027 | Tier 1 boutique firms need proof of adoption |
+| $200K+ ARR | Dec 2027 | Signals commercial viability |
+| At least 1 published case study | Jan 2027 | Tier 1+ partners need a story to tell clients |
 | Lead attribution tracking infrastructure built | Jun 2027 | Must be able to track and pay partner revenue share |
-| Agent9 team has bandwidth for partner support | Jun 2027 | Partners will generate support demands before revenue |
+| VA trajectory data from 2+ completed measurement windows | Jun 2027 | Outcome proof is the partner value prop — must be real, not theoretical |
 | Fast Start process validated and documented | Oct 2026 | Partners will promise clients quick deployment |
 | Legal: data sharing agreement template reviewed | H1 2028 | Required before any client data is adjacent to a partner |
 
-**Do not begin partner outreach until gates 1, 2, and 3 are met.** The conversations will go nowhere and may create awkward dynamics if encountered later as a paying customer's consulting firm.
+**Tier 0 conversations can begin immediately.** For Tier 1+, do not begin partner outreach until gates 2, 3, and 4 are met.
 
 ---
 
@@ -158,36 +179,43 @@ These are not partner-facing features — they are the internal tracking infrast
 
 ## The Partner Conversation Arc
 
-**Year 1-2 (Pre-activation):** Do not pitch partners. Instead, note which consulting firms your pilot customers use. Begin relationship-building conversations framed as "we'd love to understand how you currently serve this market" — not "partner with us."
+**Now (Tier 0 activation):** Identify 5-10 fractional CFO practitioners. Offer them Agent9 as a practice tool — not as a partnership. The partnership emerges naturally as they adopt. When their clients need more than the platform delivers, they route to themselves. When they encounter situations that need a specialist, the escalation path becomes visible.
 
-**Year 2-3 (Early conversations):** With 2-3 case studies and attribution data in hand, begin informal conversations with boutique FP&A advisors. Frame as: "We've been generating consulting engagement leads for your peers. We'd like to formalize this."
+**Year 1-2 (Tier 1 activation):** With 5+ customers and VA trajectory data from at least one completed measurement window, begin conversations with boutique FP&A advisory firms. Frame as: "We've been generating consulting engagement leads — pre-diagnosed, with market context and benchmark data. We'd like to route relevant situations to your firm."
 
-**Year 3 (First signed partner):** Target one boutique FP&A specialist for a 12-month pilot partnership. Measure: referrals sent, conversions, revenue share paid, client NPS with Agent9 vs without.
+**Year 2 (First signed Tier 1 partner):** Target one boutique FP&A specialist for a 12-month pilot partnership. Measure: situations escalated, conversions to engagements, revenue share paid, VA trajectory outcomes for partner-delivered engagements.
 
-**Year 3-4 (Mid-tier conversations):** With a boutique partnership validated, approach Tier 2 firms. The conversation is now backed by referral data, a partner who can vouch for the model, and a commercial track record.
+**Year 2-3 (Tier 2 conversations):** With a boutique partnership validated and VA data showing measurable outcomes, approach mid-tier firms. The conversation is backed by: (1) referral data, (2) a boutique partner who can vouch for the model, (3) VA trajectory charts proving partner-delivered engagement ROI.
 
-**Year 4+ (Marketplace):** If and when branded agent configuration makes sense (Phase 4), structure it as an opt-in enhancement for partners who want their methodology reflected in the analysis framing — not as a requirement or as IP transfer.
+**Year 3+ (CaaS marketplace):** If demand warrants, build branded agent configuration — partner logo, specialisation routing rules, white-label situation cards. This is the full CaaS offering described in `caas_market_opportunity.md`. Only build when partner volume justifies the infrastructure investment.
 
 ---
 
 ## What Success Looks Like
 
-### Year 3 (First partner signed)
-- 1 boutique FP&A advisory firm as a formal referral partner
-- Revenue share: 10-15% of first-year platform subscription for referred clients
-- Attribution data showing 3-5 consulting engagements sourced from Agent9 situations
+### Year 1 (Tier 0 active)
+- 3-5 fractional CFOs using Agent9 across 10-15 client companies
+- Organic referrals from practitioners to their CFO network
+- First situations escalated beyond platform scope → practitioner handles directly
 
-### Year 4 (Channel developing)
+### Year 2 (Tier 1 signed)
+- 1-2 boutique FP&A advisory firms as formal referral partners
+- Revenue share: 10-15% of first-year platform subscription for referred clients
+- Attribution data showing 5-10 consulting engagements sourced from Agent9 situations
+- VA trajectory data proving outcomes for 2+ partner-delivered engagements
+
+### Year 3 (Tier 2 conversations)
 - 3-5 boutique partners active
-- 1 Tier 2 firm in conversation
+- 1 Tier 2 firm in pilot conversation
 - Partner channel contributing 15-20% of new logo acquisition
 - Partners actively using "Agent9-powered" as a differentiator in their pitches
+- Cumulative VA data showing partner-delivered engagement ROI across 10+ situations
 
-### Year 5+ (Channel mature)
+### Year 4+ (Channel mature)
 - 2-3 Tier 2 mid-market consulting firm partnerships signed
 - Partner channel contributing 25-35% of new logo acquisition
 - Revenue share paid to partners becoming material ($200K-$500K/year)
-- Consulting firm ecosystem creating defensibility against direct competition from new AI entrants
+- CaaS marketplace infrastructure justified by partner volume
 
 ---
 
@@ -212,4 +240,4 @@ This document is the strategic rationale for why consulting firm partnerships ar
 
 ---
 
-*Confidential | February 2026*
+*Confidential | March 2026*

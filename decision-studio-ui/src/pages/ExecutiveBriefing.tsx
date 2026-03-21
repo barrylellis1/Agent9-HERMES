@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   ArrowLeft, Download, Printer, AlertTriangle, CheckCircle, ChevronRight,
   Users, Target, Zap, Clock, Sparkles, ShieldCheck, Loader2, CheckCircle2,
   ChevronDown, Send, MessageSquare, BookOpen
 } from 'lucide-react'
-import { approveSolution, askBriefingQuestion, BriefingQAResponse } from '../api/client'
+import { approveSolution, askBriefingQuestion, BriefingQAResponse, storeBriefingSnapshot, getBriefingSnapshot } from '../api/client'
+import { CostOfInactionBanner } from '../components/CostOfInactionBanner'
 
 // ─────────────────────────────────────────────────
 // Accordion section wrapper
@@ -256,9 +257,12 @@ function DecisionChat({
 // ─────────────────────────────────────────────────
 export function ExecutiveBriefing() {
   const { situationId } = useParams()
+  const [searchParams] = useSearchParams()
+  const solutionIdParam = searchParams.get('solution_id')
   const [briefing, setBriefing] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [approveState, setApproveState] = useState<'idle' | 'approving' | 'approved' | 'error'>('idle')
+  const [vaSolutionId, setVaSolutionId] = useState<string | null>(null)
   const [openSections, setOpenSections] = useState<Set<string>>(
     new Set(['summary', 'situation', 'options', 'recommendation'])
   )
@@ -277,21 +281,60 @@ export function ExecutiveBriefing() {
     if (!requestId) return
     setApproveState('approving')
     try {
-      await approveSolution(requestId, optionId)
+      const result = await approveSolution(requestId, optionId)
+      // Extract VA solution ID from the last action entry
+      const actions = result?.actions || []
+      const lastAction = actions[actions.length - 1]
+      const vaId = lastAction?.va_solution_id || null
+      setVaSolutionId(vaId)
+      if (vaId) {
+        localStorage.setItem(`va_solution_${situationId}`, vaId)
+        // Store briefing snapshot to Supabase for portfolio replay
+        if (briefing) {
+          storeBriefingSnapshot(vaId, briefing).catch(() => {
+            // Non-fatal — briefing replay won't work but approval is fine
+          })
+        }
+      }
       setApproveState('approved')
     } catch (err) {
       console.error('Approve failed:', err)
       setApproveState('error')
     }
-  }, [situationId])
+  }, [situationId, briefing])
 
   useEffect(() => {
+    // If loading from a VA solution snapshot (Portfolio replay)
+    if (solutionIdParam) {
+      getBriefingSnapshot(solutionIdParam)
+        .then((snapshot) => {
+          setBriefing(snapshot as any)
+          setApproveState('approved')  // Show as already approved (read-only replay)
+          setVaSolutionId(solutionIdParam)
+        })
+        .catch(() => {
+          // Fall through to localStorage
+          const stored = localStorage.getItem(`briefing_${situationId}`)
+          if (stored) {
+            setBriefing(JSON.parse(stored))
+          }
+        })
+        .finally(() => setLoading(false))
+      return
+    }
+
     const stored = localStorage.getItem(`briefing_${situationId}`)
     if (stored) {
       setBriefing(JSON.parse(stored))
     }
+    // Restore approval state from localStorage
+    const storedVaId = localStorage.getItem(`va_solution_${situationId}`)
+    if (storedVaId) {
+      setVaSolutionId(storedVaId)
+      setApproveState('approved')
+    }
     setLoading(false)
-  }, [situationId])
+  }, [situationId, solutionIdParam])
 
   const principalId = briefing?.principalId || briefing?.principal_id || 'cfo_001'
 
@@ -355,7 +398,7 @@ export function ExecutiveBriefing() {
             <span className="text-sm font-semibold text-white truncate max-w-xs">{data.title}</span>
           </div>
           <button
-            onClick={() => setOpenSections(new Set(['summary', 'situation', 'market', 'stage1', 'crossreview', 'options', 'roadmap', 'risks', 'blindspots', 'recommendation']))}
+            onClick={() => setOpenSections(new Set(['summary', 'situation', 'market', 'stage1', 'crossreview', 'options', 'roadmap', 'risks', 'blindspots', 'inaction', 'recommendation']))}
             className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
           >
             Expand All
@@ -844,6 +887,34 @@ export function ExecutiveBriefing() {
               </AccordionSection>
             )}
 
+            {/* Cost of Inaction — shown pre-approval when KPI data is available */}
+            {approveState !== 'approved' && data.kpiData?.current_value != null && (() => {
+              const kd = data.kpiData
+              const slope = kd.comparison_value != null
+                ? kd.current_value - kd.comparison_value
+                : 0
+              const projected30d = kd.current_value + slope * 1
+              const projected90d = kd.current_value + slope * 3
+              const trendDir: 'deteriorating' | 'stable' | 'recovering' =
+                slope < -0.001 ? 'deteriorating' : slope > 0.001 ? 'recovering' : 'stable'
+              return (
+                <AccordionSection id="inaction" title="Cost of Inaction" openSections={openSections} onToggle={toggleSection}
+                  icon={<AlertTriangle className="w-4 h-4 text-amber-400" />}>
+                  <div className="p-5">
+                    <CostOfInactionBanner
+                      kpiName={kd.kpi_name}
+                      currentValue={kd.current_value}
+                      projected30d={projected30d}
+                      projected90d={projected90d}
+                      trendDirection={trendDir}
+                      trendConfidence="LOW"
+                      kpiUnit={kd.unit}
+                    />
+                  </div>
+                </AccordionSection>
+              )
+            })()}
+
             {/* Recommendation */}
             <AccordionSection id="recommendation" title="Recommendation & Next Steps" openSections={openSections} onToggle={toggleSection}
               icon={<div className="w-5 h-5 bg-blue-600 text-white rounded flex items-center justify-center text-[10px] font-bold">6</div>}>
@@ -900,14 +971,26 @@ export function ExecutiveBriefing() {
                           </div>
                         ))}
                       </div>
+                      {vaSolutionId && (
+                        <div className="bg-white rounded-lg p-2.5 border border-emerald-200 mb-3">
+                          <p className="text-[10px] text-slate-500 uppercase mb-0.5">VA Reference</p>
+                          <p className="text-xs font-mono text-slate-700">{vaSolutionId.slice(0, 8)}...</p>
+                        </div>
+                      )}
                       <div className="bg-emerald-100/50 rounded-lg p-3 text-xs text-emerald-800">
                         <p className="font-medium mb-1">What happens next:</p>
                         <ol className="space-y-0.5 text-emerald-700 list-decimal list-inside">
                           <li>Value Assurance Agent monitors KPI performance against the expected recovery range</li>
                           <li>Difference-in-Differences attribution separates your intervention's impact from market movements</li>
-                          <li>You will receive an evaluation at the end of the monitoring window</li>
+                          <li>Results will appear on your Decision Portfolio dashboard</li>
                         </ol>
                       </div>
+                      <Link
+                        to={`/portfolio?principal=${encodeURIComponent(principalId)}`}
+                        className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-500 transition-colors"
+                      >
+                        View Portfolio <ChevronRight className="w-3.5 h-3.5" />
+                      </Link>
                     </div>
                   )
                 })()}

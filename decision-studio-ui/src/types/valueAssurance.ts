@@ -76,6 +76,15 @@ export interface InactionCostProjection {
   projected_at: string;
 }
 
+export interface BenchmarkSegment {
+  dimension: string;
+  key: string;
+  delta: number;
+  delta_pct: number;
+  benchmark_type: 'control_group' | 'internal_benchmark';
+  replication_potential?: number;
+}
+
 export interface AcceptedSolution {
   solution_id: string;
   situation_id: string;
@@ -91,6 +100,38 @@ export interface AcceptedSolution {
   impact_evaluation?: ImpactEvaluation;
   inaction_cost?: InactionCostProjection;
   narrative?: string;
-  da_is_not_dimensions?: string[];
   ma_market_signals?: string[];
+  // Phase 7C: Benchmark segments
+  control_group_segments?: BenchmarkSegment[];
+  benchmark_segments?: BenchmarkSegment[];
+  // Phase 7C: Three-trajectory tracking
+  inaction_trend: number[];
+  expected_trend: number[];
+  inaction_horizon_months: number;
+  actual_trend: number[];
+  actual_trend_dates: string[];
+  baseline_kpi_value: number;
+  pre_approval_slope: number;
+}
+
+export interface StrategyAwarePortfolio {
+  total_solutions: number;
+  validated_count: number;
+  partial_count: number;
+  failed_count: number;
+  measuring_count: number;
+  total_attributable_impact: number;
+  roi_eligible_solutions: number;
+  strategy_aligned_count: number;
+  strategy_drifted_count: number;
+  strategy_superseded_count: number;
+  executive_attention_required: string[];
+  solutions: AcceptedSolution[];
+}
+
+export interface RecordKPIMeasurementResponse {
+  solution_id: string;
+  actual_trend: number[];
+  actual_trend_dates: string[];
+  message: string;
 }

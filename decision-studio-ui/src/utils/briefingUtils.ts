@@ -334,6 +334,14 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       unresolved_tensions: sol?.unresolved_tensions || [],
       // Market Intelligence from DA/MA agent
       market_signals: (marketSignals && marketSignals.length > 0) ? marketSignals : null,
+      // Raw KPI data for Cost of Inaction banner (pre-approval)
+      kpiData: situation?.kpi_value?.value != null ? {
+        kpi_name: kpiName,
+        current_value: situation.kpi_value.value as number,
+        comparison_value: (analysis?.aggregates?.comparison_value ?? analysis?.aggregates?.previous_value ?? null) as number | null,
+        unit: kpiUnit || '%',
+      } : null,
+      principalId: situation?.principal_id || null,
     }
     
     return transformed

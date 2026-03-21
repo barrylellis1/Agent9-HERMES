@@ -39,6 +39,8 @@ from src.agents.models.value_assurance_models import (
     PortfolioSummaryRequest,
     ProjectInactionCostRequest,
     ProjectInactionCostResponse,
+    RecordKPIMeasurementRequest,
+    RecordKPIMeasurementResponse,
     RegisterSolutionRequest,
     RegisterSolutionResponse,
     SolutionVerdict,
@@ -208,8 +210,9 @@ class A9_Value_Assurance_Agent:
         self.config = A9ValueAssuranceAgentConfig(**(config or {}))
         self.logger = logging.getLogger(self.__class__.__name__)
 
-        # In-memory store for MVP.  Phase 7B replaces with Supabase writes.
+        # In-memory store backed by Supabase persistence (Phase 7C).
         self._solutions_store: Dict[str, AcceptedSolution] = {}
+        self._va_store: Optional[Any] = None  # VASolutionsStore — initialized in connect()
 
         # Injected by orchestrator during connect()
         self.orchestrator: Optional[Any] = None
@@ -264,12 +267,25 @@ class A9_Value_Assurance_Agent:
                         "%s: LLM service via AgentRegistry unavailable: %s", self.name, exc
                     )
 
+            # Initialize Supabase persistence (non-fatal if unavailable)
+            try:
+                from src.database.va_solutions_store import VASolutionsStore
+                self._va_store = VASolutionsStore()
+                if self._va_store.enabled:
+                    self.logger.info("%s: Supabase VA persistence enabled", self.name)
+                else:
+                    self.logger.info("%s: Supabase VA persistence disabled (env vars not set)", self.name)
+            except Exception as exc:
+                self.logger.warning("%s: VASolutionsStore init failed (non-fatal): %s", self.name, exc)
+                self._va_store = None
+
             self.logger.info(
-                "%s: connected (llm=%s, pc=%s, registry=%s)",
+                "%s: connected (llm=%s, pc=%s, registry=%s, supabase=%s)",
                 self.name,
                 self._llm_service is not None,
                 self._pc_agent is not None,
                 self._registry_factory is not None,
+                self._va_store is not None and self._va_store.enabled,
             )
             return True
         except Exception as exc:
@@ -306,23 +322,66 @@ class A9_Value_Assurance_Agent:
             request
         )
 
+        # --- Compute three-trajectory projections ---
+        approved_at = _utcnow()
+        baseline = snapshot.kpi_threshold_at_approval
+        window_months = max(request.measurement_window_days // 30, 1)
+        inaction_horizon = max(window_months * 2, 12)
+
+        # Pre-approval slope: rate of KPI change per month before approval
+        pre_slope = 0.0
+        if request.pre_approval_kpi_value is not None and baseline != 0:
+            # Assume comparison period is ~1 month by default
+            pre_slope = baseline - request.pre_approval_kpi_value  # positive = improving
+
+        # Inaction trend: extrapolate pre-approval decline (negative slope = deteriorating)
+        inaction_trend = [baseline + pre_slope * m for m in range(inaction_horizon + 1)]
+
+        # Expected trend: linear interpolation from baseline to baseline + midpoint recovery
+        midpoint_recovery = (request.expected_impact_lower + request.expected_impact_upper) / 2.0
+        expected_trend = [
+            baseline + midpoint_recovery * (m / window_months) if window_months > 0 else baseline
+            for m in range(window_months + 1)
+        ]
+
+        # Actual trend: starts with baseline at approval
+        actual_trend = [baseline]
+        actual_trend_dates = [approved_at]
+
         solution = AcceptedSolution(
             solution_id=solution_id,
             situation_id=request.situation_id,
             kpi_id=request.kpi_id,
             principal_id=request.principal_id,
-            approved_at=_utcnow(),
+            approved_at=approved_at,
             solution_description=request.solution_description,
             expected_impact_lower=request.expected_impact_lower,
             expected_impact_upper=request.expected_impact_upper,
             measurement_window_days=request.measurement_window_days,
             status=SolutionVerdict.MEASURING,
             strategy_snapshot=snapshot,
-            da_is_not_dimensions=request.da_is_not_dimensions,
             ma_market_signals=request.ma_market_signals,
+            control_group_segments=request.control_group_segments,
+            benchmark_segments=request.benchmark_segments,
+            # Trajectory arrays
+            inaction_trend=inaction_trend,
+            expected_trend=expected_trend,
+            inaction_horizon_months=inaction_horizon,
+            actual_trend=actual_trend,
+            actual_trend_dates=actual_trend_dates,
+            baseline_kpi_value=baseline,
+            pre_approval_slope=pre_slope,
         )
 
         self._solutions_store[solution_id] = solution
+
+        # Persist to Supabase (non-fatal)
+        if self._va_store and self._va_store.enabled:
+            try:
+                await self._va_store.upsert_solution(solution)
+            except Exception as exc:
+                self.logger.warning("%s: Supabase upsert failed (non-fatal): %s", self.name, exc)
+
         self.logger.info("%s: solution registered — id=%s", self.name, solution_id)
 
         return RegisterSolutionResponse(
@@ -461,6 +520,14 @@ class A9_Value_Assurance_Agent:
             update={"impact_evaluation": evaluation, "status": verdict}
         )
         self._solutions_store[request.solution_id] = updated_solution
+
+        # Persist to Supabase (non-fatal)
+        if self._va_store and self._va_store.enabled:
+            try:
+                await self._va_store.upsert_evaluation(evaluation, request.solution_id)
+                await self._va_store.update_status(request.solution_id, verdict.value)
+            except Exception as exc:
+                self.logger.warning("%s: Supabase evaluation persist failed (non-fatal): %s", self.name, exc)
 
         return EvaluateSolutionResponse(
             solution_id=request.solution_id,
@@ -642,6 +709,66 @@ class A9_Value_Assurance_Agent:
         )
 
     # ------------------------------------------------------------------
+    # Entrypoint 3b — record_kpi_measurement
+    # ------------------------------------------------------------------
+
+    async def record_kpi_measurement(
+        self, request: RecordKPIMeasurementRequest
+    ) -> RecordKPIMeasurementResponse:
+        """
+        Append a monthly KPI measurement to the solution's actual_trend.
+
+        Called manually (Portfolio UI), by scheduled trigger, or by the
+        Enterprise Assessment Pipeline (Phase 9).
+        """
+        if self.config.log_all_requests:
+            self.logger.info(
+                "%s: record_kpi_measurement — req=%s sol=%s value=%.4f",
+                self.name, request.request_id, request.solution_id, request.kpi_value,
+            )
+
+        solution = self._solutions_store.get(request.solution_id)
+        if solution is None:
+            raise ValueError(
+                f"Solution '{request.solution_id}' not found in store."
+            )
+
+        measured_at = request.measured_at or _utcnow()
+
+        # Append to in-memory arrays
+        new_actual = list(solution.actual_trend) + [request.kpi_value]
+        new_dates = list(solution.actual_trend_dates) + [measured_at]
+
+        updated = solution.model_copy(
+            update={"actual_trend": new_actual, "actual_trend_dates": new_dates}
+        )
+        self._solutions_store[request.solution_id] = updated
+
+        # Persist to Supabase (non-fatal)
+        if self._va_store and self._va_store.enabled:
+            try:
+                await self._va_store.append_actual_measurement(
+                    request.solution_id, request.kpi_value, measured_at
+                )
+            except Exception as exc:
+                self.logger.warning(
+                    "%s: Supabase measurement append failed (non-fatal): %s",
+                    self.name, exc,
+                )
+
+        self.logger.info(
+            "%s: measurement recorded — sol=%s points=%d",
+            self.name, request.solution_id, len(new_actual),
+        )
+
+        return RecordKPIMeasurementResponse(
+            solution_id=request.solution_id,
+            actual_trend=new_actual,
+            actual_trend_dates=new_dates,
+            message=f"Measurement recorded ({len(new_actual)} total data points).",
+        )
+
+    # ------------------------------------------------------------------
     # Entrypoint 4 — project_inaction_cost
     # ------------------------------------------------------------------
 
@@ -744,6 +871,23 @@ class A9_Value_Assurance_Agent:
                 "%s: get_portfolio_summary — req=%s principal=%s",
                 self.name, request.request_id, request.principal_id,
             )
+
+        # Load from Supabase if in-memory store is empty (e.g., after restart)
+        if not self._solutions_store and self._va_store and self._va_store.enabled:
+            try:
+                rows = await self._va_store.get_solutions_by_principal(request.principal_id)
+                for row in rows:
+                    try:
+                        sol = AcceptedSolution(**row)
+                        self._solutions_store[sol.solution_id] = sol
+                    except Exception as parse_exc:
+                        self.logger.warning(
+                            "%s: failed to parse Supabase solution row: %s", self.name, parse_exc
+                        )
+            except Exception as exc:
+                self.logger.warning(
+                    "%s: Supabase portfolio load failed (non-fatal): %s", self.name, exc
+                )
 
         all_solutions = list(self._solutions_store.values())
 
@@ -874,6 +1018,13 @@ class A9_Value_Assurance_Agent:
         # Persist narrative back to the solution record
         updated = solution.model_copy(update={"narrative": narrative})
         self._solutions_store[request.solution_id] = updated
+
+        # Persist to Supabase (non-fatal)
+        if self._va_store and self._va_store.enabled:
+            try:
+                await self._va_store.upsert_solution(updated)
+            except Exception as exc:
+                self.logger.warning("%s: Supabase narrative persist failed (non-fatal): %s", self.name, exc)
 
         return GenerateNarrativeResponse(
             solution_id=request.solution_id,

@@ -25,7 +25,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from src.agents.models.value_assurance_models import (
     LegacyAcceptedSolution as AcceptedSolution,
@@ -36,6 +36,8 @@ from src.agents.models.value_assurance_models import (
     PortfolioSummaryRequest,
     ProjectInactionCostRequest,
     ProjectInactionCostResponse,
+    RecordKPIMeasurementRequest,
+    RecordKPIMeasurementResponse,
     RegisterSolutionRequest,
     RegisterSolutionResponse,
     SolutionStatus,
@@ -285,8 +287,8 @@ async def register_solution(request: RegisterSolutionRequest) -> RegisterSolutio
     The agent captures a strategy snapshot (principal priorities, KPI threshold,
     data product) and begins tracking the solution in its measurement window.
     """
-    # If da_is_not_dimensions not provided, try to retrieve from Supabase situation record
-    if not request.da_is_not_dimensions or not request.strategy_snapshot:
+    # If benchmark segments not provided, try to retrieve from Supabase situation record
+    if not request.benchmark_segments or not request.strategy_snapshot:
         try:
             from src.database.situations_store import SituationsStore
             _store = SituationsStore()
@@ -294,11 +296,16 @@ async def register_solution(request: RegisterSolutionRequest) -> RegisterSolutio
                 situation_data = await _store.get_situation(request.situation_id)
                 if situation_data:
                     payload = situation_data.get("full_payload", {})
-                    # Extract IS NOT dimensions if available in the stored payload
-                    if not request.da_is_not_dimensions:
-                        request = request.model_copy(update={
-                            "da_is_not_dimensions": payload.get("is_not_dimensions", [])
-                        })
+                    if not request.benchmark_segments:
+                        benchmarks = payload.get("benchmark_segments", [])
+                        if benchmarks:
+                            request = request.model_copy(update={
+                                "benchmark_segments": benchmarks,
+                                "control_group_segments": [
+                                    s for s in benchmarks
+                                    if s.get("benchmark_type") == "control_group"
+                                ] or None,
+                            })
         except Exception as e:
             logger.warning("Situation lookup failed (non-fatal): %s", e)
 
@@ -401,4 +408,95 @@ async def project_inaction_cost(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         logger.error("VA project_inaction_cost failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 7C POST /solutions/{solution_id}/measure  — record KPI measurement
+# ---------------------------------------------------------------------------
+@router.post(
+    "/solutions/{solution_id}/measure",
+    response_model=RecordKPIMeasurementResponse,
+)
+async def record_kpi_measurement(
+    solution_id: str,
+    kpi_value: float,
+    principal_id: str = "",
+) -> RecordKPIMeasurementResponse:
+    """
+    Append a monthly KPI measurement to the solution's actual_trend.
+
+    Called manually from the Portfolio UI or automatically by the Enterprise
+    Assessment Pipeline (Phase 9).
+    """
+    agent = await _get_va_agent()
+    req = RecordKPIMeasurementRequest(
+        request_id=str(uuid.uuid4()),
+        principal_id=principal_id,
+        solution_id=solution_id,
+        kpi_value=kpi_value,
+    )
+    try:
+        response: RecordKPIMeasurementResponse = await agent.record_kpi_measurement(req)
+        logger.info(
+            "VA record_kpi_measurement: solution_id=%s points=%d",
+            solution_id,
+            len(response.actual_trend),
+        )
+        return response
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.error("VA record_kpi_measurement failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# PUT /solutions/{solution_id}/briefing  — store briefing snapshot
+# ---------------------------------------------------------------------------
+@router.put("/solutions/{solution_id}/briefing")
+async def store_briefing_snapshot(solution_id: str, request: Request):
+    """Store the Executive Briefing snapshot for a VA solution."""
+    try:
+        from src.database.va_solutions_store import VASolutionsStore
+        store = VASolutionsStore()
+        if not store.enabled:
+            raise HTTPException(status_code=503, detail="Supabase not configured")
+
+        import json as _json
+        body_bytes = await request.body()
+        snapshot = _json.loads(body_bytes)
+        success = await store.store_briefing_snapshot(solution_id, snapshot)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to store briefing snapshot")
+        return {"status": "ok", "solution_id": solution_id}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("store_briefing_snapshot failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# GET /solutions/{solution_id}/briefing  — retrieve briefing snapshot
+# ---------------------------------------------------------------------------
+@router.get("/solutions/{solution_id}/briefing")
+async def get_briefing_snapshot(solution_id: str):
+    """Retrieve the stored Executive Briefing snapshot for a VA solution."""
+    try:
+        from src.database.va_solutions_store import VASolutionsStore
+        store = VASolutionsStore()
+        if not store.enabled:
+            raise HTTPException(status_code=503, detail="Supabase not configured")
+
+        snapshot = await store.get_briefing_snapshot(solution_id)
+        if snapshot is None:
+            raise HTTPException(
+                status_code=404, detail="No briefing snapshot found for this solution"
+            )
+        return snapshot
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("get_briefing_snapshot failed: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc

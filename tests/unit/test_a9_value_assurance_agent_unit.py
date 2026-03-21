@@ -86,7 +86,7 @@ def register_request(strategy_snapshot) -> RegisterSolutionRequest:
         expected_impact_lower=2.0,
         expected_impact_upper=4.5,
         measurement_window_days=30,
-        da_is_not_dimensions=["product_line", "region"],
+        benchmark_segments=[{"dimension": "product_line", "key": "lubricants", "delta": -2.1, "delta_pct": -4.5, "benchmark_type": "control_group"}],
         ma_market_signals=[
             "Global oil prices dropped 12% in Feb 2026",
             "Competitor margin expansion signals supply-side weakness",
@@ -245,7 +245,7 @@ async def test_register_solution_preserves_input_fields(agent, register_request)
     assert stored.solution_description == register_request.solution_description
     assert stored.expected_impact_lower == register_request.expected_impact_lower
     assert stored.expected_impact_upper == register_request.expected_impact_upper
-    assert stored.da_is_not_dimensions == register_request.da_is_not_dimensions
+    assert stored.benchmark_segments == register_request.benchmark_segments
     assert stored.ma_market_signals == register_request.ma_market_signals
 
 

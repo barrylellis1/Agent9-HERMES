@@ -140,7 +140,8 @@ class AcceptedSolution(BaseModel):
     Full lifecycle record for a human-approved solution recommendation.
 
     Phase 7A model with strategy snapshot, attribution evaluation, inaction cost,
-    and composite verdict.
+    and composite verdict.  Phase 7C adds three-trajectory tracking arrays and
+    benchmark segment storage for future DiD control-group attribution.
     """
     solution_id: str
     situation_id: str
@@ -156,8 +157,18 @@ class AcceptedSolution(BaseModel):
     impact_evaluation: Optional[ImpactEvaluation] = None
     inaction_cost: Optional[InactionCostProjection] = None
     narrative: Optional[str] = None
-    da_is_not_dimensions: Optional[List[str]] = None  # control group source
     ma_market_signals: Optional[List[str]] = None     # market context at approval
+    # Phase 7C: Benchmark segments from DA's Is/Is Not classification
+    control_group_segments: Optional[List[dict]] = None  # BenchmarkSegment dicts (type=control_group)
+    benchmark_segments: Optional[List[dict]] = None       # All BenchmarkSegment dicts
+    # Phase 7C: Three-trajectory tracking arrays
+    inaction_trend: List[float] = Field(default_factory=list)   # monthly projected values if no action (longer horizon)
+    expected_trend: List[float] = Field(default_factory=list)   # monthly projected values if solution works
+    inaction_horizon_months: int = 0                             # max(window_months * 2, 12)
+    actual_trend: List[float] = Field(default_factory=list)     # actual KPI values post-approval
+    actual_trend_dates: List[str] = Field(default_factory=list) # ISO dates of each measurement
+    baseline_kpi_value: float = 0.0
+    pre_approval_slope: float = 0.0  # KPI change per month before approval
 
 
 # ---------------------------------------------------------------------------
@@ -173,9 +184,12 @@ class RegisterSolutionRequest(BaseModel):
     expected_impact_lower: float
     expected_impact_upper: float
     measurement_window_days: int = 30
-    da_is_not_dimensions: Optional[List[str]] = None
     ma_market_signals: Optional[List[str]] = None
     strategy_snapshot: Optional[StrategySnapshot] = None
+    # Phase 7C: full BenchmarkSegment objects from DA
+    control_group_segments: Optional[List[dict]] = None  # BenchmarkSegment dicts (type=control_group)
+    benchmark_segments: Optional[List[dict]] = None       # All BenchmarkSegment dicts
+    pre_approval_kpi_value: Optional[float] = None        # comparison-period KPI value for slope calc
 
 
 class RegisterSolutionResponse(BaseModel):
@@ -243,6 +257,22 @@ class StrategyAwarePortfolio(BaseModel):
     strategy_superseded_count: int
     executive_attention_required: List[str]  # solution_ids
     solutions: List[AcceptedSolution]
+
+
+class RecordKPIMeasurementRequest(BaseModel):
+    """Append a monthly KPI measurement to a solution's actual_trend."""
+    request_id: str
+    principal_id: str
+    solution_id: str
+    kpi_value: float
+    measured_at: Optional[str] = None  # ISO datetime; defaults to now
+
+
+class RecordKPIMeasurementResponse(BaseModel):
+    solution_id: str
+    actual_trend: List[float]
+    actual_trend_dates: List[str]
+    message: str
 
 
 class GenerateNarrativeRequest(BaseModel):
