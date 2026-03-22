@@ -60,3 +60,10 @@ nul
 
 # Temp/scratch scripts
 scripts/_bq_test_tmp.py
+
+# Credentials (never commit)
+credentials/
+*.json.key
+
+# Claude Code worktrees
+.claude/worktrees/

@@ -74,7 +74,7 @@
 - [ ] Complete KPI Assistant Agent LLM integration (4 TODOs)
 - [ ] Demo flow polish: Situation → Deep Analysis → Solution Finder → Audit Trail
 - [ ] Record 5-minute demo video (lubricants + bikes)
-- [ ] Build landing page (agent9.ai)
+- [ ] Build landing page (trydecisionstudio.com)
 - [ ] List 20 warm contacts (FP&A and CFO-level)
 - [ ] Draft 2-slide pitch deck: FP&A entry pitch + CFO expansion pitch
 - [ ] **A9_Risk_Analysis_Agent** — MVP scope: market/operational/financial risk; weighted scoring

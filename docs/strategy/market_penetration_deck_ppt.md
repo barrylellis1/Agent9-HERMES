@@ -540,9 +540,9 @@ Thank You
 **[Your Name]**
 [Title]
 
-📧 [email@agent9.ai]
+📧 [email@trydecisionstudio.com]
 📱 [phone number]
-🌐 [agent9.ai]
+🌐 [trydecisionstudio.com]
 
 ### Tagline
 *"The future of consulting is not human OR AI—it's the best human expertise, encoded and debated by AI, with humans in the loop."*

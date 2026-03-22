@@ -844,7 +844,7 @@ def create_presentation():
     add_title_slide(
         prs,
         "Thank You",
-        "[Your Name] | [email@agent9.ai]",
+        "[Your Name] | [email@trydecisionstudio.com]",
         "The future of consulting is not human OR AI—it's the best human expertise, encoded and debated by AI, with humans in the loop."
     )
     

@@ -187,8 +187,8 @@ Enterprise decision-makers spend **$800B+ annually** on consulting, yet:
 
 ### Contact
 
-**Email:** info@agent9.ai  
-**Web:** agent9.ai  
+**Email:** info@trydecisionstudio.com
+**Web:** trydecisionstudio.com  
 
 ---
 

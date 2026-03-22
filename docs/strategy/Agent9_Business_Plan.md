@@ -769,18 +769,28 @@ LOW SCALE ────────────┼──────────�
 
 *The platform runs locally as of March 2026. Cloud deployment, multi-tenancy, authentication, and monitoring must be in place before the first pilot customer.*
 
-### Phase 0: Pre-Outreach (April-May 2026) — $2K-$5K
+### Phase 0: Pre-Outreach (April-May 2026) — Free-Tier Launch
 
-| Item | Priority | Effort | Cost | Notes |
-|------|----------|--------|------|-------|
-| **Cloud deployment** | 🔴 Critical | 2-3 days | $50-$100/month | Railway or Render for FastAPI; Vercel for React frontend; Supabase Cloud for database |
-| **Domain + SSL** | 🔴 Critical | 1 day | $50/year | agent9.ai — already planned |
-| **Basic authentication** | 🔴 Critical | 2-3 days | $0-$25/month | Supabase Auth (email + password); API keys for programmatic access |
-| **Error monitoring** | High | 1 day | $0/month (free tier) | Sentry for backend exceptions; captures errors before customers report them |
-| **Transactional email** | Medium | 1 day | $0/month (free tier) | Resend or SendGrid — situation alerts, password reset, pilot welcome |
-| **Landing page** | High | 1-2 days | $0/month | Static site on Vercel; simple: value prop, demo video embed, contact form |
+Nearly every component of Phase 0 runs on free tiers. The only hard cost is the domain name. Paid tiers become relevant only when a paying customer's data requires production-grade reliability (daily backups, no cold starts, SLA-backed uptime).
 
-**Total Phase 0 infra cost:** ~$100-$200/month recurring + $2K-$5K one-time setup effort
+| Item | Priority | Effort | Free Tier | Paid Tier (upgrade trigger) |
+|------|----------|--------|-----------|----------------------------|
+| **Backend hosting** | 🔴 Critical | 2-3 days | Railway: $5 free credit/month (hobby); Render: free tier (750 hrs/month, sleeps after 15 min inactivity) | Railway Pro ($20/month) or Render Starter ($7/month) — upgrade when cold starts annoy a real user |
+| **Frontend hosting** | 🔴 Critical | included | Vercel: free (hobby) — unlimited static/SSR deploys, custom domain supported | Vercel Pro ($20/month) — only needed for team collaboration or analytics |
+| **Database** | 🔴 Critical | included | Supabase Cloud free: 500MB DB, 1GB storage, 50K MAU auth, 500K edge function invocations | Supabase Pro ($25/month) — upgrade when you need daily backups or exceed 500MB |
+| **Authentication** | 🔴 Critical | 2-3 days | Supabase Auth: included in free tier (email + password, 50K MAU) | Included in Supabase Pro |
+| **Domain + SSL** | 🔴 Critical | 1 day | SSL: free via hosting provider | Domain: $12-$50/year (only unavoidable cost) |
+| **Error monitoring** | High | 1 day | Sentry free: 5K errors/month | Sentry Team ($26/month) — unlikely to need early on |
+| **Transactional email** | Medium | 1 day | Resend free: 3K emails/month; SendGrid free: 100 emails/day | Resend Pro ($20/month) — only at scale |
+| **Landing page** | High | 1-2 days | Vercel free — static site with contact form | $0 |
+| **CI/CD** | High | 1 day | GitHub Actions free: 2K minutes/month | $0 — unlikely to exceed |
+
+**Phase 0 hard cost: ~$15-$50/year (domain only). Everything else is $0 on free tiers.**
+
+**When to upgrade to paid tiers:**
+- **First demo to a real prospect:** Upgrade backend hosting to eliminate cold-start delays (~$7-$20/month)
+- **First paying customer:** Upgrade Supabase to Pro for daily backups and production SLA (~$25/month)
+- **Estimated paid-tier cost when triggered:** ~$50-$75/month — still negligible vs. even a single pilot at $18K-$40K/year
 
 **Why this is the #1 blocker:** A prospect who sees a compelling demo will ask "when can we start?" The answer must be "next week" — not "let me figure out hosting." Cloud deployment must be complete before the first discovery call.
 
@@ -824,15 +834,17 @@ LOW SCALE ────────────┼──────────�
 
 ### Infrastructure Cost Summary
 
-| Phase | Timeline | One-Time | Monthly Recurring | Trigger |
-|-------|----------|----------|-------------------|---------|
-| Phase 0 (deploy) | Apr-May 2026 | $2K-$5K | $100-$200 | Before first demo |
-| Phase 1-2 (customers) | May 2026-Feb 2027 | $10K-$20K | $200-$500 + $50-$100/customer | Before first pilot |
+| Phase | Timeline | One-Time (effort) | Monthly Recurring | Trigger |
+|-------|----------|-------------------|-------------------|---------|
+| Phase 0 (deploy) | Apr-May 2026 | ~1 week founder time | $0 (free tiers) → $50-$75 when first customer signs | Before first demo |
+| Phase 1-2 (customers) | May 2026-Feb 2027 | $10K-$20K | $75-$200 base + $25-$50/customer | Before first pilot |
 | Phase 2-3 (partners) | Mar-Dec 2027 | $15K-$30K | $500-$1K | When 5+ customers + Tier 1 partner conversations begin |
 | Phase 3+ (enterprise) | 2028 | $50K-$100K | $2K-$5K | When pursuing $100K+ ACV deals |
 
-**Total infrastructure investment through Year 3:** $77K-$155K
-**As % of Year 3 base ARR ($1.13M-$2.23M):** 3.5-14% — well within SaaS infrastructure cost norms (typically 15-25% of revenue)
+**Phase 0 hard cost: $15-$50/year (domain only).** All hosting, database, auth, monitoring, and email run on free tiers through demos and early outreach. Paid tiers (~$50-$75/month) activate only when a paying customer requires production reliability.
+
+**Total infrastructure investment through Year 3:** $75K-$150K (primarily effort, not vendor spend)
+**As % of Year 3 base ARR ($1.13M-$2.23M):** 3.4-13% — well within SaaS infrastructure cost norms (typically 15-25% of revenue)
 
 ---
 
@@ -920,7 +932,7 @@ LOW SCALE ────────────┼──────────�
 - [ ] Draft 2-slide pitch deck: FP&A entry pitch + CFO expansion pitch
 
 ### Next 60 Days (May-Jun 2026) — Outreach Begins
-- [ ] Launch landing page (agent9.ai)
+- [ ] Launch landing page (trydecisionstudio.com)
 - [ ] Begin warm network outreach — 20 contacts prioritising never-engaged mid-market CFOs and VP FP&A
 - [ ] Schedule first 10 discovery calls (position as "AI Decision Intelligence", not "consulting marketplace")
 - [ ] First discovery insight: are prospects more receptive as never-engaged (net-new) or consulting-augmentation buyers?

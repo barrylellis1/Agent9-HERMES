@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Dict, List
 
 from fastapi import FastAPI, HTTPException
@@ -19,9 +20,17 @@ app = FastAPI(
     description="Backend API for Agent9. Contains health and future MCP service endpoints.",
 )
 
+# CORS: restrict to known origins in production, allow all in development
+_frontend_url = os.getenv("FRONTEND_URL", "")
+_cors_origins = (
+    [_frontend_url, "http://localhost:5173", "http://127.0.0.1:5173"]
+    if _frontend_url
+    else ["*"]
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

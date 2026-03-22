@@ -182,7 +182,7 @@ We're seeking innovation-minded partners to co-develop branded agents and valida
    - Success criteria and governance
 
 ### Contact
-- **Email:** partnerships@agent9.ai
+- **Email:** partnerships@trydecisionstudio.com
 - **Subject:** CaaS Partnership Inquiry - [Your Organization]
 
 ---

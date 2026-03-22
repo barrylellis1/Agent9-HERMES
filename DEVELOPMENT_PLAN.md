@@ -306,13 +306,13 @@ These features go beyond CaaS core and into per-customer enterprise customizatio
 | **Cloud deployment** | 🔴 Critical | 2-3 days | Railway or Render (FastAPI backend); Vercel (React frontend); Supabase Cloud (database) |
 | **Authentication** | 🔴 Critical | 2-3 days | Supabase Auth (email + password); API keys for programmatic access. No SSO yet. |
 | **Error monitoring** | High | 1 day | Sentry free tier — capture backend exceptions before customers report them |
-| **Domain + SSL** | 🔴 Critical | 1 day | agent9.ai — landing page + app subdomain |
+| **Domain + SSL** | 🔴 Critical | 1 day | decision-studios.com / trydecisionstudio.com — landing page + app subdomain |
 | **Transactional email** | Medium | 1 day | Resend or SendGrid free tier — situation alerts, password reset, welcome email |
 | **Environment parity** | High | 1 day | `.env.production` template; document deployment steps; ensure local dev matches cloud config |
 
-**Cost:** $100-$200/month recurring. One-time effort: ~1 week.
+**Cost:** $0/month on free tiers (Railway/Render, Vercel, Supabase Cloud, Sentry, Resend all have free tiers). Only hard cost is domain (~$15-$50/year). Upgrade to paid tiers (~$50-$75/month) when first paying customer requires production reliability. One-time effort: ~1 week.
 
-**Dependency:** None — can run in parallel with Phase 7C or Phase 9A.
+**Dependency:** None — can run in parallel with Phase 9A.
 
 ---
 
