@@ -27,10 +27,10 @@ export const MOCK_HISTORY = Array.from({ length: 12 }).map((_, i) => ({
 }));
 
 export const AVAILABLE_PRINCIPALS: Principal[] = [
-  { id: "cfo_001", name: "Lars Mikkelsen", title: "Chief Financial Officer", initials: "LM", decision_style: "analytical", color: "bg-blue-500/20 text-blue-400" },
-  { id: "ceo_001", name: "Alex Morgan", title: "Chief Executive Officer", initials: "AM", decision_style: "visionary", color: "bg-purple-500/20 text-purple-400" },
-  { id: "coo_001", name: "Priya Desai", title: "Chief Operating Officer", initials: "PD", decision_style: "pragmatic", color: "bg-emerald-500/20 text-emerald-400" },
-  { id: "finance_manager_001", name: "Emily Chen", title: "Finance Manager", initials: "EC", decision_style: "analytical", color: "bg-amber-500/20 text-amber-400" },
+  { id: "cfo_001", name: "Sarah Chen", title: "Chief Financial Officer", initials: "SC", decision_style: "analytical", color: "bg-blue-500/20 text-blue-400" },
+  { id: "ceo_001", name: "David Torres", title: "Chief Executive Officer", initials: "DT", decision_style: "visionary", color: "bg-purple-500/20 text-purple-400" },
+  { id: "coo_001", name: "Rachel Kim", title: "Chief Operating Officer", initials: "RK", decision_style: "pragmatic", color: "bg-emerald-500/20 text-emerald-400" },
+  { id: "finance_manager_001", name: "Marcus Webb", title: "Finance Manager", initials: "MW", decision_style: "analytical", color: "bg-amber-500/20 text-amber-400" },
 ];
 
 export const AVAILABLE_COUNCILS: Council[] = [
