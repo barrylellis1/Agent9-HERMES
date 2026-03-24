@@ -1,10 +1,26 @@
+import json
 import logging
 import os
+import tempfile
 from typing import Dict, List
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
+# Materialize GCP service-account JSON from env var → temp file
+# Railway/Render can't mount files, so we accept the JSON as a string env var
+_gcp_json = os.getenv("GCP_SERVICE_ACCOUNT_JSON", "")
+if _gcp_json and not os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+    try:
+        _creds = json.loads(_gcp_json)
+        _tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
+        json.dump(_creds, _tmp)
+        _tmp.close()
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = _tmp.name
+        logging.getLogger(__name__).info("GCP credentials materialized to %s", _tmp.name)
+    except Exception as _exc:
+        logging.getLogger(__name__).warning("Failed to materialize GCP credentials: %s", _exc)
 
 from src.api.runtime import AgentRuntime
 from src.api.routes.registry import router as registry_router
