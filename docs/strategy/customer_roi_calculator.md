@@ -36,7 +36,7 @@ To estimate which scenario(s) apply to your organization:
 |----------|-------------|---------|
 | Do you have an FP&A or finance analytics team? | Yes/No | If yes → Scenario A applies |
 | Annual consulting spend | $___M | $0-0.5M → Scenario B; $0.5M+ → Scenario C |
-| Do you have a CFO/COO/CEO making decisions with limited data analysis? | Yes/No | If yes → Scenario B applies |
+| Do you have executives (CFO, COO, CEO, VP Ops) making decisions with limited data analysis? | Yes/No | If yes → Scenario B applies |
 | Do you already work with MBB consulting firms? | Yes/No | If yes → Scenario C applies |
 | Have you implemented recommendations from consulting but never verified ROI? | Yes/No | If yes → Scenario D applies |
 
@@ -46,8 +46,8 @@ To estimate which scenario(s) apply to your organization:
 
 ### Scenario A: FP&A Team Time Savings *(Primary Entry Point — Fastest ROI)*
 
-**Target Customer:** Any company with a finance analytics function ($50M+ revenue)
-**Entry Point:** Finance ops manager, CFO staff
+**Target Customer:** Any company with an analytics function ($50M+ revenue)
+**Entry Point:** Finance ops manager, executive staff
 **Time to purchase decision:** 4-6 weeks
 
 **Current State: Manual FP&A Monthly Process**
@@ -97,8 +97,8 @@ The SA Agent detects KPI anomalies continuously (not monthly). DA Agent runs dim
 ### Scenario B: Mid-Market "Never-Engaged" Structured Analysis *(Largest Addressable Market)*
 
 **Target Customer:** $50M–$500M revenue company, no active consulting engagement
-**Current State:** CFO + spreadsheets + gut feel. No structured MECE analysis for KPI decisions.
-**Entry Point:** CFO or Finance Director
+**Current State:** Executives + spreadsheets + gut feel. No structured MECE analysis for KPI decisions.
+**Entry Point:** CFO, COO, or Finance/Operations Director
 **Time to purchase decision:** 6-10 weeks
 **Key Insight:** This is **net-new decision intelligence**, not consulting replacement. No consulting budget to displace.
 
@@ -108,7 +108,7 @@ Example: National Auto Parts Chain reports -517bps margin decline YoY.
 
 | Analysis Path | Cost | Time to Decision | Rigor |
 |---------------|----|-----------------|-------|
-| CFO asks finance director; director pulls spreadsheets | $0 | 2-3 days | Low — limited dimensions |
+| Executive asks team lead; team pulls spreadsheets | $0 | 2-3 days | Low — limited dimensions |
 | Typical outcome | — | — | Blame supplier costs; cut headcount; miss actual cause (channel mix shift + pricing power loss in retail channel) |
 
 **Cost of wrong decision:** -517bps margin × $500M revenue = $25.85M impact. Even a -200bps correction (if caught 6 months early) saves $10M.
@@ -120,7 +120,7 @@ Example: National Auto Parts Chain reports -517bps margin decline YoY.
 | **1. Detection** | SA Agent (continuous monitoring) | KPI breach alert + context (retail channel -14% vs. commercial +3%) | Real-time |
 | **2. Root Cause** | DA Agent (Is/Is Not analysis) | Dimensional breakdown: channel mix (40% of decline), unit economics (35%), pricing (25%) | 1 hour |
 | **3. Options Debate** | SF Agent (3 personas × Stage 1 + synthesis) | CFO perspective (preserve cash), COO perspective (defend market share), CEO perspective (strategic repositioning) — with tradeoffs | 4 hours |
-| **4. Decision** | CFO, reviewing Agent9 briefing | Structured recommendation with quantified impact for each option | Same-day decision, not "let's find a consultant" |
+| **4. Decision** | Executive, reviewing Decision Studio briefing | Structured recommendation with quantified impact for each option | Same-day decision, not "let's find a consultant" |
 
 **Financial Impact**
 
@@ -137,13 +137,13 @@ Even if you only capture 30% of this (organizational friction, partial implement
 
 **Honest Caveats:**
 - This is harder to quantify pre-sale than Scenario A (which has clear hours saved)
-- ROI depends on: (1) decision frequency, (2) decision magnitude, (3) Agent9 quality relative to CFO baseline
+- ROI depends on: (1) decision frequency, (2) decision magnitude, (3) Decision Studio quality relative to executive baseline
 - Many mid-market companies have made all these decisions correctly for years
 - Value is directional until first 3 implementation customers validate decision quality improvement
 
-**Why Agent9 Wins for Mid-Market vs. Hiring a Consultant:**
+**Why Decision Studio Wins for Mid-Market vs. Hiring a Consultant:**
 - Consultant engagement: 4–12 weeks, $150K–$500K, one-off recommendation
-- Agent9: $56K/year, continuous, reusable analysis framework, decision outcomes tracked over time (Scenario D)
+- Decision Studio: $56K/year, continuous, reusable analysis framework, decision outcomes tracked over time (Scenario D)
 
 ---
 
@@ -151,7 +151,7 @@ Even if you only capture 30% of this (organizational friction, partial implement
 
 **Target Customer:** $500M+ revenue company, active $500K–$3M/year consulting spend
 **Current State:** Partnership with McKinsey, BCG, or Bain. Works well but expensive and episodic.
-**Entry Point:** Chief Strategy Officer or CFO; Chief of Staff recommending inside tool to complement external advisory
+**Entry Point:** Chief Strategy Officer, CFO, COO, or Chief of Staff recommending inside tool to complement external advisory
 **Time to purchase decision:** 8-12 weeks
 
 **Key Distinction:** Agent9 does **NOT** replace consulting. MBB provides:
@@ -190,9 +190,9 @@ Those stay. Agent9 replaces:
 
 | Capability | Value |
 |-----------|-------|
-| Continuous KPI monitoring | Alerts CFO to market changes before next quarterly board meeting (no gap in insight) |
+| Continuous KPI monitoring | Alerts executives to market changes before next quarterly board meeting (no gap in insight) |
 | Implementation tracking | Measures whether last 3 consulting recommendations actually delivered ROI (MBB can upsell "validation" follow-up; enterprise gets accountability) |
-| Ad-hoc CFO questions | "What drove margin decline last month?" answered in 2 hours vs. scheduling expensive MBB spike |
+| Ad-hoc executive questions | "What drove margin decline last month?" answered in 2 hours vs. scheduling expensive MBB spike |
 | Bench time utilization | Junior analysts available for other work instead of idle between engagements |
 
 **Financial Impact**
@@ -230,7 +230,7 @@ Agent9 is positioned for operational and tactical decisions *within the context 
 ### Scenario D: Initiative Tracking & ROI Validation *(Unique Competitive Advantage)*
 
 **Target Customer:** Any company that has implemented a consulting recommendation or Agent9 solution
-**Entry Point:** CFO, Finance Director, Chief of Staff (2–3 quarters after Agent9 or consulting implementation)
+**Entry Point:** CFO, COO, Finance Director, Chief of Staff (2–3 quarters after Decision Studio or consulting implementation)
 **Time to purchase decision:** 4–6 weeks
 **Strategic Significance:** This is the *only* way to systematically prove decision quality and build enterprise confidence in AI-assisted decision-making.
 **Implementation Status:** ✅ SHIPPED (March 2026) — Value Assurance Agent with three-trajectory tracking, DiD attribution, Portfolio Dashboard with trajectory chart, Cost of Inaction banner in Executive Briefing.
@@ -240,8 +240,8 @@ Agent9 is positioned for operational and tactical decisions *within the context 
 | Scenario | Current Practice | Cost of Uncertainty |
 |----------|-----------------|-------------------|
 | MBB recommends margin improvement initiative; estimated $5M upside | Implemented by internal team; nobody measures actual outcome | Consulting firm moves on. If initiative fails, CFO can't separate: (a) bad recommendation, (b) poor implementation, (c) market moved against them |
-| Agent9 recommends pricing adjustment; estimated +$2M incremental | If margin does improve, CFO doesn't know: how much was Agent9 analysis vs. market tailwind vs. sales team execution | Next time a recommendation conflicts with CFO intuition, Agent9 loses credibility |
-| Finance director implements operational cost reduction | No tracking of actual savings vs. estimated impact | Can't build repeatable playbook for "what actually works in our company" |
+| Decision Studio recommends pricing adjustment; estimated +$2M incremental | If margin does improve, the executive doesn't know: how much was Decision Studio analysis vs. market tailwind vs. sales team execution | Next time a recommendation conflicts with executive intuition, Decision Studio loses credibility |
+| Operations director implements operational cost reduction | No tracking of actual savings vs. estimated impact | Can't build repeatable playbook for "what actually works in our company" |
 
 **With Agent9: Structured Initiative Tracking**
 
@@ -275,21 +275,21 @@ After 12–18 months (4–6 initiatives tracked):
 - "Headcount reduction initiatives in back-office: 60% success rate, high variance in outcome; recommend caution"
 - "Channel mix shift analysis: 85% forecast accuracy; very predictive"
 
-CFO can now:
+Executives can now:
 - Allocate confidence scores by recommendation type
 - Reject or modify recommendations based on past accuracy (not gut feel)
 - Defend decisions to board ("our decision methodology proved 85% accurate last year")
 
 **Outcome 3: Continuous Learning & Reinforcement**
 
-Agent9 learns what types of recommendations work in *this specific company*, at *this specific scale*, in *this specific industry*. This is proprietary competitive advantage.
+Decision Studio learns what types of recommendations work in *this specific company*, at *this specific scale*, in *this specific industry*. This is proprietary competitive advantage.
 
 **Financial Impact**
 
 | Impact Lever | Mechanism | Quantification |
 |--------------|-----------|-----------------|
 | **Direct:** Proves individual recommendation ROI | Tracking attributes outcome to recommendation; validates Agent9 capability | Each tracked initiative proves (or disproves) a $500K–$5M decision |
-| **Indirect:** Improves decision quality over time | Over 18 months, CFO confidence in Agent9-assisted decisions grows; better recommendations are implemented instead of rejected; successful initiatives are replicated | 1 fewer bad decision/year at mid-market scale = $5M–$25M avoided loss |
+| **Indirect:** Improves decision quality over time | Over 18 months, executive confidence in Decision Studio-assisted decisions grows; better recommendations are implemented instead of rejected; successful initiatives are replicated | 1 fewer bad decision/year at mid-market scale = $5M–$25M avoided loss |
 | **Indirect:** Reduces implementation risk on recommendations | Playbook shows which types of changes succeed; PM/operations can adjust tactics accordingly | Reduces rework, scope creep; improves first-time success rate by ~15% |
 | **Indirect:** Enables consulting firm partnership (MBB Scenario C) | Agent9 + MBB can jointly claim outcome tracking; becomes joint product IP | Increases consulting partnership value; creates retention loop |
 
@@ -328,7 +328,7 @@ Agent9 cost (already paid in Scenario A/B/C): sunk cost, so incremental cost of 
 | You Should Lead With… | If… |
 |---|---|
 | **Scenario A (FP&A Productivity)** | You have 2+ analysts doing monthly close-out, variance analysis, narrative writing. You want a fast payback (<12 months) with clear hours-saved metrics. **Fastest ROI.** |
-| **Scenario B (Never-Engaged Structured Analysis)** | You have $0–$300K consulting spend, make major decisions monthly/quarterly, and CFO time is expensive. You want structured analysis as a *new capability*, not a replacement. **Largest addressable market.** |
+| **Scenario B (Never-Engaged Structured Analysis)** | You have $0–$300K consulting spend, make major decisions monthly/quarterly, and executive time is expensive. You want structured analysis as a *new capability*, not a replacement. **Largest addressable market.** |
 | **Scenario C (MBB Augmentation)** | You already work with top-tier consulting firms and love the quality but want to reduce friction and cost. You have $500K+/year consulting budget. **Premium tier.** |
 | **Scenario D (Initiative Tracking)** | You've been implementing recommendations for 12+ months with no tracking of actual ROI. You want to prove decision quality and build playbooks. **Unique competitive advantage; enables all others.** |
 
@@ -478,7 +478,7 @@ Agent9 cost (already paid in Scenario A/B/C): sunk cost, so incremental cost of 
 
 | Principal Type | Monthly | Annual (per principal) |
 |---|---|---|
-| **Standard** (CFO, Finance Manager, VP Ops) | $500–$1,000 | $6K–$12K |
+| **Standard** (CFO, Finance Manager, VP Ops, Supply Chain Director) | $500–$1,000 | $6K–$12K |
 | **Senior** (CEO, COO, PE Partner, Board observer) | $1,000–$1,500 | $12K–$18K |
 
 *Example: 4 principals × $1,000/month × 12 = $48,000/year*
@@ -507,7 +507,7 @@ Agent9 cost (already paid in Scenario A/B/C): sunk cost, so incremental cost of 
 
 - Recommendation accuracy: % of recommendations that improved the intended KPI within 6 months
 - Attribution clarity: ability to isolate recommendation impact from market signal
-- Decision confidence: executive confidence in Agent9 recommendations (survey-based, should improve Year 1 → Year 2)
+- Decision confidence: executive confidence in Decision Studio recommendations (survey-based, should improve Year 1 → Year 2)
 - Playbook maturity: number of repeatable decision frameworks validated across company
 
 **Expected trajectory:**

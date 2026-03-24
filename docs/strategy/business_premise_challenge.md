@@ -63,7 +63,7 @@ The Agent9 business plan rests on **seven foundational assumptions**. Each is ex
 ### 2.3 The "AI CFO" / "AI Strategy" Startup Wave
 
 **What's happening:**
-- Dozens of VC-backed startups are targeting the same ICP (mid-market CFOs, PE ops):
+- Dozens of VC-backed startups are targeting a similar ICP (mid-market executives, PE ops):
   - **Numeric** ($28M raised) — AI-powered financial close and analysis
   - **Runway Financial** ($60M+ raised) — AI-driven FP&A
   - **Mosaic** ($48M raised) — Strategic finance platform
@@ -73,13 +73,13 @@ The Agent9 business plan rests on **seven foundational assumptions**. Each is ex
 - These companies have **teams of 20-100+, millions in funding, and existing customers**.
 
 **18-month projection:**
-- By Q4 2027, the mid-market CFO segment will be **saturated with well-funded AI tools**.
+- By Q4 2027, the mid-market executive decision intelligence segment will be **saturated with well-funded AI tools**.
 - PE portfolio ops teams will have **3-5 credible AI options** from funded startups.
 - The window for a solo founder to enter this space with a novel platform is **closing rapidly**.
 
 **Impact on Agent9:**
 - ⚠️ **P3 is under pressure.** Mid-market buyers will have well-funded alternatives with sales teams, customer success, and SLAs.
-- The "consulting fatigue" pain point is real, but these startups are addressing it with **narrower, more polished solutions** that don't require the buyer to understand "multi-agent debate."
+- The "consulting fatigue" pain point is real, but these startups are addressing it with **narrower, more polished solutions** that don't require the buyer to understand "multi-agent debate." Decision Studio's domain-agnostic positioning (finance, operations, sales, supply chain) provides broader appeal than finance-only competitors.
 
 ### 2.4 Enterprise AI Buying Behavior Is Consolidating
 
@@ -179,17 +179,17 @@ The single biggest strategic question for the next 18 months:
 - **Timeline pressure:** Must reach marketplace viability before cloud platforms add marketplace features (~18-24 months).
 
 ### Option B: Pivot to Vertical Application
-- **Bet:** Use Agent9's deep domain modeling (registries, KPIs, principals, business processes) as a **vertical AI application for CFO/PE decision intelligence**, built on top of commodity agent infrastructure (e.g., LangGraph, Bedrock Agents).
+- **Bet:** Use Agent9's deep domain modeling (registries, KPIs, principals, business processes) as a **vertical AI application for executive decision intelligence across any operational domain**, built on top of commodity agent infrastructure (e.g., LangGraph, Bedrock Agents).
 - **Risk:** Smaller TAM, more direct competition with funded startups.
-- **Advantage:** Faster to market, simpler pitch ("AI-powered decision intelligence for CFOs"), no need to convince partners to encode IP.
+- **Advantage:** Faster to market, simpler pitch ("AI-powered decision intelligence for executives"), no need to convince partners to encode IP.
 
 ### Option C: Hybrid — Application First, Platform Later
-- **Bet:** Launch as a vertical application (decision intelligence for CFOs/PE), build customer base and data moat, THEN layer on marketplace capabilities.
+- **Bet:** Launch as a vertical application (decision intelligence for mid-market executives), build customer base and data moat, THEN layer on marketplace capabilities.
 - **Risk:** May never get to marketplace if vertical application is successful enough.
 - **Advantage:** Fastest path to revenue, builds the customer data moat that makes the marketplace valuable later.
 
 **Recommendation: Option C.** The marketplace vision is compelling but premature. The fastest path to revenue and defensibility is:
-1. **Months 1-12:** Sell decision intelligence as a vertical application to 3-5 customers
+1. **Months 1-12:** Sell Decision Studio as a vertical application to 3-5 customers
 2. **Months 13-24:** Use customer data and case studies to attract first partners
 3. **Months 24+:** Layer on marketplace if partner interest materializes
 
@@ -282,7 +282,7 @@ Given the market trends above, Agent9 succeeds only if **ALL** of the following 
 
 | Area | Current Plan | Challenged Recommendation |
 |------|-------------|--------------------------|
-| **Positioning** | "Agentic Consulting Marketplace" | "AI Decision Intelligence for CFOs & PE Ops" |
+| **Positioning** | "Agentic Consulting Marketplace" | "AI Decision Intelligence for Mid-Market Executives" |
 | **Year 1 pricing** | $25K-$300K | $15K-$25K pilots |
 | **Year 1 revenue target** | $50K-$80K | $20K-$75K (wider range) |
 | **Partner strategy** | BCG/McKinsey outreach now | Defer 12+ months. Direct sales only. |

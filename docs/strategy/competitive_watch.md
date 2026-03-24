@@ -33,7 +33,7 @@ Multi-agent orchestration is becoming infrastructure. These are NOT direct compe
 
 ## 3. AI Finance Startups (Direct Competitors)
 
-These target the same ICP (mid-market CFOs, PE ops) with well-funded teams.
+These target a similar ICP (mid-market executives, PE ops) with well-funded teams.
 
 | Startup | Funding | Focus | Threat | Agent9 Differentiation |
 |---------|---------|-------|--------|----------------------|
@@ -44,7 +44,7 @@ These target the same ICP (mid-market CFOs, PE ops) with well-funded teams.
 | **Clockwork** | $25M | AI financial modeling | Low | Modeling tool, not advisory platform; Agent9 provides end-to-end decision lifecycle |
 | **Rogo** | $22M | AI research analyst | Medium | Research-focused; Agent9 goes from detection → analysis → solution → approval → ROI tracking |
 
-**Strategic implication:** CFO/PE space is crowded. Differentiate on multi-perspective analysis, registry context, and audit trails.
+**Strategic implication:** Executive decision intelligence space is crowded. Differentiate on multi-perspective analysis, registry context, and audit trails across any operational domain.
 
 ---
 
@@ -100,7 +100,7 @@ Building AI internally but NOT productizing for mid-market.
 
 1. **Multi-agent orchestration has ~12 months of differentiation left.** By Q4 2027, every cloud platform will offer it natively.
 2. **Registry-driven domain intelligence is the durable moat.** No competitor has KPI registries, principal profiles, business process mappings, and data product contracts in a unified model.
-3. **The "agentic consulting marketplace" positioning is premature.** Year 1 positioning should be "AI Decision Intelligence for CFOs"  a vertical application, not a platform.
+3. **The "agentic consulting marketplace" positioning is premature.** Year 1 positioning should be "AI Decision Intelligence for mid-market executives" — a domain-agnostic vertical application, not a platform.
 4. **Mid-tier consulting firms (FTI, A&M, Huron) are more realistic partners than BCG/McKinsey.** They lack internal AI capabilities and are more likely to engage with a startup.
 5. **First paying customer by September 2026 is the single most important competitive move.** Everything else is secondary.
 6. **Value Assurance trajectory tracking is a unique competitive feature.** No competitor — consulting firm, AI startup, or cloud platform — offers post-decision three-trajectory KPI tracking with DiD attribution. This is the self-validating loop that justifies renewal.

@@ -43,7 +43,7 @@ export function DataProductSelector({ onSelect, onCancel }: DataProductSelectorP
     setError(null)
 
     try {
-      const response = await fetch('http://localhost:8000/api/v1/registry/data-products')
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/v1/registry/data-products`)
       
       if (!response.ok) {
         throw new Error(`Failed to load data products: ${response.statusText}`)

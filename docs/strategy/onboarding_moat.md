@@ -32,7 +32,7 @@ Agent9's **5-Day Fast Start** is designed to close that gap with a documented, r
 | List of top 5-10 KPIs customer wants monitored | ✅ Yes | Names, definitions, calculation logic |
 | Historical data range available | ✅ Yes | Minimum 12 months; 24 months preferred |
 | ERP/warehouse schema documentation | ⚠️ Preferred | Agent9 can infer but docs speed Day 1 significantly |
-| List of 3-5 principal users (with roles) | ✅ Yes | CFO, Finance Manager, etc. |
+| List of 3-5 principal users (with roles) | ✅ Yes | CFO, COO, VP Ops, Finance Manager, etc. |
 | Sample "bad month" situation to validate | 💡 Helpful | An anomaly the team already understands |
 | IT point of contact for data access | ✅ Yes | For Day 1 connectivity |
 

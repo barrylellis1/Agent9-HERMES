@@ -40,7 +40,7 @@ Enterprise Decision-Making is Broken
 
 ### Quote Box (bottom)
 > "By the time we get the analysis, the market has moved."
-> — Fortune 500 CFO
+> — Fortune 500 executive
 
 **SPEAKER NOTES:**
 Let me paint the picture of what enterprises face today. They're paying millions for insights that arrive months late. They get one firm's perspective with no way to verify the reasoning. And when the engagement ends, all that knowledge walks out the door. This is a $800 billion market that's ripe for disruption.
@@ -168,7 +168,7 @@ Three-Sided Marketplace
         
     • Consulting firms           • Enterprises
     • Tech vendors               • PE portfolio cos
-    • Domain experts             • Mid-market CFOs
+    • Domain experts             • Mid-market execs
     
             ↘                    ↙
                  ┌──────────┐
@@ -198,7 +198,7 @@ Who We're Targeting
 | Segment | Market Size | Avg. Deal | Priority |
 |---------|:-----------:|:---------:|:--------:|
 | PE Portfolio Ops | 500 firms | $200K+ | ⭐⭐⭐ |
-| Mid-Market CFOs | 10,000+ | $80K | ⭐⭐⭐ |
+| Mid-Market Executives | 10,000+ | $80K | ⭐⭐⭐ |
 | Corp Strategy Teams | 500 F500 | $300K+ | ⭐⭐ |
 | Data Platform Customers | 5,000+ | $100K | ⭐⭐ |
 
@@ -209,7 +209,7 @@ Who We're Targeting
 - ✅ **Compliance need** — Value audit trails
 
 **SPEAKER NOTES:**
-We're targeting segments that are data-mature and frustrated with traditional consulting. PE portfolio ops teams are ideal—they have a mandate to improve operations across dozens of companies and they're tired of paying McKinsey $2M per portfolio company. Mid-market CFOs can't afford big consulting but desperately need strategic support.
+We're targeting segments that are data-mature and frustrated with traditional consulting. PE portfolio ops teams are ideal—they have a mandate to improve operations across dozens of companies and they're tired of paying McKinsey $2M per portfolio company. Mid-market executives can't afford big consulting but desperately need strategic support.
 
 ---
 
@@ -226,7 +226,7 @@ The Perfect Early Adopter
 - $1M+ annual consulting spend
 
 ### Right Column: Trigger Events 🎯
-- New CFO/CSO hire (first 90 days)
+- New C-suite hire (first 90 days)
 - PE acquisition (value creation mandate)
 - Activist investor pressure
 - IPO preparation
@@ -250,12 +250,12 @@ Land, Expand, Partner
 
 **Phase 1: LAND (Q1-Q2 2025)**
 - Direct sales to 10-20 early adopters
-- Target: PE portfolio ops, mid-market CFOs
+- Target: PE portfolio ops, mid-market executives
 - Goal: 5-10 customers, $500K ARR
 
 **Phase 2: EXPAND (Q3-Q4 2025)**
 - Grow within accounts, add use cases
-- CFO → Strategy → Operations
+- First executive → Strategy → Operations → Cross-functional
 - Goal: $150K avg ACV, $2M ARR
 
 **Phase 3: PARTNER (2026)**

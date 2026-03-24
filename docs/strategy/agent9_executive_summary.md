@@ -1,25 +1,27 @@
-# Agent9: AI-Powered Decision Intelligence
+# Decision Studio: AI-Powered Decision Intelligence
 
 ## One-Page Executive Summary
-**Last Updated:** March 19, 2026
+**Last Updated:** March 22, 2026
 
 ---
 
 ### The Problem
 
-Enterprise decision-makers spend **$800B+ annually** on consulting, yet:
-- Insights arrive **weeks or months** after problems emerge
-- Recommendations come from **one firm's perspective**
-- **No audit trail** for how conclusions were reached
-- **IP is trapped** in slide decks and consultants' heads
-- **Scaling requires linear headcount** growth
-- **Critical decisions receive no structured analysis at all** — mid-market companies ($50M–$500M) are priced out of MBB engagements and make decisions with a CFO, a spreadsheet, and gut instinct
+Three forces are converging — and most mid-market companies aren't ready:
+
+1. **Consulting-quality analysis is now possible in hours, not weeks.** MBB-grade structured analysis (root cause frameworks, multi-perspective debate, trade-off matrices) was previously only available via $2M engagements or not at all for mid-market. AI makes it actionable in hours — for every decision, not just the ones worth a consulting engagement.
+
+2. **AI adoption is accelerating market change.** Competitors adopting AI are making decisions faster — new products, new pricing, new processes on shorter cycles. The quarterly review cadence is already obsolete. Companies that still decide on monthly cycles are falling behind.
+
+3. **"Data-driven" is unproven — until now.** Every company claims to be data-driven, but nobody can prove their data-informed decisions actually worked. No baseline captured, no projections tracked, no attribution computed. The feedback loop between "we decided" and "it worked" doesn't exist.
+
+The result: mid-market executives ($50M–$500M revenue) make critical decisions with a spreadsheet and gut instinct — no structured analysis, no multi-perspective debate, no outcome tracking.
 
 ---
 
 ### The Solution
 
-**Agent9** is an **AI-powered decision intelligence platform** for mid-market CFOs — combining registry-driven domain context, continuous KPI monitoring, and multi-agent analysis to surface the right insight for the right executive, automatically and continuously.
+**Decision Studio** is an **AI-powered decision intelligence platform** for mid-market executives across any operational domain — combining registry-driven domain context, continuous KPI monitoring, and multi-agent analysis to surface the right insight for the right executive, automatically and continuously.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -63,7 +65,7 @@ Enterprise decision-makers spend **$800B+ annually** on consulting, yet:
 
 ### Key Differentiators
 
-| Capability | Agent9 | Traditional Consulting | Generic AI |
+| Capability | Decision Studio | Traditional Consulting | Generic AI |
 |------------|--------|------------------------|------------|
 | Multi-perspective debate | ✅ | ❌ (one firm) | ❌ |
 | Full audit trail | ✅ | ❌ | ❌ |
@@ -81,21 +83,21 @@ Enterprise decision-makers spend **$800B+ annually** on consulting, yet:
 ### Value Snapshot (Five Independent Pillars)
 
 **Pillar 1 — Always-On Monitoring**
-| Metric | Without Agent9 | With Agent9 |
+| Metric | Without Decision Studio | With Decision Studio |
 |--------|---------------|-------------|
 | KPI review frequency | Weekly manual review | Continuous, automatic |
 | Problem detection | Reactive (you notice) | Proactive (system alerts you) |
 | Time from problem to awareness | Days to weeks | Hours |
 
 **Pillar 2 — Consulting-Quality Insight on Demand**
-| Metric | Traditional Consulting | Agent9 |
+| Metric | Traditional Consulting | Decision Studio |
 |--------|----------------------|--------|
 | Annual cost | $500K-$3M | $44K-$100K |
 | Time to first insight | 4-8 weeks | 4-24 hours |
 | Perspectives per decision | 1 firm | 3-5 lenses (Financial, Operational, Strategic, Risk, Technical) |
 
 **Pillar 3 — Institutional Memory and Audit Trail**
-| Capability | Current state | With Agent9 |
+| Capability | Current state | With Decision Studio |
 |------------|--------------|-------------|
 | KPI definitions | In analysts' heads | Encoded, versioned, auditable |
 | Decision rationale | Email threads, slide decks | Structured debate transcript |
@@ -103,37 +105,41 @@ Enterprise decision-makers spend **$800B+ annually** on consulting, yet:
 | Executive turnover risk | High (knowledge walks out) | Zero (registry persists) |
 
 **Pillar 4 — Opportunity Detection (not just problem response)**
-| Metric | Without Agent9 | With Agent9 |
+| Metric | Without Decision Studio | With Decision Studio |
 |--------|---------------|-------------|
 | Positive KPI signals | Noticed eventually, acted on slowly | Proactively detected; DA classifies benchmark segments (control group vs replication targets); market context surfaced via MA Agent; capture options generated with quantified impact |
 | Competitive intelligence | Quarterly review at best | Continuous (via Market Analysis Agent) |
 | Innovation triggers | Ad hoc, dependent on individual awareness | Systematic signal-to-opportunity workflow |
 
 **Pillar 5 — Initiative Tracking & Proven ROI**
-| Metric | Without Agent9 | With Agent9 |
+| Metric | Without Decision Studio | With Decision Studio |
 |--------|---------------|-------------|
 | Recommendation follow-through | Slide deck → forgotten | HITL Approve & Track → VA registers solution with baseline, projections; three-trajectory tracking (inaction/expected/actual) on Portfolio dashboard |
 | ROI attribution | Assumed; rarely measured | Difference-in-Differences attribution: intervention impact isolated from market tailwinds using control group segments from DA analysis |
-| Learning loop | None (recommendations don't improve over time) | Reinforced: trajectory chart shows CFO whether each decision is working; outcomes feed back into future recommendation quality |
+| Learning loop | None (recommendations don't improve over time) | Reinforced: trajectory chart shows each decision-maker whether their decisions are working; outcomes feed back into future recommendation quality |
 
 ---
 
-### For VP FP&A / Head of Financial Planning *(Primary Entry Buyer)*
+### For VP-Level Functional Leaders *(Primary Entry Buyer)*
 
-**Stop spending 30% of every month explaining last month:**
-- Automated monthly close narrative — anomalies detected, root causes identified, board-ready framing generated
-- Role-personalised output for each executive (same data, right narrative for CFO vs COO vs CEO)
+**Stop reacting. Start deciding.**
+- KPI anomalies detected and root-caused before your next review meeting
+- Multi-perspective solution debate — not a single analyst's opinion
+- Role-personalised output for each stakeholder (same data, right framing for CFO vs COO vs CRO)
 - First situation card within 5 days of onboarding
+
+**Domains:** Finance (margin, revenue, cost), Operations (cycle time, yield, fulfillment), Sales & Revenue (pipeline, win rate, churn), Supply Chain, and more.
 
 **Pilot Program:** $15K for 3 months — 5-day onboarding, first insight in week one
 
-### For Mid-Market CFOs
+### For Mid-Market Executives
 
 **Continuous decision intelligence — not just when you pay for an engagement:**
-- Always-on KPI monitoring with proactive anomaly alerts
+- Always-on KPI monitoring with proactive anomaly and opportunity alerts
 - Structured analysis and multi-perspective solution debate on demand
 - Full audit trail: KPI definitions, decision rationale, outcome tracking
 - Institutional memory that survives executive turnover
+- Works across any domain where KPIs are measured
 
 **Pilot Program:** $25K-$30K for 6 months, first situation card in 5 days
 

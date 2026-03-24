@@ -178,7 +178,7 @@ Despite the AI agent marketplace growth, major consulting firms have NOT:
 
 ### The Never-Engaged Mid-Market
 
-The largest addressable market for Agent9 in Years 1-2 is not consulting firm partnerships — it is the **50,000+ mid-market companies ($50M–$500M revenue) that have never engaged MBB consulting** due to cost.
+The largest addressable market for Decision Studio in Years 1-2 is not consulting firm partnerships — it is the **50,000+ mid-market companies ($50M–$500M revenue) that have never engaged MBB consulting** due to cost.
 
 | | Traditional Consulting Market | Never-Engaged Mid-Market |
 |---|---|---|
@@ -190,14 +190,14 @@ The largest addressable market for Agent9 in Years 1-2 is not consulting firm pa
 
 **Why this market is easier to close:**
 - No "but we have McKinsey" objection — they don't
-- Pain is immediate (CFO + spreadsheet + gut instinct on $200M company)
+- Pain is immediate (executives + spreadsheets + gut instinct on $200M company)
 - ROI is net-new, not incremental — any structured analysis is better than nothing
 - Pilot risk is minimal relative to the alternative (no analysis at all)
 
 **How the 5 pillars map to this segment:**
 - Pillar 1 (monitoring): replaces manual KPI tracking they've been doing in Excel
 - Pillar 2 (insight): provides access to structured analysis they've never had
-- Pillar 3 (institutional memory): encodes knowledge that currently lives only in the CFO's head
+- Pillar 3 (institutional memory): encodes knowledge that currently lives only in executives' heads
 - Pillar 4 (opportunity detection): surfaces growth signals they were missing entirely
 - Pillar 5 (ROI validation): proves the platform's own value — self-reinforcing retention driver
 
@@ -205,9 +205,9 @@ This segment is the **primary GTM focus through 2027**. The CaaS/partner marketp
 
 ### The Partner Pipeline Overlay
 
-The direct mid-market customer base described above is also the **source of partner pipeline**. Every direct customer using Agent9 generates situations. A fraction of those situations (estimated 15-25%) will exceed what the platform handles autonomously. Those become consulting engagement opportunities.
+The direct mid-market customer base described above is also the **source of partner pipeline**. Every direct customer using Decision Studio generates situations. A fraction of those situations (estimated 15-25%) will exceed what the platform handles autonomously. Those become consulting engagement opportunities.
 
-With 10 direct customers generating ~50 situations/year each, that's 75-125 consulting-ready escalations per year. At an average engagement value of $50K-$150K, the pipeline value to partner firms is **$3.75M-$18.75M annually** — from just 10 Agent9 customers.
+With 10 direct customers generating ~50 situations/year each, that's 75-125 consulting-ready escalations per year. At an average engagement value of $50K-$150K, the pipeline value to partner firms is **$3.75M-$18.75M annually** — from just 10 Decision Studio customers.
 
 This is the number that makes partner conversations credible. Not "partner with our platform" — but "we're generating $X million in qualified leads that need a delivery partner."
 
@@ -242,7 +242,7 @@ Problem → Recommendations → Decision Made → Outcome Tracked
 Examples:
 - "For COGS problems in retail, Option A worked 73% of the time"
 - "McKinsey's approach outperformed BCG's in supply chain by 12%"
-- "When CFO rejected Option 1, Option 2 succeeded 68% of time"
+- "When the executive rejected Option 1, Option 2 succeeded 68% of time"
 ```
 
 This corpus is:

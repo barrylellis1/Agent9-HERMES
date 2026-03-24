@@ -35,9 +35,9 @@
 **Problem 3 — Institutional knowledge is fragile**
 - KPI definitions live in analysts' heads and Excel files
 - Decision rationale is buried in email threads and slide decks
-- When the Finance Director leaves, the knowledge leaves too
+- When a key executive leaves, the knowledge leaves too
 
-> **"By the time we get the analysis, the market has moved."** — Fortune 500 CFO
+> **"By the time we get the analysis, the market has moved."** — Fortune 500 executive
 > **"We rebuilt our entire margin model when the CFO changed."** — PE portfolio ops lead
 
 ---
@@ -151,7 +151,7 @@
 │                                                     │
 │  • Consulting firms            • Enterprises        │
 │  • Tech vendors                • PE portfolio cos   │
-│  • Domain experts              • Mid-market CFOs    │
+│  • Domain experts              • Mid-market execs   │
 │                                                     │
 │         ↘                        ↙                  │
 │              ┌──────────────┐                       │
@@ -175,16 +175,16 @@
 
 | Segment | Size | ARPU | Priority | Entry Rationale |
 |---------|------|------|----------|-----------------|
-| **VP FP&A / Finance Planning** | 10,000+ | $30K-$60K | ⭐⭐⭐ | Fastest sales cycle; acute pain; creates CFO champion |
-| **Mid-Market CFOs** | 10,000+ | $60K-$120K | ⭐⭐⭐ | Primary expansion buyer; multi-pillar value |
+| **VP FP&A / Finance Planning** | 10,000+ | $30K-$60K | ⭐⭐⭐ | Fastest sales cycle; acute pain; creates executive champion |
+| **Mid-Market Executives (CFO, COO, VP Ops)** | 10,000+ | $60K-$120K | ⭐⭐⭐ | Primary expansion buyer; multi-pillar value |
 | **PE Portfolio Ops** | 500 firms | $150K-$230K | ⭐⭐⭐ | Cross-portfolio deployment; LP reporting value |
 | **Corp Strategy Teams** | 500 F500 | $150K-$300K | ⭐⭐ (Year 2+) | Longer procurement; needs reference customers first |
 
-### The Sales Motion: FP&A Entry → CFO Expansion → PE Portfolio
+### The Sales Motion: FP&A Entry → Executive Expansion → PE Portfolio
 
 1. **Enter via FP&A pain** — Monthly close automation, narrative generation, anomaly detection
-2. **Demonstrate value in first monthly cycle** — CFO sees the output, becomes champion
-3. **Expand to CFO use cases** — Solution Finder, audit trail, board pack preparation
+2. **Demonstrate value in first monthly cycle** — Executive sponsor sees the output, becomes champion
+3. **Expand to executive use cases** — Solution Finder, audit trail, board pack preparation, operational analysis
 4. **PE portfolio** — One portfolio company pilot → cross-portfolio deployment
 
 ### Why These Segments?
@@ -206,7 +206,7 @@
 - ✅ $1M+ annual consulting spend (pain is real)
 
 ### Trigger Events
-- 🎯 New CFO/CSO hire (first 90 days)
+- 🎯 New C-suite hire (first 90 days)
 - 🎯 PE acquisition (value creation mandate)
 - 🎯 Activist investor pressure
 - 🎯 IPO preparation
@@ -310,7 +310,7 @@
                           │
     LOW SCALE ────────────┼──────────── HIGH SCALE
                           │
-         Generic AI       │      AI Finance Startups
+         Generic AI       │      AI Vertical Startups
          (ChatGPT)        │      (Hebbia, Numeric)
                           │
                 LOW DOMAIN INTELLIGENCE
@@ -438,7 +438,7 @@ Partner interest (Year 3+)
 
 ### Market Timing
 - **18-24 month window** before consulting firms expand AI downmarket (McKinsey Lilli, BCG X moving fast)
-- Mid-market CFOs and FP&A teams actively looking for leverage — AI tool budgets are live
+- Mid-market executives and FP&A teams actively looking for leverage — AI tool budgets are live
 - Regulatory push for AI explainability directly favors audit trail approach
 - **First paying customer by Sep 2026 is not optional** — it is the single most critical milestone
 
@@ -463,12 +463,12 @@ Partner interest (Year 3+)
 |------|----------------|
 | **Registry-driven context** | Deep domain intelligence, not generic AI |
 | **Multi-agent debate** | Multiple perspectives, auditable decisions |
-| **CFO-focused MVP** | Narrow, deep vs broad, shallow |
+| **Executive-focused MVP** | Narrow, deep vs broad, shallow |
 | **Application first** | Prove value before building marketplace |
 | **Solo founder, moonlighting** | Capital-efficient path to first revenue |
 
 ### The Opportunity
-Build decision intelligence for mid-market CFOs that consulting firms ignore and AI startups can't match on domain depth.
+Build decision intelligence for mid-market executives across any operational domain that consulting firms ignore and AI startups can't match on domain depth.
 
 ### Next Steps
 - Demo video: Apr 2026

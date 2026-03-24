@@ -8,7 +8,7 @@ import { KPIAssistantChat } from '../components/KPIAssistantChat'
 import { ConnectionProfileManager } from '../components/ConnectionProfileManager'
 import { DataProductSelector } from '../components/DataProductSelector'
 import { API_BASE_URL, API_ENDPOINTS, buildUrl } from '../config/api-endpoints'
-import { ConnectionProfile, markProfileAsUsed, getConnectionOverrides } from '../utils/connectionProfileStorage'
+import { ConnectionProfile, markProfileAsUsed } from '../utils/connectionProfileStorage'
 
 // Step definitions
 const STEPS = [
@@ -85,9 +85,9 @@ export function DataProductOnboardingNew() {
     const [database, setDatabase] = useState('')
     const [schema, setSchema] = useState('main')
     const [connectionOverrides, setConnectionOverrides] = useState<Record<string, any>>({})
-    const [connectionProfiles, setConnectionProfiles] = useState<any[]>([])
-    const [selectedProfile, setSelectedProfile] = useState('')
-    const [profileName, setProfileName] = useState('')
+    const [_connectionProfiles, _setConnectionProfiles] = useState<any[]>([])
+    const [_selectedProfile, _setSelectedProfile] = useState('')
+    const [_profileName, _setProfileName] = useState('')
 
     // Step 2: Schema Discovery
     const [discoveredTables, setDiscoveredTables] = useState<TableInfo[]>([])
@@ -100,7 +100,7 @@ export function DataProductOnboardingNew() {
 
     // Step 4: Metadata Analysis
     const [inspectionResult, setInspectionResult] = useState<InspectionResult | null>(null)
-    const [editingColumn, setEditingColumn] = useState<{ table: string; column: string } | null>(null)
+    const [_editingColumn, setEditingColumn] = useState<{ table: string; column: string } | null>(null)
 
     // Step 5: KPI Definition
     const [definedKPIs, setDefinedKPIs] = useState<any[]>([])
@@ -378,15 +378,15 @@ export function DataProductOnboardingNew() {
         ))
     }
 
-    const updateSemanticTag = (tableName: string, columnName: string, newTags: string[]) => {
+    const _updateSemanticTag = (tableName: string, columnName: string, newTags: string[]) => {
         if (!inspectionResult) return
-        
+
         setInspectionResult({
             ...inspectionResult,
-            tables: inspectionResult.tables.map(t => 
+            tables: inspectionResult.tables.map(t =>
                 t.name === tableName ? {
                     ...t,
-                    columns: t.columns.map(c => 
+                    columns: t.columns.map(c =>
                         c.name === columnName ? { ...c, semantic_tags: newTags } : c
                     )
                 } : t
@@ -394,6 +394,7 @@ export function DataProductOnboardingNew() {
         })
         setEditingColumn(null)
     }
+    void _updateSemanticTag
 
     return (
         <div className="min-h-screen bg-background text-foreground p-8 font-sans">
@@ -411,7 +412,7 @@ export function DataProductOnboardingNew() {
                         
                         // Load product's schema from contract
                         try {
-                            const response = await fetch(`http://localhost:8000/api/v1/registry/data-products/${product.id}`)
+                            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/v1/registry/data-products/${product.id}`)
                             if (response.ok) {
                                 const data = await response.json()
                                 const productData = data.data
@@ -444,13 +445,14 @@ export function DataProductOnboardingNew() {
                                     columns: Object.entries(tableDef.column_schema || {}).map(([colName, colType]: [string, any]) => ({
                                         name: colName,
                                         data_type: colType,
+                                        is_nullable: false,
                                         semantic_tags: []
                                     })),
                                     primary_keys: tableDef.primary_keys || [],
                                     foreign_keys: []
                                 }))
                                 
-                                setInspectionResult({ tables })
+                                setInspectionResult({ tables, inferred_kpis: [] })
                                 setDiscoveredTables(tables.map(t => ({ ...t, selected: true })))
                                 setLogs(prev => [...prev, `✓ Loaded ${tables.length} tables from ${product.name}`])
                             }
@@ -458,7 +460,7 @@ export function DataProductOnboardingNew() {
                             console.error('Failed to load product schema:', err)
                             setLogs(prev => [...prev, `⚠ Could not load schema, proceeding with empty schema`])
                             // Set minimal inspection result to allow KPI definition
-                            setInspectionResult({ tables: [] })
+                            setInspectionResult({ tables: [], inferred_kpis: [] })
                         }
                         
                         setWorkflowMode('extend')

@@ -8,13 +8,15 @@ import { ContextExplorer } from './pages/ContextExplorer'
 import { ExecutiveBriefing } from './pages/ExecutiveBriefing'
 import { Login } from './pages/Login'
 import { Portfolio } from './pages/Portfolio'
+import { LandingPage } from './pages/LandingPage'
 // PrincipalManagement merged into Settings (RegistryExplorer)
 
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<DecisionStudio />} />
         <Route path="/briefing/:situationId" element={<ExecutiveBriefing />} />
         <Route path="/context" element={<ContextExplorer />} />
@@ -27,7 +29,7 @@ function App() {
         <Route path="/admin/registry" element={<Navigate to="/settings" replace />} />
         <Route path="/admin/principals" element={<Navigate to="/settings" replace />} />
         <Route path="/admin/onboarding" element={<Navigate to="/settings/onboarding" replace />} />
-        {/* Redirect any unknown routes to login */}
+        {/* Redirect any unknown routes to landing page */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

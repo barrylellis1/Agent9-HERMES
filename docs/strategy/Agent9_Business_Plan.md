@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-**Agent9** is an AI-powered decision intelligence platform that delivers continuous financial monitoring, multi-perspective analysis, structured decision support, and post-implementation ROI validation for mid-market CFOs and PE portfolio operations teams. The platform combines registry-driven domain context, continuous KPI monitoring, and external market intelligence to surface the right insight for the right executive — automatically, continuously, and with a complete audit trail.
+**Decision Studio** is an AI-powered decision intelligence platform that delivers continuous KPI monitoring, multi-perspective analysis, structured decision support, and post-implementation ROI validation for mid-market executives across any operational domain — finance, operations, sales, supply chain, and beyond. The platform combines registry-driven domain context, continuous monitoring, and external market intelligence to surface the right insight for the right executive — automatically, continuously, and with a complete audit trail.
 
 Agent9 addresses five independent value propositions — each justifiable on its own, compounding together:
 1. **Always-on monitoring** — proactive situation detection across KPIs before problems become crises
@@ -19,7 +19,7 @@ Agent9 addresses five independent value propositions — each justifiable on its
 
 **Current Stage:** Pre-revenue, platform built (~100K LOC), moonlighting development
 **Go-to-Market Launch:** Q2 2026 (demo-ready, warm network outreach)
-**Primary Entry Buyer:** VP FP&A / Head of Financial Planning (faster cycle) → CFO champion for expansion
+**Primary Entry Buyer:** VP-level functional leaders (FP&A, Operations, Revenue) → C-suite champion for platform expansion
 **Target:** $200K-$500K ARR within 18 months of first customer (raised from $150K-$350K — shipped MA/VA/Opportunity enable higher ACV and stronger renewal rates)
 **Exit Strategy:** Strategic acquisition at $2M-$3M ARR for $15M-$30M (infrastructure/data platform framing)
 
@@ -34,24 +34,24 @@ Agent9 addresses five independent value propositions — each justifiable on its
 
 *Note: SOM is deliberately conservative. As a bootstrapped solo founder, capturing even $5M of a $50B SAM represents meaningful traction and positions for acquisition or Series A.*
 
-### Market Trends
-- Enterprise AI adoption accelerating
-- Consulting firms under margin pressure
-- Demand for speed and cost reduction
-- Regulatory push for AI explainability and audit trails
+### Market Trends (Three Converging Forces)
+1. **Consulting-quality analysis is now possible in hours, not weeks** — LLM-driven structured analysis (SCQA, multi-perspective debate, trade-off matrices) makes MBB-grade decision support accessible to mid-market companies that were previously priced out
+2. **AI adoption is accelerating market change** — companies adopting AI are making decisions faster across pricing, product, and operations; the quarterly review cadence is already obsolete for companies competing against AI-enabled rivals
+3. **"Data-driven" is unproven** — every company claims to be data-driven but no tool closes the loop between "we decided" and "it worked"; Decision Studio's trajectory tracking + DiD attribution is the first system that proves decision impact
+4. Regulatory push for AI explainability and audit trails — Decision Studio's architecture *is* the audit trail
 
 ---
 
 ## 2. Product Vision
 
 ### Core Value Proposition
-"AI-powered decision intelligence for mid-market CFOs — continuous monitoring, structured analysis, and board-ready recommendations with a complete audit trail."
+"AI-powered decision intelligence for mid-market executives — continuous monitoring, structured analysis, and actionable recommendations with a complete audit trail. Any domain where KPIs are measured."
 
 ### Five Value Pillars (Independent, Compounding)
 
 **Pillar 1 — Always-On Monitoring (replaces absence of something)**
-- 24/7 KPI surveillance across Finance and Sales domains with multi-timeframe thresholds
-- Proactive anomaly detection before the CFO asks the question
+- 24/7 KPI surveillance across any operational domain (finance, operations, sales, supply chain) with multi-timeframe thresholds
+- Proactive anomaly detection before any executive asks the question
 - Situation lifecycle management (Open → Acknowledged → Assigned → Resolved)
 - *Replaces:* Manual weekly dashboard reviews, reactive fire-fighting
 
@@ -64,9 +64,9 @@ Agent9 addresses five independent value propositions — each justifiable on its
 - *For never-engaged mid-market:* net-new structured analysis capability at a fraction of the cost ($44K-$100K ACV)
 
 **Pillar 3 — Institutional Memory and Decision Audit Trail (fills gap nothing else addresses)**
-- KPI definitions encoded with exact SQL logic, data lineage, and GL account mappings
+- KPI definitions encoded with exact SQL logic, data lineage, and domain-specific mappings
 - Decision provenance: every option considered, trade-off evaluated, outcome tracked
-- Survives executive turnover — the definition of "Gross Margin" never walks out the door again
+- Survives executive turnover — the definition of "Gross Margin" or "Cycle Time" or "Win Rate" never walks out the door again
 - *Replaces:* Nothing currently — this capability does not exist in any comparable tool
 
 **Pillar 4 — Opportunity Detection (proactive, not just reactive)**
@@ -116,71 +116,82 @@ Agent9 addresses five independent value propositions — each justifiable on its
 
 ### Primary Segments (Priority Order)
 
-#### 1. VP FP&A / Head of Financial Planning ⭐⭐⭐ *(NEW — Primary Entry Buyer)*
+#### Entry Buyer Pattern
+VP-level functional leaders are the primary entry point across all domains — shorter sales cycles (4-6 weeks), budget authority for pilot pricing, and they create C-suite champions for platform expansion.
+
+#### 1. Finance — VP FP&A / CFO ⭐⭐⭐ *(Launch Domain — Demo Ready)*
 - **Size:** 10,000+ mid-market companies
-- **ARPU:** $30K-$60K initial (entry point for CFO expansion)
-- **Pain:** 30% of every month spent explaining last month; manual translation of data into three executive narratives
-- **Trigger Events:** New CFO hire demanding faster insights, board demanding better reporting, FP&A team under-resourced
-- **Why first:** Shorter sales cycle (4-6 weeks vs 4-6 months), clearer ROI (time saved on monthly close), budget authority for pilot pricing, creates internal CFO champion
+- **ARPU:** $30K-$60K (VP entry), $60K-$120K (CFO expansion)
+- **Pain:** 30% of every month spent explaining last month; reactive decision-making; no institutional memory for KPI definitions or decision rationale
+- **Trigger Events:** New CFO hire demanding faster insights, board demanding better reporting, FP&A team under-resourced, cost reduction initiative
+- **Why first:** Demo data ready (FI star schema), financial KPIs have clear thresholds, ROI is directly measurable (time saved on monthly close, faster anomaly detection)
 
-#### 2. Mid-Market CFOs ⭐⭐⭐
-- **Size:** 10,000+ companies
-- **ARPU:** $60K-$120K (expanded from $80K-$100K with multi-pillar value)
-- **Pain:** Reactive decision-making, consulting spend with no continuous coverage, no institutional memory
-- **Trigger Events:** New CFO hire, cost reduction initiative, board demanding faster insights
-- **Relationship to FP&A:** FP&A team entry → CFO becomes champion for expansion to full platform
+#### 2. Operations — VP Operations / COO ⭐⭐⭐
+- **Size:** 15,000+ mid-market manufacturing, logistics, and services companies
+- **ARPU:** $40K-$80K (VP entry), $80K-$140K (COO expansion)
+- **Pain:** Operational KPIs (cycle time, yield, fulfillment rate, capacity utilization) monitored in dashboards but not analyzed structurally; root cause investigation is manual and slow; decisions made without multi-perspective trade-off analysis
+- **Trigger Events:** Supply chain disruption, quality incident, capacity expansion decision, new COO mandate, lean/continuous improvement initiative
+- **Why strong fit:** Operational decisions are frequent, measurable, and high-volume — ideal for continuous monitoring. Dimensional Is/Is Not analysis maps naturally to production lines, facilities, shifts, SKUs.
 
-#### 2a. Never-Engaged Mid-Market ⭐⭐⭐ *(New — Primary TAM)*
+#### 3. Sales & Revenue — VP Revenue / CRO ⭐⭐⭐
+- **Size:** 10,000+ B2B mid-market companies
+- **ARPU:** $30K-$60K (VP entry), $60K-$100K (CRO expansion)
+- **Pain:** Pipeline metrics reviewed weekly but anomalies caught late; win rate changes not root-caused; pricing and discount decisions made without structured analysis; territory performance variance unexplained
+- **Trigger Events:** Revenue miss, new CRO hire, GTM restructuring, pricing overhaul, churn spike
+- **Why strong fit:** Revenue KPIs are well-defined and time-sensitive. Opportunity detection (positive outperformance in a segment) directly maps to replication strategies.
+
+#### 4. Never-Engaged Mid-Market (Cross-Domain) ⭐⭐⭐ *(Primary TAM)*
 - **Size:** 50,000+ companies ($50M-$500M revenue) — larger than the consulting-displacement segment
 - **ARPU:** $44K-$80K (net-new capability, not a substitute comparison)
-- **Pain:** CFO + spreadsheet + gut instinct; no structured analysis; no access to MBB-quality frameworks at their scale
+- **Pain:** Executives + spreadsheets + gut instinct across all domains; no structured analysis; no access to MBB-quality frameworks at their scale
 - **Why they buy:** Not "cheaper consulting" — *capability they've never had*. First structured multi-perspective decision support. Easier sell: no competitive displacement, no incumbent to displace.
-- **Trigger Events:** Margin squeeze, rapid growth, PE acquisition, new CFO mandate
-- **Sales note:** Shorter sales cycle than consulting-displacement customers. No "but we have McKinsey" objection. Pain is immediate and tangible.
-- **Relationship to other segments:** Best entry point for early pilots. Reference customer proof unlocks higher-ACV CFO and PE deals.
+- **Trigger Events:** Margin squeeze, rapid growth, PE acquisition, new executive mandate
+- **Sales note:** Shortest sales cycle. No "but we have McKinsey" objection. Pain is immediate and tangible. Best entry point for early pilots — reference customer proof unlocks higher-ACV deals.
 
-#### 3. PE Portfolio Operations ⭐⭐⭐
+#### 5. PE Portfolio Operations ⭐⭐⭐
 - **Size:** 500 firms
 - **ARPU:** $150K-$230K (platform fee + per-portfolio-company activation)
-- **Pain:** Inconsistent KPI definitions across portfolio, manual value creation tracking, LP reporting overhead
+- **Pain:** Inconsistent KPI definitions across portfolio, manual value creation tracking, LP reporting overhead — across finance, ops, and revenue domains
 - **Trigger Events:** Post-acquisition, value creation mandate, new GP joining portfolio ops team
 - **Commercial structure:** Platform fee ($40K-$60K) + per-portfolio-company fee ($20K-$30K); expands automatically with new acquisitions
+- **Cross-domain advantage:** PE firms need standardized decision intelligence across portfolio companies in different industries — Decision Studio's domain-agnostic architecture is a natural fit
 
-#### 4. Corporate Strategy Teams ⭐⭐
+#### 6. Corporate Strategy Teams ⭐⭐
 - **Size:** 500 F500 companies
 - **ARPU:** $300K+
-- **Pain:** Strategic decisions need multiple perspectives
-- **Trigger Events:** Activist investor pressure, IPO prep
+- **Pain:** Strategic decisions need multiple perspectives across domains
+- **Trigger Events:** Activist investor pressure, IPO prep, M&A due diligence
 - **Note:** Deferred to Year 2+ — procurement complexity too high for solo founder Year 1
 
 ### Ideal Customer Profile
 
 **Firmographics:**
 - Mid-market or PE-backed company
-- $500M-$5B revenue
-- 500-5,000 employees
+- $50M-$5B revenue
+- 200-5,000 employees
 
 **Technographics:**
-- Data platform: Snowflake, Databricks, BigQuery, SQL Server, or SAP Datasphere
-- ERP system (SAP, Oracle, NetSuite) — or willing to export GL data as CSV for pilot
-- BI tools (Tableau, Power BI, Looker)
-- AI policy approved
+- Data platform: Snowflake, Databricks, BigQuery, SQL Server, SAP Datasphere, or structured CSV/Excel exports
+- Source systems: ERP (SAP, Oracle, NetSuite), CRM (Salesforce, HubSpot), WMS/MES, or any system producing KPI-measurable data
+- Existing BI tools (Tableau, Power BI, Looker) — indicates data maturity
+- AI policy approved (or willingness to establish one for pilot)
 
 **Psychographics:**
-- Frustrated with consulting speed/cost
-- Innovation mandate from CEO/board
-- Data-driven decision culture
+- Executives making recurring decisions without structured analysis frameworks
+- Frustrated with consulting speed/cost OR never engaged consulting at all (net-new capability)
+- Data exists but insight extraction is manual, slow, or siloed by department
+- Innovation mandate from CEO/board, or operational pressure demanding faster decisions
 - Willing to try new approaches
 
 **Budget:**
-- $1M+ annual consulting spend
-- $80K-$200K innovation budget
+- $50K-$200K decision support / analytics / consulting budget (or equivalent operational budget)
+- Or: demonstrable cost-of-inaction exceeding $500K/year (Decision Studio can quantify this)
 
 ### Anti-Patterns (Avoid)
 
 #### ❌ No Data Infrastructure
-- Company lacks ERP, data warehouse, or BI tools
-- Data in spreadsheets, siloed systems, or inaccessible
+- Company lacks structured data systems (no ERP, CRM, WMS, or data warehouse)
+- KPIs not defined or measured — data lives in ad hoc spreadsheets with no consistency
 - **Why:** Would require months of data engineering before delivering value
 
 #### ❌ "Innovation Theater" Culture
@@ -188,15 +199,15 @@ Agent9 addresses five independent value propositions — each justifiable on its
 - Innovation budget exists but decisions blocked by committees
 - **Why:** Waste time on pilots that never convert to revenue
 
-#### ❌ Deep McKinsey/BCG Relationships
-- Long-standing strategic relationships with Big 3 firms
-- Consulting firm embedded in strategy process
-- **Why:** Political blockers, competing with trusted advisors
+#### ❌ Entrenched Advisory Relationships
+- Long-standing strategic relationships with MBB or domain-specific consultancies
+- External advisory firm embedded in the decision-making process
+- **Why:** Political blockers — competing with trusted advisors who have budget lock-in
 
-#### ❌ No AI Policy Approved
-- Company has no internal policy on AI tool usage
-- Legal/compliance hasn't approved AI for sensitive data
-- **Why:** Deal stuck in legal review for 6-12 months
+#### ❌ No AI Policy / No Executive Sponsor
+- Company has no internal policy on AI tool usage and no champion willing to push one through
+- Legal/compliance hasn't approved AI for operational data
+- **Why:** Deal stuck in legal review for 6-12 months; no internal advocate to unblock
 
 ---
 

@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-Agent9 is building the first **agentic consulting marketplace**—a platform where consulting firms and technology providers can deploy their proprietary methodologies as AI-powered agents, monetize them at scale, and participate in collaborative solution debates.
+Decision Studio is building the first **agentic consulting marketplace**—a platform where consulting firms and technology providers can deploy their proprietary methodologies as AI-powered agents, monetize them at scale, and participate in collaborative solution debates.
 
 We're seeking innovation-minded partners to co-develop branded agents and validate the CaaS model through structured pilots.
 

@@ -6,7 +6,7 @@
 
 ## Guiding Principles
 
-1. **Every agent built must map to a customer conversation.** If we can't explain why a CFO or FP&A team cares, it doesn't get prioritised.
+1. **Every agent built must map to a customer conversation.** If we can't explain why a mid-market executive (CFO, COO, VP Ops, or FP&A team) cares, it doesn't get prioritised.
 2. **Multi-agent orchestration is infrastructure, not a differentiator.** All platform/technical work is in service of agent capability delivery.
 3. **The consulting firm partner model shapes Phase 3 sequencing.** Agents that enable the delivery lifecycle (change management, stakeholder engagement) are prerequisites for partner conversations.
 4. **5-day onboarding is a product capability, not just a process.** KPI Assistant Agent completion and template library expansion directly enable it.
@@ -20,7 +20,7 @@
 - ✅ A9_Situation_Awareness_Agent — continuous KPI monitoring, anomaly detection, severity scoring
 - ✅ A9_Deep_Analysis_Agent — SCQA root cause analysis, KT Is/Is-Not decomposition, dimensional variance
 - ✅ A9_Solution_Finder_Agent — multi-perspective debate, trade-off matrix, reversibility scoring
-- ✅ A9_Principal_Context_Agent — role-based personalisation (CFO, CEO, COO, Finance Manager)
+- ✅ A9_Principal_Context_Agent — role-based personalisation (CFO, CEO, COO, VP Ops, Finance Manager)
 - ✅ A9_Data_Governance_Agent — data access policies, business term translation, audit logging
 - ✅ A9_Data_Product_Agent — data product registry, SQL execution delegation, schema validation
 - ✅ A9_LLM_Service_Agent — centralised LLM routing, model selection, prompt engineering
@@ -75,8 +75,8 @@
 - [ ] Demo flow polish: Situation → Deep Analysis → Solution Finder → Audit Trail
 - [ ] Record 5-minute demo video (lubricants + bikes)
 - [ ] Build landing page (trydecisionstudio.com)
-- [ ] List 20 warm contacts (FP&A and CFO-level)
-- [ ] Draft 2-slide pitch deck: FP&A entry pitch + CFO expansion pitch
+- [ ] List 20 warm contacts (FP&A and executive-level)
+- [ ] Draft 2-slide pitch deck: FP&A entry pitch + executive expansion pitch
 - [ ] **A9_Risk_Analysis_Agent** — MVP scope: market/operational/financial risk; weighted scoring
   - *Deferred from immediate sprint to allow MA to stabilise first*
   - *Effort:* 1–2 sprints
@@ -94,7 +94,7 @@
 - Perplexity web search + Claude synthesis → competitor signals, market trends, strategic context
 
 **A9_Stakeholder_Analysis_Agent** *(Medium priority — build in second half of Phase 1)*
-- **Why Phase 1:** When pilots produce their first solution recommendations, the CFO's next question is "who do I need to get on board?" This agent answers that.
+- **Why Phase 1:** When pilots produce their first solution recommendations, the executive's next question is "who do I need to get on board?" This agent answers that.
 - **What it does:** Maps stakeholder landscape, assesses influence/impact, identifies domain owners, generates StakeholderAnalysisCompletedEvent
 - **Customer value:** Makes recommendations actionable — not just "raise prices" but "here's who needs to approve it and who might resist"
 - **Effort:** 2-3 sprints

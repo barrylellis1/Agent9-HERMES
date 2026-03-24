@@ -27,9 +27,9 @@ This document outlines a focused partnership thesis and engagement plan for appr
 
 Original Goals:
 
-- Position Agent9 as a **platform that operationalizes BCG's agentic AI roadmap**, not as a competitor.
+- Position Decision Studio as a **platform that operationalizes BCG's agentic AI roadmap**, not as a competitor.
 - Define where BCG creates value (methodologies, sector expertise, change management) and where Agent9 creates value (agentic platform, registry, auditability, multi-LLM orchestration).
-- Propose a **practical first engagement**: a co-designed pilot in finance / PE portfolio operations.
+- Propose a **practical first engagement**: a co-designed pilot in executive decision intelligence (finance, operations, or PE portfolio).
 
 ---
 
@@ -91,11 +91,11 @@ BCG brings **trusted strategy, sector expertise, and change management**. Agent9
 ### 3.1 Value to BCG
 
 - **New revenue streams**
-  - Productized **BCG-branded agents** (e.g., CFO turnaround agent, PE value creation agent) deployed across multiple clients.
+  - Productized **BCG-branded agents** (e.g., executive turnaround agent, PE value creation agent, operational excellence agent) deployed across multiple clients.
   - Subscription and usage-based revenue via Agent9’s CaaS marketplace.
 
 - **Faster, repeatable client impact**
-  - Pre-integrated, **YAML/registry-driven templates** for key CFO / PE use cases reduce implementation time.
+  - Pre-integrated, **YAML/registry-driven templates** for key executive decision use cases (finance, operations, supply chain, PE) reduce implementation time.
   - Built-in **audit trails and explainability** support risk and compliance concerns.
 
 - **Platform risk mitigation**
@@ -131,7 +131,7 @@ BCG brings **trusted strategy, sector expertise, and change management**. Agent9
 
 ### 4.2 Initial Pilot Concept
 
-**Domain:** CFO and PE portfolio operations  
+**Domain:** Executive decision intelligence (finance, operations, PE portfolio)
 **Example journeys:**
 
 - **Financial performance turnaround**
@@ -151,7 +151,7 @@ BCG brings **trusted strategy, sector expertise, and change management**. Agent9
    - Map BCG’s “Now / Next / Always” priorities to specific Agent9 capabilities.
 
 2. **Design + Pilot Build (1–3 months)**
-   - Co-design **one flagship journey** (e.g., CFO turnaround) as a BCG-branded agentic workflow.
+   - Co-design **one flagship journey** (e.g., executive turnaround or operational improvement) as a BCG-branded agentic workflow.
    - Implement this on Agent9 with **registry-backed configuration** and Decision Studio UI.
    - Run pilot at 1–2 jointly selected clients.
 
@@ -171,7 +171,7 @@ BCG brings **trusted strategy, sector expertise, and change management**. Agent9
 
 - **Practice Leaders in Target Verticals**
   - Principal Investors & Private Equity.
-  - CFO / Finance transformation.
+  - CFO / Finance transformation; COO / Operations transformation.
   - Sector practices where agentic workflows are a natural fit (e.g., TMT, consumer, industrial).
 
 - **Alliances & Ecosystems Team**
@@ -193,7 +193,7 @@ Key messages to include in outreach (email / LinkedIn / deck):
     - Provides a **governed platform** for BCG-branded agents and client deployments.
 
 - **Concrete next step**
-  - Propose a **30-minute capability exploration + demo** around one CFO/PE use case.
+  - Propose a **30-minute capability exploration + demo** around one executive decision intelligence use case.
   - Offer to co-design a **joint pilot** with BCG leading client transformation and Agent9 providing the platform.
 
 ---
@@ -217,7 +217,7 @@ Key messages to include in outreach (email / LinkedIn / deck):
 ## 7. Next Internal Steps
 
 - [ ] Finalize a **BCG-aligned one-pager/deck** using this document as source.
-- [ ] Identify 1–2 **flagship CFO / PE use cases** to feature in demos.
+- [ ] Identify 1–2 **flagship executive decision use cases** (finance, operations, or PE) to feature in demos.
 - [ ] Prepare a **short Decision Studio demo script** tailored to BCG’s article themes.
 - [ ] Identify warm intros to BCG (alumni, investors, partner firms).
 - [ ] Send initial outreach email to selected co-author / BCG X partner.
