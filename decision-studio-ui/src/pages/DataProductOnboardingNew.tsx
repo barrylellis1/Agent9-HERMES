@@ -7,8 +7,8 @@ import {
 import { KPIAssistantChat } from '../components/KPIAssistantChat'
 import { ConnectionProfileManager } from '../components/ConnectionProfileManager'
 import { DataProductSelector } from '../components/DataProductSelector'
-import { API_BASE_URL, API_ENDPOINTS, buildUrl } from '../config/api-endpoints'
-import { ConnectionProfile, markProfileAsUsed } from '../utils/connectionProfileStorage'
+import { API_ENDPOINTS, buildUrl } from '../config/api-endpoints'
+import { markProfileAsUsed } from '../utils/connectionProfileStorage'
 
 // Step definitions
 const STEPS = [

@@ -13,7 +13,6 @@ import {
   saveConnectionProfile,
   updateConnectionProfile,
   deleteConnectionProfile,
-  getConnectionOverrides,
 } from '../utils/connectionProfileStorage'
 
 interface ConnectionProfileManagerProps {

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Sparkles, CheckCircle, AlertCircle, Edit3, Trash2 } from 'lucide-react'
+import { Send, Loader2, Sparkles, CheckCircle, Trash2 } from 'lucide-react'
 import { API_ENDPOINTS, buildUrl } from '../config/api-endpoints'
 
 interface KPIDefinition {

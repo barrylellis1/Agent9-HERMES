@@ -41,7 +41,7 @@ export const SnowflakeScanner: React.FC<SnowflakeScannerProps> = ({
   // Map Variance % (-0.5 to 0.5) to Radius (0 to maxRadius)
   // But strictly: Center of chart = -MaxVariance? Or Center = Target?
   // Let's do: Middle Ring = 0%. Inner = -50%. Outer = +50%.
-  const varianceDomain = useMemo(() => [-0.5, 0.5] as const, [])
+  const varianceDomain = useMemo((): [number, number] => [-0.5, 0.5], [])
   const radiusScale = useMemo(() => scaleLinear({
     domain: varianceDomain,
     range: [40, maxRadius] // Don't go to absolute 0 center, leave a hole
