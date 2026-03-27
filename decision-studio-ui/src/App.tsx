@@ -9,13 +9,19 @@ import { ExecutiveBriefing } from './pages/ExecutiveBriefing'
 import { Login } from './pages/Login'
 import { Portfolio } from './pages/Portfolio'
 import { LandingPage } from './pages/LandingPage'
+import { HowItWorks } from './pages/HowItWorks'
+import { InsightsBIModernization } from './pages/InsightsBIModernization'
+import { DataOnboarding } from './pages/DataOnboarding'
 // PrincipalManagement merged into Settings (RegistryExplorer)
+
+// Hostname routing: decision-studios.com → corporate site, everything else → app
+const isCorporateDomain = window.location.hostname.includes('decision-studios.com')
 
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={isCorporateDomain ? <LandingPage /> : <Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<DecisionStudio />} />
         <Route path="/briefing/:situationId" element={<ExecutiveBriefing />} />
@@ -24,6 +30,14 @@ function App() {
         <Route path="/settings/onboarding" element={<DataProductOnboardingNew />} />
         <Route path="/settings/onboarding-legacy" element={<DataProductOnboarding />} />
         <Route path="/portfolio" element={<Portfolio />} />
+        {/* Corporate landing page accessible directly on any domain */}
+        <Route path="/landing" element={<LandingPage />} />
+        {/* Architecture / how it works */}
+        <Route path="/how-it-works" element={<HowItWorks />} />
+        {/* Insights / content marketing pages */}
+        <Route path="/insights/bi-modernization" element={<InsightsBIModernization />} />
+        {/* Data onboarding capability page */}
+        <Route path="/data-onboarding" element={<DataOnboarding />} />
         {/* Legacy routes → redirects */}
         <Route path="/admin" element={<Navigate to="/settings" replace />} />
         <Route path="/admin/registry" element={<Navigate to="/settings" replace />} />

@@ -1,35 +1,45 @@
-import { useState, useEffect, useRef, FormEvent } from 'react'
+import { useState, useRef, useEffect, FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, useScroll, useTransform } from 'framer-motion'
 import {
-  AlertTriangle,
-  MessageSquare,
-  TrendingDown,
-  Database,
-  Radar,
-  Target,
-  Shield,
-  Brain,
-  Archive,
-  TrendingUp,
-  LineChart,
+  ArrowRight,
   CheckCircle2,
-  XCircle,
-  AlertCircle,
   ChevronRight,
+  Eye,
+  Globe,
+  MessageCircle,
+  Search,
+  Shield,
+  Users,
+  LineChart,
 } from 'lucide-react'
+
+// ─────────────────────────────────────────────────
+// Satoshi font (loaded from Fontshare CDN)
+// ─────────────────────────────────────────────────
+const SATOSHI_CSS = 'https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap'
+
+function useSatoshiFont() {
+  useEffect(() => {
+    if (document.querySelector(`link[href="${SATOSHI_CSS}"]`)) return
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = SATOSHI_CSS
+    document.head.appendChild(link)
+  }, [])
+}
 
 // ─────────────────────────────────────────────────
 // Animation variants
 // ─────────────────────────────────────────────────
 const fadeUp = {
-  hidden: { opacity: 0, y: 28 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: 'easeOut' } },
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] } },
 }
 
-const staggerContainer = {
+const stagger = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.12 } },
+  visible: { transition: { staggerChildren: 0.15 } },
 }
 
 // ─────────────────────────────────────────────────
@@ -41,125 +51,247 @@ function scrollTo(id: string) {
 }
 
 // ─────────────────────────────────────────────────
-// Comparison cell helpers
+// Animated counter (counts up on scroll)
 // ─────────────────────────────────────────────────
-function Yes() {
-  return <CheckCircle2 className="w-5 h-5 text-emerald-400 mx-auto" />
-}
-function No() {
-  return <XCircle className="w-5 h-5 text-slate-600 mx-auto" />
-}
-function Partial({ label }: { label?: string }) {
+function AnimatedStat({ value, suffix, label }: { value: string; suffix?: string; label: string }) {
   return (
-    <span className="flex items-center justify-center gap-1">
-      <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
-      {label && <span className="text-amber-400 text-xs">{label}</span>}
-    </span>
+    <motion.div variants={fadeUp} className="text-center">
+      <div className="text-3xl sm:text-4xl font-bold text-white tracking-tight" style={{ fontFamily: 'Satoshi, sans-serif' }}>
+        {value}
+        {suffix && <span className="text-indigo-400">{suffix}</span>}
+      </div>
+      <div className="text-sm text-slate-400 mt-1">{label}</div>
+    </motion.div>
   )
 }
 
 // ─────────────────────────────────────────────────
-// LandingPage
+// Screenshot placeholder (swap with real images later)
 // ─────────────────────────────────────────────────
-export function LandingPage() {
-  // Nav transparency on scroll
-  const [navSolid, setNavSolid] = useState(false)
+function ScreenshotFrame({ label, aspect = '16/10' }: { label: string; aspect?: string }) {
+  return (
+    <div
+      className="rounded-xl bg-slate-800/60 border border-slate-700/50 overflow-hidden"
+      style={{ aspectRatio: aspect }}
+    >
+      <div className="w-full h-full flex items-center justify-center">
+        <span className="text-slate-500 text-sm">{label}</span>
+      </div>
+    </div>
+  )
+}
 
-  useEffect(() => {
-    function handleScroll() {
-      setNavSolid(window.scrollY > 60)
-    }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+// ─────────────────────────────────────────────────
+// Trajectory mini-chart (SVG — shows the accountability loop concept)
+// ─────────────────────────────────────────────────
+function TrajectoryMiniChart() {
+  const months = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+  const inaction = [60, 57, 54, 51, 48, 45, 42, 39, 36]
+  const expected = [60, 62, 64, 66, 68, 70]
+  const actual = [60, 61, 63, 66, 69]
 
-  // Demo form state
-  const [form, setForm] = useState({
-    name: '',
-    company: '',
-    role: '',
-    email: '',
-    problem: '',
-  })
-  const [submitted, setSubmitted] = useState(false)
+  const w = 320
+  const h = 160
+  const pad = { top: 20, right: 20, bottom: 30, left: 40 }
+  const plotW = w - pad.left - pad.right
+  const plotH = h - pad.top - pad.bottom
 
-  function handleFormChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
-  }
+  const xScale = (i: number) => pad.left + (i / (months.length - 1)) * plotW
+  const yScale = (v: number) => pad.top + plotH - ((v - 30) / 50) * plotH
 
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    setSubmitted(true)
-  }
-
-  // Ref for form section (for scrolling)
-  const demoRef = useRef<HTMLDivElement>(null)
+  const toPath = (data: number[]) =>
+    data.map((v, i) => `${i === 0 ? 'M' : 'L'}${xScale(i).toFixed(1)},${yScale(v).toFixed(1)}`).join(' ')
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white" style={{ scrollBehavior: 'smooth' }}>
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full max-w-sm mx-auto" style={{ fontFamily: 'Satoshi, sans-serif' }}>
+      {/* Grid lines */}
+      {[40, 50, 60, 70].map((v) => (
+        <line key={v} x1={pad.left} x2={w - pad.right} y1={yScale(v)} y2={yScale(v)} stroke="#334155" strokeWidth={0.5} />
+      ))}
 
-      {/* ── Navigation ── */}
+      {/* Approval marker */}
+      <line x1={xScale(0)} y1={pad.top} x2={xScale(0)} y2={h - pad.bottom} stroke="#6366f1" strokeWidth={1} strokeDasharray="3,3" opacity={0.4} />
+      <text x={xScale(0) + 4} y={pad.top + 10} fill="#6366f1" fontSize={8} opacity={0.6}>Approval</text>
+
+      {/* Inaction line (red, dashed) */}
+      <motion.path
+        d={toPath(inaction)}
+        fill="none"
+        stroke="#ef4444"
+        strokeWidth={1.5}
+        strokeDasharray="5,3"
+        initial={{ pathLength: 0 }}
+        whileInView={{ pathLength: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 1.5, ease: 'easeOut' }}
+      />
+
+      {/* Expected line (blue, dashed) */}
+      <motion.path
+        d={toPath(expected)}
+        fill="none"
+        stroke="#3b82f6"
+        strokeWidth={1.5}
+        strokeDasharray="5,3"
+        initial={{ pathLength: 0 }}
+        whileInView={{ pathLength: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 1.2, ease: 'easeOut', delay: 0.3 }}
+      />
+
+      {/* Actual line (emerald, solid) */}
+      <motion.path
+        d={toPath(actual)}
+        fill="none"
+        stroke="#10b981"
+        strokeWidth={2.5}
+        initial={{ pathLength: 0 }}
+        whileInView={{ pathLength: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 1, ease: 'easeOut', delay: 0.6 }}
+      />
+
+      {/* Actual dots */}
+      {actual.map((v, i) => (
+        <motion.circle
+          key={i}
+          cx={xScale(i)}
+          cy={yScale(v)}
+          r={3}
+          fill="#10b981"
+          initial={{ opacity: 0, scale: 0 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.6 + i * 0.15 }}
+        />
+      ))}
+
+      {/* Legend */}
+      <g transform={`translate(${pad.left}, ${h - 8})`}>
+        <line x1={0} y1={0} x2={16} y2={0} stroke="#ef4444" strokeWidth={1.5} strokeDasharray="4,2" />
+        <text x={20} y={3} fill="#94a3b8" fontSize={8}>Inaction</text>
+        <line x1={70} y1={0} x2={86} y2={0} stroke="#3b82f6" strokeWidth={1.5} strokeDasharray="4,2" />
+        <text x={90} y={3} fill="#94a3b8" fontSize={8}>Expected</text>
+        <line x1={145} y1={0} x2={161} y2={0} stroke="#10b981" strokeWidth={2} />
+        <text x={165} y={3} fill="#94a3b8" fontSize={8}>Actual</text>
+      </g>
+
+      {/* Y-axis label */}
+      <text x={pad.left - 8} y={pad.top - 6} fill="#64748b" fontSize={8} textAnchor="end">KPI %</text>
+    </svg>
+  )
+}
+
+// ═══════════════════════════════════════════════════
+// LANDING PAGE
+// ═══════════════════════════════════════════════════
+export function LandingPage() {
+  useSatoshiFont()
+
+  // Nav opacity on scroll
+  const [navSolid, setNavSolid] = useState(false)
+  useEffect(() => {
+    const onScroll = () => setNavSolid(window.scrollY > 60)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // Parallax for hero gradient
+  const heroRef = useRef<HTMLDivElement>(null)
+  const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] })
+  const gradientY = useTransform(scrollYProgress, [0, 1], ['0%', '40%'])
+
+  // Conversation form
+  const [form, setForm] = useState({ name: '', company: '', email: '', message: '' })
+  const [submitted, setSubmitted] = useState(false)
+  const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm((p) => ({ ...p, [e.target.name]: e.target.value }))
+  const onSubmit = (e: FormEvent) => { e.preventDefault(); setSubmitted(true) }
+
+  const font = { fontFamily: 'Satoshi, sans-serif' }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white" style={{ ...font, scrollBehavior: 'smooth' }}>
+
+      {/* ── NAVIGATION ── */}
       <nav
         className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
-          navSolid ? 'bg-slate-950/95 backdrop-blur border-b border-slate-800' : 'bg-transparent'
+          navSolid ? 'bg-slate-950/95 backdrop-blur border-b border-slate-800/60' : 'bg-transparent'
         }`}
       >
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <span className="text-lg font-bold tracking-tight text-white">
+          <span className="text-lg font-bold tracking-tight text-white" style={font}>
             Decision Studio
           </span>
-          <Link
-            to="/login"
-            className="text-sm text-slate-400 hover:text-white transition-colors flex items-center gap-1"
-          >
-            Sign In <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
+          <div className="flex items-center gap-6">
+            <Link
+              to="/how-it-works"
+              className="text-sm text-slate-400 hover:text-white transition-colors hidden sm:block"
+            >
+              How It Works
+            </Link>
+            <Link
+              to="/insights/bi-modernization"
+              className="text-sm text-slate-400 hover:text-white transition-colors hidden sm:block"
+            >
+              Insights
+            </Link>
+            <Link
+              to="/data-onboarding"
+              className="text-sm text-slate-400 hover:text-white transition-colors hidden sm:block"
+            >
+              Data Onboarding
+            </Link>
+            <Link
+              to="/login"
+              className="text-sm text-slate-400 hover:text-white transition-colors hidden sm:block"
+            >
+              Sign In
+            </Link>
+            <button
+              onClick={() => scrollTo('conversation')}
+              className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+            >
+              Request a Conversation
+            </button>
+          </div>
         </div>
       </nav>
 
-      {/* ══════════════════════════════════════════
+      {/* ═══════════════════════════════════════════
           1. HERO
-      ══════════════════════════════════════════ */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-24 pb-20 overflow-hidden">
-        {/* Background radial glow */}
-        <div
+      ═══════════════════════════════════════════ */}
+      <section ref={heroRef} className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-24 pb-20 overflow-hidden">
+        {/* Subtle gradient background with parallax */}
+        <motion.div
           className="absolute inset-0 pointer-events-none"
           style={{
-            background:
-              'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(99,102,241,0.12) 0%, transparent 70%)',
+            y: gradientY,
+            background: 'radial-gradient(ellipse 70% 50% at 50% 35%, rgba(99,102,241,0.08) 0%, transparent 70%)',
           }}
         />
 
         <motion.div
-          className="relative max-w-4xl text-center"
-          variants={staggerContainer}
+          className="relative max-w-3xl text-center"
+          variants={stagger}
           initial="hidden"
           animate="visible"
         >
-          <motion.div variants={fadeUp}>
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 text-xs font-medium mb-8">
-              AI-Powered Decision Intelligence
-            </span>
-          </motion.div>
-
           <motion.h1
             variants={fadeUp}
-            className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight text-white mb-6"
+            className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight text-white mb-6"
           >
-            Your executives deserve a{' '}
-            <span className="text-indigo-400">decision intelligence team.</span>
-            <br className="hidden sm:block" /> Not another dashboard.
+            Decisions deserve more than{' '}
+            <span className="text-indigo-400">a dashboard and a gut check.</span>
           </motion.h1>
 
           <motion.p
             variants={fadeUp}
-            className="text-lg sm:text-xl text-slate-300 max-w-2xl mx-auto mb-10 leading-relaxed"
+            className="text-lg sm:text-xl text-slate-300 max-w-2xl mx-auto mb-12 leading-relaxed"
           >
-            Continuous KPI monitoring, structured root cause analysis, and
-            multi-perspective recommendations — with a full audit trail. Any
-            domain. In hours, not weeks.
+            AI agents that watch your business continuously, diagnose problems
+            with structured analysis, and prove whether your actions worked.
+            You stay in control of every decision.
           </motion.p>
 
           <motion.div
@@ -167,617 +299,491 @@ export function LandingPage() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
             <button
-              onClick={() => scrollTo('request-demo')}
-              className="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors text-sm shadow-lg shadow-indigo-900/40"
+              onClick={() => scrollTo('conversation')}
+              className="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors text-sm"
             >
-              Request a Demo
+              Request a Conversation
             </button>
             <button
-              onClick={() => scrollTo('how-it-works')}
-              className="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold transition-colors text-sm border border-slate-700"
+              onClick={() => scrollTo('walkthrough')}
+              className="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-semibold transition-colors text-sm border border-slate-700/60 flex items-center justify-center gap-2"
             >
-              See How It Works
+              See It In Action <ArrowRight className="w-4 h-4" />
             </button>
           </motion.div>
         </motion.div>
       </section>
 
-      {/* ══════════════════════════════════════════
-          2. THE PROBLEM
-      ══════════════════════════════════════════ */}
-      <section className="py-24 px-6">
-        <div className="max-w-6xl mx-auto">
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-          >
-            <motion.div variants={fadeUp} className="text-center mb-14">
-              <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-                The world changed. Decision-making didn't.
+      {/* ═══════════════════════════════════════════
+          2. THE THREE PROBLEMS
+      ═══════════════════════════════════════════ */}
+      <section className="py-28 px-6">
+        <div className="max-w-4xl mx-auto">
+          <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-60px' }}>
+
+            {/* Problem 1 */}
+            <motion.div variants={fadeUp} className="mb-20">
+              <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-4">The monitoring gap</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4 leading-snug">
+                You're always reacting, never anticipating.
               </h2>
-              <p className="text-slate-400 max-w-xl mx-auto">
-                Three forces are converging — and most companies aren't ready.
+              <p className="text-slate-300 leading-relaxed mb-4 max-w-3xl">
+                Your KPIs get reviewed weekly or monthly. By the time someone spots a margin drop,
+                it's already expensive. You commission analysis — that takes weeks. By the time
+                you have answers, the market has moved again.
               </p>
+              <p className="text-slate-400 text-sm leading-relaxed max-w-3xl">
+                Dashboards show you what happened. They don't watch for you. Alerts fire on
+                thresholds without context — is this a blip or a trend? Is it one product line
+                or systemic? You still need an analyst to figure out what it means.
+              </p>
+              <div className="mt-5 flex items-center gap-2 text-xs text-slate-500">
+                <span className="inline-block w-1 h-1 rounded-full bg-slate-600" />
+                87% of organizations have low BI/analytics maturity — Gartner
+              </div>
             </motion.div>
 
-            <motion.div
-              variants={staggerContainer}
-              className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-14"
-            >
-              {[
-                {
-                  icon: <AlertTriangle className="w-6 h-6 text-amber-400" />,
-                  title: 'Consulting-quality analysis — in hours, not weeks',
-                  desc: 'MBB-grade structured analysis (root cause, multi-perspective debate, trade-off matrix) was either too expensive or took months. AI makes it actionable in hours — for every decision, not just the ones worth a $2M engagement.',
-                },
-                {
-                  icon: <TrendingDown className="w-6 h-6 text-amber-400" />,
-                  title: 'AI adoption is accelerating market change',
-                  desc: 'Your competitors are adopting AI to ship faster, reprice faster, restructure faster. The quarterly review cycle is already obsolete. Companies that still decide on monthly cadences are playing chess by mail.',
-                },
-                {
-                  icon: <MessageSquare className="w-6 h-6 text-amber-400" />,
-                  title: '"Data-driven" is unproven — until now',
-                  desc: 'Every company claims to be data-driven. None can prove their data-informed decisions actually worked. No baseline, no tracking, no attribution. Decision Studio is the first system that closes the loop.',
-                },
-              ].map((card) => (
-                <motion.div
-                  key={card.title}
-                  variants={fadeUp}
-                  className="rounded-xl bg-slate-900 border border-slate-800 p-6"
-                >
-                  <div className="mb-4">{card.icon}</div>
-                  <h3 className="text-white font-semibold text-lg mb-2">{card.title}</h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">{card.desc}</p>
-                </motion.div>
-              ))}
+            {/* Problem 2 */}
+            <motion.div variants={fadeUp} className="mb-20">
+              <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-4">The analysis gap</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4 leading-snug">
+                Deep analysis is locked behind consulting economics.
+              </h2>
+              <p className="text-slate-300 leading-relaxed mb-4 max-w-3xl">
+                Structured root-cause analysis — the kind that isolates exactly where, when,
+                and what changed — costs $500K+ and takes 12–24 weeks. You get one firm's
+                perspective, a static deck, and monitoring stops when the engagement ends.
+              </p>
+              <p className="text-slate-400 text-sm leading-relaxed max-w-3xl">
+                BI tools show you the "what" but not the "why." AI copilots generate
+                plausible-sounding narratives but can't prove them — they don't run
+                dimensional isolation against your actual data. You're choosing between
+                expensive rigor and cheap guessing.
+              </p>
+              <div className="mt-5 flex items-center gap-2 text-xs text-slate-500">
+                <span className="inline-block w-1 h-1 rounded-full bg-slate-600" />
+                $500K–$2M per engagement, 12–24 weeks, one perspective
+              </div>
             </motion.div>
 
-            <motion.p
-              variants={fadeUp}
-              className="text-slate-400 italic text-base max-w-2xl mx-auto border-l-2 border-indigo-600 pl-5 text-left"
-            >
-              "Stop claiming you're data-driven. Start proving it."
-            </motion.p>
+            {/* Problem 3 */}
+            <motion.div variants={fadeUp} className="mb-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-4">The proof gap</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4 leading-snug">
+                Nobody can prove their decisions worked.
+              </h2>
+              <p className="text-slate-300 leading-relaxed mb-4 max-w-3xl">
+                Every company claims to be data-driven. But ask "did that initiative actually
+                move the KPI, or did the market recover on its own?" and nobody has an answer.
+                Decisions get made, the team moves on, and outcomes are never traced back.
+              </p>
+              <p className="text-slate-400 text-sm leading-relaxed max-w-3xl">
+                Attribution requires counterfactual thinking — what would have happened
+                without the action? Dashboards can't do this. Even advanced analytics teams
+                rarely set up control groups before acting.
+              </p>
+              <div className="mt-5 flex items-center gap-2 text-xs text-slate-500">
+                <span className="inline-block w-1 h-1 rounded-full bg-slate-600" />
+                Only 15% of AI decision-makers can tie value to P&L changes — Forrester 2026
+              </div>
+            </motion.div>
+
           </motion.div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════
-          3. HOW IT WORKS
-      ══════════════════════════════════════════ */}
-      <section id="how-it-works" className="py-24 px-6 bg-slate-900/50">
-        <div className="max-w-6xl mx-auto">
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-          >
+      {/* ── Transition ── */}
+      <section className="py-16 px-6 border-t border-slate-800/40">
+        <motion.div
+          className="max-w-3xl mx-auto text-center"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+        >
+          <p className="text-2xl sm:text-3xl font-bold text-white leading-snug">
+            What if you could close all three gaps —{' '}
+            <span className="text-indigo-400">and prove it?</span>
+          </p>
+        </motion.div>
+      </section>
+
+      {/* ═══════════════════════════════════════════
+          3. PRODUCT WALKTHROUGH ("See It In Action")
+      ═══════════════════════════════════════════ */}
+      <section id="walkthrough" className="py-28 px-6 bg-slate-900/30">
+        <div className="max-w-5xl mx-auto">
+          <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-60px' }}>
+
+            <motion.div variants={fadeUp} className="text-center mb-20">
+              <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">See it in action</h2>
+              <p className="text-slate-400 max-w-xl mx-auto">
+                Six AI-driven steps from detection to proof — with you in the loop at every decision point.
+              </p>
+            </motion.div>
+
+            {/* Step 1 */}
+            <motion.div variants={fadeUp} className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center mb-24">
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center">
+                    <Eye className="w-4 h-4 text-indigo-400" />
+                  </div>
+                  <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Step 01</span>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-3">AI-Driven Monitoring</h3>
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  AI agents watch your KPIs around the clock. When something meaningful
+                  changes — not just a threshold breach, but a contextual shift — the system surfaces
+                  a situation card with the analysis already started.
+                </p>
+              </div>
+              <ScreenshotFrame label="Situation cards with KPI context → screenshot" />
+            </motion.div>
+
+            {/* Step 2 */}
+            <motion.div variants={fadeUp} className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center mb-24">
+              <div className="md:order-2">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center">
+                    <Search className="w-4 h-4 text-indigo-400" />
+                  </div>
+                  <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Step 02</span>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-3">AI-Powered Root Cause Analysis</h3>
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  AI runs dimensional IS/IS NOT analysis to isolate exactly where, when, and what
+                  changed — deterministically, against your real data. Not a chatbot
+                  guessing. Structured diagnosis you can audit and challenge.
+                </p>
+              </div>
+              <div className="md:order-1">
+                <ScreenshotFrame label="Deep Analysis with diverging bar chart → screenshot" />
+              </div>
+            </motion.div>
+
+            {/* Step 3 — Market Context (MA agent) */}
+            <motion.div variants={fadeUp} className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center mb-24">
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center">
+                    <Globe className="w-4 h-4 text-indigo-400" />
+                  </div>
+                  <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Step 03</span>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-3">Automatic Market Context</h3>
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  AI scans external sources — competitor moves, industry trends, regulatory
+                  shifts — and weaves market context directly into the analysis. You see
+                  whether a problem is internal or part of a broader market pattern, without
+                  commissioning separate research.
+                </p>
+              </div>
+              <ScreenshotFrame label="Market signals integrated into analysis → screenshot" />
+            </motion.div>
+
+            {/* Step 4 — HITL Refinement */}
+            <motion.div variants={fadeUp} className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center mb-24">
+              <div className="md:order-2">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center">
+                    <MessageCircle className="w-4 h-4 text-indigo-400" />
+                  </div>
+                  <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Step 04</span>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-3">You Refine, You Challenge</h3>
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  This isn't a black box. You ask follow-up questions, challenge assumptions,
+                  and steer the analysis with your domain knowledge. The AI adapts — your
+                  expertise shapes the outcome. Human-in-the-loop by design, not as an afterthought.
+                </p>
+              </div>
+              <div className="md:order-1">
+                <ScreenshotFrame label="Problem refinement conversation → screenshot" />
+              </div>
+            </motion.div>
+
+            {/* Step 5 — Multi-Perspective Recommendations */}
+            <motion.div variants={fadeUp} className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center mb-24">
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center">
+                    <Users className="w-4 h-4 text-indigo-400" />
+                  </div>
+                  <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Step 05</span>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-3">AI-Synthesized Recommendations</h3>
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  Three AI-driven strategic perspectives debate the best path forward — with visible
+                  disagreement and trade-off analysis. You see where they agree, where they
+                  don't, and why. Then you approve, reject, or refine.
+                </p>
+              </div>
+              <ScreenshotFrame label="Council debate with trade-off matrix → screenshot" />
+            </motion.div>
+
+            {/* Step 6 — Proof */}
+            <motion.div variants={fadeUp} className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+              <div className="md:order-2">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 rounded-full bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center">
+                    <LineChart className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Step 06</span>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-3">Proof It Worked</h3>
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  After you approve a solution, Decision Studio tracks what actually happened
+                  versus what would have happened without action. Causal attribution — not
+                  correlation. The first system that closes the accountability loop.
+                </p>
+              </div>
+              <div className="md:order-1">
+                <ScreenshotFrame label="Portfolio with trajectory tracking → screenshot" />
+              </div>
+            </motion.div>
+
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════
+          4. THE ACCOUNTABILITY LOOP
+      ═══════════════════════════════════════════ */}
+      <section className="py-28 px-6">
+        <div className="max-w-5xl mx-auto">
+          <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-60px' }}>
+
             <motion.div variants={fadeUp} className="text-center mb-16">
               <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-                How it works
+                The accountability loop
               </h2>
-              <p className="text-slate-400 max-w-xl mx-auto">
-                Three steps from raw data to a tracked, approved decision.
+              <p className="text-slate-400 max-w-2xl mx-auto">
+                Most tools stop at the recommendation. Decision Studio tracks three trajectories
+                after every approved decision — so you know whether it actually worked.
               </p>
             </motion.div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {[
-                {
-                  step: '01',
-                  icon: <Database className="w-7 h-7 text-indigo-400" />,
-                  title: 'Connect Your Data',
-                  desc: 'SAP, Oracle, Snowflake, or a CSV extract. 5-day onboarding.',
-                },
-                {
-                  step: '02',
-                  icon: <Radar className="w-7 h-7 text-indigo-400" />,
-                  title: 'Continuous Monitoring',
-                  desc: 'KPI breaches and opportunities detected automatically. Situation cards appear on your dashboard.',
-                },
-                {
-                  step: '03',
-                  icon: <Target className="w-7 h-7 text-indigo-400" />,
-                  title: 'Structured Decisions, Tracked Outcomes',
-                  desc: 'Root cause analysis, multi-perspective solution debate, approval workflow. Then trajectory tracking proves whether it worked.',
-                },
-              ].map((item, i) => (
-                <motion.div
-                  key={item.step}
-                  variants={fadeUp}
-                  className="relative"
-                >
-                  {/* Connector line — visible between steps on desktop */}
-                  {i < 2 && (
-                    <div className="hidden md:block absolute top-8 left-[calc(100%+1px)] w-8 border-t border-dashed border-slate-700" />
-                  )}
-                  <div className="rounded-xl bg-slate-900 border border-slate-800 p-7 h-full">
-                    <div className="text-xs font-bold text-indigo-500 mb-4 tracking-widest">
-                      STEP {item.step}
-                    </div>
-                    <div className="mb-4">{item.icon}</div>
-                    <h3 className="text-white font-semibold text-lg mb-3">{item.title}</h3>
-                    <p className="text-slate-400 text-sm leading-relaxed">{item.desc}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-      </section>
+            <motion.div variants={fadeUp} className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
 
-      {/* ══════════════════════════════════════════
-          4. FIVE PILLARS
-      ══════════════════════════════════════════ */}
-      <section className="py-24 px-6">
-        <div className="max-w-6xl mx-auto">
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-          >
-            <motion.div variants={fadeUp} className="text-center mb-14">
-              <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-                Five pillars of decision intelligence
-              </h2>
-            </motion.div>
+              {/* Chart */}
+              <div className="rounded-xl bg-slate-900/80 border border-slate-800/60 p-8">
+                <TrajectoryMiniChart />
+              </div>
 
-            <motion.div
-              variants={staggerContainer}
-              className="grid grid-cols-1 sm:grid-cols-2 gap-5"
-            >
-              {[
-                {
-                  icon: <Shield className="w-5 h-5 text-emerald-400" />,
-                  title: 'Always-On Monitoring',
-                  desc: 'Problems and opportunities detected before you ask the question.',
-                },
-                {
-                  icon: <Brain className="w-5 h-5 text-indigo-400" />,
-                  title: 'Consulting-Quality Insight',
-                  desc: 'SCQA analysis + multi-perspective debate in hours, not weeks.',
-                },
-                {
-                  icon: <Archive className="w-5 h-5 text-indigo-400" />,
-                  title: 'Institutional Memory',
-                  desc: 'KPI definitions and decision rationale that survive executive turnover.',
-                },
-                {
-                  icon: <TrendingUp className="w-5 h-5 text-emerald-400" />,
-                  title: 'Opportunity Detection',
-                  desc: 'Outperformance spotted and captured, not just problems fixed.',
-                },
-                {
-                  icon: <LineChart className="w-5 h-5 text-indigo-400" />,
-                  title: 'Proven ROI',
-                  desc: 'Trajectory tracking shows whether each decision actually worked.',
-                },
-              ].map((pillar) => (
-                <motion.div
-                  key={pillar.title}
-                  variants={fadeUp}
-                  className="flex items-start gap-4 rounded-xl bg-slate-900 border border-slate-800 px-6 py-5"
-                >
-                  <div className="mt-0.5 flex-shrink-0">{pillar.icon}</div>
+              {/* Three lines explained */}
+              <div className="space-y-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-3 h-3 rounded-full bg-red-500 mt-1.5 flex-shrink-0" />
                   <div>
-                    <p className="text-white font-semibold text-sm mb-1">{pillar.title}</p>
-                    <p className="text-slate-400 text-sm leading-relaxed">{pillar.desc}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════
-          5. COMPARISON TABLE
-      ══════════════════════════════════════════ */}
-      <section className="py-24 px-6 bg-slate-900/50">
-        <div className="max-w-5xl mx-auto">
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-          >
-            <motion.div variants={fadeUp} className="text-center mb-14">
-              <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-                How we compare
-              </h2>
-              <p className="text-slate-400 max-w-xl mx-auto">
-                Traditional consulting is too slow. Generic AI lacks structure and accountability.
-                Decision Studio closes the gap.
-              </p>
-            </motion.div>
-
-            <motion.div variants={fadeUp} className="overflow-x-auto rounded-xl border border-slate-800">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-900 border-b border-slate-800">
-                    <th className="text-left px-5 py-4 text-slate-400 font-medium w-48">
-                      Capability
-                    </th>
-                    <th className="px-5 py-4 text-center text-indigo-300 font-semibold">
-                      Decision Studio
-                    </th>
-                    <th className="px-5 py-4 text-center text-slate-400 font-medium">
-                      Traditional Consulting
-                    </th>
-                    <th className="px-5 py-4 text-center text-slate-400 font-medium">
-                      Generic AI
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    {
-                      cap: 'Multi-perspective debate',
-                      ds: <Yes />,
-                      tc: <No />,
-                      ga: <No />,
-                      tcNote: 'One firm',
-                    },
-                    {
-                      cap: 'Full audit trail',
-                      ds: <Yes />,
-                      tc: <No />,
-                      ga: <No />,
-                    },
-                    {
-                      cap: 'On-demand, 24/7',
-                      ds: <Yes />,
-                      tc: <No />,
-                      ga: <Yes />,
-                    },
-                    {
-                      cap: 'Human-in-the-loop',
-                      ds: <Yes />,
-                      tc: <Yes />,
-                      ga: <Partial />,
-                    },
-                    {
-                      cap: 'Post-decision ROI tracking',
-                      ds: <Yes />,
-                      tc: <No />,
-                      ga: <No />,
-                    },
-                    {
-                      cap: 'Opportunity detection',
-                      ds: <Yes />,
-                      tc: <Partial label="Ad hoc" />,
-                      ga: <No />,
-                    },
-                    {
-                      cap: 'Time to first insight',
-                      ds: <span className="text-emerald-400 font-medium block text-center">Hours</span>,
-                      tc: <span className="text-slate-400 block text-center">4–8 weeks</span>,
-                      ga: <span className="text-slate-400 block text-center">Hours</span>,
-                    },
-                    {
-                      cap: 'Annual cost',
-                      ds: <span className="text-emerald-400 font-medium block text-center">$44K–$100K</span>,
-                      tc: <span className="text-slate-400 block text-center">$500K–$3M</span>,
-                      ga: <span className="text-slate-400 block text-center">$20K–$50K</span>,
-                    },
-                  ].map((row, i) => (
-                    <tr
-                      key={row.cap}
-                      className={`border-b border-slate-800 last:border-0 ${
-                        i % 2 === 0 ? 'bg-slate-950' : 'bg-slate-900/40'
-                      }`}
-                    >
-                      <td className="px-5 py-3.5 text-slate-300">{row.cap}</td>
-                      <td className="px-5 py-3.5">{row.ds}</td>
-                      <td className="px-5 py-3.5">{row.tc}</td>
-                      <td className="px-5 py-3.5">{row.ga}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </motion.div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════
-          6. PRICING
-      ══════════════════════════════════════════ */}
-      <section className="py-24 px-6">
-        <div className="max-w-4xl mx-auto">
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-          >
-            <motion.div variants={fadeUp} className="text-center mb-14">
-              <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-                Simple, transparent pricing
-              </h2>
-              <p className="text-slate-400 max-w-xl mx-auto">
-                Two engagement models. Both include dedicated setup and onboarding.
-              </p>
-            </motion.div>
-
-            <motion.div
-              variants={staggerContainer}
-              className="grid grid-cols-1 md:grid-cols-2 gap-6"
-            >
-              {/* Fast Start Pilot */}
-              <motion.div
-                variants={fadeUp}
-                className="rounded-xl bg-slate-900 border border-slate-800 p-8 flex flex-col"
-              >
-                <div className="mb-6">
-                  <p className="text-slate-400 text-xs font-semibold uppercase tracking-widest mb-3">
-                    Fast Start Pilot
-                  </p>
-                  <div className="flex items-end gap-2 mb-1">
-                    <span className="text-4xl font-bold text-white">$15K</span>
-                    <span className="text-slate-400 text-sm mb-1">/ 3 months</span>
-                  </div>
-                  <p className="text-slate-500 text-xs">
-                    Best for: VP-level functional leaders evaluating the platform.
-                  </p>
-                </div>
-
-                <ul className="space-y-3 mb-8 flex-1">
-                  {[
-                    '5-day onboarding',
-                    'First insight in week one',
-                    'Full SA → DA → Solutions pipeline',
-                    'Dedicated implementation support',
-                  ].map((item) => (
-                    <li key={item} className="flex items-center gap-2.5 text-sm text-slate-300">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-
-                <button
-                  onClick={() => scrollTo('request-demo')}
-                  className="w-full py-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm border border-slate-700 transition-colors"
-                >
-                  Request a Demo
-                </button>
-              </motion.div>
-
-              {/* Full Platform */}
-              <motion.div
-                variants={fadeUp}
-                className="rounded-xl bg-indigo-950/60 border border-indigo-700/50 p-8 flex flex-col relative overflow-hidden"
-              >
-                <div
-                  className="absolute inset-0 pointer-events-none"
-                  style={{
-                    background:
-                      'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99,102,241,0.10) 0%, transparent 70%)',
-                  }}
-                />
-                <div className="relative">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-indigo-300 text-xs font-semibold uppercase tracking-widest">
-                      Full Platform
+                    <p className="text-white font-semibold text-sm mb-1">Inaction trajectory</p>
+                    <p className="text-slate-400 text-sm leading-relaxed">
+                      What would have happened if you did nothing. Projected at approval, frozen — the cost of delay made visible.
                     </p>
-                    <span className="px-2.5 py-0.5 rounded-full bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 text-[10px] font-semibold uppercase tracking-wide">
-                      Most Popular
-                    </span>
                   </div>
-                  <div className="flex items-end gap-2 mb-1">
-                    <span className="text-4xl font-bold text-white">$25–30K</span>
-                    <span className="text-slate-400 text-sm mb-1">/ 6 months</span>
-                  </div>
-                  <p className="text-slate-400 text-xs">
-                    Best for: C-suite executives wanting continuous decision intelligence.
-                  </p>
                 </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-3 h-3 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-white font-semibold text-sm mb-1">Expected recovery</p>
+                    <p className="text-slate-400 text-sm leading-relaxed">
+                      What the analysis predicted would happen if the solution works. Your hypothesis, tracked.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-3 h-3 rounded-full bg-emerald-500 mt-1.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-white font-semibold text-sm mb-1">Actual results</p>
+                    <p className="text-slate-400 text-sm leading-relaxed">
+                      What really happened — measured monthly, with causal attribution that separates your impact from market noise.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-                <ul className="space-y-3 my-8 flex-1 relative">
-                  {[
-                    'Full pipeline: monitoring → analysis → solutions → tracking',
-                    'Multi-persona debate council',
-                    'Executive Briefing reports',
-                    'ROI trajectory tracking',
-                    'Institutional knowledge registry',
-                  ].map((item) => (
-                    <li key={item} className="flex items-center gap-2.5 text-sm text-slate-200">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-
-                <button
-                  onClick={() => scrollTo('request-demo')}
-                  className="relative w-full py-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors shadow-lg shadow-indigo-900/40"
-                >
-                  Request a Demo
-                </button>
-              </motion.div>
             </motion.div>
+
           </motion.div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════
-          7. REQUEST A DEMO
-      ══════════════════════════════════════════ */}
-      <section id="request-demo" ref={demoRef} className="py-24 px-6 bg-slate-900/50">
+      {/* ── Stats bar ── */}
+      <section className="py-16 px-6 border-y border-slate-800/40">
+        <motion.div
+          className="max-w-4xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-8"
+          variants={stagger}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+        >
+          <AnimatedStat value="Hours" suffix="" label="Time to first insight" />
+          <AnimatedStat value="3" suffix="×" label="Strategic perspectives" />
+          <AnimatedStat value="100" suffix="%" label="Decision audit trail" />
+          <AnimatedStat value="DiD" suffix="" label="Causal attribution" />
+        </motion.div>
+      </section>
+
+      {/* ═══════════════════════════════════════════
+          5. BUILT BY — credibility section
+      ═══════════════════════════════════════════ */}
+      <section className="py-20 px-6">
+        <motion.div
+          className="max-w-3xl mx-auto text-center"
+          variants={stagger}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+        >
+          <motion.p variants={fadeUp} className="text-slate-300 leading-relaxed mb-8">
+            Decision Studio is built by a data &amp; analytics practitioner with 30+ years
+            across enterprise IT — from ERP implementations to AI-driven decision systems.
+            It exists because I saw the same pattern at every company: smart people making
+            expensive decisions without structured analysis or any way to prove they worked.
+          </motion.p>
+          <motion.div variants={fadeUp} className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-500">
+            {[
+              'ExxonMobil', 'Shell', 'Valvoline', 'Hess',
+              'BCG', 'PwC',
+              'Roche', 'McKesson', 'Teleflex',
+              'Whirlpool', 'Panasonic', 'Commercial Metals',
+              'Pilgrim\'s Pride', 'Cadence Design Systems',
+            ].map((name) => (
+              <span key={name} className="whitespace-nowrap">{name}</span>
+            ))}
+          </motion.div>
+          <motion.p variants={fadeUp} className="text-slate-600 text-xs mt-6">
+            Past client engagements in data, analytics, and enterprise systems.
+          </motion.p>
+        </motion.div>
+      </section>
+
+      {/* ═══════════════════════════════════════════
+          6. REQUEST A CONVERSATION
+      ═══════════════════════════════════════════ */}
+      <section id="conversation" className="py-28 px-6">
         <div className="max-w-2xl mx-auto">
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-          >
+          <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true }}>
+
             <motion.div variants={fadeUp} className="text-center mb-12">
               <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-                Request a demo
+                Let's have a conversation
               </h2>
-              <p className="text-slate-400">
-                Tell us a little about your context and we'll put together a
-                personalised walkthrough.
+              <p className="text-slate-400 max-w-lg mx-auto mb-6">
+                Not a sales call. A real conversation about the decisions your team is
+                making and whether this approach could help.
               </p>
+              <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
+                <Shield className="w-3.5 h-3.5 text-slate-600" />
+                <span>Human-in-the-loop by design. AI does the analysis — you make the decisions.</span>
+              </div>
             </motion.div>
 
-            <motion.div
-              variants={fadeUp}
-              className="rounded-2xl bg-slate-900 border border-slate-800 p-8"
-            >
+            <motion.div variants={fadeUp} className="rounded-2xl bg-slate-900/80 border border-slate-800/60 p-8">
               {submitted ? (
                 <div className="text-center py-10">
                   <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto mb-4" />
-                  <h3 className="text-white font-semibold text-xl mb-2">
-                    Thanks — we'll be in touch.
-                  </h3>
+                  <h3 className="text-white font-semibold text-xl mb-2">Thank you.</h3>
                   <p className="text-slate-400 text-sm">
-                    We'll reach out within 24 hours to schedule a personalised walkthrough.
+                    I'll reach out within a day or two to find a time that works.
                   </p>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} className="space-y-5">
+                <form onSubmit={onSubmit} className="space-y-5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div>
-                      <label
-                        htmlFor="name"
-                        className="block text-xs font-medium text-slate-400 mb-1.5"
-                      >
+                      <label htmlFor="name" className="block text-xs font-medium text-slate-400 mb-1.5">
                         Name <span className="text-indigo-400">*</span>
                       </label>
                       <input
-                        id="name"
-                        name="name"
-                        type="text"
-                        required
-                        value={form.name}
-                        onChange={handleFormChange}
+                        id="name" name="name" type="text" required
+                        value={form.name} onChange={onChange}
                         placeholder="Jane Smith"
                         className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
                       />
                     </div>
                     <div>
-                      <label
-                        htmlFor="company"
-                        className="block text-xs font-medium text-slate-400 mb-1.5"
-                      >
-                        Company <span className="text-indigo-400">*</span>
+                      <label htmlFor="email" className="block text-xs font-medium text-slate-400 mb-1.5">
+                        Email <span className="text-indigo-400">*</span>
                       </label>
                       <input
-                        id="company"
-                        name="company"
-                        type="text"
-                        required
-                        value={form.company}
-                        onChange={handleFormChange}
-                        placeholder="Acme Corp"
-                        className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <div>
-                      <label
-                        htmlFor="role"
-                        className="block text-xs font-medium text-slate-400 mb-1.5"
-                      >
-                        Role / Title <span className="text-indigo-400">*</span>
-                      </label>
-                      <input
-                        id="role"
-                        name="role"
-                        type="text"
-                        required
-                        value={form.role}
-                        onChange={handleFormChange}
-                        placeholder="Chief Financial Officer"
-                        className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-                      />
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="email"
-                        className="block text-xs font-medium text-slate-400 mb-1.5"
-                      >
-                        Work Email <span className="text-indigo-400">*</span>
-                      </label>
-                      <input
-                        id="email"
-                        name="email"
-                        type="email"
-                        required
-                        value={form.email}
-                        onChange={handleFormChange}
-                        placeholder="jane@acme.com"
+                        id="email" name="email" type="email" required
+                        value={form.email} onChange={onChange}
+                        placeholder="jane@company.com"
                         className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label
-                      htmlFor="problem"
-                      className="block text-xs font-medium text-slate-400 mb-1.5"
-                    >
-                      What decision keeps you up at night?{' '}
+                    <label htmlFor="company" className="block text-xs font-medium text-slate-400 mb-1.5">
+                      Company <span className="text-indigo-400">*</span>
+                    </label>
+                    <input
+                      id="company" name="company" type="text" required
+                      value={form.company} onChange={onChange}
+                      placeholder="Acme Corp"
+                      className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="message" className="block text-xs font-medium text-slate-400 mb-1.5">
+                      What decisions are keeping you up at night?{' '}
                       <span className="text-slate-600">(optional)</span>
                     </label>
                     <textarea
-                      id="problem"
-                      name="problem"
-                      rows={4}
-                      value={form.problem}
-                      onChange={handleFormChange}
-                      placeholder="e.g. Gross margin has declined 3 points over 6 months and we don't know why..."
+                      id="message" name="message" rows={3}
+                      value={form.message} onChange={onChange}
+                      placeholder="e.g. Margin declined 3 points over 6 months and we can't pinpoint why..."
                       className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition resize-none"
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full py-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors shadow-lg shadow-indigo-900/40"
+                    className="w-full py-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors"
                   >
-                    Request a Demo
+                    Request a Conversation
                   </button>
 
                   <p className="text-center text-slate-500 text-xs pt-1">
-                    We'll reach out within 24 hours to schedule a personalised walkthrough.
+                    No sales pitch. Just a conversation about whether this fits.
                   </p>
                 </form>
               )}
             </motion.div>
+
           </motion.div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════
-          8. FOOTER
-      ══════════════════════════════════════════ */}
-      <footer className="border-t border-slate-800 py-10 px-6">
+      {/* ═══════════════════════════════════════════
+          6. FOOTER
+      ═══════════════════════════════════════════ */}
+      <footer className="border-t border-slate-800/40 py-10 px-6">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
           <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
-            <span className="font-bold text-white">Decision Studio</span>
-            <a
-              href="mailto:info@trydecisionstudio.com"
-              className="hover:text-slate-300 transition-colors"
-            >
+            <span className="font-bold text-white" style={font}>Decision Studio</span>
+            <a href="mailto:info@trydecisionstudio.com" className="hover:text-slate-300 transition-colors">
               info@trydecisionstudio.com
             </a>
-            <span>© 2026 Decision Studio</span>
+            <span>&copy; 2026 Decision Studio</span>
           </div>
-          <Link
-            to="/login"
-            className="text-slate-400 hover:text-white transition-colors flex items-center gap-1"
-          >
-            Sign In <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
+          <div className="flex items-center gap-6">
+            <Link to="/how-it-works" className="text-slate-400 hover:text-white transition-colors">
+              How It Works
+            </Link>
+            <Link to="/insights/bi-modernization" className="text-slate-400 hover:text-white transition-colors">
+              Insights
+            </Link>
+            <Link to="/data-onboarding" className="text-slate-400 hover:text-white transition-colors">
+              Data Onboarding
+            </Link>
+            <Link to="/login" className="text-slate-400 hover:text-white transition-colors flex items-center gap-1">
+              Sign In <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
       </footer>
 
