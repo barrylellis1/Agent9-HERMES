@@ -84,6 +84,16 @@ The original premise challenge was written when the platform was mid-build. Six 
 - **Risk:** Pure outcome pricing is too volatile for a startup; hybrid model (small base + outcome share + cap) is the practical version
 - **Kill criterion if pursued:** >60-70% of customers must generate measurable outcomes within 90 days, or the model doesn't work
 
+**P13 (New — Mar 31): "Adaptive Calibration Feedback Loop is a client-specific, time-locked moat."**
+- Confidence: 🟢 **Strong**
+- The closed-loop system where KPI Assistant recommends monitoring profiles (volatility bands, comparison periods, breach duration thresholds, confidence floors) → SA uses profiles to filter signal from noise → DA/SF/VA processes only real situations → VA measurement outcomes recalibrate profiles is not novel in pieces but unique in integration
+- Each component (anomaly detection, LLM recommendations) exists elsewhere; the closed loop compounds client-specific knowledge over time
+- After 12 months of production data: 50+ calibrated KPI profiles, validated historical noise-vs-signal classifier, outcome-tested monitoring rules specific to that client's domain and operational volatility
+- Switching cost: a competitor would need 12+ months of the client's historical data and operational understanding to recalibrate equivalently — data that cannot be exported or replicated
+- **Moat only materializes after 3-6 months.** Early-stage decisions on pricing and onboarding speed must prioritize fast customer acquisition and time-to-first-value, not moat-depth. Moat becomes defensible only after clients hit the 12-month retention window
+- Each VA measurement cycle (solution tracked to outcome) makes the system smarter for that client: "40% of triggers were noise → widen volatility band"; "80% of pricing interventions worked → tighten monitoring for margin KPIs"
+- **Competitive immunity:** A well-resourced competitor could replicate the pipeline architecture in 6-12 months. They cannot replicate 50 production-tuned monitoring profiles for a specific customer without operating their platform for a year in that customer's environment first
+
 ---
 
 ## 2. Projected Market Trends — Updated Assessment
@@ -210,6 +220,21 @@ The Fast Start onboarding (5 days to first situation card) also helps — the bu
 $2M ARR at 30 months is **back in range** under the upside incremental pricing scenario, without requiring more customers than originally planned — just higher per-customer value capture through KPI expansion and assessment usage.
 
 **⚠️ Pricing model not finalized.** These projections are conditional on demo feedback validating that the ICP prefers incremental pricing over flat SaaS.
+
+### P13: "Adaptive Calibration Feedback Loop is a client-specific, time-locked moat" → 🟢 STRONG (NEW)
+
+**March 31 verdict:** Strong moat mechanism, but only after 3-6 month production window.
+
+**March 31 assessment:** The individual pieces are not novel — anomaly detection, LLM-powered KPI recommendations, monitoring profile optimization are standard techniques. The closed loop is the differentiator. As VA outcome data feeds back into recalibrating monitoring profiles, each client builds 50+ production-tuned KPI baselines that are specific to their operational volatility, seasonal patterns, and historical noise floor. A competitor cannot replicate this in 6-12 months without operating their own platform in that customer's environment for 12+ months.
+
+**Switching cost mechanics:**
+- After 12 months: 50+ calibrated KPI profiles, a validated classifier distinguishing operational noise from signal, proven SA detection rules tuned to the customer's operational cycle
+- A competitor acquiring the customer would either rebuild from scratch (12 months, full cost recovery) or accept inferior detection performance
+- Each VA measurement cycle tightens the moat: "40% of SA triggers were noise → widen volatility band"; "solution worked 80% of the time → trust this KPI threshold more aggressively"
+
+**Critical insight:** This moat does NOT justify slow early customer acquisition. Moat compounds only after customers stay 3-6 months and hit the 12-month production window. Early pricing and onboarding must prioritize speed and low entry cost to maximize customer volume and retention windows. The moat becomes a retention amplifier, not a lead amplifier.
+
+**Strategic status:** ✅ Validates focus on fast onboarding (low switching cost friction) + reasonable pricing (enables volume) → moat automatically builds for any customer who stays 12+ months
 
 ---
 
@@ -440,4 +465,4 @@ The window is still narrow. Funded competitors are building in the same space. B
 
 ---
 
-*This document supersedes the February 12 original. Last updated March 27: added P11-P12 (pricing model premises), Section 5 (pricing model evolution), three-tier revenue projections, revised financial projections under incremental pricing, Section 7 (exit strategy implications). Full exit analysis: `docs/strategy/exit_strategy.md`. Next review: June 2026 (post-outreach assessment — pricing model should be locked by then).*
+*This document supersedes the February 12 original. Last updated March 31: added P13 (adaptive calibration feedback loop moat), Section 3 P13 verdict (switching cost mechanics, 12-month horizon), revised final section to emphasize moat compounds from retention. Previous updates (March 27): added P11-P12 (pricing model premises), Section 5 (pricing model evolution), three-tier revenue projections, revised financial projections under incremental pricing, Section 7 (exit strategy implications). Full exit analysis: `docs/strategy/exit_strategy.md`. Next review: June 2026 (post-outreach assessment — pricing model should be locked by then).*

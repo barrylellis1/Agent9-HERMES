@@ -64,11 +64,11 @@ SA (Detect) → DA (Diagnose) → MA (Context) → SF (Prescribe) → HITL (Deci
 
 ---
 
-### Phase 7C: Value Assurance UI Integration
+### Phase 7C: Value Assurance UI Integration ✅ COMPLETE
 
-**Status:** Planned. Components built, not wired.
+**Status:** Shipped (Mar 2026). All VA components wired into the UI.
 
-**Context:** Phase 7 delivered 4 React components (ValueAssurancePanel, AttributionBreakdown, PortfolioDashboard, CostOfInactionBanner) and 7 VA API endpoints. None of the components are imported or used anywhere in the UI. No VA API calls exist in `client.ts`. The VA backend is fully operational — the gap is entirely in the frontend.
+**Context:** Phase 7 delivered 4 React components and 7 VA API endpoints. Phase 7C wired everything together.
 
 **Goal:** Surface outcome tracking to the principal so they can see whether approved decisions are delivering. This closes the Agent9 value loop visually: detect → diagnose → decide → **did it work?**
 
@@ -137,6 +137,7 @@ The SA→opportunity labeling code (`from_opportunity_signal`, `card_type="oppor
 - DA is the **analyst** — for each flagged KPI, runs Is/Is Not to produce both problem segments AND benchmark segments
 - Principal-specific views are **layered on top** — the same assessment data, filtered by the principal's business processes
 - SF and HITL remain **interactive** — pre-compute the analysis, keep humans in the decision loop
+- **Noise filtering via KPI monitoring profiles** — each KPI defines its own comparison period, volatility band, breach duration threshold, and confidence floor. SA uses these to distinguish signal from noise before committing DA resources.
 
 #### Phase 9A: Data Model + Persistence
 
@@ -145,6 +146,7 @@ The SA→opportunity labeling code (`from_opportunity_signal`, `card_type="oppor
 | Supabase migration | `assessment_runs` (id, timestamp, status, kpi_count, config) |
 | Supabase migration | `kpi_assessments` (id, run_id, kpi_id, kpi_value, severity, da_result JSONB, benchmark_segments JSONB) |
 | Assessment models | Pydantic models: `AssessmentRun`, `KPIAssessment`, `AssessmentConfig` |
+| KPI monitoring profile fields | New fields on KPI registry: `comparison_period`, `volatility_band`, `min_breach_duration`, `confidence_floor`, `urgency_window_days` |
 
 #### Phase 9B: Assessment Engine (replaces `run_cfo_assessment.py`)
 
@@ -152,9 +154,38 @@ The SA→opportunity labeling code (`from_opportunity_signal`, `card_type="oppor
 |------------|-------------|
 | `run_enterprise_assessment.py` | New script: iterates ALL registered KPIs, runs SA measurement + DA analysis per KPI, persists to Supabase |
 | Proper agent instantiation | Uses RegistryFactory + Orchestrator (not legacy `create_situation_awareness_agent`) |
+| KPI-specific comparison periods | SA uses each KPI's `comparison_period` instead of a global timeframe toggle |
+| Volatility-adjusted severity | Breach magnitude evaluated relative to the KPI's `volatility_band` — a 5% revenue dip may be noise while a 2% margin drop is a crisis |
+| Confidence floor gating | Only escalate to DA when situation confidence exceeds the KPI's `confidence_floor`. Below that, flag as "monitoring" — visible but not consuming pipeline resources |
 | Configurable severity floor | Only run DA for KPIs above a configurable severity threshold |
 | Idempotent runs | Assessment run ID prevents duplicate analysis for the same KPI in the same period |
 | Progress logging | Per-KPI progress with timing, errors logged but non-fatal |
+
+#### Phase 9F: Adaptive Calibration Loop (KPI Assistant)
+
+**Goal:** Transform the KPI Assistant from a one-time onboarding helper into an ongoing tuning advisor. The system gets smarter per client over time — this is the core compounding moat.
+
+**Prerequisite:** Phase 9B (assessment engine with monitoring profiles), existing KPI Assistant Agent (4 API endpoints).
+
+**Flow:**
+1. **Onboarding:** Admin registers KPIs with basic thresholds. KPI Assistant analyzes production data — historical volatility, seasonal patterns, data quality consistency, natural comparison cadences.
+2. **Recommends monitoring profile:** "Gross Margin has ±1.8% quarterly variance and no seasonality. I recommend QoQ comparison, 2% volatility band, 2-period minimum breach duration. Here's why:" — with supporting data.
+3. **Admin accepts, adjusts, or challenges** — conversational refinement (existing KPI Assistant chat pattern).
+4. **Parameters persist on KPI registry** — SA uses them at runtime.
+5. **Recalibration after N assessment cycles:** VA outcomes + trigger accuracy data feed back to KPI Assistant — "40% of your Revenue triggers were noise over the last 6 months. Recommend widening volatility band from ±5% to ±10%."
+
+**Moat significance:** After 12 months, switching means losing calibrated profiles for 50+ KPIs, historical noise-vs-signal classification data, and validated decision outcomes. The individual pieces (anomaly detection, LLM recommendations) are replicable — the closed loop from calibration → detection → diagnosis → decision → proof → recalibration is not.
+
+| Deliverable | Description |
+|------------|-------------|
+| Historical volatility analysis | KPI Assistant queries production data, computes standard deviation, seasonal decomposition, data completeness metrics per KPI |
+| Monitoring profile recommendation | LLM synthesizes statistical analysis into recommended `comparison_period`, `volatility_band`, `min_breach_duration`, `confidence_floor`, `urgency_window_days` with natural-language rationale |
+| Conversational refinement | Extend existing KPI Assistant chat to support monitoring profile discussion — admin can challenge recommendations with domain knowledge |
+| Recalibration trigger | After N assessment cycles (configurable, default 6 months), KPI Assistant reviews trigger accuracy: what % of escalated situations led to real action vs were dismissed as noise |
+| Recalibration recommendations | "Your Revenue KPI triggered 12 times, 5 were approved for action, 7 were dismissed. Recommend widening volatility band." Admin approves or adjusts. |
+| KPI Assistant UI | React panel for monitoring profile setup and recalibration (currently API-only) |
+
+**Dependencies:** Phase 9B (assessment engine), KPI Assistant Agent (existing), VA measurement data (Phase 7).
 
 #### Phase 9C: API + UI
 
@@ -164,7 +195,62 @@ The SA→opportunity labeling code (`from_opportunity_signal`, `card_type="oppor
 | `GET /assessments/{run_id}` | Full assessment detail |
 | `POST /assessments/run` | Trigger assessment on-demand (optional — may be CLI-only initially) |
 | Landing page refactor | Dashboard reads from assessment API, shows pre-analyzed findings with headline summaries |
-| KPI tile redesign | One tile per KPI showing DA headline (not just value + threshold), click drills into pre-loaded DeepFocusView |
+| KPI tile redesign | Full tile overhaul — see spec below. Click drills into pre-loaded DeepFocusView |
+
+**KPI Tile Redesign Spec:**
+
+~~The current KPI tile sparkline is **fake** (`Math.random()` in `KPITile.tsx` line 16). Replace with real data.~~ **Partially complete (Mar 2026).**
+
+*Backend changes:*
+
+| Deliverable | Description | Status |
+|------------|-------------|--------|
+| Monthly series query | SA queries 9 monthly aggregates per KPI via `_bq_monthly_series_sql()`. BigQuery only; DuckDB TODO | ✅ Done |
+| `monthly_values` on data model | `KPIValue.monthly_values: Optional[List[Dict[str, Any]]]` — `{period, value}` | ✅ Done |
+| Comparison period label | Include the KPI's `comparison_period` (from monitoring profile) on the Situation response | Pending (Phase 9A) |
+
+*Frontend changes:*
+
+| Deliverable | Description | Status |
+|------------|-------------|--------|
+| 9-month bar chart | Real bar chart from `monthly_values`. Latest bar in severity color, prior in muted slate | ✅ Done |
+| Comparison period badge | Small label on tile: "QoQ" / "MoM" / "YoY" — sourced from monitoring profile | Pending (Phase 9A) |
+| Threshold reference line | Horizontal dashed line at the KPI's threshold value | Pending |
+| Remove `Math.random()` | Fake sparkline data generation deleted | ✅ Done |
+| Wire `kpi_evaluated_count` | Replace hardcoded `kpisScanned={14}` in DecisionStudio.tsx with real count from API | Pending (Phase 9G) |
+
+*Why 9 months:*
+- Works regardless of comparison period (MoM sees recent trajectory, QoQ sees 3 full quarters, YoY sees 3/4 of the year)
+- Shows seasonality visually — admin can see if a "breach" is just a seasonal dip
+- Gives context: is this a sudden drop or a gradual decline?
+- Consistent across all KPIs regardless of their individual comparison cadence
+
+#### Phase 9G: Unified Situation Stream
+
+**Goal:** Eliminate the artificial split between "situations" (problems) and "opportunities" (positive signals). Every KPI movement that exceeds a confidence/magnitude threshold is a **situation** — direction determines framing, not whether it enters the pipeline. Both positive and negative situations flow through DA → SF → VA with equal rigor.
+
+**Why:** Opportunities are currently second-class citizens — separate detection path, separate UI section, no DA/SF pipeline. A CFO seeing "Revenue up 18% in Region X" needs the same analytical depth as "COGS up 12%": *Why did it happen? Is it sustainable? Can we replicate it? What's the cost of NOT acting?* The existing Phase 8 DA already handles opportunity SCQA — this phase wires the full pipeline.
+
+**Prerequisite:** Phase 9B (confidence floor gating, per-KPI monitoring profiles).
+
+**Design principles:**
+- **One stream, sorted by magnitude** — no separate "Opportunities Detected" section. A single grid of situation cards, sorted by absolute impact magnitude. Green border = positive, red/amber = negative. The card's `card_type` field ("problem" | "opportunity") controls framing downstream, not UI placement.
+- **Direction-agnostic escalation** — SA creates situation cards for any KPI exceeding the monitoring profile's volatility band + confidence floor, regardless of direction. A +20% revenue jump and a -20% margin drop both escalate.
+- **DA framing follows direction** — `analysis_mode` already supports "problem" | "opportunity". SA sets this based on `positive_trend_is_good` + percent_change direction. DA produces problem segments OR replication candidates, not both.
+- **SF adapts solution framing** — For opportunities: "How do we replicate/accelerate this?" instead of "How do we fix this?" Stage 1 persona prompts need an `opportunity` variant.
+- **Both directions get VA tracking** — Approved opportunity actions ("expand Region X playbook to Region Y") get the same trajectory chart, measurement, and attribution as problem fixes.
+
+| Deliverable | Description |
+|------------|-------------|
+| Remove two-stream UI split | Single situation grid in DashboardView, sorted by `abs(percent_change)`. Remove separate `OpportunityCard` section. KPITile border color indicates direction. |
+| Wire `kpi_evaluated_count` | Replace hardcoded `kpisScanned={14}` in DecisionStudio.tsx with `response.kpi_evaluated_count` from SA API. Update summary bar: "X situations detected" → "X findings detected (Y require attention)". |
+| Direction-agnostic SA detection | SA produces unified `situations[]` — positive KPIs with `card_type="opportunity"` instead of going through separate `OpportunitySignal` path. Deprecate `OpportunitySignal` model. |
+| Confidence-gated escalation | SA only creates situation cards when confidence > KPI's `confidence_floor`. Below threshold: logged as "monitoring" but not surfaced. Applies equally to positive and negative movements. |
+| SF opportunity prompt variant | Stage 1 persona prompts detect `analysis_mode="opportunity"` and shift from "fix" framing to "replicate/accelerate" framing. Synthesis prompt adapts accordingly. |
+| Summary bar redesign | Replace "Situations Detected" / "within normal range" language with: "X KPIs evaluated · Y findings · Z require attention". Color-code by direction, not just severity. |
+| Remove `OpportunitySignal` from API | Deprecate `SituationDetectionResponse.opportunities` field. All items flow through `.situations` with `card_type` distinguishing direction. Keep backward compat for 1 release. |
+
+**Migration path:** Phase 8's `OpportunitySignal` and `from_opportunity_signal()` stay until Phase 9G ships. The two-stream code works — it's just architecturally wrong. Clean removal when the unified stream is live.
 
 #### Phase 9D: Principal-Specific Layering
 
@@ -409,6 +495,10 @@ These features go beyond CaaS core and into per-customer enterprise customizatio
 | Partner attribution + escalation routing | **Infra Phase C** | Lead tracking, handoff export, partner portal — enables Tier 1 partnerships |
 | SOC 2 + SSO + data residency | **Infra Phase D** | Enterprise compliance — enables $100K+ ACV tier |
 | Email/Slack notifications | Phase 7C or later | Notify principals when solutions are VALIDATED / FAILED |
+| Remove SA console dropdowns | Pre-Phase 9 | Client selector → move to login screen (multi-tenant context). Timeframe selector → remove (replaced by per-KPI `comparison_period` in monitoring profiles). Default to YoY until Phase 9. |
+| KPI monitoring profiles | Phase 9A | New fields on KPI registry: `comparison_period`, `volatility_band`, `min_breach_duration`, `confidence_floor`, `urgency_window_days` |
+| Adaptive calibration loop | Phase 9F | KPI Assistant analyzes production data → recommends profiles → recalibrates after N cycles using VA outcomes + trigger accuracy. Core compounding moat. |
+| Unified situation stream | Phase 9G | Merge OpportunitySignal into Situation with `card_type` direction flag. Single grid sorted by magnitude. Both directions flow through DA→SF→VA. Deprecate `SituationDetectionResponse.opportunities`. |
 
 ### Testing Strategy
 
@@ -418,6 +508,7 @@ These features go beyond CaaS core and into per-customer enterprise customizatio
 | Integration tests | SF HITL → VA registration → measurement → evaluation | Phase 7B |
 | Strategy drift scenarios | ALIGNED/DRIFTED/SUPERSEDED with portfolio impact | Phase 7A |
 | Opportunity analysis tests | Positive anomaly detection, IS NOT as replication candidates | Phase 8B |
+| Unified stream tests | Direction-agnostic escalation, confidence gating, opportunity→SF pipeline | Phase 9G |
 | End-to-end demo smoke tests | Full SA → DA → MA → SF → VA pipeline | Phase 7D |
 
 ### Documentation Updates Per Phase
@@ -633,13 +724,16 @@ The Executive Briefing page becomes the venue for Solution Refinement — the pr
 | Priority | Phase | Scope | Key Deliverable | Status |
 |----------|-------|-------|-----------------|--------|
 | ~~Done~~ | 7 | Value Assurance | Counterfactual attribution, SF→VA approval handoff | ✅ Complete |
-| **Next** | 7C | Value Assurance UI | Wire VA components into Executive Briefing, Dashboard, portfolio view | Planned — components built, not wired |
+| ~~Done~~ | 7C | Value Assurance UI | ValueAssurancePanel + AttributionBreakdown wired into ExecutiveBriefing (post-approval) and Portfolio detail panel; CostOfInactionBanner in briefing; PortfolioDashboard at /portfolio | ✅ Complete |
 | ~~Done~~ | 8 | Opportunity Deep Analysis | BenchmarkSegment, unified DA, Replication Targets UI | ✅ Complete (design revised) |
 | ~~Done~~ | Pre-Video | UI Polish | Chat sticky footer, DA accordion, registry forms, persona passthrough | ✅ Complete |
+| **WIP** | Demo Video | Remotion Conceptual Demo | 4:00 video (10 scenes), Remotion in `demo-video/`. Fonts scaled, all scenes drafted. Needs review pass, final render, then publish to YouTube + embed on trydecisionstudio.com | In Progress |
+| ~~Done~~ | Partner Deck | Business Premise & Challenge Presentation | Reveal.js deck at `docs/strategy/partner_deck.html`. 13 slides: problem, pipeline, what's built, ICP, moat, pricing, revenue tiers, projections, exit, Tier 0, next steps, contact. | ✅ Complete |
 | ~~Done~~ | Refinement | Dual-Framing + Interactive Decision Briefing | Steps 1-3 complete: benchmark-aware debate, two-panel briefing workspace, Q&A endpoint. Step 4 (multi-initiative approval) deferred. Step 5 (PRD updates) complete. | ✅ Steps 1-3 + 5 complete |
-| **BLOCKER** | Infra A | Production Deployment | Cloud hosting, auth, monitoring, domain — gates all outreach | Planned (Apr-May 2026) |
+| ~~Done~~ | Infra A | Production Deployment | Railway + Vercel + Supabase Cloud + BigQuery. Deployed 2026-03-24. Full pipeline operational. | ✅ Complete |
 | **Next** | 9A-D | Enterprise Assessment Pipeline | Offline SA→DA batch, Supabase persistence, pre-analyzed findings | Planned |
 | **Next** | 9E | Briefing Agent — Audio Intelligence | Flash Briefings, persona-tailored TTS, workflow-stage framing | Planned (after 9B) |
+| **Next** | 9G | Unified Situation Stream | Merge problem/opportunity into single pipeline. Direction-agnostic escalation, confidence gating, opportunity→SF→VA. Wire real `kpi_evaluated_count`. | Planned (after 9B) |
 | **BLOCKER** | Infra B | Customer Infrastructure | Multi-tenant isolation, CI/CD, provisioning — gates first pilot | Planned (May-Aug 2026) |
 | **After** | 10 | Business Optimization | Top-down strategic entry, risk/stakeholder agents | Planned |
 | **Year 2** | Infra C | Partner Infrastructure | Lead attribution, escalation routing, handoff export, partner portal | Planned (Mar-Dec 2027, triggered by 5+ customers) |

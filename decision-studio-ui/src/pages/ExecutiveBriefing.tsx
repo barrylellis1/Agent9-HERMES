@@ -6,8 +6,11 @@ import {
   Users, Target, Zap, Clock, Sparkles, ShieldCheck, Loader2, CheckCircle2,
   ChevronDown, Send, MessageSquare, BookOpen
 } from 'lucide-react'
-import { approveSolution, askBriefingQuestion, BriefingQAResponse, storeBriefingSnapshot, getBriefingSnapshot } from '../api/client'
+import { approveSolution, askBriefingQuestion, BriefingQAResponse, storeBriefingSnapshot, getBriefingSnapshot, getVASolution } from '../api/client'
 import { CostOfInactionBanner } from '../components/CostOfInactionBanner'
+import { ValueAssurancePanel } from '../components/ValueAssurancePanel'
+import { AttributionBreakdown } from '../components/AttributionBreakdown'
+import type { AcceptedSolution as VASolution } from '../types/valueAssurance'
 
 // ─────────────────────────────────────────────────
 // Accordion section wrapper
@@ -263,6 +266,8 @@ export function ExecutiveBriefing() {
   const [loading, setLoading] = useState(true)
   const [approveState, setApproveState] = useState<'idle' | 'approving' | 'approved' | 'error'>('idle')
   const [vaSolutionId, setVaSolutionId] = useState<string | null>(null)
+  const [vaData, setVaData] = useState<VASolution | null>(null)
+  const [showAttribution, setShowAttribution] = useState(false)
   const [openSections, setOpenSections] = useState<Set<string>>(
     new Set(['summary', 'situation', 'options', 'recommendation'])
   )
@@ -302,6 +307,15 @@ export function ExecutiveBriefing() {
       setApproveState('error')
     }
   }, [situationId, briefing])
+
+  // Fetch VA solution data after approval
+  useEffect(() => {
+    if (approveState === 'approved' && vaSolutionId) {
+      getVASolution(vaSolutionId)
+        .then(setVaData)
+        .catch(() => {}) // VA data is supplementary — don't break the page
+    }
+  }, [approveState, vaSolutionId])
 
   useEffect(() => {
     // If loading from a VA solution snapshot (Portfolio replay)
@@ -991,6 +1005,35 @@ export function ExecutiveBriefing() {
                       >
                         View Portfolio <ChevronRight className="w-3.5 h-3.5" />
                       </Link>
+
+                      {/* Value Assurance Panel — live tracking data */}
+                      {vaData && (
+                        <div className="mt-4">
+                          <ValueAssurancePanel
+                            solutionId={vaData.solution_id}
+                            solutionDescription={vaData.solution_description}
+                            approvedAt={vaData.approved_at}
+                            status={vaData.status}
+                            evaluation={vaData.impact_evaluation ?? undefined}
+                            compositeVerdict={vaData.impact_evaluation?.composite_verdict ?? undefined}
+                            onViewAttribution={() => setShowAttribution(!showAttribution)}
+                          />
+                          {showAttribution && vaData.impact_evaluation && (
+                            <div className="mt-3">
+                              <AttributionBreakdown
+                                totalChange={vaData.impact_evaluation.total_kpi_change}
+                                attributableImpact={vaData.impact_evaluation.attributable_impact}
+                                marketDrivenRecovery={vaData.impact_evaluation.market_driven_recovery}
+                                seasonalComponent={vaData.impact_evaluation.seasonal_component}
+                                controlGroupChange={vaData.impact_evaluation.control_group_change}
+                                expectedLower={vaData.impact_evaluation.expected_impact_lower}
+                                expectedUpper={vaData.impact_evaluation.expected_impact_upper}
+                                controlGroupDescription={vaData.impact_evaluation.control_group_description ?? undefined}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )
                 })()}

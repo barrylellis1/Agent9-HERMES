@@ -1,8 +1,5 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { ArrowUpRight, ArrowDownRight, TrendingUp } from 'lucide-react';
-import { LinePath } from '@visx/shape';
-import { scaleLinear } from '@visx/scale';
-import { curveMonotoneX } from '@visx/curve';
 import { Situation } from '../../api/types';
 
 interface KPITileProps {
@@ -11,14 +8,6 @@ interface KPITileProps {
 }
 
 export const KPITile: React.FC<KPITileProps> = ({ situation, onClick }) => {
-  // Mock sparkline data - in a real app this would come from the API
-  const sparkData = useMemo(() => {
-    return Array.from({ length: 20 }).map((_, i) => ({
-      x: i,
-      y: Math.random() * 20 + (situation.severity === 'critical' ? -i : i * 0.5) // Trend down for critical
-    }));
-  }, [situation.severity]);
-
   const isOpportunity = situation.card_type === 'opportunity';
 
   // Color mapping
@@ -33,17 +22,10 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick }) => {
   const status = isOpportunity ? opportunityColors : (colors[situation.severity as keyof typeof colors] || colors.medium);
   const isNegative = !isOpportunity && (situation.severity === 'critical' || situation.severity === 'high');
 
-  // Scales for sparkline
   const width = 120;
   const height = 40;
-  const xScale = scaleLinear({
-    domain: [0, sparkData.length - 1],
-    range: [0, width],
-  });
-  const yScale = scaleLinear({
-    domain: [Math.min(...sparkData.map(d => d.y)), Math.max(...sparkData.map(d => d.y))],
-    range: [height, 0],
-  });
+
+  const monthlyValues = situation.kpi_value?.monthly_values;
 
   return (
     <button
@@ -74,26 +56,45 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick }) => {
         <div className="flex flex-col">
             <span className="text-[10px] text-slate-500 uppercase">Current Value</span>
             <span className="text-xl font-mono text-white">
-                {situation.kpi_value ? 
-                    `${situation.kpi_value.currency || ''}${situation.kpi_value.value.toLocaleString()}` : 
+                {situation.kpi_value ?
+                    `${situation.kpi_value.currency || ''}${situation.kpi_value.value.toLocaleString()}` :
                     '--'
                 }
             </span>
         </div>
-        
-        {/* Sparkline */}
-        <div className="opacity-60 group-hover:opacity-100 transition-opacity">
+
+        {/* Monthly trend bars */}
+        {monthlyValues && monthlyValues.length > 0 && (
+          <div className="opacity-60 group-hover:opacity-100 transition-opacity">
             <svg width={width} height={height}>
-                <LinePath
-                    data={sparkData}
-                    x={d => xScale(d.x) ?? 0}
-                    y={d => yScale(d.y) ?? 0}
-                    stroke={status.stroke}
-                    strokeWidth={2}
-                    curve={curveMonotoneX}
-                />
+              {(() => {
+                const barWidth = Math.max(1, (width / monthlyValues.length) - 2);
+                const gap = 2;
+                const values = monthlyValues.map(m => m.value);
+                const minVal = Math.min(...values);
+                const maxVal = Math.max(...values);
+                const range = maxVal - minVal || 1;
+
+                return monthlyValues.map((m, i) => {
+                  const barHeight = Math.max(2, ((m.value - minVal) / range) * (height - 4));
+                  const isLatest = i === monthlyValues.length - 1;
+                  return (
+                    <rect
+                      key={m.period}
+                      x={i * (barWidth + gap)}
+                      y={height - barHeight}
+                      width={barWidth}
+                      height={barHeight}
+                      rx={2}
+                      fill={isLatest ? status.stroke : '#334155'}
+                      opacity={isLatest ? 1 : 0.7}
+                    />
+                  );
+                });
+              })()}
             </svg>
-        </div>
+          </div>
+        )}
       </div>
     </button>
   );

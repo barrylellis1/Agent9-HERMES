@@ -5,6 +5,7 @@ export interface Situation {
     value: number;
     unit: string;
     currency?: string;
+    monthly_values?: Array<{ period: string; value: number }>;
   };
   severity: 'low' | 'medium' | 'high' | 'critical';
   card_type?: 'problem' | 'opportunity';

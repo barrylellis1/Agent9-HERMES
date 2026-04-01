@@ -9,7 +9,6 @@ import {
   BarChart2,
   Clock,
   BellOff,
-  Bot,
   CheckCircle2,
   TrendingUp,
 } from 'lucide-react'

@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Decision Studio — Partner Discussion</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/black.css">
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #020617;
+      --surface: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --muted: #64748b;
+      --text: #f8fafc;
+      --text-secondary: #cbd5e1;
+      --accent: #4f46e5;
+      --accent-light: #818cf8;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --blue: #3b82f6;
+      --purple: #8b5cf6;
+    }
+
+    .reveal {
+      font-family: 'Satoshi', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text);
+    }
+
+    .reveal .slides {
+      text-align: left;
+    }
+
+    .reveal .slides section {
+      padding: 28px 44px;
+    }
+
+    .reveal h1 {
+      font-size: 1.2em;
+      font-weight: 900;
+      color: var(--text);
+      margin-bottom: 0.3em;
+      text-align: left;
+    }
+
+    .reveal h2 {
+      font-size: 0.95em;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.2em;
+      text-align: left;
+    }
+
+    .reveal h3 {
+      font-size: 0.58em;
+      font-weight: 700;
+      color: var(--accent-light);
+      margin-bottom: 0.5em;
+      text-align: left;
+    }
+
+    .reveal p, .reveal li {
+      font-size: 0.58em;
+      line-height: 1.6;
+      color: var(--text-secondary);
+    }
+
+    .reveal .subtitle {
+      font-size: 0.72em;
+      color: var(--muted);
+      margin-top: -0.5em;
+      margin-bottom: 1.5em;
+    }
+
+    .reveal .accent-bar {
+      width: 80px;
+      height: 4px;
+      background: var(--accent);
+      border-radius: 4px;
+      margin: 16px 0 32px 0;
+    }
+
+    .reveal .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 18px;
+      margin: 8px 0;
+    }
+
+    .reveal .card-row {
+      display: flex;
+      gap: 14px;
+      margin: 7px 0;
+    }
+
+    .reveal .card-row .card {
+      flex: 1;
+    }
+
+    .reveal .card h3 {
+      margin-top: 0;
+      font-size: 0.72em;
+    }
+
+    .reveal .card p {
+      margin: 4px 0;
+      font-size: 0.55em;
+    }
+
+    .reveal .big-number {
+      font-size: 1.1em;
+      font-weight: 900;
+      line-height: 1.1;
+    }
+
+    .reveal .emerald { color: var(--emerald); }
+    .reveal .amber { color: var(--amber); }
+    .reveal .red { color: var(--red); }
+    .reveal .blue { color: var(--blue); }
+    .reveal .purple { color: var(--purple); }
+    .reveal .accent { color: var(--accent-light); }
+    .reveal .muted { color: var(--muted); }
+    .reveal .bold { font-weight: 700; }
+
+    .reveal .badge {
+      display: inline-block;
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 0.48em;
+      font-weight: 700;
+    }
+    .reveal .badge-emerald { background: rgba(16,185,129,0.15); color: var(--emerald); }
+    .reveal .badge-amber { background: rgba(245,158,11,0.15); color: var(--amber); }
+    .reveal .badge-accent { background: rgba(79,70,229,0.15); color: var(--accent-light); }
+    .reveal .badge-blue { background: rgba(59,130,246,0.15); color: var(--blue); }
+
+    .reveal table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.54em;
+      margin: 7px 0;
+    }
+
+    .reveal table th {
+      text-transform: uppercase;
+      font-size: 0.52em;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 600;
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .reveal table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
+
+    .reveal .highlight-row td {
+      background: rgba(15, 23, 42, 0.6);
+    }
+
+    .reveal .left-border-emerald { border-left: 3px solid var(--emerald); }
+    .reveal .left-border-blue { border-left: 3px solid var(--blue); }
+    .reveal .left-border-purple { border-left: 3px solid var(--purple); }
+    .reveal .left-border-amber { border-left: 3px solid var(--amber); }
+    .reveal .left-border-accent { border-left: 3px solid var(--accent); }
+
+    .reveal .pipeline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 20px 0;
+    }
+
+    .reveal .pipeline-node {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      text-align: center;
+      font-size: 0.52em;
+      font-weight: 700;
+    }
+
+    .reveal .pipeline-arrow {
+      color: var(--muted);
+      font-size: 1.2em;
+    }
+
+    .reveal .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 7px 0;
+    }
+
+    .reveal .logo-block {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .reveal .logo-icon {
+      width: 52px;
+      height: 52px;
+      background: var(--accent);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3em;
+      font-weight: 900;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .reveal .logo-text {
+      font-size: 1.6em;
+      font-weight: 900;
+      color: var(--text);
+    }
+
+    .reveal .watermark {
+      position: fixed;
+      bottom: 20px;
+      right: 30px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0.4;
+      font-size: 0.6em;
+      z-index: 100;
+    }
+
+    .reveal .watermark-icon {
+      width: 20px;
+      height: 20px;
+      background: var(--accent);
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.6em;
+      font-weight: 900;
+      color: white;
+    }
+
+    .reveal .slide-number {
+      color: var(--muted) !important;
+      font-family: 'Satoshi', sans-serif !important;
+      font-size: 0.6em !important;
+    }
+
+    .reveal section .fragment.fade-up {
+      transform: translateY(20px);
+    }
+
+    /* Override reveal.js background */
+    body { background: var(--bg); }
+    .reveal .slide-background { background: var(--bg) !important; }
+  </style>
+</head>
+<body>
+  <div class="reveal">
+    <div class="watermark">
+      <div class="watermark-icon">DS</div>
+      <span style="color: var(--muted);">Decision Studio</span>
+    </div>
+
+    <div class="slides">
+
+      <!-- SLIDE 1: Title -->
+      <section>
+        <div style="display: flex; flex-direction: column; justify-content: center; height: 80vh;">
+          <div class="logo-block" style="margin-bottom: 32px;">
+            <div class="logo-icon">DS</div>
+            <span class="logo-text">Decision Studio</span>
+          </div>
+          <h2 style="font-size: 1.2em; margin-bottom: 8px;">AI Decision Intelligence</h2>
+          <div class="accent-bar"></div>
+          <p style="font-size: 0.65em; color: var(--text-secondary); max-width: 700px;">
+            Partner discussion — March 2026
+          </p>
+          <p style="font-size: 0.58em; color: var(--muted); margin-top: 40px;">
+            Confidential. Not for distribution.
+          </p>
+        </div>
+      </section>
+
+      <!-- SLIDE 2: The Problem -->
+      <section>
+        <h2>The Problem Your Clients Face</h2>
+        <div class="accent-bar"></div>
+        <div class="card-row">
+          <div class="card left-border-amber">
+            <h3>Always Reacting</h3>
+            <p>KPI reviews happen weekly or monthly. By the time someone notices a problem, the damage is already expensive. No system watches their business continuously.</p>
+          </div>
+          <div class="card left-border-amber">
+            <h3>Data Without Direction</h3>
+            <p>Dashboards tell them what happened. Not what to do about it. They need structured analysis, not more charts. But consulting is $500K+ and 12-24 weeks.</p>
+          </div>
+          <div class="card left-border-amber">
+            <h3>No Accountability Loop</h3>
+            <p>When a decision is made, nobody tracks whether it actually worked. The consultant leaves. The dashboard doesn't follow up. The cycle repeats.</p>
+          </div>
+        </div>
+        <p class="fragment fade-up" style="font-size: 0.62em; color: var(--text); font-weight: 700; margin-top: 24px;">
+          These companies have $50M-$500M in revenue. They've never hired McKinsey or BCG.<br>
+          <span class="accent">The alternative isn't another consultant. It's doing nothing.</span>
+        </p>
+      </section>
+
+      <!-- SLIDE 3: What Decision Studio Does -->
+      <section>
+        <h2>What Decision Studio Does</h2>
+        <p class="subtitle">Six AI agents. One continuous pipeline. Detection to proof.</p>
+        <div class="accent-bar"></div>
+
+        <div class="pipeline">
+          <div class="pipeline-node" style="border-color: var(--red);">
+            <div class="red bold">SA</div>
+            <div class="muted" style="font-size: 0.58em;">Detect</div>
+          </div>
+          <span class="pipeline-arrow">&rarr;</span>
+          <div class="pipeline-node" style="border-color: var(--amber);">
+            <div class="amber bold">DA</div>
+            <div class="muted" style="font-size: 0.58em;">Diagnose</div>
+          </div>
+          <span class="pipeline-arrow">&rarr;</span>
+          <div class="pipeline-node" style="border-color: var(--blue);">
+            <div class="blue bold">MA</div>
+            <div class="muted" style="font-size: 0.58em;">Market Context</div>
+          </div>
+          <span class="pipeline-arrow">&rarr;</span>
+          <div class="pipeline-node" style="border-color: var(--purple);">
+            <div class="purple bold">SF</div>
+            <div class="muted" style="font-size: 0.58em;">Prescribe</div>
+          </div>
+          <span class="pipeline-arrow">&rarr;</span>
+          <div class="pipeline-node" style="border-color: var(--accent-light);">
+            <div class="accent bold">HITL</div>
+            <div class="muted" style="font-size: 0.58em;">Decide</div>
+          </div>
+          <span class="pipeline-arrow">&rarr;</span>
+          <div class="pipeline-node" style="border-color: var(--emerald);">
+            <div class="emerald bold">VA</div>
+            <div class="muted" style="font-size: 0.58em;">Prove</div>
+          </div>
+        </div>
+
+        <div class="two-col" style="margin-top: 24px;">
+          <div>
+            <p style="color: var(--text); font-weight: 700; font-size: 0.62em;">Continuous monitoring, not point-in-time</p>
+            <p>SA scans KPIs automatically. When a threshold is breached, the pipeline activates. No human trigger needed.</p>
+          </div>
+          <div>
+            <p style="color: var(--text); font-weight: 700; font-size: 0.62em;">Multi-perspective debate, not single-firm bias</p>
+            <p>Three AI personas argue from different strategic perspectives. The executive sees the disagreement, not just the consensus.</p>
+          </div>
+          <div>
+            <p style="color: var(--text); font-weight: 700; font-size: 0.62em;">Real-time market intelligence</p>
+            <p>Every briefing includes competitor moves, industry trends, and regulatory context pulled from live sources.</p>
+          </div>
+          <div>
+            <p style="color: var(--text); font-weight: 700; font-size: 0.62em;">Post-decision accountability</p>
+            <p>Three-trajectory tracking: what would have happened, what we predicted, what actually happened. DiD attribution proves causation.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 4: What's Been Built -->
+      <section>
+        <h2>What's Been Built</h2>
+        <p class="subtitle">This is not a pitch deck for vaporware. The platform is deployed and operational.</p>
+        <div class="accent-bar"></div>
+
+        <div class="two-col">
+          <div>
+            <div class="card left-border-emerald">
+              <h3 class="emerald">Deployed &amp; Operational</h3>
+              <p><span class="bold" style="color: var(--text);">Full pipeline:</span> SA &rarr; DA &rarr; MA &rarr; SF &rarr; VA</p>
+              <p><span class="bold" style="color: var(--text);">Production stack:</span> Railway + Vercel + Supabase Cloud + BigQuery</p>
+              <p><span class="bold" style="color: var(--text);">Corporate site:</span> decision-studios.com (4 pages, brand identity)</p>
+              <p><span class="bold" style="color: var(--text);">13 agents</span> across detection, diagnosis, market analysis, solution finding, and value assurance</p>
+              <p><span class="bold" style="color: var(--text);">60 API endpoints</span> with full audit trail</p>
+            </div>
+          </div>
+          <div>
+            <div class="card left-border-accent">
+              <h3 class="accent">Key Capabilities</h3>
+              <p><span class="bold" style="color: var(--text);">5-Day Fast Start:</span> Data connection to first situation card in one business week</p>
+              <p><span class="bold" style="color: var(--text);">Domain-agnostic:</span> Finance, operations, sales, supply chain</p>
+              <p><span class="bold" style="color: var(--text);">Registry-driven:</span> KPIs, principals, business processes, data products, glossary</p>
+              <p><span class="bold" style="color: var(--text);">HITL approval:</span> Executive briefing with Q&amp;A before any action is taken</p>
+              <p><span class="bold" style="color: var(--text);">Structured methodology:</span> KT IS/IS NOT, SCQA framing, MBB multi-perspective debate</p>
+            </div>
+          </div>
+        </div>
+
+        <p class="fragment fade-up" style="font-size: 0.65em; color: var(--text); font-weight: 700; margin-top: 20px;">
+          Built by a solo founder with 30+ years of enterprise experience.<br>
+          <span class="muted">ExxonMobil, Shell, PwC, BCG, Roche, Whirlpool, Panasonic, McKesson, Cadence, Teleflex...</span>
+        </p>
+      </section>
+
+      <!-- SLIDE 5: The ICP -->
+      <section>
+        <h2>The Never-Engaged Mid-Market</h2>
+        <p class="subtitle">$50M-$500M companies that have never hired MBB. Not replacing consultants — providing structured analysis for the first time.</p>
+        <div class="accent-bar"></div>
+
+        <div class="card-row">
+          <div class="card left-border-emerald">
+            <h3>No incumbent to displace</h3>
+            <p style="color: var(--text);">These companies compete against "doing nothing" or "asking an analyst to build a spreadsheet." There is no existing consulting relationship to threaten.</p>
+          </div>
+          <div class="card left-border-emerald">
+            <h3>Low sales friction</h3>
+            <p style="color: var(--text);">$15K-$25K pilots fit within executive discretion budget. No procurement cycle. 5-day onboarding means they see value before friction accumulates.</p>
+          </div>
+          <div class="card left-border-emerald">
+            <h3>Natural expansion</h3>
+            <p style="color: var(--text);">Customer who sees value on 10 KPIs wants 50. No new sales cycle needed. Multi-division deployment multiplies revenue per account.</p>
+          </div>
+        </div>
+
+        <div class="fragment fade-up" style="margin-top: 24px;">
+          <p style="color: var(--text); font-size: 0.65em; font-weight: 700;">Why this matters for you as a practitioner:</p>
+          <p>Your clients in this segment don't have the budget for a Big 4 engagement. But they have real analytical pain. Decision Studio gives you a tool to serve them at scale.</p>
+        </div>
+      </section>
+
+      <!-- SLIDE 6: Competitive Moat -->
+      <section>
+        <h2>Why This Is Hard to Copy</h2>
+        <p class="subtitle">AWS gives you orchestration. Nobody gives you this.</p>
+        <div class="accent-bar"></div>
+
+        <div style="margin-top: 16px;">
+          <div class="card left-border-accent" style="margin: 7px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="color: var(--text); font-weight: 700; font-size: 0.65em;">Registry-Driven Domain Intelligence</span>
+              <span class="badge badge-accent">Unique</span>
+            </div>
+            <p>KPIs, principals, business processes, glossary — the system knows what "Gross Margin %" means for Sarah Chen's lubricants business.</p>
+          </div>
+
+          <div class="card left-border-blue" style="margin: 7px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="color: var(--text); font-weight: 700; font-size: 0.65em;">Structured Analytical Methodology</span>
+              <span class="badge badge-blue">Defensible</span>
+            </div>
+            <p>KT IS/IS NOT root cause analysis, SCQA framing, multi-perspective strategic debate. Not just "ask an LLM."</p>
+          </div>
+
+          <div class="card left-border-emerald" style="margin: 7px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="color: var(--text); font-weight: 700; font-size: 0.65em;">Post-Decision Accountability</span>
+              <span class="badge badge-emerald">No Competitor Has This</span>
+            </div>
+            <p>Three-trajectory tracking with Difference-in-Differences attribution. The IS NOT segments become the control group. Proves the solution worked — or didn't.</p>
+          </div>
+
+          <div class="card left-border-emerald" style="margin: 7px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="color: var(--text); font-weight: 700; font-size: 0.65em;">Adaptive Calibration Loop</span>
+              <span class="badge badge-emerald">Compounds Per Client</span>
+            </div>
+            <p>KPI Assistant analyzes production data to set monitoring profiles. VA outcomes feed back to recalibrate &mdash; "your triggers had 40% noise, widening band." After 12 months, switching means losing calibrated profiles for 50+ KPIs.</p>
+          </div>
+
+          <div class="card" style="margin: 7px 0; border-color: var(--border);">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="color: var(--text); font-weight: 700; font-size: 0.65em;">Full Audit Trail</span>
+              <span class="badge badge-amber">Compounding</span>
+            </div>
+            <p>Detection &rarr; Diagnosis &rarr; Recommendation &rarr; Proof. Each decision is documented end-to-end. Switching costs accumulate from Day 1.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 7: Pricing Model -->
+      <section>
+        <h2>Pricing Architecture</h2>
+        <p class="subtitle">Usage-based incremental model. Cost drivers map directly to billing axes.</p>
+        <div class="accent-bar"></div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Component</th>
+              <th>Price</th>
+              <th>Covers</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="color: var(--text); font-weight: 700;">Onboarding</td>
+              <td style="color: var(--accent-light); font-weight: 700;">$5K-$15K</td>
+              <td>Per data product (one-time). 5-Day Fast Start.</td>
+            </tr>
+            <tr>
+              <td style="color: var(--text); font-weight: 700;">Base Platform</td>
+              <td style="color: var(--accent-light); font-weight: 700;">$3K/month</td>
+              <td>Dashboard, registries, 50 NL queries/month included.</td>
+            </tr>
+            <tr class="highlight-row">
+              <td style="color: var(--text); font-weight: 700;">KPI Monitoring <span class="badge badge-emerald" style="margin-left: 8px;">37-53% of revenue</span></td>
+              <td style="color: var(--emerald); font-weight: 700;">$300/KPI/mo</td>
+              <td>SA scans, anomaly detection, situation cards. First 10 included.</td>
+            </tr>
+            <tr>
+              <td style="color: var(--text); font-weight: 700;">Assessment Credits</td>
+              <td style="color: var(--accent-light); font-weight: 700;">$750 each</td>
+              <td>Full DA &rarr; SF &rarr; MA pipeline run. 4/month included.</td>
+            </tr>
+            <tr>
+              <td style="color: var(--text); font-weight: 700;">Solution Tracking</td>
+              <td style="color: var(--accent-light); font-weight: 700;">$500/quarter</td>
+              <td>Per VA-tracked solution. Trajectory + DiD attribution.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="fragment fade-up" style="color: var(--text); font-size: 0.62em; margin-top: 16px;">
+          <span class="bold">Entry point:</span> 1 data product + 10 KPIs + base platform = <span class="emerald bold">~$3K/month</span> &mdash; within executive discretion budget.
+        </p>
+      </section>
+
+      <!-- SLIDE 8: Revenue Tiers -->
+      <section>
+        <h2>Revenue Per Customer Tier</h2>
+        <p class="subtitle">Mapped to real company profiles from our client history.</p>
+        <div class="accent-bar"></div>
+
+        <div class="card-row">
+          <div class="card left-border-emerald">
+            <p class="muted" style="font-size: 0.48em; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;">Tier 1 &mdash; Direct Sale</p>
+            <h3 style="margin-bottom: 4px;">Mid-Market / Single Domain</h3>
+            <p class="big-number emerald">$100K-$150K<span style="font-size: 0.35em; color: var(--muted);">/yr</span></p>
+            <p style="color: var(--muted); font-style: italic; margin-top: 8px;">Valvoline, Hess, Pilgrim's Pride, Commercial Metals</p>
+            <p style="color: var(--text);">20-30 KPIs &bull; 6-8 assessments/mo &bull; 4-6 tracked solutions</p>
+          </div>
+
+          <div class="card left-border-blue">
+            <p class="muted" style="font-size: 0.48em; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;">Tier 2 &mdash; Direct + Partner</p>
+            <h3 style="margin-bottom: 4px;">Large Enterprise / Multi-Division</h3>
+            <p class="big-number blue">$350K-$650K<span style="font-size: 0.35em; color: var(--muted);">/yr</span></p>
+            <p style="color: var(--muted); font-style: italic; margin-top: 8px;">Whirlpool, Panasonic, McKesson, Cadence, Teleflex</p>
+            <p style="color: var(--text);">50-100 KPIs &bull; 15-25 assessments/mo &bull; Multi-division expansion</p>
+          </div>
+
+          <div class="card left-border-purple" style="opacity: 0.6;">
+            <p class="muted" style="font-size: 0.48em; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;">Tier 3 &mdash; Partner-Led &bull; Year 3+</p>
+            <h3 style="margin-bottom: 4px;">Global Enterprise</h3>
+            <p class="big-number purple">$1.2M-$2.8M<span style="font-size: 0.35em; color: var(--muted);">/yr</span></p>
+            <p style="color: var(--muted); font-style: italic; margin-top: 8px;">ExxonMobil, Shell, Roche &bull; PwC/BCG as resellers</p>
+            <p style="color: var(--text);">200-500 KPIs &bull; Requires multi-tenant infrastructure</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 9: Financial Projections -->
+      <section>
+        <h2>18-Month Revenue Outlook</h2>
+        <p class="subtitle">Same customer count, dramatically different revenue under incremental pricing.</p>
+        <div class="accent-bar"></div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Scenario</th>
+              <th>Customers (Month 24)</th>
+              <th>Flat SaaS ARR</th>
+              <th>Incremental ARR</th>
+              <th>Multiplier</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="highlight-row">
+              <td style="color: var(--text); font-weight: 700;">Base</td>
+              <td>5-8 Tier 1</td>
+              <td>$225K-$360K</td>
+              <td style="color: var(--emerald); font-weight: 700;">$600K-$1.4M</td>
+              <td style="color: var(--accent-light); font-weight: 700;">2.7-3.9&times;</td>
+            </tr>
+            <tr>
+              <td style="color: var(--text); font-weight: 700;">Upside</td>
+              <td>10-15 mixed</td>
+              <td>$650K-$975K</td>
+              <td style="color: var(--emerald); font-weight: 700;">$1.5M-$6M</td>
+              <td style="color: var(--accent-light); font-weight: 700;">2.3-6.2&times;</td>
+            </tr>
+            <tr>
+              <td style="color: var(--text); font-weight: 700;">Downside</td>
+              <td>2-3 Tier 1</td>
+              <td>$50K-$75K</td>
+              <td style="color: var(--emerald); font-weight: 700;">$180K-$360K</td>
+              <td style="color: var(--accent-light); font-weight: 700;">3.6-4.8&times;</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="display: flex; gap: 40px; margin-top: 32px; justify-content: center; text-align: center;">
+          <div>
+            <p class="big-number emerald">$600K-$1.4M</p>
+            <p class="muted" style="font-size: 0.55em;">Base Case ARR, Month 24</p>
+          </div>
+          <div>
+            <p class="big-number blue">5-8</p>
+            <p class="muted" style="font-size: 0.55em;">Tier 1 Customers</p>
+          </div>
+          <div>
+            <p class="big-number amber">3-4&times;</p>
+            <p class="muted" style="font-size: 0.55em;">Incremental vs Flat Lift</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 10: Exit Strategy -->
+      <section>
+        <h2>Exit Scenarios</h2>
+        <p class="subtitle">NRR from incremental pricing changes the valuation category.</p>
+        <div class="accent-bar"></div>
+
+        <div class="card-row">
+          <div class="card left-border-emerald">
+            <p class="muted" style="font-size: 0.48em; text-transform: uppercase; letter-spacing: 0.08em;">Scenario A &bull; Month 24-36</p>
+            <h3>Bootstrapped Acquisition</h3>
+            <p class="big-number emerald">$5M-$21M</p>
+            <p>ARR: $600K-$1.4M</p>
+            <p class="muted">PE roll-up, ERP vendor (Sage, Epicor)</p>
+            <p style="color: var(--emerald); font-size: 0.52em; font-style: italic; margin-top: 8px;">$1M ARR + 140% NRR &rarr; ~$22M valuation</p>
+          </div>
+          <div class="card left-border-blue">
+            <p class="muted" style="font-size: 0.48em; text-transform: uppercase; letter-spacing: 0.08em;">Scenario B &bull; Month 30-48</p>
+            <h3>Funded Growth &rarr; Strategic</h3>
+            <p class="big-number blue">$45M-$250M</p>
+            <p>ARR: $3M-$10M</p>
+            <p class="muted">Salesforce, ServiceNow, Workday, SAP</p>
+          </div>
+        </div>
+        <div class="card-row">
+          <div class="card left-border-purple">
+            <p class="muted" style="font-size: 0.48em; text-transform: uppercase; letter-spacing: 0.08em;">Scenario C &bull; Month 36-60</p>
+            <h3>PE Portfolio Play</h3>
+            <p class="big-number purple">$60M-$300M</p>
+            <p>ARR: $5M-$15M</p>
+            <p class="muted">PE firm or strategic at premium</p>
+          </div>
+          <div class="card left-border-amber" style="opacity: 0.55;">
+            <p class="muted" style="font-size: 0.48em; text-transform: uppercase; letter-spacing: 0.08em;">Downside &bull; Month 24-30</p>
+            <h3 style="color: var(--muted);">Acqui-hire</h3>
+            <p class="big-number muted">$1M-$5M</p>
+            <p>ARR: $180K-$360K</p>
+            <p class="muted">AI startup, consulting firm (IP acquisition)</p>
+          </div>
+        </div>
+
+        <p class="fragment fade-up" style="color: var(--text-secondary); font-size: 0.58em; margin-top: 16px;">
+          Month 12-18 decision point: stay bootstrapped vs. raise seed vs. deepen PE. Actions that optimize Scenario A also maximize B and C.
+        </p>
+      </section>
+
+      <!-- SLIDE 11: Tier 0 Partnership -->
+      <section>
+        <h2>The Tier 0 Opportunity</h2>
+        <p class="subtitle">For fractional CFOs and finance advisors. Not a partnership pitch — a practitioner opportunity.</p>
+        <div class="accent-bar"></div>
+
+        <div class="two-col">
+          <div>
+            <div class="card left-border-emerald">
+              <h3 class="emerald">What You Get</h3>
+              <p><span class="bold" style="color: var(--text);">AI-augmented practice:</span> Serve more clients at higher quality. Enterprise-grade analytical capability without enterprise headcount.</p>
+              <p><span class="bold" style="color: var(--text);">Continuous monitoring:</span> Your clients' KPIs are watched 24/7. When something breaks, you already know — before they call you.</p>
+              <p><span class="bold" style="color: var(--text);">Outcome proof:</span> VA trajectory tracking gives you the chart that proves your advisory worked. Transform "trust us" into "here's the data."</p>
+              <p><span class="bold" style="color: var(--text);">Escalation routing:</span> When a situation exceeds what the platform handles, you're first in line for the engagement.</p>
+            </div>
+          </div>
+          <div>
+            <div class="card left-border-accent">
+              <h3 class="accent">How It Works</h3>
+              <p><span class="bold" style="color: var(--text);">Adopt as a practitioner, not a partner.</span> Use Decision Studio across your client portfolio. You are the buyer and the user.</p>
+              <p><span class="bold" style="color: var(--text);">One fractional CFO with 4 clients = 4 subscriptions.</span> Each client generates situation cards, analysis, and tracked outcomes.</p>
+              <p><span class="bold" style="color: var(--text);">Document the outcomes.</span> Your practice becomes a case study. The trajectory charts prove your advisory delivered measurable results.</p>
+              <p><span class="bold" style="color: var(--text);">Partnership emerges organically.</span> Tier 1 formal partnership activates at 5+ customers. Start by using it.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 12: What Comes Next -->
+      <section>
+        <h2>What Comes Next</h2>
+        <div class="accent-bar"></div>
+
+        <div style="margin: 24px 0;">
+          <div style="display: flex; align-items: center; gap: 16px; margin: 7px 0;">
+            <span style="color: var(--emerald); font-size: 0.58em; font-weight: 700; width: 30px;">&#10003;</span>
+            <span style="color: var(--text); font-size: 0.72em;">Platform deployed and operational</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 16px; margin: 7px 0;">
+            <span style="color: var(--emerald); font-size: 0.58em; font-weight: 700; width: 30px;">&#10003;</span>
+            <span style="color: var(--text); font-size: 0.72em;">Corporate site live at decision-studios.com</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 16px; margin: 7px 0;">
+            <span style="color: var(--amber); font-size: 0.58em; font-weight: 700; width: 30px;">&rarr;</span>
+            <span style="color: var(--text); font-size: 0.72em;">Demo video — April 2026</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 16px; margin: 7px 0;">
+            <span style="color: var(--amber); font-size: 0.58em; font-weight: 700; width: 30px;">&rarr;</span>
+            <span style="color: var(--text); font-size: 0.72em;">20 warm outreach conversations — May-June 2026</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 16px; margin: 7px 0;">
+            <span style="color: var(--amber); font-size: 0.58em; font-weight: 700; width: 30px;">&rarr;</span>
+            <span style="color: var(--text); font-size: 0.72em; font-weight: 700;">First paying customer — September 2026</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 16px; margin: 7px 0;">
+            <span style="color: var(--amber); font-size: 0.58em; font-weight: 700; width: 30px;">&rarr;</span>
+            <span style="color: var(--text); font-size: 0.72em;">2-3 documented ROI case studies — by Month 12</span>
+          </div>
+        </div>
+
+        <div class="card left-border-accent" style="margin-top: 24px;">
+          <p style="color: var(--text); font-size: 0.65em; font-weight: 700;">The ask:</p>
+          <p style="font-size: 0.65em;">See a demo. Try it with one client. Document the outcome. If it works, the partnership conversation writes itself.</p>
+        </div>
+      </section>
+
+      <!-- SLIDE 13: Contact -->
+      <section>
+        <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 70vh; text-align: center;">
+          <div class="logo-block" style="margin-bottom: 40px;">
+            <div class="logo-icon" style="width: 52px; height: 52px; font-size: 1.1em;">DS</div>
+            <span class="logo-text">Decision Studio</span>
+          </div>
+          <p style="font-size: 0.85em; color: var(--accent-light); font-weight: 700; margin-bottom: 8px;">
+            AI Decision Intelligence
+          </p>
+          <div class="accent-bar" style="margin: 16px auto 32px auto;"></div>
+          <p style="font-size: 0.72em; color: var(--text-secondary);">
+            decision-studios.com
+          </p>
+          <p style="font-size: 0.65em; color: var(--muted); margin-top: 32px;">
+            Request a Conversation
+          </p>
+          <p style="font-size: 0.52em; color: var(--muted); margin-top: 60px;">
+            Confidential. Not for distribution.
+          </p>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+  <script>
+    Reveal.initialize({
+      hash: true,
+      slideNumber: true,
+      controls: true,
+      progress: true,
+      center: false,
+      transition: 'fade',
+      transitionSpeed: 'slow',
+      width: 1280,
+      height: 720,
+      margin: 0.04,
+    });
+  </script>
+</body>
+</html>

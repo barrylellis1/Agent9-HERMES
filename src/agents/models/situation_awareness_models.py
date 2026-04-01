@@ -162,6 +162,7 @@ class KPIValue(BaseModel):
     timeframe: TimeFrame = Field(description="Time frame of the KPI")
     dimensions: Optional[Dict[str, Any]] = Field(None, description="Dimensions of the KPI")
     percent_change: Optional[float] = Field(None, description="Percentage change vs comparison")
+    monthly_values: Optional[List[Dict[str, Any]]] = Field(None, description="Monthly aggregated values for trend display. Each dict: {period: str, value: float}")
 
 # Assignment models
 class AssignmentCandidate(BaseModel):

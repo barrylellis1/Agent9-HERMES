@@ -5,6 +5,8 @@ import { getVAPortfolio, recordKPIMeasurement, getPrincipal } from '../api/clien
 import type { StrategyAwarePortfolio, AcceptedSolution, SolutionVerdict } from '../types/valueAssurance';
 import { PortfolioDashboard } from '../components/PortfolioDashboard';
 import { TrajectoryChart } from '../components/visualizations/TrajectoryChart';
+import { ValueAssurancePanel } from '../components/ValueAssurancePanel';
+import { AttributionBreakdown } from '../components/AttributionBreakdown';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -57,6 +59,7 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded }: DetailPan
   const [recording, setRecording] = useState(false);
   const [recordError, setRecordError] = useState<string | null>(null);
   const [recordSuccess, setRecordSuccess] = useState(false);
+  const [showAttribution, setShowAttribution] = useState(false);
 
   const hasEvaluation = !!solution.impact_evaluation;
   const attributionNote = hasEvaluation
@@ -182,8 +185,35 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded }: DetailPan
         );
       })()}
 
-      {/* Attribution note */}
-      {attributionNote && (
+      {/* Value Assurance Panel — evaluation details */}
+      {hasEvaluation && solution.impact_evaluation && (
+        <>
+          <ValueAssurancePanel
+            solutionId={solution.solution_id}
+            solutionDescription={solution.solution_description}
+            approvedAt={solution.approved_at}
+            status={solution.status}
+            evaluation={solution.impact_evaluation}
+            compositeVerdict={solution.impact_evaluation.composite_verdict ?? undefined}
+            onViewAttribution={() => setShowAttribution(!showAttribution)}
+          />
+          {showAttribution && (
+            <AttributionBreakdown
+              totalChange={solution.impact_evaluation.total_kpi_change}
+              attributableImpact={solution.impact_evaluation.attributable_impact}
+              marketDrivenRecovery={solution.impact_evaluation.market_driven_recovery}
+              seasonalComponent={solution.impact_evaluation.seasonal_component}
+              controlGroupChange={solution.impact_evaluation.control_group_change}
+              expectedLower={solution.impact_evaluation.expected_impact_lower}
+              expectedUpper={solution.impact_evaluation.expected_impact_upper}
+              controlGroupDescription={solution.impact_evaluation.control_group_description ?? undefined}
+            />
+          )}
+        </>
+      )}
+
+      {/* Attribution note (when no evaluation yet) */}
+      {!hasEvaluation && attributionNote && (
         <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-900/10 border border-amber-500/20 rounded-lg px-4 py-2.5">
           <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
           {attributionNote}

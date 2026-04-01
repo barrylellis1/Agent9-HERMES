@@ -1095,6 +1095,64 @@ class A9_Situation_Awareness_Agent:
             return sql + f" AND {cond}"
         return sql + f" WHERE {cond}"
 
+    def _bq_monthly_series_sql(self, base_sql: str, date_col: str = "transaction_date", num_months: int = 9) -> str:
+        """Generate SQL that returns monthly aggregates for the last N months.
+
+        Takes the base KPI SQL (which has a SUM/aggregate) and transforms it
+        into a GROUP BY month query returning num_months rows ordered ascending.
+        """
+        import re as _re
+        from datetime import date as _date
+        try:
+            from dateutil.relativedelta import relativedelta as _rd
+        except ImportError:
+            self.logger.warning("[Monthly] python-dateutil not available; skipping monthly series")
+            return ""
+
+        today = _date.today()
+        start_date = (today - _rd(months=num_months - 1)).replace(day=1)
+        end_date = today
+
+        # Match: SELECT <agg> as total_value FROM <table_ref> [rest]
+        match = _re.match(
+            r"SELECT\s+(.+?)\s+as\s+total_value\s+FROM\s+(`[^`]+`(?:\.\S+)*)(.*)",
+            base_sql,
+            _re.IGNORECASE | _re.DOTALL,
+        )
+        if not match:
+            self.logger.warning(f"[Monthly] Could not parse base SQL for monthly series: {base_sql[:200]}")
+            return ""
+
+        agg_expr = match.group(1).strip()
+        table_ref = match.group(2).strip()
+        where_clause = match.group(3).strip()
+
+        date_filter = f"{date_col} >= '{start_date.isoformat()}' AND {date_col} <= '{end_date.isoformat()}'"
+
+        if where_clause.upper().startswith("WHERE"):
+            existing_conditions = where_clause[5:].strip()
+            # Remove any pre-existing date range conditions to avoid conflicts
+            cleaned = _re.sub(
+                rf"\s*AND\s+{_re.escape(date_col)}\s+(?:BETWEEN|>=|<=|>|<)\s+['\d\-]+(?:\s+AND\s+['\d\-]+)?",
+                "",
+                existing_conditions,
+                flags=_re.IGNORECASE,
+            )
+            cleaned = cleaned.strip()
+            full_where = f"WHERE {cleaned} AND {date_filter}" if cleaned else f"WHERE {date_filter}"
+        else:
+            full_where = f"WHERE {date_filter}"
+
+        monthly_sql = (
+            f"SELECT FORMAT_DATE('%Y-%m', {date_col}) as period, "
+            f"{agg_expr} as value "
+            f"FROM {table_ref} "
+            f"{full_where} "
+            f"GROUP BY period "
+            f"ORDER BY period ASC"
+        )
+        return monthly_sql
+
     # ──────────────────────────────────────────────────────────────────────────
 
     def _load_kpis_from_contract(self):
@@ -2001,6 +2059,39 @@ class A9_Situation_Awareness_Agent:
             except Exception as e:
                 self.logger.error(f"Error executing base SQL for {kpi_name}: {e}")
                 return None
+            # ── Monthly series (9 months) for trend visualization ──
+            monthly_values = None
+            try:
+                if _is_bq_kpi and _raw_kpi_sql:
+                    monthly_sql = self._bq_monthly_series_sql(_raw_kpi_sql, date_col=_bq_date_col, num_months=9)
+                    if monthly_sql:
+                        self.logger.info(f"[Monthly] Executing monthly series for {kpi_name}")
+                        monthly_result = await self.data_product_agent.execute_sql(monthly_sql, parameters=None, principal_context=principal_context)
+                        if monthly_result and (monthly_result.get("rows") or monthly_result.get("data")):
+                            raw_rows = monthly_result.get("rows") or monthly_result.get("data") or []
+                            monthly_values = []
+                            for row in raw_rows:
+                                if isinstance(row, dict):
+                                    period = row.get("period", "")
+                                    val = row.get("value")
+                                elif isinstance(row, (list, tuple)) and len(row) >= 2:
+                                    period = str(row[0])
+                                    val = row[1]
+                                else:
+                                    continue
+                                if val is not None:
+                                    try:
+                                        monthly_values.append({"period": period, "value": float(val)})
+                                    except (ValueError, TypeError):
+                                        pass
+                            self.logger.info(f"[Monthly] Got {len(monthly_values)} monthly values for {kpi_name}")
+                else:
+                    # TODO: add monthly series support for DuckDB KPIs
+                    pass
+            except Exception as _me:
+                self.logger.warning(f"[Monthly] Failed to get monthly series for {kpi_name}: {_me}")
+                monthly_values = None
+
             # For testing/MVP when comparison not available, return basic KPI value
             if not comparison_type:
                 return KPIValue(
@@ -2010,7 +2101,8 @@ class A9_Situation_Awareness_Agent:
                     comparison_type=None,
                     timeframe=timeframe,
                     dimensions=merged_filters,
-                    percent_change=None
+                    percent_change=None,
+                    monthly_values=monthly_values
                 )
             
             # If comparison is requested, generate comparison SQL once and execute it
@@ -2073,7 +2165,8 @@ class A9_Situation_Awareness_Agent:
                 comparison_type=comparison_type,
                 timeframe=timeframe,
                 dimensions=merged_filters,
-                percent_change=percent_change
+                percent_change=percent_change,
+                monthly_values=monthly_values
             )
         except Exception as e:
             logger.error(f"Error getting KPI value for {kpi_name}: {str(e)}")

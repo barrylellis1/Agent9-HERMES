@@ -235,6 +235,12 @@ class SituationDetectionResponse(BaseResponse):
 - `Situation.from_opportunity_signal(signal, kpi_value)` classmethod added to `situation_awareness_models.py` — converts an `OpportunitySignal` with `confidence >= 0.7` into a `Situation` with `card_type="opportunity"`, dedupe key `opp_{kpi_name}_{opportunity_type}`, and severity mapped from opportunity type (`outperformance` → HIGH, `recovery` → MEDIUM, `trend_reversal` → LOW).
 - SA agent `detect_situations` now appends these opportunity Situations to the main situations list after each per-KPI opportunity scan.
 
+## Monthly Series for Trend Visualization (Apr 2026)
+- `_bq_monthly_series_sql(base_sql, date_col, num_months=9)` — generates BigQuery SQL returning monthly aggregates for the last N months
+- Monthly series query runs after current + comparison queries in `_get_kpi_value()`, BigQuery KPIs only (DuckDB TODO)
+- Results stored as `KPIValue.monthly_values: Optional[List[Dict[str, Any]]]` — each entry: `{period: str, value: float}`
+- Frontend KPITile renders real 9-month bar charts from this data (replaces previous fake sparklines)
+
 ## Future Enhancements
 - Integration with A9_NLP_Interface_Agent for advanced query parsing
 - Enhanced business impact analysis using LLM
