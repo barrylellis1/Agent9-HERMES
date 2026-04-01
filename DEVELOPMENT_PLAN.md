@@ -1,8 +1,37 @@
 # Agent9-HERMES Development Plan
 
 **Created:** 2026-03-14
+**Last updated:** 2026-04-01
 **Status:** Active
 **Supersedes:** `IMPLEMENTATION_PLAN.md` (Nov 2025), `HERMES_IMPLEMENTATION_PLAN.md` (original hackathon)
+
+---
+
+## Current Focus: Phase 9 — Enterprise Assessment Pipeline
+
+**Starting point:** Phases 1–8 complete. VA UI wired (7C). Real KPI bar charts shipping. Partner deck done. Production deployed.
+
+**What to build next (in order):**
+
+1. **Phase 9A** — Data model: `assessment_runs` + `kpi_assessments` Supabase tables, KPI monitoring profile fields on registry
+2. **Phase 9B** — Assessment engine: replace `run_cfo_assessment.py`, KPI-specific comparison periods, volatility-adjusted severity, confidence floor gating
+3. **Phase 9C** — API + UI: assessment endpoints, landing page refactor (remaining KPI tile items: threshold line, comparison badge)
+4. **Phase 9D** — Principal-specific layering: filter assessment by principal's business processes
+5. **Phase 9F** — Adaptive calibration loop: KPI Assistant recommends monitoring profiles from production data
+6. **Phase 9G** — Unified situation stream: merge problem/opportunity into single pipeline, wire real `kpi_evaluated_count`
+
+**Key decisions already made:**
+- SA = sensor (facts), DA = analyst (framing) — no separate opportunity agent
+- Per-KPI monitoring profiles replace global timeframe dropdown
+- Both positive and negative KPI movements flow through DA → SF → VA equally
+- Bars for uncertainty (SA tiles), lines for trajectories (VA charts)
+- Adaptive calibration loop is the core compounding moat
+
+**Known tech debt to address during Phase 9:**
+- `kpisScanned={14}` hardcoded in `DecisionStudio.tsx:130` — wire real `kpi_evaluated_count`
+- Separate `OpportunitySignal` / `Situation` streams — unify in Phase 9G
+- Client dropdown on SA Console — move to login screen
+- Timeframe dropdown — remove when per-KPI monitoring profiles exist (Phase 9A)
 
 ---
 
