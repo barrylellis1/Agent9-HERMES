@@ -35,12 +35,20 @@ class SituationAwarenessAgentConfig(BaseModel):
         None,
         description="Optional path to custom principal profile definitions"
     )
+    assessment_mode: bool = Field(
+        False,
+        description="When True, processes one KPI at a time (called by assessment engine). When False, processes all principal KPIs (interactive mode)."
+    )
+    use_monitoring_profiles: bool = Field(
+        True,
+        description="When True, use per-KPI MonitoringProfile from registry instead of global timeframe. Requires Phase 9A KPI registry fields."
+    )
 ```
 
 ## Protocol Entrypoints
 | Method | Description | Request Model | Response Model |
 |--------|-------------|---------------|----------------|
-| `detect_situations` | Detect situations across KPIs based on principal context | `SituationDetectionRequest` | `SituationDetectionResponse` |
+| `detect_situations` | Detect situations across KPIs. In assessment mode, processes a single KPI using its MonitoringProfile (comparison_period, volatility_band, min_breach_duration, confidence_floor). Returns `escalate_to_da: bool` for assessment engine routing. | `SituationDetectionRequest` | `SituationDetectionResponse` |
 | `process_nl_query` | Process natural language queries about KPIs | `NLQueryRequest` | `NLQueryResponse` |
 | `process_hitl_feedback` | Handle human-in-the-loop feedback for situations | `HITLRequest` | `HITLResponse` |
 | `get_recommended_questions` | Get recommended questions based on principal context | N/A | `List[str]` |
@@ -240,6 +248,29 @@ class SituationDetectionResponse(BaseResponse):
 - Monthly series query runs after current + comparison queries in `_get_kpi_value()`, BigQuery KPIs only (DuckDB TODO)
 - Results stored as `KPIValue.monthly_values: Optional[List[Dict[str, Any]]]` — each entry: `{period: str, value: float}`
 - Frontend KPITile renders real 9-month bar charts from this data (replaces previous fake sparklines)
+
+## Phase 9A Behaviour Changes
+
+### Monitoring Profile Support
+When `use_monitoring_profiles=True` (default), `detect_situations` reads each KPI's
+`monitoring_profile` from the KPI registry and uses:
+- `comparison_period` instead of the global `timeframe` parameter
+- `volatility_band` to filter noise — breach must exceed band to qualify
+- `min_breach_duration` — consecutive-period check before escalation
+- `confidence_floor` — gate for DA escalation; below floor → `status="monitoring"`
+
+### Assessment Engine Integration
+When `assessment_mode=True`, processes one KPI per call. `SituationDetectionResponse`
+includes `escalate_to_da: bool` for direct routing to DA by the assessment engine.
+
+### Situation Status Values (Updated)
+| Status | Meaning |
+|--------|---------|
+| `"detected"` | Confidence ≥ floor; escalated to DA |
+| `"monitoring"` | Confidence < floor; visible in UI, not escalated |
+| `"below_threshold"` | Severity < severity_floor; not shown by default |
+
+`"problem"` and `"opportunity"` card_type values are **deprecated** (Phase 9G removal). SA is a sensor only.
 
 ## Future Enhancements
 - Integration with A9_NLP_Interface_Agent for advanced query parsing

@@ -3,7 +3,7 @@
 <!-- 
 CANONICAL PRD DOCUMENT
 This is the official, canonical PRD document for this agent.
-Last updated: 2026-01-24
+Last updated: 2026-04-01
 -->
 
 ## 1. Overview
@@ -264,6 +264,137 @@ class A9_KPI_Assistant_Agent_Config:
 - Refine strategic metadata inference logic
 - Expand validation rules as needed
 - Keep LLM model versions current
+
+## 9. Phase 9F: Adaptive Calibration Loop
+
+### 9.1 Purpose
+
+Transform the KPI Assistant from a one-time onboarding helper into an ongoing tuning advisor. The system gets smarter per client over time — this is the compounding moat: after 12 months, switching means losing calibrated profiles for 50+ KPIs, historical noise-vs-signal data, and validated decision outcomes.
+
+### 9.2 Flow
+
+#### Step 1 — Initial Onboarding (existing)
+Admin registers KPIs with basic thresholds via existing `suggest_kpis` → `chat` → `finalize_kpis` flow.
+
+#### Step 2 — Monitoring Profile Recommendation (new)
+After KPI registration, KPI Assistant analyzes production data for each KPI:
+- Queries historical data via `A9_Data_Product_Agent` (last 12–24 months where available)
+- Computes: standard deviation, coefficient of variation, seasonality index, data completeness %
+- LLM synthesizes statistical analysis into recommended monitoring profile fields:
+  - `comparison_period`: `"MoM"` | `"QoQ"` | `"YoY"` — chosen based on natural business cadence
+  - `volatility_band`: float — recommended as 1.5–2× the KPI's typical standard deviation
+  - `min_breach_duration`: int — recommended based on data pattern (volatile KPIs get higher minimums)
+  - `confidence_floor`: float — recommended based on data quality/completeness
+  - `urgency_window_days`: int — recommended based on KPI domain (revenue = 7, cost = 30)
+- Provides natural-language rationale: *"Gross Margin has ±1.8% quarterly variance and no seasonality. I recommend QoQ comparison, 2% volatility band, 2-period minimum breach duration."*
+
+#### Step 3 — Conversational Refinement (extends existing chat)
+Admin can challenge, adjust, or accept recommendations:
+- *"That volatility band feels too tight for Q4"* → KPI Assistant adjusts with domain knowledge
+- Refinement uses existing `chat` entrypoint with `session_id` context
+- Admin accepts via `finalize_monitoring_profile` (new entrypoint — see below)
+
+#### Step 4 — Parameters Persist on KPI Registry
+`finalize_monitoring_profile` writes the accepted monitoring profile fields to the KPI registry record. SA uses them at runtime in `detect_situations`.
+
+#### Step 5 — Recalibration After N Assessment Cycles
+After N assessment cycles (configurable, default = 6 months / ~26 weekly runs):
+- KPI Assistant queries VA outcome data and SA trigger data from Supabase
+- Computes trigger accuracy per KPI: `(situations that led to approved action) / (total situations triggered)`
+- Flags KPIs where trigger accuracy < configurable threshold (default 40%):
+  - *"Revenue triggered 12 times, 5 led to approved action, 7 dismissed as noise. Recommend widening volatility band from ±5% to ±10%."*
+- Admin reviews recalibration recommendations via the monitoring profile UI
+- Approved recommendations update the KPI registry and take effect on the next assessment run
+
+### 9.3 New Entrypoints
+
+| Method | Description | Request Model | Response Model |
+|--------|-------------|---------------|----------------|
+| `analyze_kpi_volatility` | Queries production data, computes volatility stats for a KPI | `KPIVolatilityRequest` | `KPIVolatilityResponse` |
+| `recommend_monitoring_profile` | LLM synthesizes volatility stats into recommended profile fields with rationale | `MonitoringProfileRequest` | `MonitoringProfileResponse` |
+| `finalize_monitoring_profile` | Persists accepted monitoring profile fields to the KPI registry | `FinalizeMonitoringProfileRequest` | `FinalizeMonitoringProfileResponse` |
+| `get_recalibration_recommendations` | Queries trigger accuracy data, returns KPIs needing recalibration | `RecalibrationRequest` | `RecalibrationResponse` |
+
+### 9.4 New Request/Response Models
+
+```python
+class KPIVolatilityRequest(A9AgentBaseRequest):
+    kpi_id: str
+    data_product_id: str
+    lookback_months: int = 24
+
+class KPIVolatilityResponse(A9AgentBaseResponse):
+    kpi_id: str
+    std_dev: float
+    coefficient_of_variation: float
+    seasonality_detected: bool
+    data_completeness_pct: float
+    recommended_comparison_period: str  # "MoM" | "QoQ" | "YoY"
+    analysis_notes: str
+
+class MonitoringProfileRequest(A9AgentBaseRequest):
+    kpi_id: str
+    volatility_analysis: KPIVolatilityResponse
+    admin_domain_notes: Optional[str] = None  # admin context for LLM
+
+class MonitoringProfileResponse(A9AgentBaseResponse):
+    kpi_id: str
+    recommended_profile: MonitoringProfile
+    rationale: str  # natural language explanation
+    confidence: float
+
+class MonitoringProfile(BaseModel):
+    comparison_period: Literal["MoM", "QoQ", "YoY"]
+    volatility_band: float
+    min_breach_duration: int
+    confidence_floor: float
+    urgency_window_days: int
+
+class FinalizeMonitoringProfileRequest(A9AgentBaseRequest):
+    kpi_id: str
+    monitoring_profile: MonitoringProfile
+
+class FinalizeMonitoringProfileResponse(A9AgentBaseResponse):
+    kpi_id: str
+    success: bool
+    message: str
+
+class RecalibrationRequest(A9AgentBaseRequest):
+    min_cycles: int = 26  # minimum assessment cycles before recalibration
+    trigger_accuracy_threshold: float = 0.4
+
+class RecalibrationResponse(A9AgentBaseResponse):
+    kpis_reviewed: int
+    kpis_needing_recalibration: List[KPIRecalibrationRecommendation]
+
+class KPIRecalibrationRecommendation(BaseModel):
+    kpi_id: str
+    kpi_name: str
+    current_profile: MonitoringProfile
+    recommended_profile: MonitoringProfile
+    trigger_accuracy: float
+    total_triggers: int
+    approved_actions: int
+    rationale: str
+```
+
+### 9.5 Dependencies
+- Phase 9A: `comparison_period`, `volatility_band`, `min_breach_duration`, `confidence_floor`, `urgency_window_days` fields on KPI registry records
+- Phase 9B: assessment engine must be running to accumulate trigger data
+- Phase 7 VA: outcome data (`value_assurance_solutions` table) required for recalibration accuracy computation
+- KPI Assistant UI (Phase 9F deliverable): React panel for monitoring profile setup and recalibration review
+
+### 9.6 UI Requirements (Phase 9F)
+
+The KPI Assistant currently has API routes but no UI. Phase 9F adds:
+- Monitoring profile recommendation panel in the Admin Console (after KPI onboarding step)
+- Shows volatility stats, recommended profile fields, LLM rationale
+- Editable fields for admin override
+- "Accept" / "Adjust" / "Skip" actions
+- Recalibration alert badge on Admin Console when KPIs need review
+- Recalibration recommendations panel listing KPIs flagged for adjustment
+
+---
 
 ## 10. Future Enhancements
 

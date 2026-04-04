@@ -66,6 +66,7 @@ export function useDecisionStudio() {
   const [opportunities, setOpportunities] = useState<OpportunitySignal[]>([]);
   const [scanComplete, setScanComplete] = useState(false);
   const [selectedSituation, setSelectedSituation] = useState<Situation | null>(null);
+  const [kpisScanned, setKpisScanned] = useState<number>(0);
   
   // Deep Analysis
   const [analyzing, setAnalyzing] = useState(false);
@@ -110,13 +111,20 @@ export function useDecisionStudio() {
   const [availableClients, setAvailableClients] = useState<Client[]>([]);
   const [availablePrincipals, setAvailablePrincipals] = useState<Principal[]>(AVAILABLE_PRINCIPALS);
 
-  // Effect to set principal and client from router state (set by Login)
+  // KPI name passed via router state (e.g. from PIB email deep-link token).
+  // State (not ref) so the matching effect re-runs when it arrives after situations load.
+  const [pendingKpiName, setPendingKpiName] = useState<string | null>(null);
+
+  // Effect to set principal, client, and pending KPI from router state
   useEffect(() => {
     if (location.state?.clientId) {
       setSelectedClientId(location.state.clientId);
     }
     if (location.state?.principalId) {
       setSelectedPrincipal(location.state.principalId);
+    }
+    if (location.state?.kpiName) {
+      setPendingKpiName(location.state.kpiName);
     }
   }, [location.state]);
 
@@ -142,6 +150,21 @@ export function useDecisionStudio() {
       })
       .catch(err => console.warn('Failed to load principals:', err));
   }, [selectedClientId]);
+
+  // Auto-select a situation when a deep-link kpiName arrived via router state.
+  // Uses state so it re-runs when EITHER situations loads OR kpiName arrives —
+  // whichever happens last wins, avoiding the race condition.
+  useEffect(() => {
+    if (!pendingKpiName || situations.length === 0) return;
+    const match = situations.find(
+      s => s.kpi_name?.toLowerCase() === pendingKpiName.toLowerCase()
+    );
+    if (match) {
+      setSelectedSituation(match);
+      handleDeepAnalysis(match);
+      setPendingKpiName(null);
+    }
+  }, [situations, pendingKpiName]);
 
   // Restore solutions from persistence when situation changes
   useEffect(() => {
@@ -194,6 +217,7 @@ export function useDecisionStudio() {
 
       setSituations(result.situations);
       setOpportunities(result.opportunities);
+      setKpisScanned(result.kpi_evaluated_count ?? result.situations?.length ?? 0);
       setScanComplete(true);
 
       if (result.situations.length > 0 || result.opportunities.length > 0) {
@@ -500,6 +524,7 @@ export function useDecisionStudio() {
     situations,
     opportunities,
     scanComplete,
+    kpisScanned,
     selectedSituation,
     analyzing,
     analysisResults,

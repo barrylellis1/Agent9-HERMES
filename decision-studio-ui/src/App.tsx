@@ -12,6 +12,8 @@ import { LandingPage } from './pages/LandingPage'
 import { HowItWorks } from './pages/HowItWorks'
 import { InsightsBIModernization } from './pages/InsightsBIModernization'
 import { DataOnboarding } from './pages/DataOnboarding'
+import ActionHandler from './pages/ActionHandler'
+import DelegatePage from './pages/DelegatePage'
 // PrincipalManagement merged into Settings (RegistryExplorer)
 
 // Hostname routing: decision-studios.com → corporate site, everything else → app
@@ -38,6 +40,9 @@ function App() {
         <Route path="/insights/bi-modernization" element={<InsightsBIModernization />} />
         {/* Data onboarding capability page */}
         <Route path="/data-onboarding" element={<DataOnboarding />} />
+        {/* PIB email token action handler — no auth, token is the credential */}
+        <Route path="/action" element={<ActionHandler />} />
+        <Route path="/delegate" element={<DelegatePage />} />
         {/* Legacy routes → redirects */}
         <Route path="/admin" element={<Navigate to="/settings" replace />} />
         <Route path="/admin/registry" element={<Navigate to="/settings" replace />} />

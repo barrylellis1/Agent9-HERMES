@@ -68,6 +68,12 @@ kpis:
       altitude: "strategic"
       profit_driver_type: "revenue"
       lens_affinity: "mckinsey,bcg"
+    monitoring_profile:
+      comparison_period: "QoQ"
+      volatility_band: 0.05
+      min_breach_duration: 1
+      confidence_floor: 0.60
+      urgency_window_days: 7
 
   - id: cost_of_goods_sold
     client_id: bicycle
@@ -119,6 +125,12 @@ kpis:
       altitude: "operational"
       profit_driver_type: "cost"
       lens_affinity: "bcg,bain"
+    monitoring_profile:
+      comparison_period: "QoQ"
+      volatility_band: 0.04
+      min_breach_duration: 2
+      confidence_floor: 0.65
+      urgency_window_days: 21
 
   - id: gross_margin
     client_id: bicycle
@@ -180,6 +192,12 @@ kpis:
       altitude: "strategic"
       profit_driver_type: "margin"
       lens_affinity: "mckinsey,bcg"
+    monitoring_profile:
+      comparison_period: "QoQ"
+      volatility_band: 0.03
+      min_breach_duration: 2
+      confidence_floor: 0.70
+      urgency_window_days: 14
 
   - id: utilities_expense
     client_id: bicycle
@@ -228,6 +246,12 @@ kpis:
       altitude: "operational"
       profit_driver_type: "expense"
       lens_affinity: "bcg,bain"
+    monitoring_profile:
+      comparison_period: "QoQ"
+      volatility_band: 0.04
+      min_breach_duration: 2
+      confidence_floor: 0.65
+      urgency_window_days: 21
 
   - id: office_expense
     client_id: bicycle
@@ -276,6 +300,12 @@ kpis:
       altitude: "operational"
       profit_driver_type: "expense"
       lens_affinity: "bcg,bain"
+    monitoring_profile:
+      comparison_period: "QoQ"
+      volatility_band: 0.03
+      min_breach_duration: 2
+      confidence_floor: 0.70
+      urgency_window_days: 14
 
   - id: payroll
     client_id: bicycle

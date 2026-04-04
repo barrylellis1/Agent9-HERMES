@@ -59,10 +59,24 @@ class KPIDimension(BaseModel):
     description: Optional[str] = Field(None, description="Description of the dimension")
 
 
+class KPIMonitoringProfile(BaseModel):
+    """Per-KPI calibration parameters for the Enterprise Assessment Engine.
+
+    Controls how SA evaluates breach significance before deciding whether to
+    escalate to Deep Analysis. Set by KPI Assistant (Phase 9F) from historical
+    volatility analysis; defaults apply until calibrated.
+    """
+    comparison_period: str = Field("QoQ", description="Comparison cadence: 'MoM', 'QoQ', or 'YoY'.")
+    volatility_band: float = Field(0.05, ge=0.0, le=1.0, description="Fractional band (e.g. 0.05 = ±5%). Breach must exceed this to be significant.")
+    min_breach_duration: int = Field(1, ge=1, description="Consecutive periods in breach before SA escalates.")
+    confidence_floor: float = Field(0.6, ge=0.0, le=1.0, description="Minimum SA confidence to escalate to DA; below this → 'monitoring' status.")
+    urgency_window_days: int = Field(14, ge=1, description="SLA window in days for this KPI type.")
+
+
 class KPI(BaseModel):
     """
     Represents a KPI (Key Performance Indicator) in the registry.
-    
+
     This model replaces the enum-based approach with a flexible,
     data-driven model that can be extended by customers.
     """
@@ -84,7 +98,11 @@ class KPI(BaseModel):
     owner_role: Optional[str] = Field(None, description="Primary role responsible for this KPI")
     stakeholder_roles: List[str] = Field(default_factory=list, description="Roles with a stake in this KPI")
     metadata: Dict[str, str] = Field(default_factory=dict, description="Additional metadata for extensions")
-    
+    monitoring_profile: Optional[KPIMonitoringProfile] = Field(
+        None,
+        description="Per-KPI monitoring calibration. None = use engine defaults. Set by KPI Assistant after volatility analysis."
+    )
+
     @classmethod
     def from_enum_value(cls, enum_value: str, domain: str = "Finance") -> "KPI":
         """

@@ -3,7 +3,10 @@ import {
   ProblemRefinementResult,
   Situation,
   OpportunitySignal,
-  SituationDetectionResult
+  SituationDetectionResult,
+  AssessmentSummary,
+  AssessmentRun,
+  KPIAssessment,
 } from './types';
 import type {
   AcceptedSolution as VAAcceptedSolution,
@@ -605,3 +608,30 @@ export async function storeBriefingSnapshot(solutionId: string, snapshot: Record
 export async function getBriefingSnapshot(solutionId: string): Promise<Record<string, unknown>> {
   return requestJson<Record<string, unknown>>(`/value-assurance/solutions/${solutionId}/briefing`);
 }
+
+// ---------------------------------------------------------------------------
+// Assessment Pipeline — Phase 9C
+// ---------------------------------------------------------------------------
+
+export async function getLatestAssessment(principalId?: string): Promise<AssessmentSummary> {
+  const params = principalId ? `?principal_id=${encodeURIComponent(principalId)}` : '';
+  return requestJson<AssessmentSummary>(`/assessments/latest${params}`);
+}
+
+export async function getAssessment(runId: string): Promise<AssessmentSummary> {
+  return requestJson<AssessmentSummary>(`/assessments/${runId}`);
+}
+
+export async function listAssessmentRuns(limit = 10): Promise<AssessmentRun[]> {
+  return requestJson<AssessmentRun[]>(`/assessments/runs?limit=${limit}`);
+}
+
+export async function triggerAssessment(principalId?: string, dryRun = false): Promise<AssessmentRun> {
+  const params = new URLSearchParams();
+  if (principalId) params.set('principal_id', principalId);
+  if (dryRun) params.set('dry_run', 'true');
+  return requestJson<AssessmentRun>(`/assessments/run?${params.toString()}`, { method: 'POST' });
+}
+
+// suppress unused-import warning — KPIAssessment is exported for consumer use
+export type { KPIAssessment };

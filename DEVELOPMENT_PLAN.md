@@ -9,13 +9,13 @@
 
 ## Current Focus: Phase 9 — Enterprise Assessment Pipeline
 
-**Starting point:** Phases 1–8 complete. VA UI wired (7C). Real KPI bar charts shipping. Partner deck done. Production deployed.
+**Status:** Phase 9A–9B complete (2026-04-01). Phase 9C API routes shipped (in-memory store). Supabase persistence + landing page refactor pending Phase 9C.
 
 **What to build next (in order):**
 
-1. **Phase 9A** — Data model: `assessment_runs` + `kpi_assessments` Supabase tables, KPI monitoring profile fields on registry
-2. **Phase 9B** — Assessment engine: replace `run_cfo_assessment.py`, KPI-specific comparison periods, volatility-adjusted severity, confidence floor gating
-3. **Phase 9C** — API + UI: assessment endpoints, landing page refactor (remaining KPI tile items: threshold line, comparison badge)
+1. ✅ **Phase 9A** — Data model: `assessment_runs` + `kpi_assessments` Supabase tables, KPI monitoring profile fields on registry — **COMPLETE**
+2. ✅ **Phase 9B** — Assessment engine: replace `run_cfo_assessment.py`, KPI-specific comparison periods, volatility-adjusted severity, confidence floor gating — **COMPLETE (2026-04-01)**
+3. ⚠️ **Phase 9C** — API + UI: assessment endpoints shipped (in-memory); landing page refactor pending (Supabase persistence TODO)
 4. **Phase 9D** — Principal-specific layering: filter assessment by principal's business processes
 5. **Phase 9F** — Adaptive calibration loop: KPI Assistant recommends monitoring profiles from production data
 6. **Phase 9G** — Unified situation stream: merge problem/opportunity into single pipeline, wire real `kpi_evaluated_count`
@@ -179,16 +179,16 @@ The SA→opportunity labeling code (`from_opportunity_signal`, `card_type="oppor
 
 #### Phase 9B: Assessment Engine (replaces `run_cfo_assessment.py`)
 
-| Deliverable | Description |
-|------------|-------------|
-| `run_enterprise_assessment.py` | New script: iterates ALL registered KPIs, runs SA measurement + DA analysis per KPI, persists to Supabase |
-| Proper agent instantiation | Uses RegistryFactory + Orchestrator (not legacy `create_situation_awareness_agent`) |
-| KPI-specific comparison periods | SA uses each KPI's `comparison_period` instead of a global timeframe toggle |
-| Volatility-adjusted severity | Breach magnitude evaluated relative to the KPI's `volatility_band` — a 5% revenue dip may be noise while a 2% margin drop is a crisis |
-| Confidence floor gating | Only escalate to DA when situation confidence exceeds the KPI's `confidence_floor`. Below that, flag as "monitoring" — visible but not consuming pipeline resources |
-| Configurable severity floor | Only run DA for KPIs above a configurable severity threshold |
-| Idempotent runs | Assessment run ID prevents duplicate analysis for the same KPI in the same period |
-| Progress logging | Per-KPI progress with timing, errors logged but non-fatal |
+| Deliverable | Description | Status |
+|------------|-------------|--------|
+| `run_enterprise_assessment.py` | New script: iterates ALL registered KPIs, runs SA measurement + DA analysis per KPI, persists to Supabase | ✅ SHIPPED |
+| Proper agent instantiation | Uses RegistryFactory + Orchestrator (not legacy `create_situation_awareness_agent`) | ✅ SHIPPED |
+| KPI-specific comparison periods | SA uses each KPI's `comparison_period` instead of a global timeframe toggle | ✅ SHIPPED |
+| Volatility-adjusted severity | Breach magnitude evaluated relative to the KPI's `volatility_band` — a 5% revenue dip may be noise while a 2% margin drop is a crisis | ✅ SHIPPED (basic implementation) |
+| Confidence floor gating | Only escalate to DA when situation confidence exceeds the KPI's `confidence_floor`. Below that, flag as "monitoring" — visible but not consuming pipeline resources | ✅ SHIPPED |
+| Configurable severity floor | Only run DA for KPIs above a configurable severity threshold | ✅ SHIPPED |
+| Idempotent runs | Assessment run ID prevents duplicate analysis for the same KPI in the same period | ⚠️ PARTIAL (in-memory dedup; Supabase persistence TODO Phase 9C) |
+| Progress logging | Per-KPI progress with timing, errors logged but non-fatal | ✅ SHIPPED |
 
 #### Phase 9F: Adaptive Calibration Loop (KPI Assistant)
 
@@ -218,13 +218,13 @@ The SA→opportunity labeling code (`from_opportunity_signal`, `card_type="oppor
 
 #### Phase 9C: API + UI
 
-| Deliverable | Description |
-|------------|-------------|
-| `GET /assessments/latest` | Returns most recent assessment run with findings, filterable by principal/business_process |
-| `GET /assessments/{run_id}` | Full assessment detail |
-| `POST /assessments/run` | Trigger assessment on-demand (optional — may be CLI-only initially) |
-| Landing page refactor | Dashboard reads from assessment API, shows pre-analyzed findings with headline summaries |
-| KPI tile redesign | Full tile overhaul — see spec below. Click drills into pre-loaded DeepFocusView |
+| Deliverable | Description | Status |
+|------------|-------------|--------|
+| `GET /assessments/latest` | Returns most recent assessment run with findings, filterable by principal/business_process | ✅ SHIPPED (in-memory store; Supabase TODO) |
+| `GET /assessments/{run_id}` | Full assessment detail | ✅ SHIPPED (in-memory store; Supabase TODO) |
+| `POST /assessments/run` | Trigger assessment on-demand (optional — may be CLI-only initially) | ✅ SHIPPED |
+| Landing page refactor | Dashboard reads from assessment API, shows pre-analyzed findings. Integrate Swiss Style brand identity (Aperture logo, Quiet Expert copy). | Pending |
+| KPI tile redesign | Full tile overhaul — see spec below. Click drills into pre-loaded DeepFocusView | Partial |
 
 **KPI Tile Redesign Spec:**
 
@@ -640,6 +640,26 @@ Each form includes:
 **Effort:** Medium-Large (~1 day for all 4 registries)
 **File:** `decision-studio-ui/src/pages/RegistryExplorer.tsx`
 
+### Fix 4: Unified Brand Identity (Swiss Style) (Priority: High)
+
+**Problem:** The application UI and marketing landing page lack a cohesive, enterprise-grade visual identity. The current generic SaaS look undermines the $500K CaaS value proposition.
+
+**Fix:** Implement the "Swiss Style" design system (`docs/architecture/ui_brand_guidelines.md`) across both the landing page (`decision-studios.com`) and the core app (`trydecisionstudio.com`).
+- Add new "Aperture" geometric SVG logo component (`BrandLogo.tsx`).
+- Rewrite Landing Page Hero text to use the "Quiet Expert" brand voice ("Decisions ready in hours, not quarters").
+- Ensure "Narrative over Charts" philosophy across all visualizations (no drill-downs, strict monochrome).
+- Update Context Explorer ("Principal Dossier") and Registry Explorer ("Control Panel") to match the austere, high-contrast aesthetic.
+- **PIB email template (`src/templates/pib_briefing.html`):**
+  - Add Aperture logo mark in email header (inline SVG, once `BrandLogo` is finalised).
+  - Switch font stack to Satoshi (with `-apple-system, Helvetica, Arial` fallback for email clients).
+  - Adopt monochrome severity badges — remove colored backgrounds (red/orange/yellow/blue), use neutral `#f3f4f6` badge with left-border accent carrying the severity color.
+  - Apply "Quiet Expert" copy: rename "Situations Requiring Your Attention" → "Situations Detected (N)", rename "Overdue — No Action Taken" → "Open Situations — Awaiting Response". No exclamation points, no urgency language.
+  - Limit color to semantic use only: red = variance/problem, green = opportunity, subtle blue = AI-recommended action (investigate button).
+  - Ensure footer carries "Decision Studio" brand mark consistently.
+
+**Effort:** Medium (~1-2 days)
+**Files:** `BrandLogo.tsx`, `LandingPage.tsx`, `Header.tsx`, `ContextExplorer.tsx`, `src/templates/pib_briefing.html`
+
 ### Build Order
 
 | Order | Fix | Effort | Video Impact |
@@ -647,6 +667,7 @@ Each form includes:
 | 1 | ProblemRefinementChat sticky footer | ~1-2 hours | High — core demo flow |
 | 2 | DeepFocusView accordion collapse | ~3-4 hours | High — analytical centerpiece |
 | 3 | RegistryExplorer form layouts | ~1 day | Medium — admin screens, shown briefly |
+| 4 | Unified Brand Identity (Swiss Style) | ~1-2 days | Critical — first impression for demo/site |
 
 ---
 

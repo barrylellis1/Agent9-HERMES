@@ -40,7 +40,7 @@ def _stable_opportunity_id(opportunity: OpportunitySignal) -> str:
 def _safe_json(obj: Any) -> Any:
     """Convert a Pydantic model (or nested structure) to a JSON-safe dict."""
     if hasattr(obj, "model_dump"):
-        return obj.model_dump()
+        return obj.model_dump(mode="json")
     return obj
 
 

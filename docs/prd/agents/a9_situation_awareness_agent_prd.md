@@ -3,7 +3,7 @@
 <!-- 
 CANONICAL PRD DOCUMENT
 This is the official, canonical PRD document for this agent.
-Last updated: 2025-07-17
+Last updated: 2026-04-01
 -->
 
 
@@ -294,6 +294,75 @@ This document outlines the requirements for version 1.0 of the A9_Situation_Awar
   - [ ] Update error handling documentation
   - [ ] Update logging documentation
   - [ ] Update test documentation
+
+## 8. Phase 9: Enterprise Assessment Integration
+
+### 8.1 Phase 9A — KPI Monitoring Profiles
+
+The SA agent will use per-KPI monitoring profile fields (stored on the KPI registry record) instead of a global timeframe toggle. Each KPI registry entry will include these fields:
+
+- **`comparison_period`**: `"MoM"` | `"QoQ"` | `"YoY"` — the cadence SA uses to compute the comparison value
+- **`volatility_band`**: float — e.g. `0.05` = ±5%. Breach must exceed this band to count as significant
+- **`min_breach_duration`**: int (periods) — KPI must be in breach for N consecutive periods before SA escalates
+- **`confidence_floor`**: float 0–1 — minimum confidence score for SA to escalate to DA. Below this threshold the situation is marked `"monitoring"` (visible in UI but does not consume DA pipeline resources)
+- **`urgency_window_days`**: int — SLA window for this KPI type (e.g. revenue = 7 days, cost = 30 days)
+
+#### SA's `detect_situations` Implementation
+
+The `detect_situations` method must:
+
+1. Load the KPI's monitoring profile from the KPI registry
+2. Use `comparison_period` instead of the global `timeframe` parameter for the comparison value fetch
+3. Apply `volatility_band` to filter out noise — breach magnitude must exceed band
+4. Check `min_breach_duration` — short blips do not become situations
+5. Gate DA escalation on `confidence_floor`:
+   - If confidence < `confidence_floor`: produce a `"monitoring"` situation card (visible in UI, no DA escalation)
+   - If confidence ≥ `confidence_floor`: produce a `"detected"` card and escalate to DA
+
+### 8.2 Phase 9B — Assessment Engine Integration
+
+SA is called by the enterprise assessment engine (`run_enterprise_assessment.py`) for every registered KPI in sequence:
+
+- SA receives one KPI at a time (not a full principal sweep)
+- SA returns a `SituationDetectionResponse` per KPI with `escalate_to_da: bool` flag
+- If `escalate_to_da=True`, the assessment engine immediately invokes DA for that KPI
+- **Idempotency requirement:** Calling `detect_situations` twice for the same KPI and same period must not create duplicate situations
+  - Use `situation_id` deduplication against the `situations` Supabase table
+  - Composite key: `(principal_id, kpi_id, period, geography, product_group)`
+
+### 8.3 Phase 9G — Unified Situation Stream (Sensor-Only Framing)
+
+**Design principle:** SA is a **sensor only** — it reports KPI performance without framing. DA determines framing (problem vs. opportunity).
+
+#### Framing Changes
+
+- **Remove** the distinction between `"problem"` and `"opportunity"` `card_type` at the SA level
+- **SA output** `Situation.card_type` = `"detected"` | `"monitoring"` only
+  - `"detected"`: confidence ≥ `confidence_floor` and breach magnitude > `volatility_band`
+  - `"monitoring"`: confidence < `confidence_floor` or breach magnitude ≤ `volatility_band`
+
+#### Deprecations
+
+The following are **deprecated and to be removed in Phase 9G**:
+
+- `Situation.from_opportunity_signal()` classmethod
+- `OpportunitySignal`-to-Situation conversion logic
+- SA methods that label situations as `"opportunity"` instead of delegating to DA
+
+#### Data Model Impact
+
+**Before (Phases 3–8):**
+```python
+Situation.card_type: Literal["problem", "opportunity", "monitoring"]
+```
+
+**After (Phase 9G):**
+```python
+Situation.card_type: Literal["detected", "monitoring"]
+# Framing determined by DA, not SA
+```
+
+The DA agent will consume `"detected"` situations and produce framing (problem vs. opportunity) via its Is/Is Not analysis and benchmark segments.
 
 ## 7. Acceptance Criteria
 

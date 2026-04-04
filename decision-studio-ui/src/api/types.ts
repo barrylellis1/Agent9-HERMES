@@ -6,6 +6,8 @@ export interface Situation {
     unit: string;
     currency?: string;
     monthly_values?: Array<{ period: string; value: number }>;
+    threshold_value?: number | null;
+    comparison_period?: string | null;
   };
   severity: 'low' | 'medium' | 'high' | 'critical';
   card_type?: 'problem' | 'opportunity';
@@ -31,6 +33,7 @@ export interface OpportunitySignal {
 export interface SituationDetectionResult {
   situations: Situation[];
   opportunities: OpportunitySignal[];
+  kpi_evaluated_count?: number | null;
 }
 
 export interface ChangePoint {
@@ -248,4 +251,61 @@ export interface ProblemRefinementResult {
   conversation_history: Array<{ role: string; content: string }>;
   market_signals?: MarketSignal[];
   replication_constraints?: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Assessment Pipeline — Phase 9C
+// ---------------------------------------------------------------------------
+
+export interface MonitoringProfile {
+  comparison_period: 'MoM' | 'QoQ' | 'YoY';
+  volatility_band: number;
+  min_breach_duration: number;
+  confidence_floor: number;
+  urgency_window_days: number;
+}
+
+export type AssessmentStatus = 'running' | 'complete' | 'error';
+
+export type KPIAssessmentStatus = 'detected' | 'monitoring' | 'below_threshold' | 'error';
+
+export interface AssessmentConfig {
+  severity_floor: number;
+  principal_id?: string | null;
+  dry_run: boolean;
+}
+
+export interface AssessmentRun {
+  id: string;
+  started_at: string;
+  completed_at?: string | null;
+  status: AssessmentStatus;
+  kpi_count: number;
+  kpis_escalated: number;
+  kpis_monitored: number;
+  kpis_below_threshold: number;
+  kpis_errored: number;
+  config: AssessmentConfig;
+}
+
+export interface KPIAssessment {
+  id: string;
+  run_id: string;
+  kpi_id: string;
+  kpi_name?: string | null;
+  kpi_value?: number | null;
+  comparison_value?: number | null;
+  severity?: number | null;
+  confidence?: number | null;
+  status: KPIAssessmentStatus;
+  escalated_to_da: boolean;
+  da_result?: Record<string, unknown> | null;
+  benchmark_segments?: Record<string, unknown>[] | null;
+  error_message?: string | null;
+  created_at: string;
+}
+
+export interface AssessmentSummary {
+  run: AssessmentRun;
+  assessments: KPIAssessment[];
 }

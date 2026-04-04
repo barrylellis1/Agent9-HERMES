@@ -1,5 +1,13 @@
 # A9_Briefing_Agent Concept
 
+> **DEPRECATION NOTE (2026-04-01):**
+> This concept document describes internal briefing summarization for investors/POs. 
+> The Primary executive intelligence delivery system is now documented in:
+> [`docs/prd/agents/a9_enterprise_assessment_engine.md`](a9_enterprise_assessment_engine.md) — Phase 9 Principal Intelligence Briefing (PIB)
+> 
+> The PIB is email-based, delivered to executives after SA assessment runs, with one-click actions (snooze, delegate, request info, approve solutions).
+> This concept remains a valid future enhancement (internal briefing summarization for investors/board) but is distinct from PIB.
+
 ## Purpose
 To synthesize complex information from multiple Agent9 sources (agent reports, meeting minutes, PRDs) into high-level, easily digestible formats like mindmaps and audio summaries. This agent serves key stakeholders by providing tailored briefings that accelerate comprehension and decision-making.
 

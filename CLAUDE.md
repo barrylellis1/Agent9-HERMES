@@ -46,7 +46,7 @@ orchestrated AI workflows. ~100K lines of backend and UI code, 10 months of deve
 |---|---|---|
 | **A9_Orchestrator_Agent** | Agent registry (singleton), dependency resolution, 7 workflow methods | Operational |
 | **A9_Principal_Context_Agent** | 8 principal profiles, dual lookup, business process mapping | Operational |
-| **A9_Situation_Awareness_Agent** | KPI monitoring, anomaly + opportunity detection, situation + opportunity cards, NL query | Operational |
+| **A9_Situation_Awareness_Agent** | KPI monitoring, anomaly + opportunity detection, situation + opportunity cards, NL query, per-KPI monitoring profiles (Phase 9A), single-KPI assessment mode | Operational |
 | **A9_Deep_Analysis_Agent** | Is/Is Not analysis, change-point detection, SCQA framing, BigQuery routing | Operational |
 | **A9_Solution_Finder_Agent** | 3×Stage1 parallel LLM + synthesis, trade-off matrix, quantified impact, HITL, MA enrichment | Operational |
 | **A9_Market_Analysis_Agent** | Perplexity web search + Claude synthesis → market signals, competitor context (LLM-only fallback) | Operational |
@@ -64,9 +64,10 @@ orchestrated AI workflows. ~100K lines of backend and UI code, 10 months of deve
 - Remaining agents referenced in workflow YAMLs (Risk Management, Stakeholder, etc.)
 - Registry Maintenance UI — placeholder in Admin Console
 - Data Governance Admin UI — placeholder in Admin Console
-- Scheduled/offline SA execution — `run_cfo_assessment.py` exists but no built-in scheduler
+- Scheduled/offline SA execution — `run_enterprise_assessment.py` operational (Phase 9A+9B shipped); Supabase persistence + landing page refactor pending Phase 9C
 - Email/Slack notification to principals — data model ready, no sending code
 - Value Assurance Supabase persistence — in-memory store only (MVP)
+- Per-KPI monitoring profiles — registry model fields added (Phase 9A complete); SA runtime use pending Phase 9B
 
 ### API Surface (60 endpoints)
 
@@ -149,8 +150,8 @@ Agent9-HERMES/
 # Unit tests:
 .venv/Scripts/pytest tests/unit/ --timeout=15 --ignore=tests/unit/test_a9_data_product_mcp_service_agent_unit.py
 
-# Offline SA scan:
-.venv/Scripts/python run_cfo_assessment.py
+# Enterprise assessment (replaces run_cfo_assessment.py):
+.venv/Scripts/python run_enterprise_assessment.py [--principal <id>] [--kpi <kpi_id>] [--dry-run]
 ```
 
 ---

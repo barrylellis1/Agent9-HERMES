@@ -43,6 +43,7 @@ class PrincipalProfile(BaseModel):
     client_id: str = Field("lubricants", description="Client/tenant this principal belongs to")
     name: str = Field(..., description="Human-readable name of the principal profile")
     title: str = Field(..., description="Title of the principal (e.g., CFO, CEO)")
+    email: Optional[str] = Field(None, description="Contact email address for PIB delivery")
     description: Optional[str] = Field(None, description="Detailed description of the principal")
     business_processes: List[str] = Field(default_factory=list,
                                          description="Business processes this principal is responsible for")

@@ -11,6 +11,7 @@ export function DecisionStudio() {
     situations,
     opportunities,
     scanComplete,
+    kpisScanned,
     selectedSituation,
     analyzing,
     analysisResults,
@@ -127,7 +128,7 @@ export function DecisionStudio() {
       loading={loading}
       situations={situations}
       opportunities={opportunities}
-      kpisScanned={14} // Mock
+      kpisScanned={kpisScanned}
       breachCount={situations.length}
       impactLevel={situations.length > 3 ? 'High' : situations.length > 0 ? 'Medium' : 'Low'}
       impactColor={situations.length > 3 ? 'text-red-400' : situations.length > 0 ? 'text-amber-400' : 'text-green-400'}

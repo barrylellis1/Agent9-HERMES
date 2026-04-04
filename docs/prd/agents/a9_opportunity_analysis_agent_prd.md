@@ -3,11 +3,21 @@
 <!-- 
 CANONICAL PRD DOCUMENT
 This is the official, canonical PRD document for this agent.
-Last updated: 2025-07-17
+Last updated: 2026-04-01 (deprecation notice added)
 -->
 
-
-
+> **STATUS: SUPERSEDED — Do not build or extend this agent.**
+>
+> Following the Phase 8 design revision (March 2026), opportunity analysis is performed by
+> `A9_Deep_Analysis_Agent` — not a separate agent. DA's Is/Is Not table naturally identifies
+> both problem segments (underperformers) and opportunity segments (internal benchmarks /
+> top-quartile outperformers). There is no separate "opportunity pipeline."
+>
+> The unified design is documented in `DEVELOPMENT_PLAN.md` Phase 9G.
+> The `Situation.from_opportunity_signal()` classmethod and `OpportunitySignal` model
+> in `a9_situation_awareness_agent.py` are deprecated and will be removed in Phase 9G.
+>
+> This file is retained for historical reference only.
 
 ## Hackathon Quick Start
 

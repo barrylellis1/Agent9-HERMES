@@ -136,11 +136,65 @@ def lint_code_config_sync() -> list[tuple[str, str]]:
     return violations
 
 
+def lint_doc_sync() -> list[tuple[str, str]]:
+    """Warn (non-blocking) when agent implementation changes lack corresponding doc updates.
+
+    Mapping for each staged src/agents/new/a9_*_agent.py:
+      - docs/prd/agents/a9_{name}_agent_prd.md
+      - src/agents/new/cards/ (any card containing the agent stem)
+
+    Emits warnings only — does NOT fail the commit.
+    Suppress per-file with a comment: # doc-sync-skip
+    """
+    warnings_list: list[tuple[str, str]] = []
+    staged = _get_staged_files()
+    if not staged:
+        return warnings_list
+
+    staged_lower = {p.lower() for p in staged}
+
+    for p in staged:
+        pl = p.lower()
+        if not (
+            pl.startswith("src/agents/new/a9_")
+            and pl.endswith(".py")
+            and not pl.startswith("src/agents/new/cards/")
+            and "agent_config_models" not in pl
+        ):
+            continue
+
+        # Check for per-file suppression token
+        full_path = REPO_ROOT / p.replace("/", "\\")
+        try:
+            head = full_path.read_text(encoding="utf-8", errors="ignore").splitlines()[:5]
+            if any("doc-sync-skip" in line for line in head):
+                continue
+        except Exception:
+            pass
+
+        stem = Path(p).stem.lower()  # e.g. "a9_situation_awareness_agent"
+        expected_prd = f"docs/prd/agents/{stem}_prd.md"
+
+        prd_staged = expected_prd in staged_lower
+        card_staged = any("cards/" in sp and stem in sp for sp in staged_lower)
+
+        if not prd_staged and not card_staged:
+            warnings_list.append((
+                p,
+                f"No PRD or card staged alongside this agent file.\n"
+                f"  Expected PRD: {expected_prd}\n"
+                f"  Update docs before this agent drifts further. Add '# doc-sync-skip' to suppress."
+            ))
+
+    return warnings_list
+
+
 def main() -> int:
     violations = []
     agent_violations = lint_agents()
     test_violations = lint_tests()
     sync_violations = lint_code_config_sync()
+    doc_warnings = lint_doc_sync()
     if agent_violations:
         print("[ARCH] Agent violations:")
         for loc, msg in agent_violations:
@@ -156,6 +210,10 @@ def main() -> int:
         for loc, msg in sync_violations:
             print(f" - {loc} -> {msg}")
         violations.extend(sync_violations)
+    if doc_warnings:
+        print("[WARN] Doc sync reminders (non-blocking — update PRD/card when convenient):")
+        for loc, msg in doc_warnings:
+            print(f" - {loc}\n   {msg}")
     if violations:
         print(f"\n[ARCH] Found {len(violations)} architecture violation(s).", file=sys.stderr)
         return 1
