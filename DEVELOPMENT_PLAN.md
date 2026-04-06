@@ -1,7 +1,7 @@
 # Agent9-HERMES Development Plan
 
 **Created:** 2026-03-14
-**Last updated:** 2026-04-04
+**Last updated:** 2026-04-06
 **Status:** Active
 **Supersedes:** `IMPLEMENTATION_PLAN.md` (Nov 2025), `HERMES_IMPLEMENTATION_PLAN.md` (original hackathon)
 
@@ -25,13 +25,17 @@
 - Adaptive calibration loop is the core compounding moat
 - Brand identity: "Swiss Style" AI — monochrome dominance, semantic color only, "Quiet Expert" voice
 - Customer-facing brand: "Decision Studio" — domains: decision-studios.com + trydecisionstudio.com
+- **No snooze/hide preference layer** — signal routing solves the noise problem at source
+- **KPI accountability is dimensional** — principals own KPIs at the scope of their control (enterprise, region, LOB). Same KPI, different scope. See `docs/architecture/kpi_accountability_model.md`.
+- **LLM-assisted accountability import** — HCM documents (job descriptions, OKRs, RACI) are the source of truth for accountability mapping; LLM extracts and proposes, human confirms
+- **Assessment runs are client-scoped, not principal-scoped** — one enterprise scan per client, per-principal views filtered by accountability registry
 
 **Known tech debt:**
 - `kpisScanned={14}` hardcoded in `DecisionStudio.tsx:130` — wire real `kpi_evaluated_count` (Phase 11)
 - Separate `OpportunitySignal` / `Situation` streams — unify (Phase 11)
 - Client dropdown on SA Console — move to login screen
-- Delegated situation badge in Decision Studio dashboard — pending
-- Delegated-to-me and delegator-name resolution in PIB — pending
+- `get_latest_run` filters by `principal_id` — should be client-scoped only (Phase 11A)
+- Assessment runs tagged with `principal_id` — should be client-scoped (Phase 11A)
 
 ---
 
@@ -244,9 +248,41 @@ The SA→opportunity labeling code (`from_opportunity_signal`, `card_type="oppor
 
 ### Phase 11: Platform Refinement
 
-**Goal:** Three independent initiatives that strengthen the core platform. Each can be built in any order based on demo priorities.
+**Goal:** Four independent initiatives that strengthen the core platform. Each can be built in any order based on demo priorities.
 
-#### 11A: Unified Situation Stream (formerly 9G)
+#### 11A: KPI Accountability Model + Client-Scoped Assessment
+
+**Goal:** Fix the fundamental architectural mismatch where assessment runs are principal-scoped. Introduce dimensional KPI accountability so the right principal gets the right signal by construction — no noise-filtering preference layer needed.
+
+**Architecture doc:** `docs/architecture/kpi_accountability_model.md`
+
+**The insight:** Principals own KPIs at the scope of their control. CFO owns Net Revenue enterprise-wide. Regional VP owns Net Revenue for EMEA. Same KPI, different scope. The accountability registry expresses this — SA uses it to route situations to exactly the right principals.
+
+**Why this matters for the demo:** Currently Marcus Webb sees 0 situations in his PIB because `get_latest_run` filters by `principal_id: cfo_001`. The enterprise scan should be client-scoped; each principal gets a filtered view based on their accountability assignments.
+
+| Deliverable | Description |
+|------------|-------------|
+| `kpi_accountability` registry model | New Pydantic model: `kpi_id`, `principal_id`, `scope_dimension` (optional), `scope_value` (optional), `role` (accountable/responsible) |
+| Supabase migration | `kpi_accountability` table with governance constraints (max 1 accountable per KPI per scope) |
+| `get_latest_run` refactor | Remove `principal_id` filter — query by `client_id` only. PIB filters `kpi_assessments` by principal's accountability assignments. |
+| SA routing integration | SA passes `scope_dimension` + `scope_value` when generating situation items for a principal |
+| Seed lubricants accountability | Map 15 lubricants KPIs to 4 principals with correct dimensional scopes |
+
+#### 11B: LLM-Assisted Accountability Import
+
+**Goal:** Solve the enterprise cold-start problem. Instead of manual KPI-to-principal mapping (which kills BI platform adoption), extract accountability from HCM documents using LLM.
+
+**Source documents:** Job descriptions, org charts, performance review frameworks, OKRs, RACI matrices — accountability is already written down, just unstructured.
+
+**Pattern:** Same as `A9_KPI_Assistant_Agent` — LLM suggests, human confirms, registry writes.
+
+| Deliverable | Description |
+|------------|-------------|
+| `A9_Accountability_Import_Agent` | Accepts HCM document text, extracts accountability statements, maps to KPI registry, returns proposed assignments with confidence scores |
+| Admin UI review flow | Present extracted assignments for human confirmation before writing to registry |
+| Conflict detection | Flag cases where same KPI is assigned to >3 principals without dimensional scoping |
+
+#### 11C: Unified Situation Stream (formerly 9G)
 
 **Goal:** Eliminate the artificial split between "situations" (problems) and "opportunities" (positive signals). Every KPI movement that exceeds a confidence/magnitude threshold is a **situation** — direction determines framing, not whether it enters the pipeline.
 
@@ -258,7 +294,7 @@ The SA→opportunity labeling code (`from_opportunity_signal`, `card_type="oppor
 | SF opportunity prompt variant | Stage 1 prompts shift from "fix" to "replicate/accelerate" for `analysis_mode="opportunity"`. |
 | Wire `kpi_evaluated_count` | Replace hardcoded `kpisScanned={14}` with real count from assessment API. |
 
-#### 11B: Adaptive Calibration Loop (formerly 9F)
+#### 11D: Adaptive Calibration Loop (formerly 9F)
 
 **Goal:** Transform the KPI Assistant from a one-time onboarding helper into an ongoing tuning advisor. The system gets smarter per client over time — this is the core compounding moat.
 
@@ -274,7 +310,7 @@ The SA→opportunity labeling code (`from_opportunity_signal`, `card_type="oppor
 
 **Moat significance:** After 12 months, switching means losing calibrated profiles for 50+ KPIs, historical noise-vs-signal classification data, and validated decision outcomes.
 
-#### 11C: Audio Briefings (formerly 9E)
+#### 11E: Audio Briefings (formerly 9E)
 
 **Goal:** Transform assessment results into consumable audio briefings. The "not a dashboard" differentiator — an executive gets a 60-second Flash Briefing during their commute.
 
