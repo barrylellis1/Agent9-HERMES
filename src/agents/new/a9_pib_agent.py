@@ -111,7 +111,7 @@ class A9_PIB_Agent:
         # 2. Load latest assessment run
         # ------------------------------------------------------------------
         latest_run = await self._assessment_store.get_latest_run(
-            briefing_config.principal_id, briefing_config.client_id
+            briefing_config.client_id
         )
         if latest_run is None:
             logger.warning("PIB: no completed assessment run found — sending empty briefing")
@@ -206,7 +206,7 @@ class A9_PIB_Agent:
         # Section 3: Solutions in progress
         await self._populate_solutions(content, config, briefing_run, expires_at)
 
-        # Section 4: Managed situations (snoozed/delegated BY this principal)
+        # Section 4: Managed situations (delegated BY this principal)
         await self._populate_managed(content, config)
 
         # Section 1 addendum: Situations delegated TO this principal
@@ -259,9 +259,6 @@ class A9_PIB_Agent:
             deep_link_token = await self._create_token(
                 TokenType.DEEP_LINK, config.principal_id, kpi_id, ka.get("id"), briefing_run.id, expires_at, config.dry_run
             )
-            snooze_token = await self._create_token(
-                TokenType.SNOOZE, config.principal_id, kpi_id, ka.get("id"), briefing_run.id, expires_at, config.dry_run
-            )
             delegate_token = await self._create_token(
                 TokenType.DELEGATE, config.principal_id, kpi_id, ka.get("id"), briefing_run.id, expires_at, config.dry_run
             )
@@ -283,7 +280,6 @@ class A9_PIB_Agent:
                 current_value=ka.get("kpi_value"),
                 is_new=is_new,
                 deep_link_token=deep_link_token,
-                snooze_token=snooze_token,
                 delegate_token=delegate_token,
                 request_info_token=request_info_token,
             )
@@ -344,7 +340,7 @@ class A9_PIB_Agent:
     async def _populate_managed(
         self, content: BriefingContent, config: BriefingConfig
     ) -> None:
-        """Pull snoozed and delegated situations from situation_actions."""
+        """Pull delegated situations from situation_actions."""
         try:
             actions = await self._load_situation_actions(config.principal_id)
             for action in actions:
@@ -358,7 +354,6 @@ class A9_PIB_Agent:
                     kpi_name=action.get("situation_id", ""),  # situation_id stores kpi_name
                     action_type=action.get("action_type", ""),
                     action_taken_at=self._parse_dt(action.get("created_at")) or datetime.utcnow(),
-                    snooze_expires_at=self._parse_dt(action.get("snooze_expires_at")),
                     delegated_to=delegated_to_name or target_id,
                 ))
         except Exception as e:
@@ -645,10 +640,9 @@ class A9_PIB_Agent:
             return []
 
     async def _load_situation_actions(self, principal_id: str) -> List[Dict[str, Any]]:
-        """Load recent snooze/delegate actions for this principal."""
+        """Load recent delegate actions for this principal."""
         import httpx as _httpx
         import json
-        from datetime import timezone
         supabase_url = os.getenv("SUPABASE_URL")
         service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
         if not supabase_url or not service_key:
@@ -659,20 +653,7 @@ class A9_PIB_Agent:
                 "Authorization": f"Bearer {service_key}",
                 "Accept": "application/json",
             }
-            now_iso = datetime.now(timezone.utc).isoformat()
             async with _httpx.AsyncClient() as client:
-                # Snoozed (not yet expired)
-                snooze_resp = await client.get(
-                    f"{supabase_url}/rest/v1/situation_actions",
-                    headers=headers,
-                    params={
-                        "principal_id": f"eq.{principal_id}",
-                        "action_type": "eq.snooze",
-                        "snooze_expires_at": f"gt.{now_iso}",
-                        "select": "*",
-                    },
-                )
-                # Delegated
                 delegate_resp = await client.get(
                     f"{supabase_url}/rest/v1/situation_actions",
                     headers=headers,
@@ -684,12 +665,9 @@ class A9_PIB_Agent:
                         "limit": "10",
                     },
                 )
-                actions = []
-                if snooze_resp.status_code == 200 and snooze_resp.content:
-                    actions += json.loads(snooze_resp.content)
                 if delegate_resp.status_code == 200 and delegate_resp.content:
-                    actions += json.loads(delegate_resp.content)
-                return actions
+                    return json.loads(delegate_resp.content)
+                return []
         except Exception as e:
             logger.warning("PIB: load_situation_actions failed: %s", e)
             return []

@@ -144,9 +144,7 @@
       <span class="managed-badge">{{ m.action_type | title }}</span>
       <span class="managed-kpi" style="margin-left: 8px;">{{ m.kpi_name }}</span>
       <p class="managed-detail">
-        {% if m.action_type == 'snooze' %}
-          Snoozed{% if m.snooze_expires_at %} until {{ m.snooze_expires_at.strftime('%b %d') }}{% endif %}
-        {% elif m.action_type == 'delegate' %}
+        {% if m.action_type == 'delegate' %}
           Delegated{% if m.delegated_to %} to {{ m.delegated_to }}{% endif %}
         {% endif %}
       </p>

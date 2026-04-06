@@ -192,7 +192,6 @@ async def execute_token_action(
 
     Token types and their effects:
     - deep_link     → returns redirect_url to the Decision Studio Deep Analysis view
-    - snooze        → records a 14-day snooze action on the situation
     - request_info  → records a request-for-information action on the situation
     - delegate      → returns redirect_url to the /delegate/{token} confirmation page
     - approve       → approves a pending HITL solution in Value Assurance
@@ -234,26 +233,6 @@ async def execute_token_action(
             principal_id=row.get("principal_id", ""),
             kpi_name=kpi_name,
             message="Redirecting to Deep Analysis.",
-        )
-
-    # --- snooze ---
-    if token_type == TokenType.SNOOZE.value:
-        sit_store = SituationsStore()
-        from datetime import datetime, timezone, timedelta
-        snooze_expires = (datetime.now(timezone.utc) + timedelta(days=14)).isoformat()
-        await sit_store.update_status(
-            situation_id,
-            "SNOOZED",
-            snoozed_by=principal_id,
-            snooze_expires_at=snooze_expires,
-        )
-        return TokenActionResponse(
-            token_type=token_type,
-            situation_id=situation_id,
-            action_taken="snoozed_14_days",
-            redirect_url=f"{ds_url}/situations",
-            principal_id=row.get("principal_id", ""),
-            message="Situation snoozed for 14 days.",
         )
 
     # --- request_info ---
@@ -491,7 +470,7 @@ async def get_delegate_suggestions(
 
 class PrincipalActionSummary(BaseModel):
     situation_id: str       # kpi_name (stable key)
-    action_type: str        # "delegate" | "snooze"
+    action_type: str        # "delegate"
     target_principal_id: Optional[str] = None
     created_at: Optional[str] = None
 
@@ -503,7 +482,7 @@ async def get_principal_actions(
 ) -> List[PrincipalActionSummary]:
     """
     Return recent situation_actions taken by this principal.
-    Used by the dashboard to badge delegated/snoozed KPI tiles.
+    Used by the dashboard to badge delegated KPI tiles.
     """
     import os, httpx, json
     supabase_url = os.getenv("SUPABASE_URL")

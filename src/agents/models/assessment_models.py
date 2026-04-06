@@ -103,18 +103,10 @@ class AssessmentConfig(BaseModel):
             "threshold are silently dropped."
         ),
     )
-    principal_id: Optional[str] = Field(
-        default=None,
-        description=(
-            "Principal ID for this assessment run. Required — both "
-            "principal_id and client_id must be set for a valid run."
-        ),
-    )
     client_id: Optional[str] = Field(
         default=None,
         description=(
-            "Client ID scoping this assessment run (e.g. 'lubricants_inc'). "
-            "Required — both principal_id and client_id must be set."
+            "Client ID scoping this assessment run (e.g. 'lubricants_inc')."
         ),
     )
     dry_run: bool = Field(
