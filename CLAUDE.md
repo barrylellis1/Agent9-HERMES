@@ -40,7 +40,7 @@ orchestrated AI workflows. ~100K lines of backend and UI code, 10 months of deve
 3. **KPI Assistant (API Only — No UI)**
    - 4 endpoints at `/api/v1/data-product-onboarding/kpi-assistant/`
 
-### Implemented Agents (13 Total)
+### Implemented Agents (14 Total)
 
 | Agent | Key Capabilities | Status |
 |---|---|---|
@@ -55,6 +55,7 @@ orchestrated AI workflows. ~100K lines of backend and UI code, 10 months of deve
 | **A9_NLP_Interface_Agent** | Deterministic regex parsing (no LLM), TopN/timeframe/grouping extraction | Operational |
 | **A9_LLM_Service_Agent** | Multi-provider (Claude/Anthropic), model routing, token tracking, guardrails | Operational |
 | **A9_KPI_Assistant_Agent** | LLM KPI suggestions, conversational refinement, contract updates | API-only (no UI) |
+| **A9_PIB_Agent** | Briefing composition from assessment results, Jinja2 email rendering, SMTP delivery, delegation flow, briefing tokens | Operational |
 | **A9_Data_Product_MCP_Service_Agent** | SQL execution via MCP | **DEPRECATED** (remove after 2025-11-30) |
 | **A9_Risk_Analysis_Agent** | Weighted risk scoring | **Dead code** — no tests, no registration |
 
@@ -64,18 +65,20 @@ orchestrated AI workflows. ~100K lines of backend and UI code, 10 months of deve
 - Remaining agents referenced in workflow YAMLs (Risk Management, Stakeholder, etc.)
 - Registry Maintenance UI — placeholder in Admin Console
 - Data Governance Admin UI — placeholder in Admin Console
-- Scheduled/offline SA execution — `run_enterprise_assessment.py` operational (Phase 9A+9B shipped); Supabase persistence + landing page refactor pending Phase 9C
-- Email/Slack notification to principals — data model ready, no sending code
+- Scheduled/offline SA execution — `run_enterprise_assessment.py` operational (Phase 9A–9C shipped); landing page refactor pending
+- Email/Slack notification to principals — PIB email delivery shipped (Phase 9C); Slack integration pending
 - Value Assurance Supabase persistence — in-memory store only (MVP)
 - Per-KPI monitoring profiles — registry model fields added (Phase 9A complete); SA runtime use pending Phase 9B
 
-### API Surface (60 endpoints)
+### API Surface (~70 endpoints)
 
 - `/api/v1/workflows/` — situations, deep-analysis, solutions, data-product-onboarding
 - `/api/v1/value-assurance/` — accepted solutions CRUD + ROI validation check (5 endpoints)
 - `/api/v1/registry/` — full CRUD for KPIs, Principals, Data Products, Business Processes, Glossary
 - `/api/v1/data-product-onboarding/kpi-assistant/` — suggest, chat, validate, finalize
 - `/api/v1/connection-profiles/` — CRUD for database connection profiles
+- `/api/v1/assessments/` — enterprise assessment runs + KPI assessment results (3 endpoints)
+- `/api/v1/pib/` — briefing runs, token resolution, delegation, delegate suggestions (5 endpoints)
 
 ### Database Backends
 

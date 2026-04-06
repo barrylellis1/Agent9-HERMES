@@ -1,24 +1,21 @@
 # Agent9-HERMES Development Plan
 
 **Created:** 2026-03-14
-**Last updated:** 2026-04-01
+**Last updated:** 2026-04-04
 **Status:** Active
 **Supersedes:** `IMPLEMENTATION_PLAN.md` (Nov 2025), `HERMES_IMPLEMENTATION_PLAN.md` (original hackathon)
 
 ---
 
-## Current Focus: Phase 9 — Enterprise Assessment Pipeline
+## Current Focus: Phase 10 — Brand Identity & UI Polish
 
-**Status:** Phase 9A–9B complete (2026-04-01). Phase 9C API routes shipped (in-memory store). Supabase persistence + landing page refactor pending Phase 9C.
+**Status:** Phase 9 (Enterprise Assessment Pipeline) complete (2026-04-04). Full end-to-end pipeline operational: batch assessment → Supabase persistence → PIB email → deep link → delegation with audit trail.
 
 **What to build next (in order):**
 
-1. ✅ **Phase 9A** — Data model: `assessment_runs` + `kpi_assessments` Supabase tables, KPI monitoring profile fields on registry — **COMPLETE**
-2. ✅ **Phase 9B** — Assessment engine: replace `run_cfo_assessment.py`, KPI-specific comparison periods, volatility-adjusted severity, confidence floor gating — **COMPLETE (2026-04-01)**
-3. ⚠️ **Phase 9C** — API + UI: assessment endpoints shipped (in-memory); landing page refactor pending (Supabase persistence TODO)
-4. **Phase 9D** — Principal-specific layering: filter assessment by principal's business processes
-5. **Phase 9F** — Adaptive calibration loop: KPI Assistant recommends monitoring profiles from production data
-6. **Phase 9G** — Unified situation stream: merge problem/opportunity into single pipeline, wire real `kpi_evaluated_count`
+1. **Phase 10** — Brand Identity & UI Polish: Swiss Style design system, PIB email refinement, Decision Studio visual overhaul
+2. **Phase 11** — Platform Refinement: unified situation stream, adaptive calibration loop, audio briefings
+3. **Phase 12** — Business Optimization: top-down strategic workflows, new agents
 
 **Key decisions already made:**
 - SA = sensor (facts), DA = analyst (framing) — no separate opportunity agent
@@ -26,12 +23,15 @@
 - Both positive and negative KPI movements flow through DA → SF → VA equally
 - Bars for uncertainty (SA tiles), lines for trajectories (VA charts)
 - Adaptive calibration loop is the core compounding moat
+- Brand identity: "Swiss Style" AI — monochrome dominance, semantic color only, "Quiet Expert" voice
+- Customer-facing brand: "Decision Studio" — domains: decision-studios.com + trydecisionstudio.com
 
-**Known tech debt to address during Phase 9:**
-- `kpisScanned={14}` hardcoded in `DecisionStudio.tsx:130` — wire real `kpi_evaluated_count`
-- Separate `OpportunitySignal` / `Situation` streams — unify in Phase 9G
+**Known tech debt:**
+- `kpisScanned={14}` hardcoded in `DecisionStudio.tsx:130` — wire real `kpi_evaluated_count` (Phase 11)
+- Separate `OpportunitySignal` / `Situation` streams — unify (Phase 11)
 - Client dropdown on SA Console — move to login screen
-- Timeframe dropdown — remove when per-KPI monitoring profiles exist (Phase 9A)
+- Delegated situation badge in Decision Studio dashboard — pending
+- Delegated-to-me and delegator-name resolution in PIB — pending
 
 ---
 
@@ -63,13 +63,15 @@ SA (Detect) → DA (Diagnose) → MA (Context) → SF (Prescribe) → HITL (Deci
 
 | Capability | Status |
 |-----------|--------|
-| Enterprise Assessment Pipeline (offline SA→DA batch) | Planned (Phase 9) — replaces `run_cfo_assessment.py` |
-| Business Optimization (top-down strategic) | Workflow YAML exists, no agent code |
-| Extended Solution Finding (Risk/Stakeholder agents) | Workflow YAML exists, agents not built |
-| Innovation Driver | Workflow YAML exists, agents not built |
+| Swiss Style brand identity across UI | Planned (Phase 10) — guidelines written, implementation pending |
+| Unified situation stream (problem + opportunity merge) | Planned (Phase 11) — architectural refactor |
+| Adaptive calibration loop | Planned (Phase 11) — KPI Assistant recommends monitoring profiles |
+| Audio briefings (TTS) | Planned (Phase 11) — assessment results → audio summary |
+| Business Optimization (top-down strategic) | Planned (Phase 12) — workflow YAML exists, no agent code |
+| Extended Solution Finding (Risk/Stakeholder agents) | Planned (Phase 12) — workflow YAML exists, agents not built |
 | Scheduled SA execution | Script exists, no scheduler |
-| Email/Slack notifications | Data model ready, no sending code |
 | KPI Assistant UI | API routes exist, no frontend |
+| Slack notifications | PIB email shipped; Slack integration pending |
 
 ---
 
@@ -154,11 +156,11 @@ The SA→opportunity labeling code (`from_opportunity_signal`, `card_type="oppor
 
 ---
 
-### Phase 9: Enterprise Assessment Pipeline
+### Phase 9: Enterprise Assessment Pipeline ✅ COMPLETE
+
+**Status:** Shipped (2026-04-04). Full pipeline operational: batch assessment → Supabase persistence → PIB email → deep link → delegation with audit trail.
 
 **Goal:** Replace the interactive dashboard-first model with offline, enterprise-wide analysis. Agent9 should not be perceived as "just another dashboard" — executives already have dashboards. The value is automated analysis, not KPI display.
-
-**Why next:** This is the original product vision. The SA dashboard was a necessary stepping stone to demonstrate capabilities, but the core differentiator is pre-computed analysis: when an executive opens Agent9, they see findings, not raw numbers. This also enables the Briefing Agent (audio/mindmap output) and scheduled VA measurement.
 
 **Design principles:**
 - Assessment is **enterprise-level first** — all registered KPIs across all data products and business processes
@@ -190,41 +192,23 @@ The SA→opportunity labeling code (`from_opportunity_signal`, `card_type="oppor
 | Idempotent runs | Assessment run ID prevents duplicate analysis for the same KPI in the same period | ⚠️ PARTIAL (in-memory dedup; Supabase persistence TODO Phase 9C) |
 | Progress logging | Per-KPI progress with timing, errors logged but non-fatal | ✅ SHIPPED |
 
-#### Phase 9F: Adaptive Calibration Loop (KPI Assistant)
-
-**Goal:** Transform the KPI Assistant from a one-time onboarding helper into an ongoing tuning advisor. The system gets smarter per client over time — this is the core compounding moat.
-
-**Prerequisite:** Phase 9B (assessment engine with monitoring profiles), existing KPI Assistant Agent (4 API endpoints).
-
-**Flow:**
-1. **Onboarding:** Admin registers KPIs with basic thresholds. KPI Assistant analyzes production data — historical volatility, seasonal patterns, data quality consistency, natural comparison cadences.
-2. **Recommends monitoring profile:** "Gross Margin has ±1.8% quarterly variance and no seasonality. I recommend QoQ comparison, 2% volatility band, 2-period minimum breach duration. Here's why:" — with supporting data.
-3. **Admin accepts, adjusts, or challenges** — conversational refinement (existing KPI Assistant chat pattern).
-4. **Parameters persist on KPI registry** — SA uses them at runtime.
-5. **Recalibration after N assessment cycles:** VA outcomes + trigger accuracy data feed back to KPI Assistant — "40% of your Revenue triggers were noise over the last 6 months. Recommend widening volatility band from ±5% to ±10%."
-
-**Moat significance:** After 12 months, switching means losing calibrated profiles for 50+ KPIs, historical noise-vs-signal classification data, and validated decision outcomes. The individual pieces (anomaly detection, LLM recommendations) are replicable — the closed loop from calibration → detection → diagnosis → decision → proof → recalibration is not.
-
-| Deliverable | Description |
-|------------|-------------|
-| Historical volatility analysis | KPI Assistant queries production data, computes standard deviation, seasonal decomposition, data completeness metrics per KPI |
-| Monitoring profile recommendation | LLM synthesizes statistical analysis into recommended `comparison_period`, `volatility_band`, `min_breach_duration`, `confidence_floor`, `urgency_window_days` with natural-language rationale |
-| Conversational refinement | Extend existing KPI Assistant chat to support monitoring profile discussion — admin can challenge recommendations with domain knowledge |
-| Recalibration trigger | After N assessment cycles (configurable, default 6 months), KPI Assistant reviews trigger accuracy: what % of escalated situations led to real action vs were dismissed as noise |
-| Recalibration recommendations | "Your Revenue KPI triggered 12 times, 5 were approved for action, 7 were dismissed. Recommend widening volatility band." Admin approves or adjusts. |
-| KPI Assistant UI | React panel for monitoring profile setup and recalibration (currently API-only) |
-
-**Dependencies:** Phase 9B (assessment engine), KPI Assistant Agent (existing), VA measurement data (Phase 7).
-
-#### Phase 9C: API + UI
+#### Phase 9C: API + UI + PIB Email Delivery
 
 | Deliverable | Description | Status |
 |------------|-------------|--------|
-| `GET /assessments/latest` | Returns most recent assessment run with findings, filterable by principal/business_process | ✅ SHIPPED (in-memory store; Supabase TODO) |
-| `GET /assessments/{run_id}` | Full assessment detail | ✅ SHIPPED (in-memory store; Supabase TODO) |
+| `GET /assessments/latest` | Returns most recent assessment run with findings, filterable by principal/business_process | ✅ SHIPPED (Supabase) |
+| `GET /assessments/{run_id}` | Full assessment detail | ✅ SHIPPED (Supabase) |
 | `POST /assessments/run` | Trigger assessment on-demand (optional — may be CLI-only initially) | ✅ SHIPPED |
-| Landing page refactor | Dashboard reads from assessment API, shows pre-analyzed findings. Integrate Swiss Style brand identity (Aperture logo, Quiet Expert copy). | Pending |
-| KPI tile redesign | Full tile overhaul — see spec below. Click drills into pre-loaded DeepFocusView | Partial |
+| A9_PIB_Agent | Composes briefing content from assessment results, renders Jinja2 HTML email, sends via SMTP | ✅ SHIPPED (2026-04-04) |
+| PIB API routes | `POST /pib/run`, `GET /pib/runs`, `GET /pib/token/{token}`, `POST /pib/delegate/{token}`, `GET /pib/delegates` | ✅ SHIPPED |
+| Briefing token system | Single-use tokens with 7-day TTL for secure email deep links (Supabase `briefing_tokens` table) | ✅ SHIPPED |
+| Email deep link → Dashboard | ActionHandler.tsx resolves token, navigates to DeepFocusView via kpi_name match | ✅ SHIPPED |
+| Delegation flow | DelegatePage.tsx with KPI→BP→principal recommendations, audit trail in `situation_actions` table | ✅ SHIPPED |
+| Gmail SMTP delivery | aiosmtplib integration, App Password auth, light-theme executive email template | ✅ SHIPPED |
+| Supabase migrations | `assessment_runs`, `kpi_assessments`, `briefing_runs`, `briefing_tokens`, `situation_actions`, `email` on `principal_profiles` | ✅ SHIPPED |
+| Enterprise assessment fixes | Client_id filter, YoY comparison_type default, client_id persisted on AssessmentRun | ✅ SHIPPED |
+| Landing page refactor | Dashboard reads from assessment API, shows pre-analyzed findings. Swiss Style brand identity. | Moved to Phase 10A |
+| KPI tile redesign | Comparison period badge, threshold reference line, wire `kpi_evaluated_count` | Moved to Phase 10B |
 
 **KPI Tile Redesign Spec:**
 
@@ -254,81 +238,67 @@ The SA→opportunity labeling code (`from_opportunity_signal`, `card_type="oppor
 - Gives context: is this a sudden drop or a gradual decline?
 - Consistent across all KPIs regardless of their individual comparison cadence
 
-#### Phase 9G: Unified Situation Stream
+*Remaining sub-phases (9D principal layering, 9E audio briefings, 9F adaptive calibration, 9G unified stream) have been promoted to Phase 11 — see below. Phase 9D (principal-specific filtering) is effectively complete: the batch engine already filters KPIs by principal's business processes, and the PIB scopes content to the principal.*
 
-**Goal:** Eliminate the artificial split between "situations" (problems) and "opportunities" (positive signals). Every KPI movement that exceeds a confidence/magnitude threshold is a **situation** — direction determines framing, not whether it enters the pipeline. Both positive and negative situations flow through DA → SF → VA with equal rigor.
+---
 
-**Why:** Opportunities are currently second-class citizens — separate detection path, separate UI section, no DA/SF pipeline. A CFO seeing "Revenue up 18% in Region X" needs the same analytical depth as "COGS up 12%": *Why did it happen? Is it sustainable? Can we replicate it? What's the cost of NOT acting?* The existing Phase 8 DA already handles opportunity SCQA — this phase wires the full pipeline.
+### Phase 11: Platform Refinement
 
-**Prerequisite:** Phase 9B (confidence floor gating, per-KPI monitoring profiles).
+**Goal:** Three independent initiatives that strengthen the core platform. Each can be built in any order based on demo priorities.
 
-**Design principles:**
-- **One stream, sorted by magnitude** — no separate "Opportunities Detected" section. A single grid of situation cards, sorted by absolute impact magnitude. Green border = positive, red/amber = negative. The card's `card_type` field ("problem" | "opportunity") controls framing downstream, not UI placement.
-- **Direction-agnostic escalation** — SA creates situation cards for any KPI exceeding the monitoring profile's volatility band + confidence floor, regardless of direction. A +20% revenue jump and a -20% margin drop both escalate.
-- **DA framing follows direction** — `analysis_mode` already supports "problem" | "opportunity". SA sets this based on `positive_trend_is_good` + percent_change direction. DA produces problem segments OR replication candidates, not both.
-- **SF adapts solution framing** — For opportunities: "How do we replicate/accelerate this?" instead of "How do we fix this?" Stage 1 persona prompts need an `opportunity` variant.
-- **Both directions get VA tracking** — Approved opportunity actions ("expand Region X playbook to Region Y") get the same trajectory chart, measurement, and attribution as problem fixes.
+#### 11A: Unified Situation Stream (formerly 9G)
+
+**Goal:** Eliminate the artificial split between "situations" (problems) and "opportunities" (positive signals). Every KPI movement that exceeds a confidence/magnitude threshold is a **situation** — direction determines framing, not whether it enters the pipeline.
 
 | Deliverable | Description |
 |------------|-------------|
-| Remove two-stream UI split | Single situation grid in DashboardView, sorted by `abs(percent_change)`. Remove separate `OpportunityCard` section. KPITile border color indicates direction. |
-| Wire `kpi_evaluated_count` | Replace hardcoded `kpisScanned={14}` in DecisionStudio.tsx with `response.kpi_evaluated_count` from SA API. Update summary bar: "X situations detected" → "X findings detected (Y require attention)". |
-| Direction-agnostic SA detection | SA produces unified `situations[]` — positive KPIs with `card_type="opportunity"` instead of going through separate `OpportunitySignal` path. Deprecate `OpportunitySignal` model. |
-| Confidence-gated escalation | SA only creates situation cards when confidence > KPI's `confidence_floor`. Below threshold: logged as "monitoring" but not surfaced. Applies equally to positive and negative movements. |
-| SF opportunity prompt variant | Stage 1 persona prompts detect `analysis_mode="opportunity"` and shift from "fix" framing to "replicate/accelerate" framing. Synthesis prompt adapts accordingly. |
-| Summary bar redesign | Replace "Situations Detected" / "within normal range" language with: "X KPIs evaluated · Y findings · Z require attention". Color-code by direction, not just severity. |
-| Remove `OpportunitySignal` from API | Deprecate `SituationDetectionResponse.opportunities` field. All items flow through `.situations` with `card_type` distinguishing direction. Keep backward compat for 1 release. |
+| Single situation grid | Remove separate opportunity section. One grid sorted by `abs(percent_change)`. Green border = positive, red/amber = negative. |
+| Direction-agnostic SA detection | Unified `situations[]` with `card_type` direction flag. Deprecate `OpportunitySignal` model. |
+| Confidence-gated escalation | SA creates cards only when confidence > KPI's `confidence_floor`. Below threshold: "monitoring" status. |
+| SF opportunity prompt variant | Stage 1 prompts shift from "fix" to "replicate/accelerate" for `analysis_mode="opportunity"`. |
+| Wire `kpi_evaluated_count` | Replace hardcoded `kpisScanned={14}` with real count from assessment API. |
 
-**Migration path:** Phase 8's `OpportunitySignal` and `from_opportunity_signal()` stay until Phase 9G ships. The two-stream code works — it's just architecturally wrong. Clean removal when the unified stream is live.
+#### 11B: Adaptive Calibration Loop (formerly 9F)
 
-#### Phase 9D: Principal-Specific Layering
+**Goal:** Transform the KPI Assistant from a one-time onboarding helper into an ongoing tuning advisor. The system gets smarter per client over time — this is the core compounding moat.
+
+**Prerequisite:** Phase 9 (assessment engine with monitoring profiles), existing KPI Assistant Agent.
 
 | Deliverable | Description |
 |------------|-------------|
-| Assessment filtering | Filter assessment results by principal's business processes and KPI ownership |
-| Personalized findings | "3 findings require your attention" — ranked by relevance to the principal |
+| Historical volatility analysis | KPI Assistant queries production data, computes standard deviation, seasonal decomposition, data completeness metrics per KPI |
+| Monitoring profile recommendation | LLM synthesizes stats into recommended `comparison_period`, `volatility_band`, etc. with rationale |
+| Conversational refinement | Extend KPI Assistant chat — admin can challenge recommendations with domain knowledge |
+| Recalibration trigger | After N cycles, review trigger accuracy: what % of escalated situations led to real action vs dismissed as noise |
+| KPI Assistant UI | React panel for monitoring profile setup and recalibration (currently API-only) |
 
-#### Phase 9E: Briefing Agent — Audio Intelligence
+**Moat significance:** After 12 months, switching means losing calibrated profiles for 50+ KPIs, historical noise-vs-signal classification data, and validated decision outcomes.
 
-**Goal:** Transform assessment results into consumable audio briefings. This is the "not a dashboard" differentiator — an executive gets a 60-second Flash Briefing during their commute instead of clicking through tiles.
+#### 11C: Audio Briefings (formerly 9E)
 
-**Prerequisite:** Phase 9B (assessment engine produces persisted results to summarize).
-
-**PRD revision required:** The existing concept PRD (`docs/prd/agents/a9_briefing_agent_concept.md`) needs updating:
-- Input model: `assessment_run_id` / `kpi_assessment_ids` instead of `source_uris`
-- Personas: CFO, CEO, COO, Finance Manager (not Investor, Product Owner, Lead Engineer)
-- Remove references to `A9_Implementation_Tracker_Agent` and `A9_Risk_Management_Agent` (don't exist)
-- Mindmap capability deferred to Phase 10+ (requires graph visualization frontend)
+**Goal:** Transform assessment results into consumable audio briefings. The "not a dashboard" differentiator — an executive gets a 60-second Flash Briefing during their commute.
 
 | Deliverable | Description |
 |------------|-------------|
 | `a9_briefing_agent.py` | Agent with `generate_audio_briefing` entrypoint. LLM summarization → TTS API call |
-| Briefing models | `BriefingRequest` (assessment_run_id, principal_id, workflow_stage), `BriefingResponse` (audio_url, transcript, bullet_points) |
 | TTS integration | One provider to start (OpenAI TTS, ElevenLabs, or Google Cloud TTS) |
 | Workflow-stage framing | SA → "Flash Briefing", DA → "Detective's Summary", SF → "Council Debate", VA → "ROI Post-Mortem" |
 | Audio player UI | Inline audio player + transcript + bullet points in Decision Studio |
-| API endpoint | `POST /api/v1/briefings/generate` — trigger on-demand or auto-generate after assessment |
 
-**Deferred to Phase 10+:**
-- Mindmap generation (graph visualization frontend, entity extraction)
-- Multi-speaker podcast-style audio (conversational TTS — requires more complex TTS orchestration)
-
-**Dependencies:** Phase 9B (assessment results in Supabase), LLM Service Agent (summarization), external TTS API key.
-
-**Replaces:** `run_cfo_assessment.py` (outdated, SA-only, legacy agent instantiation, CFO-specific).
+**Deferred:** Mindmap generation, multi-speaker podcast-style audio.
 
 ---
 
-### Phase 10: Business Optimization Workflow
+### Phase 12: Business Optimization Workflow
 
 **Goal:** Top-down strategic entry point for board/executive-driven initiatives. Complements the bottom-up SA → DA pipeline with a strategy-first approach.
 
-**Why after assessment:** Shows Agent9 handles proactive strategy, not just reactive KPI monitoring. Requires new agents but reuses SF and VA. The Enterprise Assessment Pipeline (Phase 9) provides the data foundation.
+**Why later:** Shows Agent9 handles proactive strategy, not just reactive KPI monitoring. Requires new agents but reuses SF and VA.
 
 **Reference docs:**
 - Workflow YAML: `workflow_definitions/business_optimization.yaml`
 
-#### Phase 10A: New Agents Required
+#### New Agents Required
 
 | Agent | Purpose | Complexity |
 |-------|---------|-----------|
@@ -336,7 +306,7 @@ The SA→opportunity labeling code (`from_opportunity_signal`, `card_type="oppor
 | `A9_Stakeholder_Analysis_Agent` | Identify stakeholders, estimate support/resistance | Medium — new |
 | `A9_Business_Optimization_Agent` | Assess operations, identify optimization signals | Medium — new |
 
-#### Phase 10B: Workflow Integration
+#### Workflow Integration
 
 | Deliverable | Description |
 |------------|-------------|
@@ -346,24 +316,13 @@ The SA→opportunity labeling code (`from_opportunity_signal`, `card_type="oppor
 | SF connection | Route optimization recommendations through existing SF pipeline |
 | VA connection | Track whether strategic initiatives deliver expected value |
 
-#### Phase 10C: UI
-
-| Deliverable | Description |
-|------------|-------------|
-| Strategy initiative panel | New section in Decision Studio for top-down initiatives |
-| Risk/stakeholder views | Visualize risk assessments and stakeholder maps |
-
 ---
 
-### Phase 11: Extended Solution Finding
+### Phase 13: Extended Solution Finding (Future)
 
 **Goal:** Heavyweight solution evaluation for strategic decisions. Adds Risk Analysis, Stakeholder Analysis, Solution Architect, and Implementation Planner to the SF pipeline.
 
-**Why later:** The current SF (3×Stage1 + synthesis) handles routine KPI fixes well. Extended SF is for large-scale decisions where risk assessment and stakeholder buy-in matter more.
-
-**Reference docs:**
-- Workflow YAML: `workflow_definitions/solution_finding.yaml` (extended version)
-- Workflow YAML: `workflow_definitions/solution_deployment.yaml`
+**Why later:** The current SF (3×Stage1 + synthesis) handles routine KPI fixes well. Extended SF is for large-scale decisions.
 
 #### New Agents Required
 
@@ -373,22 +332,17 @@ The SA→opportunity labeling code (`from_opportunity_signal`, `card_type="oppor
 | `A9_Implementation_Planner_Agent` | High-level implementation planning | New — lightweight, not task tracking |
 | `A9_Stakeholder_Engagement_Agent` | Manage stakeholder communication workflows | New |
 
-**Note:** Solution Deployment workflow is intentionally NOT built as a full Agent9 workflow. Implementation tracking is handled by external PM tools (Jira, Monday, Asana). Agent9 captures `implementation_start` and `implementation_confirmed` timestamps for VA purposes only.
-
 ---
 
-### Phase 12: Innovation Driver (Future)
+### Phase 14: Innovation Driver (Future)
 
 **Goal:** LLM-powered brainstorming, idea incubation, and opportunity shaping.
 
-**Why last:** Requires 4 new agents (Innovation, GenAI Expert, Solution Architect, Implementation Planner). Hard to demonstrate measurable value. Doesn't leverage the KT/IS NOT advantage.
+**Why last:** Requires 4 new agents. Hard to demonstrate measurable value. Doesn't leverage the KT/IS NOT advantage.
 
-**One interesting angle:** If VA shows that a certain type of solution consistently validates (e.g., supplier renegotiation), Innovation Driver could propose proactive application of that pattern to other KPIs before they breach. This creates a learning loop.
+**One interesting angle:** If VA shows that a certain type of solution consistently validates (e.g., supplier renegotiation), Innovation Driver could propose proactive application of that pattern to other KPIs before they breach.
 
-**Reference docs:**
-- Workflow YAML: `workflow_definitions/innovation_driver.yaml`
-
-**Status:** Not scoped in detail. Revisit after Phases 7-9 are solid.
+**Reference docs:** `workflow_definitions/innovation_driver.yaml`
 
 ---
 
@@ -519,15 +473,18 @@ These features go beyond CaaS core and into per-customer enterprise customizatio
 | Cloud deployment + auth + monitoring | **Infra Phase A** | Railway/Render + Supabase Cloud + Supabase Auth + Sentry — BLOCKER for outreach |
 | Multi-tenant isolation | **Infra Phase B** | Per-customer Supabase project — BLOCKER for first pilot |
 | CI/CD pipeline | **Infra Phase B** | GitHub Actions: test → build → deploy to staging |
-| Enterprise Assessment Pipeline | Phase 9 | Replace `run_cfo_assessment.py` with enterprise-wide SA→DA batch, Supabase persistence |
-| Scheduled assessment execution | Phase 9B+ | Trigger assessment runs on schedule (cron or timer) for automated VA measurement |
-| Partner attribution + escalation routing | **Infra Phase C** | Lead tracking, handoff export, partner portal — enables Tier 1 partnerships |
-| SOC 2 + SSO + data residency | **Infra Phase D** | Enterprise compliance — enables $100K+ ACV tier |
-| Email/Slack notifications | Phase 7C or later | Notify principals when solutions are VALIDATED / FAILED |
-| Remove SA console dropdowns | Pre-Phase 9 | Client selector → move to login screen (multi-tenant context). Timeframe selector → remove (replaced by per-KPI `comparison_period` in monitoring profiles). Default to YoY until Phase 9. |
-| KPI monitoring profiles | Phase 9A | New fields on KPI registry: `comparison_period`, `volatility_band`, `min_breach_duration`, `confidence_floor`, `urgency_window_days` |
-| Adaptive calibration loop | Phase 9F | KPI Assistant analyzes production data → recommends profiles → recalibrates after N cycles using VA outcomes + trigger accuracy. Core compounding moat. |
-| Unified situation stream | Phase 9G | Merge OpportunitySignal into Situation with `card_type` direction flag. Single grid sorted by magnitude. Both directions flow through DA→SF→VA. Deprecate `SituationDetectionResponse.opportunities`. |
+| Enterprise Assessment Pipeline | Phase 9 | Replace `run_cfo_assessment.py` with enterprise-wide SA→DA batch, Supabase persistence | ✅ SHIPPED |
+| PIB email delivery + delegation | Phase 9C | PIB agent, email templates, briefing tokens, delegate flow, situation_actions audit | ✅ SHIPPED |
+| Swiss Style brand identity | Phase 10 | Aperture logo, Satoshi font, monochrome palette, PIB email alignment, "Quiet Expert" voice | Planned |
+| Scheduled assessment execution | Phase 11+ | Trigger assessment runs on schedule (cron or timer) for automated VA measurement | Planned |
+| Unified situation stream | Phase 11A | Merge OpportunitySignal into Situation. Direction-agnostic escalation, confidence gating. | Planned |
+| Adaptive calibration loop | Phase 11B | KPI Assistant recommends monitoring profiles, recalibrates from VA outcomes. Core compounding moat. | Planned |
+| Audio briefings | Phase 11C | TTS integration, Flash Briefings, workflow-stage framing | Planned |
+| Email/Slack notifications | Phase 10+ | PIB email shipped (Phase 9C); Slack integration + VA-specific notifications pending | ⚠️ PARTIAL |
+| Remove SA console dropdowns | Phase 10B | Client selector → login screen. Timeframe selector → remove (per-KPI monitoring profiles). | Planned |
+| KPI monitoring profiles | Phase 9A | New fields on KPI registry: `comparison_period`, `volatility_band`, etc. | ✅ SHIPPED |
+| Partner attribution + escalation routing | **Infra Phase C** | Lead tracking, handoff export, partner portal — enables Tier 1 partnerships | Planned |
+| SOC 2 + SSO + data residency | **Infra Phase D** | Enterprise compliance — enables $100K+ ACV tier | Planned |
 
 ### Testing Strategy
 
@@ -563,111 +520,67 @@ These files are retained for historical reference but should not be used for pla
 
 ---
 
-## Pre-Video: Decision Studio UI Polish
+### Phase 10: Brand Identity & UI Polish
 
-**Goal:** Fix UX issues that would look clunky on camera. These are not new features — they're refinements to existing screens that make the current pipeline presentable for recording.
+**Goal:** Implement the Swiss Style design system across the entire product surface — app UI, landing page, PIB email, and admin screens. Must be complete before any demo recording or prospect-facing deployment.
 
-**When:** After Phase 7 (VA) or in parallel. Must be complete before any video recording.
+**Design reference:** `docs/architecture/ui_brand_guidelines.md`
 
-### Fix 1: ProblemRefinementChat — Sticky Footer (Priority: High)
+**Design principles:**
+- "Swiss Style" AI — monochrome dominance, color only for semantic meaning (red = variance, green = opportunity, blue = AI action)
+- "Quiet Expert" voice — BLUF, no alarmism, understated. No exclamation points or urgency language.
+- Progressive disclosure — accordions, collapsible sections, never overwhelming
+- Seamless marketing-to-product transition — same visual language across decision-studios.com and trydecisionstudio.com
 
-**Problem:** User must scroll up to read the DA question, then scroll down to find suggested responses, then scroll further to the input field. Ping-pong scrolling breaks the conversation flow on camera.
+#### 10A: Brand Identity Foundation
 
-**Fix:** Pin suggested responses and text input to the bottom of the component (sticky footer). Messages scroll independently above. The latest message auto-scrolls into view directly above the suggestions.
+| Deliverable | Description | Effort |
+|------------|-------------|--------|
+| Aperture logo component | Geometric SVG logomark (`BrandLogo.tsx`). Strict, brutalist, no gradients | Small |
+| Landing page rebrand | Rewrite hero text to "Quiet Expert" voice. Update color palette to Swiss Style monochrome | Medium |
+| App header + navigation | Aperture logo, consistent "Decision Studio" branding across all pages | Small |
+| Font stack | Satoshi (editorial sans-serif) with system font fallback | Small |
 
-```
-┌─────────────────────────────────────┐
-│  Progress: ████░░░░░░ 2/5 topics    │
-├─────────────────────────────────────┤
-│                                     │
-│  [Messages area — scrollable]       │
-│  Agent: "What's the primary..."     │
-│  You: "Supplier cost spike..."      │
-│  Agent: "Which regions are..."      │  ← auto-scrolls to latest
-│                                     │
-├─────────────────────────────────────┤  ← sticky divider
-│  Suggested: [Region East] [All]     │  ← always visible
-│  ┌─────────────────────┐ [Send]     │
-│  │ Type your response...│ [Skip]    │  ← always visible
-│  └─────────────────────┘            │
-└─────────────────────────────────────┘
-```
+**Files:** `BrandLogo.tsx`, `LandingPage.tsx`, `Header.tsx`
 
-**Effort:** Small (~1-2 hours)
-**File:** `decision-studio-ui/src/components/ProblemRefinementChat.tsx`
+#### 10B: App UI Polish
 
-### Fix 2: DeepFocusView — Accordion Collapse (Priority: High)
+| Deliverable | Description | Effort |
+|------------|-------------|--------|
+| DeepFocusView accordion | Collapsible sections with one-line summary previews. Remove debug `console.log`. | ~3-4 hours |
+| ProblemRefinementChat sticky footer | Pin suggested responses + input to bottom. Messages scroll above. | ~1-2 hours |
+| RegistryExplorer form layouts | Dedicated form per registry type (KPIs, Data Products, BPs, Principals). "View JSON" toggle for power users. | ~1 day |
+| Context Explorer rebrand | Rename to "Principal Dossier". Austere, high-contrast aesthetic. | Small |
+| Registry Explorer rebrand | Rename to "Control Panel". Match Swiss Style. | Small |
+| Delegated situation badge | "Delegated" badge on situation cards in SA dashboard for delegated KPIs | Small |
+| Wire `kpi_evaluated_count` | Replace hardcoded `kpisScanned={14}` with real count from API | Small |
 
-**Problem:** Left panel has 5-6 analysis sections all expanded inline. User scrolls through 2000+ pixels of content. Hard to find what you need. Looks overwhelming on camera.
+**Files:** `DeepFocusView.tsx`, `ProblemRefinementChat.tsx`, `RegistryExplorer.tsx`, `ContextExplorer.tsx`, `KPITile.tsx`
 
-**Fix:** Collapsible accordion sections with smart defaults and one-line summary previews:
+#### 10C: PIB Email Alignment
 
-```
-▼ Executive Briefing              ← expanded by default (the headline)
-▶ Root Cause Analysis             ← collapsed: "3 root causes identified"
-▶ Variance Analysis (Is/Is Not)   ← collapsed: "4 dimensions analyzed"
-▶ Market Intelligence             ← collapsed: "3 signals detected"
-▶ Dimension Breakdown             ← collapsed: "Region × Product"
-▶ Strategic Options               ← collapsed: "3 options generated"
-```
+| Deliverable | Description | Effort |
+|------------|-------------|--------|
+| Aperture logo in email header | Inline SVG mark alongside "Principal Intelligence Briefing" | Small |
+| Satoshi font stack | With `-apple-system, Helvetica, Arial` fallback for email clients | Small |
+| Monochrome severity badges | Remove colored badge backgrounds (red/orange/yellow/blue). Neutral `#f3f4f6` badge, left-border carries severity color | Small |
+| "Quiet Expert" copy | "Situations Detected (N)" not "Requiring Your Attention". "Open Situations — Awaiting Response" not "Overdue — No Action Taken" | Small |
+| Semantic color only | Red = variance/problem, green = opportunity, blue = AI action (investigate button) | Small |
+| Delegation completion | Show delegated-to-me situations in delegate's PIB. Resolve delegator/delegate names. Delegated badge in managed section. | Medium |
 
-Each section shows a compact summary line when collapsed. Click chevron to expand. Only one or two sections open at a time for clean screen recording.
+**Files:** `src/templates/pib_briefing.html`, `a9_pib_agent.py`
 
-Also: remove debug `console.log` on line 314 that spams every render.
+#### Build Order
 
-**Effort:** Medium (~3-4 hours)
-**File:** `decision-studio-ui/src/components/views/DeepFocusView.tsx`
-
-### Fix 3: RegistryExplorer — Form-Based Editing (Priority: Medium)
-
-**Problem:** 4 of 5 registries (KPIs, Data Products, Business Processes, Principals) use a raw JSON textarea for editing. Users must manually construct valid JSON. No field labels, no validation, no guidance. Not usable for a demo or customer-facing video.
-
-**Fix:** Build dedicated form layouts per registry type with labeled fields, inline validation, and a brief instruction line. Keep raw JSON as a "View JSON" toggle for power users.
-
-| Registry | Key Form Fields | Complexity |
-|----------|----------------|-----------|
-| **KPIs** | name, description, unit, upper/lower thresholds, data_product_id, business_process, metadata.lens_affinity | Medium — nested threshold object |
-| **Data Products** | name, description, source_type, connection_profile, tables/views list | Medium — array of tables |
-| **Business Processes** | name, domain, description, parent_process | Simple — flat fields |
-| **Principals** | name, role, decision_style, priorities (tag array), business_processes (tag array) | Medium — array fields |
-
-Each form includes:
-- Labeled input fields with placeholder text
-- Inline validation for required fields and numeric values
-- Instruction line at top: *"Edit KPI thresholds and metadata. Changes are saved to the registry."*
-- "View JSON" toggle to show raw payload (advanced mode)
-
-**Effort:** Medium-Large (~1 day for all 4 registries)
-**File:** `decision-studio-ui/src/pages/RegistryExplorer.tsx`
-
-### Fix 4: Unified Brand Identity (Swiss Style) (Priority: High)
-
-**Problem:** The application UI and marketing landing page lack a cohesive, enterprise-grade visual identity. The current generic SaaS look undermines the $500K CaaS value proposition.
-
-**Fix:** Implement the "Swiss Style" design system (`docs/architecture/ui_brand_guidelines.md`) across both the landing page (`decision-studios.com`) and the core app (`trydecisionstudio.com`).
-- Add new "Aperture" geometric SVG logo component (`BrandLogo.tsx`).
-- Rewrite Landing Page Hero text to use the "Quiet Expert" brand voice ("Decisions ready in hours, not quarters").
-- Ensure "Narrative over Charts" philosophy across all visualizations (no drill-downs, strict monochrome).
-- Update Context Explorer ("Principal Dossier") and Registry Explorer ("Control Panel") to match the austere, high-contrast aesthetic.
-- **PIB email template (`src/templates/pib_briefing.html`):**
-  - Add Aperture logo mark in email header (inline SVG, once `BrandLogo` is finalised).
-  - Switch font stack to Satoshi (with `-apple-system, Helvetica, Arial` fallback for email clients).
-  - Adopt monochrome severity badges — remove colored backgrounds (red/orange/yellow/blue), use neutral `#f3f4f6` badge with left-border accent carrying the severity color.
-  - Apply "Quiet Expert" copy: rename "Situations Requiring Your Attention" → "Situations Detected (N)", rename "Overdue — No Action Taken" → "Open Situations — Awaiting Response". No exclamation points, no urgency language.
-  - Limit color to semantic use only: red = variance/problem, green = opportunity, subtle blue = AI-recommended action (investigate button).
-  - Ensure footer carries "Decision Studio" brand mark consistently.
-
-**Effort:** Medium (~1-2 days)
-**Files:** `BrandLogo.tsx`, `LandingPage.tsx`, `Header.tsx`, `ContextExplorer.tsx`, `src/templates/pib_briefing.html`
-
-### Build Order
-
-| Order | Fix | Effort | Video Impact |
-|-------|-----|--------|-------------|
-| 1 | ProblemRefinementChat sticky footer | ~1-2 hours | High — core demo flow |
-| 2 | DeepFocusView accordion collapse | ~3-4 hours | High — analytical centerpiece |
-| 3 | RegistryExplorer form layouts | ~1 day | Medium — admin screens, shown briefly |
-| 4 | Unified Brand Identity (Swiss Style) | ~1-2 days | Critical — first impression for demo/site |
+| Order | Deliverable | Effort | Impact |
+|-------|------------|--------|--------|
+| 1 | Aperture logo + font stack (10A) | ~2-3 hours | Foundation for everything else |
+| 2 | DeepFocusView accordion (10B) | ~3-4 hours | Core demo flow |
+| 3 | ProblemRefinementChat sticky footer (10B) | ~1-2 hours | Core demo flow |
+| 4 | Landing page rebrand (10A) | ~4-6 hours | First impression for prospects |
+| 5 | PIB email alignment (10C) | ~3-4 hours | Executive-facing email |
+| 6 | RegistryExplorer forms (10B) | ~1 day | Admin screens |
+| 7 | Delegated badge + delegation PIB (10B/10C) | ~4 hours | Completes delegation flow |
 
 ---
 
@@ -774,20 +687,21 @@ The Executive Briefing page becomes the venue for Solution Refinement — the pr
 | Priority | Phase | Scope | Key Deliverable | Status |
 |----------|-------|-------|-----------------|--------|
 | ~~Done~~ | 7 | Value Assurance | Counterfactual attribution, SF→VA approval handoff | ✅ Complete |
-| ~~Done~~ | 7C | Value Assurance UI | ValueAssurancePanel + AttributionBreakdown wired into ExecutiveBriefing (post-approval) and Portfolio detail panel; CostOfInactionBanner in briefing; PortfolioDashboard at /portfolio | ✅ Complete |
-| ~~Done~~ | 8 | Opportunity Deep Analysis | BenchmarkSegment, unified DA, Replication Targets UI | ✅ Complete (design revised) |
-| ~~Done~~ | Pre-Video | UI Polish | Chat sticky footer, DA accordion, registry forms, persona passthrough | ✅ Complete |
-| **WIP** | Demo Video | Remotion Conceptual Demo | 4:00 video (10 scenes), Remotion in `demo-video/`. Fonts scaled, all scenes drafted. Needs review pass, final render, then publish to YouTube + embed on trydecisionstudio.com | In Progress |
-| ~~Done~~ | Partner Deck | Business Premise & Challenge Presentation | Reveal.js deck at `docs/strategy/partner_deck.html`. 13 slides: problem, pipeline, what's built, ICP, moat, pricing, revenue tiers, projections, exit, Tier 0, next steps, contact. | ✅ Complete |
-| ~~Done~~ | Refinement | Dual-Framing + Interactive Decision Briefing | Steps 1-3 complete: benchmark-aware debate, two-panel briefing workspace, Q&A endpoint. Step 4 (multi-initiative approval) deferred. Step 5 (PRD updates) complete. | ✅ Steps 1-3 + 5 complete |
-| ~~Done~~ | Infra A | Production Deployment | Railway + Vercel + Supabase Cloud + BigQuery. Deployed 2026-03-24. Full pipeline operational. | ✅ Complete |
-| **Next** | 9A-D | Enterprise Assessment Pipeline | Offline SA→DA batch, Supabase persistence, pre-analyzed findings | Planned |
-| **Next** | 9E | Briefing Agent — Audio Intelligence | Flash Briefings, persona-tailored TTS, workflow-stage framing | Planned (after 9B) |
-| **Next** | 9G | Unified Situation Stream | Merge problem/opportunity into single pipeline. Direction-agnostic escalation, confidence gating, opportunity→SF→VA. Wire real `kpi_evaluated_count`. | Planned (after 9B) |
+| ~~Done~~ | 7C | Value Assurance UI | ValueAssurancePanel, AttributionBreakdown, PortfolioDashboard, CostOfInactionBanner | ✅ Complete |
+| ~~Done~~ | 8 | Opportunity Deep Analysis | BenchmarkSegment, unified DA, Replication Targets UI | ✅ Complete |
+| ~~Done~~ | 9 | Enterprise Assessment Pipeline | Batch SA→Supabase, PIB email, deep links, delegation, audit trail | ✅ Complete (2026-04-04) |
+| ~~Done~~ | Refinement | Dual-Framing + Interactive Decision Briefing | Benchmark-aware debate, two-panel briefing, Q&A endpoint | ✅ Steps 1-3 + 5 complete |
+| ~~Done~~ | Infra A | Production Deployment | Railway + Vercel + Supabase Cloud + BigQuery | ✅ Complete (2026-03-24) |
+| ~~Done~~ | Partner Deck | Business Premise & Challenge Presentation | Reveal.js deck, 13 slides | ✅ Complete |
+| **WIP** | Demo Video | Remotion Conceptual Demo | 4:00 video, 10 scenes. Needs review pass + final render | In Progress |
+| **Next** | 10 | Brand Identity & UI Polish | Swiss Style design system, Aperture logo, PIB email alignment, accordion/forms | Planned |
+| **Next** | 11A | Unified Situation Stream | Merge problem/opportunity, direction-agnostic escalation, wire `kpi_evaluated_count` | Planned |
+| **Next** | 11B | Adaptive Calibration Loop | KPI Assistant recommends monitoring profiles, recalibration from VA outcomes | Planned |
+| **Next** | 11C | Audio Briefings | TTS integration, Flash Briefings, workflow-stage framing | Planned |
 | **BLOCKER** | Infra B | Customer Infrastructure | Multi-tenant isolation, CI/CD, provisioning — gates first pilot | Planned (May-Aug 2026) |
-| **After** | 10 | Business Optimization | Top-down strategic entry, risk/stakeholder agents | Planned |
-| **Year 2** | Infra C | Partner Infrastructure | Lead attribution, escalation routing, handoff export, partner portal | Planned (Mar-Dec 2027, triggered by 5+ customers) |
-| **Later** | 11 | Extended Solution Finding | Heavyweight evaluation, solution architecture | Planned |
-| **Future** | 12 | Innovation Driver | LLM brainstorming, idea incubation | Requires 4 new agents |
-| **Year 3** | Infra D | Enterprise & Compliance | SOC 2, SSO, data residency, partner branding automation | Planned (H1 2028, triggered by Enterprise tier demand) |
-| **Enterprise** | — | Enterprise Tier Roadmap | Decision Journal, Conditional Approval, Scenario Exploration, Stakeholder Pre-Briefing, VA Feedback Loop, Principal Learning Profile | Per-customer customization — not CaaS core |
+| **After** | 12 | Business Optimization | Top-down strategic entry, risk/stakeholder agents | Planned |
+| **Year 2** | Infra C | Partner Infrastructure | Lead attribution, escalation routing, partner portal | Planned (Mar-Dec 2027) |
+| **Later** | 13 | Extended Solution Finding | Heavyweight evaluation, solution architecture | Planned |
+| **Future** | 14 | Innovation Driver | LLM brainstorming, idea incubation | Requires 4 new agents |
+| **Year 3** | Infra D | Enterprise & Compliance | SOC 2, SSO, data residency, partner branding | Planned (H1 2028) |
+| **Enterprise** | — | Enterprise Tier Roadmap | Decision Journal, Conditional Approval, Scenario Exploration, VA Feedback Loop | Per-customer customization |
