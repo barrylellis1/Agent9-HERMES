@@ -1,3 +1,10 @@
+export interface PrincipalActionSummary {
+  situation_id: string;      // kpi_name used as stable key
+  action_type: string;       // "delegate" | "snooze"
+  target_principal_id?: string | null;
+  created_at?: string | null;
+}
+
 export interface Situation {
   situation_id: string;
   kpi_name: string;

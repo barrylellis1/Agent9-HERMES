@@ -30,6 +30,7 @@ interface DashboardViewProps {
   onSelectSituation: (sit: Situation) => void;
   statusMsg: string | null;
   error: string | null;
+  delegatedKpiNames?: Set<string>;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -53,7 +54,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onRefresh,
   onSelectSituation,
   statusMsg,
-  error
+  error,
+  delegatedKpiNames = new Set(),
 }) => {
   const [portfolio, setPortfolio] = useState<StrategyAwarePortfolio | null>(null);
 
@@ -323,6 +325,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             <KPITile
                                 situation={sit}
                                 onClick={() => onSelectSituation(sit)}
+                                isDelegated={delegatedKpiNames.has(sit.kpi_name)}
                             />
                         </div>
                     ))}

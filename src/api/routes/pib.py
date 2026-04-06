@@ -1,10 +1,12 @@
 """
-Principal Intelligence Briefing (PIB) API routes — Phase 9E.
+Principal Intelligence Briefing (PIB) API routes — Phase 9C.
 
 POST /api/v1/pib/run                — compose and send a PIB for a principal+client
 GET  /api/v1/pib/runs               — list recent briefing runs for a principal
 GET  /api/v1/pib/token/{token}      — validate a one-click action token and execute it
 POST /api/v1/pib/delegate/{token}   — complete a delegation (select target principal)
+GET  /api/v1/pib/delegates          — recommend delegate principals for a KPI
+GET  /api/v1/pib/actions            — return delegated kpi_names for a principal (dashboard badge)
 """
 from __future__ import annotations
 
@@ -481,6 +483,61 @@ async def get_delegate_suggestions(
         logger.warning("get_delegate_suggestions failed: %s", exc)
 
     return suggestions
+
+
+# ---------------------------------------------------------------------------
+# GET /actions  — delegated kpi_names for dashboard badge
+# ---------------------------------------------------------------------------
+
+class PrincipalActionSummary(BaseModel):
+    situation_id: str       # kpi_name (stable key)
+    action_type: str        # "delegate" | "snooze"
+    target_principal_id: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+@router.get("/actions", response_model=List[PrincipalActionSummary])
+async def get_principal_actions(
+    principal_id: str,
+    action_type: Optional[str] = None,
+) -> List[PrincipalActionSummary]:
+    """
+    Return recent situation_actions taken by this principal.
+    Used by the dashboard to badge delegated/snoozed KPI tiles.
+    """
+    import os, httpx, json
+    supabase_url = os.getenv("SUPABASE_URL")
+    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    if not supabase_url or not service_key:
+        return []
+
+    headers = {
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
+        "Accept": "application/json",
+    }
+    params: Dict[str, str] = {
+        "principal_id": f"eq.{principal_id}",
+        "select": "situation_id,action_type,target_principal_id,created_at",
+        "order": "created_at.desc",
+        "limit": "50",
+    }
+    if action_type:
+        params["action_type"] = f"eq.{action_type}"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{supabase_url}/rest/v1/situation_actions",
+                headers=headers,
+                params=params,
+            )
+            if resp.status_code == 200 and resp.content:
+                rows = json.loads(resp.content)
+                return [PrincipalActionSummary(**r) for r in rows]
+    except Exception as exc:
+        logger.warning("get_principal_actions failed: %s", exc)
+    return []
 
 
 # ---------------------------------------------------------------------------

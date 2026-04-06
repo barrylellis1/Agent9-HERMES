@@ -5,9 +5,10 @@ import { Situation } from '../../api/types';
 interface KPITileProps {
   situation: Situation;
   onClick: () => void;
+  isDelegated?: boolean;
 }
 
-export const KPITile: React.FC<KPITileProps> = ({ situation, onClick }) => {
+export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegated = false }) => {
   const isOpportunity = situation.card_type === 'opportunity';
 
   // Color mapping
@@ -34,9 +35,16 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick }) => {
     >
       <div className="flex justify-between items-start w-full mb-4">
         <div>
-          <span className={`text-[10px] font-bold uppercase tracking-wider ${status.text} border border-current px-1.5 py-0.5 rounded`}>
-            {isOpportunity ? 'Growth Opportunity' : situation.severity}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={`text-[10px] font-bold uppercase tracking-wider ${status.text} border border-current px-1.5 py-0.5 rounded`}>
+              {isOpportunity ? 'Growth Opportunity' : situation.severity}
+            </span>
+            {isDelegated && (
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 border border-slate-600 px-1.5 py-0.5 rounded">
+                Delegated
+              </span>
+            )}
+          </div>
           <h3 className="text-lg font-bold text-white mt-2 leading-tight group-hover:text-blue-400 transition-colors">
             {situation.kpi_name}
           </h3>

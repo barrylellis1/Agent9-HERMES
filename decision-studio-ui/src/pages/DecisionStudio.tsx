@@ -13,6 +13,7 @@ export function DecisionStudio() {
     scanComplete,
     kpisScanned,
     selectedSituation,
+    delegatedKpiNames,
     analyzing,
     analysisResults,
     analysisError,
@@ -149,6 +150,7 @@ export function DecisionStudio() {
       onSelectSituation={(sit) => { setSelectedSituation(sit); handleDeepAnalysis(sit); }}
       statusMsg={statusMsg}
       error={error}
+      delegatedKpiNames={delegatedKpiNames}
     />
   );
 }

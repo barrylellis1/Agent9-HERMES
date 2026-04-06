@@ -348,13 +348,18 @@ class A9_PIB_Agent:
         try:
             actions = await self._load_situation_actions(config.principal_id)
             for action in actions:
+                target_id = action.get("target_principal_id")
+                # Resolve delegate principal ID to display name
+                delegated_to_name: Optional[str] = None
+                if target_id:
+                    delegated_to_name = await self._resolve_principal_name(target_id)
                 content.managed_situations.append(ManagedSituationItem(
                     situation_id=action.get("situation_id", ""),
-                    kpi_name=action.get("situation_id", ""),  # best proxy without join
+                    kpi_name=action.get("situation_id", ""),  # situation_id stores kpi_name
                     action_type=action.get("action_type", ""),
                     action_taken_at=self._parse_dt(action.get("created_at")) or datetime.utcnow(),
                     snooze_expires_at=self._parse_dt(action.get("snooze_expires_at")),
-                    delegated_to=action.get("target_principal_id"),
+                    delegated_to=delegated_to_name or target_id,
                 ))
         except Exception as e:
             logger.warning("PIB: managed situations load failed (non-fatal): %s", e)

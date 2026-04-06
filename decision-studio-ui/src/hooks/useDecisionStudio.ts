@@ -7,6 +7,7 @@ import {
   approveSolution,
   listPrincipals,
   listClients,
+  getPrincipalActions,
   ProblemRefinementResult,
   Situation,
   OpportunitySignal
@@ -67,6 +68,8 @@ export function useDecisionStudio() {
   const [scanComplete, setScanComplete] = useState(false);
   const [selectedSituation, setSelectedSituation] = useState<Situation | null>(null);
   const [kpisScanned, setKpisScanned] = useState<number>(0);
+  // Delegated KPI names — used to badge tiles in the dashboard
+  const [delegatedKpiNames, setDelegatedKpiNames] = useState<Set<string>>(new Set());
   
   // Deep Analysis
   const [analyzing, setAnalyzing] = useState(false);
@@ -150,6 +153,16 @@ export function useDecisionStudio() {
       })
       .catch(err => console.warn('Failed to load principals:', err));
   }, [selectedClientId]);
+
+  // Load delegated KPI names for the current principal — used to badge tiles
+  useEffect(() => {
+    if (!selectedPrincipal) return;
+    getPrincipalActions(selectedPrincipal, 'delegate')
+      .then(actions => {
+        setDelegatedKpiNames(new Set(actions.map(a => a.situation_id)));
+      })
+      .catch(() => {/* non-fatal */});
+  }, [selectedPrincipal]);
 
   // Auto-select a situation when a deep-link kpiName arrived via router state.
   // Uses state so it re-runs when EITHER situations loads OR kpiName arrives —
@@ -526,6 +539,7 @@ export function useDecisionStudio() {
     scanComplete,
     kpisScanned,
     selectedSituation,
+    delegatedKpiNames,
     analyzing,
     analysisResults,
     analysisError,

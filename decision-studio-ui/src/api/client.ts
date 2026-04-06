@@ -7,6 +7,7 @@ import {
   AssessmentSummary,
   AssessmentRun,
   KPIAssessment,
+  PrincipalActionSummary,
 } from './types';
 import type {
   AcceptedSolution as VAAcceptedSolution,
@@ -635,3 +636,14 @@ export async function triggerAssessment(principalId?: string, dryRun = false): P
 
 // suppress unused-import warning — KPIAssessment is exported for consumer use
 export type { KPIAssessment };
+
+// PIB delegation actions — used to badge delegated KPI tiles in the dashboard
+export async function getPrincipalActions(
+  principalId: string,
+  actionType?: string,
+): Promise<PrincipalActionSummary[]> {
+  const params = new URLSearchParams({ principal_id: principalId });
+  if (actionType) params.set('action_type', actionType);
+  return requestJson<PrincipalActionSummary[]>(`/pib/actions?${params.toString()}`);
+}
+export type { PrincipalActionSummary };
