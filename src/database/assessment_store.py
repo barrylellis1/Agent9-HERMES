@@ -202,18 +202,26 @@ class AssessmentStore:
         if not self.enabled:
             return False
         try:
-            row = {
+            row: Dict[str, Any] = {
                 "id": action.id,
                 "situation_id": action.situation_id,
-                "kpi_assessment_id": action.kpi_assessment_id,
-                "run_id": action.run_id,
                 "principal_id": action.principal_id,
                 "action_type": action.action_type.value,
-                "target_principal_id": action.target_principal_id,
-                "snooze_expires_at": action.snooze_expires_at.isoformat() if action.snooze_expires_at else None,
-                "notes": action.notes,
                 "created_at": action.created_at.isoformat(),
             }
+            # Only include nullable FK / optional fields when they have values.
+            # Omitting them lets the DB default apply; sending null on a NOT NULL
+            # column (e.g. run_id before migration) causes a 400 from Supabase REST.
+            if action.kpi_assessment_id:
+                row["kpi_assessment_id"] = action.kpi_assessment_id
+            if action.run_id:
+                row["run_id"] = action.run_id
+            if action.target_principal_id:
+                row["target_principal_id"] = action.target_principal_id
+            if action.snooze_expires_at:
+                row["snooze_expires_at"] = action.snooze_expires_at.isoformat()
+            if action.notes:
+                row["notes"] = action.notes
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     self._actions_url,

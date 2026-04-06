@@ -347,7 +347,7 @@ async def complete_delegation(
                 resp = await client.get(
                     store._tokens_url,
                     headers=store.headers,
-                    params={"token": f"eq.{token_str}", "select": "situation_id,token_type"},
+                    params={"token": f"eq.{token_str}", "select": "situation_id,token_type,principal_id"},
                 )
                 resp.raise_for_status()
                 rows = _json.loads(resp.content) if resp.content else []
