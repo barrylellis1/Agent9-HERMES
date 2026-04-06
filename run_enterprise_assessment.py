@@ -285,15 +285,10 @@ class EnterpriseAssessmentEngine:
     # ------------------------------------------------------------------
 
     async def _load_kpis(self) -> list:
-        """Load all KPIs via the KPI registry provider.
-
-        If principal_id is set, delegate to the Principal Context agent to
-        resolve the principal's business processes and filter accordingly.
-        """
+        """Load all KPIs for client_id via the KPI registry provider."""
         kpi_provider = self.registry_factory.get_provider("kpi")
         all_kpis = kpi_provider.get_all()
 
-        # Filter by client_id when set on config
         if self.config.client_id:
             all_kpis = [
                 k for k in all_kpis
@@ -303,50 +298,7 @@ class EnterpriseAssessmentEngine:
                 f"Client filter ({self.config.client_id}): {len(all_kpis)} KPIs in scope"
             )
 
-        if self.config.principal_id is None:
-            return all_kpis
-
-        # Restrict to KPIs whose business_process_ids intersect with the
-        # principal's processes.  Ask the PC agent rather than hard-coding.
-        try:
-            pc_result = await self.orchestrator.execute_agent_method(
-                "A9_Principal_Context_Agent",
-                "get_principal_context",
-                {"principal_id": self.config.principal_id},
-            )
-            if pc_result is None:
-                logger.warning(
-                    f"PC agent returned None for principal {self.config.principal_id} — "
-                    "falling back to all KPIs"
-                )
-                return all_kpis
-
-            if isinstance(pc_result, dict):
-                principal_processes = set(pc_result.get("business_processes", []))
-            else:
-                principal_processes = set(getattr(pc_result, "business_processes", []))
-
-            if not principal_processes:
-                return all_kpis
-
-            filtered = []
-            for kpi in all_kpis:
-                bp_ids = set(getattr(kpi, "business_process_ids", []) or [])
-                bp_names = set(getattr(kpi, "business_processes", []) or [])
-                if bp_ids & principal_processes or bp_names & principal_processes:
-                    filtered.append(kpi)
-            logger.info(
-                f"Principal filter ({self.config.principal_id}): "
-                f"{len(filtered)}/{len(all_kpis)} KPIs in scope"
-            )
-            return filtered
-
-        except Exception as e:
-            logger.warning(
-                f"Principal context lookup failed for {self.config.principal_id}: {e} — "
-                "falling back to all KPIs"
-            )
-            return all_kpis
+        return all_kpis
 
     async def _assess_kpi(self, run_id: str, kpi) -> KPIAssessment:
         """Run SA detection for one KPI. Returns KPIAssessment with escalate_to_da set."""
@@ -526,7 +478,7 @@ async def main(
     client_id: str | None = None,
     dry_run: bool = False,
 ) -> int:
-    config = AssessmentConfig(principal_id=principal_id, client_id=client_id, dry_run=dry_run)
+    config = AssessmentConfig(client_id=client_id, dry_run=dry_run)
     orchestrator, registry_factory = await initialize_runtime()
     engine = EnterpriseAssessmentEngine(orchestrator, registry_factory, config)
     run = await engine.run()

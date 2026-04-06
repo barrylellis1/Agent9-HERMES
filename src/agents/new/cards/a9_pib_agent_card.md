@@ -1,7 +1,7 @@
 # A9_PIB_Agent — Agent Card
 
-**Version:** 1.0  
-**Phase:** 9C  
+**Version:** 1.1  
+**Phase:** 11A  
 **Status:** Operational
 
 ## Purpose
@@ -24,10 +24,13 @@ Composes and delivers Principal Intelligence Briefings (PIBs) — structured ema
 
 ## Content Sections
 
-1. **New Situations** — DETECTED KPI assessments from latest assessment run, with Investigate and Delegate one-click tokens
+1. **New Situations** — DETECTED KPI assessments from latest client assessment run, with Investigate and Delegate one-click tokens
 2. **Urgency Flags** — Situations open > N days without action
 3. **Solutions in Progress** — VA-tracked approved solutions with expected impact
-4. **Managed Situations** — Actions already taken (delegated / snoozed) with resolved principal names
+4. **Managed Situations** — Delegation actions taken by this principal, with resolved delegate names
+
+Note: Snooze feature removed (Phase 11A). Assessment runs are now client-scoped — all principals
+for a client read from the same enterprise run rather than a principal-tagged run.
 
 ## Key Dependencies
 

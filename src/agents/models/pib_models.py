@@ -26,7 +26,6 @@ class BriefingRunStatus(str, Enum):
 
 class TokenType(str, Enum):
     DEEP_LINK = "deep_link"
-    SNOOZE = "snooze"
     DELEGATE = "delegate"
     REQUEST_INFO = "request_info"
     APPROVE = "approve"
@@ -50,7 +49,6 @@ class SituationBriefingItem(BaseModel):
     is_new: bool = True              # True if not present in previous run
     weeks_open: int = 0              # 0 for new situations
     deep_link_token: Optional[str] = None   # UUID token for Launch DA link
-    snooze_token: Optional[str] = None
     delegate_token: Optional[str] = None
     request_info_token: Optional[str] = None
 
@@ -69,13 +67,12 @@ class SolutionProgressItem(BaseModel):
 
 
 class ManagedSituationItem(BaseModel):
-    """A situation that has been snoozed or delegated."""
+    """A situation that has been delegated."""
 
     situation_id: str
     kpi_name: str
-    action_type: str                 # "snooze" | "delegate"
+    action_type: str                 # "delegate"
     action_taken_at: datetime
-    snooze_expires_at: Optional[datetime] = None
     delegated_to: Optional[str] = None    # principal name
 
 

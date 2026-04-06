@@ -100,8 +100,8 @@ class AssessmentStore:
             logger.warning("AssessmentStore.upsert_run failed (non-fatal): %s", exc)
             return False
 
-    async def get_latest_run(self, principal_id: str, client_id: str) -> Optional[Dict[str, Any]]:
-        """Return the most recent completed run for a principal+client pair."""
+    async def get_latest_run(self, client_id: str) -> Optional[Dict[str, Any]]:
+        """Return the most recent completed run for a client."""
         if not self.enabled:
             return None
         try:
@@ -119,12 +119,7 @@ class AssessmentStore:
                 )
                 response.raise_for_status()
                 rows = json.loads(response.content) if response.content else []
-                # Filter by principal_id from config JSONB
-                for row in rows:
-                    cfg = row.get("config") or {}
-                    if cfg.get("principal_id") == principal_id:
-                        return row
-                return None
+                return rows[0] if rows else None
         except Exception as exc:
             logger.warning("AssessmentStore.get_latest_run failed (non-fatal): %s", exc)
             return None
@@ -239,27 +234,3 @@ class AssessmentStore:
             logger.warning("AssessmentStore.insert_action failed (non-fatal): %s", exc)
             return False
 
-    async def get_active_snoozes(self, principal_id: str) -> List[str]:
-        """Return situation_ids that are currently snoozed (snooze not yet expired)."""
-        if not self.enabled:
-            return []
-        try:
-            from datetime import datetime, timezone
-            now_iso = datetime.now(timezone.utc).isoformat()
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    self._actions_url,
-                    headers=self.headers,
-                    params={
-                        "principal_id": f"eq.{principal_id}",
-                        "action_type": "eq.snooze",
-                        "snooze_expires_at": f"gt.{now_iso}",
-                        "select": "situation_id",
-                    },
-                )
-                response.raise_for_status()
-                rows = json.loads(response.content) if response.content else []
-                return [r["situation_id"] for r in rows]
-        except Exception as exc:
-            logger.warning("AssessmentStore.get_active_snoozes failed (non-fatal): %s", exc)
-            return []
