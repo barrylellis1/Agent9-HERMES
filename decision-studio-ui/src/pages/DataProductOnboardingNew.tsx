@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { 
-    ArrowLeft, Settings, Search, Database, FileText, Check, 
-    Loader2, ChevronRight, AlertCircle, Edit2, Link2, Sparkles, CheckCircle 
+import {
+    ArrowLeft, Settings, Search, Database, FileText, Check,
+    Loader2, ChevronRight, AlertCircle, Edit2, Link2, Sparkles, CheckCircle
 } from 'lucide-react'
 import { KPIAssistantChat } from '../components/KPIAssistantChat'
 import { ConnectionProfileManager } from '../components/ConnectionProfileManager'
 import { DataProductSelector } from '../components/DataProductSelector'
 import { API_ENDPOINTS, buildUrl } from '../config/api-endpoints'
 import { markProfileAsUsed } from '../utils/connectionProfileStorage'
+import { BrandLogo } from '../components/BrandLogo'
 
 // Step definitions
 const STEPS = [
@@ -192,12 +193,10 @@ export function DataProductOnboardingNew() {
         
         try {
             // Ensure connectionOverrides is always an object
-            const overrides = connectionOverrides && Object.keys(connectionOverrides).length > 0 
-                ? connectionOverrides 
+            const overrides = connectionOverrides && Object.keys(connectionOverrides).length > 0
+                ? connectionOverrides
                 : {}
-            
-            console.log('Connection overrides:', overrides)
-            
+
             const payload = {
                 principal_id: 'admin_user',
                 data_product_id: 'temp_discovery',
@@ -209,8 +208,6 @@ export function DataProductOnboardingNew() {
                 environment: 'dev',
                 connection_overrides: overrides,
             }
-            
-            console.log('Discovery payload:', JSON.stringify(payload, null, 2))
 
             const response = await fetch(buildUrl(API_ENDPOINTS.workflows.dataProductOnboarding.run), {
                 method: 'POST',
@@ -510,6 +507,7 @@ export function DataProductOnboardingNew() {
                         </p>
                     </div>
                 </div>
+                <BrandLogo size={32} />
             </header>
 
             <main className="max-w-6xl mx-auto">
@@ -1295,8 +1293,7 @@ export function DataProductOnboardingNew() {
                                                     })
                                                     
                                                     const finalizeData = await finalizeResponse.json()
-                                                    console.log('Finalize response:', finalizeData)
-                                                    
+
                                                     if (!finalizeResponse.ok || finalizeData.status === 'error') {
                                                         const errorMsg = finalizeData.error || finalizeData.detail || 'Failed to finalize KPIs'
                                                         throw new Error(errorMsg)

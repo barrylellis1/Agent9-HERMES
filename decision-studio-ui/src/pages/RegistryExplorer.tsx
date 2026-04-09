@@ -1,6 +1,7 @@
 import { type ComponentType, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, BookOpen, Box, Briefcase, Code2, Database, KeyRound, Loader2, Save, Trash2, Plus, X } from 'lucide-react'
+import { BrandLogo } from '../components/BrandLogo'
 import {
   type BusinessTerm,
   listGlossaryTerms,
@@ -784,6 +785,7 @@ export function RegistryExplorer() {
             <p className="text-sm text-slate-400">Registry management &amp; data product onboarding</p>
           </div>
         </div>
+        <BrandLogo size={32} />
       </header>
 
       <main className="max-w-6xl mx-auto">

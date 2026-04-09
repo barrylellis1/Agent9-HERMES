@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { CheckCircle, XCircle, Loader2, UserCheck, ArrowRight } from 'lucide-react';
+import { BrandLogo } from '../components/BrandLogo';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -100,9 +101,9 @@ export function DelegatePage() {
       <div className="w-full max-w-lg">
         {/* Brand */}
         <div className="text-center mb-6">
-          <span className="text-lg font-semibold tracking-tight text-gray-900">
-            Decision Studio
-          </span>
+          <div className="flex justify-center mb-1">
+            <BrandLogo size={28} scheme="dark" />
+          </div>
           <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">
             Delegate Situation
           </p>
@@ -139,27 +140,27 @@ export function DelegatePage() {
                     onClick={() => setSelectedId(s.principal_id)}
                     className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
                       selectedId === s.principal_id
-                        ? 'border-blue-500 bg-blue-50'
+                        ? 'border-slate-900 bg-slate-50'
                         : 'border-gray-200 hover:border-gray-300 bg-white'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div>
                         <p className={`text-sm font-semibold ${
-                          selectedId === s.principal_id ? 'text-blue-900' : 'text-gray-900'
+                          selectedId === s.principal_id ? 'text-slate-900' : 'text-gray-900'
                         }`}>
                           {s.name}
                         </p>
                         <p className="text-xs text-gray-500">{s.title}</p>
                         {s.is_recommended && s.reason && (
-                          <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                          <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
                             <UserCheck className="w-3 h-3" />
                             {s.reason}
                           </p>
                         )}
                       </div>
                       {s.is_recommended && (
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
                           Recommended
                         </span>
                       )}
@@ -193,7 +194,7 @@ export function DelegatePage() {
                 disabled={!selectedId}
                 className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold transition-colors ${
                   selectedId
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    ? 'bg-slate-900 text-white hover:bg-slate-700'
                     : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 }`}
               >
@@ -233,7 +234,7 @@ export function DelegatePage() {
               <p className="text-gray-900 font-semibold mb-4">{errorMsg}</p>
               <button
                 onClick={() => navigate('/')}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-700 text-white text-sm font-medium transition-colors"
               >
                 Open Decision Studio
               </button>

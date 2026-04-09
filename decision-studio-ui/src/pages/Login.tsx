@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { listClients, listPrincipals } from '../api/client';
 import { Client, Principal } from '../api/types';
 import { AVAILABLE_PRINCIPALS } from '../config/uiConstants';
-import { ShieldCheck, ArrowRight, ChevronRight } from 'lucide-react';
+import { ArrowRight, ChevronRight } from 'lucide-react';
+import { BrandLogo } from '../components/BrandLogo';
 
 // ── Principal mapping (mirrors useDecisionStudio helpers) ─────────────────────
 
@@ -89,11 +90,10 @@ export function Login() {
       <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="bg-slate-900 border-b border-slate-800 p-8 text-center">
-          <div className="mx-auto w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mb-4">
-            <ShieldCheck className="w-8 h-8 text-indigo-400" />
+          <div className="flex items-center justify-center mb-4">
+            <BrandLogo size={40} />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Agent9 Decision Studio</h1>
-          <p className="text-slate-400 text-sm">Secure Single Sign-On</p>
+          <p className="text-slate-400 text-sm">Select your identity to continue</p>
         </div>
 
         <div className="p-8 space-y-6">

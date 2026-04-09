@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ArrowLeft, RefreshCw, TrendingUp, AlertCircle, BarChart2, ArrowUpRight, ShieldCheck, Target, FileText } from 'lucide-react';
 import { getVAPortfolio, recordKPIMeasurement, getPrincipal } from '../api/client';
+import { BrandLogo } from '../components/BrandLogo';
 import type { StrategyAwarePortfolio, AcceptedSolution, SolutionVerdict } from '../types/valueAssurance';
 import { PortfolioDashboard } from '../components/PortfolioDashboard';
 import { TrajectoryChart } from '../components/visualizations/TrajectoryChart';
@@ -370,8 +371,10 @@ export function Portfolio() {
               Back
             </button>
             <div className="w-px h-5 bg-slate-700" />
+            <BrandLogo size={24} />
+            <div className="w-px h-5 bg-slate-700" />
             <div>
-              <h1 className="text-2xl font-bold text-white leading-none">Decision Portfolio</h1>
+              <h1 className="text-2xl font-bold text-white leading-none">Solutions Portfolio</h1>
               {principalId && (
                 <p className="text-sm text-slate-400 mt-0.5">
                   {principalName ?? principalId}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { BrandLogo } from '../components/BrandLogo';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -91,10 +92,8 @@ export function ActionHandler() {
     <div className="min-h-screen bg-slate-900 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         {/* Brand header */}
-        <div className="text-center mb-8">
-          <span className="text-xl font-semibold tracking-tight text-white">
-            Decision Studio
-          </span>
+        <div className="flex justify-center mb-8">
+          <BrandLogo size={28} />
         </div>
 
         <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 text-center shadow-xl">
@@ -107,7 +106,9 @@ export function ActionHandler() {
 
           {pageState === 'success' && (
             <>
-              <CheckCircle className="mx-auto mb-4 h-10 w-10 text-emerald-400" />
+              <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-emerald-900/20 flex items-center justify-center">
+                <CheckCircle className="h-8 w-8 text-white" />
+              </div>
               <p className="text-white font-medium mb-1">{message}</p>
               <p className="text-slate-400 text-sm">Redirecting you to Decision Studio...</p>
             </>
@@ -119,7 +120,7 @@ export function ActionHandler() {
               <p className="text-white font-medium mb-4">{message}</p>
               <button
                 onClick={() => navigate('/')}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium transition-colors"
               >
                 Open Decision Studio
               </button>
