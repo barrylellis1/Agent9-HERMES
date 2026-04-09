@@ -5,6 +5,12 @@ export interface PrincipalActionSummary {
   created_at?: string | null;
 }
 
+export interface TopDriver {
+  label: string;
+  delta: number;
+  currency?: string;
+}
+
 export interface Situation {
   situation_id: string;
   kpi_name: string;
@@ -12,15 +18,19 @@ export interface Situation {
     value: number;
     unit: string;
     currency?: string;
-    monthly_values?: Array<{ period: string; value: number }>;
+    percent_change?: number | null;
+    monthly_values?: Array<{ period: string; value: number; comparison_value?: number }>;
+    inverse_logic?: boolean;
     threshold_value?: number | null;
     comparison_period?: string | null;
+    comparison_type?: string | null;
   };
   severity: 'low' | 'medium' | 'high' | 'critical';
   card_type?: 'problem' | 'opportunity';
   description: string;
   business_impact?: string;
   suggested_actions?: string[];
+  top_drivers?: TopDriver[];
   timestamp?: string;
 }
 
