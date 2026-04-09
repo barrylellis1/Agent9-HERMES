@@ -163,6 +163,7 @@ class KPIValue(BaseModel):
     dimensions: Optional[Dict[str, Any]] = Field(None, description="Dimensions of the KPI")
     percent_change: Optional[float] = Field(None, description="Percentage change vs comparison")
     monthly_values: Optional[List[Dict[str, Any]]] = Field(None, description="Monthly aggregated values for trend display. Each dict: {period: str, value: float}")
+    inverse_logic: bool = Field(False, description="True for cost/expense KPIs where a positive change is bad (higher cost = worse)")
 
 # Assignment models
 class AssignmentCandidate(BaseModel):
