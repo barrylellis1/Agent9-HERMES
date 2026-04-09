@@ -271,19 +271,6 @@ export const CouncilDebatePage: React.FC = () => {
       .filter(r => r.critiques.length > 0 || r.endorsements.length > 0);
   };
 
-  // For synthesis: find the option associated with a firm (by its hypothesis proposal)
-  const getFirmOption = (firmId: string) => {
-    if (!synthesis?.options_ranked) return null;
-    const hyp = stageOneHypotheses?.[firmId];
-    if (!hyp) return null;
-    // Try to match by title similarity
-    const proposedTitle = hyp.proposed_option?.title?.toLowerCase() || '';
-    return synthesis.options_ranked.find((o: any) =>
-      o.title?.toLowerCase().includes(proposedTitle.substring(0, 20)) ||
-      proposedTitle.includes(o.title?.toLowerCase().substring(0, 20))
-    ) || null;
-  };
-
   const recommendedId = synthesis?.recommendation?.option_id || synthesis?.recommendation?.id;
 
   // Helper: normalize value to 1-10 scale for bar chart
@@ -391,12 +378,6 @@ export const CouncilDebatePage: React.FC = () => {
             const c = getFirmColor(firmId);
             const hyp = stageOneHypotheses?.[firmId];
             const reviews = getReviewsOf(firmId);
-            const firmOption = getFirmOption(firmId);
-            // Fallback: assign options by index
-            const optionsByIndex = synthesis?.options_ranked;
-            const firmIdx = firms.indexOf(firmId);
-            const assignedOption = firmOption || (optionsByIndex ? optionsByIndex[firmIdx] : null);
-            const isRecommended = assignedOption && (assignedOption.option_id === recommendedId);
 
             return (
               <div key={firmId} className="flex flex-col gap-4">

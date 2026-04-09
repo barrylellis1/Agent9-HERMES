@@ -30,8 +30,6 @@ export function DecisionStudio() {
     currentPrincipal,
     principalInput,
     timeframe,
-    selectedClientId,
-    availableClients,
     availablePrincipals,
 
     // Actions
@@ -48,7 +46,6 @@ export function DecisionStudio() {
     setSelectedPersonas,
     setSelectedPrincipal,
     setTimeframe,
-    setSelectedClientId,
 
     // Constants
     AVAILABLE_COUNCILS,
@@ -105,8 +102,7 @@ export function DecisionStudio() {
             role: currentPrincipal.title,
             decision_style: currentPrincipal.decision_style,
             name: currentPrincipal.name,
-            input: principalInput,
-            client_id: selectedClientId
+            input: principalInput
         }}
       />
     );

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { KPITile } from '../dashboard/KPITile';
 import { RefreshCw, Settings, GitBranch, ChevronRight, Scan, Activity, Clock, TrendingUp, BarChart3 } from 'lucide-react';
-import { Situation, Client, OpportunitySignal } from '../../api/types';
+import { Situation, OpportunitySignal } from '../../api/types';
 import { Principal } from '../../api/types';
 import { OpportunityCard } from '../OpportunityCard';
 import { getVAPortfolio } from '../../api/client';

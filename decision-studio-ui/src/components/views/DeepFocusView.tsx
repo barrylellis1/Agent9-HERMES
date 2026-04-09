@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   AlertTriangle,
@@ -12,14 +11,11 @@ import {
   X,
   Sparkles,
   CircleDot,
-  TrendingUp,
-  ChevronRight,
-  RotateCcw
+  TrendingUp
 } from 'lucide-react';
 import { Situation, ProblemRefinementResult, MarketSignal } from '../../api/types';
 import { ProblemRefinementChat } from '../ProblemRefinementChat';
 import { IsIsNotExhibit } from '../visualizations/DivergingBarChart';
-import { TradeOffAnalysis } from '../visualizations/TradeOffAnalysis';
 import { BrandLogo } from '../BrandLogo';
 
 // ─── Solution Proposal Panel moved to Executive Briefing page ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -127,7 +123,6 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   principalId,
   initialMarketSignals
 }) => {
-  const navigate = useNavigate();
   const currentAnalysis = analysisResults;
 
   // Accordion state — Situation Summary and Root Cause expanded by default

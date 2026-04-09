@@ -20,7 +20,7 @@ import type { AcceptedSolution as VASolution } from '../types/valueAssurance'
 const formatROI = (roi: any): string => {
   if (!roi || roi === '—') return roi || '—'
   const roiStr = String(roi)
-  return roiStr.replace(/([+\-]?)(\d+)(\.\d)?/g, (match, sign, num, decimal) => {
+  return roiStr.replace(/([+\-]?)(\d+)(\.\d)?/g, (match, sign, num) => {
     const numVal = parseInt(num)
     if (numVal >= 1000000) {
       return `${sign}$${(numVal / 1000000).toFixed(1)}M`
@@ -301,15 +301,15 @@ export function ExecutiveBriefing() {
   }
 
   const handleExportPDF = useCallback(() => {
-    const element = document.querySelector('.briefing-content') || document.body
+    const element = (document.querySelector('.briefing-content') || document.body) as HTMLElement
     const filename = `Decision-Briefing-${situationId || 'export'}.pdf`
 
     const options = {
-      margin: [10, 15],
+      margin: [10, 15] as [number, number],
       filename,
-      image: { type: 'jpeg', quality: 0.98 },
+      image: { type: 'jpeg' as const, quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' },
+      jsPDF: { orientation: 'portrait' as const, unit: 'mm', format: 'a4' },
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     }
 
