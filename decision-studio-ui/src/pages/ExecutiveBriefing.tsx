@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import html2pdf from 'html2pdf.js'
 import {
   ArrowLeft, Download, Printer, AlertTriangle, CheckCircle, ChevronRight,
   Users, Target, Zap, Clock, Sparkles, ShieldCheck, Loader2, CheckCircle2,
@@ -10,7 +11,25 @@ import { approveSolution, askBriefingQuestion, BriefingQAResponse, storeBriefing
 import { CostOfInactionBanner } from '../components/CostOfInactionBanner'
 import { ValueAssurancePanel } from '../components/ValueAssurancePanel'
 import { AttributionBreakdown } from '../components/AttributionBreakdown'
+import { BrandLogo } from '../components/BrandLogo'
 import type { AcceptedSolution as VASolution } from '../types/valueAssurance'
+
+// ─────────────────────────────────────────────────
+// Format ROI values: "+28500000.0USD to +38200000.0USD" → "+$28.5M to +$38.2M"
+// ─────────────────────────────────────────────────
+const formatROI = (roi: any): string => {
+  if (!roi || roi === '—') return roi || '—'
+  const roiStr = String(roi)
+  return roiStr.replace(/([+\-]?)(\d+)(\.\d)?/g, (match, sign, num, decimal) => {
+    const numVal = parseInt(num)
+    if (numVal >= 1000000) {
+      return `${sign}$${(numVal / 1000000).toFixed(1)}M`
+    } else if (numVal >= 1000) {
+      return `${sign}$${(numVal / 1000).toFixed(0)}K`
+    }
+    return match
+  }).replace(/USD/gi, '')
+}
 
 // ─────────────────────────────────────────────────
 // Accordion section wrapper
@@ -24,10 +43,10 @@ function AccordionSection({
 }) {
   const isOpen = openSections.has(id)
   return (
-    <div className="mb-3 rounded-xl overflow-hidden border border-slate-200 print:border-0 print:mb-8">
+    <div className="mb-3 rounded-xl overflow-hidden border border-slate-800 print:border-0 print:mb-8">
       <button
         onClick={() => onToggle(id)}
-        className="w-full flex items-center justify-between px-5 py-3 bg-slate-800 text-white hover:bg-slate-700 transition-colors print:hidden"
+        className="w-full flex items-center justify-between px-5 py-3 bg-slate-900 text-white hover:bg-slate-800 transition-colors border-b border-slate-800 print:hidden"
       >
         <div className="flex items-center gap-2">
           {icon}
@@ -36,7 +55,7 @@ function AccordionSection({
         </div>
         <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
-      <div className={`${isOpen ? 'block' : 'hidden'} print:block bg-white`}>
+      <div className={`accordion-content ${isOpen ? 'block' : 'hidden'} print:block bg-white`}>
         {children}
       </div>
     </div>
@@ -46,11 +65,11 @@ function AccordionSection({
 // ─────────────────────────────────────────────────
 // Decision Chat (right panel)
 // ─────────────────────────────────────────────────
-const TIER_COLORS: Record<number, string> = {
-  1: 'text-emerald-400',
-  2: 'text-blue-400',
-  3: 'text-amber-400',
-  4: 'text-purple-400',
+const TIER_BADGE_COLORS: Record<number, string> = {
+  1: 'bg-slate-800 text-slate-400',
+  2: 'bg-slate-800 text-slate-400',
+  3: 'bg-slate-800 text-amber-600',
+  4: 'bg-slate-800 text-red-500',
 }
 
 function DecisionChat({
@@ -140,10 +159,10 @@ function DecisionChat({
             <div className={`max-w-[90%] rounded-lg px-3 py-2 ${msg.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-100'}`}>
               <p className="text-xs whitespace-pre-wrap leading-relaxed">{msg.content}</p>
               {msg.qa && msg.qa.tier_label && (
-                <p className={`text-[10px] mt-1 ${TIER_COLORS[msg.qa.transparency_tier] || 'text-slate-500'}`}>
+                <span className={`inline-block text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded mt-1 ${TIER_BADGE_COLORS[msg.qa.transparency_tier] ?? 'bg-slate-800 text-slate-400'}`}>
                   {msg.qa.tier_label}
                   {msg.qa.sources?.length > 0 && ` · ${msg.qa.sources.join(', ')}`}
-                </p>
+                </span>
               )}
               {msg.qa?.suggested_followups && msg.qa.suggested_followups.length > 0 && (
                 <div className="mt-2 space-y-1">
@@ -215,7 +234,7 @@ function DecisionChat({
                         {opt.recommended && <span className="text-[9px] bg-emerald-700 text-emerald-100 px-1 rounded">REC</span>}
                       </div>
                       <p className="text-xs text-slate-200 leading-snug truncate">{opt.title}</p>
-                      {opt.roi && <p className="text-[10px] text-emerald-400">{opt.roi}</p>}
+                      {opt.roi && <p className="text-[10px] text-emerald-400">{formatROI(opt.roi)}</p>}
                     </div>
                   </label>
                 )
@@ -280,6 +299,22 @@ export function ExecutiveBriefing() {
       return next
     })
   }
+
+  const handleExportPDF = useCallback(() => {
+    const element = document.querySelector('.briefing-content') || document.body
+    const filename = `Decision-Briefing-${situationId || 'export'}.pdf`
+
+    const options = {
+      margin: [10, 15],
+      filename,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+    }
+
+    html2pdf().set(options).from(element).save()
+  }, [situationId])
 
   const handleApprove = useCallback(async (optionId: string) => {
     const requestId = localStorage.getItem(`solution_request_${situationId}`)
@@ -399,13 +434,16 @@ export function ExecutiveBriefing() {
   const defaultFirmStyle = { bar: 'bg-indigo-600', border: 'border-l-indigo-600', badge: 'bg-indigo-50 text-indigo-800', dot: 'bg-indigo-600' }
 
   return (
-    <div className="h-screen flex flex-col bg-slate-950 overflow-hidden">
+    <div className="h-screen flex flex-col bg-slate-950 overflow-hidden print:text-black print:bg-white">
       {/* Nav */}
       <nav className="flex-shrink-0 bg-slate-900 border-b border-slate-800 py-3 px-6 flex justify-between items-center print:hidden z-50">
-        <Link to="/dashboard" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors text-sm">
-          <ArrowLeft className="w-4 h-4" />
-          Decision Studio
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link to="/dashboard" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors text-sm">
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </Link>
+          <BrandLogo size={24} />
+        </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 mr-3">
             <BookOpen className="w-4 h-4 text-indigo-400" />
@@ -420,11 +458,16 @@ export function ExecutiveBriefing() {
           <button
             onClick={() => window.print()}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+            title="Opens print dialog for multi-page PDF or hardcopy"
           >
             <Printer className="w-3.5 h-3.5" />
             Print
           </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors">
+          <button
+            onClick={handleExportPDF}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+            title="Download as standalone PDF file"
+          >
             <Download className="w-3.5 h-3.5" />
             Export
           </button>
@@ -434,28 +477,107 @@ export function ExecutiveBriefing() {
       {/* Two-panel body */}
       <div className="flex-1 min-h-0 flex overflow-hidden">
         {/* ── Left: Briefing content ── */}
-        <div className="flex-1 overflow-y-auto bg-slate-950 p-4 print:p-0 print:bg-white">
+        <div className="briefing-content flex-1 overflow-y-auto bg-slate-950 p-4 print:p-0 print:bg-white">
           <div className="max-w-3xl mx-auto">
 
-            {/* Key metrics strip (always visible) */}
-            <div className="grid grid-cols-4 gap-3 mb-4 print:hidden">
-              <div className="bg-slate-900 border border-slate-700 rounded-lg p-3">
-                <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Financial Impact</p>
-                <p className="text-lg font-bold text-red-400">{data.metrics?.financialImpact || '—'}</p>
+            {/* ── Print-only header ─────────────────────────────────────────── */}
+            <div className="hidden print:block mb-8 pb-4 border-b border-slate-300">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <BrandLogo size={28} scheme="dark" />
+                  <div>
+                    <div className="text-xs text-slate-500 uppercase tracking-widest font-mono">Decision Studio</div>
+                    <div className="text-xs text-slate-400 font-mono">Executive Debrief</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] text-slate-500 font-mono">{situationId}</div>
+                  <div className="text-[10px] text-slate-500 font-mono">{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                </div>
               </div>
-              <div className="bg-slate-900 border border-slate-700 rounded-lg p-3">
-                <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Time Sensitivity</p>
-                <p className="text-lg font-bold text-amber-400">{data.metrics?.timeSensitivity || '—'}</p>
-              </div>
-              <div className="bg-slate-900 border border-slate-700 rounded-lg p-3">
-                <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Confidence</p>
-                <p className="text-lg font-bold text-blue-400">{data.metrics?.confidence || '—'}</p>
-              </div>
-              <div className="bg-slate-900 border border-slate-700 rounded-lg p-3">
-                <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Decision By</p>
-                <p className="text-lg font-bold text-slate-300">{data.metrics?.decisionDeadline || '—'}</p>
-              </div>
+
+              {/* Monochrome metadata strip */}
+              {(() => {
+                const recOption = data.options?.find((o: any) => o.recommended)
+                const roi = recOption?.roi || recOption?.expected_roi || '—'
+                const timeline = recOption?.timeline || '—'
+                const investment = recOption?.investment || recOption?.effort || 'Moderate'
+                return (
+                  <div className="mt-4 grid grid-cols-4 gap-3">
+                    <div>
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider font-mono">Est. ROI</div>
+                      <div className="text-xs text-slate-800 font-semibold">{formatROI(roi)}</div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider font-mono">Timeline</div>
+                      <div className="text-xs text-slate-800 font-semibold">{timeline}</div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider font-mono">Investment</div>
+                      <div className="text-xs text-slate-800 font-semibold">{investment}</div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider font-mono">Decision By</div>
+                      <div className="text-xs text-slate-800 font-semibold">{data.metrics?.decisionDeadline || '—'}</div>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
+
+            {/* ── Flash Briefing (print-only) ───────────────────────────────── */}
+            {(() => {
+              const scqa = data.executiveSummary || data.situation?.currentState || ''
+              const rec = data.recommendation?.title || data.options?.find((o: any) => o.recommended)?.title || ''
+              const rationale = data.recommendation?.rationale || data.recommendation_rationale || ''
+              const topDrivers: string[] = data.situation?.topDrivers?.slice(0, 2).map((d: any) => d.label || d.segment || '') ?? []
+              const roi = data.options?.find((o: any) => o.recommended)?.roi || ''
+
+              const sentences: string[] = []
+              if (scqa) sentences.push(scqa.length > 200 ? scqa.slice(0, 200).trimEnd() + '…' : scqa)
+              if (topDrivers.length) sentences.push(`Primary drivers: ${topDrivers.join(' and ')}.`)
+              if (rec) sentences.push(`The council recommends ${rec}${rationale ? ': ' + (rationale.length > 120 ? rationale.slice(0, 120).trimEnd() + '…' : rationale) : ''}.`)
+              if (roi) sentences.push(`Expected return: ${formatROI(roi)}.`)
+              if (sentences.length < 3) sentences.push('Review the full analysis below before making a decision.')
+
+              if (sentences.length === 0) return null
+              return (
+                <div className="hidden print:block mb-6 p-4 border-l-2 border-slate-400 bg-slate-50">
+                  <div className="text-[9px] text-slate-500 uppercase tracking-wider font-mono mb-2">Flash Briefing</div>
+                  <p className="text-xs text-slate-700 leading-relaxed">{sentences.join(' ')}</p>
+                </div>
+              )
+            })()}
+
+            {/* Recommended option metrics strip */}
+            {(() => {
+              const recOption = data.options?.find((o: any) => o.recommended)
+              const roi = recOption?.roi || recOption?.expected_roi || '—'
+              const timeline = recOption?.timeline || '—'
+              const investment = recOption?.investment || recOption?.effort || 'Moderate'
+              const risk = recOption?.risk || '—'
+
+              return (
+                <div className="grid grid-cols-4 gap-3 mb-4 print:hidden">
+                  <div className="bg-slate-900 border border-slate-700 rounded-lg p-3">
+                    <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Estimated ROI</p>
+                    <p className="text-sm font-bold text-emerald-400">{formatROI(roi)}</p>
+                  </div>
+                  <div className="bg-slate-900 border border-slate-700 rounded-lg p-3">
+                    <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Time to Value</p>
+                    <p className="text-sm font-bold text-amber-400">{timeline}</p>
+                  </div>
+                  <div className="bg-slate-900 border border-slate-700 rounded-lg p-3">
+                    <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Investment Required</p>
+                    <p className="text-sm font-bold text-blue-400">{investment}</p>
+                  </div>
+                  <div className="bg-slate-900 border border-slate-700 rounded-lg p-3">
+                    <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Risk Level</p>
+                    <p className="text-sm font-bold text-slate-300">{risk}</p>
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Executive Summary */}
             <AccordionSection id="summary" title="Executive Summary" openSections={openSections} onToggle={toggleSection}
@@ -697,7 +819,9 @@ export function ExecutiveBriefing() {
                         <tr key={key}>
                           <td className="p-3 font-semibold text-slate-700 bg-slate-50">{label}</td>
                           {data.options?.map((opt: any, i: number) => (
-                            <td key={i} className={`p-3 ${cls} ${opt.recommended ? 'bg-emerald-50/30' : ''}`}>{opt[key]}</td>
+                            <td key={i} className={`p-3 ${cls} ${opt.recommended ? 'bg-emerald-50/30' : ''}`}>
+                              {key === 'roi' ? formatROI(opt[key]) : opt[key]}
+                            </td>
                           ))}
                         </tr>
                       ))}
@@ -720,10 +844,10 @@ export function ExecutiveBriefing() {
                 <div className="space-y-6">
                   {data.options?.map((option: any, i: number) => (
                     <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                      className={`border-2 rounded-xl overflow-hidden ${option.recommended ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
+                      className={`rounded-xl overflow-hidden border ${option.recommended ? 'border-slate-400 border-l-4 border-l-slate-800 bg-slate-50' : 'border-slate-200 bg-white'}`}>
                       {option.recommended && (
-                        <div className="bg-emerald-500 text-white px-4 py-1.5 text-xs font-semibold flex items-center gap-2">
-                          <CheckCircle className="w-3.5 h-3.5" /> RECOMMENDED OPTION
+                        <div className="bg-slate-800 text-white px-4 py-1.5 text-xs font-semibold flex items-center gap-2 print:bg-slate-900">
+                          <CheckCircle className="w-3.5 h-3.5" /> RECOMMENDED
                         </div>
                       )}
                       <div className="p-5">
@@ -734,7 +858,7 @@ export function ExecutiveBriefing() {
                           </div>
                           <div className="text-right">
                             <p className="text-xs text-slate-500">Est. ROI</p>
-                            <p className="text-xl font-bold text-emerald-600">{option.roi}</p>
+                            <p className="text-xl font-bold text-emerald-600">{formatROI(option.roi)}</p>
                           </div>
                         </div>
                         <p className="text-slate-700 text-sm leading-relaxed mb-4">{option.description}</p>
@@ -750,26 +874,26 @@ export function ExecutiveBriefing() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <h4 className="font-semibold text-emerald-700 mb-2 flex items-center gap-1.5 text-sm">
-                              <CheckCircle className="w-3.5 h-3.5" /> Arguments For
+                            <h4 className="font-semibold text-slate-700 mb-2 flex items-center gap-1.5 text-sm">
+                              <CheckCircle className="w-3.5 h-3.5 text-slate-500" /> Arguments For
                             </h4>
                             <ul className="space-y-1.5">
                               {option.prosDetailed?.map((pro: any, j: number) => (
                                 <li key={j} className="text-xs text-slate-700 flex items-start gap-1.5">
-                                  <ChevronRight className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 mt-0.5" />
                                   <span>{pro.point?.replace(/[:]+$/, '')}</span>
                                 </li>
                               ))}
                             </ul>
                           </div>
                           <div>
-                            <h4 className="font-semibold text-red-700 mb-2 flex items-center gap-1.5 text-sm">
-                              <AlertTriangle className="w-3.5 h-3.5" /> Arguments Against
+                            <h4 className="font-semibold text-slate-700 mb-2 flex items-center gap-1.5 text-sm">
+                              <AlertTriangle className="w-3.5 h-3.5 text-slate-500" /> Arguments Against
                             </h4>
                             <ul className="space-y-1.5">
                               {option.consDetailed?.map((con: any, j: number) => (
                                 <li key={j} className="text-xs text-slate-700 flex items-start gap-1.5">
-                                  <ChevronRight className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />
+                                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 mt-0.5" />
                                   <span>{con.point?.replace(/[:]+$/, '')}</span>
                                 </li>
                               ))}
@@ -933,28 +1057,29 @@ export function ExecutiveBriefing() {
             <AccordionSection id="recommendation" title="Recommendation & Next Steps" openSections={openSections} onToggle={toggleSection}
               icon={<div className="w-5 h-5 bg-blue-600 text-white rounded flex items-center justify-center text-[10px] font-bold">6</div>}>
               <div className="p-5">
-                <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 rounded-xl">
-                  <h3 className="text-lg font-bold mb-3">{data.recommendation?.headline}</h3>
-                  <p className="text-blue-100 leading-relaxed text-sm mb-5">{data.recommendation?.rationale}</p>
-                  <div className="bg-white/10 backdrop-blur rounded-lg p-4 mb-5">
-                    <h4 className="font-semibold mb-2 text-sm">Immediate Actions Required:</h4>
+                {/* Screen: gradient blue card / Print: monochrome left-border callout */}
+                <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 rounded-xl print:bg-white print:border-l-4 print:border-slate-800 print:rounded-none print:pl-5 print:pr-0 print:py-3">
+                  <h3 className="text-lg font-bold mb-3 print:text-slate-900">{data.recommendation?.headline}</h3>
+                  <p className="text-blue-100 leading-relaxed text-sm mb-5 print:text-slate-700">{data.recommendation?.rationale}</p>
+                  <div className="bg-white/10 backdrop-blur rounded-lg p-4 mb-5 print:bg-transparent print:p-0 print:backdrop-blur-none">
+                    <h4 className="font-semibold mb-2 text-sm print:text-slate-800">Immediate Actions Required:</h4>
                     <ol className="space-y-1.5">
                       {(data.recommendation?.nextSteps || []).map((step: string, i: number) => (
                         <li key={i} className="flex items-start gap-2.5">
-                          <span className="w-5 h-5 bg-white text-blue-600 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">{i + 1}</span>
-                          <span className="text-sm">{step}</span>
+                          <span className="w-5 h-5 bg-white text-blue-600 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 print:bg-slate-800 print:text-white">{i + 1}</span>
+                          <span className="text-sm print:text-slate-700">{step}</span>
                         </li>
                       ))}
                     </ol>
                   </div>
-                  <div className="flex items-center justify-between pt-3 border-t border-white/20 text-sm">
+                  <div className="flex items-center justify-between pt-3 border-t border-white/20 text-sm print:border-slate-300">
                     <div>
-                      <p className="text-blue-200 text-xs">Decision Owner</p>
-                      <p className="font-semibold">{data.recommendation?.decisionOwner}</p>
+                      <p className="text-blue-200 text-xs print:text-slate-500">Decision Owner</p>
+                      <p className="font-semibold print:text-slate-900">{data.recommendation?.decisionOwner}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-blue-200 text-xs">Decision Deadline</p>
-                      <p className="font-semibold">{data.recommendation?.deadline}</p>
+                      <p className="text-blue-200 text-xs print:text-slate-500">Decision Deadline</p>
+                      <p className="font-semibold print:text-slate-900">{data.recommendation?.deadline}</p>
                     </div>
                   </div>
                 </div>
@@ -976,7 +1101,7 @@ export function ExecutiveBriefing() {
                       <div className="grid grid-cols-3 gap-3 mb-3">
                         {[
                           { label: 'Approved Strategy', val: approvedOption?.title || data.recommendation?.headline },
-                          { label: 'Expected Recovery', val: approvedOption?.roi || 'See option details' },
+                          { label: 'Expected Recovery', val: formatROI(approvedOption?.roi || '') || 'See option details' },
                           { label: 'Monitoring Window', val: approvedOption?.timeline || '30 days' },
                         ].map(({ label, val }) => (
                           <div key={label} className="bg-white rounded-lg p-2.5 border border-emerald-200">
@@ -996,7 +1121,7 @@ export function ExecutiveBriefing() {
                         <ol className="space-y-0.5 text-emerald-700 list-decimal list-inside">
                           <li>Value Assurance Agent monitors KPI performance against the expected recovery range</li>
                           <li>Difference-in-Differences attribution separates your intervention's impact from market movements</li>
-                          <li>Results will appear on your Decision Portfolio dashboard</li>
+                          <li>Results will appear on your Solutions Portfolio dashboard</li>
                         </ol>
                       </div>
                       <Link
@@ -1041,10 +1166,10 @@ export function ExecutiveBriefing() {
             </AccordionSection>
 
             {/* Footer */}
-            <footer className="py-6 text-center text-xs text-slate-500 print:block">
-              <p>Generated by Agent9 Decision Studio · AI-assisted analysis</p>
-              <p className="mt-1 text-slate-600">
-                <strong>Disclaimer:</strong> Provided as decision support. AI-generated insights require human judgment for final decisions.
+            <footer className="py-6 text-center text-xs text-slate-500 print:block print:border-t print:border-slate-300 print:pt-4 print:text-slate-600">
+              <p>This briefing was generated by Decision Studio using AI-assisted analysis.</p>
+              <p className="mt-1 print:text-slate-500">
+                Provided as decision support. Human judgment is required for final decisions.
               </p>
             </footer>
           </div>

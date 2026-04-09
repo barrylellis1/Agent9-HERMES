@@ -3,24 +3,45 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Principal Intelligence Briefing — {{ content.client_name }}</title>
+<title>Decision Briefing — {{ content.client_name }}</title>
 <style>
   /* Email-safe: light background, high contrast, minimal CSS */
   body { margin: 0; padding: 0; background-color: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; color: #1a1a2e; -webkit-text-size-adjust: 100%; }
   .wrapper { max-width: 640px; margin: 0 auto; padding: 32px 20px; }
 
+  /* Branding Header */
+  .brand-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0; }
+  .brand-logo { font-size: 16px; font-weight: 700; color: #111827; letter-spacing: -0.5px; }
+  .brand-label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #6b7280; }
+
   /* Header */
-  .header { padding-bottom: 24px; margin-bottom: 28px; border-bottom: 2px solid #e2e8f0; }
+  .header { margin-bottom: 24px; }
   .header-label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #6b7280; margin: 0 0 12px 0; }
-  .header-name { font-size: 24px; font-weight: 700; color: #111827; margin: 0 0 4px 0; }
+  .header-name { font-size: 22px; font-weight: 700; color: #111827; margin: 0 0 4px 0; }
   .header-meta { font-size: 13px; color: #6b7280; margin: 0; }
 
+  /* Context metrics — situation summary */
+  .metrics-row { display: flex; gap: 12px; margin-bottom: 20px; }
+  .metric-box { flex: 1; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; text-align: center; }
+  .metric-label { font-size: 10px; font-weight: 600; text-transform: uppercase; color: #6b7280; margin-bottom: 4px; }
+  .metric-value { font-size: 15px; font-weight: 700; color: #111827; }
+
   /* Section labels */
-  .section { margin-bottom: 32px; }
-  .section-title { font-size: 14px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 1px solid #e5e7eb; }
+  .section { margin-bottom: 28px; }
+  .section-title { font-size: 13px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 1px solid #e5e7eb; }
+
+  /* Recommended solution card */
+  .rec-card { background: #f0f9ff; border: 2px solid #0284c7; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .rec-badge { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 4px 8px; background: #0284c7; color: #ffffff; border-radius: 4px; margin-bottom: 8px; }
+  .rec-title { font-size: 15px; font-weight: 700; color: #111827; margin: 8px 0 4px 0; }
+  .rec-summary { font-size: 13px; color: #4b5563; margin: 8px 0; line-height: 1.5; }
+  .rec-metrics { display: flex; gap: 10px; margin-top: 12px; font-size: 12px; }
+  .rec-metric { background: #ffffff; padding: 6px 10px; border-radius: 4px; }
+  .rec-metric-label { color: #6b7280; font-weight: 600; }
+  .rec-metric-value { color: #0284c7; font-weight: 700; }
 
   /* Situation cards — light, left-border for severity */
-  .sit-card { background: #ffffff; border-radius: 6px; padding: 16px 20px; margin-bottom: 12px; border: 1px solid #e5e7eb; border-left: 4px solid #ef4444; }
+  .sit-card { background: #ffffff; border-radius: 6px; padding: 14px 16px; margin-bottom: 12px; border: 1px solid #e5e7eb; border-left: 4px solid #ef4444; }
   .sit-card.high { border-left-color: #f97316; }
   .sit-card.medium { border-left-color: #eab308; }
   .sit-card.low { border-left-color: #3b82f6; }
@@ -29,54 +50,113 @@
   .sev-high { background: #fff7ed; color: #9a3412; }
   .sev-medium { background: #fefce8; color: #854d0e; }
   .sev-low { background: #eff6ff; color: #1e40af; }
-  .sit-kpi { font-size: 17px; font-weight: 700; color: #111827; margin: 8px 0 4px 0; }
-  .sit-desc { font-size: 13px; color: #4b5563; margin: 0 0 4px 0; line-height: 1.5; }
-  .sit-deviation { font-size: 12px; color: #6b7280; margin: 0 0 14px 0; font-style: italic; }
-  .sit-actions { margin-top: 12px; }
-  .btn { display: inline-block; padding: 8px 16px; border-radius: 5px; font-size: 13px; font-weight: 600; text-decoration: none; }
-  .btn-secondary { margin-left: 8px; }
+  .sit-kpi { font-size: 15px; font-weight: 700; color: #111827; margin: 6px 0 3px 0; }
+  .sit-desc { font-size: 12px; color: #4b5563; margin: 0; line-height: 1.5; }
+  .sit-deviation { font-size: 11px; color: #6b7280; margin: 6px 0; font-style: italic; }
+
+  /* Action buttons */
+  .sit-actions { margin-top: 10px; }
+  .btn { display: inline-block; padding: 7px 14px; border-radius: 5px; font-size: 12px; font-weight: 600; text-decoration: none; }
+  .btn-secondary { margin-left: 6px; }
 
   /* Urgency flags */
-  .urgency-row { background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 12px 16px; margin-bottom: 8px; }
-  .urgency-row td { vertical-align: middle; }
-  .urgency-kpi { font-size: 14px; font-weight: 600; color: #111827; }
-  .urgency-age { font-size: 12px; color: #92400e; margin-top: 2px; }
-
-  /* Solutions in progress */
-  .sol-card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 14px 18px; margin-bottom: 10px; }
-  .sol-title { font-size: 14px; font-weight: 600; color: #111827; margin: 0 0 4px 0; }
-  .sol-meta { font-size: 12px; color: #6b7280; }
-  .sol-impact { font-size: 12px; color: #047857; margin-top: 4px; font-weight: 600; }
+  .urgency-row { background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 10px 14px; margin-bottom: 8px; }
+  .urgency-kpi { font-size: 13px; font-weight: 600; color: #111827; }
+  .urgency-age { font-size: 11px; color: #92400e; margin-top: 1px; }
 
   /* Managed situations */
-  .managed-row { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 5px; padding: 10px 14px; margin-bottom: 6px; }
-  .managed-kpi { font-size: 13px; font-weight: 600; color: #374151; }
-  .managed-detail { font-size: 11px; color: #6b7280; margin-top: 2px; }
+  .managed-row { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 5px; padding: 10px 12px; margin-bottom: 6px; }
   .managed-badge { display: inline-block; font-size: 10px; font-weight: 600; text-transform: uppercase; color: #6b7280; background: #f3f4f6; border: 1px solid #e5e7eb; padding: 2px 6px; border-radius: 3px; }
+  .managed-kpi { font-size: 12px; font-weight: 600; color: #374151; margin-left: 8px; }
+  .managed-detail { font-size: 11px; color: #6b7280; margin-top: 2px; }
 
   /* Footer */
-  .footer { margin-top: 36px; padding-top: 16px; border-top: 1px solid #e5e7eb; text-align: center; }
+  .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb; text-align: center; }
   .footer p { font-size: 11px; color: #9ca3af; margin: 4px 0; }
-  .footer a { color: #6b7280; text-decoration: underline; }
+  .footer a { color: #0284c7; text-decoration: none; font-weight: 600; }
 
-  .empty-state { text-align: center; padding: 20px; color: #9ca3af; font-size: 13px; }
+  .empty-state { text-align: center; padding: 20px; color: #9ca3af; font-size: 12px; }
+  .cta-button { display: inline-block; margin-top: 8px; padding: 10px 20px; background: #0284c7; color: #ffffff !important; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 13px; }
 </style>
 </head>
 <body>
 <div class="wrapper">
 
-  <!-- Header -->
-  <div class="header">
-    <p class="header-label">Principal Intelligence Briefing</p>
-    <h1 class="header-name">{{ content.principal_name }}</h1>
-    <p class="header-meta">{{ content.principal_role }} &nbsp;&middot;&nbsp; {{ content.client_name }} &nbsp;&middot;&nbsp; {{ content.generated_at.strftime('%B %d, %Y') }}</p>
+  <!-- Branding & Header -->
+  <div class="brand-header">
+    <div>
+      <p class="brand-label">Decision Studio</p>
+      <p class="brand-logo">Decision Briefing</p>
+    </div>
   </div>
 
-  <!-- Section 1: New Situations -->
+  <!-- Principal Header -->
+  <div class="header">
+    <p class="header-label">Briefing for {{ content.principal_role }}</p>
+    <h1 class="header-name">{{ content.principal_name }}</h1>
+    <p class="header-meta">{{ content.client_name }} &nbsp;&middot;&nbsp; {{ content.generated_at.strftime('%B %d, %Y') }}</p>
+  </div>
+
+  <!-- Context: Situation Summary Metrics -->
+  {% if content.situation_context %}
+  <div class="metrics-row">
+    <div class="metric-box">
+      <p class="metric-label">Impact</p>
+      <p class="metric-value">{{ content.situation_context.financial_impact or 'TBD' }}</p>
+    </div>
+    <div class="metric-box">
+      <p class="metric-label">Urgency</p>
+      <p class="metric-value">{{ content.situation_context.time_sensitivity or 'Medium' }}</p>
+    </div>
+    <div class="metric-box">
+      <p class="metric-label">Confidence</p>
+      <p class="metric-value">{{ content.situation_context.confidence or 'High' }}</p>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Section 1: Recommended Solution -->
+  {% if content.recommended_solution %}
+  <div class="section">
+    <p class="section-title">Recommended Action</p>
+    <div class="rec-card">
+      <p class="rec-badge">✓ Recommended</p>
+      <p class="rec-title">{{ content.recommended_solution.title }}</p>
+      <p class="rec-summary">{{ content.recommended_solution.summary }}</p>
+      {% if content.recommended_solution.roi or content.recommended_solution.timeline or content.recommended_solution.investment %}
+      <div class="rec-metrics">
+        {% if content.recommended_solution.roi %}
+        <div class="rec-metric">
+          <span class="rec-metric-label">Est. ROI</span><br>
+          <span class="rec-metric-value">{{ content.recommended_solution.roi }}</span>
+        </div>
+        {% endif %}
+        {% if content.recommended_solution.timeline %}
+        <div class="rec-metric">
+          <span class="rec-metric-label">Timeline</span><br>
+          <span class="rec-metric-value">{{ content.recommended_solution.timeline }}</span>
+        </div>
+        {% endif %}
+        {% if content.recommended_solution.investment %}
+        <div class="rec-metric">
+          <span class="rec-metric-label">Effort</span><br>
+          <span class="rec-metric-value">{{ content.recommended_solution.investment }}</span>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% if content.recommended_solution.deep_link %}
+      <a href="{{ content.recommended_solution.deep_link }}" class="cta-button">Review Full Briefing →</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Section 2: New Situations -->
   <div class="section">
     <p class="section-title">
       {% if content.new_situations %}
-        Situations Requiring Your Attention ({{ content.new_situations|length }})
+        Open Situations ({{ content.new_situations|length }})
       {% else %}
         Situations
       {% endif %}
@@ -93,7 +173,7 @@
         {% endif %}
         <div class="sit-actions">
           {% if sit.deep_link_token %}
-          <a href="{{ content.decision_studio_url }}/action?token={{ sit.deep_link_token }}" class="btn" style="background-color:#1d4ed8;color:#ffffff!important;-webkit-text-fill-color:#ffffff;">Investigate &rarr;</a>
+          <a href="{{ content.decision_studio_url }}/action?token={{ sit.deep_link_token }}" class="btn" style="background-color:#0284c7;color:#ffffff!important;">Investigate →</a>
           {% endif %}
           {% if sit.delegate_token %}
           <a href="{{ content.decision_studio_url }}/action?token={{ sit.delegate_token }}" class="btn btn-secondary" style="background-color:#ffffff;color:#374151!important;border:1px solid #d1d5db;">Delegate</a>
@@ -102,34 +182,18 @@
       </div>
       {% endfor %}
     {% else %}
-      <div class="empty-state">No new situations detected since last briefing.</div>
+      <div class="empty-state">No new situations detected.</div>
     {% endif %}
   </div>
 
-  <!-- Section 2: Urgency Flags -->
+  <!-- Section 3: Urgency Flags -->
   {% if content.urgency_flags %}
   <div class="section">
-    <p class="section-title">Overdue &mdash; No Action Taken</p>
+    <p class="section-title">Overdue — No Action Taken</p>
     {% for u in content.urgency_flags %}
     <div class="urgency-row">
       <p class="urgency-kpi">{{ u.kpi_name }}</p>
       <p class="urgency-age">Open {{ u.weeks_open }} week{% if u.weeks_open != 1 %}s{% endif %} without action</p>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-
-  <!-- Section 3: Solutions in Progress -->
-  {% if content.solutions_in_progress %}
-  <div class="section">
-    <p class="section-title">Solutions in Progress</p>
-    {% for sol in content.solutions_in_progress %}
-    <div class="sol-card">
-      <p class="sol-title">{{ sol.solution_title }}</p>
-      <p class="sol-meta">{{ sol.kpi_name }} &nbsp;&middot;&nbsp; {{ sol.status | title }}</p>
-      {% if sol.expected_impact_lower is not none and sol.expected_impact_upper is not none %}
-      <p class="sol-impact">Expected impact: {{ "%.1f"|format(sol.expected_impact_lower) }}% &ndash; {{ "%.1f"|format(sol.expected_impact_upper) }}%</p>
-      {% endif %}
     </div>
     {% endfor %}
   </div>
@@ -142,10 +206,12 @@
     {% for m in content.managed_situations %}
     <div class="managed-row">
       <span class="managed-badge">{{ m.action_type | title }}</span>
-      <span class="managed-kpi" style="margin-left: 8px;">{{ m.kpi_name }}</span>
+      <span class="managed-kpi">{{ m.kpi_name }}</span>
       <p class="managed-detail">
         {% if m.action_type == 'delegate' %}
           Delegated{% if m.delegated_to %} to {{ m.delegated_to }}{% endif %}
+        {% else %}
+          {{ m.status or 'In Progress' }}
         {% endif %}
       </p>
     </div>
@@ -157,7 +223,7 @@
   <div class="footer">
     <p><a href="{{ content.decision_studio_url }}">Open Decision Studio</a></p>
     <p>Links are single-use and expire in 7 days.</p>
-    <p style="margin-top: 8px; color: #d1d5db;">Decision Studio &nbsp;&middot;&nbsp; Principal Intelligence Briefing</p>
+    <p style="margin-top: 12px; color: #d1d5db;">Decision Studio &nbsp;&middot;&nbsp; Powered by Agent9</p>
   </div>
 
 </div>

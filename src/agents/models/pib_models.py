@@ -86,6 +86,25 @@ class UrgencyItem(BaseModel):
     deep_link_token: Optional[str] = None
 
 
+class SituationContext(BaseModel):
+    """Context metrics for the situation (impact, urgency, confidence)."""
+
+    financial_impact: Optional[str] = None
+    time_sensitivity: Optional[str] = None
+    confidence: Optional[str] = None
+
+
+class RecommendedSolution(BaseModel):
+    """Recommended solution with impact and timeline metrics."""
+
+    title: str
+    summary: str
+    roi: Optional[str] = None
+    timeline: Optional[str] = None
+    investment: Optional[str] = None
+    deep_link: Optional[str] = None
+
+
 class BriefingContent(BaseModel):
     """
     Fully assembled PIB content ready for template rendering.
@@ -107,6 +126,10 @@ class BriefingContent(BaseModel):
     urgency_flags: List[UrgencyItem] = Field(default_factory=list)
     solutions_in_progress: List[SolutionProgressItem] = Field(default_factory=list)
     managed_situations: List[ManagedSituationItem] = Field(default_factory=list)
+
+    # Situation context and recommended solution (for 10B template)
+    situation_context: Optional[SituationContext] = None
+    recommended_solution: Optional[RecommendedSolution] = None
 
     # Decision Studio base URL for deep links
     decision_studio_url: str = "http://localhost:5173"
