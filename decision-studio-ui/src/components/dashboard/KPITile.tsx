@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowUpRight, ArrowDownRight, TrendingUp } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Situation } from '../../api/types';
 
 interface KPITileProps {
@@ -11,99 +11,192 @@ interface KPITileProps {
 export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegated = false }) => {
   const isOpportunity = situation.card_type === 'opportunity';
 
-  // Color mapping
-  const colors = {
-    critical: { border: 'border-red-500', bg: 'bg-red-500/10', text: 'text-red-400', stroke: '#ef4444' },
-    high: { border: 'border-orange-500', bg: 'bg-orange-500/10', text: 'text-orange-400', stroke: '#f97316' },
-    medium: { border: 'border-amber-500', bg: 'bg-amber-500/10', text: 'text-amber-400', stroke: '#f59e0b' },
-    low: { border: 'border-emerald-500', bg: 'bg-emerald-500/10', text: 'text-emerald-400', stroke: '#10b981' },
+  const severityBorderColor: Record<string, string> = {
+    critical: 'border-l-red-500',
+    high:     'border-l-red-500',
+    medium:   'border-l-amber-500',
+    low:      'border-l-green-500',
   };
 
-  const opportunityColors = { border: 'border-green-500', bg: 'bg-green-500/10', text: 'text-green-400', stroke: '#22c55e' };
-  const status = isOpportunity ? opportunityColors : (colors[situation.severity as keyof typeof colors] || colors.medium);
-  const isNegative = !isOpportunity && (situation.severity === 'critical' || situation.severity === 'high');
+  const severityTextColor: Record<string, string> = {
+    critical: 'text-red-400',
+    high:     'text-red-400',
+    medium:   'text-amber-400',
+    low:      'text-green-400',
+  };
 
-  const width = 120;
-  const height = 40;
+  const borderColor = isOpportunity ? 'border-l-green-500' : (severityBorderColor[situation.severity] ?? 'border-l-amber-500');
+  const textColor   = isOpportunity ? 'text-green-400'     : (severityTextColor[situation.severity]   ?? 'text-amber-400');
 
-  const monthlyValues = situation.kpi_value?.monthly_values;
+  const monthlyValues   = situation.kpi_value?.monthly_values ?? [];
+  const comparisonType  = situation.kpi_value?.comparison_type;
+  const percentChange   = situation.kpi_value?.percent_change;
+  const inverseLogic    = situation.kpi_value?.inverse_logic ?? false;
+  const hasComparisonValues = monthlyValues.some(m => m.comparison_value !== undefined);
+
+  // Format percent deviation — hero number
+  // For inverse_logic KPIs (costs), percent_change is already normalised by the backend
+  // so that positive = costs went up (bad). We show the sign as-is.
+  const deviationDisplay = (() => {
+    if (percentChange == null) return null;
+    const sign = percentChange >= 0 ? '+' : '';
+    return `${sign}${percentChange.toFixed(1)}%`;
+  })();
+
+  const deviationColor = (() => {
+    if (percentChange == null) return 'text-slate-400';
+    if (isOpportunity) return percentChange >= 0 ? 'text-green-400' : 'text-slate-400';
+    // For cost/expense KPIs: positive change (higher cost) = bad = red
+    if (inverseLogic) return percentChange > 0 ? 'text-red-400' : 'text-green-400';
+    return percentChange >= 0 ? 'text-green-400' : 'text-red-400';
+  })();
+
+  // Format absolute value — supporting number
+  const absoluteDisplay = (() => {
+    if (!situation.kpi_value) return null;
+    const { value, currency, unit } = situation.kpi_value;
+    const prefix = currency || '';
+    if (Math.abs(value) >= 1_000_000_000)
+      return `${prefix}${(value / 1_000_000_000).toFixed(1)}B`;
+    if (Math.abs(value) >= 1_000_000)
+      return `${prefix}${(value / 1_000_000).toFixed(1)}M`;
+    if (Math.abs(value) >= 1_000)
+      return `${prefix}${(value / 1_000).toFixed(0)}K`;
+    return `${prefix}${value.toLocaleString()}${unit && unit !== '$' ? ` ${unit}` : ''}`;
+  })();
+
+  // Top drivers subtitle
+  const topDriversText = (() => {
+    const drivers = situation.top_drivers;
+    if (!drivers || drivers.length === 0) return null;
+    return drivers.slice(0, 2).map(d => {
+      const sign = d.delta >= 0 ? '+' : '−';
+      const abs  = Math.abs(d.delta);
+      const formatted = d.currency
+        ? `${d.currency}${abs >= 1_000_000 ? `${(abs / 1_000_000).toFixed(1)}M` : abs >= 1_000 ? `${(abs / 1_000).toFixed(0)}K` : abs.toFixed(0)}`
+        : abs.toFixed(1);
+      return `${d.label} ${sign}${formatted}`;
+    }).join(' · ');
+  })();
+
+  // Chart dimensions
+  const chartW = 96;
+  const chartH = 36;
 
   return (
     <button
       onClick={onClick}
-      className={`relative flex flex-col items-start p-5 rounded-xl border ${status.border} ${status.bg} hover:bg-slate-800 transition-all duration-200 group w-full text-left h-full overflow-hidden`}
+      className={`relative flex flex-col items-start p-4 rounded-xl border-l-2 ${borderColor} bg-slate-900 hover:bg-slate-800 transition-all duration-200 group w-full text-left h-full overflow-hidden`}
     >
-      <div className="flex justify-between items-start w-full mb-4">
+      {/* ── Row 1: severity + KPI name ── */}
+      <div className="w-full mb-3">
+        <div className="flex items-center gap-3 mb-1">
+          <span className={`text-[10px] font-mono uppercase tracking-widest ${textColor}`}>
+            {isOpportunity ? 'Growth' : situation.severity}
+          </span>
+          {isDelegated && (
+            <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500">
+              Delegated
+            </span>
+          )}
+        </div>
+        <h3 className="text-sm font-semibold text-white leading-tight">
+          {situation.kpi_name}
+        </h3>
+      </div>
+
+      {/* ── Row 2: deviation (hero) + direction icon ── */}
+      <div className="w-full flex items-end justify-between mb-1">
         <div>
-          <div className="flex items-center gap-2">
-            <span className={`text-[10px] font-bold uppercase tracking-wider ${status.text} border border-current px-1.5 py-0.5 rounded`}>
-              {isOpportunity ? 'Growth Opportunity' : situation.severity}
-            </span>
-            {isDelegated && (
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 border border-slate-600 px-1.5 py-0.5 rounded">
-                Delegated
+          {deviationDisplay ? (
+            <>
+              <span className={`text-2xl font-mono font-bold leading-none ${deviationColor}`}>
+                {deviationDisplay}
               </span>
-            )}
-          </div>
-          <h3 className="text-lg font-bold text-white mt-2 leading-tight group-hover:text-blue-400 transition-colors">
-            {situation.kpi_name}
-          </h3>
+              {comparisonType && (
+                <span className="block text-[9px] text-slate-500 font-mono uppercase tracking-wider mt-0.5">
+                  {comparisonType.replace(/_/g, ' ')}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-xs text-slate-500 italic">No comparison</span>
+          )}
         </div>
-        <div className={`p-2 rounded-full bg-slate-900/50 ${status.text}`}>
-          {isOpportunity ? <TrendingUp className="w-5 h-5" /> : isNegative ? <ArrowDownRight className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+        <div className={`${deviationColor} opacity-70`}>
+          {isOpportunity
+            ? <TrendingUp className="w-4 h-4" />
+            : percentChange == null
+            ? <Minus className="w-4 h-4 text-slate-500" />
+            : percentChange < 0
+            ? <TrendingDown className="w-4 h-4" />
+            : <TrendingUp className="w-4 h-4" />
+          }
         </div>
       </div>
 
-      <div className="flex-1 w-full">
-        <p className="text-xs text-slate-400 line-clamp-2 mb-4">
-          {situation.description}
-        </p>
-      </div>
-
-      <div className="w-full flex items-end justify-between mt-auto">
-        <div className="flex flex-col">
-            <span className="text-[10px] text-slate-500 uppercase">Current Value</span>
-            <span className="text-xl font-mono text-white">
-                {situation.kpi_value ?
-                    `${situation.kpi_value.currency || ''}${situation.kpi_value.value.toLocaleString()}` :
-                    '--'
-                }
-            </span>
+      {/* ── Row 3: absolute value (supporting) ── */}
+      {absoluteDisplay && (
+        <div className="w-full mb-2">
+          <span className="text-[10px] text-slate-500 font-mono">{absoluteDisplay}</span>
         </div>
+      )}
 
-        {/* Monthly trend bars */}
-        {monthlyValues && monthlyValues.length > 0 && (
-          <div className="opacity-60 group-hover:opacity-100 transition-opacity">
-            <svg width={width} height={height}>
-              {(() => {
-                const barWidth = Math.max(1, (width / monthlyValues.length) - 2);
+      {/* ── Row 4: top drivers ── */}
+      {topDriversText && (
+        <div className="w-full mb-2">
+          <p className="text-[10px] text-slate-500 truncate">{topDriversText}</p>
+        </div>
+      )}
+
+      {/* ── Row 5: bar chart (activates when monthly_values present) ── */}
+      {monthlyValues.length > 0 && (
+        <div className="w-full mt-auto pt-2 opacity-70 group-hover:opacity-100 transition-opacity">
+          <svg width={chartW} height={chartH}>
+            {hasComparisonValues ? (
+              (() => {
+                const barWidth = Math.max(1, (chartW / monthlyValues.length) - 2);
                 const gap = 2;
-                const values = monthlyValues.map(m => m.value);
-                const minVal = Math.min(...values);
-                const maxVal = Math.max(...values);
-                const range = maxVal - minVal || 1;
-
+                const deltas = monthlyValues.map(m => (m.value ?? 0) - (m.comparison_value ?? m.value ?? 0));
+                const maxAbs = Math.max(...deltas.map(d => Math.abs(d)), 1);
+                const midY = chartH / 2;
                 return monthlyValues.map((m, i) => {
-                  const barHeight = Math.max(2, ((m.value - minVal) / range) * (height - 4));
-                  const isLatest = i === monthlyValues.length - 1;
+                  const delta = (m.value ?? 0) - (m.comparison_value ?? m.value ?? 0);
+                  const barH = Math.max(2, (Math.abs(delta) / maxAbs) * (midY - 2));
+                  const isPos = delta >= 0;
                   return (
-                    <rect
-                      key={m.period}
-                      x={i * (barWidth + gap)}
-                      y={height - barHeight}
-                      width={barWidth}
-                      height={barHeight}
-                      rx={2}
-                      fill={isLatest ? status.stroke : '#334155'}
-                      opacity={isLatest ? 1 : 0.7}
+                    <rect key={m.period}
+                      x={i * (barWidth + gap)} y={isPos ? midY - barH : midY}
+                      width={barWidth} height={barH} rx={1}
+                      fill={isPos ? '#22c55e' : '#ef4444'} opacity={0.85}
                     />
                   );
                 });
-              })()}
-            </svg>
-          </div>
-        )}
-      </div>
+              })()
+            ) : (
+              (() => {
+                const barWidth = Math.max(1, (chartW / monthlyValues.length) - 2);
+                const gap = 2;
+                const values = monthlyValues.map(m => m.value);
+                const minVal = Math.min(...values);
+                const range  = (Math.max(...values) - minVal) || 1;
+                return monthlyValues.map((m, i) => {
+                  const barH = Math.max(2, ((m.value - minVal) / range) * (chartH - 4));
+                  const isLatest = i === monthlyValues.length - 1;
+                  return (
+                    <rect key={m.period}
+                      x={i * (barWidth + gap)} y={chartH - barH}
+                      width={barWidth} height={barH} rx={1}
+                      fill={isLatest ? '#94a3b8' : '#334155'}
+                      opacity={isLatest ? 1 : 0.6}
+                    />
+                  );
+                });
+              })()
+            )}
+          </svg>
+        </div>
+      )}
     </button>
   );
 };

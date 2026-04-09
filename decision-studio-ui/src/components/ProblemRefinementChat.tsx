@@ -34,7 +34,7 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
   onCancel,
   initialMarketSignals: _initialMarketSignals,
 }) => {
-  const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
+  const [messages, setMessages] = useState<Array<{ role: string; content: string; transparency_tier?: number; tier_label?: string }>>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentTopic, setCurrentTopic] = useState<string>('hypothesis_validation');
@@ -58,8 +58,13 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
 
 
   const handleRefinementResult = useCallback((result: ProblemRefinementResult) => {
-    // Add agent message to chat
-    setMessages(prev => [...prev, { role: 'assistant', content: result.agent_message }]);
+    // Add agent message to chat, carrying tier metadata if present
+    setMessages(prev => [...prev, {
+      role: 'assistant',
+      content: result.agent_message,
+      transparency_tier: (result as any).transparency_tier,
+      tier_label: (result as any).tier_label,
+    }]);
     
     // Update state
     setCurrentTopic(result.current_topic);
@@ -201,22 +206,35 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
 
       {/* Messages */}
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
+        {messages.map((msg, idx) => {
+          // Tier badge color map
+          const tierColor =
+            msg.transparency_tier === 3 ? 'text-amber-600' :
+            msg.transparency_tier === 4 ? 'text-red-500' :
+            'text-slate-400';
+
+          return (
             <div
-              className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                msg.role === 'user'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-slate-700 text-slate-100'
-              }`}
+              key={idx}
+              className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
             >
-              <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+              <div
+                className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                  msg.role === 'user'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-slate-700 text-slate-100'
+                }`}
+              >
+                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+              </div>
+              {msg.role === 'assistant' && msg.transparency_tier != null && msg.tier_label && (
+                <span className={`mt-0.5 text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded font-medium bg-slate-800 ${tierColor}`}>
+                  {msg.tier_label}
+                </span>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
         
         {isLoading && (
           <div className="flex justify-start">

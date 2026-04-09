@@ -42,3 +42,23 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ── Print overrides ─────────────────────────────────────────────────────────
+   Tailwind's `hidden` generates display:none !important which defeats
+   print:block. This override forces all accordion content to render in print.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media print {
+  .accordion-content {
+    display: block !important;
+  }
+
+  /* Expand the briefing layout to full page width */
+  .print-full-width {
+    max-width: 100% !important;
+  }
+
+  /* Hide the right-hand chat panel entirely */
+  .print-hide {
+    display: none !important;
+  }
+}

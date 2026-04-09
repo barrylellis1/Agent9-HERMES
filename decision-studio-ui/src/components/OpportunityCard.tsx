@@ -15,17 +15,17 @@ interface OpportunityCardProps {
 export function OpportunityCard({ signal, onClick }: OpportunityCardProps) {
   return (
     <div
-      className="bg-emerald-950/40 border border-emerald-700/50 rounded-xl p-4 cursor-pointer hover:border-emerald-500/70 transition-colors"
+      className="border-l-2 border-l-green-500 bg-slate-900 hover:bg-slate-800 rounded-xl p-4 cursor-pointer transition-colors"
       onClick={onClick}
     >
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-          <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+          <TrendingUp className="w-4 h-4 text-green-400 flex-shrink-0" />
+          <span className="text-xs font-semibold text-green-400 uppercase tracking-wider">
             {OPPORTUNITY_TYPE_LABELS[signal.opportunity_type] ?? signal.opportunity_type}
           </span>
         </div>
-        <span className="text-emerald-300 font-bold text-sm">
+        <span className="text-green-300 font-bold text-sm">
           +{signal.delta_pct.toFixed(1)}%
         </span>
       </div>
@@ -39,7 +39,7 @@ export function OpportunityCard({ signal, onClick }: OpportunityCardProps) {
         <span className="text-xs text-slate-500">
           Confidence: {(signal.confidence * 100).toFixed(0)}%
         </span>
-        <span className="text-xs text-emerald-600 font-medium">{signal.kpi_display_name}</span>
+        <span className="text-xs text-slate-500 font-medium">{signal.kpi_display_name}</span>
       </div>
     </div>
   );

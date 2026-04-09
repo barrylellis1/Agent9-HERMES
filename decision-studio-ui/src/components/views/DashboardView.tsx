@@ -7,6 +7,7 @@ import { Principal } from '../../api/types';
 import { OpportunityCard } from '../OpportunityCard';
 import { getVAPortfolio } from '../../api/client';
 import type { StrategyAwarePortfolio } from '../../types/valueAssurance';
+import { BrandLogo } from '../BrandLogo';
 
 interface DashboardViewProps {
   scanComplete: boolean;
@@ -46,11 +47,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   availablePrincipals,
   currentPrincipal,
   onSelectPrincipal,
-  timeframe,
-  onSelectTimeframe,
-  availableClients,
-  selectedClientId,
-  onSelectClient,
+  timeframe: _timeframe,
+  onSelectTimeframe: _onSelectTimeframe,
+  availableClients: _availableClients,
+  selectedClientId: _selectedClientId,
+  onSelectClient: _onSelectClient,
   onRefresh,
   onSelectSituation,
   statusMsg,
@@ -68,51 +69,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="min-h-screen bg-background text-foreground p-8 font-sans relative overflow-x-hidden">
-      <header className="mb-8 flex justify-between items-end">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Decision Studio</h1>
-          <p className="text-slate-400">Situation Awareness Console</p>
-        </div>
+      <header className="mb-8 flex justify-between items-center">
+        <BrandLogo size={36} />
         <div className="flex items-center gap-4">
-            {/* Client Selector */}
-            {availableClients.length > 0 && (
-              <div className="flex flex-col items-end gap-1">
-                <label className="text-xs text-slate-500 uppercase tracking-wider">Client</label>
-                <div className="relative">
-                  <select
-                    value={selectedClientId}
-                    onChange={(e) => onSelectClient(e.target.value)}
-                    className="appearance-none bg-slate-800/80 border border-slate-600 rounded-lg px-3 py-2 pr-8 text-sm text-white cursor-pointer hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50 min-w-[200px]"
-                  >
-                    {availableClients.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <ChevronRight className="w-4 h-4 text-slate-400 rotate-90" />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Timeframe Selector */}
-            <div className="flex flex-col items-end gap-1">
-                <label className="text-xs text-slate-500 uppercase tracking-wider">Timeframe</label>
-                <div className="relative">
-                    <select
-                        value={timeframe}
-                        onChange={(e) => onSelectTimeframe(e.target.value)}
-                        className="appearance-none bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-2 pr-8 text-sm text-white cursor-pointer hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50 min-w-[160px]"
-                    >
-                        <option value="year_to_date">Year to Date</option>
-                        <option value="current_month">Current Month</option>
-                    </select>
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                        <ChevronRight className="w-4 h-4 text-slate-400 rotate-90" />
-                    </div>
-                </div>
-            </div>
-
             {/* Principal Selector */}
             <div className="flex flex-col items-end gap-1">
                 <label className="text-xs text-slate-500 uppercase tracking-wider">Principal</label>
@@ -132,18 +91,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         <ChevronRight className="w-4 h-4 text-slate-400 rotate-90" />
                     </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                    <div className={`w-5 h-5 rounded-full ${currentPrincipal.color} flex items-center justify-center font-bold text-[9px]`}>
-                        {currentPrincipal.initials}
-                    </div>
-                    <span className="text-xs text-slate-400">
-                        <span className="capitalize">{currentPrincipal.decision_style}</span> style
-                    </span>
-                </div>
             </div>
 
-            <div className="flex flex-col items-end gap-2">
-            <button 
+            <div className="flex flex-col items-end gap-1">
+            <div className="h-[18px]" />{/* spacer matches the label height above the dropdown */}
+            <div className="flex items-center gap-2">
+            <button
                 onClick={onRefresh}
                 disabled={loading}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
@@ -152,10 +105,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 {loading ? 'Scanning...' : 'Scan Now'}
             </button>
             {statusMsg && (
-                <span className="text-xs text-emerald-400 font-medium animate-in fade-in slide-in-from-right-4">
+                <span className="text-xs text-emerald-400 font-medium animate-in fade-in slide-in-from-right-4 whitespace-nowrap">
                 {statusMsg}
                 </span>
             )}
+            </div>
             </div>
             
             <a href="/context" className="p-2 text-slate-400 hover:text-white transition-colors" title="Context Explorer">
@@ -172,29 +126,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <section className="mb-8 animate-in slide-in-from-top-4 fade-in duration-500">
             <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
                 <div className="col-span-1 border-r border-slate-800 pr-6">
-                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Scan Coverage</h3>
-                    <div className="text-2xl font-light text-white">{kpisScanned} <span className="text-sm text-slate-500 font-normal">KPIs Evaluated</span></div>
-                    <div className="text-xs text-slate-400 mt-1">Across 1 Data Product (FI Star Schema)</div>
+                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Coverage</h3>
+                    <div className="text-2xl font-light text-white">{kpisScanned} <span className="text-sm text-slate-500 font-normal">KPIs evaluated.</span></div>
+                    <div className="text-xs text-slate-400 mt-1">{breachCount > 0 ? `${breachCount} finding${breachCount === 1 ? '' : 's'} require attention.` : 'No findings require attention.'}</div>
                 </div>
 
                 <div className="col-span-1 border-r border-slate-800 pr-6">
-                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Results</h3>
+                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Findings</h3>
                     <div className="flex items-baseline gap-2">
-                        <span className={`text-2xl font-bold ${breachCount > 0 ? 'text-red-400' : 'text-green-400'}`}>{breachCount}</span>
-                        <span className="text-sm text-slate-400">Situations Detected</span>
+                        <span className={`text-2xl font-bold ${breachCount > 0 ? 'text-red-400' : 'text-slate-400'}`}>{breachCount}</span>
+                        <span className="text-sm text-slate-400">{breachCount === 1 ? 'situation detected' : 'situations detected'}</span>
                     </div>
-                    <div className="text-xs text-slate-500 mt-1">{kpisScanned - breachCount} KPIs within normal range</div>
+                    <div className="text-xs text-slate-500 mt-1">{kpisScanned - breachCount} within normal range</div>
                 </div>
 
                 <div className="col-span-1">
-                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Impact Category</h3>
-                    <div className={`text-lg font-medium ${impactColor} flex items-center gap-2`}>
-                        {impactLevel.toUpperCase()} IMPACT
-                        <div className={`w-2 h-2 rounded-full ${breachCount > 3 ? 'bg-red-500' : 'bg-amber-500'}`}></div>
+                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Impact level</h3>
+                    <div className={`text-lg font-medium ${impactColor}`}>
+                        {impactLevel.charAt(0).toUpperCase() + impactLevel.slice(1).toLowerCase()}
                     </div>
                     {situations.length > 0 && (
                         <div className="text-xs text-slate-400 mt-1 truncate">
-                            Top: {situations[0].kpi_name || 'Gross Revenue'}
+                            Lead finding: {situations[0].kpi_name || 'Gross Revenue'}
                         </div>
                     )}
                 </div>
@@ -210,16 +163,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       <main className="max-w-7xl mx-auto space-y-8 pb-20">
 
-        {/* Decisions in Progress — Phase 7C */}
+        {/* Solutions in Progress — Phase 7C */}
         {portfolio && portfolio.total_solutions > 0 && (
           <section className="animate-in slide-in-from-top-4 fade-in duration-500">
             <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-indigo-600/20 rounded-lg flex items-center justify-center">
-                  <BarChart3 className="w-5 h-5 text-indigo-400" />
+                <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5 text-slate-400" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-white">Decisions in Progress</h3>
+                  <h3 className="text-sm font-semibold text-white">Solutions in Progress</h3>
                   <p className="text-xs text-slate-400 mt-0.5">
                     {portfolio.measuring_count} measuring
                     {portfolio.validated_count > 0 && <> · <span className="text-emerald-400">{portfolio.validated_count} validated</span></>}
