@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Loader2, MessageSquare } from 'lucide-react';
 
 interface Persona {
   id: string;
@@ -16,6 +15,13 @@ interface CouncilDebateProps {
   stageOneHypotheses?: Record<string, any> | null;
   kpiName?: string;
 }
+
+// Phase label shown in the terminal header
+const PHASE_LABELS: Record<number, string> = {
+  1: 'STAGE 1 — HYPOTHESIS GENERATION',
+  2: 'STAGE 2 — CROSS-REVIEW',
+  3: 'STAGE 3 — SYNTHESIS',
+};
 
 export const CouncilDebate: React.FC<CouncilDebateProps> = ({
   phase,
@@ -126,7 +132,6 @@ export const CouncilDebate: React.FC<CouncilDebateProps> = ({
     ],
   };
 
-  // Inject kpiName into a few context-specific phrases
   if (kpiName && kpiName !== 'KPI') {
     PHASE1_THOUGHTS.mckinsey.unshift(`Isolating root drivers of ${kpiName} variance using MECE...`);
     PHASE1_THOUGHTS.bcg.unshift(`Experience curve analysis on ${kpiName} cost structure...`);
@@ -141,8 +146,9 @@ export const CouncilDebate: React.FC<CouncilDebateProps> = ({
     const lower = personaId.toLowerCase();
     return dict[lower] ?? dict['default'] ?? [];
   };
-  const [feed, setFeed] = useState<Array<{ id: string, text: string, personaId: string }>>([]);
-  const [activeSpeakerId, setActiveSpeakerId] = useState<string | null>(null);
+
+  // Terminal log entries: each has a timestamp string (captured once at creation), persona label, and text
+  const [feed, setFeed] = useState<Array<{ id: string; ts: string; personaLabel: string; personaColor: string; text: string }>>([]);
 
   const FIRM_NAMES: Record<string, string> = {
     mckinsey: 'McKinsey & Company',
@@ -150,21 +156,26 @@ export const CouncilDebate: React.FC<CouncilDebateProps> = ({
     bain: 'Bain & Company',
   };
 
-  // Get full persona objects
   const councilMembers = useMemo(() => (
     activePersonas.map(id =>
       availablePersonas.find(p => p.id === id) || { id, label: id, color: 'text-slate-400' }
     )
   ), [activePersonas, availablePersonas]);
 
-  // Simulate live conversation feed
+  // Stable ref for councilMembers/phase so the interval closure stays fresh
+  const councilRef = useRef(councilMembers);
+  const phaseRef = useRef(phase);
+  useEffect(() => { councilRef.current = councilMembers; }, [councilMembers]);
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
+
   useEffect(() => {
     if (phase === 0) return;
 
     let timeoutId: ReturnType<typeof setTimeout>;
 
     const addThought = () => {
-      const randomPersona = councilMembers[Math.floor(Math.random() * councilMembers.length)];
+      const members = councilRef.current;
+      const randomPersona = members[Math.floor(Math.random() * members.length)];
       if (!randomPersona) return;
 
       const thoughts = getThoughtsForPersona(randomPersona.id);
@@ -172,96 +183,86 @@ export const CouncilDebate: React.FC<CouncilDebateProps> = ({
         ? thoughts[Math.floor(Math.random() * thoughts.length)]
         : 'Analysing...';
 
-      setActiveSpeakerId(randomPersona.id);
-      
+      const ts = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
       setFeed(prev => [
-        { 
-          id: Math.random().toString(36).substr(2, 9), 
-          text: randomThought, 
-          personaId: randomPersona.id 
-        }, 
-        ...prev.slice(0, 4) // Keep last 5
+        {
+          id: Math.random().toString(36).substr(2, 9),
+          ts,
+          personaLabel: randomPersona.label,
+          personaColor: randomPersona.color,
+          text: randomThought,
+        },
+        ...prev.slice(0, 7),
       ]);
 
-      // Reset active speaker after a short burst
-      setTimeout(() => setActiveSpeakerId(null), 400);
-
-      // Schedule next thought
-      timeoutId = setTimeout(addThought, Math.random() * 500 + 400);
+      timeoutId = setTimeout(addThought, Math.random() * 600 + 500);
     };
 
     addThought();
-
     return () => clearTimeout(timeoutId);
-  }, [phase, councilMembers]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
+  // Progress bar width per phase segment
+  const progressPct = (step: number) => {
+    if (step < phase) return 100;
+    if (step === phase) return 60;
+    return 0;
+  };
 
   return (
-    <div className="bg-slate-900 border border-indigo-500/30 rounded-xl p-6 relative overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6 relative z-10">
-        <div className="flex items-center gap-3">
-          <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
-          <div>
-            <h4 className="text-sm font-bold text-white">Council in Session</h4>
-            <p className="text-xs text-slate-400">
-              {phase === 1 && "Phase 1: Generative Hypotheses"}
-              {phase === 2 && "Phase 2: Adversarial Review"}
-              {phase === 3 && "Phase 3: Strategic Synthesis"}
-            </p>
+    <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+      {/* Terminal header */}
+      <div className="px-4 py-3 border-b border-slate-800 bg-slate-950 flex items-center justify-between">
+        <div>
+          <div className="text-[10px] font-mono text-slate-500 mb-0.5">
+            [{new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}]
           </div>
+          <div className="text-xs font-mono font-semibold text-slate-300 uppercase tracking-wider">
+            {PHASE_LABELS[phase] ?? 'COUNCIL IN SESSION'}
+          </div>
+        </div>
+        {/* Phase progress bars */}
+        <div className="flex items-center gap-1.5">
+          {[1, 2, 3].map(step => (
+            <div key={step} className="w-12 h-1 bg-slate-800 rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-slate-400 rounded-full"
+                initial={{ width: '0%' }}
+                animate={{ width: `${progressPct(step)}%` }}
+                transition={{ duration: 0.4 }}
+              />
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Avatars Row */}
-      <div className="flex justify-center gap-6 mb-8 relative z-10">
-        {councilMembers.map(member => {
-          const isActive = activeSpeakerId === member.id;
-          return (
-            <div key={member.id} className="flex flex-col items-center gap-2 transition-all duration-300">
-              <div className={`relative w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${isActive ? `border-indigo-400 bg-indigo-500/20 scale-110 shadow-[0_0_15px_rgba(99,102,241,0.5)]` : 'border-slate-700 bg-slate-800'}`}>
-                <User className={`w-6 h-6 ${member.color}`} />
-                {isActive && (
-                  <motion.div 
-                    layoutId="speaking-indicator"
-                    className="absolute -bottom-1 -right-1 w-4 h-4 bg-indigo-500 rounded-full border-2 border-slate-900 flex items-center justify-center"
-                  >
-                    <MessageSquare className="w-2 h-2 text-white" />
-                  </motion.div>
-                )}
-              </div>
-              <span className={`text-[10px] font-medium transition-colors ${isActive ? 'text-white' : 'text-slate-500'}`}>
-                {member.label}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Live Feed Terminal — hidden when real Stage 1 data is available */}
+      {/* Terminal log — hidden when real Stage 1 data is available */}
       {(!stageOneHypotheses || phase < 2) && (
-        <div className="bg-slate-950/80 rounded-lg p-4 h-48 overflow-hidden border border-slate-800 relative z-10">
-          <div className="absolute top-2 right-3 text-[9px] text-slate-600 uppercase tracking-wider">Live Transcript</div>
-          <div className="flex flex-col-reverse h-full gap-3">
+        <div className="bg-slate-950 px-4 py-3 h-44 overflow-hidden font-mono">
+          <div className="flex flex-col-reverse h-full gap-2">
             <AnimatePresence initial={false}>
-              {feed.map((item) => {
-                const persona = councilMembers.find(p => p.id === item.personaId);
-                return (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="flex gap-3 items-start"
-                  >
-                    <span className={`text-[10px] font-bold uppercase min-w-[60px] text-right mt-0.5 ${persona?.color || 'text-slate-500'}`}>
-                      {persona?.label || 'Unknown'}
-                    </span>
-                    <p className="text-xs text-slate-300 font-mono leading-relaxed">
-                      {item.text}
-                    </p>
-                  </motion.div>
-                );
-              })}
+              {feed.map(item => (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex gap-2 items-start leading-snug"
+                >
+                  <span className="text-[9px] text-slate-600 flex-shrink-0 mt-0.5 tabular-nums">
+                    [{item.ts}]
+                  </span>
+                  <span className={`text-[10px] font-semibold uppercase flex-shrink-0 w-16 truncate ${item.personaColor}`}>
+                    {item.personaLabel}
+                  </span>
+                  <span className="text-[10px] text-slate-400 leading-relaxed">
+                    {item.text}
+                  </span>
+                </motion.div>
+              ))}
             </AnimatePresence>
           </div>
         </div>
@@ -269,33 +270,33 @@ export const CouncilDebate: React.FC<CouncilDebateProps> = ({
 
       {/* Real Stage 1 Firm Hypothesis Cards */}
       {stageOneHypotheses && phase >= 2 && (
-        <div className="mt-4 space-y-3">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-            Stage 1 Hypotheses — {phase === 2 ? 'Cross-review in progress...' : 'Synthesis in progress...'}
+        <div className="px-4 py-4 space-y-3">
+          <p className="text-[10px] font-mono font-semibold text-slate-500 uppercase tracking-wider">
+            {phase === 2 ? 'CROSS-REVIEW IN PROGRESS' : 'SYNTHESIS IN PROGRESS'} — STAGE 1 HYPOTHESES
           </p>
           {Object.entries(stageOneHypotheses).map(([firmId, hyp]: [string, any]) => (
-            <div key={firmId} className="bg-slate-800/60 border border-slate-700 rounded-lg p-3">
+            <div key={firmId} className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-bold text-white">
+                <span className="text-xs font-bold text-white font-mono">
                   {FIRM_NAMES[firmId.toLowerCase()] ?? (firmId.charAt(0).toUpperCase() + firmId.slice(1))}
                 </span>
                 {hyp.framework && (
-                  <span className="text-xs text-slate-400 italic">{hyp.framework}</span>
+                  <span className="text-[10px] text-slate-500 italic font-mono">{hyp.framework}</span>
                 )}
               </div>
               {hyp.hypothesis && (
-                <p className="text-sm text-slate-300 leading-snug mb-2">{hyp.hypothesis}</p>
+                <p className="text-xs text-slate-300 leading-snug mb-2">{hyp.hypothesis}</p>
               )}
               {hyp.proposed_option?.title && (
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">Proposed:</span>
-                  <span className="text-xs text-blue-300 font-medium">{hyp.proposed_option.title}</span>
+                  <span className="text-[9px] font-mono font-semibold text-slate-500 uppercase tracking-wider">Proposed:</span>
+                  <span className="text-[10px] text-slate-300 font-medium">{hyp.proposed_option.title}</span>
                 </div>
               )}
               {hyp.conviction && (
                 <div className="mt-1.5">
-                  <span className="text-[10px] font-semibold text-slate-500 uppercase">Conviction: </span>
-                  <span className={`text-xs font-semibold ${
+                  <span className="text-[9px] font-mono font-semibold text-slate-600 uppercase">Conviction: </span>
+                  <span className={`text-[10px] font-mono font-semibold ${
                     hyp.conviction === 'High' ? 'text-emerald-400' :
                     hyp.conviction === 'Medium' ? 'text-amber-400' : 'text-slate-400'
                   }`}>{hyp.conviction}</span>
@@ -305,23 +306,6 @@ export const CouncilDebate: React.FC<CouncilDebateProps> = ({
           ))}
         </div>
       )}
-
-      {/* Progress Stepper */}
-      <div className="flex items-center gap-2 mt-6 relative z-10">
-        {[1, 2, 3].map(step => (
-          <div key={step} className="flex-1 h-1 bg-slate-800 rounded-full overflow-hidden">
-            <motion.div 
-              className="h-full bg-indigo-500"
-              initial={{ width: "0%" }}
-              animate={{ width: step < phase ? "100%" : step === phase ? "60%" : "0%" }}
-              transition={{ duration: 0.5 }}
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* Background Ambience */}
-      <div className="absolute inset-0 bg-gradient-to-b from-indigo-900/5 to-transparent pointer-events-none" />
     </div>
   );
 };

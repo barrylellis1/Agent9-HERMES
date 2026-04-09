@@ -6,6 +6,7 @@ import { DataProductOnboardingNew } from './pages/DataProductOnboardingNew'
 import { RegistryExplorer } from './pages/RegistryExplorer'
 import { ContextExplorer } from './pages/ContextExplorer'
 import { ExecutiveBriefing } from './pages/ExecutiveBriefing'
+import { CouncilDebatePage } from './pages/CouncilDebatePage'
 import { Login } from './pages/Login'
 import { Portfolio } from './pages/Portfolio'
 import { LandingPage } from './pages/LandingPage'
@@ -26,6 +27,7 @@ function App() {
         <Route path="/" element={isCorporateDomain ? <LandingPage /> : <Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<DecisionStudio />} />
+        <Route path="/debate/:situationId" element={<CouncilDebatePage />} />
         <Route path="/briefing/:situationId" element={<ExecutiveBriefing />} />
         <Route path="/context" element={<ContextExplorer />} />
         <Route path="/settings" element={<RegistryExplorer />} />

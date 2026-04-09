@@ -187,7 +187,6 @@ export function useDecisionStudio() {
         if (stored) {
             try {
                 const parsed = JSON.parse(stored);
-                console.log("Restored solutions for", selectedSituation.situation_id, parsed);
                 setSolutions(parsed);
             } catch (e) {
                 console.error("Failed to parse stored solutions", e);
@@ -222,11 +221,9 @@ export function useDecisionStudio() {
     setRefinementResult(null); // Reset refinement
 
     try {
-      console.log(`Calling Agent9 API for principal: ${selectedPrincipal} timeframe: ${timeframe}...`);
       // Use proper comparison type based on timeframe
       const comparisonType = timeframe === 'current_month' ? 'month_over_month' : 'year_over_year';
       const result = await detectSituations(selectedPrincipal, timeframe, comparisonType, selectedClientId);
-      console.log("Agent9 Response:", result);
 
       setSituations(result.situations);
       setOpportunities(result.opportunities);
@@ -281,8 +278,6 @@ export function useDecisionStudio() {
     const sit = overrideSituation ?? selectedSituation;
     if (!sit) return;
     const sitId = sit.situation_id;
-
-    console.log('[DA] sit object:', JSON.stringify(sit, null, 2));
 
     if (!sit.kpi_name) {
       console.error('[DA] kpi_name missing from situation:', sit);

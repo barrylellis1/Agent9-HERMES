@@ -21,11 +21,7 @@ export function DecisionStudio() {
     showRefinementChat,
     refinementResult,
     marketSignals,
-    findingSolutions,
-    solutions,
     showPersonaSelector,
-    debatePhase,
-    debateHypotheses,
     useHybridCouncil,
     councilType,
     selectedPreset,
@@ -41,7 +37,6 @@ export function DecisionStudio() {
     // Actions
     handleRefresh,
     handleDeepAnalysis,
-    handleStartDebate,
     setSelectedSituation,
     setDaViewMode,
     setShowRefinementChat,
@@ -87,13 +82,7 @@ export function DecisionStudio() {
             setShowPersonaSelector(true);
         }}
         onStartRefinement={() => setShowRefinementChat(true)}
-        
-        // Solutions
-        findingSolutions={findingSolutions}
-        debatePhase={debatePhase}
-        debateHypotheses={debateHypotheses}
-        solutions={solutions}
-        onStartDebate={(mode) => handleStartDebate(mode)}
+
         // Council Config
         useHybridCouncil={useHybridCouncil}
         setUseHybridCouncil={setUseHybridCouncil}

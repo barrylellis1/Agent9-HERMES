@@ -12,15 +12,19 @@ import {
   X,
   Sparkles,
   CircleDot,
-  ShieldCheck,
-  TrendingUp
+  TrendingUp,
+  ChevronRight,
+  RotateCcw
 } from 'lucide-react';
 import { Situation, ProblemRefinementResult, MarketSignal } from '../../api/types';
 import { ProblemRefinementChat } from '../ProblemRefinementChat';
-import { VarianceBarList, VarianceSummary } from '../visualizations/VarianceCharts';
-import { DivergingBarChart } from '../visualizations/DivergingBarChart';
+import { IsIsNotExhibit } from '../visualizations/DivergingBarChart';
 import { TradeOffAnalysis } from '../visualizations/TradeOffAnalysis';
-import { CouncilDebate } from '../CouncilDebate';
+import { BrandLogo } from '../BrandLogo';
+
+// ─── Solution Proposal Panel moved to Executive Briefing page ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+// ─── DeepFocusView ─────────────────────────────────────────────────────────────
 
 interface DeepFocusViewProps {
   situation: Situation;
@@ -38,12 +42,43 @@ interface DeepFocusViewProps {
   onRefinementComplete: (result: ProblemRefinementResult) => void;
   onRefinementCancel: () => void;
   onStartRefinement: () => void;
-  // Solutions / Debate
-  findingSolutions: boolean;
-  debatePhase: number;
-  debateHypotheses?: Record<string, any> | null;
-  solutions: any;
-  onStartDebate: (mode?: 'recommended' | 'manual') => void;
+  // Council Config
+  useHybridCouncil: boolean;
+  setUseHybridCouncil: (val: boolean) => void;
+  councilType: 'preset' | 'custom';
+  setCouncilType: (val: 'preset' | 'custom') => void;
+  selectedPreset: string;
+  setSelectedPreset: (val: string) => void;
+  selectedPersonas: string[];
+  setSelectedPersonas: (val: string[]) => void;
+  showPersonaSelector: boolean;
+  setShowPersonaSelector: (val: boolean) => void;
+  // Context
+  availableCouncils: any[];
+  availablePersonas: any[];
+  principalContext: any;
+  principalId: string;
+  initialMarketSignals?: MarketSignal[];
+}
+
+// ─── DeepFocusView ─────────────────────────────────────────────────────────────
+
+interface DeepFocusViewProps {
+  situation: Situation;
+  onBack: () => void;
+  // Analysis State
+  analyzing: boolean;
+  analysisResults: any;
+  analysisError: string | null;
+  // Variance/Deep Analysis View
+  daViewMode: 'list' | 'snowflake';
+  setDaViewMode: (mode: 'list' | 'snowflake') => void;
+  // Refinement Chat
+  showRefinementChat: boolean;
+  refinementResult: ProblemRefinementResult | null;
+  onRefinementComplete: (result: ProblemRefinementResult) => void;
+  onRefinementCancel: () => void;
+  onStartRefinement: () => void;
   // Council Config
   useHybridCouncil: boolean;
   setUseHybridCouncil: (val: boolean) => void;
@@ -69,18 +104,13 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   analyzing,
   analysisResults,
   analysisError,
-  daViewMode,
-  setDaViewMode,
+  daViewMode: _daViewMode,
+  setDaViewMode: _setDaViewMode,
   showRefinementChat,
   refinementResult,
   onRefinementComplete,
   onRefinementCancel,
   onStartRefinement,
-  findingSolutions,
-  debatePhase,
-  debateHypotheses,
-  solutions,
-  onStartDebate,
   useHybridCouncil,
   setUseHybridCouncil,
   councilType,
@@ -100,8 +130,8 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   const navigate = useNavigate();
   const currentAnalysis = analysisResults;
 
-  // Accordion state — Executive Briefing and Root Cause expanded by default
-  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['executive-briefing', 'root-cause']));
+  // Accordion state — Situation Summary and Root Cause expanded by default
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['situation-summary', 'root-cause']));
 
   const toggleSection = (id: string) => {
     setOpenSections(prev => {
@@ -140,30 +170,16 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   const renderVarianceAnalysis = () => {
     if (!currentAnalysis?.kt_is_is_not) return null;
 
-    // Process data for charts
-    const { where_is, where_is_not } = currentAnalysis.kt_is_is_not;
-    // Simple transform for the chart component expectations
-    const isItems = where_is?.map((i: any) => ({ ...i, delta: i.delta || 0 })) || [];
-    const isNotItems = where_is_not?.map((i: any) => ({ ...i, delta: i.delta || 0 })) || [];
-    
-    // Calculate max delta
-    let max = 1;
-    [...isItems, ...isNotItems].forEach(item => {
-        max = Math.max(max, Math.abs(item.delta || 0));
-    });
-
     return (
-      <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 mb-6">
-        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-           <Microscope className="w-4 h-4" />
-           Variance Analysis (Is / Is Not)
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-6">
+        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+           <Microscope className="w-3.5 h-3.5" />
+           Is / Is Not Analysis
         </h3>
-        
-        <div className="flex flex-col lg:flex-row gap-6">
-             <VarianceBarList items={isItems} maxDelta={max} type="is" title="Problem Areas" />
-             <VarianceSummary isItems={isItems} isNotItems={isNotItems} kpiName={situation.kpi_name} />
-             <VarianceBarList items={isNotItems} maxDelta={max} type="isNot" title="Healthy Areas" />
-        </div>
+        <IsIsNotExhibit
+          data={currentAnalysis.kt_is_is_not}
+          kpiName={situation.kpi_name}
+        />
       </div>
     );
   };
@@ -193,11 +209,12 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
         </div>
         
         {/* Actions or Context */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-6">
             <div className="text-right">
                 <div className="text-xs text-slate-500 uppercase">Detected</div>
                 <div className="text-sm font-medium">{new Date().toLocaleTimeString()}</div>
             </div>
+            <BrandLogo size={28} />
         </div>
       </header>
 
@@ -206,10 +223,10 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
         <div className="flex-1 overflow-y-auto p-8 border-r border-slate-800 scrollbar-hide">
             <div className="max-w-4xl mx-auto space-y-8">
                 
-                {/* 1. Executive Briefing Card */}
+                {/* 1. Situation Summary Card */}
                 <AccordionSection
-                    id="executive-briefing"
-                    title="Executive Briefing"
+                    id="situation-summary"
+                    title="Situation Summary"
                     icon={<AlertTriangle className="w-5 h-5 text-amber-500" />}
                     summary={situation.description?.substring(0, 80) + (situation.description && situation.description.length > 80 ? '...' : '') || "Significant variance detected"}
                 >
@@ -250,7 +267,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                     )}
                 </section>
 
-                {/* Root Cause Results — collapsible accordion */}
+                {/* Root Cause Analysis — collapsible accordion */}
                 {currentAnalysis && (
                     <AccordionSection
                         id="root-cause"
@@ -271,155 +288,110 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                             {/* Embedded Variance Analysis (Is/Is Not) */}
                             {renderVarianceAnalysis()}
 
-                            {/* Replication Targets — only shown when DA returns benchmark_segments */}
-                            {currentAnalysis?.kt_is_is_not?.benchmark_segments && currentAnalysis.kt_is_is_not.benchmark_segments.length > 0 && (() => {
-                              const benchmarks = currentAnalysis.kt_is_is_not.benchmark_segments.filter((s: any) => s.benchmark_type === 'internal_benchmark');
-                              const controls = currentAnalysis.kt_is_is_not.benchmark_segments.filter((s: any) => s.benchmark_type === 'control_group');
-                              return (
-                                <div className="bg-slate-900/50 border border-green-500/20 rounded-xl p-6 mb-6">
-                                  <h3 className="text-sm font-bold text-green-400 uppercase tracking-wider mb-1 flex items-center gap-2">
-                                    <TrendingUp className="w-4 h-4" />
-                                    Replication Targets
-                                  </h3>
-                                  <p className="text-xs text-slate-500 mb-4">These segments are outperforming the KPI target — internal proof that the gap is closeable.</p>
-                                  {benchmarks.length > 0 && (
-                                    <div className="space-y-2 mb-4">
-                                      {benchmarks.map((seg: any, i: number) => (
-                                        <div key={i} className="flex items-center justify-between bg-slate-950 border border-green-500/10 rounded-lg px-4 py-3">
-                                          <div>
-                                            <span className="text-xs text-slate-500 uppercase">{seg.dimension}</span>
-                                            <div className="text-sm font-medium text-white">{seg.key}</div>
-                                          </div>
-                                          <div className="flex items-center gap-3">
-                                            <span className="text-sm font-mono text-green-400">{seg.delta > 0 ? '+' : ''}{seg.delta?.toLocaleString()}</span>
-                                            {seg.replication_potential != null && (
-                                              <span className="text-[10px] px-2 py-0.5 bg-green-900/40 text-green-300 rounded-full font-medium">
-                                                {Math.round(seg.replication_potential * 100)}% potential
-                                              </span>
-                                            )}
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                  {controls.length > 0 && (
-                                    <details className="group">
-                                      <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-400 select-none">Control Group ({controls.length} segments)</summary>
-                                      <div className="mt-2 space-y-1">
-                                        {controls.map((seg: any, i: number) => (
-                                          <div key={i} className="flex items-center justify-between bg-slate-950/50 rounded px-3 py-2 text-xs text-slate-400">
-                                            <span>{seg.dimension}: {seg.key}</span>
-                                            <span className="font-mono">{seg.delta > 0 ? '+' : ''}{seg.delta?.toLocaleString()}</span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </details>
-                                  )}
-                                </div>
-                              );
-                            })()}
-
-                            {/* Market Intelligence Card — renders when MA signals arrive from DA */}
-                            {initialMarketSignals && initialMarketSignals.length > 0 && (
-                                <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-                                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                                        <Sparkles className="w-4 h-4 text-amber-400" />
-                                        Market Intelligence
-                                    </h3>
-                                    <div className="space-y-3">
-                                        {initialMarketSignals.map((signal, i) => (
-                                            <div key={i} className="bg-slate-950 border border-slate-800 rounded-lg p-4">
-                                                <div className="flex items-start justify-between mb-1">
-                                                    <h4 className="text-sm font-semibold text-white">{signal.title}</h4>
-                                                    {signal.relevance_score != null && (
-                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                                                            signal.relevance_score >= 0.7 ? 'bg-amber-900/50 text-amber-300' :
-                                                            signal.relevance_score >= 0.4 ? 'bg-slate-800 text-slate-300' :
-                                                            'bg-slate-800 text-slate-500'
-                                                        }`}>
-                                                            {Math.round(signal.relevance_score * 100)}% relevant
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <p className="text-xs text-slate-400 leading-relaxed">{signal.summary}</p>
-                                                {signal.source && (
-                                                    <span className="text-[10px] text-slate-600 mt-2 block">Source: {signal.source}</span>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Snowflake / Change Points */}
-                            <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-                                 <div className="flex items-center justify-between mb-4">
-                                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Dimension Breakdown</h3>
-                                     <div className="flex bg-slate-950 rounded p-1 border border-slate-800">
-                                        <button
-                                            onClick={() => setDaViewMode("list")}
-                                            className={`px-3 py-1 text-xs rounded transition-all ${daViewMode === 'list' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                                        >
-                                            List
-                                        </button>
-                                        <button
-                                            onClick={() => setDaViewMode("snowflake")}
-                                            className={`px-3 py-1 text-xs rounded transition-all ${daViewMode === 'snowflake' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                                        >
-                                            Is / Is Not
-                                        </button>
-                                     </div>
-                                 </div>
-
-                                 {daViewMode === 'snowflake' && currentAnalysis.kt_is_is_not ? (
-                                     <DivergingBarChart
-                                        data={currentAnalysis.kt_is_is_not}
-                                        kpiName={situation.kpi_name}
-                                        width={600}
-                                     />
-                                 ) : (
-                                     <div className="space-y-2">
-                                         {currentAnalysis.change_points?.map((cp: any, i: number) => (
-                                             <div key={i} className="flex justify-between items-center bg-slate-950 p-3 rounded border border-slate-800">
-                                                 <div className="flex flex-col">
-                                                     <span className="text-[10px] text-slate-500 uppercase">{cp.dimension}</span>
-                                                     <span className="text-sm font-medium text-white">{cp.key}</span>
-                                                 </div>
-                                                 <span className={`text-sm font-mono ${cp.delta < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                                                     {cp.delta > 0 ? '+' : ''}{cp.delta?.toLocaleString()}
-                                                 </span>
+                            {/* Change Points list — compact fallback when no Is/Is Not data */}
+                            {!currentAnalysis.kt_is_is_not && currentAnalysis.change_points && currentAnalysis.change_points.length > 0 && (
+                            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+                                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Dimension Breakdown</h3>
+                                 <div className="space-y-2">
+                                     {currentAnalysis.change_points.map((cp: any, i: number) => (
+                                         <div key={i} className="flex justify-between items-center bg-slate-950 p-3 rounded border border-slate-800">
+                                             <div className="flex flex-col">
+                                                 <span className="text-[10px] text-slate-500 uppercase">{cp.dimension}</span>
+                                                 <span className="text-sm font-medium text-white">{cp.key}</span>
                                              </div>
-                                         ))}
-                                     </div>
-                                 )}
+                                             <span className={`text-sm font-mono ${cp.delta < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                                                 {cp.delta > 0 ? '+' : ''}{cp.delta?.toLocaleString()}
+                                             </span>
+                                         </div>
+                                     ))}
+                                 </div>
                             </div>
+                            )}
                         </div>
                     </AccordionSection>
                 )}
 
-                {/* 3. Strategic Options (Trade-off Analysis) */}
-                {solutions && (
+                {/* Replication Targets — separate accordion section */}
+                {currentAnalysis?.kt_is_is_not?.benchmark_segments && currentAnalysis.kt_is_is_not.benchmark_segments.length > 0 && (() => {
+                  const benchmarks = currentAnalysis.kt_is_is_not.benchmark_segments.filter((s: any) => s.benchmark_type === 'internal_benchmark');
+                  const controls = currentAnalysis.kt_is_is_not.benchmark_segments.filter((s: any) => s.benchmark_type === 'control_group');
+                  return benchmarks.length > 0 || controls.length > 0 ? (
                     <AccordionSection
-                        id="strategic-options"
-                        title="Strategic Options"
-                        icon={<Lightbulb className="w-5 h-5 text-emerald-400" />}
-                        summary={`${solutions.options_ranked?.length || 0} options generated`}
+                        id="replication-targets"
+                        title="Replication Targets"
+                        icon={<TrendingUp className="w-4 h-4 text-green-400" />}
+                        summary={`${benchmarks.length} internal benchmark${benchmarks.length === 1 ? '' : 's'}`}
                     >
-                        {solutions.status === 'error' ? (
-                            <div className="p-4 bg-red-900/20 border border-red-500/30 rounded-lg flex items-center gap-3">
-                                <AlertTriangle className="w-5 h-5 text-red-400" />
+                      <div className="bg-slate-900/50 border border-green-500/20 rounded-xl p-6">
+                        <p className="text-xs text-slate-500 mb-4">These segments are outperforming the KPI target — internal proof that the gap is closeable.</p>
+                        {benchmarks.length > 0 && (
+                          <div className="space-y-2 mb-4">
+                            {benchmarks.map((seg: any, i: number) => (
+                              <div key={i} className="flex items-center justify-between bg-slate-950 border border-green-500/10 rounded-lg px-4 py-3">
                                 <div>
-                                    <h3 className="text-sm font-bold text-red-400">Solution Generation Failed</h3>
-                                    <p className="text-xs text-red-300">{solutions.error_message || "An unknown error occurred."}</p>
+                                  <span className="text-xs text-slate-500 uppercase">{seg.dimension}</span>
+                                  <div className="text-sm font-medium text-white">{seg.key}</div>
                                 </div>
-                            </div>
-                        ) : (
-                            <TradeOffAnalysis
-                                options={solutions.options_ranked || []}
-                                recommendedId={solutions.recommendation?.id}
-                                onViewBriefing={() => navigate(`/briefing/${situation.situation_id}`)}
-                            />
+                                <div className="flex items-center gap-3">
+                                  <span className="text-sm font-mono text-green-400">{seg.delta > 0 ? '+' : ''}{seg.delta?.toLocaleString()}</span>
+                                  {seg.replication_potential != null && (
+                                    <span className="text-[10px] px-2 py-0.5 bg-green-900/40 text-green-300 rounded-full font-medium">
+                                      {Math.round(seg.replication_potential * 100)}% potential
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         )}
+                        {controls.length > 0 && (
+                          <details className="group">
+                            <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-400 select-none">Control Group ({controls.length} segments)</summary>
+                            <div className="mt-2 space-y-1">
+                              {controls.map((seg: any, i: number) => (
+                                <div key={i} className="flex items-center justify-between bg-slate-950/50 rounded px-3 py-2 text-xs text-slate-400">
+                                  <span>{seg.dimension}: {seg.key}</span>
+                                  <span className="font-mono">{seg.delta > 0 ? '+' : ''}{seg.delta?.toLocaleString()}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                      </div>
+                    </AccordionSection>
+                  ) : null;
+                })()}
+
+                {/* Market Intelligence — separate accordion section */}
+                {initialMarketSignals && initialMarketSignals.length > 0 && (
+                    <AccordionSection
+                        id="market-intelligence"
+                        title="Market Intelligence"
+                        icon={<Sparkles className="w-4 h-4 text-amber-400" />}
+                        summary={`${initialMarketSignals.length} signal${initialMarketSignals.length === 1 ? '' : 's'}`}
+                    >
+                        <div className="space-y-3">
+                            {initialMarketSignals.map((signal, i) => (
+                                <div key={i} className="bg-slate-950 border border-slate-800 rounded-lg p-4">
+                                    <div className="flex items-start justify-between mb-1">
+                                        <h4 className="text-sm font-semibold text-white">{signal.title}</h4>
+                                        {signal.relevance_score != null && (
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                                                signal.relevance_score >= 0.7 ? 'bg-amber-900/50 text-amber-300' :
+                                                signal.relevance_score >= 0.4 ? 'bg-slate-800 text-slate-300' :
+                                                'bg-slate-800 text-slate-500'
+                                            }`}>
+                                                {Math.round(signal.relevance_score * 100)}% relevant
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-slate-400 leading-relaxed">{signal.summary}</p>
+                                    {signal.source && (
+                                        <span className="text-[10px] text-slate-600 mt-2 block">Source: {signal.source}</span>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
                     </AccordionSection>
                 )}
             </div>
@@ -445,8 +417,8 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                      </div>
                  )}
 
-                 {/* State B: Analysis Done, Start Refinement */}
-                 {currentAnalysis && !showRefinementChat && !solutions && !findingSolutions && !showPersonaSelector && (
+                 {/* State B: Analysis Done, Start Refinement or Generate Solutions */}
+                 {currentAnalysis && !showRefinementChat && !showPersonaSelector && (
                      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
                          <div className="bg-indigo-900/10 border border-indigo-500/20 rounded-xl p-6 text-center">
                              <Lightbulb className="w-10 h-10 text-indigo-400 mx-auto mb-3" />
@@ -454,18 +426,30 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                              <p className="text-sm text-slate-400 mb-4">
                                  Collaborate with the AI to validate hypotheses and set constraints before solving.
                              </p>
-                             <button 
+                             <button
                                  onClick={onStartRefinement}
                                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors"
                              >
                                  Start Refinement Session
                              </button>
                              <button
-                                 onClick={() => onStartDebate('recommended')}
+                                 onClick={() => {
+                                   localStorage.setItem(`situation_${situation.situation_id}`, JSON.stringify(situation));
+                                   localStorage.setItem(`analysis_${situation.situation_id}`, JSON.stringify(currentAnalysis));
+                                   localStorage.setItem(`market_signals_${situation.situation_id}`, JSON.stringify(initialMarketSignals || []));
+                                   localStorage.setItem(`principal_context_${situation.situation_id}`, JSON.stringify(principalContext || {}));
+                                   localStorage.setItem(`debate_config_${situation.situation_id}`, JSON.stringify({
+                                     selectedPersonas: ['mckinsey', 'bcg', 'bain'],
+                                     councilType: 'preset',
+                                     selectedPreset: 'recommended',
+                                     useHybridCouncil: false
+                                   }));
+                                   window.location.href = `/debate/${situation.situation_id}`;
+                                 }}
                                  className="w-full mt-2 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded font-medium flex items-center justify-center gap-2"
                              >
                                  <CircleDot className="w-3 h-3" />
-                                 Run Recommended Debate
+                                 Generate Solutions →
                              </button>
                          </div>
                      </div>
@@ -512,11 +496,23 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                         <h4 className="text-xs font-bold uppercase tracking-wider">AI Recommendation</h4>
                                     </div>
                                     <button
-                                        onClick={() => onStartDebate('recommended')}
+                                        onClick={() => {
+                                          localStorage.setItem(`situation_${situation.situation_id}`, JSON.stringify(situation));
+                                          localStorage.setItem(`analysis_${situation.situation_id}`, JSON.stringify(currentAnalysis));
+                                          localStorage.setItem(`market_signals_${situation.situation_id}`, JSON.stringify(initialMarketSignals || []));
+                                          localStorage.setItem(`principal_context_${situation.situation_id}`, JSON.stringify(principalContext || {}));
+                                          localStorage.setItem(`debate_config_${situation.situation_id}`, JSON.stringify({
+                                            selectedPersonas: refinementResult?.recommended_council_members?.map(m => m.persona_id) ?? ['mckinsey', 'bcg', 'bain'],
+                                            councilType: 'preset',
+                                            selectedPreset: 'recommended',
+                                            useHybridCouncil: false
+                                          }));
+                                          window.location.href = `/debate/${situation.situation_id}`;
+                                        }}
                                         className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wide bg-purple-600 hover:bg-purple-500 text-white rounded flex items-center gap-2"
                                     >
                                         <CircleDot className="w-3 h-3" />
-                                        Run Recommended
+                                        Generate Solutions
                                     </button>
                                 </div>
                                 <div className="space-y-3 mb-4">
@@ -615,75 +611,29 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                  </div>
                              )}
 
-                             <button 
-                                 onClick={() => onStartDebate('manual')}
+                             <button
+                                 onClick={() => {
+                                   localStorage.setItem(`situation_${situation.situation_id}`, JSON.stringify(situation));
+                                   localStorage.setItem(`analysis_${situation.situation_id}`, JSON.stringify(currentAnalysis));
+                                   localStorage.setItem(`market_signals_${situation.situation_id}`, JSON.stringify(initialMarketSignals || []));
+                                   localStorage.setItem(`principal_context_${situation.situation_id}`, JSON.stringify(principalContext || {}));
+                                   localStorage.setItem(`debate_config_${situation.situation_id}`, JSON.stringify({
+                                     selectedPersonas: useHybridCouncil ? selectedPersonas : (refinementResult?.recommended_council_members?.map(m => m.persona_id) ?? ['mckinsey', 'bcg', 'bain']),
+                                     councilType: councilType,
+                                     selectedPreset: selectedPreset,
+                                     useHybridCouncil: useHybridCouncil
+                                   }));
+                                   window.location.href = `/debate/${situation.situation_id}`;
+                                 }}
                                  className="w-full mt-2 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-medium flex items-center justify-center gap-2"
                              >
                                  <Users className="w-4 h-4" />
-                                 Start Debate
+                                 Generate Solutions →
                              </button>
                          </div>
                      </div>
                  )}
 
-                 {/* State E: Debate In Progress */}
-                 {findingSolutions && (
-                     <div className="animate-in fade-in">
-                         <CouncilDebate
-                             phase={debatePhase}
-                             stageOneHypotheses={debateHypotheses}
-                             kpiName={situation?.kpi_name || 'KPI'}
-                             activePersonas={(() => {
-                                 if (selectedPersonas.length > 0) {
-                                     return [...new Set(selectedPersonas)];
-                                 }
-                                 const recommended = refinementResult?.recommended_council_members?.map(m => m.persona_id) ?? [];
-                                 if (recommended.length > 0) {
-                                     return [...new Set(recommended)];
-                                 }
-                                 return availablePersonas.filter(p => p.type === 'firm').map(p => p.id).slice(0, 3);
-                             })()}
-                             availablePersonas={availablePersonas}
-                         />
-                     </div>
-                 )}
-
-                 {/* State F: Solutions (Results) */}
-                 {solutions && !findingSolutions && (
-                     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                         <div className="bg-emerald-900/10 border border-emerald-500/20 rounded-xl p-4">
-                             <div className="flex items-center gap-2 mb-2">
-                                 <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                                 <h3 className="font-semibold text-white">Consensus Reached</h3>
-                             </div>
-                             <p className="text-sm text-slate-400">
-                                 The council has generated {solutions.options_ranked?.length || 0} viable options.
-                             </p>
-                         </div>
-
-                         {solutions.recommendation && (
-                            <div className="bg-slate-800 rounded-lg p-4 border border-slate-700 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <div className="text-xs text-slate-500 uppercase mb-1">Top Recommendation</div>
-                                        <div className="text-white font-medium">{solutions.recommendation.title}</div>
-                                    </div>
-                                    <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                                </div>
-                                <p className="text-xs text-slate-400 leading-relaxed">
-                                    {solutions.recommendation_rationale}
-                                </p>
-                            </div>
-                        )}
-
-                         <a
-                             href={`/briefing/${situation.situation_id}`}
-                             className="block w-full py-3 bg-blue-600 hover:bg-blue-500 text-white text-center rounded-lg font-bold transition-colors"
-                         >
-                             View Full Decision Briefing
-                         </a>
-                     </div>
-                 )}
 
              </div>
         </div>
