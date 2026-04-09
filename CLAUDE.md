@@ -13,6 +13,24 @@
 
 ---
 
+## Production Deployment
+
+**PUSH TO GITHUB = DEPLOY TO PRODUCTION**
+
+- **Every push to `master` branch triggers automatic deployment:**
+  - Frontend (React/Vite): Auto-deploys to **Vercel** within 2–3 minutes
+  - Backend (FastAPI): Auto-deploys to **Railway** within 2–3 minutes
+- **Do NOT deploy manually** — rely on GitHub automation
+- **Verify both services live:**
+  - Frontend: Vercel dashboard → deployments tab
+  - Backend: Railway dashboard → deployment logs
+- **Pre-push checklist:**
+  - Run `npm run build` in `decision-studio-ui/` to catch TypeScript errors (Vercel will fail without these)
+  - Run `.venv/Scripts/pytest tests/unit/ --timeout=15` to verify unit tests pass
+  - Review `git diff HEAD` to confirm intended changes only
+
+---
+
 ## Project Overview
 
 Agent9-HERMES is a multi-agent automation system delivering automated business insights through
