@@ -120,7 +120,7 @@ class A9_Situation_Awareness_Agent:
 
         # Opportunity detection configuration
         self._opportunity_threshold_multiplier: float = float(
-            config.get("opportunity_threshold_multiplier", 1.5)
+            config.get("opportunity_threshold_multiplier", 1.1)
         )
         self._opportunity_recovery_min_delta_pct: float = float(
             config.get("opportunity_recovery_min_delta_pct", 5.0)
@@ -439,19 +439,12 @@ class A9_Situation_Awareness_Agent:
             self.logger.info(f"Detecting situations for {request.principal_context.role}")
 
             # Get relevant KPIs based on principal context and business processes
+            client_id = getattr(request, "client_id", None)
             relevant_kpis = self._get_relevant_kpis(
                 request.principal_context,
-                request.business_processes
+                request.business_processes,
+                client_id=client_id,
             )
-
-            # Filter by client_id if provided — uses kpi.client_id directly as the scoping key
-            client_id = getattr(request, "client_id", None)
-            if client_id:
-                before_count = len(relevant_kpis)
-                relevant_kpis = {
-                    name: kpi for name, kpi in relevant_kpis.items()
-                    if getattr(kpi, "client_id", None) == client_id
-                }
 
             if not relevant_kpis:
                 self.logger.warning("No relevant KPIs found for principal context and business processes")
@@ -527,6 +520,20 @@ class A9_Situation_Awareness_Agent:
                 except Exception as kpi_error:
                     self.logger.warning(f"Error processing KPI {kpi_name}: {str(kpi_error)}")
                     # Continue with other KPIs
+
+            # Deduplicate situations by kpi_name — keep the highest-severity entry per KPI
+            _seen_kpi: dict = {}
+            _severity_order = {s: i for i, s in enumerate(SituationSeverity)}
+            for sit in situations:
+                _key = sit.kpi_name
+                if _key not in _seen_kpi:
+                    _seen_kpi[_key] = sit
+                else:
+                    _existing_rank = _severity_order.get(_seen_kpi[_key].severity, 99)
+                    _new_rank = _severity_order.get(sit.severity, 99)
+                    if _new_rank < _existing_rank:
+                        _seen_kpi[_key] = sit
+            situations = list(_seen_kpi.values())
 
             # Sort situations by severity (critical first)
             situations.sort(key=lambda s: list(SituationSeverity).index(s.severity) if s.severity in SituationSeverity else 99)
@@ -1458,18 +1465,32 @@ class A9_Situation_Awareness_Agent:
             try:
                 if hasattr(kpi, 'thresholds') and kpi.thresholds:
                     for threshold in kpi.thresholds:
+                        # Format A: severity/value style (YAML KPIs)
                         if hasattr(threshold, 'severity') and hasattr(threshold, 'value'):
-                            # Map severity string to enum
                             severity_str = threshold.severity.lower()
                             if severity_str == 'warning':
                                 thresholds[SituationSeverity.HIGH] = threshold.value
                             elif severity_str == 'critical':
                                 thresholds[SituationSeverity.CRITICAL] = threshold.value
-                                
-                            # Store inverse logic flag if available
                             if hasattr(threshold, 'inverse_logic') and threshold.inverse_logic:
-                                # Store in a special key for reference
                                 thresholds['_inverse_logic'] = threshold.inverse_logic
+
+                        # Format B: comparison_type/green_threshold style (Supabase KPIs)
+                        # These thresholds are percent-change values, NOT absolute values.
+                        # Only copy _inverse_logic — numeric thresholds are stored separately
+                        # in kpi_def.metadata['variance_thresholds'] by the variance threshold
+                        # mapping block below, and are consumed via percent_change comparisons.
+                        _is_format_b = (
+                            isinstance(threshold, dict) and 'comparison_type' in threshold
+                        ) or (
+                            not isinstance(threshold, dict)
+                            and hasattr(threshold, 'comparison_type')
+                            and not (hasattr(threshold, 'severity') and hasattr(threshold, 'value'))
+                        )
+                        if _is_format_b:
+                            _inv = threshold.get('inverse_logic') if isinstance(threshold, dict) else getattr(threshold, 'inverse_logic', None)
+                            if _inv:
+                                thresholds['_inverse_logic'] = True
             except Exception as e:
                 logger.warning(f"Error accessing thresholds for KPI {kpi.name if hasattr(kpi, 'name') else 'unknown'}: {str(e)}")
             
@@ -1696,7 +1717,8 @@ class A9_Situation_Awareness_Agent:
     def _get_relevant_kpis(
         self,
         principal_context: PrincipalContext,
-        business_processes: Optional[List[str]] = None
+        business_processes: Optional[List[str]] = None,
+        client_id: Optional[str] = None
     ) -> Dict[str, KPIDefinition]:
         """Get KPIs relevant to the principal's business processes.
         
@@ -1772,6 +1794,14 @@ class A9_Situation_Awareness_Agent:
         
         # Filter KPIs by business process
         for kpi_name, kpi_def in self.kpi_registry.items():
+            # Client scoping: skip KPIs that don't belong to the requested client.
+            # This must happen before name-keying to prevent cross-client collisions
+            # when two clients share the same KPI display name (e.g. "Gross Revenue").
+            if client_id:
+                kpi_client = getattr(kpi_def, 'client_id', None)
+                if kpi_client is not None and kpi_client != client_id:
+                    continue
+
             # For testing/development: Include KPIs without business processes defined
             # This allows tests to progress even when KPIs lack complete metadata
             if not kpi_def.business_processes:
@@ -2158,6 +2188,37 @@ class A9_Situation_Awareness_Agent:
             if comparison_value is not None and comparison_value != 0:
                 percent_change = ((current_value - comparison_value) / abs(comparison_value)) * 100
 
+            # Read inverse_logic from KPI threshold config (cost/expense KPIs).
+            # Thresholds may be a list of per-comparison-type objects (Supabase KPIs)
+            # or a flat dict with '_inverse_logic' key (YAML KPIs). Handle both.
+            _inverse_logic = False
+            if hasattr(kpi_definition, 'thresholds'):
+                _thresholds = kpi_definition.thresholds
+                if isinstance(_thresholds, list):
+                    # Supabase path: list of threshold objects/dicts — any entry with inverse_logic=True
+                    for _t in _thresholds:
+                        if isinstance(_t, dict):
+                            if _t.get('inverse_logic', False):
+                                _inverse_logic = True
+                                break
+                        elif getattr(_t, 'inverse_logic', False):
+                            _inverse_logic = True
+                            break
+                elif isinstance(_thresholds, dict):
+                    # YAML path: flat dict with '_inverse_logic' sentinel key
+                    _inverse_logic = bool(_thresholds.get('_inverse_logic', False))
+                    if not _inverse_logic:
+                        _ptg = _thresholds.get('positive_trend_is_good', None)
+                        if _ptg is not None:
+                            _inverse_logic = not bool(_ptg)
+
+            # For inverse_logic KPIs (e.g. costs stored as negative debits), normalise
+            # percent_change so that "costs went up" always shows as a positive number.
+            # Raw formula: (current - comparison) / |comparison| gives negative when costs
+            # increase in absolute-value terms because values are stored as negatives.
+            if _inverse_logic and percent_change is not None:
+                percent_change = -percent_change
+
             return KPIValue(
                 kpi_name=kpi_name,
                 value=current_value,
@@ -2166,7 +2227,8 @@ class A9_Situation_Awareness_Agent:
                 timeframe=timeframe,
                 dimensions=merged_filters,
                 percent_change=percent_change,
-                monthly_values=monthly_values
+                monthly_values=monthly_values,
+                inverse_logic=_inverse_logic,
             )
         except Exception as e:
             logger.error(f"Error getting KPI value for {kpi_name}: {str(e)}")
@@ -2550,6 +2612,55 @@ class A9_Situation_Awareness_Agent:
                         baseline=comparison,
                         confidence=0.65,
                     ))
+
+        # ── percent_change-based opportunity check (Format B / Supabase KPIs) ──────
+        # YAML KPIs use absolute-value thresholds (handled above). Supabase KPIs
+        # store percent-change thresholds in metadata['variance_thresholds'].
+        # We compare kpi_value.percent_change directly against green_threshold here.
+        if (
+            not signals
+            and kpi_value.percent_change is not None
+            and hasattr(kpi_definition, 'metadata')
+            and isinstance(getattr(kpi_definition, 'metadata', None), dict)
+        ):
+            vt = kpi_definition.metadata.get('variance_thresholds', {})
+            inverse_logic = kpi_definition.thresholds.get('_inverse_logic', False) if isinstance(kpi_definition.thresholds, dict) else False
+            for _ct, _entry in vt.items():
+                if not isinstance(_entry, dict):
+                    continue
+                _green = _entry.get('green')
+                if _green is None:
+                    continue
+                pct = kpi_value.percent_change
+                # For inverse_logic KPIs: percent_change is already sign-flipped so
+                # positive = bad (costs up). Opportunity = costs actually fell (pct < 0).
+                # For positive-trend KPIs: opportunity = pct > green_threshold (above target).
+                if inverse_logic:
+                    if pct < 0:
+                        signals.append(_make_signal(
+                            opportunity_type="outperformance",
+                            headline=(
+                                f"{kpi_name} is {abs(pct):.1f}% below prior year "
+                                f"— cost reduction above green threshold"
+                            ),
+                            delta_pct=abs(pct),
+                            baseline=kpi_value.comparison_value or kpi_value.value,
+                            confidence=0.75,
+                        ))
+                        break
+                else:
+                    if pct > _green:
+                        signals.append(_make_signal(
+                            opportunity_type="outperformance",
+                            headline=(
+                                f"{kpi_name} grew {pct:.1f}% vs prior year "
+                                f"— above {_green:.1f}% target"
+                            ),
+                            delta_pct=pct,
+                            baseline=kpi_value.comparison_value or kpi_value.value,
+                            confidence=0.75,
+                        ))
+                        break
 
         return signals
 

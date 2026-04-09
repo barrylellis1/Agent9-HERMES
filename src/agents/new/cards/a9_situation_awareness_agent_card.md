@@ -272,9 +272,45 @@ includes `escalate_to_da: bool` for direct routing to DA by the assessment engin
 
 `"problem"` and `"opportunity"` card_type values are **deprecated** (Phase 9G removal). SA is a sensor only.
 
+## Phase 10B Improvements (Apr 2026)
+
+### Client Scoping Refactor
+- `_get_relevant_kpis()` now accepts `client_id` parameter
+- Prevents cross-client KPI name collisions (two clients may have "Gross Revenue")
+- Client scoping happens at KPI retrieval time, not post-filtering
+- Supports Phase 10B-DGA architecture where DGA routes correct Data Products per client
+
+### Situation Deduplication
+- When multiple KPI thresholds trigger for the same KPI, keeps highest-severity entry only
+- Prevents duplicate situation cards in the UI when a KPI crosses multiple severity lines
+- Preserves sort order (critical → high → medium → low)
+
+### Threshold Format Support (YAML + Supabase)
+- **Format A (YAML KPIs):** `severity`/`value` structure with optional `inverse_logic` flag
+- **Format B (Supabase KPIs):** `comparison_type` + `variance_thresholds` metadata
+- Both formats support inverse_logic for cost/expense KPIs where lower is better
+
+### Inverse Logic (Cost KPI) Improvements
+- Reads `inverse_logic` flag from threshold config or `positive_trend_is_good` metadata
+- Sign-flips `percent_change` so "costs went up" always shows as a positive number
+- Applies to both situation detection and opportunity signals
+- Handles both YAML and Supabase KPI formats
+
+### Opportunity Detection for Supabase KPIs
+- Format B percent-change-based detection using `variance_thresholds` metadata
+- Detects outperformance when `percent_change` exceeds green threshold
+- Handles inverse_logic (costs fell below target, showing as opportunity)
+- Confidence: 0.75 for outperformance, 0.75 for recovery with inverse logic
+
+### Opportunity Threshold Calibration
+- Changed `opportunity_threshold_multiplier` from 1.5 → 1.1 (more sensitive to upside)
+- Captures more KPI recovery and outperformance signals
+- Aligns with Phase 8 opportunity detection design
+
 ## Future Enhancements
 - Integration with A9_NLP_Interface_Agent for advanced query parsing
 - Enhanced business impact analysis using LLM
 - Machine learning-based anomaly detection
 - Multi-dimensional trend analysis
 - Enhanced visualization capabilities in Decision Studio UI
+- Phase 10B-DGA: Mandatory Data Governance Agent wiring for view/KPI resolution
