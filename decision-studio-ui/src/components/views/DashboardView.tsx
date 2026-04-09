@@ -24,9 +24,6 @@ interface DashboardViewProps {
   onSelectPrincipal: (id: string) => void;
   timeframe: string;
   onSelectTimeframe: (tf: string) => void;
-  availableClients: Client[];
-  selectedClientId: string;
-  onSelectClient: (id: string) => void;
   onRefresh: () => void;
   onSelectSituation: (sit: Situation) => void;
   statusMsg: string | null;
@@ -49,9 +46,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onSelectPrincipal,
   timeframe: _timeframe,
   onSelectTimeframe: _onSelectTimeframe,
-  availableClients: _availableClients,
-  selectedClientId: _selectedClientId,
-  onSelectClient: _onSelectClient,
   onRefresh,
   onSelectSituation,
   statusMsg,

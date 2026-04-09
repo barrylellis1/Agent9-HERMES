@@ -112,3 +112,8 @@ Environment variable override: `OPENAI_MODEL_SOLUTION`
 - Problem reframe (Situation/Complication/Question)
 - Recommendation + rationale
 - HITL approval context and audit trail
+
+## Recent Updates (Apr 2026)
+- Removed debug print statements from exception handling (cleanup)
+- Error logging via logger.info() for LLM debate failures (fallback to heuristic)
+- Phase 10D performance optimization planned for token payload reduction

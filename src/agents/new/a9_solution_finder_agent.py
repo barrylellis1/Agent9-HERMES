@@ -1430,9 +1430,6 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
 
                 except Exception as le:
                     # LLM path failed; fall back to heuristic
-                    print(f"DEBUG: LLM Debate FAILED: {le}")
-                    import traceback
-                    traceback.print_exc()
                     self.logger.info(f"LLM debate path failed, falling back to heuristic: {le}")
                     audit_log.append({"event": "llm_debate_error", "error": str(le)})
 

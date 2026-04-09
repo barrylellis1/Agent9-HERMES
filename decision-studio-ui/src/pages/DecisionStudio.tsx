@@ -131,10 +131,6 @@ export function DecisionStudio() {
       timeframe={timeframe}
       onSelectTimeframe={setTimeframe}
 
-      availableClients={availableClients}
-      selectedClientId={selectedClientId}
-      onSelectClient={setSelectedClientId}
-
       onRefresh={handleRefresh}
       onSelectSituation={(sit) => { setSelectedSituation(sit); handleDeepAnalysis(sit); }}
       statusMsg={statusMsg}
