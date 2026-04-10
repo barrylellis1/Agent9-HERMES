@@ -6,6 +6,7 @@ import { DataProductOnboardingNew } from './pages/DataProductOnboardingNew'
 import { RegistryExplorer } from './pages/RegistryExplorer'
 import { ContextExplorer } from './pages/ContextExplorer'
 import { ExecutiveBriefing } from './pages/ExecutiveBriefing'
+import { WhitePaperReport } from './pages/WhitePaperReport'
 import { CouncilDebatePage } from './pages/CouncilDebatePage'
 import { Login } from './pages/Login'
 import { Portfolio } from './pages/Portfolio'
@@ -29,6 +30,7 @@ function App() {
         <Route path="/dashboard" element={<DecisionStudio />} />
         <Route path="/debate/:situationId" element={<CouncilDebatePage />} />
         <Route path="/briefing/:situationId" element={<ExecutiveBriefing />} />
+        <Route path="/report/:situationId" element={<WhitePaperReport />} />
         <Route path="/context" element={<ContextExplorer />} />
         <Route path="/settings" element={<RegistryExplorer />} />
         <Route path="/settings/onboarding" element={<DataProductOnboardingNew />} />

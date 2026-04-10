@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams, Link, useSearchParams } from 'react-router-dom'
+import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import html2pdf from 'html2pdf.js'
 import {
   ArrowLeft, Download, Printer, AlertTriangle, CheckCircle, ChevronRight,
   Users, Target, Zap, Clock, Sparkles, ShieldCheck, Loader2, CheckCircle2,
-  ChevronDown, Send, MessageSquare
+  ChevronDown, Send, MessageSquare, FileText
 } from 'lucide-react'
 import { approveSolution, askBriefingQuestion, BriefingQAResponse, storeBriefingSnapshot, getBriefingSnapshot, getVASolution } from '../api/client'
 import { CostOfInactionBanner } from '../components/CostOfInactionBanner'
@@ -279,6 +279,7 @@ function DecisionChat({
 // ─────────────────────────────────────────────────
 export function ExecutiveBriefing() {
   const { situationId } = useParams()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const solutionIdParam = searchParams.get('solution_id')
   const [briefing, setBriefing] = useState<any>(null)
@@ -498,6 +499,14 @@ export function ExecutiveBriefing() {
           >
             <Download className="w-3.5 h-3.5" />
             Export
+          </button>
+          <button
+            onClick={() => navigate(`/report/${situationId}`)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
+            title="Open narrative-arc white-paper report"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            View Report
           </button>
         </div>
       </nav>
