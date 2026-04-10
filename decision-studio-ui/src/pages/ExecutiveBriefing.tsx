@@ -5,7 +5,7 @@ import html2pdf from 'html2pdf.js'
 import {
   ArrowLeft, Download, Printer, AlertTriangle, CheckCircle, ChevronRight,
   Users, Target, Zap, Clock, Sparkles, ShieldCheck, Loader2, CheckCircle2,
-  ChevronDown, Send, MessageSquare, BookOpen
+  ChevronDown, Send, MessageSquare
 } from 'lucide-react'
 import { approveSolution, askBriefingQuestion, BriefingQAResponse, storeBriefingSnapshot, getBriefingSnapshot, getVASolution } from '../api/client'
 import { CostOfInactionBanner } from '../components/CostOfInactionBanner'
@@ -55,7 +55,7 @@ function AccordionSection({
         </div>
         <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
-      <div className={`accordion-content ${isOpen ? 'block' : 'hidden'} print:block bg-white`}>
+      <div className={`accordion-content ${isOpen ? 'block' : 'hidden'} print:block bg-slate-950 print:bg-white`}>
         {children}
       </div>
     </div>
@@ -288,7 +288,7 @@ export function ExecutiveBriefing() {
   const [vaData, setVaData] = useState<VASolution | null>(null)
   const [showAttribution, setShowAttribution] = useState(false)
   const [openSections, setOpenSections] = useState<Set<string>>(
-    new Set(['summary', 'situation', 'options', 'recommendation'])
+    new Set(['options', 'recommendation', 'roadmap'])
   )
 
   const toggleSection = (id: string) => {
@@ -304,6 +304,30 @@ export function ExecutiveBriefing() {
     const element = (document.querySelector('.briefing-content') || document.body) as HTMLElement
     const filename = `Decision-Briefing-${situationId || 'export'}.pdf`
 
+    // Inject temporary print-mode styles so html2pdf captures white-paper format
+    const printStyle = document.createElement('style')
+    printStyle.id = 'pdf-export-style'
+    printStyle.textContent = `
+      .pdf-export-mode, .pdf-export-mode * { color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .pdf-export-mode { background: white !important; color: black !important; overflow: visible !important; }
+      .pdf-export-mode .print\\:hidden { display: none !important; }
+      .pdf-export-mode .hidden.print\\:block { display: block !important; }
+      .pdf-export-mode .accordion-content { display: block !important; background: white !important; }
+      .pdf-export-mode .accordion-content button { display: none !important; }
+      .pdf-export-mode [class*="bg-slate-9"], .pdf-export-mode [class*="bg-slate-8"] { background: white !important; }
+      .pdf-export-mode [class*="border-slate-7"], .pdf-export-mode [class*="border-slate-8"] { border-color: #e2e8f0 !important; }
+      .pdf-export-mode [class*="text-slate-2"], .pdf-export-mode [class*="text-slate-3"] { color: #1e293b !important; }
+      .pdf-export-mode [class*="text-slate-4"], .pdf-export-mode [class*="text-slate-5"] { color: #475569 !important; }
+      .pdf-export-mode [class*="text-emerald-4"] { color: #059669 !important; }
+      .pdf-export-mode [class*="text-amber-4"] { color: #d97706 !important; }
+      .pdf-export-mode [class*="text-red-4"] { color: #dc2626 !important; }
+      .pdf-export-mode table thead { background: #f1f5f9 !important; }
+      .pdf-export-mode table thead th { color: #0f172a !important; }
+      .pdf-export-mode table td { color: #334155 !important; }
+    `
+    document.head.appendChild(printStyle)
+    element.classList.add('pdf-export-mode')
+
     const options = {
       margin: [10, 15] as [number, number],
       filename,
@@ -313,7 +337,10 @@ export function ExecutiveBriefing() {
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     }
 
-    html2pdf().set(options).from(element).save()
+    html2pdf().set(options).from(element).save().then(() => {
+      element.classList.remove('pdf-export-mode')
+      printStyle.remove()
+    })
   }, [situationId])
 
   const handleApprove = useCallback(async (optionId: string) => {
@@ -434,7 +461,7 @@ export function ExecutiveBriefing() {
   const defaultFirmStyle = { bar: 'bg-indigo-600', border: 'border-l-indigo-600', badge: 'bg-indigo-50 text-indigo-800', dot: 'bg-indigo-600' }
 
   return (
-    <div className="h-screen flex flex-col bg-slate-950 overflow-hidden print:text-black print:bg-white">
+    <div className="h-screen flex flex-col bg-slate-950 overflow-hidden print:h-auto print:overflow-visible print:text-black print:bg-white">
       {/* Nav */}
       <nav className="flex-shrink-0 bg-slate-900 border-b border-slate-800 py-3 px-6 flex justify-between items-center print:hidden z-50">
         <div className="flex items-center gap-4">
@@ -445,15 +472,16 @@ export function ExecutiveBriefing() {
           <BrandLogo size={24} />
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 mr-3">
-            <BookOpen className="w-4 h-4 text-indigo-400" />
-            <span className="text-sm font-semibold text-white truncate max-w-xs">{data.title}</span>
-          </div>
+          <span className="text-sm font-semibold text-white truncate max-w-xs mr-3">{data.title}</span>
           <button
-            onClick={() => setOpenSections(new Set(['summary', 'situation', 'market', 'stage1', 'crossreview', 'options', 'roadmap', 'risks', 'blindspots', 'inaction', 'recommendation']))}
+            onClick={() => {
+              const allIds = ['situation', 'market', 'stage1', 'crossreview', 'options', 'roadmap', 'risks', 'blindspots', 'inaction', 'recommendation']
+              const allOpen = allIds.every(id => openSections.has(id))
+              setOpenSections(allOpen ? new Set(['options', 'recommendation', 'roadmap']) : new Set(allIds))
+            }}
             className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
           >
-            Expand All
+            {['situation', 'market', 'stage1', 'crossreview', 'risks', 'blindspots', 'inaction'].every(id => openSections.has(id)) ? 'Collapse All' : 'Expand All'}
           </button>
           <button
             onClick={() => window.print()}
@@ -475,9 +503,9 @@ export function ExecutiveBriefing() {
       </nav>
 
       {/* Two-panel body */}
-      <div className="flex-1 min-h-0 flex overflow-hidden">
+      <div className="flex-1 min-h-0 flex overflow-hidden print:overflow-visible print:block">
         {/* ── Left: Briefing content ── */}
-        <div className="briefing-content flex-1 overflow-y-auto bg-slate-950 p-4 print:p-0 print:bg-white">
+        <div className="briefing-content flex-1 overflow-y-auto bg-slate-950 p-4 print:p-0 print:bg-white print:overflow-visible">
           <div className="max-w-3xl mx-auto">
 
             {/* ── Print-only header ─────────────────────────────────────────── */}
@@ -494,6 +522,15 @@ export function ExecutiveBriefing() {
                   <div className="text-[10px] text-slate-500 font-mono">{situationId}</div>
                   <div className="text-[10px] text-slate-500 font-mono">{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
                 </div>
+              </div>
+
+              {/* KPI / Principal / Classification row */}
+              <div className="mt-2 flex items-center gap-4 text-[10px] font-mono text-slate-500">
+                <span>KPI: {data.kpiData?.kpi_name || '—'}</span>
+                <span>|</span>
+                <span>Principal: {principalId}</span>
+                <span>|</span>
+                <span className="px-1.5 py-0.5 border border-slate-400 text-slate-600 rounded text-[9px] uppercase tracking-wider">Internal — Decision Sensitive</span>
               </div>
 
               {/* Monochrome metadata strip */}
@@ -549,289 +586,174 @@ export function ExecutiveBriefing() {
               )
             })()}
 
-            {/* Recommended option metrics strip */}
+            {/* Print-only: Situation & Context */}
+            <div className="hidden print:block mb-6">
+              <div className="text-[9px] text-slate-500 uppercase tracking-wider font-mono mb-2 border-b border-slate-200 pb-1">
+                Situation &amp; Context
+              </div>
+              <p className="text-xs text-slate-700 mb-2 leading-relaxed">{data.situation?.currentState}</p>
+              <p className="text-xs text-slate-700 leading-relaxed">{data.situation?.problem}</p>
+            </div>
+
+            {/* Print-only: Problem Statement & Root Causes */}
+            {data.situation?.keyQuestion && (
+              <div className="hidden print:block mb-6">
+                <div className="text-[9px] text-slate-500 uppercase tracking-wider font-mono mb-2 border-b border-slate-200 pb-1">
+                  Problem Statement &amp; Root Causes
+                </div>
+                <p className="text-xs font-semibold text-slate-800 mb-3 border-l-2 border-slate-400 pl-3">
+                  Key Question: {data.situation.keyQuestion}
+                </p>
+                {data.situation?.rootCauses?.length > 0 && (
+                  <ol className="space-y-2">
+                    {data.situation.rootCauses.map((cause: any, i: number) => (
+                      <li key={i} className="text-xs text-slate-700">
+                        <span className="font-semibold">{i + 1}. {cause.driver}</span>
+                        {cause.evidence && <span className="text-slate-500 ml-1">— {cause.evidence}</span>}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            )}
+
+            {/* Print-only: Market Context */}
+            {data.market_signals?.length > 0 && (
+              <div className="hidden print:block mb-6">
+                <div className="text-[9px] text-slate-500 uppercase tracking-wider font-mono mb-2 border-b border-slate-200 pb-1">
+                  Market Context
+                </div>
+                <div className="space-y-2">
+                  {data.market_signals.slice(0, 4).map((signal: any, i: number) => (
+                    <div key={i} className="text-xs text-slate-700">
+                      <span className="font-semibold">{signal.title}</span>
+                      {signal.summary && <span className="ml-1 text-slate-600">— {signal.summary}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Hero Recommendation Card */}
             {(() => {
-              const recOption = data.options?.find((o: any) => o.recommended)
+              const recOption = data.options?.find((o: any) => o.recommended) ?? data.options?.[0]
+              if (!recOption) return null
               const roi = recOption?.roi || recOption?.expected_roi || '—'
               const timeline = recOption?.timeline || '—'
               const investment = recOption?.investment || recOption?.effort || 'Moderate'
-              const risk = recOption?.risk || '—'
-
+              const risk = recOption?.riskLevel || recOption?.risk || '—'
+              const riskColor = risk === 'Low' ? 'text-emerald-400' : risk === 'Medium' ? 'text-amber-400' : risk === 'High' ? 'text-red-400' : 'text-slate-300'
               return (
-                <div className="grid grid-cols-4 gap-3 mb-4 print:hidden">
-                  <div className="bg-slate-900 border border-slate-700 rounded-lg p-3">
-                    <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Estimated ROI</p>
-                    <p className="text-sm font-bold text-emerald-400">{formatROI(roi)}</p>
+                <div className="print:hidden mb-4">
+                  {/* Kicker */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="h-px flex-1 bg-slate-700" />
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500">Council Recommendation</span>
+                    <div className="h-px flex-1 bg-slate-700" />
                   </div>
-                  <div className="bg-slate-900 border border-slate-700 rounded-lg p-3">
-                    <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Time to Value</p>
-                    <p className="text-sm font-bold text-amber-400">{timeline}</p>
-                  </div>
-                  <div className="bg-slate-900 border border-slate-700 rounded-lg p-3">
-                    <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Investment Required</p>
-                    <p className="text-sm font-bold text-blue-400">{investment}</p>
-                  </div>
-                  <div className="bg-slate-900 border border-slate-700 rounded-lg p-3">
-                    <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Risk Level</p>
-                    <p className="text-sm font-bold text-slate-300">{risk}</p>
+                  {/* Main card */}
+                  <div className="border border-slate-700 border-l-4 border-l-emerald-500 bg-slate-900 rounded-xl p-6">
+                    {/* Top row */}
+                    <div className="flex items-start justify-between gap-4 mb-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-mono uppercase tracking-widest text-slate-500 mb-1">Recommended Path</p>
+                        <h2 className="text-lg font-bold text-white leading-snug">{recOption.title}</h2>
+                      </div>
+                      {approveState === 'approved' && (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-900/50 border border-emerald-600 rounded-full flex-shrink-0">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-xs font-semibold text-emerald-300">Approved</span>
+                        </div>
+                      )}
+                    </div>
+                    {/* Rationale */}
+                    {data.recommendation?.rationale && (
+                      <p className="text-sm text-slate-300 leading-relaxed mb-5">{data.recommendation.rationale}</p>
+                    )}
+                    {/* 4-metric grid */}
+                    <div className="grid grid-cols-4 gap-3 mb-5">
+                      <div className="bg-slate-800/60 rounded-lg p-3">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Est. ROI</p>
+                        <p className="text-sm font-bold text-emerald-400">{formatROI(roi)}</p>
+                      </div>
+                      <div className="bg-slate-800/60 rounded-lg p-3">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Time to Value</p>
+                        <p className="text-sm font-bold text-amber-400">{timeline}</p>
+                      </div>
+                      <div className="bg-slate-800/60 rounded-lg p-3">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Investment</p>
+                        <p className="text-sm font-bold text-blue-400">{investment}</p>
+                      </div>
+                      <div className="bg-slate-800/60 rounded-lg p-3">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Risk Level</p>
+                        <p className={`text-sm font-bold ${riskColor}`}>{risk}</p>
+                      </div>
+                    </div>
+                    {/* Footer strip */}
+                    {(data.recommendation?.decisionOwner || data.recommendation?.deadline) && (
+                      <div className="flex items-center justify-between pt-4 border-t border-slate-700 text-xs text-slate-400">
+                        {data.recommendation?.decisionOwner && (
+                          <div>
+                            <span className="text-slate-600 uppercase tracking-wider text-[10px] font-mono">Decision Owner</span>
+                            <p className="text-slate-300 font-semibold mt-0.5">{data.recommendation.decisionOwner}</p>
+                          </div>
+                        )}
+                        {data.recommendation?.deadline && (
+                          <div className="text-right">
+                            <span className="text-slate-600 uppercase tracking-wider text-[10px] font-mono">Deadline</span>
+                            <p className="text-slate-300 font-semibold mt-0.5">{data.recommendation.deadline}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )
             })()}
 
-            {/* Executive Summary */}
-            <AccordionSection id="summary" title="Executive Summary" openSections={openSections} onToggle={toggleSection}
-              icon={<div className="w-5 h-5 bg-blue-600 text-white rounded flex items-center justify-center text-[10px] font-bold">1</div>}>
-              <div className="p-5">
-                <div className="bg-blue-50 border-l-4 border-blue-600 p-5 rounded-r-lg">
-                  <p className="text-base text-slate-700 leading-relaxed whitespace-pre-line">{data.executiveSummary}</p>
-                </div>
-              </div>
-            </AccordionSection>
-
-            {/* Situation Analysis */}
-            <AccordionSection id="situation" title="Situation Analysis" openSections={openSections} onToggle={toggleSection}
-              icon={<div className="w-5 h-5 bg-blue-600 text-white rounded flex items-center justify-center text-[10px] font-bold">2</div>}>
-              <div className="p-5 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-slate-50 p-5 rounded-lg">
-                    <h3 className="font-semibold text-slate-900 mb-2 flex items-center gap-2 text-sm">
-                      <Target className="w-4 h-4 text-blue-600" /> Current State
-                    </h3>
-                    <p className="text-slate-700 text-sm leading-relaxed">{data.situation?.currentState}</p>
-                  </div>
-                  <div className="bg-red-50 p-5 rounded-lg">
-                    <h3 className="font-semibold text-slate-900 mb-2 flex items-center gap-2 text-sm">
-                      <AlertTriangle className="w-4 h-4 text-red-600" /> The Problem
-                    </h3>
-                    <p className="text-slate-700 text-sm leading-relaxed">{data.situation?.problem}</p>
-                  </div>
-                </div>
-                {data.situation?.rootCauses?.length > 0 && (
-                  <div className="bg-slate-900 text-white p-5 rounded-lg">
-                    <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
-                      <Zap className="w-4 h-4 text-amber-400" /> Root Cause Analysis
-                    </h3>
-                    <div className="space-y-3">
-                      {data.situation.rootCauses.map((cause: any, i: number) => (
-                        <div key={i} className="flex items-start gap-3">
-                          <div className="w-5 h-5 bg-amber-500 text-slate-900 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">{i + 1}</div>
-                          <div>
-                            <p className="font-medium text-white text-sm">{cause.driver}</p>
-                            <p className="text-slate-400 text-xs">{cause.evidence}</p>
-                            <p className="text-amber-400 text-xs font-medium mt-0.5">Impact: {cause.impact}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {data.situation?.keyQuestion && (
-                  <div className="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-r-lg">
-                    <h3 className="font-semibold text-blue-900 mb-1 text-sm">Key Question</h3>
-                    <p className="text-blue-800 italic text-sm">{data.situation.keyQuestion}</p>
-                  </div>
-                )}
-                {data.situation?.assumptions?.length > 0 && (
-                  <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
-                    <h3 className="font-semibold text-amber-900 mb-2 text-sm">Key Assumptions</h3>
-                    <ul className="space-y-1">
-                      {data.situation.assumptions.map((a: string, i: number) => (
-                        <li key={i} className="text-amber-800 text-sm flex items-start gap-2">
-                          <span className="text-amber-500">•</span>{a}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </AccordionSection>
-
-            {/* Market Intelligence */}
-            {data.market_signals?.length > 0 && (
-              <AccordionSection id="market" title="Market Intelligence" openSections={openSections} onToggle={toggleSection}
-                badge={`${data.market_signals.length} signals`}
-                icon={<Sparkles className="w-4 h-4 text-amber-400" />}>
-                <div className="p-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {data.market_signals.map((signal: any, i: number) => (
-                      <div key={i} className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <h3 className="font-semibold text-slate-900 text-sm leading-snug">{signal.title}</h3>
-                          {signal.relevance_score != null && (
-                            <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-200 text-amber-800">
-                              {Math.round(signal.relevance_score * 100)}%
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-slate-700 leading-relaxed mb-2">{signal.summary}</p>
-                        {signal.source && <p className="text-xs text-slate-500">Source: {signal.source}</p>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </AccordionSection>
-            )}
-
-            {/* Stage 1: Firm Proposals */}
-            {data.stage_1_hypotheses && (
-              <AccordionSection id="stage1" title="Stage 1: Independent Firm Proposals" openSections={openSections} onToggle={toggleSection}
-                icon={<div className="w-5 h-5 bg-indigo-600 text-white rounded flex items-center justify-center text-[10px] font-bold">1</div>}>
-                <div className="p-5">
-                  <p className="text-slate-600 text-sm mb-4">Each firm independently analyzed the problem and proposed an intervention using their signature framework.</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {Object.entries(data.stage_1_hypotheses).map(([firmId, hyp]: [string, any]) => {
-                      const s = FIRM_STYLES[firmId] ?? defaultFirmStyle
-                      const conviction = hyp.conviction || 'High'
-                      const displayName = FIRM_DISPLAY_NAMES[firmId.toLowerCase()] ?? (firmId.charAt(0).toUpperCase() + firmId.slice(1).replace(/_/g, ' '))
-                      return (
-                        <div key={firmId} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm flex flex-col">
-                          <div className={`h-1.5 w-full ${s.bar}`} />
-                          <div className="p-4 flex flex-col flex-1">
-                            <div className="flex items-start justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full ${s.dot}`} />
-                                <h4 className="font-bold text-slate-900 text-sm">{displayName}</h4>
-                              </div>
-                              {conviction && (
-                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${convictionStyle[conviction] ?? convictionStyle.Medium}`}>
-                                  {conviction}
-                                </span>
-                              )}
-                            </div>
-                            {hyp.framework && (
-                              <span className={`self-start text-xs font-medium px-2 py-0.5 rounded-full mb-2 ${s.badge}`}>{hyp.framework}</span>
-                            )}
-                            <p className="text-sm text-slate-700 leading-relaxed mb-3 flex-1">{hyp.hypothesis}</p>
-                            {Array.isArray(hyp.key_evidence) && hyp.key_evidence.length > 0 && (
-                              <div className="bg-slate-50 rounded-lg p-2 mb-3">
-                                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Evidence</p>
-                                <ul className="space-y-1">
-                                  {hyp.key_evidence.slice(0, 3).map((ev: string, i: number) => (
-                                    <li key={i} className="flex items-start gap-1 text-xs text-slate-600">
-                                      <span className="text-slate-400 shrink-0">▸</span><span>{ev}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                            {hyp.recommended_focus && (
-                              <div className={`border-l-4 ${s.border} pl-2 mt-auto`}>
-                                <p className="text-[10px] font-semibold text-slate-400 uppercase">Primary Focus</p>
-                                <p className="text-sm font-semibold text-slate-900">{hyp.recommended_focus}</p>
-                              </div>
-                            )}
-                            {hyp.proposed_option?.title && (
-                              <div className="mt-2">
-                                <p className="text-[10px] font-semibold text-slate-400 uppercase">Proposed Action</p>
-                                <p className="text-sm font-semibold text-blue-700 leading-snug">{hyp.proposed_option.title}</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </AccordionSection>
-            )}
-
-            {/* Stage 2: Cross-Review */}
-            {data.cross_review && (
-              <AccordionSection id="crossreview" title="Stage 2: Cross-Review" openSections={openSections} onToggle={toggleSection}
-                icon={<div className="w-5 h-5 bg-purple-600 text-white rounded flex items-center justify-center text-[10px] font-bold">2</div>}>
-                <div className="p-5">
-                  <p className="text-slate-600 text-sm mb-4">Each firm reviewed the others' hypotheses to surface blind spots and tensions.</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {Object.entries(data.cross_review).map(([personaId, review]: [string, any]) => (
-                      <div key={personaId} className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center">
-                            <Users className="w-3.5 h-3.5 text-purple-600" />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-slate-900 text-sm">
-                              {FIRM_DISPLAY_NAMES[personaId.toLowerCase()] ?? (personaId.charAt(0).toUpperCase() + personaId.slice(1).replace(/_/g, ' '))}
-                            </h4>
-                            <p className="text-xs text-slate-500">Council Member</p>
-                          </div>
-                        </div>
-                        {review.critiques?.length > 0 && (
-                          <div className="mb-2">
-                            <h5 className="text-xs font-semibold text-red-600 uppercase tracking-wider mb-1">Critiques</h5>
-                            <ul className="space-y-1">
-                              {review.critiques.map((c: any, i: number) => (
-                                <li key={i} className="text-xs text-slate-700 bg-white p-2 rounded border border-slate-100">
-                                  <span className="font-medium text-slate-900 block mb-0.5">Re: {c.target}</span>
-                                  "{c.concern}"
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        {review.endorsements?.length > 0 && (
-                          <div>
-                            <h5 className="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-1">Endorsements</h5>
-                            <ul className="space-y-1">
-                              {review.endorsements.map((e: any, i: number) => (
-                                <li key={i} className="text-xs text-slate-700 bg-white p-2 rounded border border-slate-100">
-                                  <span className="font-medium text-slate-900 block mb-0.5">Re: {e.target}</span>
-                                  "{e.reason}"
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </AccordionSection>
-            )}
-
-            {/* Strategic Options */}
+            {/* [D] Strategic Options */}
             <AccordionSection id="options" title="Strategic Options" openSections={openSections} onToggle={toggleSection}
               badge={`${data.options?.length || 0} options`}
-              icon={<div className="w-5 h-5 bg-blue-600 text-white rounded flex items-center justify-center text-[10px] font-bold">3</div>}>
+              icon={<Target className="w-4 h-4 text-slate-400" />}>
               <div className="p-5">
-                <p className="text-slate-600 text-sm mb-4">Three strategic pathways evaluated against financial impact, complexity, risk, and priority alignment.</p>
+                <p className="text-slate-400 text-sm mb-4 print:text-slate-600">Three strategic pathways evaluated against financial impact, complexity, risk, and priority alignment.</p>
                 {/* Comparison table */}
-                <div className="overflow-x-auto rounded-lg border border-slate-200 mb-6">
+                <div className="overflow-x-auto rounded-lg border border-slate-700 mb-6 print:border-slate-200">
                   <table className="w-full text-xs text-left">
-                    <thead className="bg-slate-100 text-slate-900 font-bold uppercase">
+                    <thead className="bg-slate-800 text-slate-300 font-bold uppercase print:bg-slate-100 print:text-slate-900">
                       <tr>
-                        <th className="p-3 border-b border-slate-200 min-w-[120px]">Criteria</th>
+                        <th className="p-3 border-b border-slate-700 min-w-[120px] print:border-slate-200">Criteria</th>
                         {data.options?.map((opt: any, i: number) => (
-                          <th key={i} className={`p-3 border-b border-slate-200 min-w-[160px] ${opt.recommended ? 'bg-emerald-50 text-emerald-800' : ''}`}>
-                            {opt.recommended && <div className="text-[9px] text-emerald-600 mb-0.5 flex items-center gap-1"><CheckCircle className="w-2.5 h-2.5" /> RECOMMENDED</div>}
+                          <th key={i} className={`p-3 border-b border-slate-700 min-w-[160px] print:border-slate-200 ${opt.recommended ? 'bg-emerald-900/30 print:bg-emerald-50 print:text-emerald-800' : ''}`}>
+                            {opt.recommended && <div className="text-[9px] text-emerald-400 mb-0.5 flex items-center gap-1 print:text-emerald-600"><CheckCircle className="w-2.5 h-2.5" /> RECOMMENDED</div>}
                             Option {String.fromCharCode(65 + i)}
                           </th>
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-slate-800 print:divide-slate-100">
                       {[
-                        { label: 'Strategy', key: 'title', cls: 'font-medium text-slate-900' },
-                        { label: 'Est. ROI', key: 'roi', cls: 'font-bold text-emerald-600' },
-                        { label: 'Investment', key: 'investment', cls: 'text-slate-600' },
-                        { label: 'Timeline', key: 'timeline', cls: 'text-slate-600' },
+                        { label: 'Strategy', key: 'title', cls: 'font-medium text-slate-200 print:text-slate-900' },
+                        { label: 'Est. ROI', key: 'roi', cls: 'font-bold text-emerald-400 print:text-emerald-600' },
+                        { label: 'Investment', key: 'investment', cls: 'text-slate-400 print:text-slate-600' },
+                        { label: 'Timeline', key: 'timeline', cls: 'text-slate-400 print:text-slate-600' },
                       ].map(({ label, key, cls }) => (
                         <tr key={key}>
-                          <td className="p-3 font-semibold text-slate-700 bg-slate-50">{label}</td>
+                          <td className="p-3 font-semibold text-slate-400 bg-slate-900/50 print:text-slate-700 print:bg-slate-50">{label}</td>
                           {data.options?.map((opt: any, i: number) => (
-                            <td key={i} className={`p-3 ${cls} ${opt.recommended ? 'bg-emerald-50/30' : ''}`}>
+                            <td key={i} className={`p-3 ${cls} ${opt.recommended ? 'bg-emerald-900/10 print:bg-emerald-50/30' : ''}`}>
                               {key === 'roi' ? formatROI(opt[key]) : opt[key]}
                             </td>
                           ))}
                         </tr>
                       ))}
                       <tr>
-                        <td className="p-3 font-semibold text-slate-700 bg-slate-50">Risk</td>
+                        <td className="p-3 font-semibold text-slate-400 bg-slate-900/50 print:text-slate-700 print:bg-slate-50">Risk</td>
                         {data.options?.map((opt: any, i: number) => (
-                          <td key={i} className={`p-3 ${opt.recommended ? 'bg-emerald-50/30' : ''}`}>
+                          <td key={i} className={`p-3 ${opt.recommended ? 'bg-emerald-900/10 print:bg-emerald-50/30' : ''}`}>
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              opt.riskLevel === 'Low' ? 'bg-emerald-100 text-emerald-700' :
-                              opt.riskLevel === 'Medium' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                              opt.riskLevel === 'Low' ? 'bg-emerald-900/40 text-emerald-400 print:bg-emerald-100 print:text-emerald-700' :
+                              opt.riskLevel === 'Medium' ? 'bg-amber-900/40 text-amber-400 print:bg-amber-100 print:text-amber-700' : 'bg-red-900/40 text-red-400 print:bg-red-100 print:text-red-700'}`}>
                               {opt.riskLevel}
                             </span>
                           </td>
@@ -844,56 +766,56 @@ export function ExecutiveBriefing() {
                 <div className="space-y-6">
                   {data.options?.map((option: any, i: number) => (
                     <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                      className={`rounded-xl overflow-hidden border ${option.recommended ? 'border-slate-400 border-l-4 border-l-slate-800 bg-slate-50' : 'border-slate-200 bg-white'}`}>
+                      className={`rounded-xl overflow-hidden border ${option.recommended ? 'border-slate-600 border-l-4 border-l-emerald-500 bg-slate-900' : 'border-slate-700 bg-slate-900'} print:bg-white print:border-slate-200 ${option.recommended ? 'print:border-l-slate-800' : ''}`}>
                       {option.recommended && (
-                        <div className="bg-slate-800 text-white px-4 py-1.5 text-xs font-semibold flex items-center gap-2 print:bg-slate-900">
+                        <div className="bg-emerald-900/40 text-emerald-300 px-4 py-1.5 text-xs font-semibold flex items-center gap-2 print:bg-slate-800 print:text-white">
                           <CheckCircle className="w-3.5 h-3.5" /> RECOMMENDED
                         </div>
                       )}
                       <div className="p-5">
                         <div className="flex justify-between items-start mb-3">
                           <div>
-                            <h3 className="text-lg font-bold text-slate-900">Option {String.fromCharCode(65 + i)}: {option.title}</h3>
-                            <p className="text-slate-600 text-sm mt-0.5">{option.subtitle}</p>
+                            <h3 className="text-lg font-bold text-white print:text-slate-900">Option {String.fromCharCode(65 + i)}: {option.title}</h3>
+                            <p className="text-slate-400 text-sm mt-0.5 print:text-slate-600">{option.subtitle}</p>
                           </div>
                           <div className="text-right">
                             <p className="text-xs text-slate-500">Est. ROI</p>
-                            <p className="text-xl font-bold text-emerald-600">{formatROI(option.roi)}</p>
+                            <p className="text-xl font-bold text-emerald-400 print:text-emerald-600">{formatROI(option.roi)}</p>
                           </div>
                         </div>
-                        <p className="text-slate-700 text-sm leading-relaxed mb-4">{option.description}</p>
+                        <p className="text-slate-300 text-sm leading-relaxed mb-4 print:text-slate-700">{option.description}</p>
                         <div className="grid grid-cols-4 gap-3 mb-4">
                           {[{ label: 'Investment', val: option.investment }, { label: 'Timeline', val: option.timeline },
-                            { label: 'Risk', val: option.riskLevel, cls: option.riskLevel === 'Low' ? 'text-emerald-600' : option.riskLevel === 'Medium' ? 'text-amber-600' : 'text-red-600' },
+                            { label: 'Risk', val: option.riskLevel, cls: option.riskLevel === 'Low' ? 'text-emerald-400 print:text-emerald-600' : option.riskLevel === 'Medium' ? 'text-amber-400 print:text-amber-600' : 'text-red-400 print:text-red-600' },
                             { label: 'Reversibility', val: option.reversibility }].map(({ label, val, cls }) => (
-                            <div key={label} className="text-center p-2 bg-slate-100 rounded-lg">
+                            <div key={label} className="text-center p-2 bg-slate-800/60 rounded-lg print:bg-slate-100">
                               <p className="text-[10px] text-slate-500 uppercase">{label}</p>
-                              <p className={`font-bold text-xs text-slate-900 ${cls || ''}`}>{val}</p>
+                              <p className={`font-bold text-xs text-slate-200 print:text-slate-900 ${cls || ''}`}>{val}</p>
                             </div>
                           ))}
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <h4 className="font-semibold text-slate-700 mb-2 flex items-center gap-1.5 text-sm">
+                            <h4 className="font-semibold text-slate-300 mb-2 flex items-center gap-1.5 text-sm print:text-slate-700">
                               <CheckCircle className="w-3.5 h-3.5 text-slate-500" /> Arguments For
                             </h4>
                             <ul className="space-y-1.5">
                               {option.prosDetailed?.map((pro: any, j: number) => (
-                                <li key={j} className="text-xs text-slate-700 flex items-start gap-1.5">
-                                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 mt-0.5" />
+                                <li key={j} className="text-xs text-slate-400 flex items-start gap-1.5 print:text-slate-700">
+                                  <ChevronRight className="w-3.5 h-3.5 text-slate-600 flex-shrink-0 mt-0.5" />
                                   <span>{pro.point?.replace(/[:]+$/, '')}</span>
                                 </li>
                               ))}
                             </ul>
                           </div>
                           <div>
-                            <h4 className="font-semibold text-slate-700 mb-2 flex items-center gap-1.5 text-sm">
+                            <h4 className="font-semibold text-slate-300 mb-2 flex items-center gap-1.5 text-sm print:text-slate-700">
                               <AlertTriangle className="w-3.5 h-3.5 text-slate-500" /> Arguments Against
                             </h4>
                             <ul className="space-y-1.5">
                               {option.consDetailed?.map((con: any, j: number) => (
-                                <li key={j} className="text-xs text-slate-700 flex items-start gap-1.5">
-                                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 mt-0.5" />
+                                <li key={j} className="text-xs text-slate-400 flex items-start gap-1.5 print:text-slate-700">
+                                  <ChevronRight className="w-3.5 h-3.5 text-slate-600 flex-shrink-0 mt-0.5" />
                                   <span>{con.point?.replace(/[:]+$/, '')}</span>
                                 </li>
                               ))}
@@ -901,15 +823,15 @@ export function ExecutiveBriefing() {
                           </div>
                         </div>
                         {option.perspectives && (
-                          <div className="mt-4 pt-4 border-t border-slate-200">
-                            <h4 className="font-semibold text-slate-900 mb-2 flex items-center gap-1.5 text-sm">
+                          <div className="mt-4 pt-4 border-t border-slate-700 print:border-slate-200">
+                            <h4 className="font-semibold text-slate-200 mb-2 flex items-center gap-1.5 text-sm print:text-slate-900">
                               <Users className="w-3.5 h-3.5" /> Stakeholder Perspectives
                             </h4>
                             <div className="grid grid-cols-3 gap-3">
                               {option.perspectives.map((p: any, j: number) => (
-                                <div key={j} className="bg-slate-50 p-2.5 rounded-lg">
-                                  <p className="font-medium text-slate-900 text-xs">{p.role}</p>
-                                  <p className="text-xs text-slate-600 mt-0.5">{p.view}</p>
+                                <div key={j} className="bg-slate-800/60 p-2.5 rounded-lg print:bg-slate-50">
+                                  <p className="font-medium text-slate-200 text-xs print:text-slate-900">{p.role}</p>
+                                  <p className="text-xs text-slate-400 mt-0.5 print:text-slate-600">{p.view}</p>
                                 </div>
                               ))}
                             </div>
@@ -922,164 +844,33 @@ export function ExecutiveBriefing() {
               </div>
             </AccordionSection>
 
-            {/* Implementation Roadmap */}
-            {data.roadmap?.length > 0 && (
-              <AccordionSection id="roadmap" title="Implementation Roadmap" openSections={openSections} onToggle={toggleSection}
-                icon={<div className="w-5 h-5 bg-blue-600 text-white rounded flex items-center justify-center text-[10px] font-bold">4</div>}>
-                <div className="p-5">
-                  <div className="relative">
-                    <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-slate-300" />
-                    <div className="space-y-4">
-                      {data.roadmap.map((phase: any, i: number) => (
-                        <div key={i} className="relative pl-12">
-                          <div className={`absolute left-3.5 w-4 h-4 rounded-full border-2 ${i === 0 ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-300'}`} />
-                          <div className="bg-slate-50 p-3 rounded-lg">
-                            <div className="flex justify-between items-start mb-1.5">
-                              <h4 className="font-semibold text-slate-900 text-sm">{phase.phase}</h4>
-                              <span className="text-xs text-slate-500 flex items-center gap-1">
-                                <Clock className="w-3 h-3" />{phase.timeline || phase.duration}
-                              </span>
-                            </div>
-                            {phase.description && <p className="text-slate-700 text-xs mb-2">{phase.description}</p>}
-                            <div className="flex flex-wrap gap-1.5">
-                              {(phase.items || phase.deliverables || []).map((d: string, j: number) => (
-                                <span key={j} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">{d}</span>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </AccordionSection>
-            )}
-
-            {/* Risk Analysis */}
-            {data.risks?.length > 0 && (
-              <AccordionSection id="risks" title="Risk Analysis & Mitigation" openSections={openSections} onToggle={toggleSection}
-                icon={<div className="w-5 h-5 bg-blue-600 text-white rounded flex items-center justify-center text-[10px] font-bold">5</div>}>
-                <div className="p-5">
-                  <div className="overflow-hidden rounded-lg border border-slate-200">
-                    <table className="w-full text-xs">
-                      <thead className="bg-slate-100">
-                        <tr>
-                          {['Risk', 'Likelihood', 'Impact', 'Mitigation'].map(h => (
-                            <th key={h} className="text-left p-3 font-semibold text-slate-900">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.risks.map((risk: any, i: number) => (
-                          <tr key={i} className="border-t border-slate-200">
-                            <td className="p-3 text-slate-700">{risk.risk}</td>
-                            <td className="p-3">
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${risk.likelihood === 'High' ? 'bg-red-100 text-red-700' : risk.likelihood === 'Medium' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>{risk.likelihood}</span>
-                            </td>
-                            <td className="p-3">
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${risk.impact === 'High' ? 'bg-red-100 text-red-700' : risk.impact === 'Medium' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>{risk.impact}</span>
-                            </td>
-                            <td className="p-3 text-slate-700">{risk.mitigation}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </AccordionSection>
-            )}
-
-            {/* Blind Spots & Tensions */}
-            {((data.blind_spots?.length > 0) || (data.unresolved_tensions?.length > 0)) && (
-              <AccordionSection id="blindspots" title="Considerations & Blind Spots" openSections={openSections} onToggle={toggleSection}
-                icon={<AlertTriangle className="w-4 h-4 text-amber-400" />}>
-                <div className="p-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {data.blind_spots?.length > 0 && (
-                      <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
-                        <h3 className="font-semibold text-amber-900 mb-2 text-sm">Potential Blind Spots</h3>
-                        <ul className="space-y-1.5">
-                          {data.blind_spots.map((bs: string, i: number) => (
-                            <li key={i} className="text-amber-800 text-xs flex items-start gap-1.5">
-                              <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />{bs}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {data.unresolved_tensions?.length > 0 && (
-                      <div className="bg-purple-50 border border-purple-200 p-4 rounded-lg">
-                        <h3 className="font-semibold text-purple-900 mb-2 text-sm">Unresolved Tensions</h3>
-                        <ul className="space-y-2">
-                          {data.unresolved_tensions.map((t: any, i: number) => (
-                            <li key={i} className="text-purple-800 text-xs">
-                              <p className="font-medium">{t.tension || t}</p>
-                              {t.requires && <p className="text-purple-600 mt-0.5">Requires: {t.requires}</p>}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </AccordionSection>
-            )}
-
-            {/* Cost of Inaction — shown pre-approval when KPI data is available */}
-            {approveState !== 'approved' && data.kpiData?.current_value != null && (() => {
-              const kd = data.kpiData
-              const slope = kd.comparison_value != null
-                ? kd.current_value - kd.comparison_value
-                : 0
-              const projected30d = kd.current_value + slope * 1
-              const projected90d = kd.current_value + slope * 3
-              const trendDir: 'deteriorating' | 'stable' | 'recovering' =
-                slope < -0.001 ? 'deteriorating' : slope > 0.001 ? 'recovering' : 'stable'
-              return (
-                <AccordionSection id="inaction" title="Cost of Inaction" openSections={openSections} onToggle={toggleSection}
-                  icon={<AlertTriangle className="w-4 h-4 text-amber-400" />}>
-                  <div className="p-5">
-                    <CostOfInactionBanner
-                      kpiName={kd.kpi_name}
-                      currentValue={kd.current_value}
-                      projected30d={projected30d}
-                      projected90d={projected90d}
-                      trendDirection={trendDir}
-                      trendConfidence="LOW"
-                      kpiUnit={kd.unit}
-                    />
-                  </div>
-                </AccordionSection>
-              )
-            })()}
-
-            {/* Recommendation */}
-            <AccordionSection id="recommendation" title="Recommendation & Next Steps" openSections={openSections} onToggle={toggleSection}
-              icon={<div className="w-5 h-5 bg-blue-600 text-white rounded flex items-center justify-center text-[10px] font-bold">6</div>}>
+            {/* [E] Next Steps & Implementation */}
+            <AccordionSection id="recommendation" title="Next Steps & Implementation" openSections={openSections} onToggle={toggleSection}
+              icon={<CheckCircle2 className="w-4 h-4 text-slate-400" />}>
               <div className="p-5">
                 {/* Screen: gradient blue card / Print: monochrome left-border callout */}
-                <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 rounded-xl print:bg-white print:border-l-4 print:border-slate-800 print:rounded-none print:pl-5 print:pr-0 print:py-3">
+                <div className="bg-slate-900 border border-slate-700 text-white p-6 rounded-xl print:bg-white print:border-l-4 print:border-slate-800 print:rounded-none print:pl-5 print:pr-0 print:py-3">
                   <h3 className="text-lg font-bold mb-3 print:text-slate-900">{data.recommendation?.headline}</h3>
-                  <p className="text-blue-100 leading-relaxed text-sm mb-5 print:text-slate-700">{data.recommendation?.rationale}</p>
-                  <div className="bg-white/10 backdrop-blur rounded-lg p-4 mb-5 print:bg-transparent print:p-0 print:backdrop-blur-none">
-                    <h4 className="font-semibold mb-2 text-sm print:text-slate-800">Immediate Actions Required:</h4>
+                  <p className="text-slate-300 leading-relaxed text-sm mb-5 print:text-slate-700">{data.recommendation?.rationale}</p>
+                  <div className="bg-slate-800/60 rounded-lg p-4 mb-5 print:bg-transparent print:p-0">
+                    <h4 className="font-semibold mb-2 text-sm text-slate-200 print:text-slate-800">Immediate Actions Required:</h4>
                     <ol className="space-y-1.5">
                       {(data.recommendation?.nextSteps || []).map((step: string, i: number) => (
                         <li key={i} className="flex items-start gap-2.5">
-                          <span className="w-5 h-5 bg-white text-blue-600 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 print:bg-slate-800 print:text-white">{i + 1}</span>
-                          <span className="text-sm print:text-slate-700">{step}</span>
+                          <span className="w-5 h-5 bg-emerald-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 print:bg-slate-800">{i + 1}</span>
+                          <span className="text-sm text-slate-300 print:text-slate-700">{step}</span>
                         </li>
                       ))}
                     </ol>
                   </div>
-                  <div className="flex items-center justify-between pt-3 border-t border-white/20 text-sm print:border-slate-300">
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-700 text-sm print:border-slate-300">
                     <div>
-                      <p className="text-blue-200 text-xs print:text-slate-500">Decision Owner</p>
-                      <p className="font-semibold print:text-slate-900">{data.recommendation?.decisionOwner}</p>
+                      <p className="text-slate-500 text-xs uppercase tracking-wider font-mono print:text-slate-500">Decision Owner</p>
+                      <p className="font-semibold text-slate-200 print:text-slate-900">{data.recommendation?.decisionOwner}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-blue-200 text-xs print:text-slate-500">Decision Deadline</p>
-                      <p className="font-semibold print:text-slate-900">{data.recommendation?.deadline}</p>
+                      <p className="text-slate-500 text-xs uppercase tracking-wider font-mono print:text-slate-500">Decision Deadline</p>
+                      <p className="font-semibold text-slate-200 print:text-slate-900">{data.recommendation?.deadline}</p>
                     </div>
                   </div>
                 </div>
@@ -1164,6 +955,409 @@ export function ExecutiveBriefing() {
                 })()}
               </div>
             </AccordionSection>
+
+            {/* [F] Implementation Roadmap */}
+            {data.roadmap?.length > 0 && (
+              <AccordionSection id="roadmap" title="Implementation Roadmap" openSections={openSections} onToggle={toggleSection}
+                icon={<Clock className="w-4 h-4 text-slate-400" />}>
+                <div className="p-5">
+                  <div className="relative">
+                    <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-slate-700 print:bg-slate-300" />
+                    <div className="space-y-4">
+                      {data.roadmap.map((phase: any, i: number) => (
+                        <div key={i} className="relative pl-12">
+                          <div className={`absolute left-3.5 w-4 h-4 rounded-full border-2 ${i === 0 ? 'bg-emerald-600 border-emerald-600 print:bg-blue-600 print:border-blue-600' : 'bg-slate-900 border-slate-600 print:bg-white print:border-slate-300'}`} />
+                          <div className="bg-slate-900 border border-slate-700 p-3 rounded-lg print:bg-slate-50 print:border-0">
+                            <div className="flex justify-between items-start mb-1.5">
+                              <h4 className="font-semibold text-slate-200 text-sm print:text-slate-900">{phase.phase}</h4>
+                              <span className="text-xs text-slate-500 flex items-center gap-1">
+                                <Clock className="w-3 h-3" />{phase.timeline || phase.duration}
+                              </span>
+                            </div>
+                            {phase.description && <p className="text-slate-400 text-xs mb-2 print:text-slate-700">{phase.description}</p>}
+                            <div className="flex flex-wrap gap-1.5">
+                              {(phase.items || phase.deliverables || []).map((d: string, j: number) => (
+                                <span key={j} className="px-2 py-0.5 bg-slate-800 text-slate-300 text-xs rounded-full print:bg-blue-100 print:text-blue-700">{d}</span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </AccordionSection>
+            )}
+
+            {/* [G] Supporting Analysis divider */}
+            <div className="print:hidden flex items-center gap-3 mt-6 mb-2">
+              <div className="h-px flex-1 bg-slate-800" />
+              <button
+                onClick={() => {
+                  const ids = ['situation', 'market', 'stage1', 'crossreview']
+                  const allOpen = ids.every(id => openSections.has(id))
+                  setOpenSections(prev => {
+                    const next = new Set(prev)
+                    ids.forEach(id => allOpen ? next.delete(id) : next.add(id))
+                    return next
+                  })
+                }}
+                className="text-[10px] font-mono uppercase tracking-widest text-slate-500 hover:text-slate-300 flex items-center gap-1.5 transition-colors"
+              >
+                <ChevronDown className="w-3 h-3" /> Supporting Analysis
+              </button>
+              <div className="h-px flex-1 bg-slate-800" />
+            </div>
+
+            {/* [H] Situation Analysis */}
+            <AccordionSection id="situation" title="Situation Analysis" openSections={openSections} onToggle={toggleSection}
+              icon={<Zap className="w-4 h-4 text-slate-400" />}>
+              <div className="p-5 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-900 border border-slate-700 p-5 rounded-lg print:bg-slate-50 print:border-slate-200">
+                    <h3 className="font-semibold text-slate-200 mb-2 flex items-center gap-2 text-sm print:text-slate-900">
+                      <Target className="w-4 h-4 text-slate-400 print:text-blue-600" /> Current State
+                    </h3>
+                    <p className="text-slate-400 text-sm leading-relaxed print:text-slate-700">{data.situation?.currentState}</p>
+                  </div>
+                  <div className="bg-slate-900 border border-slate-700 p-5 rounded-lg print:bg-red-50 print:border-red-200">
+                    <h3 className="font-semibold text-slate-200 mb-2 flex items-center gap-2 text-sm print:text-slate-900">
+                      <AlertTriangle className="w-4 h-4 text-red-400 print:text-red-600" /> The Problem
+                    </h3>
+                    <p className="text-slate-400 text-sm leading-relaxed print:text-slate-700">{data.situation?.problem}</p>
+                  </div>
+                </div>
+                {data.situation?.rootCauses?.length > 0 && (
+                  <div className="bg-slate-800/60 border border-slate-700 text-white p-5 rounded-lg print:bg-slate-900">
+                    <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
+                      <Zap className="w-4 h-4 text-amber-400" /> Root Cause Analysis
+                    </h3>
+                    <div className="space-y-3">
+                      {data.situation.rootCauses.map((cause: any, i: number) => (
+                        <div key={i} className="flex items-start gap-3">
+                          <div className="w-5 h-5 bg-amber-500 text-slate-900 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">{i + 1}</div>
+                          <div>
+                            <p className="font-medium text-white text-sm">{cause.driver}</p>
+                            <p className="text-slate-400 text-xs">{cause.evidence}</p>
+                            <p className="text-amber-400 text-xs font-medium mt-0.5">Impact: {cause.impact}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {data.situation?.keyQuestion && (
+                  <div className="bg-slate-900 border-l-4 border-slate-500 p-4 rounded-r-lg print:bg-blue-50 print:border-blue-600">
+                    <h3 className="font-semibold text-slate-200 mb-1 text-sm print:text-blue-900">Key Question</h3>
+                    <p className="text-slate-400 italic text-sm print:text-blue-800">{data.situation.keyQuestion}</p>
+                  </div>
+                )}
+                {data.situation?.assumptions?.length > 0 && (
+                  <div className="bg-slate-900 border border-slate-700 p-4 rounded-lg print:bg-amber-50 print:border-amber-200">
+                    <h3 className="font-semibold text-slate-200 mb-2 text-sm print:text-amber-900">Key Assumptions</h3>
+                    <ul className="space-y-1">
+                      {data.situation.assumptions.map((a: string, i: number) => (
+                        <li key={i} className="text-slate-400 text-sm flex items-start gap-2 print:text-amber-800">
+                          <span className="text-slate-600 print:text-amber-500">•</span>{a}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </AccordionSection>
+
+            {/* [I] Market Intelligence */}
+            {data.market_signals?.length > 0 && (
+              <AccordionSection id="market" title="Market Intelligence" openSections={openSections} onToggle={toggleSection}
+                badge={`${data.market_signals.length} signals`}
+                icon={<Sparkles className="w-4 h-4 text-amber-400" />}>
+                <div className="p-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {data.market_signals.map((signal: any, i: number) => (
+                      <div key={i} className="bg-slate-900 border border-slate-700 rounded-lg p-4 print:bg-amber-50 print:border-amber-200">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <h3 className="font-semibold text-slate-200 text-sm leading-snug print:text-slate-900">{signal.title}</h3>
+                          {signal.relevance_score != null && (
+                            <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-900/40 text-amber-400 print:bg-amber-200 print:text-amber-800">
+                              {Math.round(signal.relevance_score * 100)}%
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-400 leading-relaxed mb-2 print:text-slate-700">{signal.summary}</p>
+                        {signal.source && <p className="text-xs text-slate-500">Source: {signal.source}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </AccordionSection>
+            )}
+
+            {/* [J] Stage 1: Independent Firm Proposals */}
+            {data.stage_1_hypotheses && (
+              <AccordionSection id="stage1" title="Stage 1: Independent Firm Proposals" openSections={openSections} onToggle={toggleSection}
+                icon={<Users className="w-4 h-4 text-slate-400" />}>
+                <div className="p-5">
+                  <p className="text-slate-400 text-sm mb-4 print:text-slate-600">Each firm independently analyzed the problem and proposed an intervention using their signature framework.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {Object.entries(data.stage_1_hypotheses).map(([firmId, hyp]: [string, any]) => {
+                      const s = FIRM_STYLES[firmId] ?? defaultFirmStyle
+                      const conviction = hyp.conviction || 'High'
+                      const displayName = FIRM_DISPLAY_NAMES[firmId.toLowerCase()] ?? (firmId.charAt(0).toUpperCase() + firmId.slice(1).replace(/_/g, ' '))
+                      return (
+                        <div key={firmId} className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden flex flex-col print:bg-white print:border-slate-200 print:shadow-sm">
+                          <div className={`h-1.5 w-full ${s.bar}`} />
+                          <div className="p-4 flex flex-col flex-1">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${s.dot}`} />
+                                <h4 className="font-bold text-slate-200 text-sm print:text-slate-900">{displayName}</h4>
+                              </div>
+                              {conviction && (
+                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${convictionStyle[conviction] ?? convictionStyle.Medium}`}>
+                                  {conviction}
+                                </span>
+                              )}
+                            </div>
+                            {hyp.framework && (
+                              <span className={`self-start text-xs font-medium px-2 py-0.5 rounded-full mb-2 ${s.badge}`}>{hyp.framework}</span>
+                            )}
+                            <p className="text-sm text-slate-400 leading-relaxed mb-3 flex-1 print:text-slate-700">{hyp.hypothesis}</p>
+                            {Array.isArray(hyp.key_evidence) && hyp.key_evidence.length > 0 && (
+                              <div className="bg-slate-800/60 rounded-lg p-2 mb-3 print:bg-slate-50">
+                                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Evidence</p>
+                                <ul className="space-y-1">
+                                  {hyp.key_evidence.slice(0, 3).map((ev: string, i: number) => (
+                                    <li key={i} className="flex items-start gap-1 text-xs text-slate-400 print:text-slate-600">
+                                      <span className="text-slate-600 shrink-0 print:text-slate-400">▸</span><span>{ev}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {hyp.recommended_focus && (
+                              <div className={`border-l-4 ${s.border} pl-2 mt-auto`}>
+                                <p className="text-[10px] font-semibold text-slate-500 uppercase">Primary Focus</p>
+                                <p className="text-sm font-semibold text-slate-200 print:text-slate-900">{hyp.recommended_focus}</p>
+                              </div>
+                            )}
+                            {hyp.proposed_option?.title && (
+                              <div className="mt-2">
+                                <p className="text-[10px] font-semibold text-slate-500 uppercase">Proposed Action</p>
+                                <p className="text-sm font-semibold text-indigo-400 leading-snug print:text-blue-700">{hyp.proposed_option.title}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </AccordionSection>
+            )}
+
+            {/* [K] Stage 2: Cross-Review */}
+            {data.cross_review && (
+              <AccordionSection id="crossreview" title="Stage 2: Cross-Review" openSections={openSections} onToggle={toggleSection}
+                icon={<ShieldCheck className="w-4 h-4 text-slate-400" />}>
+                <div className="p-5">
+                  <p className="text-slate-400 text-sm mb-4 print:text-slate-600">Each firm reviewed the others' hypotheses to surface blind spots and tensions.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(data.cross_review).map(([personaId, review]: [string, any]) => (
+                      <div key={personaId} className="bg-slate-900 border border-slate-700 rounded-lg p-4 print:bg-slate-50 print:border-slate-200">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center print:bg-purple-100">
+                            <Users className="w-3.5 h-3.5 text-slate-400 print:text-purple-600" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-slate-200 text-sm print:text-slate-900">
+                              {FIRM_DISPLAY_NAMES[personaId.toLowerCase()] ?? (personaId.charAt(0).toUpperCase() + personaId.slice(1).replace(/_/g, ' '))}
+                            </h4>
+                            <p className="text-xs text-slate-500">Council Member</p>
+                          </div>
+                        </div>
+                        {review.critiques?.length > 0 && (
+                          <div className="mb-2">
+                            <h5 className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-1 print:text-red-600">Critiques</h5>
+                            <ul className="space-y-1">
+                              {review.critiques.map((c: any, i: number) => (
+                                <li key={i} className="text-xs text-slate-400 bg-slate-800/60 p-2 rounded border border-slate-700 print:text-slate-700 print:bg-white print:border-slate-100">
+                                  <span className="font-medium text-slate-200 block mb-0.5 print:text-slate-900">Re: {c.target}</span>
+                                  "{c.concern}"
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {review.endorsements?.length > 0 && (
+                          <div>
+                            <h5 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1 print:text-emerald-600">Endorsements</h5>
+                            <ul className="space-y-1">
+                              {review.endorsements.map((e: any, i: number) => (
+                                <li key={i} className="text-xs text-slate-400 bg-slate-800/60 p-2 rounded border border-slate-700 print:text-slate-700 print:bg-white print:border-slate-100">
+                                  <span className="font-medium text-slate-200 block mb-0.5 print:text-slate-900">Re: {e.target}</span>
+                                  "{e.reason}"
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </AccordionSection>
+            )}
+
+            {/* [L] Risk & Considerations divider */}
+            <div className="print:hidden flex items-center gap-3 mt-6 mb-2">
+              <div className="h-px flex-1 bg-slate-800" />
+              <button
+                onClick={() => {
+                  const ids = ['risks', 'blindspots', 'inaction']
+                  const allOpen = ids.every(id => openSections.has(id))
+                  setOpenSections(prev => {
+                    const next = new Set(prev)
+                    ids.forEach(id => allOpen ? next.delete(id) : next.add(id))
+                    return next
+                  })
+                }}
+                className="text-[10px] font-mono uppercase tracking-widest text-slate-500 hover:text-slate-300 flex items-center gap-1.5 transition-colors"
+              >
+                <ChevronDown className="w-3 h-3" /> Risk &amp; Considerations
+              </button>
+              <div className="h-px flex-1 bg-slate-800" />
+            </div>
+
+            {/* [M] Risk Analysis */}
+            {data.risks?.length > 0 && (
+              <AccordionSection id="risks" title="Risk Analysis & Mitigation" openSections={openSections} onToggle={toggleSection}
+                icon={<AlertTriangle className="w-4 h-4 text-slate-400" />}>
+                <div className="p-5">
+                  <div className="overflow-hidden rounded-lg border border-slate-700 print:border-slate-200">
+                    <table className="w-full text-xs">
+                      <thead className="bg-slate-800 print:bg-slate-100">
+                        <tr>
+                          {['Risk', 'Likelihood', 'Impact', 'Mitigation'].map(h => (
+                            <th key={h} className="text-left p-3 font-semibold text-slate-300 print:text-slate-900">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.risks.map((risk: any, i: number) => (
+                          <tr key={i} className="border-t border-slate-700 print:border-slate-200">
+                            <td className="p-3 text-slate-400 print:text-slate-700">{risk.risk}</td>
+                            <td className="p-3">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${risk.likelihood === 'High' ? 'bg-red-900/40 text-red-400 print:bg-red-100 print:text-red-700' : risk.likelihood === 'Medium' ? 'bg-amber-900/40 text-amber-400 print:bg-amber-100 print:text-amber-700' : 'bg-emerald-900/40 text-emerald-400 print:bg-emerald-100 print:text-emerald-700'}`}>{risk.likelihood}</span>
+                            </td>
+                            <td className="p-3">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${risk.impact === 'High' ? 'bg-red-900/40 text-red-400 print:bg-red-100 print:text-red-700' : risk.impact === 'Medium' ? 'bg-amber-900/40 text-amber-400 print:bg-amber-100 print:text-amber-700' : 'bg-emerald-900/40 text-emerald-400 print:bg-emerald-100 print:text-emerald-700'}`}>{risk.impact}</span>
+                            </td>
+                            <td className="p-3 text-slate-400 print:text-slate-700">{risk.mitigation}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </AccordionSection>
+            )}
+
+            {/* [N] Blind Spots & Tensions */}
+            {((data.blind_spots?.length > 0) || (data.unresolved_tensions?.length > 0)) && (
+              <AccordionSection id="blindspots" title="Considerations & Blind Spots" openSections={openSections} onToggle={toggleSection}
+                icon={<AlertTriangle className="w-4 h-4 text-amber-400" />}>
+                <div className="p-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {data.blind_spots?.length > 0 && (
+                      <div className="bg-slate-900 border border-slate-700 p-4 rounded-lg print:bg-amber-50 print:border-amber-200">
+                        <h3 className="font-semibold text-amber-400 mb-2 text-sm print:text-amber-900">Potential Blind Spots</h3>
+                        <ul className="space-y-1.5">
+                          {data.blind_spots.map((bs: string, i: number) => (
+                            <li key={i} className="text-slate-400 text-xs flex items-start gap-1.5 print:text-amber-800">
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />{bs}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {data.unresolved_tensions?.length > 0 && (
+                      <div className="bg-slate-900 border border-slate-700 p-4 rounded-lg print:bg-purple-50 print:border-purple-200">
+                        <h3 className="font-semibold text-slate-200 mb-2 text-sm print:text-purple-900">Unresolved Tensions</h3>
+                        <ul className="space-y-2">
+                          {data.unresolved_tensions.map((t: any, i: number) => (
+                            <li key={i} className="text-slate-400 text-xs print:text-purple-800">
+                              <p className="font-medium text-slate-300 print:text-purple-800">{t.tension || t}</p>
+                              {t.requires && <p className="text-slate-500 mt-0.5 print:text-purple-600">Requires: {t.requires}</p>}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </AccordionSection>
+            )}
+
+            {/* [O] Cost of Inaction — shown pre-approval when KPI data is available */}
+            {approveState !== 'approved' && data.kpiData?.current_value != null && (() => {
+              const kd = data.kpiData
+              const slope = kd.comparison_value != null
+                ? kd.current_value - kd.comparison_value
+                : 0
+              const projected30d = kd.current_value + slope * 1
+              const projected90d = kd.current_value + slope * 3
+              const trendDir: 'deteriorating' | 'stable' | 'recovering' =
+                slope < -0.001 ? 'deteriorating' : slope > 0.001 ? 'recovering' : 'stable'
+              return (
+                <AccordionSection id="inaction" title="Cost of Inaction" openSections={openSections} onToggle={toggleSection}
+                  icon={<AlertTriangle className="w-4 h-4 text-amber-400" />}>
+                  <div className="p-5">
+                    <CostOfInactionBanner
+                      kpiName={kd.kpi_name}
+                      currentValue={kd.current_value}
+                      projected30d={projected30d}
+                      projected90d={projected90d}
+                      trendDirection={trendDir}
+                      trendConfidence="LOW"
+                      kpiUnit={kd.unit}
+                    />
+                  </div>
+                </AccordionSection>
+              )
+            })()}
+
+            {/* Print-only: Appendix — Blind Spots & Unresolved Tensions */}
+            {((data.blind_spots?.length > 0) || (data.unresolved_tensions?.length > 0)) && (
+              <div className="hidden print:block mb-6">
+                <div className="text-[9px] text-slate-500 uppercase tracking-wider font-mono mb-2 border-b border-slate-200 pb-1">
+                  Appendix: Blind Spots &amp; Unresolved Tensions
+                </div>
+                {data.blind_spots?.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-[10px] font-semibold text-slate-600 uppercase mb-1">Potential Blind Spots</p>
+                    <ul className="space-y-1">
+                      {data.blind_spots.map((bs: string, i: number) => (
+                        <li key={i} className="text-xs text-slate-700">• {bs}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {data.unresolved_tensions?.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-600 uppercase mb-1">Unresolved Tensions</p>
+                    <ul className="space-y-1">
+                      {data.unresolved_tensions.map((t: any, i: number) => (
+                        <li key={i} className="text-xs text-slate-700">
+                          <span className="font-medium">{t.tension || t}</span>
+                          {t.requires && <span className="text-slate-500"> — Requires: {t.requires}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Footer */}
             <footer className="py-6 text-center text-xs text-slate-500 print:block print:border-t print:border-slate-300 print:pt-4 print:text-slate-600">
