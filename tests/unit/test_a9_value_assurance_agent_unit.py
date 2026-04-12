@@ -203,7 +203,7 @@ async def test_register_solution_happy_path(agent, register_request):
     assert resp.solution_id is not None
     assert len(resp.solution_id) > 0
     assert resp.status == SolutionVerdict.MEASURING
-    assert "measurement" in resp.message.lower()
+    assert "registered" in resp.message.lower()
 
 
 @pytest.mark.asyncio

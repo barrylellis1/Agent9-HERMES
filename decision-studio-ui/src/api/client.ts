@@ -11,6 +11,7 @@ import {
 } from './types';
 import type {
   AcceptedSolution as VAAcceptedSolution,
+  SolutionPhase,
   StrategyAwarePortfolio,
   RecordKPIMeasurementResponse,
   InactionCostProjection,
@@ -593,6 +594,19 @@ export async function recordKPIMeasurement(
     `/value-assurance/solutions/${solutionId}/measure?kpi_value=${kpiValue}&principal_id=${encodeURIComponent(principalId)}`,
     { method: 'POST' }
   );
+}
+
+export async function updateSolutionPhase(
+  solutionId: string,
+  newPhase: SolutionPhase,
+  notes?: string,
+  principalId: string = ''
+): Promise<{ solution_id: string; phase: SolutionPhase; message: string }> {
+  return requestJson(`/value-assurance/solutions/${solutionId}/phase?principal_id=${encodeURIComponent(principalId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ new_phase: newPhase, notes }),
+  });
 }
 
 export async function storeBriefingSnapshot(solutionId: string, snapshot: Record<string, unknown>): Promise<void> {

@@ -180,38 +180,43 @@ export const CouncilDebatePage: React.FC = () => {
       hyps = s1Result.result?.solutions?.stage_1_hypotheses || null;
       if (hyps) setStageOneHypotheses(hyps);
 
-      // ── Stage 2: Hypothesis synthesis ─────────────────────────────────────
-      const s2Result = await runSolutionFinder(
-        deepAnalysisPayload, [], null,
-        situation.principal_id || 'default',
-        {
-          ...preferencesBase,
-          debate_stage: 'hypothesis',
-          prior_transcript: stageResults[stageResults.length - 1]?.solutions?.debate_transcript,
-          prior_stage1_hypotheses: hyps,
-        },
-        principalContext || {}, situation.situation_id
-      );
-      lastRequestId = s2Result.request_id;
-      stageResults.push(s2Result.result);
-      setPhase(2);
+      // Fast mode (VITE_DEBATE_MODE=fast): skip intermediate stages, go straight to synthesis
+      // Full mode (VITE_DEBATE_MODE=full): run all 4 stages for maximum depth
+      const debateMode = import.meta.env.VITE_DEBATE_MODE || 'fast';
+      if (debateMode === 'full') {
+        // ── Stage 2: Hypothesis synthesis ─────────────────────────────────────
+        const s2Result = await runSolutionFinder(
+          deepAnalysisPayload, [], null,
+          situation.principal_id || 'default',
+          {
+            ...preferencesBase,
+            debate_stage: 'hypothesis',
+            prior_transcript: stageResults[stageResults.length - 1]?.solutions?.debate_transcript,
+            prior_stage1_hypotheses: hyps,
+          },
+          principalContext || {}, situation.situation_id
+        );
+        lastRequestId = s2Result.request_id;
+        stageResults.push(s2Result.result);
+        setPhase(2);
 
-      // ── Stage 3: Cross-review ──────────────────────────────────────────────
-      const s3Result = await runSolutionFinder(
-        deepAnalysisPayload, [], null,
-        situation.principal_id || 'default',
-        {
-          ...preferencesBase,
-          debate_stage: 'cross_review',
-          prior_transcript: stageResults[stageResults.length - 1]?.solutions?.debate_transcript,
-          prior_stage1_hypotheses: hyps,
-        },
-        principalContext || {}, situation.situation_id
-      );
-      lastRequestId = s3Result.request_id;
-      stageResults.push(s3Result.result);
-      crossReviewData = s3Result.result?.solutions?.cross_review || null;
-      if (crossReviewData) setCrossReview(crossReviewData);
+        // ── Stage 3: Cross-review ──────────────────────────────────────────────
+        const s3Result = await runSolutionFinder(
+          deepAnalysisPayload, [], null,
+          situation.principal_id || 'default',
+          {
+            ...preferencesBase,
+            debate_stage: 'cross_review',
+            prior_transcript: stageResults[stageResults.length - 1]?.solutions?.debate_transcript,
+            prior_stage1_hypotheses: hyps,
+          },
+          principalContext || {}, situation.situation_id
+        );
+        lastRequestId = s3Result.request_id;
+        stageResults.push(s3Result.result);
+        crossReviewData = s3Result.result?.solutions?.cross_review || null;
+        if (crossReviewData) setCrossReview(crossReviewData);
+      }
       setPhase(3);
 
       // ── Stage 4: Synthesis ─────────────────────────────────────────────────

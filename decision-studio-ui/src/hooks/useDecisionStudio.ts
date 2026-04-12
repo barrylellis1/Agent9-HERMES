@@ -467,12 +467,19 @@ export function useDecisionStudio() {
         setDebateHypotheses(hyps);
         setDebatePhase(2);
 
-        // Stage 2: Hypothesis synthesis — Sonnet-only (skips Stage 1, uses prior hypotheses)
-        await runStage('hypothesis');
+        // Fast mode (VITE_DEBATE_MODE=fast): skip intermediate stages, go straight to synthesis
+        // Full mode (VITE_DEBATE_MODE=full): run all 4 stages for maximum depth
+        const debateMode = import.meta.env.VITE_DEBATE_MODE || 'fast';
+        if (debateMode === 'full') {
+            // Stage 2: Hypothesis synthesis — Sonnet-only (skips Stage 1, uses prior hypotheses)
+            await runStage('hypothesis');
 
-        // Stage 3: Cross-review
-        await runStage('cross_review');
-        setDebatePhase(3);
+            // Stage 3: Cross-review
+            await runStage('cross_review');
+            setDebatePhase(3);
+        } else {
+            setDebatePhase(3);
+        }
 
         const finalResult = await runStage('synthesis');
         const solResponse = finalResult?.solutions || stageResults[stageResults.length - 1]?.solutions;

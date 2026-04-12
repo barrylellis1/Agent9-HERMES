@@ -43,7 +43,10 @@ from src.agents.models.value_assurance_models import (
     RecordKPIMeasurementResponse,
     RegisterSolutionRequest,
     RegisterSolutionResponse,
+    SolutionPhase,
     SolutionVerdict,
+    UpdateSolutionPhaseRequest,
+    UpdateSolutionPhaseResponse,
     StrategyAlignment,
     StrategyAlignmentCheck,
     StrategyAwarePortfolio,
@@ -359,6 +362,7 @@ class A9_Value_Assurance_Agent:
             expected_impact_upper=request.expected_impact_upper,
             measurement_window_days=request.measurement_window_days,
             status=SolutionVerdict.MEASURING,
+            phase=SolutionPhase.APPROVED,
             strategy_snapshot=snapshot,
             ma_market_signals=request.ma_market_signals,
             control_group_segments=request.control_group_segments,
@@ -387,7 +391,8 @@ class A9_Value_Assurance_Agent:
         return RegisterSolutionResponse(
             solution_id=solution_id,
             status=SolutionVerdict.MEASURING,
-            message=f"Solution registered for measurement (window={request.measurement_window_days}d).",
+            phase=SolutionPhase.APPROVED,
+            message=f"Solution approved and registered (window={request.measurement_window_days}d).",
         )
 
     # ------------------------------------------------------------------
@@ -515,9 +520,14 @@ class A9_Value_Assurance_Agent:
             evaluated_at=_utcnow(),
         )
 
-        # Persist evaluation and update status
+        # Persist evaluation, update status + auto-transition phase to COMPLETE
         updated_solution = solution.model_copy(
-            update={"impact_evaluation": evaluation, "status": verdict}
+            update={
+                "impact_evaluation": evaluation,
+                "status": verdict,
+                "phase": SolutionPhase.COMPLETE,
+                "completed_at": _utcnow(),
+            }
         )
         self._solutions_store[request.solution_id] = updated_solution
 
@@ -526,6 +536,7 @@ class A9_Value_Assurance_Agent:
             try:
                 await self._va_store.upsert_evaluation(evaluation, request.solution_id)
                 await self._va_store.update_status(request.solution_id, verdict.value)
+                await self._va_store.update_phase(request.solution_id, SolutionPhase.COMPLETE.value, completed_at=_utcnow())
             except Exception as exc:
                 self.logger.warning("%s: Supabase evaluation persist failed (non-fatal): %s", self.name, exc)
 
@@ -766,6 +777,89 @@ class A9_Value_Assurance_Agent:
             actual_trend=new_actual,
             actual_trend_dates=new_dates,
             message=f"Measurement recorded ({len(new_actual)} total data points).",
+        )
+
+    # ------------------------------------------------------------------
+    # Entrypoint 3c — update_solution_phase
+    # ------------------------------------------------------------------
+
+    _PHASE_ORDER = [
+        SolutionPhase.APPROVED,
+        SolutionPhase.IMPLEMENTING,
+        SolutionPhase.LIVE,
+        SolutionPhase.MEASURING,
+        SolutionPhase.COMPLETE,
+    ]
+
+    async def update_solution_phase(
+        self, request: UpdateSolutionPhaseRequest
+    ) -> UpdateSolutionPhaseResponse:
+        """
+        Advance a solution through its lifecycle.
+
+        Valid forward transitions only:
+            APPROVED → IMPLEMENTING → LIVE → MEASURING → COMPLETE
+
+        On LIVE transition: sets go_live_at and resets actual_trend for
+        fresh measurement from the deployment date.
+        """
+        if self.config.log_all_requests:
+            self.logger.info(
+                "%s: update_solution_phase — req=%s sol=%s → %s",
+                self.name, request.request_id, request.solution_id, request.new_phase.value,
+            )
+
+        solution = self._solutions_store.get(request.solution_id)
+        if solution is None:
+            raise ValueError(f"Solution '{request.solution_id}' not found in store.")
+
+        current_idx = self._PHASE_ORDER.index(solution.phase)
+        new_idx = self._PHASE_ORDER.index(request.new_phase)
+
+        if new_idx <= current_idx:
+            raise ValueError(
+                f"Cannot transition from {solution.phase.value} to {request.new_phase.value}. "
+                f"Only forward transitions are allowed."
+            )
+
+        updates: Dict[str, Any] = {"phase": request.new_phase}
+
+        if request.new_phase == SolutionPhase.LIVE:
+            # Go-live is a HITL event — reset actual tracking from deployment date
+            now = _utcnow()
+            updates["go_live_at"] = now
+            updates["actual_trend"] = [solution.baseline_kpi_value]
+            updates["actual_trend_dates"] = [now]
+
+        if request.new_phase == SolutionPhase.COMPLETE:
+            updates["completed_at"] = _utcnow()
+
+        updated = solution.model_copy(update=updates)
+        self._solutions_store[request.solution_id] = updated
+
+        # Persist to Supabase (non-fatal)
+        if self._va_store and self._va_store.enabled:
+            try:
+                await self._va_store.update_phase(
+                    request.solution_id,
+                    request.new_phase.value,
+                    go_live_at=updates.get("go_live_at"),
+                    completed_at=updates.get("completed_at"),
+                )
+            except Exception as exc:
+                self.logger.warning(
+                    "%s: Supabase phase update failed (non-fatal): %s", self.name, exc,
+                )
+
+        self.logger.info(
+            "%s: phase updated — sol=%s %s → %s",
+            self.name, request.solution_id, solution.phase.value, request.new_phase.value,
+        )
+
+        return UpdateSolutionPhaseResponse(
+            solution_id=request.solution_id,
+            phase=request.new_phase,
+            message=f"Phase updated to {request.new_phase.value}.",
         )
 
     # ------------------------------------------------------------------

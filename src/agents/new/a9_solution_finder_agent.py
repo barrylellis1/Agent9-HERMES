@@ -1224,12 +1224,16 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     # ---- STAGE 2: Synthesis call ----
                     # Separate the data payload from the instructions
                     # The debate_spec contains critical constraints that must be in the prompt prefix
+                    # When Stage 1 hypotheses exist, skip full DA context — the summary
+                    # carries all key signals and the personas already processed the full context.
+                    # This saves ~8-12K tokens per synthesis call (major latency reduction).
+                    _include_full_da = not stage_1_hyps_dict
                     data_payload = {
                         "problem_statement": ps,
                         "situation_metadata": situation_metadata,
                         "decision_maker": decision_maker,
                         "business_context": _model_to_dict(bc) if bc else None,
-                        "deep_analysis_context": full_da_context,
+                        **({"deep_analysis_context": full_da_context} if _include_full_da else {}),
                         "deep_analysis_summary": da_summary,
                         "dataset_recap": dataset_recap,
                         "user_context": user_ctx,

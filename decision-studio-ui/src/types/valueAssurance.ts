@@ -1,4 +1,5 @@
 export type SolutionVerdict = 'VALIDATED' | 'PARTIAL' | 'FAILED' | 'MEASURING';
+export type SolutionPhase = 'APPROVED' | 'IMPLEMENTING' | 'LIVE' | 'MEASURING' | 'COMPLETE';
 export type ConfidenceLevel = 'HIGH' | 'MODERATE' | 'LOW';
 export type StrategyAlignment = 'ALIGNED' | 'DRIFTED' | 'SUPERSEDED';
 
@@ -96,6 +97,9 @@ export interface AcceptedSolution {
   expected_impact_upper: number;
   measurement_window_days: number;
   status: SolutionVerdict;
+  phase: SolutionPhase;
+  go_live_at?: string;
+  completed_at?: string;
   strategy_snapshot: StrategySnapshot;
   impact_evaluation?: ImpactEvaluation;
   inaction_cost?: InactionCostProjection;

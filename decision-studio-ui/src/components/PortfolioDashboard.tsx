@@ -7,7 +7,7 @@ import {
   TrendingUp,
   Eye,
 } from 'lucide-react';
-import { AcceptedSolution, SolutionVerdict, StrategyAlignment } from '../types/valueAssurance';
+import { AcceptedSolution, SolutionVerdict, SolutionPhase } from '../types/valueAssurance';
 
 interface PortfolioDashboardProps {
   solutions: AcceptedSolution[];
@@ -22,9 +22,31 @@ interface PortfolioDashboardProps {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatDelta(value: number, unit = '%'): string {
+function isPercentageKpi(kpiId?: string): boolean {
+  return !!kpiId && kpiId.endsWith('_pct');
+}
+
+/** Cost/expense KPIs where a decrease is a positive business outcome */
+function isCostKpi(kpiId?: string): boolean {
+  if (!kpiId) return false;
+  return /cost|cogs|expense/i.test(kpiId);
+}
+
+/** Convert raw delta to business benefit (flip sign for cost KPIs) */
+function toBenefit(rawDelta: number, kpiId?: string): number {
+  return isCostKpi(kpiId) ? -rawDelta : rawDelta;
+}
+
+function formatImpact(value: number, kpiId?: string): string {
   const sign = value >= 0 ? '+' : '';
-  return `${sign}${value.toFixed(1)}${unit}`;
+  if (isPercentageKpi(kpiId)) {
+    return `${sign}${value.toFixed(1)}%`;
+  }
+  // Dollar amounts — abbreviate large values
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) return `${sign}$${(value / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${sign}$${(value / 1_000).toFixed(0)}K`;
+  return `${sign}$${value.toFixed(0)}`;
 }
 
 function formatDate(iso: string): string {
@@ -34,6 +56,22 @@ function formatDate(iso: string): string {
     return iso;
   }
 }
+
+function humanizeKpiId(raw: string): string {
+  const withoutPrefix = raw.replace(/^[a-z]{2,5}_/, '');
+  return withoutPrefix
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+const PHASE_STYLE: Record<SolutionPhase, { label: string; className: string }> = {
+  APPROVED: { label: 'Approved', className: 'text-slate-300 bg-slate-700/50' },
+  IMPLEMENTING: { label: 'Implementing', className: 'text-amber-400 bg-amber-900/30' },
+  LIVE: { label: 'Live', className: 'text-emerald-400 bg-emerald-900/30' },
+  MEASURING: { label: 'Measuring', className: 'text-blue-400 bg-blue-900/30' },
+  COMPLETE: { label: 'Complete', className: 'text-indigo-400 bg-indigo-900/30' },
+};
 
 // ─── Badge components ─────────────────────────────────────────────────────────
 
@@ -56,21 +94,6 @@ function VerdictBadge({ status }: { status: SolutionVerdict }) {
   );
 }
 
-function StrategyBadge({ verdict }: { verdict: StrategyAlignment }) {
-  const map: Record<StrategyAlignment, { label: string; className: string; Icon: React.ElementType }> = {
-    ALIGNED: { label: 'Aligned', className: 'text-green-400 bg-green-900/20 border border-green-500/30', Icon: CheckCircle2 },
-    DRIFTED: { label: 'Drifted', className: 'text-amber-400 bg-amber-900/20 border border-amber-500/30', Icon: AlertTriangle },
-    SUPERSEDED: { label: 'Superseded', className: 'text-slate-500 bg-slate-800 border border-slate-700', Icon: XCircle },
-  };
-  const cfg = map[verdict];
-  const { Icon } = cfg;
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${cfg.className}`}>
-      <Icon className="w-2.5 h-2.5" />
-      {cfg.label}
-    </span>
-  );
-}
 
 // ─── Summary card ─────────────────────────────────────────────────────────────
 
@@ -106,17 +129,16 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
 }) => {
   const total = solutions.length;
   const pct = (n: number) => (total > 0 ? `${Math.round((n / total) * 100)}%` : '0%');
-  const hasAnyEvaluation = solutions.some((s) => !!s.impact_evaluation);
-
-  // Compute total realized impact from trend data when no formal evaluation exists
-  const computedImpact = totalAttributableImpact !== 0
-    ? totalAttributableImpact
-    : solutions.reduce((sum, sol) => {
-        if (sol.actual_trend.length > 1) {
-          return sum + (sol.actual_trend[sol.actual_trend.length - 1] - sol.actual_trend[0]);
-        }
-        return sum;
-      }, 0);
+  // Compute total realized benefit — flip sign for cost KPIs so savings count positive
+  const dollarBenefit = solutions.reduce((sum, sol) => {
+    if (isPercentageKpi(sol.kpi_id)) return sum;
+    let rawDelta: number | undefined;
+    if (sol.impact_evaluation?.attributable_impact != null) rawDelta = sol.impact_evaluation.attributable_impact;
+    else if (sol.actual_trend.length > 1) rawDelta = sol.actual_trend[sol.actual_trend.length - 1] - sol.actual_trend[0];
+    if (rawDelta === undefined) return sum;
+    return sum + toBenefit(rawDelta, sol.kpi_id);
+  }, 0);
+  const computedImpact = totalAttributableImpact !== 0 ? totalAttributableImpact : dollarBenefit;
 
   return (
     <div className="space-y-6">
@@ -124,7 +146,7 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
           label="Total ROI (est.)"
-          value={formatDelta(computedImpact)}
+          value={formatImpact(computedImpact)}
           subtext="Attributable impact across validated solutions"
           valueClass={computedImpact >= 0 ? 'text-emerald-400' : 'text-red-400'}
           borderClass="border-emerald-800/40"
@@ -181,14 +203,9 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
       ) : (
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
           {/* Table header */}
-          <div
-            className={`grid ${hasAnyEvaluation ? 'grid-cols-[2fr_1fr_auto_auto_1fr_auto_auto_auto]' : 'grid-cols-[2fr_1fr_auto_auto_auto]'} gap-3 px-5 py-3 border-b border-slate-800 bg-slate-950`}
-          >
-            {(hasAnyEvaluation
-              ? ['KPI / Description', 'Approved', 'Verdict', 'Strategy', 'Composite', 'Impact', 'ROI?', '']
-              : ['KPI / Description', 'Approved', 'Verdict', 'Impact', '']
-            ).map((h, i) => (
-              <span key={i} className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+          <div className="grid grid-cols-[1.8fr_0.8fr_0.7fr_0.7fr_0.7fr_auto] gap-4 px-5 py-3 border-b border-slate-800 bg-slate-950">
+            {['KPI', 'Approved', 'Phase', 'Verdict', 'Impact', ''].map((h, i) => (
+              <span key={i} className={`text-[10px] font-bold text-slate-500 uppercase tracking-wider ${i === 4 ? 'text-right' : ''}`}>
                 {h}
               </span>
             ))}
@@ -198,83 +215,56 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
           <div className="divide-y divide-slate-800/50">
             {solutions.map((sol) => {
               const needsAttention = executiveAttentionRequired.includes(sol.solution_id);
-              const evaluation = sol.impact_evaluation;
-              const composite = evaluation?.composite_verdict;
-              const strategy = evaluation?.strategy_check?.alignment_verdict;
-              const attributable = evaluation?.attributable_impact
+              const rawDelta = sol.impact_evaluation?.attributable_impact
                 ?? (sol.actual_trend.length > 1
                   ? sol.actual_trend[sol.actual_trend.length - 1] - sol.actual_trend[0]
                   : undefined);
+              const attributable = rawDelta !== undefined ? toBenefit(rawDelta, sol.kpi_id) : undefined;
+              const phase: SolutionPhase = sol.phase || 'APPROVED';
+              const phaseStyle = PHASE_STYLE[phase] || PHASE_STYLE.APPROVED;
 
               return (
                 <div
                   key={sol.solution_id}
-                  className={`grid ${hasAnyEvaluation ? 'grid-cols-[2fr_1fr_auto_auto_1fr_auto_auto_auto]' : 'grid-cols-[2fr_1fr_auto_auto_auto]'} gap-3 px-5 py-4 items-center transition-colors hover:bg-slate-800/30 ${
+                  onClick={() => onSelectSolution?.(sol.solution_id)}
+                  className={`grid grid-cols-[1.8fr_0.8fr_0.7fr_0.7fr_0.7fr_auto] gap-4 px-5 py-4 items-center transition-colors cursor-pointer hover:bg-slate-800/40 ${
                     needsAttention ? 'border-l-4 border-amber-500' : 'border-l-4 border-transparent'
                   }`}
                 >
-                  {/* KPI / Description */}
+                  {/* KPI — humanized name + truncated description */}
                   <div className="min-w-0">
-                    <p className="text-xs font-medium text-slate-200 truncate">{sol.solution_description}</p>
-                    <p className="text-[10px] text-slate-600 font-mono truncate">{sol.kpi_id}</p>
+                    <p className="text-sm font-semibold text-white truncate">
+                      {humanizeKpiId(sol.kpi_id)}
+                    </p>
+                    <p className="text-[11px] text-slate-500 truncate mt-0.5">{sol.solution_description}</p>
                   </div>
 
-                  {/* Approved */}
-                  <p className="text-xs text-slate-500 whitespace-nowrap">{formatDate(sol.approved_at)}</p>
+                  {/* Approved date */}
+                  <p className="text-xs text-slate-400 whitespace-nowrap">{formatDate(sol.approved_at)}</p>
+
+                  {/* Phase badge */}
+                  <div>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold ${phaseStyle.className}`}>
+                      {phaseStyle.label}
+                    </span>
+                  </div>
 
                   {/* Verdict badge */}
                   <VerdictBadge status={sol.status} />
 
-                  {/* Strategy badge — only when evaluations exist */}
-                  {hasAnyEvaluation && (
-                    strategy ? (
-                      <StrategyBadge verdict={strategy} />
-                    ) : (
-                      <span className="text-[10px] text-slate-600 italic">—</span>
-                    )
-                  )}
-
-                  {/* Composite label — only when evaluations exist */}
-                  {hasAnyEvaluation && (
-                    <p className="text-xs text-slate-300 truncate">
-                      {composite?.composite_label ?? '—'}
-                    </p>
-                  )}
-
-                  {/* Attributable impact */}
+                  {/* Impact — right-aligned */}
                   <span
-                    className={`text-xs font-mono font-semibold whitespace-nowrap ${
+                    className={`text-sm font-mono font-bold whitespace-nowrap text-right ${
                       attributable !== undefined
-                        ? attributable >= 0
-                          ? 'text-emerald-400'
-                          : 'text-red-400'
+                        ? attributable >= 0 ? 'text-emerald-400' : 'text-red-400'
                         : 'text-slate-600'
                     }`}
                   >
-                    {attributable !== undefined ? formatDelta(attributable) : '—'}
+                    {attributable !== undefined ? formatImpact(attributable, sol.kpi_id) : '—'}
                   </span>
 
-                  {/* ROI eligible — only when evaluations exist */}
-                  {hasAnyEvaluation && (
-                    composite ? (
-                      composite.include_in_roi_totals ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      ) : (
-                        <XCircle className="w-4 h-4 text-slate-600" />
-                      )
-                    ) : (
-                      <span className="text-slate-600 text-xs">—</span>
-                    )
-                  )}
-
-                  {/* Action */}
-                  <button
-                    onClick={() => onSelectSolution?.(sol.solution_id)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-medium text-slate-400 bg-slate-800 hover:bg-slate-700 hover:text-white border border-slate-700 rounded-lg transition-colors whitespace-nowrap"
-                  >
-                    <Eye className="w-3 h-3" />
-                    Details
-                  </button>
+                  {/* Arrow indicator */}
+                  <Eye className="w-4 h-4 text-slate-600" />
                 </div>
               );
             })}

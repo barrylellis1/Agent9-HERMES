@@ -40,7 +40,10 @@ from src.agents.models.value_assurance_models import (
     RecordKPIMeasurementResponse,
     RegisterSolutionRequest,
     RegisterSolutionResponse,
+    SolutionPhase,
     SolutionStatus,
+    UpdateSolutionPhaseRequest,
+    UpdateSolutionPhaseResponse,
     StrategyAwarePortfolio,
     UpdateAcceptedSolutionRequest,
     ValueAssuranceCheckRequest,
@@ -448,6 +451,51 @@ async def record_kpi_measurement(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
         logger.error("VA record_kpi_measurement failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# PATCH /solutions/{solution_id}/phase  — lifecycle phase transition
+# ---------------------------------------------------------------------------
+from pydantic import BaseModel as _BaseModel
+
+class _PhaseTransitionBody(_BaseModel):
+    new_phase: SolutionPhase
+    notes: Optional[str] = None
+
+@router.patch(
+    "/solutions/{solution_id}/phase",
+    response_model=UpdateSolutionPhaseResponse,
+)
+async def update_solution_phase(
+    solution_id: str,
+    body: _PhaseTransitionBody,
+    principal_id: str = "",
+) -> UpdateSolutionPhaseResponse:
+    """
+    Advance a solution through its lifecycle phases.
+
+    Valid forward transitions: APPROVED → IMPLEMENTING → LIVE → MEASURING → COMPLETE.
+    """
+    agent = await _get_va_agent()
+    req = UpdateSolutionPhaseRequest(
+        request_id=str(uuid.uuid4()),
+        principal_id=principal_id,
+        solution_id=solution_id,
+        new_phase=body.new_phase,
+        notes=body.notes,
+    )
+    try:
+        response: UpdateSolutionPhaseResponse = await agent.update_solution_phase(req)
+        logger.info(
+            "VA update_solution_phase: solution_id=%s → %s",
+            solution_id, body.new_phase.value,
+        )
+        return response
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.error("VA update_solution_phase failed: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 

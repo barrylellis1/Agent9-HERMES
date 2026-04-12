@@ -33,6 +33,15 @@ class SolutionVerdict(str, Enum):
     MEASURING = "MEASURING"
 
 
+class SolutionPhase(str, Enum):
+    """5-phase lifecycle tracking, independent of verdict (SolutionVerdict)."""
+    APPROVED = "APPROVED"          # Decision recorded, not yet started
+    IMPLEMENTING = "IMPLEMENTING"  # Solution being built/deployed
+    LIVE = "LIVE"                  # Solution deployed, measurement begins
+    MEASURING = "MEASURING"        # DiD attribution running
+    COMPLETE = "COMPLETE"          # Verdict rendered
+
+
 class ConfidenceLevel(str, Enum):
     HIGH = "HIGH"
     MODERATE = "MODERATE"
@@ -153,6 +162,9 @@ class AcceptedSolution(BaseModel):
     expected_impact_upper: float
     measurement_window_days: int = 30
     status: SolutionVerdict = SolutionVerdict.MEASURING
+    phase: SolutionPhase = SolutionPhase.APPROVED
+    go_live_at: Optional[str] = None       # ISO datetime — principal confirms deployment
+    completed_at: Optional[str] = None     # ISO datetime — verdict rendered
     strategy_snapshot: StrategySnapshot
     impact_evaluation: Optional[ImpactEvaluation] = None
     inaction_cost: Optional[InactionCostProjection] = None
@@ -195,6 +207,22 @@ class RegisterSolutionRequest(BaseModel):
 class RegisterSolutionResponse(BaseModel):
     solution_id: str
     status: SolutionVerdict
+    phase: SolutionPhase = SolutionPhase.APPROVED
+    message: str
+
+
+class UpdateSolutionPhaseRequest(BaseModel):
+    """Advance a solution through the lifecycle: APPROVED → IMPLEMENTING → LIVE → MEASURING → COMPLETE."""
+    request_id: str
+    principal_id: str
+    solution_id: str
+    new_phase: SolutionPhase
+    notes: Optional[str] = None
+
+
+class UpdateSolutionPhaseResponse(BaseModel):
+    solution_id: str
+    phase: SolutionPhase
     message: str
 
 

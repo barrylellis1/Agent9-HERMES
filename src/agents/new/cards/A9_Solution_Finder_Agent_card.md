@@ -113,7 +113,26 @@ Environment variable override: `OPENAI_MODEL_SOLUTION`
 - Recommendation + rationale
 - HITL approval context and audit trail
 
+## Fast Debate Mode — Phase 10D (Apr 2026)
+
+**Dev/prod performance split** controlled by `VITE_DEBATE_MODE` env var:
+
+| Mode | Stages | API Calls | Latency | Use Case |
+|------|--------|-----------|---------|----------|
+| `fast` | stage1_only → synthesis | 2 | ~3 min | Development testing |
+| `full` | stage1_only → hypothesis → cross_review → synthesis | 4 | ~9 min | Production |
+
+- `.env.development`: `VITE_DEBATE_MODE=fast` — skips hypothesis + cross_review stages
+- `.env.production`: `VITE_DEBATE_MODE=full` — all 4 stages for maximum depth
+- Frontend conditional in `useDecisionStudio.ts` and `CouncilDebatePage.tsx`
+- Backend stages 2-4 hit identical Sonnet endpoint — skipping 2-3 saves ~6 min with equivalent output quality
+
+**DA context trimming** (token optimization):
+- When Stage 1 hypotheses are present, `deep_analysis_context` (~8-12K tokens) is excluded from synthesis payload
+- `da_summary` carries all key signals — full DA context is redundant when hypotheses already incorporate it
+- Conditional: `_include_full_da = not stage_1_hyps_dict`
+
 ## Recent Updates (Apr 2026)
 - Removed debug print statements from exception handling (cleanup)
 - Error logging via logger.info() for LLM debate failures (fallback to heuristic)
-- Phase 10D performance optimization planned for token payload reduction
+- Phase 10D fast debate mode and DA context trimming shipped

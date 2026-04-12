@@ -1,7 +1,7 @@
 # Agent9-HERMES Development Plan
 
 **Created:** 2026-03-14
-**Last updated:** 2026-04-08
+**Last updated:** 2026-04-11
 **Status:** Active
 
 ---
@@ -18,9 +18,10 @@ run_enterprise_assessment.py
   → A9_PIB_Agent (compose + email)
   → Principal clicks email link
   → Decision Studio (Deep Analysis → Solution Finding → HITL → Value Assurance)
+  → Portfolio (5-phase lifecycle tracking → verdict → ROI)
 ```
 
-**14 agents operational.** Core loop: detect → diagnose → prescribe → decide → track.
+**14 agents operational.** Core loop: detect → diagnose → prescribe → decide → track → verify.
 
 ### What's working
 
@@ -34,27 +35,29 @@ run_enterprise_assessment.py
 | Multi-persona solution generation (3×Stage1 + synthesis) | Production-ready |
 | HITL approval workflow | Production-ready |
 | Value Assurance tracking (DiD attribution, verdict matrix) | Production-ready |
+| VA 5-phase lifecycle (Approved→Implementing→Live→Measuring→Complete) | Production-ready |
+| VA Portfolio dashboard (KPI-aware formatting, cost KPI sign flip) | Production-ready |
+| White-paper report (Gartner-style cold-eyes document) | Production-ready |
 | PIB email delivery (Jinja2, SMTP, Gmail App Password) | Production-ready |
 | Single-use briefing tokens (deep link, delegate, request_info, approve) | Production-ready |
 | Delegation flow (DelegatePage, audit trail in situation_actions) | Production-ready |
 | Follow-up NL questions with inline data results | Production-ready |
 | Data Product Onboarding (8-step orchestrated workflow) | Production-ready |
-| Decision Studio UI (React/Vite/Tailwind) | Production-ready |
+| Decision Studio UI (React/Vite/Tailwind, Swiss Style) | Production-ready |
 | Supabase-backed registries (6 registries) | Production-ready |
 | DuckDB + BigQuery + PostgreSQL data sources | Production-ready |
 | Production deployment (Railway + Vercel + Supabase Cloud) | Live (deployed Mar 2026) |
+| SF fast debate mode (2 calls dev / 4 calls production) | Production-ready |
 
 ### What's not built yet
 
 | Capability | Planned phase |
 |-----------|--------------|
-| KPI accountability registry (dimensional ownership) | Phase 11A |
-| LLM-assisted accountability import from HCM documents | Phase 11B |
-| Swiss Style brand identity across UI | Phase 10 |
-| PIB email — brand refresh | Phase 10 |
 | DGA mandatory wiring (eliminate 16 governance fallback paths) | Phase 10B-DGA |
 | Multi-tenant data connectivity (MCP-first, Snowflake/Databricks/HANA) | Phase 10C |
 | KPI trend chart (monthly_values populated for all backends) | Phase 10C |
+| KPI accountability registry (dimensional ownership) | Phase 11A |
+| LLM-assisted accountability import from HCM documents | Phase 11B |
 | Unified situation stream (merge problem + opportunity) | Phase 11C |
 | Adaptive calibration loop (KPI Assistant → monitoring profiles) | Phase 11D |
 | Audio briefings (TTS flash briefing) | Phase 11E |
@@ -71,7 +74,6 @@ run_enterprise_assessment.py
 | `situations` table partially redundant with `kpi_assessments` | Deprecation deferred — used by VA pipeline. Consolidate in Phase 11A. |
 | `kpisScanned={14}` hardcoded in `DecisionStudio.tsx` | Wire real count from assessment API in Phase 11C |
 | Separate `OpportunitySignal` / `Situation` models | Unify in Phase 11C |
-| Client dropdown on SA Console | Move to login screen in Phase 10 |
 | `run_enterprise_assessment.py` has no scheduler | CLI only — scheduler deferred |
 
 ---
@@ -91,63 +93,81 @@ Full accountability model: `docs/architecture/kpi_accountability_model.md`
 
 ---
 
+## Completed Phases
+
+### Phase 10A: Decision Studio App UI ✅ COMPLETE (Apr 2026)
+
+Swiss Style brand identity across all UI surfaces:
+- `BrandLogo` aperture component shared across Login, DelegatePage, ActionHandler, ExecutiveBriefing, Portfolio
+- Satoshi font loaded globally; semantic color tokens; monochrome base
+- KPI tile visual refresh — deep slate card, 1px left-border severity indicator, factual summary copy
+- KPI tile variance/delta bar chart (DivergingBarChart component)
+- Deep Analysis Is/Is Not exhibit — Top 5 IS / Top 3 IS NOT, dimension labels, McKinsey exhibit style
+- ProblemRefinementChat sticky footer — suggested responses + input always visible
+- CouncilDebate terminal log aesthetic — monospace timestamps, clean progress bars
+- ExecutiveBriefing brand refresh + print CSS fix
+- TrajectoryChart — dark background, dotted red inaction line, solid slate expected, crisp white actual
+- DelegatePage + ActionHandler — aperture mark, visual consistency
+- Login — "Decision Studio" heading, aperture mark
+- Client dropdown removed from SA Console header (moved to Login)
+- Dead code removal — VarianceDrawer.tsx, RidgelineScanner.tsx, SnowflakeScanner.tsx deleted
+- Debug artifacts removed — console.log statements, hardcoded counts, placeholder text
+
+### Phase 10B: PIB Email Template Refresh ✅ COMPLETE (Apr 2026)
+
+- Swiss Style monochrome email template
+- Section hierarchy: New Situations → Urgency → Solutions → Managed
+- Top 3 IS driver rows per situation block
+- Measured CTA copy — "Request a Conversation", "View the Analysis"
+- Mobile-safe layout tested on Gmail
+- Flash Briefing text block structured for future TTS delivery
+
+### Phase 10D: Solution Finder Performance Tuning ✅ COMPLETE (Apr 2026)
+
+**Result:** Dev latency reduced from ~9 min to ~3 min per debate (3× speedup).
+
+| Deliverable | What was done |
+|------------|---------------|
+| Fast debate mode (`VITE_DEBATE_MODE`) | Dev: 2 API calls (stage1_only + synthesis). Production: 4 calls (all stages). Controlled via `.env.development` / `.env.production`. |
+| DA context trimming | When Stage 1 hypotheses exist, skip full `deep_analysis_context` from synthesis payload (~8-12K token reduction). `da_summary` carries all key signals; personas already processed the full context in Stage 1. |
+| Model routing preserved | Stage 1 → Haiku (parallel, ~5s). Synthesis → Sonnet (full power). No quality compromise in either mode. |
+
+**Files changed:**
+- `decision-studio-ui/src/hooks/useDecisionStudio.ts` — fast mode conditional stage skip
+- `decision-studio-ui/src/pages/CouncilDebatePage.tsx` — fast mode conditional stage skip
+- `src/agents/new/a9_solution_finder_agent.py` — conditional `deep_analysis_context` exclusion
+- `decision-studio-ui/.env.development` — `VITE_DEBATE_MODE=fast`
+- `decision-studio-ui/.env.production` — `VITE_DEBATE_MODE=full`
+
+### VA 5-Phase Lifecycle ✅ COMPLETE (Apr 2026)
+
+Expanded VA from single verdict status to independent lifecycle + evaluation dimensions:
+
+| Component | What was built |
+|-----------|---------------|
+| `SolutionPhase` enum | APPROVED → IMPLEMENTING → LIVE → MEASURING → COMPLETE (forward-only transitions) |
+| Backend agent method | `update_solution_phase()` — validates transition order, sets `go_live_at`/`completed_at`, resets `actual_trend` on Go Live |
+| API endpoint | `PATCH /solutions/{id}/phase` — delegates to agent |
+| Supabase migration | `phase`, `go_live_at`, `completed_at` columns + backfill |
+| TrajectoryChart | Phase-aware rendering — CoI only during APPROVED/IMPLEMENTING, all lines at LIVE+ |
+| Portfolio table | Redesigned: humanized KPI name, phase badge, verdict badge, KPI-aware impact formatting ($K/$M vs %), cost KPI sign flip (savings = positive) |
+| Phase transition buttons | "Mark Implementing" (APPROVED→IMPLEMENTING), "Go Live" (IMPLEMENTING→LIVE) |
+| Auto-complete | `evaluate_solution_impact()` auto-transitions to COMPLETE on verdict |
+| Demo seed script | `scripts/seed_va_demo_data.py` — 7 solutions across all phases |
+
+### White-Paper Report Page ✅ COMPLETE (Apr 2026)
+
+- Standalone page at `/report/:situationId` — Gartner-style, white background, narrative arc
+- Sections: Cover → Executive Summary → Situation → Root Causes → Market → Options → Recommendation → Roadmap → Risks → Appendix
+- Draft/Approved badge from localStorage approval state
+- Print and Download PDF buttons
+- "Generate Report" link from Executive Briefing page
+
+---
+
 ## Forward Plan
 
-### Phase 10: Brand Identity & UI Polish
-
-**Goal:** Decision Studio looks and feels like a professional product. Current UI is functional but visually inconsistent with the Swiss Style brand guidelines.
-
-**Priority:** High — needed before any external demo or outreach.
-
-#### 10A: Decision Studio App UI
-
-| Deliverable | Description |
-|------------|-------------|
-**Design principles (Quiet Expert / Swiss Style):**
-- Monochrome dominance — deep slate backgrounds, semantic color used sparingly (1px left-border only on situation cards: red=variance, amber=watch, green=growth)
-- No decorative animation — CouncilDebate uses monospace timestamp logs and clean progress bars, not theatric loading states
-- Factual tone — "15 KPIs evaluated. 3 findings require attention." No exclamation points
-- Transparency tier badges on chat responses — `[Organizational Knowledge Required]` etc. (quiet gray, builds trust by showing AI knows its limits)
-- Aperture `BrandLogo` component built once, used across Login, DelegatePage, ActionHandler, ExecutiveBriefing, and landing page hero
-
-| Deliverable | Description |
-|------------|-------------|
-| `BrandLogo` component | Implement Aperture logo mark (currently empty 1-line file). Shared across all surfaces. Drop into LandingPage hero as a free win once built. |
-| Swiss Style design system | Satoshi font loaded globally (index.html). Semantic color tokens. Monochrome base. |
-| KPI tile — visual refresh | Deep slate card, 1px left-border severity indicator only (no Christmas tree colors). Factual summary bar copy. |
-| KPI tile — variance bar chart | Replace sparkline with variance/delta bars (actual − comparison). Red=below, green=above. No axes. Comparison type badge (vs Prior Year / vs Budget / vs Forecast) substitutes for axis label. Period window controlled by inline selector (see below). **Not yet rendered** — requires Phase 10C `get_kpi_monthly_series` to return `monthly_values`. Frontend component is spec'd and ready. |
-| KPI tile — inline period selector | Small text links below the bar chart: `3M · 6M · 9M · 1Y`. Plain `font-mono text-[9px]` in slate-500, selected period in slate-300. Tapping re-fetches monthly series for that window via SA scan API with `num_months` param. Replaces the global Timeframe dropdown in the header entirely — timeframe control lives with the chart, not the header. Inspired by Yahoo Finance period selector pattern. Default: 9M. |
-| KPI tile — top driver subtitle | When stored DA results exist for a KPI (assessment has already run), show Top 2 IS drivers as compact subtitle text (e.g. "North Region −$2.1M · Channel Indirect −$1.4M"). Condition: only when `kpi_assessments` data available — tiles without DA results unchanged. |
-| KPI tile — wire real count | Replace hardcoded `kpisScanned={14}` with real `kpi_evaluated_count` from assessment API |
-| Header — remove Timeframe dropdown | Timeframe control moves to KPI tile inline selector. Header contains: BrandLogo · Principal selector · Scan Now button only. Remove orphaned SC initials circle. |
-| Deep Analysis — Is/Is Not exhibit | Backend (DA agent): hard cap at Top 5 IS / Top 3 IS NOT ranked by absolute delta. Frontend: items displayed with dimension as small label (not group header) — looks like a printed McKinsey exhibit at default state. Dimension summary row (net variance + item count per dimension) with expand-to-detail on click for audit trail. No pivot/filter controls on the chart itself — Refinement Chat handles deeper exploration. |
-| Transparency tier badges | Chat responses (ProblemRefinementChat, ExecutiveBriefing Q&A) display quiet gray badges per tier: `[Context Recall]` `[Data Query]` `[Contextual Judgment]` `[Org Knowledge Required]` |
-| ProblemRefinementChat | Sticky footer fix — suggested responses + input always visible |
-| CouncilDebate | Terminal log aesthetic — monospace timestamps, clean progress bars. Remove any animated "thinking" theatrics. |
-| Solution Proposal panel | Replace passive "Consensus Reached" card with a formal Solution Proposal. Three explicit actions: **Accept** (triggers HITL approval → Value Assurance), **Challenge** (principal states objection, LLM responds inline), **Reshape** (opens light shaping pass — see below). Swiss Style: slate card, no green backgrounds, left-border accent only. |
-| Solution shaping (light pass) | After council debate, principal can type constraints ("assume we can't change procurement contracts", "make Option A more conservative on timeline"). LLM applies editorial adjustments to the existing solution options — no re-running the council. If still unsatisfied, principal returns to Deep Analysis problem refinement with different inputs. New `SolutionRefinementChat` component + lightweight backend endpoint. |
-| ExecutiveBriefing — print CSS fix | **Critical:** Accordion `hidden` class uses `display:none !important` which defeats `print:block`. Fix with `@media print` override so all sections render in print output. Currently only 1 page prints instead of the full document. |
-| ExecutiveBriefing page | Brand refresh. Section hierarchy: New Situations → Urgency → Solutions → Managed. Print CSS alignment. |
-| Trajectory chart | Dark background. Dotted red line = Cost of Inaction. Solid slate = Expected. Crisp white/green = Actual. Pure Swiss geometry. |
-| DelegatePage + ActionHandler | Aperture mark, visual consistency on token-action pages (email-linked flows) |
-| Login | Remove "Agent9" from heading. Aperture mark. |
-| Client selector → login screen | Remove client dropdown from SA Console header — already on Login |
-| Remove debug artifacts | `console.log` statements, hardcoded counts, placeholder text |
-| Dead code removal | Delete `VarianceDrawer.tsx`, `RidgelineScanner.tsx`, `SnowflakeScanner.tsx` — not imported anywhere |
-
-#### 10B: PIB Email Template Refresh
-
-| Deliverable | Description |
-|------------|-------------|
-| Swiss Style email | Monochrome base, Aperture logo mark, Satoshi or system font stack |
-| Section hierarchy | Clear visual weight: New Situations → Urgency → Solutions → Managed |
-| Top driver rows per situation | For each situation block, list Top 3 IS drivers as compact table rows: dimension · segment · delta. Always available (DA runs before PIB in assessment pipeline). Supplements prose SCQA summary — does not replace it. |
-| CTA copy | Measured language throughout — "Request a Conversation", "View the Analysis". No exclamation points. |
-| Mobile-safe layout | Tested on Gmail mobile + desktop |
-| Executive Debrief print format | Full monochrome print document: Aperture mark + "Decision Studio" header, situation ID + date. Monochrome metadata strip (Financial Impact / Urgency / Confidence as slate labels, no red/amber/blue text). Recommended option as left-border callout not green box. Arguments For/Against in slate, not green/red text. Risk table clean. Footer: "This briefing was generated by Decision Studio using AI-assisted analysis." |
-| Flash Briefing block | 3–5 sentence audio-ready summary at top of printed debrief. Structured for offline consumption and future TTS delivery (Phase 11E, on hold for MVP). Assembled from existing SCQA + recommendation fields — no new LLM call required. |
-
-#### 10B-DGA: Data Governance Agent — Mandatory Wiring
+### Phase 10B-DGA: Data Governance Agent — Mandatory Wiring
 
 **Goal:** Eliminate the 16 fallback paths that allow agents to bypass the DGA. The DGA methods for view resolution, KPI→data-product mapping, and business term translation are fully implemented but optional everywhere. This phase makes them the primary execution path — a required prerequisite before adding new data connectors in 10C.
 
@@ -181,7 +201,7 @@ Full accountability model: `docs/architecture/kpi_accountability_model.md`
 
 ---
 
-#### 10C: Multi-Tenant Data Connectivity (MCP-First Architecture)
+### Phase 10C: Multi-Tenant Data Connectivity (MCP-First Architecture)
 
 **Goal:** Any enterprise client can connect their existing data warehouse to Decision Studio without custom integration work. MCP-first architecture means vendor-maintained servers handle connectivity; Decision Studio maintains only connection profiles and a thin SQL dialect layer.
 
@@ -213,32 +233,6 @@ Full accountability model: `docs/architecture/kpi_accountability_model.md`
 3. Databricks — stub dialect in 10C; live when first Databricks client onboards
 4. SAP HANA / Datasphere — stub dialect in 10C; live when first SAP client onboards (strong ICP fit given consulting background)
 5. Postgres — stub dialect in 10C; useful for test environments and Supabase direct
-
-#### 10D: Solution Finder Agent Performance Tuning
-
-**Goal:** Reduce Solution Finder latency from 5+ minutes per debate to <2 minutes by optimizing API payload sizes and model routing.
-
-**Current bottleneck:** Stage 2 (cross-review) and Stage 3 (synthesis) each take 174–250 seconds. Root cause: `prior_transcript` from Stage 1 containing full analysis context (12,034 tokens) is re-sent to Claude Sonnet for each subsequent stage, adding massive token overhead per call.
-
-**Target:** 30–60 seconds per stage (4–5× speedup).
-
-| Deliverable | Description | Expected impact |
-|------------|-------------|-----------------|
-| Trim prior_transcript for Stage 2/3 | Stage 1 collects full context; Stages 2–4 should send only summary of Stage 1 hypotheses (firm, conviction, key points) rather than full debate history. Estimated reduction: 12K → 3–4K tokens per stage. | 4–5× token reduction; target 30–60s per stage |
-| Skip re-sending deep_analysis_payload | Stages 2–4 currently re-receive full DA Is/Is Not context. Pass only DA run ID + summary instead; DPA agent can fetch full context if needed. | 2–3K additional token savings |
-| Evaluate Haiku for cross-review and synthesis | Profile Stage 2–3 with `claude-haiku-4-5-20251001` vs current Sonnet. If quality acceptable, potential 10–15s per stage gain. Stage 1 already uses Haiku; synthesis is the quality gate (humans see it). Preserve Sonnet for synthesis, use Haiku for Stage 2 only as experiment. | 10–15s per stage if acceptable; risk: reduced synthesis quality |
-| Add SF performance instrumentation | Log elapsed time per stage + input/output token counts. Dashboard metric: median latency per stage. Baseline: Stage 1=26s, Stage 2=174s, Stage 3=250s. | Observable before/after comparison |
-| Implement Option 1 first | Trim prior_transcript is lowest-risk, highest-impact. Deploy to production. Measure Stage 2/3 latency improvement. If <90s target met, defer Options 2–3. If >90s still, proceed to Option 2. | Empirical guidance on whether Options 2/3 needed |
-
-**Implementation approach:**
-1. (Week 1) Add logging instrumentation to SF agent; baseline current latencies
-2. (Week 2) Implement Option 1 (trim prior_transcript) — modify `_run_solution_debate()` to pass summary instead of full history to synthesis API call
-3. (Week 3) Test + deploy; measure improvement
-4. (Week 4) If still slow, implement Option 2 (skip DA re-send) and profile Haiku vs Sonnet for Stage 2
-
-**Files affected:**
-- `src/agents/new/a9_solution_finder_agent.py` — transcript trimming logic in `_run_solution_debate()`
-- `src/database/instrumentation.py` (new) or logging in SF agent — add timestamp + token tracking
 
 ---
 

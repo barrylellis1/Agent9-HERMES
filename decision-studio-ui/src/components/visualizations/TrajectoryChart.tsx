@@ -4,6 +4,7 @@ import { scaleLinear } from '@visx/scale';
 import { curveMonotoneX } from '@visx/curve';
 import { ParentSize } from '@visx/responsive';
 import { motion } from 'framer-motion';
+import type { SolutionPhase } from '../../types/valueAssurance';
 
 export interface TrajectoryChartProps {
   inactionTrend: number[];
@@ -14,6 +15,8 @@ export interface TrajectoryChartProps {
   measurementWindowDays: number;
   inactionHorizonMonths: number;
   kpiName?: string;
+  /** Lifecycle phase — controls which lines are visible */
+  phase?: SolutionPhase;
 }
 
 interface TooltipState {
@@ -71,6 +74,9 @@ interface InnerChartProps extends TrajectoryChartProps {
 
 const MARGIN = { top: 16, right: 16, bottom: 28, left: 44 };
 
+// Phases where expected/actual lines should be visible (solution is deployed)
+const LIVE_PHASES: Set<string> = new Set(['LIVE', 'MEASURING', 'COMPLETE']);
+
 const InnerChart: React.FC<InnerChartProps> = ({
   inactionTrend,
   expectedTrend,
@@ -79,7 +85,10 @@ const InnerChart: React.FC<InnerChartProps> = ({
   inactionHorizonMonths,
   width,
   height,
+  phase,
 }) => {
+  // Show expected/actual only when solution is live or beyond
+  const showExpectedActual = !phase || LIVE_PHASES.has(phase);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
   const innerWidth = width - MARGIN.left - MARGIN.right;
@@ -271,8 +280,8 @@ const InnerChart: React.FC<InnerChartProps> = ({
             />
           )}
 
-          {/* Expected line — slate solid */}
-          {expectedPoints.length >= 2 && (
+          {/* Expected line — slate solid (hidden during APPROVED/IMPLEMENTING) */}
+          {showExpectedActual && expectedPoints.length >= 2 && (
             <AnimatedLine
               d={
                 expectedPoints
@@ -286,8 +295,8 @@ const InnerChart: React.FC<InnerChartProps> = ({
             />
           )}
 
-          {/* Actual line — white solid with dot markers */}
-          {actualPoints.length >= 2 && (
+          {/* Actual line — white solid with dot markers (hidden during APPROVED/IMPLEMENTING) */}
+          {showExpectedActual && actualPoints.length >= 2 && (
             <>
               <LinePath
                 data={actualPoints}
@@ -309,6 +318,21 @@ const InnerChart: React.FC<InnerChartProps> = ({
                 />
               ))}
             </>
+          )}
+
+          {/* Cost of Delay label — shown during APPROVED/IMPLEMENTING phases */}
+          {phase && !showExpectedActual && inactionPoints.length >= 2 && (
+            <text
+              x={innerWidth / 2}
+              y={innerHeight / 2 - 10}
+              textAnchor="middle"
+              fill="#f59e0b"
+              fontSize={11}
+              fontWeight={600}
+              opacity={0.8}
+            >
+              Cost of Delay
+            </text>
           )}
 
           {/* Invisible hover target */}
@@ -404,7 +428,9 @@ export const TrajectoryChart: React.FC<TrajectoryChartProps> = (props) => {
       {/* Empty state */}
       {!hasData ? (
         <div className="flex items-center justify-center h-40 text-slate-500 text-sm">
-          First measurement period in progress
+          {props.phase === 'APPROVED' ? 'Awaiting implementation start' :
+           props.phase === 'IMPLEMENTING' ? 'Solution being deployed — go live to begin measurement' :
+           'First measurement period in progress'}
         </div>
       ) : (
         <ParentSize>
@@ -419,26 +445,35 @@ export const TrajectoryChart: React.FC<TrajectoryChartProps> = (props) => {
       )}
 
       {/* Legend */}
-      <div className="flex items-center gap-6 mt-3 pt-3 border-t border-slate-800">
-        <div className="flex items-center gap-1.5">
-          <svg width={20} height={8}>
-            <line x1={0} y1={4} x2={20} y2={4} stroke="#ef4444" strokeOpacity={0.5} strokeWidth={1.5} strokeDasharray="3,4" />
-          </svg>
-          <span className="text-[10px] text-slate-500">Inaction</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <svg width={20} height={8}>
-            <line x1={0} y1={4} x2={20} y2={4} stroke="#475569" strokeWidth={1.5} />
-          </svg>
-          <span className="text-[10px] text-slate-500">Expected</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <svg width={20} height={8}>
-            <line x1={0} y1={4} x2={20} y2={4} stroke="#ffffff" strokeWidth={2} />
-          </svg>
-          <span className="text-[10px] text-slate-400">Actual</span>
-        </div>
-      </div>
+      {(() => {
+        const showLines = !props.phase || LIVE_PHASES.has(props.phase);
+        return (
+          <div className="flex items-center gap-6 mt-3 pt-3 border-t border-slate-800">
+            <div className="flex items-center gap-1.5">
+              <svg width={20} height={8}>
+                <line x1={0} y1={4} x2={20} y2={4} stroke="#ef4444" strokeOpacity={0.5} strokeWidth={1.5} strokeDasharray="3,4" />
+              </svg>
+              <span className="text-[10px] text-slate-500">{showLines ? 'Inaction' : 'Cost of Inaction'}</span>
+            </div>
+            {showLines && (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <svg width={20} height={8}>
+                    <line x1={0} y1={4} x2={20} y2={4} stroke="#475569" strokeWidth={1.5} />
+                  </svg>
+                  <span className="text-[10px] text-slate-500">Expected</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <svg width={20} height={8}>
+                    <line x1={0} y1={4} x2={20} y2={4} stroke="#ffffff" strokeWidth={2} />
+                  </svg>
+                  <span className="text-[10px] text-slate-400">Actual</span>
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 };

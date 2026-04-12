@@ -121,6 +121,11 @@ class VASolutionsStore:
                 "benchmark_segments": _safe_json(
                     getattr(solution, "benchmark_segments", None)
                 ),
+                # Lifecycle phase (Phase 11)
+                "phase": getattr(solution, "phase", None)
+                and (solution.phase.value if hasattr(solution.phase, "value") else str(solution.phase)),
+                "go_live_at": getattr(solution, "go_live_at", None),
+                "completed_at": getattr(solution, "completed_at", None),
             }
 
             # Drop None values for trend fields that aren't yet on the model
@@ -234,6 +239,39 @@ class VASolutionsStore:
             return True
         except Exception as exc:
             logger.warning("VASolutionsStore.update_status failed (non-fatal): %s", exc)
+            return False
+
+    async def update_phase(
+        self, solution_id: str, phase: str, *,
+        go_live_at: Optional[str] = None,
+        completed_at: Optional[str] = None,
+    ) -> bool:
+        """Update the phase (and optional timestamp) columns for a solution."""
+        if not self.enabled:
+            return False
+        try:
+            payload: Dict[str, Any] = {"phase": phase}
+            if go_live_at:
+                payload["go_live_at"] = go_live_at
+            if completed_at:
+                payload["completed_at"] = completed_at
+            async with httpx.AsyncClient() as client:
+                response = await client.patch(
+                    self.solutions_endpoint,
+                    headers=self.headers,
+                    params={"id": f"eq.{solution_id}"},
+                    json=payload,
+                )
+                if response.status_code not in (200, 204):
+                    logger.warning(
+                        "VASolutionsStore.update_phase: unexpected status %s — %s",
+                        response.status_code,
+                        response.text[:200],
+                    )
+                    return False
+            return True
+        except Exception as exc:
+            logger.warning("VASolutionsStore.update_phase failed (non-fatal): %s", exc)
             return False
 
     async def append_actual_measurement(

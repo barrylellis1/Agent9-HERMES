@@ -1,6 +1,6 @@
 # A9_Value_Assurance_Agent Card
 
-Status: Active (Phase 7C)
+Status: Active (Phase 7C + VA Lifecycle)
 
 ## Overview
 
@@ -17,6 +17,7 @@ It uses **Difference-in-Differences (DiD) counterfactual attribution** — explo
 - `get_portfolio_summary(request: PortfolioSummaryRequest) -> StrategyAwarePortfolio`
 - `generate_narrative(request: GenerateNarrativeRequest) -> GenerateNarrativeResponse`
 - `record_kpi_measurement(request: RecordKPIMeasurementRequest) -> RecordKPIMeasurementResponse`
+- `update_solution_phase(request: UpdateSolutionPhaseRequest) -> UpdateSolutionPhaseResponse`
 
 Models defined in `src/agents/models/value_assurance_models.py`.
 
@@ -99,6 +100,7 @@ Migrations:
 - `supabase/migrations/20260314_value_assurance_tables.sql` — base tables
 - `supabase/migrations/20260318_va_trend_columns.sql` — trend arrays, benchmark segments
 - `supabase/migrations/20260321_va_briefing_snapshot.sql` — briefing replay JSONB
+- `supabase/migrations/20260410_va_lifecycle_phase.sql` — phase, go_live_at, completed_at columns + backfill
 
 Persistence layer: `src/database/va_solutions_store.py` (follows `SituationsStore` pattern).
 On `connect()`, loads all solutions from Supabase into memory. Falls back gracefully when Supabase is unavailable.
@@ -110,6 +112,27 @@ On `connect()`, loads all solutions from Supabase into memory. Falls back gracef
 - All LLM calls routed through `A9_LLM_Service_Agent` via Orchestrator
 - No direct `anthropic` / `openai` imports
 - Orchestrator-guarded: all external agent calls wrapped in `if self.orchestrator:` checks
+
+## Solution Lifecycle Phases (Apr 2026)
+
+Solutions follow a 5-phase lifecycle independent of the evaluation verdict:
+
+| Phase | Meaning | Trigger |
+|-------|---------|---------|
+| **APPROVED** | Decision recorded, not yet started | `register_solution()` sets initial phase |
+| **IMPLEMENTING** | Solution being built/deployed | Principal clicks "Mark Implementing" |
+| **LIVE** | Solution deployed, measurement begins | Principal clicks "Go Live" (key HITL event) |
+| **MEASURING** | DiD attribution running | Auto-transition when evaluation runs |
+| **COMPLETE** | Verdict rendered | Auto-transition when `evaluate_solution_impact()` sets verdict |
+
+Phase transitions are validated (must follow order). The `update_solution_phase()` entrypoint handles manual transitions (APPROVED→IMPLEMENTING→LIVE); MEASURING and COMPLETE are auto-set by the agent.
+
+**Key fields:** `phase: SolutionPhase`, `go_live_at: Optional[str]` (set on LIVE), `completed_at: Optional[str]` (set on COMPLETE).
+
+**TrajectoryChart phase-aware rendering:**
+- APPROVED/IMPLEMENTING: Cost of Inaction line only (shows money left on the table during delay)
+- LIVE/MEASURING: All three lines (inaction + expected + actual)
+- COMPLETE: All three lines + verdict annotation
 
 ## Pipeline Position
 

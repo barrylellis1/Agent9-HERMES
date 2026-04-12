@@ -1,15 +1,35 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, TrendingUp, AlertCircle, BarChart2, ArrowUpRight, ShieldCheck, Target, FileText } from 'lucide-react';
-import { getVAPortfolio, recordKPIMeasurement, getPrincipal } from '../api/client';
+import { ArrowLeft, RefreshCw, TrendingUp, AlertCircle, BarChart2, ArrowUpRight, ShieldCheck, Target, FileText, Play, Rocket } from 'lucide-react';
+import { getVAPortfolio, recordKPIMeasurement, updateSolutionPhase, getPrincipal } from '../api/client';
 import { BrandLogo } from '../components/BrandLogo';
-import type { StrategyAwarePortfolio, AcceptedSolution, SolutionVerdict } from '../types/valueAssurance';
+import type { StrategyAwarePortfolio, AcceptedSolution, SolutionVerdict, SolutionPhase } from '../types/valueAssurance';
 import { PortfolioDashboard } from '../components/PortfolioDashboard';
 import { TrajectoryChart } from '../components/visualizations/TrajectoryChart';
 import { ValueAssurancePanel } from '../components/ValueAssurancePanel';
 import { AttributionBreakdown } from '../components/AttributionBreakdown';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function isCostKpi(kpiId?: string): boolean {
+  if (!kpiId) return false;
+  return /cost|cogs|expense/i.test(kpiId);
+}
+
+function toBenefit(rawDelta: number, kpiId?: string): number {
+  return isCostKpi(kpiId) ? -rawDelta : rawDelta;
+}
+
+function formatImpact(value: number, kpiId?: string): string {
+  const sign = value >= 0 ? '+' : '';
+  if (kpiId && kpiId.endsWith('_pct')) {
+    return `${sign}${value.toFixed(1)}%`;
+  }
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) return `${sign}$${(value / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${sign}$${(value / 1_000).toFixed(0)}K`;
+  return `${sign}$${value.toFixed(0)}`;
+}
 
 function formatDate(iso: string): string {
   try {
@@ -47,25 +67,62 @@ function StatusBadge({ status }: { status: SolutionVerdict }) {
   );
 }
 
+const PHASE_CONFIG: Record<SolutionPhase, { color: string; label: string }> = {
+  APPROVED: { color: 'bg-slate-500/20 text-slate-300 border-slate-500/30', label: 'Approved' },
+  IMPLEMENTING: { color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', label: 'Implementing' },
+  LIVE: { color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', label: 'Live' },
+  MEASURING: { color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', label: 'Measuring' },
+  COMPLETE: { color: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30', label: 'Complete' },
+};
+
+function PhaseBadge({ phase }: { phase?: SolutionPhase }) {
+  const p = phase || 'APPROVED';
+  const cfg = PHASE_CONFIG[p] || PHASE_CONFIG.APPROVED;
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${cfg.color}`}>
+      {cfg.label}
+    </span>
+  );
+}
+
 // ─── Detail panel ─────────────────────────────────────────────────────────────
 
 interface DetailPanelProps {
   solution: AcceptedSolution;
   principalId: string;
   onMeasurementRecorded: (updated: AcceptedSolution) => void;
+  onPhaseUpdated: (updated: AcceptedSolution) => void;
 }
 
-function DetailPanel({ solution, principalId, onMeasurementRecorded }: DetailPanelProps) {
+function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpdated }: DetailPanelProps) {
   const [measurementValue, setMeasurementValue] = useState('');
   const [recording, setRecording] = useState(false);
   const [recordError, setRecordError] = useState<string | null>(null);
   const [recordSuccess, setRecordSuccess] = useState(false);
   const [showAttribution, setShowAttribution] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
 
+  const currentPhase: SolutionPhase = solution.phase || 'APPROVED';
   const hasEvaluation = !!solution.impact_evaluation;
   const attributionNote = hasEvaluation
     ? null
     : 'Attribution: preliminary (control group data collection pending)';
+
+  const handlePhaseTransition = async (newPhase: SolutionPhase) => {
+    setTransitioning(true);
+    try {
+      await updateSolutionPhase(solution.solution_id, newPhase, undefined, principalId);
+      const updated: AcceptedSolution = { ...solution, phase: newPhase };
+      if (newPhase === 'LIVE') {
+        updated.go_live_at = new Date().toISOString();
+      }
+      onPhaseUpdated(updated);
+    } catch (err: unknown) {
+      setRecordError(err instanceof Error ? err.message : 'Phase transition failed.');
+    } finally {
+      setTransitioning(false);
+    }
+  };
 
   const handleRecord = async () => {
     const value = parseFloat(measurementValue);
@@ -104,8 +161,44 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded }: DetailPan
           </h2>
           <p className="text-xs text-slate-500 font-mono mt-1">{solution.kpi_id}</p>
         </div>
-        <StatusBadge status={solution.status} />
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <PhaseBadge phase={currentPhase} />
+          <StatusBadge status={solution.status} />
+        </div>
       </div>
+
+      {/* Phase transition buttons */}
+      {currentPhase !== 'COMPLETE' && (
+        <div className="flex items-center gap-3">
+          {currentPhase === 'APPROVED' && (
+            <button
+              onClick={() => handlePhaseTransition('IMPLEMENTING')}
+              disabled={transitioning}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-500 disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-colors"
+            >
+              <Rocket className="w-3.5 h-3.5" />
+              {transitioning ? 'Updating...' : 'Mark Implementing'}
+            </button>
+          )}
+          {currentPhase === 'IMPLEMENTING' && (
+            <button
+              onClick={() => handlePhaseTransition('LIVE')}
+              disabled={transitioning}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-colors"
+            >
+              <Play className="w-3.5 h-3.5" />
+              {transitioning ? 'Updating...' : 'Go Live'}
+            </button>
+          )}
+          {(currentPhase === 'APPROVED' || currentPhase === 'IMPLEMENTING') && (
+            <p className="text-xs text-slate-500">
+              {currentPhase === 'APPROVED'
+                ? 'Solution approved — mark as implementing when work begins'
+                : 'Solution being deployed — go live to begin measurement'}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Meta row */}
       <div className="flex flex-wrap gap-6 text-xs text-slate-400">
@@ -123,8 +216,8 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded }: DetailPan
         </div>
         <div>
           <span className="text-slate-600 block uppercase tracking-wider text-[10px] mb-0.5">Expected impact</span>
-          {solution.expected_impact_lower >= 0 ? '+' : ''}{solution.expected_impact_lower.toFixed(1)}% to{' '}
-          {solution.expected_impact_upper >= 0 ? '+' : ''}{solution.expected_impact_upper.toFixed(1)}%
+          {formatImpact(toBenefit(solution.expected_impact_lower, solution.kpi_id), solution.kpi_id)} to{' '}
+          {formatImpact(toBenefit(solution.expected_impact_upper, solution.kpi_id), solution.kpi_id)}
         </div>
       </div>
 
@@ -140,9 +233,9 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded }: DetailPan
         const expectedIdx = Math.min(monthsElapsed, solution.expected_trend.length - 1);
         const expectedAtMonth = solution.expected_trend[expectedIdx];
 
-        const realizedRecovery = latestActual - baseline;
-        const avoidedLoss = latestActual - inactionAtMonth;
-        const vsPlan = latestActual - expectedAtMonth;
+        const realizedRecovery = toBenefit(latestActual - baseline, solution.kpi_id);
+        const avoidedLoss = toBenefit(latestActual - inactionAtMonth, solution.kpi_id);
+        const vsPlan = toBenefit(latestActual - expectedAtMonth, solution.kpi_id);
 
         return (
           <div className="grid grid-cols-3 gap-4">
@@ -152,10 +245,10 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded }: DetailPan
                 <span className="text-[10px] font-bold text-emerald-400/70 uppercase tracking-wider">Realized Recovery</span>
               </div>
               <p className="text-2xl font-bold text-emerald-400">
-                {realizedRecovery >= 0 ? '+' : ''}{realizedRecovery.toFixed(1)} pp
+                {formatImpact(realizedRecovery, solution.kpi_id)}
               </p>
               <p className="text-[10px] text-slate-500 mt-1">
-                {baseline.toFixed(1)}% → {latestActual.toFixed(1)}% over {monthsElapsed} month{monthsElapsed !== 1 ? 's' : ''}
+                {formatImpact(baseline, solution.kpi_id).replace(/^[+-]/, '')} → {formatImpact(latestActual, solution.kpi_id).replace(/^[+-]/, '')} over {monthsElapsed} month{monthsElapsed !== 1 ? 's' : ''}
               </p>
             </div>
             <div className="bg-blue-900/15 border border-blue-500/20 rounded-xl p-4">
@@ -164,10 +257,10 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded }: DetailPan
                 <span className="text-[10px] font-bold text-blue-400/70 uppercase tracking-wider">Avoided Loss</span>
               </div>
               <p className="text-2xl font-bold text-blue-400">
-                {avoidedLoss >= 0 ? '+' : ''}{avoidedLoss.toFixed(1)} pp
+                {formatImpact(avoidedLoss, solution.kpi_id)}
               </p>
               <p className="text-[10px] text-slate-500 mt-1">
-                vs inaction scenario ({inactionAtMonth.toFixed(1)}% at M{monthsElapsed})
+                vs inaction scenario ({formatImpact(inactionAtMonth, solution.kpi_id).replace(/^[+-]/, '')} at M{monthsElapsed})
               </p>
             </div>
             <div className={`${vsPlan >= 0 ? 'bg-indigo-900/15 border-indigo-500/20' : 'bg-amber-900/15 border-amber-500/20'} border rounded-xl p-4`}>
@@ -176,10 +269,10 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded }: DetailPan
                 <span className={`text-[10px] font-bold uppercase tracking-wider ${vsPlan >= 0 ? 'text-indigo-400/70' : 'text-amber-400/70'}`}>vs Plan</span>
               </div>
               <p className={`text-2xl font-bold ${vsPlan >= 0 ? 'text-indigo-400' : 'text-amber-400'}`}>
-                {vsPlan >= 0 ? '+' : ''}{vsPlan.toFixed(1)} pp
+                {formatImpact(vsPlan, solution.kpi_id)}
               </p>
               <p className="text-[10px] text-slate-500 mt-1">
-                {vsPlan >= 0 ? 'Ahead of' : 'Behind'} expected ({expectedAtMonth.toFixed(1)}% target)
+                {vsPlan >= 0 ? 'Ahead of' : 'Behind'} expected ({formatImpact(expectedAtMonth, solution.kpi_id).replace(/^[+-]/, '')} target)
               </p>
             </div>
           </div>
@@ -247,6 +340,7 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded }: DetailPan
           measurementWindowDays={solution.measurement_window_days}
           inactionHorizonMonths={solution.inaction_horizon_months}
           kpiName={solution.kpi_id}
+          phase={currentPhase}
         />
       </div>
 
@@ -447,6 +541,7 @@ export function Portfolio() {
                   solution={selectedSolution}
                   principalId={principalId}
                   onMeasurementRecorded={handleMeasurementRecorded}
+                  onPhaseUpdated={handleMeasurementRecorded}
                 />
               </div>
             )}
