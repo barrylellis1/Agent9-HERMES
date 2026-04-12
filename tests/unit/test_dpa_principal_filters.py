@@ -84,7 +84,7 @@ async def test_get_kpi_data_merges_principal_defaults(monkeypatch):
 async def test_generate_sql_ignores_all_tokens_in_filters():
     agent = await _get_dp_agent()
 
-    kpi_def = SimpleNamespace(name="Gross Revenue", data_product_id='FI_Star_Schema')
+    kpi_def = SimpleNamespace(name="Gross Revenue", data_product_id='FI_Star_Schema', view_name='FI_Star_View')
 
     filters = {
         'profit_center_hierarchyid': ['Total', 'Best Run U'],  # 'Total' should be ignored

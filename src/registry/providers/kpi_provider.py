@@ -416,7 +416,18 @@ class KPIProvider(RegistryProvider[KPI]):
     def get_all(self) -> List[KPI]:
         """Return all KPIs currently cached."""
         return list(self._kpis.values())
-    
+
+    def get_by_client(self, client_id: str) -> List[KPI]:
+        """Return KPIs belonging to a specific client/tenant.
+
+        Args:
+            client_id: The client identifier to filter by
+
+        Returns:
+            List of KPIs where client_id matches
+        """
+        return [k for k in self._kpis.values() if getattr(k, 'client_id', None) == client_id]
+
     def find_by_attribute(self, attr_name: str, attr_value: Any) -> List[KPI]:
         """
         Find KPIs by a specific attribute value.

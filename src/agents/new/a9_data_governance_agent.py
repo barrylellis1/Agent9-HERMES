@@ -233,26 +233,58 @@ class A9_Data_Governance_Agent:
     ) -> DataAccessValidationResponse:
         """
         Validate data access permissions for a principal.
-        
+
+        Tenant isolation: when client_id is provided, the principal may only access
+        data products belonging to the same client. If client_id is None (legacy/test),
+        access is allowed with a warning.
+
         Args:
-            request: Contains principal_id, data_product_id, and access_type
-            
+            request: Contains principal_id, data_product_id, access_type, and client_id
+
         Returns:
             Response with access validation result
         """
-        # For MVP, implement a simple validation
-        # In production, this would check against actual policies
-        
-        # Log the access validation request for audit
+        principal_client = getattr(request, 'client_id', None)
+
+        # Resolve the data product's client_id from the KPI provider / registry
+        dp_client = None
+        if self.kpi_provider:
+            for kpi in self.kpi_provider.get_all():
+                dp_id = self._get_data_product_id_for_kpi(kpi)
+                if dp_id == request.data_product_id:
+                    dp_client = getattr(kpi, 'client_id', None)
+                    break
+
+        # If either side has no client_id, allow (backward compat) but warn
+        if not principal_client or not dp_client:
+            self.logger.info(
+                f"Access ALLOWED (no client scope): principal={request.principal_id} "
+                f"dp={request.data_product_id} principal_client={principal_client} dp_client={dp_client}"
+            )
+            return DataAccessValidationResponse(
+                allowed=True,
+                reason="Access granted — client_id not set on principal or data product (backward compat)"
+            )
+
+        # Tenant isolation check
+        if principal_client != dp_client:
+            self.logger.warning(
+                f"Access DENIED: principal={request.principal_id} (client={principal_client}) "
+                f"attempted to access dp={request.data_product_id} (client={dp_client})"
+            )
+            return DataAccessValidationResponse(
+                allowed=False,
+                reason=f"Client mismatch: principal belongs to '{principal_client}', "
+                       f"data product belongs to '{dp_client}'"
+            )
+
         self.logger.info(
-            f"Data access validation request: Principal {request.principal_id}, "
-            f"Data Product {request.data_product_id}, Access Type {request.access_type}"
+            f"Access ALLOWED: principal={request.principal_id} dp={request.data_product_id} "
+            f"client={principal_client}"
         )
-        
-        # Always allow for now
         return DataAccessValidationResponse(
             allowed=True,
-            reason="Access granted for MVP implementation"
+            reason=f"Access granted for client '{principal_client}'"
         )
     
     async def get_data_lineage(
@@ -327,9 +359,13 @@ class A9_Data_Governance_Agent:
         mappings = []
         unmapped_kpis = []
         
-        # Get all KPIs from the registry
+        # Get KPIs from the registry, scoped by client_id when provided
         try:
-            all_kpis = self.kpi_provider.get_all() or []
+            client_id = getattr(request, 'client_id', None)
+            if client_id and hasattr(self.kpi_provider, 'get_by_client'):
+                all_kpis = self.kpi_provider.get_by_client(client_id) or []
+            else:
+                all_kpis = self.kpi_provider.get_all() or []
             kpi_dict = {kpi.name: kpi for kpi in all_kpis if hasattr(kpi, 'name')}
             
             for kpi_name in request.kpi_names:

@@ -49,6 +49,9 @@ class DataAccessValidationRequest(BaseModel):
     access_type: str = Field(
         "read", description="Type of access (read, write, execute)"
     )
+    client_id: Optional[str] = Field(
+        None, description="Client/tenant ID of the requesting principal"
+    )
 
 
 class DataAccessValidationResponse(BaseModel):
@@ -132,6 +135,9 @@ class KPIDataProductMappingRequest(BaseModel):
     """Request for mapping KPIs to data products."""
     kpi_names: List[str] = Field(
         ..., description="List of KPI names to map to data products"
+    )
+    client_id: Optional[str] = Field(
+        None, description="Client/tenant ID — when provided, only return KPIs belonging to this client"
     )
     context: Optional[Dict[str, Any]] = Field(
         None, description="Additional context for mapping (e.g., principal context)"

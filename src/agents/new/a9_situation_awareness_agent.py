@@ -90,6 +90,7 @@ class A9_Situation_Awareness_Agent:
         self.name = "A9_Situation_Awareness_Agent"
         self.version = "0.1.0"
         self.data_product_agent = None  # Will be loaded via orchestrator during connect
+        self.data_governance_agent = None  # Wired post-bootstrap by runtime._wire_governance_dependencies()
         self.orchestrator_agent = None  # Will be initialized during connect
         self.principal_context_agent = None  # Will be loaded via orchestrator during connect
         self.llm_service_agent = None  # Will be loaded via orchestrator during connect
@@ -156,26 +157,9 @@ class A9_Situation_Awareness_Agent:
                 # Register the directly instantiated agent with the orchestrator
                 await self.orchestrator_agent.register_agent("A9_Data_Product_Agent", self.data_product_agent)
             
-            # Get the Data Governance Agent via the orchestrator
-            if self.orchestrator_agent:
-                try:
-                    self.data_governance_agent = await self.orchestrator_agent.get_agent("A9_Data_Governance_Agent")
-                except Exception as e:
-                    logger.error(f"Error getting Data Governance Agent from orchestrator: {e}")
-                    self.data_governance_agent = None
-            if not self.data_governance_agent:
-                # Fallback to direct instantiation if not available via orchestrator
-                logger.warning("Data Governance Agent not available via orchestrator, using direct instantiation")
-                try:
-                    from src.agents.new.a9_data_governance_agent import A9_Data_Governance_Agent
-                    self.data_governance_agent = await A9_Data_Governance_Agent.create({})
-                    await self.data_governance_agent.connect()
-                    # Register the directly instantiated agent with the orchestrator
-                    await self.orchestrator_agent.register_agent("A9_Data_Governance_Agent", self.data_governance_agent)
-                except Exception as e:
-                    logger.error(f"Failed to instantiate Data Governance Agent directly: {e}")
-                    logger.warning("Data Governance Agent functionality will be limited")
-            
+            # DGA is wired post-bootstrap by runtime._wire_governance_dependencies().
+            # No need to acquire it here — self.data_governance_agent will be set after connect().
+
             # Get the Principal Context Agent via the orchestrator
             if self.orchestrator_agent:
                 try:
@@ -812,10 +796,12 @@ class A9_Situation_Awareness_Agent:
             # For bullet tracer MVP, if no KPIs are found in query, get principal's top KPI
             if not kpi_values and request.principal_context:
                 try:
-                    # Get KPIs relevant to principal
+                    # Get KPIs relevant to principal (scoped by client_id)
+                    _nl_client_id = getattr(request.principal_context, 'client_id', None) if hasattr(request.principal_context, 'client_id') else None
                     relevant_kpis = self._get_relevant_kpis(
                         request.principal_context,
-                        None  # No business process filter for NL queries
+                        None,  # No business process filter for NL queries
+                        client_id=_nl_client_id,
                     )
                     
                     # Get first KPI
@@ -1792,21 +1778,22 @@ class A9_Situation_Awareness_Agent:
                 # For any other string business processes
                 process_strings.append(str(bp))
         
+        # Also try to resolve client_id from PrincipalContext if not explicitly passed
+        if not client_id and hasattr(principal_context, 'client_id'):
+            client_id = getattr(principal_context, 'client_id', None)
+
         # Filter KPIs by business process
         for kpi_name, kpi_def in self.kpi_registry.items():
             # Client scoping: skip KPIs that don't belong to the requested client.
-            # This must happen before name-keying to prevent cross-client collisions
-            # when two clients share the same KPI display name (e.g. "Gross Revenue").
+            # This must happen before any other filtering to prevent cross-client leaks.
             if client_id:
                 kpi_client = getattr(kpi_def, 'client_id', None)
                 if kpi_client is not None and kpi_client != client_id:
                     continue
 
-            # For testing/development: Include KPIs without business processes defined
-            # This allows tests to progress even when KPIs lack complete metadata
+            # Include KPIs without business processes defined (test/dev data)
+            # Client filter above still applies — no cross-client leak here.
             if not kpi_def.business_processes:
-                # During development/testing, include all KPIs without business processes
-                # In production, we'd skip them with 'continue'
                 relevant_kpis[kpi_name] = kpi_def
                 continue
                 
@@ -3141,8 +3128,9 @@ class A9_Situation_Awareness_Agent:
                 )
                 bp_list = [bp_name]
 
+            _kpi_client_id = getattr(principal_context, 'client_id', None) if hasattr(principal_context, 'client_id') else None
             relevant_kpis: Dict[str, KPIDefinition] = self._get_relevant_kpis(
-                principal_context, bp_list
+                principal_context, bp_list, client_id=_kpi_client_id,
             )
 
             return {

@@ -124,6 +124,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         self.config = A9_Deep_Analysis_Agent_Config(**(config or {}))
         self.logger = logging.getLogger(self.__class__.__name__)
         self.data_product_agent = None
+        self.data_governance_agent = None  # Wired post-bootstrap by runtime._wire_governance_dependencies()
         self.llm_service_agent = None
         # Optional: orchestrator not stored; agents are resolved in connect()
 
@@ -381,10 +382,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     self.data_product_agent = await orchestrator.get_agent("A9_Data_Product_Agent")
                 except Exception:
                     self.data_product_agent = None
-                try:
-                    self.data_governance_agent = await orchestrator.get_agent("A9_Data_Governance_Agent")
-                except Exception:
-                    self.data_governance_agent = None
+                # DGA wired post-bootstrap by runtime._wire_governance_dependencies()
+                self.data_governance_agent = None
                 try:
                     self.llm_service_agent = await orchestrator.get_agent("A9_LLM_Service_Agent")
                 except Exception:

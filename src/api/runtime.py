@@ -143,6 +143,30 @@ class AgentRuntime:
             self._agents[agent_name] = agent
             await self._connect_agent(agent_name, agent)
 
+        # Wire DGA into consuming agents after all agents are created and connected.
+        # This fixes the lifecycle timing bug where _async_init() runs before
+        # connect(orchestrator), so agents couldn't find the DGA during creation.
+        await self._wire_governance_dependencies()
+
+    async def _wire_governance_dependencies(self) -> None:
+        """Inject DGA reference into agents that need it for tenant-scoped access control."""
+        import logging
+        logger = logging.getLogger(__name__)
+
+        dga = self._agents.get("A9_Data_Governance_Agent")
+        if not dga:
+            logger.warning("Data Governance Agent not found — governance wiring skipped")
+            return
+
+        wired = []
+        for agent_name in ("A9_Situation_Awareness_Agent", "A9_Data_Product_Agent", "A9_Deep_Analysis_Agent"):
+            agent = self._agents.get(agent_name)
+            if agent:
+                agent.data_governance_agent = dga
+                wired.append(agent_name)
+
+        logger.info(f"Data Governance Agent wired into: {', '.join(wired)}")
+
     async def _refresh_agent_index(self) -> None:
         from src.agents.new.a9_orchestrator_agent import agent_registry
 

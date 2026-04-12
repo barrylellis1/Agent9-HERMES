@@ -307,10 +307,27 @@ includes `escalate_to_da: bool` for direct routing to DA by the assessment engin
 - Captures more KPI recovery and outperformance signals
 - Aligns with Phase 8 opportunity detection design
 
+## Phase 10B-DGA: Data Governance Wiring (Apr 2026)
+
+### client_id Propagation to KPI Filtering
+- `_get_relevant_kpis()` now accepts `client_id` parameter; all 3 call sites pass `principal_context.client_id`
+- KPIs without business_processes no longer bypass client filter — client scoping happens at retrieval time
+- Prevents cross-client KPI name collisions (e.g., two clients both have "Gross Revenue")
+- DG agent no longer has fallback acquisition in `_async_init()` — client_id flows through properly scoped KPI queries
+
+### Circular Dependency Elimination
+- Removed broken DGA fallback acquisition from `_async_init()` — was silently failing and losing error context
+- DGA is now wired post-bootstrap by A9_Orchestrator via `runtime._wire_governance_dependencies()`
+- SA agent sets `data_governance_agent = None` at init; runtime injects DGA after connection phase
+- All view/KPI resolution calls (detect_situations, process_nl_query, get_kpi_definitions) use the injected agent
+
+### Impact
+- Workflow-level client isolation now enforced at KPI retrieval, not post-hoc filtering
+- Assessment engine can safely run parallel per-KPI scans across multiple principals without cross-client data leakage
+
 ## Future Enhancements
 - Integration with A9_NLP_Interface_Agent for advanced query parsing
 - Enhanced business impact analysis using LLM
 - Machine learning-based anomaly detection
 - Multi-dimensional trend analysis
 - Enhanced visualization capabilities in Decision Studio UI
-- Phase 10B-DGA: Mandatory Data Governance Agent wiring for view/KPI resolution

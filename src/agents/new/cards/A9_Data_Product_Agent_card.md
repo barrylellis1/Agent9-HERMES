@@ -63,3 +63,9 @@ Uses `_contract_path()` method to resolve contract files from registry:
 - Added debug logging for topn and timeframe parameters
 - (Jan 2026) Added data factory onboarding entrypoints, adapter abstraction, and Supabase metadata sync requirements.
 - (Feb 2026) Multi-tenant architecture changes; client_id propagation through registry and seed scripts
+
+## Phase 10B-DGA: Data Governance Wiring (Apr 2026)
+- Removed broken DGA acquisition from `_async_init()` and `connect()` — both methods were failing silently and falling back to local resolution
+- `data_governance_agent` now initialized to `None` in `__init__` and wired post-bootstrap by A9_Orchestrator via `runtime._wire_governance_dependencies()`
+- Fixes Data Governance agent circular dependency: DPA no longer tries to instantiate DGA during its own initialization
+- DPA continues to cache DGA reference after post-bootstrap wiring; all KPI/data-product queries use the injected agent

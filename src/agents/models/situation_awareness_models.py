@@ -114,9 +114,10 @@ class PrincipalContext(BaseModel):
     """Principal context for personalization."""
     role: str = Field(description="Role of the principal")
     principal_id: str = Field(description="Unique identifier for the principal")
+    client_id: Optional[str] = Field(None, description="Client/tenant this principal belongs to")
     business_processes: List[str] = Field(description="Business processes relevant to the principal")
     default_filters: Dict[str, Any] = Field(description="Default filters for the principal")
-    decision_style: str = Field(description="Decision-making style of the principal") 
+    decision_style: str = Field(description="Decision-making style of the principal")
     communication_style: str = Field(description="Communication style of the principal")
     preferred_timeframes: List[TimeFrame] = Field(description="Preferred timeframes for analysis")
 

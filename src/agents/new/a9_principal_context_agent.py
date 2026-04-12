@@ -632,13 +632,14 @@ class A9_Principal_Context_Agent:
                 principal_context = PrincipalContext(
                     role=role_str,  # Use role string directly
                     principal_id=profile.get('id', role_str.lower().replace(' ', '_')),
+                    client_id=profile.get('client_id', None),
                     business_processes=business_processes or [],
                     default_filters=profile.get('default_filters', {}) if hasattr(profile, 'get') else {},
                     decision_style=profile.get('decision_style', "Analytical") if hasattr(profile, 'get') else "Analytical",
                     communication_style=profile.get('communication_style', "Concise") if hasattr(profile, 'get') else "Concise",
                     preferred_timeframes=[TimeFrame.CURRENT_QUARTER, TimeFrame.YEAR_TO_DATE]
                 )
-                
+
                 # Return as dictionary for JSON serialization
                 return principal_context.model_dump()
             
@@ -651,13 +652,14 @@ class A9_Principal_Context_Agent:
             principal_context = PrincipalContext(
                 role=default_role,
                 principal_id=default_id,
+                client_id=None,
                 business_processes=[],
                 default_filters={},
                 decision_style="Analytical",
                 communication_style="Concise",
                 preferred_timeframes=[TimeFrame.CURRENT_QUARTER, TimeFrame.YEAR_TO_DATE]
             )
-            
+
             return principal_context.model_dump()
             
         except Exception as e:
@@ -819,9 +821,10 @@ class A9_Principal_Context_Agent:
                 principal_context = PrincipalContext(
                     role=role_str,  # Use role string directly
                     principal_id=principal_id,
+                    client_id=profile_data.get('client_id', None),
                     business_processes=string_business_processes,
                     default_filters=profile_data.get('default_filters', {}),
-                    decision_style=profile_data.get('persona_profile', {}).get('decision_style', "Analytical") 
+                    decision_style=profile_data.get('persona_profile', {}).get('decision_style', "Analytical")
                         if isinstance(profile_data.get('persona_profile'), dict) else "Analytical",
                     communication_style=profile_data.get('communication_style', "Concise"),
                     preferred_timeframes=[TimeFrame.CURRENT_QUARTER, TimeFrame.YEAR_TO_DATE]
@@ -866,13 +869,14 @@ class A9_Principal_Context_Agent:
             principal_context = PrincipalContext(
                 role="CFO",  # Default role as string
                 principal_id=principal_id,
+                client_id=None,
                 business_processes=default_business_processes,
                 default_filters={},
                 decision_style="Analytical",
                 communication_style="Concise",
                 preferred_timeframes=[TimeFrame.CURRENT_QUARTER, TimeFrame.YEAR_TO_DATE]
             )
-            
+
             # Create response object
             import uuid
             response = PrincipalProfileResponse(
@@ -921,6 +925,7 @@ class A9_Principal_Context_Agent:
             principal_context = PrincipalContext(
                 role="CFO",
                 principal_id=principal_id,
+                client_id=None,
                 business_processes=default_business_processes,
                 default_filters={},
                 decision_style="Analytical",

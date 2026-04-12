@@ -146,3 +146,9 @@ market signals are converted to plain strings and passed as `initial_external_co
 via `_merge_refinements()` before calling `_generate_refinement_question()`. This ensures the
 refinement LLM sees real external market signals in its system prompt for the `external_context`
 topic, generating targeted follow-up questions rather than generic open-ended ones.
+
+## Phase 10B-DGA: Data Governance Wiring (Apr 2026)
+- Removed broken DGA acquisition from `connect()` — method was failing silently without propagating errors
+- `data_governance_agent` initialized to `None` in `__init__`, wired post-bootstrap by A9_Orchestrator via `runtime._wire_governance_dependencies()`
+- Eliminates circular dependency: DA no longer tries to pull DGA during its own connection phase
+- All `_get_glossary_context()`, KPI validation, and view-resolution calls use the injected DGA reference

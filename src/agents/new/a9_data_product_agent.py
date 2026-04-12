@@ -214,23 +214,9 @@ class A9_Data_Product_Agent(DataProductProtocol):
         
         # No MCP Service Agent in MVP path; execution is handled via DuckDBManager directly
             
-        # Initialize Data Governance Agent connection - do this regardless of database connection status
-        try:
-            self.logger.info("Initializing Data Governance Agent connection")
-            # Get the orchestrator if available
-            if hasattr(self, 'orchestrator') and self.orchestrator:
-                self.data_governance_agent = await self.orchestrator.get_agent("A9_Data_Governance_Agent")
-                if self.data_governance_agent:
-                    self.logger.info("Successfully connected to Data Governance Agent via orchestrator")
-                else:
-                    self.logger.warning("Data Governance Agent not found in orchestrator")
-            else:
-                self.logger.warning("Orchestrator not available for Data Governance Agent connection")
-        except Exception as e:
-            self.logger.error(f"Error connecting to Data Governance Agent: {str(e)}")
-            self.logger.warning("Will use fallback view name resolution")
-            # Ensure the attribute exists even if connection failed
-            self.data_governance_agent = None
+        # DGA is wired post-bootstrap by runtime._wire_governance_dependencies().
+        # Initialize to None here; will be set after all agents are created and connected.
+        self.data_governance_agent = None
 
         # Initialize LLM Service Agent connection (optional)
         try:
@@ -3856,38 +3842,9 @@ class A9_Data_Product_Agent(DataProductProtocol):
             self.orchestrator = orchestrator
             self.logger.info("Orchestrator reference stored for service discovery")
             
-            # Try to connect to Data Governance Agent via orchestrator
-            try:
-                self.logger.info("Connecting to Data Governance Agent via orchestrator")
-                # First check if the agent is already registered
-                agents = await self.orchestrator.list_agents()
-                self.logger.info(f"Available agents: {agents}")
-                
-                if "A9_Data_Governance_Agent" in agents:
-                    self.data_governance_agent = await self.orchestrator.get_agent("A9_Data_Governance_Agent", resolve_dependencies=False)
-                    if self.data_governance_agent:
-                        self.logger.info("Successfully connected to Data Governance Agent")
-                    else:
-                        self.logger.warning("Data Governance Agent found but could not be retrieved")
-                else:
-                    self.logger.warning("Data Governance Agent not registered with orchestrator")
-                    # Try to create it if not found
-                    try:
-                        self.logger.info("Attempting to create Data Governance Agent")
-                        from src.agents.new.a9_data_governance_agent import A9_Data_Governance_Agent
-                        dg_agent_config = {
-                            "orchestrator": self.orchestrator,
-                            "registry_factory": self.registry_factory
-                        }
-                        self.data_governance_agent = await A9_Data_Governance_Agent.create(dg_agent_config)
-                        await self.orchestrator.register_agent("A9_Data_Governance_Agent", self.data_governance_agent)
-                        self.logger.info("Successfully created and registered Data Governance Agent")
-                    except Exception as create_err:
-                        self.logger.error(f"Failed to create Data Governance Agent: {str(create_err)}")
-            except Exception as e:
-                self.logger.error(f"Error connecting to Data Governance Agent: {str(e)}")
-                self.data_governance_agent = None
-        
+            # DGA wiring happens post-bootstrap via runtime._wire_governance_dependencies()
+            # No need to acquire it here — it will be set after all agents are connected.
+
         return {
             "success": True,
             "message": "Data Product Agent connected successfully"

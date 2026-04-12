@@ -23,3 +23,9 @@ Uses `_contract_path()` method to resolve contract files:
 
 ## Recent Updates (Dec 2025)
 - Contract path consolidated to single source of truth in `registry_references`
+
+## Phase 10B-DGA: Data Governance Wiring (Apr 2026)
+- `validate_data_access()` now enforces real client_id filtering — no longer returns allow-all
+- `map_kpis_to_data_products()` filters mapped results by client_id, preventing cross-client KPI visibility
+- Post-bootstrap DGA wiring: A9_Orchestrator calls `runtime._wire_governance_dependencies()` after all agents connect, injecting DGA into Data Product and Deep Analysis agents
+- Client isolation hardened: all governance queries scoped to PrincipalContext.client_id
