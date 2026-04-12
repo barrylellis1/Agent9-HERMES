@@ -435,7 +435,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             # Fallback to DG metadata if contract not available
             if not dimensions:
                 try:
-                    if self.data_governance_agent is not None and request.kpi_name:
+                    if request.kpi_name:
                         mapping_req = KPIDataProductMappingRequest(
                             kpi_names=[request.kpi_name],
                             context={"principal_id": getattr(request, "principal_id", None)}
@@ -462,7 +462,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                             extracted_dims.append(dim_name)
                                     dimensions = extracted_dims
                 except Exception as e:
-                    self.logger.debug(f"plan_deep_analysis: DG fallback failed: {e}")
+                    self.logger.warning(f"Data Governance Agent unavailable for dimension resolution: {e}")
 
             # Create skeleton steps for grouped/timeframe comparisons (executed by DPA later)
             steps: List[Dict[str, Any]] = self._build_group_compare_steps(dimensions, request.timeframe, request.filters)

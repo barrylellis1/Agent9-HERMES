@@ -2867,16 +2867,15 @@ class A9_Data_Product_Agent(DataProductProtocol):
         """
         try:
             kpi_name = getattr(kpi_definition, 'name', 'unknown')
-            # Prefer Data Governance Agent if connected
-            if hasattr(self, 'data_governance_agent') and self.data_governance_agent:
-                try:
-                    req = KPIViewNameRequest(kpi_name=kpi_name)
-                    resp = await self.data_governance_agent.get_view_name_for_kpi(req)
-                    view_name = getattr(resp, 'view_name', None)
-                    if isinstance(view_name, str) and view_name.strip() and view_name.strip().lower() != 'unknown':
-                        return view_name
-                except Exception as e:
-                    self.logger.warning(f"View name resolution via Data Governance Agent failed for KPI '{kpi_name}': {str(e)}")
+            # Primary: resolve view name via Data Governance Agent
+            try:
+                req = KPIViewNameRequest(kpi_name=kpi_name)
+                resp = await self.data_governance_agent.get_view_name_for_kpi(req)
+                view_name = getattr(resp, 'view_name', None)
+                if isinstance(view_name, str) and view_name.strip() and view_name.strip().lower() != 'unknown':
+                    return view_name
+            except Exception as e:
+                self.logger.warning(f"Data Governance Agent unavailable for view name resolution (KPI '{kpi_name}'): {str(e)}")
 
             # Fallbacks without embedding product-specific logic
             if hasattr(kpi_definition, 'view_name') and isinstance(kpi_definition.view_name, str) and kpi_definition.view_name.strip():
@@ -3748,18 +3747,17 @@ class A9_Data_Product_Agent(DataProductProtocol):
         if not candidate or not include_mapping:
             return candidate
 
-        # Optionally enrich with governance mapping
-        if hasattr(self, "data_governance_agent") and self.data_governance_agent:
-            try:
-                from src.agents.models.data_governance_models import KPIDataProductMappingRequest
+        # Enrich with governance mapping via DGA
+        try:
+            from src.agents.models.data_governance_models import KPIDataProductMappingRequest
 
-                mapping_req = KPIDataProductMappingRequest(kpi_names=[kpi_name], context={})
-                mapping_resp = await self.data_governance_agent.map_kpis_to_data_products(mapping_req)
-                if mapping_resp and mapping_resp.mappings:
-                    candidate.metadata = candidate.metadata or {}
-                    candidate.metadata.setdefault("data_product_mapping", mapping_resp.mappings[0].model_dump())
-            except Exception:
-                pass
+            mapping_req = KPIDataProductMappingRequest(kpi_names=[kpi_name], context={})
+            mapping_resp = await self.data_governance_agent.map_kpis_to_data_products(mapping_req)
+            if mapping_resp and mapping_resp.mappings:
+                candidate.metadata = candidate.metadata or {}
+                candidate.metadata.setdefault("data_product_mapping", mapping_resp.mappings[0].model_dump())
+        except Exception as e:
+            self.logger.warning(f"Data Governance Agent unavailable for KPI mapping enrichment: {e}")
 
         return candidate
 

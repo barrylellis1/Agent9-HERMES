@@ -69,3 +69,6 @@ Uses `_contract_path()` method to resolve contract files from registry:
 - `data_governance_agent` now initialized to `None` in `__init__` and wired post-bootstrap by A9_Orchestrator via `runtime._wire_governance_dependencies()`
 - Fixes Data Governance agent circular dependency: DPA no longer tries to instantiate DGA during its own initialization
 - DPA continues to cache DGA reference after post-bootstrap wiring; all KPI/data-product queries use the injected agent
+- Removed 2 remaining `if self.data_governance_agent:` guards — DGA calls are now always attempted:
+  - `_get_view_name_from_kpi()` (line ~2871): DGA is primary path, KPI metadata fallback still available
+  - `_lookup_kpi_by_name()` (line ~3752): KPI mapping enrichment via DGA, silently skipped on failure

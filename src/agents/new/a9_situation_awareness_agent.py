@@ -645,37 +645,36 @@ class A9_Situation_Awareness_Agent:
             # This is a simple extraction for MVP - in production would use NLP Agent
             query_terms = [term.strip() for term in request.query.split() if len(term.strip()) > 3]
             
-            if self.data_governance_agent:
-                try:
-                    # Import the request/response models
-                    from src.agents.models.data_governance_models import BusinessTermTranslationRequest
-                    
-                    # Translate business terms to technical attribute names
-                    translation_result = await self.data_governance_agent.translate_business_terms(
-                        BusinessTermTranslationRequest(
-                            business_terms=query_terms,
-                            system="duckdb",
-                            context={
-                                "principal_context": request.principal_context.model_dump() if request.principal_context else {},
-                                "business_processes": getattr(request, 'business_processes', None) or (
-                                    request.principal_context.business_processes if request.principal_context else []
-                                )
-                            }
-                        )
+            try:
+                # Import the request/response models
+                from src.agents.models.data_governance_models import BusinessTermTranslationRequest
+
+                # Translate business terms to technical attribute names via DGA
+                translation_result = await self.data_governance_agent.translate_business_terms(
+                    BusinessTermTranslationRequest(
+                        business_terms=query_terms,
+                        system="duckdb",
+                        context={
+                            "principal_context": request.principal_context.model_dump() if request.principal_context else {},
+                            "business_processes": getattr(request, 'business_processes', None) or (
+                                request.principal_context.business_processes if request.principal_context else []
+                            )
+                        }
                     )
-                    # Persist for later checks in this method
-                    self.translation_result = translation_result
-                    
-                    # Check for unmapped terms that require human input
-                    if translation_result.human_action_required:
-                        logger.warning(f"Unmapped business terms: {translation_result.unmapped_terms}")
-                        
-                        # For MVP, we continue with what we have rather than failing
-                        # In production, this would return a HITL response
-                        if not translation_result.resolved_terms:
-                            logger.warning("No business terms could be mapped, falling back to direct KPI matching")
-                except Exception as e:
-                    logger.warning(f"Error translating business terms: {str(e)}")
+                )
+                # Persist for later checks in this method
+                self.translation_result = translation_result
+
+                # Check for unmapped terms that require human input
+                if translation_result.human_action_required:
+                    logger.warning(f"Unmapped business terms: {translation_result.unmapped_terms}")
+
+                    # For MVP, we continue with what we have rather than failing
+                    # In production, this would return a HITL response
+                    if not translation_result.resolved_terms:
+                        logger.warning("No business terms could be mapped, falling back to direct KPI matching")
+            except Exception as e:
+                logger.warning(f"Data Governance Agent unavailable for term translation, using direct matching: {str(e)}")
             
             # Extract KPI mentions from the query
             query_lower = request.query.lower()
@@ -683,47 +682,46 @@ class A9_Situation_Awareness_Agent:
             
             # Try to map KPIs using Data Governance Agent first
             mapped_kpis = []
-            if self.data_governance_agent:
-                try:
-                    # Import the request model
-                    from src.agents.models.data_governance_models import KPIDataProductMappingRequest
-                    
-                    # Get potential KPI names from business terms and direct query text
-                    potential_kpi_names = []
-                    
-                    # Add translated business terms if available
-                    if hasattr(self, 'translation_result') and getattr(self.translation_result, 'resolved_terms', None):
-                        potential_kpi_names.extend(list(self.translation_result.resolved_terms.values()))
-                    
-                    # Add direct matches from query
-                    for kpi_name in self.kpi_registry.keys():
-                        if kpi_name.lower() in query_lower:
-                            potential_kpi_names.append(kpi_name)
-                    
-                    # Deduplicate
-                    potential_kpi_names = list(set(potential_kpi_names))
-                    
-                    if potential_kpi_names:
-                        # Use Data Governance Agent to map KPIs to data products with business process context
-                        mapping_response = await self.data_governance_agent.map_kpis_to_data_products(
-                            KPIDataProductMappingRequest(
-                                kpi_names=potential_kpi_names,
-                                context={
-                                    "principal_id": request.principal_context.principal_id if request.principal_context else "",
-                                    "business_processes": getattr(request, 'business_processes', None) or (
-                                        request.principal_context.business_processes if request.principal_context else []
-                                    )
-                                }
-                            )
+            try:
+                # Import the request model
+                from src.agents.models.data_governance_models import KPIDataProductMappingRequest
+
+                # Get potential KPI names from business terms and direct query text
+                potential_kpi_names = []
+
+                # Add translated business terms if available
+                if hasattr(self, 'translation_result') and getattr(self.translation_result, 'resolved_terms', None):
+                    potential_kpi_names.extend(list(self.translation_result.resolved_terms.values()))
+
+                # Add direct matches from query
+                for kpi_name in self.kpi_registry.keys():
+                    if kpi_name.lower() in query_lower:
+                        potential_kpi_names.append(kpi_name)
+
+                # Deduplicate
+                potential_kpi_names = list(set(potential_kpi_names))
+
+                if potential_kpi_names:
+                    # Use Data Governance Agent to map KPIs to data products
+                    mapping_response = await self.data_governance_agent.map_kpis_to_data_products(
+                        KPIDataProductMappingRequest(
+                            kpi_names=potential_kpi_names,
+                            context={
+                                "principal_id": request.principal_context.principal_id if request.principal_context else "",
+                                "business_processes": getattr(request, 'business_processes', None) or (
+                                    request.principal_context.business_processes if request.principal_context else []
+                                )
+                            }
                         )
-                        
-                        # Process mapped KPIs
-                        for mapping in mapping_response.mappings:
-                            mapped_kpis.append(mapping.kpi_name)
-                            
-                        logger.info(f"Data Governance Agent mapped {len(mapping_response.mappings)} KPIs")
-                except Exception as e:
-                    logger.warning(f"Error using Data Governance Agent for KPI mapping: {e}")
+                    )
+
+                    # Process mapped KPIs
+                    for mapping in mapping_response.mappings:
+                        mapped_kpis.append(mapping.kpi_name)
+
+                    logger.info(f"Data Governance Agent mapped {len(mapping_response.mappings)} KPIs")
+            except Exception as e:
+                logger.warning(f"Data Governance Agent unavailable for KPI mapping, using direct matching: {e}")
             
             # Process KPIs - first from Data Governance Agent mappings, then fall back to direct matching
             processed_kpis = set()
@@ -948,8 +946,8 @@ class A9_Situation_Awareness_Agent:
             human_action_context = None
             
             # If we have unmapped terms from the Data Governance Agent, provide HITL context
-            if self.data_governance_agent and hasattr(self, 'translation_result') and \
-               self.translation_result.human_action_required and not kpi_values:
+            if hasattr(self, 'translation_result') and \
+               getattr(self.translation_result, 'human_action_required', False) and not kpi_values:
                 human_action_required = True
                 human_action_type = "clarification"
                 human_action_context = {
@@ -1800,7 +1798,7 @@ class A9_Situation_Awareness_Agent:
             # Check if KPI matches any of the relevant business processes
             for bp in process_strings:
                 # 1. Check for normalized business process IDs (Exact Match) - High Priority
-                if hasattr(kpi_def, 'business_process_ids') and _to_bp_id(bp) in kpi_def.business_process_ids:
+                if getattr(kpi_def, 'business_process_ids', None) and _to_bp_id(bp) in kpi_def.business_process_ids:
                     relevant_kpis[kpi_name] = kpi_def
                     break
                     
@@ -1813,7 +1811,7 @@ class A9_Situation_Awareness_Agent:
                             relevant_kpis[kpi_name] = kpi_def
                             break
                     # Also check business_process_ids if available
-                    if kpi_name not in relevant_kpis and hasattr(kpi_def, 'business_process_ids'):
+                    if kpi_name not in relevant_kpis and getattr(kpi_def, 'business_process_ids', None):
                         for kpi_bp_id in kpi_def.business_process_ids:
                             if isinstance(kpi_bp_id, str) and kpi_bp_id.lower().startswith(f"{bp.lower()}_"):
                                 relevant_kpis[kpi_name] = kpi_def

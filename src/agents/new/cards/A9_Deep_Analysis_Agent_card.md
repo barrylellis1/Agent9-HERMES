@@ -152,3 +152,6 @@ topic, generating targeted follow-up questions rather than generic open-ended on
 - `data_governance_agent` initialized to `None` in `__init__`, wired post-bootstrap by A9_Orchestrator via `runtime._wire_governance_dependencies()`
 - Eliminates circular dependency: DA no longer tries to pull DGA during its own connection phase
 - All `_get_glossary_context()`, KPI validation, and view-resolution calls use the injected DGA reference
+- Removed 1 remaining `if self.data_governance_agent is not None:` guard in `plan_deep_analysis()` (line ~438):
+  - DGA dimension resolution is now always attempted as primary path
+  - Contract-based dimensions fallback to DPA if DGA unavailable

@@ -321,9 +321,18 @@ includes `escalate_to_da: bool` for direct routing to DA by the assessment engin
 - SA agent sets `data_governance_agent = None` at init; runtime injects DGA after connection phase
 - All view/KPI resolution calls (detect_situations, process_nl_query, get_kpi_definitions) use the injected agent
 
+### DGA Governance as Mandatory Path (Fallback Cleanup)
+- Removed 3 remaining `if self.data_governance_agent:` guards from `process_nl_query()`:
+  - `translate_business_terms()` (line ~648): DGA call now always attempted
+  - `map_kpis_to_data_products()` (line ~686): DGA call now always attempted
+  - HITL unmapped terms check (line ~951): removed DGA None dependency
+- DGA unavailability logs at WARNING level (fallback paths still work if DGA fails, but operator sees the warning)
+- Ensures governance is never silently skipped — if DGA is None, exception is caught and logged
+
 ### Impact
 - Workflow-level client isolation now enforced at KPI retrieval, not post-hoc filtering
 - Assessment engine can safely run parallel per-KPI scans across multiple principals without cross-client data leakage
+- DGA is now a primary dependency (failures are visible), not an optional optimization
 
 ## Future Enhancements
 - Integration with A9_NLP_Interface_Agent for advanced query parsing
