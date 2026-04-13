@@ -201,40 +201,68 @@ Expanded VA from single verdict status to independent lifecycle + evaluation dim
 
 ---
 
-### Phase 10C: Multi-Tenant Data Connectivity (MCP-First Architecture)
 
-**Goal:** Any enterprise client can connect their existing data warehouse to Decision Studio without custom integration work. MCP-first architecture means vendor-maintained servers handle connectivity; Decision Studio maintains only connection profiles and a thin SQL dialect layer.
+### Phase 10C: Multi-Warehouse Schema Parsing & Direct SDK Connectors
 
-**Why now:** The current implementation supports BigQuery and DuckDB only. The target ICP (mid-market enterprise, $200M–$2B) predominantly runs Snowflake, SAP HANA, or Databricks. Without this, the first non-BigQuery prospect stalls at "can you connect to our data?" Fixing this before the first pilot demo removes the objection permanently.
+**Goal:** Enable enterprise data warehouses (Snowflake, Databricks) to connect via direct SDK with intelligent schema parsing. Data Product Onboarding accepts curated customer views, parses them to extract schema metadata, and executes customer's native SQL without translation.
 
 **Architecture decisions (non-negotiable):**
-- MCP for external warehouses — vendor servers handle connection, auth, pooling. Decision Studio never holds raw credentials.
-- Direct SDK for BigQuery — mature SDK, no MCP server needed yet
-- Embedded DuckDB — local/demo data, no external connection
-- `QueryDialect` layer (~50 lines per dialect) handles only SQL date/time function syntax differences — it is NOT a connector
-- SA agent calls `data_product_agent.get_kpi_monthly_series()` — no backend knowledge in SA agent
-- Connection profiles carry `connectivity_type` + `mcp_endpoint` + `source_system` — no `.env` changes per client
-
-**Reference:** `docs/prd/agents/a9_data_product_agent_prd.md` — fully updated for this architecture
+- **No SQL translation** — customer's native SQL is already optimized. We parse schema, not translate SQL.
+- **Schema-parsing-first** — QueryDialect extracts base tables, FK relationships, column lineage from view definitions.
+- **Direct SDK for trial accounts** (Phase 10C) — SnowflakeManager, DatabricksManager via Python SDKs.
+- **MCP abstraction deferred** (Phase 10D) — swap only `connect()` method when vendor MCP servers available.
 
 | Deliverable | Description |
 |------------|-------------|
-| `src/database/dialects/` module | `QueryDialect` base class + `BigQueryDialect`, `DuckDBDialect`, `SnowflakeDialect` (stub), `DatabricksDialect` (stub), `HanaDialect` (stub), `PostgresDialect`. Each dialect implements `monthly_series_sql(base_sql, date_col, num_months)` and `date_trunc_expr(col, period)`. |
-| Connection profile schema update | Add `connectivity_type` (mcp/direct_bq/direct_duckdb), `mcp_endpoint`, `mcp_auth_type`, `mcp_api_key_env`, `source_system` fields. Existing profiles default to `direct_bq` or `direct_duckdb` — no breaking changes. |
-| DPA execution router | `execute_sql()` routes: `mcp` → HTTP POST to `mcp_endpoint`; `direct_bq` → existing BigQuery SDK; `direct_duckdb` → existing DuckDB. Router reads `connectivity_type` from connection profile. |
-| `get_kpi_monthly_series()` in DPA | Backend-agnostic public method. Resolves dialect from connection profile, builds SQL via dialect, executes via router, normalises to `[{period: YYYY-MM, value: float}]`. Replaces inline monthly series code in SA agent. |
-| Remove `_bq_monthly_series_sql` from SA | Dead code once DPA method is live. SA agent calls `data_product_agent.get_kpi_monthly_series()` only. |
-| KPI tile variance bars (frontend) | Unblocked by `get_kpi_monthly_series` — `monthly_values` now populated for all backends. 9-period delta bars render in KPI tiles. |
-| MCP client utility | `src/database/mcp_client.py` — thin HTTP client for MCP execute-sql calls. Standard `requests`/`httpx` POST with auth header injection from env var. No vendor SDK dependency. |
+| SnowflakeManager + DatabricksManager | Direct SDK connectors implementing DatabaseManager ABC |
+| QueryDialect parsers | Parse view SQL to extract schema metadata (no SQL translation) |
+| DPA schema parsing | Extract metadata from customer view definitions for contract generation |
+| DPA execution routing | Route to correct backend based on data_product_id's source_system |
+| Unit + integration tests | Verify managers, dialects, factory, integration (11+ test cases) |
 
-**Connector rollout sequence:**
-1. BigQuery + DuckDB — live in Phase 10C (already work via SDK; dialect wrappers added)
-2. Snowflake — stub dialect in 10C; live when first Snowflake client onboards (activate Cortex MCP server on their instance)
-3. Databricks — stub dialect in 10C; live when first Databricks client onboards
-4. SAP HANA / Datasphere — stub dialect in 10C; live when first SAP client onboards (strong ICP fit given consulting background)
-5. Postgres — stub dialect in 10C; useful for test environments and Supabase direct
+**Reference:** `PHASE_10C_PLAN.md` — full implementation guide with code examples and test suite.
 
 ---
+
+### Phase 10D: MCP Abstraction Layer
+
+**Goal:** Transition from direct SDK to vendor-managed MCP servers when available. Decorator pattern allows swapping connection method without changing application code.
+
+**Why separate from 10C:** Direct SDK works immediately with trial accounts (Phase 10C). Vendor MCP servers mature over time. Splitting phases allows Phase 10C to ship while infrastructure evolves.
+
+| Deliverable | Description |
+|------------|-------------|
+| MCP client utility | HTTP client for MCP execute-sql calls with auth header injection |
+| Manager MCP wrappers | Decorator pattern — same DatabaseManager interface, `connect()` routes to MCP endpoint |
+| Connection profile schema | Add connectivity_type (direct_sdk/mcp_server), mcp_endpoint, mcp_auth_type fields |
+| Factory MCP detection | DatabaseManagerFactory reads connectivity_type and instantiates correct wrapper |
+| Migration guide | Document upgrade path from direct SDK to MCP (zero application code changes) |
+
+**Prerequisite:** Vendor MCP servers released and stable (Snowflake Cortex MCP, Databricks SQL MCP). Phase 10D gates on vendor deliverables, not Agent9 development.
+
+---
+
+### Phase 10E: Native AI Capabilities (Snowflake Cortex, Databricks Mosaic)
+
+**Goal:** Leverage platform-native LLM and AI features for enhanced analysis within customer data warehouses. Optional, deployed only when customers have platform upgrades.
+
+**Why separate:** Non-critical enhancements. Require explicit platform upgrades (Cortex license, Mosaic subscription). Keep core connectivity (10C) and infrastructure (10D) clean.
+
+**Capabilities to explore:**
+- **Snowflake Cortex** — native SQL functions: `COMPLETE()` (LLM calls), `EXTRACT_ANSWER()`, vector embeddings, semantic search
+- **Databricks Mosaic AI** — managed LLM service (Claude, GPT, Llama), fine-tuning, inference optimization
+
+| Deliverable | Description |
+|------------|-------------|
+| Capability inventory | Document Cortex, Mosaic, UC AI maturity levels, licensing, performance |
+| QueryDialect robustness | Ensure QueryDialect can parse customer views with Cortex functions without breaking |
+| In-warehouse enrichment guide | Document patterns for customers to embed Cortex/Mosaic calls in curated views |
+| Integration points (Phase 11+) | Document for future: in-SQL explanations, semantic drill-down, outcome prediction |
+| Tests | Verify QueryDialect handles Cortex/Mosaic functions. Integration tests verify execution. |
+
+**Design principle:** Customer-controlled enhancements. Customers enrich their curated views with Cortex/Mosaic calls at their discretion. Decision Studio executes enriched views without modification.
+
+**Future (Phase 11+):** In-SQL explanation generation ("why is this KPI down?"), semantic drill-down suggestions, anomaly context discovery — all powered by Cortex/Mosaic, all staying within customer's warehouse.
 
 ### Phase 11: Platform Correctness
 

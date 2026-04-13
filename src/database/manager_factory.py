@@ -16,14 +16,12 @@ from typing import Dict, Any, Optional, Type, Union
 from src.database.manager_interface import DatabaseManager
 
 # Import all backend implementations
-# These will be registered in the factory
-# Note: Import statements will be uncommented as backends are implemented
 from src.database.backends.duckdb_manager import DuckDBManager
 from src.database.backends.bigquery_manager import BigQueryManager
 from src.database.backends.postgres_manager import PostgresManager
+from src.database.backends.snowflake_manager import SnowflakeManager
+from src.database.backends.databricks_manager import DatabricksManager
 # from src.database.backends.hana_manager import HANAManager
-# from src.database.backends.snowflake_manager import SnowflakeManager
-# from src.database.backends.databricks_manager import DatabricksManager
 
 
 class DatabaseManagerFactory:
@@ -41,9 +39,9 @@ class DatabaseManagerFactory:
         'postgres': PostgresManager,
         'postgresql': PostgresManager,
         'supabase': PostgresManager,
+        'snowflake': SnowflakeManager,
+        'databricks': DatabricksManager,
         # 'hana': HANAManager,
-        # 'snowflake': SnowflakeManager,
-        # 'databricks': DatabricksManager,
     }
     
     @classmethod
