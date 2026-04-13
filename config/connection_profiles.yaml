@@ -30,3 +30,39 @@ profiles:
   schema: SalesOrders
   system_type: bigquery
   username: null
+- account: xh12345.us-east-1
+  database: agent9_trial
+  database_path: null
+  default_schema: null
+  description: Snowflake trial account for Phase 10C testing
+  driver: null
+  extras:
+    warehouse: compute_wh
+    role: sysadmin
+  host: null
+  name: Snowflake Trial
+  password: null
+  password_saved: false
+  persist_secret: false
+  port: null
+  schema: public
+  system_type: snowflake
+  username: null
+- database: agent9_workspace
+  database_path: null
+  default_schema: null
+  description: Databricks Community Edition workspace for Phase 10C testing
+  driver: null
+  extras:
+    server_hostname: adb-1234567890123456.789.cloud.databricks.com
+    http_path: /sql/1.0/warehouses/abcd1234efgh5678
+    catalog: main
+  host: null
+  name: Databricks Community
+  password: null
+  password_saved: false
+  persist_secret: false
+  port: null
+  schema: default
+  system_type: databricks
+  username: null
