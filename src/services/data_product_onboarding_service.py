@@ -25,6 +25,15 @@ from src.database.dialects.base_dialect import SchemaContract, TableSchema, Colu
 
 logger = logging.getLogger(__name__)
 
+# Mapping of source_system to QueryDialect class
+# Supports both direct SDK and MCP server connections
+_DIALECT_MAP = {
+    "snowflake": SnowflakeDialect,
+    "snowflake_mcp": SnowflakeDialect,
+    "databricks": DatabricksDialect,
+    "databricks_mcp": DatabricksDialect,
+}
+
 
 class OnboardingServiceRequest:
     """Metadata for onboarding request."""
@@ -130,12 +139,10 @@ class DataProductOnboardingService:
                 self.logger.error(f"Failed to connect to {source_system}")
                 return False
 
-            # Initialize dialect for SQL parsing
-            if self.source_system == "snowflake":
-                self.dialect = SnowflakeDialect(self.logger)
-            elif self.source_system == "databricks":
-                self.dialect = DatabricksDialect(self.logger)
-            # Other platforms use platform-specific metadata queries (dialect not needed)
+            # Initialize dialect for SQL parsing (platform-adaptive)
+            dialect_class = _DIALECT_MAP.get(self.source_system)
+            if dialect_class:
+                self.dialect = dialect_class(self.logger)
 
             self.logger.info(f"Connected to {source_system} for onboarding")
             return True

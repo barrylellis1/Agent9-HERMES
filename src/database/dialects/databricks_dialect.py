@@ -144,7 +144,7 @@ class DatabricksDialect(QueryDialect):
 
         # ON condition: table1.col1 = table2.col2
         # Handle backticks and optional schema/catalog references
-        on_pattern = r"ON\s+(?:[\w]+\.)?(?:`)?(\w+)(?:`)?\.(?:`)?(\w+)(?:`)?)\s*=\s*(?:[\w]+\.)?(?:`)?(\w+)(?:`)?\.(?:`)?(\w+)(?:`)?"
+        on_pattern = r"ON\s+(?:[\w]+\.)?(?:`)?(\w+)(?:`)?\.(?:`)?(\w+)(?:`)?\s*=\s*(?:[\w]+\.)?(?:`)?(\w+)(?:`)?\.(?:`)?(\w+)(?:`)?"
         for match in re.finditer(on_pattern, normalized_sql):
             left_table = match.group(1)
             left_col = match.group(2)

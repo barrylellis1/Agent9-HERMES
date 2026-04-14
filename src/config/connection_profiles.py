@@ -40,6 +40,9 @@ class ConnectionProfile:
     password: Optional[str] = None
     driver: Optional[str] = None
     default_schema: Optional[str] = None
+    connectivity_type: str = "direct_sdk"  # "direct_sdk" or "mcp_server"
+    mcp_endpoint: Optional[str] = None
+    mcp_auth_type: Optional[str] = "bearer"  # "bearer", "pat", "gcp_oidc"
     extras: Dict[str, Any] = field(default_factory=dict)
     persist_secret: bool = False
     password_saved: bool = False
@@ -64,11 +67,19 @@ class ConnectionProfile:
             raise ValueError("Extras must be a dictionary when provided")
 
         # Normalize empty strings to None for optional string fields
-        for attr in ("database_path", "host", "database", "schema", "username", "driver", "default_schema"):
+        for attr in ("database_path", "host", "database", "schema", "username", "driver", "default_schema", "mcp_endpoint"):
             value = getattr(self, attr)
             if isinstance(value, str):
                 cleaned = value.strip()
                 setattr(self, attr, cleaned or None)
+
+        # Normalize connectivity_type to lowercase
+        if self.connectivity_type:
+            self.connectivity_type = self.connectivity_type.lower()
+
+        # Normalize mcp_auth_type to lowercase
+        if self.mcp_auth_type:
+            self.mcp_auth_type = self.mcp_auth_type.lower()
 
         # Control password persistence flag
         if not self.persist_secret:
@@ -115,6 +126,13 @@ class ConnectionProfile:
                 overrides["password"] = self.password
         elif self.persist_secret and self.password:
             overrides["password"] = self.password
+
+        # Include MCP connectivity settings when using MCP server
+        if self.connectivity_type == "mcp_server":
+            if self.mcp_endpoint:
+                overrides["mcp_endpoint"] = self.mcp_endpoint
+            if self.mcp_auth_type:
+                overrides["mcp_auth_type"] = self.mcp_auth_type
 
         if self.extras:
             overrides.update(self.extras)

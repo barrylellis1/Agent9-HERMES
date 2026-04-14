@@ -11,7 +11,7 @@ allowing the agent to seamlessly work with different database technologies.
 """
 
 import logging
-from typing import Dict, Any, Optional, Type, Union
+from typing import Any, Dict, Optional, Type, Union
 
 from src.database.manager_interface import DatabaseManager
 
@@ -21,6 +21,7 @@ from src.database.backends.bigquery_manager import BigQueryManager
 from src.database.backends.postgres_manager import PostgresManager
 from src.database.backends.snowflake_manager import SnowflakeManager
 from src.database.backends.databricks_manager import DatabricksManager
+from src.database.backends.mcp_manager import MCPManager
 # from src.database.backends.hana_manager import HANAManager
 
 
@@ -32,8 +33,9 @@ class DatabaseManagerFactory:
     """
     
     # Registry of available database backends
-    # Maps database type string to manager class
-    _registry: Dict[str, Type[DatabaseManager]] = {
+    # Maps database type string to manager class or callable
+    # Note: MCP managers use lambdas to bind vendor parameter
+    _registry: Dict[str, Any] = {
         'duckdb': DuckDBManager,
         'bigquery': BigQueryManager,
         'postgres': PostgresManager,
@@ -41,17 +43,20 @@ class DatabaseManagerFactory:
         'supabase': PostgresManager,
         'snowflake': SnowflakeManager,
         'databricks': DatabricksManager,
+        'snowflake_mcp': lambda config, logger=None: MCPManager('snowflake', config, logger),
+        'databricks_mcp': lambda config, logger=None: MCPManager('databricks', config, logger),
+        'bigquery_mcp': lambda config, logger=None: MCPManager('bigquery', config, logger),
         # 'hana': HANAManager,
     }
     
     @classmethod
-    def register_backend(cls, db_type: str, manager_class: Type[DatabaseManager]) -> None:
+    def register_backend(cls, db_type: str, manager_class: Any) -> None:
         """
         Register a new database backend with the factory.
-        
+
         Args:
             db_type: String identifier for the database type
-            manager_class: DatabaseManager implementation class
+            manager_class: DatabaseManager implementation class or callable
         """
         cls._registry[db_type.lower()] = manager_class
         logging.info(f"Registered database backend: {db_type}")
@@ -85,11 +90,11 @@ class DatabaseManagerFactory:
         return manager
     
     @classmethod
-    def get_supported_backends(cls) -> Dict[str, Type[DatabaseManager]]:
+    def get_supported_backends(cls) -> Dict[str, Any]:
         """
         Get a dictionary of all supported database backends.
-        
+
         Returns:
-            Dictionary mapping database type strings to manager classes
+            Dictionary mapping database type strings to manager classes or callables
         """
         return cls._registry.copy()
