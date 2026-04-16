@@ -1058,10 +1058,32 @@ class A9_Data_Product_Agent(DataProductProtocol):
             settings["connection_params"] = conn_params
             self.logger.info(f"BigQuery connection_params: project={project}, dataset={dataset}, has_credentials={bool(conn_params)}")
         
+        elif source_system in ("sqlserver", "sql_server", "mssql"):
+            overrides = settings["connection_overrides"]
+            host = overrides.get("host") or settings.get("host", "localhost")
+            port = overrides.get("port") or settings.get("port", 1433)
+            database = overrides.get("database") or settings.get("database", "master")
+            username = overrides.get("username") or overrides.get("user") or settings.get("username", "sa")
+            password = overrides.get("password") or settings.get("password", "")
+            schema = overrides.get("schema") or settings.get("schema") or "dbo"
+            settings["connection_config"] = {
+                "type": "sqlserver",
+                "host": host,
+                "port": int(port),
+                "database": database,
+                "username": username,
+                "password": password,
+                "schema": schema,
+                "encrypt": overrides.get("encrypt", False),
+                "trust_server_certificate": overrides.get("trust_server_certificate", True),
+            }
+            settings["connection_params"] = {}
+            settings["schema"] = schema
+
         # Set defaults for inspection
         if not settings["schema"]:
             settings["schema"] = "main" if source_system == "duckdb" else None
-        
+
         return settings
     
     async def _prepare_inspection_manager(self, settings: Dict[str, Any]):
@@ -1156,7 +1178,30 @@ class A9_Data_Product_Agent(DataProductProtocol):
             # Fallback for dict format
             rows = result.get("rows", []) if isinstance(result, dict) else []
             return [row.get("table_name") or row.get("TABLE_NAME") for row in rows if row]
-        
+
+        elif source_system in ("sqlserver", "sql_server", "mssql"):
+            db_schema = schema or "dbo"
+            query = f"""
+                SELECT TABLE_NAME AS table_name
+                FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_SCHEMA = '{db_schema}'
+                  AND TABLE_TYPE IN ('BASE TABLE', 'VIEW')
+                ORDER BY TABLE_NAME
+            """
+            self.logger.info(f"Executing SQL Server discovery query for schema={db_schema}")
+            result = await inspection_manager.execute_query(query, {})
+
+            # SqlServerManager returns a pandas DataFrame
+            if hasattr(result, 'iterrows'):
+                if not result.empty and 'table_name' in result.columns:
+                    tables = result['table_name'].tolist()
+                    self.logger.info(f"Discovered {len(tables)} tables: {tables}")
+                    return tables
+                return []
+            # Fallback for dict format
+            rows = result.get("rows", []) if isinstance(result, dict) else []
+            return [row.get("table_name") or row.get("TABLE_NAME") for row in rows if row]
+
         return []
     
     async def _profile_table(
@@ -1179,7 +1224,11 @@ class A9_Data_Product_Agent(DataProductProtocol):
             return await self._profile_table_bigquery(
                 inspection_manager, table_name, include_samples, inspection_depth, settings
             )
-        
+        elif source_system in ("sqlserver", "sql_server", "mssql"):
+            return await self._profile_table_sqlserver(
+                inspection_manager, table_name, include_samples, inspection_depth, settings
+            )
+
         return None
     
     async def _profile_table_duckdb(
@@ -1464,7 +1513,164 @@ class A9_Data_Product_Agent(DataProductProtocol):
         except Exception as e:
             self.logger.error(f"Failed to profile BigQuery table {table_name}: {e}")
             return None
-    
+
+    async def _profile_table_sqlserver(
+        self, inspection_manager, table_name: str, include_samples: bool,
+        inspection_depth: str, settings: Dict[str, Any]
+    ) -> Optional[TableProfile]:
+        """Profile a SQL Server table/view using INFORMATION_SCHEMA with FK extraction."""
+        try:
+            db_schema = settings.get("schema") or settings.get("connection_config", {}).get("schema", "dbo")
+
+            # Get column metadata from INFORMATION_SCHEMA
+            columns_query = f"""
+                SELECT
+                    COLUMN_NAME   AS column_name,
+                    DATA_TYPE     AS data_type,
+                    IS_NULLABLE   AS is_nullable
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_NAME   = '{table_name}'
+                  AND TABLE_SCHEMA = '{db_schema}'
+                ORDER BY ORDINAL_POSITION
+            """
+            columns_result = await inspection_manager.execute_query(columns_query, {})
+
+            columns = []
+            if hasattr(columns_result, 'iterrows'):
+                for _, row in columns_result.iterrows():
+                    col_name = row.get("column_name")
+                    col_type = row.get("data_type")
+                    is_nullable = str(row.get("is_nullable", "YES")).upper() != "NO"
+                    if col_name:
+                        semantic_tags = self._infer_semantic_tags(col_name, col_type)
+                        columns.append(TableColumnProfile(
+                            name=col_name,
+                            data_type=col_type or "UNKNOWN",
+                            is_nullable=is_nullable,
+                            semantic_tags=semantic_tags,
+                        ))
+            else:
+                column_rows = columns_result.get("rows", []) if isinstance(columns_result, dict) else []
+                for row in column_rows:
+                    col_name = row.get("column_name") or row.get("COLUMN_NAME")
+                    col_type = row.get("data_type") or row.get("DATA_TYPE")
+                    is_nullable = str(row.get("is_nullable", "YES")).upper() != "NO"
+                    if col_name:
+                        semantic_tags = self._infer_semantic_tags(col_name, col_type)
+                        columns.append(TableColumnProfile(
+                            name=col_name,
+                            data_type=col_type or "UNKNOWN",
+                            is_nullable=is_nullable,
+                            semantic_tags=semantic_tags,
+                        ))
+
+            # Get row count
+            count_query = f"SELECT COUNT(1) AS row_count FROM [{db_schema}].[{table_name}]"
+            count_result = await inspection_manager.execute_query(count_query, {})
+            if hasattr(count_result, 'iloc'):
+                row_count = int(count_result.iloc[0]['row_count']) if not count_result.empty else 0
+            else:
+                count_rows = count_result.get("rows", []) if isinstance(count_result, dict) else []
+                row_count = count_rows[0].get("row_count", 0) if count_rows else 0
+
+            # Extract FK relationships from INFORMATION_SCHEMA
+            foreign_keys = []
+            try:
+                from src.agents.models.data_product_onboarding_models import ForeignKeyRelationship
+                fk_query = f"""
+                    SELECT
+                        kcu.COLUMN_NAME        AS column_name,
+                        ccu.TABLE_NAME         AS referenced_table_name,
+                        ccu.COLUMN_NAME        AS referenced_column_name,
+                        rc.CONSTRAINT_NAME     AS constraint_name
+                    FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc
+                    JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+                        ON  kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+                        AND kcu.TABLE_SCHEMA    = rc.CONSTRAINT_SCHEMA
+                    JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ccu
+                        ON  ccu.CONSTRAINT_NAME = rc.UNIQUE_CONSTRAINT_NAME
+                        AND ccu.TABLE_SCHEMA    = rc.UNIQUE_CONSTRAINT_SCHEMA
+                    WHERE kcu.TABLE_NAME   = '{table_name}'
+                      AND kcu.TABLE_SCHEMA = '{db_schema}'
+                """
+                fk_result = await inspection_manager.execute_query(fk_query, {})
+                if hasattr(fk_result, 'iterrows'):
+                    for _, fk_row in fk_result.iterrows():
+                        foreign_keys.append(ForeignKeyRelationship(
+                            source_table=table_name,
+                            source_column=fk_row.get("column_name"),
+                            target_table=fk_row.get("referenced_table_name"),
+                            target_column=fk_row.get("referenced_column_name"),
+                            confidence=1.0,
+                            constraint_name=fk_row.get("constraint_name"),
+                        ))
+                        self.logger.info(
+                            f"Extracted FK: {table_name}.{fk_row.get('column_name')} "
+                            f"-> {fk_row.get('referenced_table_name')}.{fk_row.get('referenced_column_name')}"
+                        )
+                else:
+                    fk_rows = fk_result.get("rows", []) if isinstance(fk_result, dict) else []
+                    for fk_row in fk_rows:
+                        foreign_keys.append(ForeignKeyRelationship(
+                            source_table=table_name,
+                            source_column=fk_row.get("column_name") or fk_row.get("COLUMN_NAME"),
+                            target_table=fk_row.get("referenced_table_name") or fk_row.get("REFERENCED_TABLE_NAME"),
+                            target_column=fk_row.get("referenced_column_name") or fk_row.get("REFERENCED_COLUMN_NAME"),
+                            confidence=1.0,
+                            constraint_name=fk_row.get("constraint_name"),
+                        ))
+            except Exception as fk_error:
+                self.logger.warning(f"Could not extract FK relationships for {table_name}: {fk_error}")
+
+            # Get view definition if applicable
+            view_definition = None
+            try:
+                view_query = f"""
+                    SELECT VIEW_DEFINITION AS view_definition
+                    FROM INFORMATION_SCHEMA.VIEWS
+                    WHERE TABLE_NAME   = '{table_name}'
+                      AND TABLE_SCHEMA = '{db_schema}'
+                """
+                view_result = await inspection_manager.execute_query(view_query, {})
+                if hasattr(view_result, 'iloc'):
+                    if not view_result.empty:
+                        view_definition = view_result.iloc[0].get("view_definition")
+                        self.logger.info(f"Extracted view definition for {table_name}")
+                else:
+                    view_rows = view_result.get("rows", []) if isinstance(view_result, dict) else []
+                    if view_rows:
+                        view_definition = view_rows[0].get("view_definition")
+            except Exception as view_error:
+                self.logger.debug(f"Table {table_name} is not a view or view definition unavailable: {view_error}")
+
+            # If view with no FK constraints, infer FKs from view definition
+            if view_definition and len(foreign_keys) == 0:
+                self.logger.info(f"Inferring FK relationships from view definition for {table_name}")
+                inferred_fks = self._infer_fks_from_view_definition(table_name, view_definition, columns)
+                foreign_keys.extend(inferred_fks)
+                self.logger.info(f"Inferred {len(inferred_fks)} FK relationships from view definition")
+
+            primary_keys = [
+                col.name for col in columns
+                if "identifier" in col.semantic_tags and col.name.lower().endswith("id")
+            ]
+            timestamp_columns = [col.name for col in columns if "time" in col.semantic_tags]
+            table_role = self._infer_table_role(table_name, columns, view_definition)
+
+            return TableProfile(
+                name=table_name,
+                row_count=row_count,
+                columns=columns,
+                primary_keys=primary_keys,
+                timestamp_columns=timestamp_columns,
+                foreign_keys=foreign_keys,
+                table_role=table_role,
+                view_definition=view_definition,
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to profile SQL Server table {table_name}: {e}")
+            return None
+
     def _infer_semantic_tags(self, column_name: str, data_type: Optional[str]) -> List[str]:
         """Infer semantic tags from column name and data type."""
         tags = []

@@ -18,6 +18,11 @@ try:  # pragma: no cover - optional dependency
 except ImportError:  # pragma: no cover - handled gracefully by connection tests
     bigquery = None
 
+try:  # pragma: no cover - optional dependency
+    import pyodbc  # type: ignore
+except ImportError:  # pragma: no cover - handled gracefully by connection tests
+    pyodbc = None
+
 import yaml
 
 CONFIG_ENV_VAR = "A9_CONNECTION_PROFILES_PATH"
@@ -331,6 +336,44 @@ def test_connection_profile(profile: ConnectionProfile) -> ConnectionTestResult:
                 client.close()
             except Exception:
                 pass
+
+    if system in ("sqlserver", "sql_server", "mssql"):
+        if pyodbc is None:
+            return ConnectionTestResult(False, "pyodbc driver is not installed")
+
+        host = profile.host or "localhost"
+        port = profile.port or 1433
+        database = profile.database or "master"
+        username = profile.username or "sa"
+        password = profile.password or ""
+
+        # Try preferred drivers in order
+        available_drivers = [d for d in pyodbc.drivers() if "SQL Server" in d]
+        preferred = ["ODBC Driver 18 for SQL Server", "ODBC Driver 17 for SQL Server"]
+        driver = next((d for d in preferred if d in available_drivers), None)
+        if driver is None and available_drivers:
+            driver = available_drivers[0]
+        if driver is None:
+            return ConnectionTestResult(
+                False,
+                "No SQL Server ODBC driver found. Install 'ODBC Driver 18 for SQL Server'.",
+            )
+
+        conn_str = (
+            f"DRIVER={{{driver}}};"
+            f"SERVER={host},{port};"
+            f"DATABASE={database};"
+            f"UID={username};"
+            f"PWD={password};"
+            f"Encrypt=no;"
+            f"TrustServerCertificate=yes;"
+        )
+        try:
+            with closing(pyodbc.connect(conn_str, timeout=10)) as conn:
+                conn.execute("SELECT 1")
+            return ConnectionTestResult(True, f"Connected to SQL Server at {host}:{port}/{database}")
+        except Exception as exc:
+            return ConnectionTestResult(False, f"SQL Server connection failed: {exc}")
 
     return ConnectionTestResult(False, f"Connection testing for '{profile.system_type}' is not supported yet")
 

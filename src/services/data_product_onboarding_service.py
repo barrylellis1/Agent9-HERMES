@@ -20,6 +20,7 @@ from src.database.manager_factory import DatabaseManagerFactory
 from src.database.manager_interface import DatabaseManager
 from src.database.dialects.snowflake_dialect import SnowflakeDialect
 from src.database.dialects.databricks_dialect import DatabricksDialect
+from src.database.dialects.sqlserver_dialect import SqlServerDialect
 from src.database.dialects.base_dialect import SchemaContract, TableSchema, ColumnSchema
 
 
@@ -32,6 +33,9 @@ _DIALECT_MAP = {
     "snowflake_mcp": SnowflakeDialect,
     "databricks": DatabricksDialect,
     "databricks_mcp": DatabricksDialect,
+    "sqlserver": SqlServerDialect,
+    "sql_server": SqlServerDialect,
+    "mssql": SqlServerDialect,
 }
 
 
@@ -270,7 +274,7 @@ class DataProductOnboardingService:
             fks = []
             warnings = []
 
-            if self.source_system in ("snowflake", "databricks"):
+            if self.source_system in ("snowflake", "databricks", "sqlserver", "sql_server", "mssql"):
                 # Query INFORMATION_SCHEMA for FK relationships
                 fk_query = self._build_fk_query(table_name)
                 if fk_query:
@@ -395,6 +399,15 @@ class DataProductOnboardingService:
             WHERE table_name = '{table_name}'
             ORDER BY ordinal_position
             """
+        elif self.source_system in ("sqlserver", "sql_server", "mssql"):
+            schema = self.connection_config.get("schema", "dbo")
+            return f"""
+            SELECT COLUMN_NAME AS column_name, DATA_TYPE AS data_type, IS_NULLABLE AS is_nullable
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = '{table_name}'
+              AND TABLE_SCHEMA = '{schema}'
+            ORDER BY ORDINAL_POSITION
+            """
         return None
 
     def _build_fk_query(self, table_name: str) -> Optional[str]:
@@ -418,6 +431,23 @@ class DataProductOnboardingService:
             FROM information_schema.key_column_usage
             WHERE table_name = '{table_name}'
               AND referenced_table_name IS NOT NULL
+            """
+        elif self.source_system in ("sqlserver", "sql_server", "mssql"):
+            schema = self.connection_config.get("schema", "dbo")
+            return f"""
+            SELECT
+                kcu.COLUMN_NAME        AS column_name,
+                ccu.TABLE_NAME         AS referenced_table_name,
+                ccu.COLUMN_NAME        AS referenced_column_name
+            FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc
+            JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+                ON  kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+                AND kcu.TABLE_SCHEMA    = rc.CONSTRAINT_SCHEMA
+            JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ccu
+                ON  ccu.CONSTRAINT_NAME = rc.UNIQUE_CONSTRAINT_NAME
+                AND ccu.TABLE_SCHEMA    = rc.UNIQUE_CONSTRAINT_SCHEMA
+            WHERE kcu.TABLE_NAME   = '{table_name}'
+              AND kcu.TABLE_SCHEMA = '{schema}'
             """
         return None
 

@@ -468,9 +468,9 @@ class A9_KPI_Assistant_Agent_Config(BaseModel):
     """
     model_config = ConfigDict(extra="allow")
     
-    # LLM settings
-    llm_provider: str = Field("openai", description="LLM provider for KPI suggestions")
-    llm_model: str = Field("gpt-4-turbo", description="Model for KPI generation and chat")
+    # LLM settings — honour LLM_PROVIDER env var (same as all other agents)
+    llm_provider: str = Field(default_factory=_default_llm_provider, description="LLM provider for KPI suggestions")
+    llm_model: str = Field(default_factory=lambda: "claude-sonnet-4-6" if _default_llm_provider() == "anthropic" else "gpt-4-turbo", description="Model for KPI generation and chat")
     temperature: float = Field(0.7, description="Temperature for LLM generation")
     max_tokens: int = Field(4096, description="Maximum tokens for LLM responses")
     

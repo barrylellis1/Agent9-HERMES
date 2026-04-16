@@ -16,6 +16,7 @@ import { InsightsBIModernization } from './pages/InsightsBIModernization'
 import { DataOnboarding } from './pages/DataOnboarding'
 import ActionHandler from './pages/ActionHandler'
 import DelegatePage from './pages/DelegatePage'
+import CompanyProfile from './pages/CompanyProfile'
 // PrincipalManagement merged into Settings (RegistryExplorer)
 
 // Hostname routing: decision-studios.com → corporate site, everything else → app
@@ -35,6 +36,7 @@ function App() {
         <Route path="/settings" element={<RegistryExplorer />} />
         <Route path="/settings/onboarding" element={<DataProductOnboardingNew />} />
         <Route path="/settings/onboarding-legacy" element={<DataProductOnboarding />} />
+        <Route path="/settings/company-profile" element={<CompanyProfile />} />
         <Route path="/portfolio" element={<Portfolio />} />
         {/* Corporate landing page accessible directly on any domain */}
         <Route path="/landing" element={<LandingPage />} />

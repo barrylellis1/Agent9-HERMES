@@ -42,6 +42,7 @@ class SchemaMetadata(BaseModel):
     dimensions: List[Dict[str, Any]] = Field(default_factory=list, description="Columns tagged as dimensions")
     time_columns: List[Dict[str, Any]] = Field(default_factory=list, description="Columns tagged as time")
     identifiers: List[Dict[str, Any]] = Field(default_factory=list, description="Columns tagged as identifiers")
+    business_context: Optional[Dict[str, Any]] = Field(None, description="Company business context for KPI suggestion")
 
 
 class KPISuggestionRequest(BaseModel):
@@ -398,6 +399,42 @@ class A9_KPI_Assistant_Agent:
     
     def _build_suggestion_system_prompt(self, schema: SchemaMetadata) -> str:
         """Build system prompt for KPI suggestion"""
+        # Build optional business context block
+        biz_ctx_block = ""
+        if schema.business_context:
+            bc = schema.business_context
+            industry_str = bc.get("industry", "")
+            subindustry = bc.get("subindustry")
+            if subindustry:
+                industry_str = f"{industry_str} / {subindustry}"
+            priorities = bc.get("strategic_priorities") or []
+            gtm = bc.get("go_to_market") or []
+            biz_ctx_block = f"""
+COMPANY CONTEXT:
+- Company: {bc.get("enterprise_name", "")}
+- Industry: {industry_str}
+- Revenue band: {bc.get("revenue_band", "N/A")}
+- Employees: {bc.get("employee_band", "N/A")}
+- Strategic priorities: {", ".join(priorities[:3]) if priorities else "N/A"}
+- Go-to-market: {", ".join(gtm) if gtm else "N/A"}
+- Operating model: {bc.get("operating_model", "N/A")}
+"""
+            # Append quantitative industry benchmarks when available — use them for threshold calibration
+            benchmarks = bc.get("industry_benchmarks")
+            if benchmarks and isinstance(benchmarks, dict):
+                benchmark_lines = "\n".join(
+                    f"  - {k.replace('_', ' ').title()}: {v}"
+                    for k, v in list(benchmarks.items())[:12]
+                )
+                biz_ctx_block += f"""
+INDUSTRY BENCHMARKS (use these to calibrate KPI thresholds and identify relevant KPIs):
+{benchmark_lines}
+
+THRESHOLD CALIBRATION INSTRUCTION: Use the benchmark values above to set meaningful
+warning/critical thresholds on suggested KPIs. For example, if the breakeven cost
+benchmark is $65/bbl, set the lifting cost KPI warning threshold at that value.
+"""
+
         return f"""You are a KPI definition assistant for Agent9's data product onboarding.
 
 CONTEXT:
@@ -407,6 +444,7 @@ CONTEXT:
 - Available Measures: {len(schema.measures)} columns
 - Available Dimensions: {len(schema.dimensions)} columns
 - Time Columns: {len(schema.time_columns)} columns
+{biz_ctx_block}
 
 YOUR ROLE:
 Help users define comprehensive KPIs with ALL required attributes for the Agent9 registry.
@@ -456,8 +494,35 @@ INTERACTION STYLE:
         else:
             example_table = "table_name"
         
-        return f"""Analyze this data product schema and suggest {num_suggestions} business KPIs:
+        # Build optional business context block for user prompt
+        biz_ctx_user_block = ""
+        if schema.business_context:
+            bc = schema.business_context
+            industry_str = bc.get("industry", "")
+            subindustry = bc.get("subindustry")
+            if subindustry:
+                industry_str = f"{industry_str} / {subindustry}"
+            priorities = bc.get("strategic_priorities") or []
+            biz_ctx_user_block = f"""
+COMPANY CONTEXT:
+- Company: {bc.get("enterprise_name", "")}
+- Industry: {industry_str}
+- Revenue band: {bc.get("revenue_band", "N/A")}
+- Strategic priorities: {", ".join(priorities[:3]) if priorities else "N/A"}
+"""
+            benchmarks = bc.get("industry_benchmarks")
+            if benchmarks and isinstance(benchmarks, dict):
+                benchmark_lines = "\n".join(
+                    f"  - {k.replace('_', ' ').title()}: {v}"
+                    for k, v in list(benchmarks.items())[:12]
+                )
+                biz_ctx_user_block += f"""
+INDUSTRY BENCHMARKS (calibrate thresholds against these):
+{benchmark_lines}
+"""
+            biz_ctx_user_block += "\n"
 
+        return f"""Analyze this data product schema and suggest {num_suggestions} business KPIs:{biz_ctx_user_block}
 DATA SOURCE:
   - Source System: {schema.source_system}
   - Database/Project: {schema.database or 'N/A'}

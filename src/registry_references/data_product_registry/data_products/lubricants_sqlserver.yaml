@@ -1,0 +1,367 @@
+metadata:
+  id: dp_lubricants_sqlserver
+  name: Lubricants Business Financial Analytics (SQL Server)
+  description: >
+    Lubricants industry financial star schema in SQL Server. All 6 dimension
+    and fact tables loaded from BigQuery LubricantsBusiness dataset. Star schema
+    view LubricantsStarSchemaView built with T-SQL joins — identical 21-column
+    schema to the BigQuery source view. Used for SQL Server connectivity testing
+    and to validate the SA→VA pipeline against a SQL Server backend.
+    Source: agent9_lubricants.dbo (localhost:1433, Docker SQL Server 2022)
+  domain: Finance
+  owner: Finance Analytics Team
+  version: "1.0.0"
+  source_system: sqlserver
+  tags:
+    - finance
+    - lubricants
+    - sqlserver
+    - demo
+    - oil-and-gas
+
+supported_business_processes:
+  - "Finance: Profitability Analysis"
+  - "Finance: Revenue Growth Analysis"
+  - "Finance: Expense Management"
+
+column_aliases:
+  measure: "amount"
+  date: "transaction_date"
+  version: "version"
+  default_version_value: "Actual"
+
+business_terms:
+  product_line:
+    column: product_line
+    description: "Product line (Engine Oils, Industrial Lubricants, etc.)"
+  customer_segment:
+    column: customer_segment
+    description: "Customer segment (Retail Partners, Service Centers, Commercial Fleet, etc.)"
+  channel:
+    column: channel_name
+    description: "Sales channel (DIY Retail, DIFM Service Centers, B2B Direct, E-Commerce, International)"
+  profit_center:
+    column: profit_center_name
+    description: "Profit center / business division"
+  account_type:
+    column: account_type
+    description: "Account type (Revenue, COGS, SGA, Other)"
+  account_category:
+    column: account_category
+    description: "Account category (Product Sales, Raw Materials, Distribution, etc.)"
+
+fallback_group_by_dimensions:
+  - product_line
+  - channel
+  - profit_center
+
+# Dimension tables loaded from BigQuery
+tables:
+  - name: GLAccounts
+    columns:
+      - { name: gl_account_id,    type: string }
+      - { name: account_name,     type: string }
+      - { name: account_type,     type: string }
+      - { name: account_category, type: string }
+      - { name: account_group,    type: string }
+
+  - name: Products
+    columns:
+      - { name: product_id,       type: string }
+      - { name: product_name,     type: string }
+      - { name: product_line,     type: string }
+      - { name: product_category, type: string }
+
+  - name: Customers
+    columns:
+      - { name: customer_id,      type: string }
+      - { name: customer_name,    type: string }
+      - { name: customer_segment, type: string }
+      - { name: customer_region,  type: string }
+
+  - name: ProfitCenters
+    columns:
+      - { name: profit_center_id,   type: string }
+      - { name: profit_center_name, type: string }
+      - { name: business_unit,      type: string }
+
+  - name: Channels
+    columns:
+      - { name: channel_id,   type: string }
+      - { name: channel_name, type: string }
+      - { name: channel_type, type: string }
+
+  - name: FinancialTransactions
+    columns:
+      - { name: transaction_id,    type: string }
+      - { name: fiscal_year,       type: integer }
+      - { name: fiscal_period,     type: string }
+      - { name: transaction_date,  type: date }
+      - { name: amount,            type: decimal }
+      - { name: version,           type: string }
+      - { name: currency,          type: string }
+      - { name: gl_account_id,     type: string }
+      - { name: product_id,        type: string }
+      - { name: customer_id,       type: string }
+      - { name: profit_center_id,  type: string }
+      - { name: channel_id,        type: string }
+
+# Relationships (for Data Product Agent schema inspection)
+relationships:
+  - left_table: FinancialTransactions
+    left_column: gl_account_id
+    right_table: GLAccounts
+    right_column: gl_account_id
+    type: many_to_one
+  - left_table: FinancialTransactions
+    left_column: product_id
+    right_table: Products
+    right_column: product_id
+    type: many_to_one
+  - left_table: FinancialTransactions
+    left_column: customer_id
+    right_table: Customers
+    right_column: customer_id
+    type: many_to_one
+  - left_table: FinancialTransactions
+    left_column: profit_center_id
+    right_table: ProfitCenters
+    right_column: profit_center_id
+    type: many_to_one
+  - left_table: FinancialTransactions
+    left_column: channel_id
+    right_table: Channels
+    right_column: channel_id
+    type: many_to_one
+
+views:
+  - name: LubricantsStarSchemaView
+    llm_profile:
+      exposed_columns:
+        - "transaction_id"
+        - "fiscal_year"
+        - "fiscal_period"
+        - "transaction_date"
+        - "amount"
+        - "version"
+        - "currency"
+        - "account_name"
+        - "account_type"
+        - "account_category"
+        - "account_group"
+        - "product_name"
+        - "product_line"
+        - "product_category"
+        - "customer_name"
+        - "customer_segment"
+        - "customer_region"
+        - "profit_center_name"
+        - "business_unit"
+        - "channel_name"
+        - "channel_type"
+      dimension_semantics:
+        - "product_name"
+        - "product_line"
+        - "product_category"
+        - "customer_name"
+        - "customer_segment"
+        - "customer_region"
+        - "profit_center_name"
+        - "business_unit"
+        - "channel_name"
+        - "channel_type"
+        - "account_name"
+        - "account_type"
+        - "account_category"
+        - "account_group"
+        - "fiscal_year"
+        - "fiscal_period"
+        - "transaction_date"
+    sql: |
+      SELECT
+          ft.transaction_id,
+          ft.fiscal_year,
+          ft.fiscal_period,
+          ft.transaction_date,
+          ft.amount,
+          ft.version,
+          ft.currency,
+          gl.account_name,
+          gl.account_type,
+          gl.account_category,
+          gl.account_group,
+          p.product_name,
+          p.product_line,
+          p.product_category,
+          c.customer_name,
+          c.customer_segment,
+          c.customer_region,
+          pc.profit_center_name,
+          pc.business_unit,
+          ch.channel_name,
+          ch.channel_type
+      FROM        [FinancialTransactions]  ft
+      LEFT JOIN   [GLAccounts]            gl  ON ft.gl_account_id    = gl.gl_account_id
+      LEFT JOIN   [Products]              p   ON ft.product_id       = p.product_id
+      LEFT JOIN   [Customers]             c   ON ft.customer_id      = c.customer_id
+      LEFT JOIN   [ProfitCenters]         pc  ON ft.profit_center_id = pc.profit_center_id
+      LEFT JOIN   [Channels]              ch  ON ft.channel_id       = ch.channel_id
+
+connection:
+  type: sqlserver
+  host: localhost
+  port: 1433
+  database: agent9_lubricants
+  username: sa
+  password: "Agent9Test!2024"
+  schema: dbo
+  encrypt: false
+  trust_server_certificate: true
+
+kpis:
+  - name: Net Revenue
+    description: "Total net revenue across all channels and product lines"
+    data_product_id: dp_lubricants_sqlserver
+    aggregation: SUM
+    base_column: amount
+    filter_type: account_type
+    filter_value: Revenue
+    unit: "$"
+    join_tables:
+      - LubricantsStarSchemaView
+    business_terms:
+      - "Finance: Revenue Growth Analysis"
+      - "Finance: Profitability Analysis"
+    thresholds:
+      warning:
+        value: -2.0
+        description: "Revenue declining vs comparison period"
+      critical:
+        value: -5.0
+        description: "Significant revenue drop"
+    diagnostic_questions:
+      - "Which channel is driving the revenue change?"
+      - "Which product line shows the most variance?"
+      - "Is the change concentrated in specific customer segments?"
+
+  - name: Service Revenue
+    description: "Revenue from service centers (quick lube, dealer service)"
+    data_product_id: dp_lubricants_sqlserver
+    aggregation: SUM
+    base_column: amount
+    filter_type: account_category
+    filter_value: Service Revenue
+    unit: "$"
+    join_tables:
+      - LubricantsStarSchemaView
+    business_terms:
+      - "Finance: Revenue Growth Analysis"
+    thresholds:
+      warning:
+        value: -5.0
+        description: "Service revenue declining"
+      critical:
+        value: -8.0
+        description: "Significant service revenue drop"
+
+  - name: Gross Margin %
+    description: "Gross Profit as percentage of Revenue (target: 33-37%)"
+    data_product_id: dp_lubricants_sqlserver
+    calculation: "(SUM(CASE WHEN account_type IN ('Revenue','COGS') THEN CAST(amount AS FLOAT) ELSE 0 END) / NULLIF(SUM(CASE WHEN account_type = 'Revenue' THEN CAST(amount AS FLOAT) ELSE 0 END), 0)) * 100"
+    unit: "%"
+    join_tables:
+      - LubricantsStarSchemaView
+    business_terms:
+      - "Finance: Profitability Analysis"
+    thresholds:
+      warning:
+        value: 30.0
+        description: "Gross margin below target range"
+      critical:
+        value: 28.0
+        description: "Gross margin critically low"
+
+  - name: Cost of Goods Sold
+    description: "Total COGS including base oil, blending, packaging, and distribution"
+    data_product_id: dp_lubricants_sqlserver
+    aggregation: SUM
+    base_column: amount
+    filter_type: account_type
+    filter_value: COGS
+    calculation: "SUM(-CAST(amount AS FLOAT)) WHERE account_type = 'COGS'"
+    unit: "$"
+    join_tables:
+      - LubricantsStarSchemaView
+    business_terms:
+      - "Finance: Expense Management"
+      - "Finance: Profitability Analysis"
+    thresholds:
+      warning:
+        value: 5.0
+        description: "COGS increasing faster than expected"
+      critical:
+        value: 10.0
+        description: "COGS spike - investigate raw material costs"
+
+  - name: SG&A Expense
+    description: "Selling, General & Administrative expenses"
+    data_product_id: dp_lubricants_sqlserver
+    aggregation: SUM
+    base_column: amount
+    filter_type: account_type
+    filter_value: SGA
+    calculation: "SUM(-CAST(amount AS FLOAT)) WHERE account_type = 'SGA'"
+    unit: "$"
+    join_tables:
+      - LubricantsStarSchemaView
+    business_terms:
+      - "Finance: Expense Management"
+    thresholds:
+      warning:
+        value: 5.0
+        description: "SG&A over budget"
+      critical:
+        value: 10.0
+        description: "SG&A significantly over budget"
+
+  - name: E-Commerce Revenue
+    description: "Revenue from e-commerce / digital channel"
+    data_product_id: dp_lubricants_sqlserver
+    aggregation: SUM
+    base_column: amount
+    filters:
+      channel_name: "E-Commerce"
+      account_type: "Revenue"
+    unit: "$"
+    join_tables:
+      - LubricantsStarSchemaView
+    business_terms:
+      - "Finance: Revenue Growth Analysis"
+    thresholds:
+      warning:
+        value: 5.0
+        description: "E-Commerce growth slowing"
+      critical:
+        value: -5.0
+        description: "E-Commerce revenue declining"
+
+  - name: B2B Direct Revenue
+    description: "Revenue from B2B direct sales channel (fleet + industrial)"
+    data_product_id: dp_lubricants_sqlserver
+    aggregation: SUM
+    base_column: amount
+    filters:
+      channel_name: "B2B Direct Sales"
+      account_type: "Revenue"
+    unit: "$"
+    join_tables:
+      - LubricantsStarSchemaView
+    business_terms:
+      - "Finance: Revenue Growth Analysis"
+    thresholds:
+      warning:
+        value: -2.0
+        description: "B2B revenue declining"
+      critical:
+        value: -8.0
+        description: "Significant B2B revenue loss - check fleet customers"

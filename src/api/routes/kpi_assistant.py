@@ -60,6 +60,7 @@ class SuggestKPIsAPIRequest(BaseModel):
     time_columns: List[Dict[str, Any]] = Field(default_factory=list)
     identifiers: List[Dict[str, Any]] = Field(default_factory=list)
     user_context: Optional[Dict[str, Any]] = None
+    business_context: Optional[Dict[str, Any]] = None
     num_suggestions: int = 5
 
 
@@ -150,7 +151,8 @@ async def suggest_kpis(
             measures=request.measures,
             dimensions=request.dimensions,
             time_columns=request.time_columns,
-            identifiers=request.identifiers
+            identifiers=request.identifiers,
+            business_context=request.business_context,
         )
         
         # Create agent request

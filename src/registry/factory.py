@@ -204,3 +204,32 @@ class RegistryFactory:
     def get_data_product_provider(self) -> Optional[DataProductProvider]:
         """Get the data product registry provider."""
         return self.get_provider('data_product')
+
+    def get_business_context_provider(self):
+        """Get the business context provider, creating one lazily if needed.
+
+        Returns:
+            SupabaseBusinessContextProvider instance, or None if env vars are missing.
+        """
+        provider = self.get_provider('business_context')
+        if provider is not None:
+            return provider
+
+        try:
+            from src.registry.business_context.business_context_provider import (
+                SupabaseBusinessContextProvider,
+            )
+            logger.info("Creating SupabaseBusinessContextProvider (lazy init)")
+            provider = SupabaseBusinessContextProvider()
+            self.register_provider('business_context', provider)
+            self._provider_initialization_status['business_context'] = True
+            logger.info("SupabaseBusinessContextProvider registered successfully")
+            return provider
+        except ValueError as exc:
+            logger.warning(
+                "SupabaseBusinessContextProvider not available (missing env vars): %s", exc
+            )
+            return None
+        except Exception as exc:
+            logger.error("Failed to create SupabaseBusinessContextProvider: %s", exc)
+            return None

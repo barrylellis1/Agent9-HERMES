@@ -22,6 +22,7 @@ from src.database.backends.postgres_manager import PostgresManager
 from src.database.backends.snowflake_manager import SnowflakeManager
 from src.database.backends.databricks_manager import DatabricksManager
 from src.database.backends.mcp_manager import MCPManager
+from src.database.backends.sqlserver_manager import SqlServerManager
 # from src.database.backends.hana_manager import HANAManager
 
 
@@ -46,6 +47,9 @@ class DatabaseManagerFactory:
         'snowflake_mcp': lambda config, logger=None: MCPManager('snowflake', config, logger),
         'databricks_mcp': lambda config, logger=None: MCPManager('databricks', config, logger),
         'bigquery_mcp': lambda config, logger=None: MCPManager('bigquery', config, logger),
+        'sqlserver': SqlServerManager,
+        'sql_server': SqlServerManager,
+        'mssql': SqlServerManager,
         # 'hana': HANAManager,
     }
     

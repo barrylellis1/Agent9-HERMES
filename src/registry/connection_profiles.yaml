@@ -1,4 +1,16 @@
-# Connection Profiles for Data Product Onboarding
-# Stores reusable connection configurations for different source systems
-
-profiles: []
+profiles:
+- config:
+    database: agent9_lubricants
+    description: Local Docker SQL Server 2022 - Lubricants demo data
+    encrypt: false
+    host: localhost
+    password: Agent9Test!2024
+    port: 1433
+    schema: dbo
+    trust_server_certificate: true
+    username: sa
+  created_at: '2026-04-15T20:45:00.727862'
+  id: sqlserver_lubricants_local
+  name: sqlserver_lubricants_local
+  source_system: sqlserver
+  updated_at: '2026-04-15T20:45:00.727862'

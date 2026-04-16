@@ -1,13 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
     ArrowLeft, Settings, Search, Database, FileText, Check,
-    Loader2, ChevronRight, AlertCircle, Edit2, Link2, Sparkles, CheckCircle
+    Loader2, ChevronRight, AlertCircle, Edit2, Link2, Sparkles, CheckCircle, X as XIcon
 } from 'lucide-react'
 import { KPIAssistantChat } from '../components/KPIAssistantChat'
 import { ConnectionProfileManager } from '../components/ConnectionProfileManager'
 import { DataProductSelector } from '../components/DataProductSelector'
-import { API_ENDPOINTS, buildUrl } from '../config/api-endpoints'
+import { API_ENDPOINTS, API_BASE_URL, buildUrl } from '../config/api-endpoints'
 import { markProfileAsUsed } from '../utils/connectionProfileStorage'
 import { BrandLogo } from '../components/BrandLogo'
 
@@ -66,6 +66,7 @@ interface InspectionResult {
 const SOURCE_SYSTEMS = [
     { value: 'duckdb', label: 'DuckDB (Local)', hasMetadata: false },
     { value: 'bigquery', label: 'Google BigQuery', hasMetadata: true },
+    { value: 'sqlserver', label: 'SQL Server / Azure SQL', hasMetadata: true },
     { value: 'snowflake', label: 'Snowflake', hasMetadata: true },
     { value: 'databricks', label: 'Databricks', hasMetadata: true },
 ]
@@ -80,6 +81,33 @@ export function DataProductOnboardingNew() {
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
     const [logs, setLogs] = useState<string[]>([])
+
+    // Company Profile / Business Context
+    const [businessContext, setBusinessContext] = useState<Record<string, unknown> | null>(null)
+    const [showProfileBanner, setShowProfileBanner] = useState(false)
+
+    useEffect(() => {
+        const loadBusinessContext = async () => {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/v1/company-profile`)
+                if (res.ok) {
+                    const data = await res.json()
+                    if (data && Object.keys(data).length > 0) {
+                        setBusinessContext(data as Record<string, unknown>)
+                        setShowProfileBanner(false)
+                    } else {
+                        setBusinessContext(null)
+                        setShowProfileBanner(true)
+                    }
+                } else {
+                    setShowProfileBanner(true)
+                }
+            } catch {
+                setShowProfileBanner(true)
+            }
+        }
+        loadBusinessContext()
+    }, [])
 
     // Step 1: Connection Setup
     const [sourceSystem, setSourceSystem] = useState('duckdb')
@@ -180,6 +208,10 @@ export function DataProductOnboardingNew() {
         }
         if (sourceSystem === 'bigquery' && (!database || !schema)) {
             setError('Project and Dataset are required for BigQuery')
+            return
+        }
+        if (sourceSystem === 'sqlserver' && (!connectionOverrides.host || !connectionOverrides.database || !connectionOverrides.username)) {
+            setError('Host, Database, and Username are required for SQL Server')
             return
         }
         setLogs(prev => [...prev, `✓ Connection configured: ${sourceSystem}`])
@@ -629,11 +661,37 @@ export function DataProductOnboardingNew() {
                             </div>
                         )}
 
+                        {/* Company Profile banner — shown on Step 0 if profile not set */}
+                        {currentStep === 0 && showProfileBanner && (
+                            <div className="mb-4 flex items-start gap-3 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-indigo-300 text-sm">
+                                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-indigo-400" />
+                                <span className="flex-1">
+                                    For better KPI suggestions, set up your{' '}
+                                    <a
+                                        href="/settings/company-profile"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="underline hover:text-indigo-200 transition-colors"
+                                    >
+                                        Company Profile
+                                    </a>{' '}
+                                    first.
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowProfileBanner(false)}
+                                    className="text-indigo-400 hover:text-white transition-colors"
+                                >
+                                    <XIcon className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
+
                         {/* Step 1: Connection Setup */}
                         {currentStep === 0 && (
                             <div className="py-8">
                                 <h3 className="text-xl font-semibold text-white mb-6">Connection Setup</h3>
-                                
+
                                 <div className="space-y-6">
                                     {/* Connection Profile Manager */}
                                     <ConnectionProfileManager
@@ -729,8 +787,8 @@ export function DataProductOnboardingNew() {
                                     {sourceSystem === 'duckdb' && (
                                         <div>
                                             <label className="block text-sm font-medium text-slate-400 mb-2">Schema</label>
-                                            <input 
-                                                type="text" 
+                                            <input
+                                                type="text"
                                                 value={schema}
                                                 onChange={(e) => setSchema(e.target.value)}
                                                 placeholder="main"
@@ -740,6 +798,74 @@ export function DataProductOnboardingNew() {
                                                 <AlertCircle className="w-3 h-3" /> FK relationships will be inferred - manual review recommended
                                             </p>
                                         </div>
+                                    )}
+
+                                    {sourceSystem === 'sqlserver' && (
+                                        <>
+                                            <div className="grid grid-cols-3 gap-3">
+                                                <div className="col-span-2">
+                                                    <label className="block text-sm font-medium text-slate-400 mb-2">Host *</label>
+                                                    <input
+                                                        type="text"
+                                                        value={connectionOverrides.host || ''}
+                                                        onChange={(e) => setConnectionOverrides({ ...connectionOverrides, host: e.target.value })}
+                                                        placeholder="localhost"
+                                                        className="w-full p-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-400 mb-2">Port</label>
+                                                    <input
+                                                        type="number"
+                                                        value={connectionOverrides.port || 1433}
+                                                        onChange={(e) => setConnectionOverrides({ ...connectionOverrides, port: parseInt(e.target.value) })}
+                                                        className="w-full p-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-400 mb-2">Database *</label>
+                                                <input
+                                                    type="text"
+                                                    value={connectionOverrides.database || ''}
+                                                    onChange={(e) => setConnectionOverrides({ ...connectionOverrides, database: e.target.value })}
+                                                    placeholder="agent9_lubricants"
+                                                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-400 mb-2">Schema</label>
+                                                <input
+                                                    type="text"
+                                                    value={schema}
+                                                    onChange={(e) => setSchema(e.target.value)}
+                                                    placeholder="dbo"
+                                                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-400 mb-2">Username *</label>
+                                                    <input
+                                                        type="text"
+                                                        value={connectionOverrides.username || ''}
+                                                        onChange={(e) => setConnectionOverrides({ ...connectionOverrides, username: e.target.value })}
+                                                        placeholder="sa"
+                                                        className="w-full p-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-400 mb-2">Password *</label>
+                                                    <input
+                                                        type="password"
+                                                        value={connectionOverrides.password || ''}
+                                                        onChange={(e) => setConnectionOverrides({ ...connectionOverrides, password: e.target.value })}
+                                                        placeholder="••••••••"
+                                                        className="w-full p-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </>
                                     )}
 
                                     <button 
@@ -1003,6 +1129,7 @@ export function DataProductOnboardingNew() {
                                         tables={discoveredTables.filter(t => t.selected).map(t => t.name)}
                                         database={database}
                                         schema={schema}
+                                        businessContext={businessContext ?? undefined}
                                         schemaMetadata={{
                                             measures: inspectionResult.tables.flatMap(t => 
                                                 t.columns.filter(c => c.semantic_tags.includes('measure')).map(c => ({

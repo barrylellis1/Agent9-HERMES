@@ -55,6 +55,7 @@ interface KPIAssistantChatProps {
         time_columns: Array<{ name: string; data_type: string }>
         identifiers: Array<{ name: string; data_type: string }>
     }
+    businessContext?: Record<string, unknown> | null
     onKPIsFinalized: (kpis: KPIDefinition[]) => void
     onClose?: () => void
 }
@@ -67,6 +68,7 @@ export function KPIAssistantChat({
     database,
     schema,
     schemaMetadata,
+    businessContext,
     onKPIsFinalized,
     onClose
 }: KPIAssistantChatProps) {
@@ -110,7 +112,21 @@ export function KPIAssistantChat({
                     dimensions: schemaMetadata.dimensions,
                     time_columns: schemaMetadata.time_columns,
                     identifiers: schemaMetadata.identifiers,
-                    num_suggestions: 5
+                    num_suggestions: 5,
+                    ...(businessContext && Object.keys(businessContext).length > 0
+                        ? {
+                            business_context: {
+                                ...businessContext,
+                                // Merge industry benchmarks for threshold calibration
+                                industry_benchmarks: (() => {
+                                    try {
+                                        const raw = localStorage.getItem('a9_industry_benchmarks')
+                                        return raw ? JSON.parse(raw) : undefined
+                                    } catch { return undefined }
+                                })()
+                            }
+                          }
+                        : {})
                 })
             })
 

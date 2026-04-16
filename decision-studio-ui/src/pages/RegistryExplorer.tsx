@@ -1,6 +1,6 @@
 import { type ComponentType, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, BookOpen, Box, Briefcase, Code2, Database, KeyRound, Loader2, Save, Trash2, Plus, X } from 'lucide-react'
+import { ArrowLeft, BookOpen, Box, Briefcase, Code2, Database, KeyRound, Loader2, Save, Trash2, Plus, X, Building2 } from 'lucide-react'
 import { BrandLogo } from '../components/BrandLogo'
 import {
   type BusinessTerm,
@@ -810,6 +810,13 @@ export function RegistryExplorer() {
               </button>
             )
           })}
+          <Link
+            to="/settings/company-profile"
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600 ml-auto"
+          >
+            <Building2 className="w-4 h-4" />
+            Company Profile
+          </Link>
         </div>
 
         <div>
