@@ -95,7 +95,7 @@ class SqlServerManager(DatabaseManager):
         """
         self.config = config
         self.logger = logger or logging.getLogger(__name__)
-        self._connection: Optional[pyodbc.Connection] = None
+        self._connection: Optional[Any] = None
         self._is_connected = False
         self._schema = config.get("schema", _DEFAULT_SCHEMA)
 
@@ -104,11 +104,11 @@ class SqlServerManager(DatabaseManager):
     # ------------------------------------------------------------------
 
     @property
-    def connection(self) -> Optional[pyodbc.Connection]:
+    def connection(self) -> Optional[Any]:
         return self._connection
 
     @connection.setter
-    def connection(self, value: Optional[pyodbc.Connection]) -> None:
+    def connection(self, value: Optional[Any]) -> None:
         self._connection = value
 
     @property
