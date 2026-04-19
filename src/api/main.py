@@ -39,18 +39,21 @@ app = FastAPI(
     description="Backend API for Agent9. Contains health and future MCP service endpoints.",
 )
 
-# CORS: restrict to known origins in production, allow all in development
-_frontend_url = os.getenv("FRONTEND_URL", "")
-_cors_origins = (
-    [_frontend_url, "http://localhost:5173", "http://127.0.0.1:5173"]
-    if _frontend_url
-    else ["*"]
-)
+# CORS: allow_origins=["*"] is incompatible with allow_credentials=True (CORS spec).
+# When FRONTEND_URL is set, use explicit origins + credentials.
+# When not set (local dev), allow all origins but disable credentials.
+_frontend_url = os.getenv("FRONTEND_URL", "").rstrip("/")
+if _frontend_url:
+    _cors_origins = [_frontend_url, "http://localhost:5173", "http://127.0.0.1:5173"]
+    _allow_credentials = True
+else:
+    _cors_origins = ["*"]
+    _allow_credentials = False
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    allow_credentials=True,
+    allow_credentials=_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
