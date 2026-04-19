@@ -15,7 +15,13 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
-import pyodbc
+
+try:
+    import pyodbc
+    _PYODBC_AVAILABLE = True
+except ImportError:
+    pyodbc = None  # type: ignore
+    _PYODBC_AVAILABLE = False
 
 from src.database.manager_interface import DatabaseManager
 
@@ -31,6 +37,10 @@ _PREFERRED_DRIVERS = [
 
 def _detect_driver() -> str:
     """Return the best available SQL Server ODBC driver."""
+    if not _PYODBC_AVAILABLE:
+        raise RuntimeError(
+            "pyodbc is not available. Install unixODBC system library and pyodbc."
+        )
     available = pyodbc.drivers()
     for preferred in _PREFERRED_DRIVERS:
         if preferred in available:
@@ -126,6 +136,12 @@ class SqlServerManager(DatabaseManager):
         Returns:
             True if connection successful, False otherwise
         """
+        if not _PYODBC_AVAILABLE:
+            self.logger.error(
+                "Cannot connect to SQL Server: pyodbc/unixODBC not available in this environment."
+            )
+            return False
+
         try:
             params = {**self.config, **connection_params}
 
