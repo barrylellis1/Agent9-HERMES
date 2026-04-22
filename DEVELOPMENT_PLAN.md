@@ -236,13 +236,15 @@ Agent9 connects to customer data warehouses at three progressive levels of integ
 
 **Why now (before 10C):** Every new connector (Snowflake, Databricks, SAP HANA) creates additional KPI→data-product resolution paths. Wiring the DGA first means new connectors inherit governance automatically rather than adding more fallback surface area.
 
-**Three-phase delivery within 10B-DGA:**
+**Execution sequence (no active customers — break-and-fix approach):**
 
-| Sub-phase | Deliverables | Effort |
-|-----------|-------------|--------|
-| **DGA-A: Wire existing methods** | Make DGA calls mandatory in SA agent + DPA `connect()`. Replace all `if self.data_governance_agent:` guards with direct calls + proper error propagation. Wire `get_view_name_for_kpi()` as primary in DPA. Wire `map_kpis_to_data_products()` into `detect_situations` path. Remove contract-file view name fallbacks. | ~27–39h |
-| **DGA-B: Real client/tenant access control** | Implement real policy logic in `validate_data_access()` (currently always-true stub). Replace manual `client_id` filtering in SA agent `_get_relevant_kpis()` with DGA access control call. Add client_id scoping to `map_kpis_to_data_products()`. Structurally prevents cross-client KPI contamination. | ~12–16h |
-| **DGA-C: Registry hardening** | Fix Supabase initialization sequencing so the YAML contract file fallback never triggers in production. Supabase becomes the sole source of truth; contract file kept for local dev only. | ~20–30h |
+| Step | Deliverables | Effort |
+|------|-------------|--------|
+| **Step 1 — DGA init fix** | Wire DGA into `A9_Data_Product_Agent.connect()` and `A9_Situation_Awareness_Agent.connect()` as hard dependencies. Fix orchestrator init order so DGA is always ready before SA and DPA need it. Eliminates the startup warning `Data Governance Agent not available`. | ~4–6h |
+| **Step 2 — DGA-A: Wire all 16 mandatory paths** | Remove all `if self.data_governance_agent:` guards. Wire calls directly with error propagation. Work file-by-file in ascending blast-radius order: DA agent (1 path) → DPA (5 paths) → SA agent (8 paths). Run unit suite after each file; fix failures before moving on. | ~27–39h |
+| **Step 3 — Test update** | Update `test_sql_generation_fallback` to assert a hard error rather than `None` — converts a "validates the old fallback" test into a "validates the new contract" test. Add 3 new tests: mandatory DGA path happy path, DGA init failure → visible error, view name resolution through DGA. | ~4–6h |
+| **DGA-B: DEFERRED** | `validate_data_access()` stays always-true stub. No real tenants → no cross-client risk. Revisit with Infra B (multi-tenant isolation, pre-Sep 2026). | — |
+| **DGA-C: PARTIAL only** | Full Supabase registry hardening deferred. Only the init sequencing fix in Step 1 is in scope now. | — |
 
 **Current fallback inventory (16 paths across 3 files):**
 
@@ -250,7 +252,7 @@ Agent9 connects to customer data warehouses at three progressive levels of integ
 |------|-------|---------------|-----------------------------------|
 | Tier 2 — Core mapping/view | 4 | SA agent, DA agent, DPA | `map_kpis_to_data_products()`, `get_view_name_for_kpi()` |
 | Tier 3 — Translation | 5 | SA agent, DPA | `translate_business_terms()`, `get_view_name_for_kpi()` |
-| Tier 1 — Client scoping | 2 | SA agent | `validate_data_access()` (needs real implementation) |
+| Tier 1 — Client scoping | 2 | SA agent | `validate_data_access()` (deferred to DGA-B) |
 | Tier 4 — Structural/registry | 5 | SA agent, DPA | Registry init sequencing |
 
 **Critical files:**
@@ -260,7 +262,7 @@ Agent9 connects to customer data warehouses at three progressive levels of integ
 - `src/agents/new/a9_data_governance_agent.py` — DGA implementation (methods ready)
 - `docs/architecture/data_governance_agent_connection.md` — documents known missing wiring
 
-**Key insight:** DGA-A (wiring, ~27–39h) delivers 9 of 16 fallback eliminations using only code that already exists. DGA-B adds access control correctness. DGA-C is infrastructure hardening. Each sub-phase is independently deployable.
+**Entry point for new conversation:** Read `connect()` methods in SA agent, DPA, and orchestrator init sequence before touching anything. Confirm DGA is absent from DPA `connect()` — that's the root cause of the 8 SA fallback paths existing in the first place.
 
 ---
 
