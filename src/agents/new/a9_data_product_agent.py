@@ -3103,9 +3103,28 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 "Data Governance Agent did not provide a view_name and KPI metadata did not include one."
             )
             return ""
-        except Exception:
+        except Exception as exc:
+            # DGA call failed — still try KPI metadata before giving up
+            kpi_name_fallback = getattr(kpi_definition, 'name', 'unknown')
+            if hasattr(kpi_definition, 'view_name') and isinstance(kpi_definition.view_name, str) and kpi_definition.view_name.strip():
+                self.logger.warning(
+                    f"DGA threw for KPI '{kpi_name_fallback}' ({exc!r}); "
+                    f"using KPI metadata view_name='{kpi_definition.view_name.strip()}'."
+                )
+                return kpi_definition.view_name.strip()
+            if hasattr(kpi_definition, 'metadata') and isinstance(kpi_definition.metadata, dict):
+                meta_vn = kpi_definition.metadata.get('view_name')
+                if isinstance(meta_vn, str) and meta_vn.strip():
+                    self.logger.warning(
+                        f"DGA threw for KPI '{kpi_name_fallback}' ({exc!r}); "
+                        f"using metadata view_name='{meta_vn.strip()}'."
+                    )
+                    return meta_vn.strip()
+            self.logger.error(
+                f"DGA threw for KPI '{kpi_name_fallback}' ({exc!r}) and no metadata fallback available."
+            )
             return ""
-    
+
     def _get_timeframe_condition(self, timeframe: Any) -> Optional[str]:
         """
         Generate a SQL condition for a given timeframe using time_dim attributes.

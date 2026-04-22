@@ -2008,17 +2008,21 @@ class A9_Situation_Awareness_Agent:
 
             # Single-source SQL generation (for both execution and later UI display)
             # Detect BigQuery KPIs: pre-built SQL that uses `project.dataset.view` refs.
-            # These bypass generate_sql_for_kpi (DuckDB/time_dim-centric) entirely.
+            # Detect SQL Server KPIs: pre-built T-SQL that uses [BracketQuoted] table refs.
+            # Both bypass generate_sql_for_kpi (DuckDB/time_dim-centric) entirely and
+            # receive date filters applied directly in this method.
             _raw_kpi_sql = (getattr(kpi_definition, 'calculation', None) or
                             getattr(kpi_definition, 'sql_query', None) or '')
             _is_bq_kpi = bool(re.search(r'`[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_.-]+`', _raw_kpi_sql))
+            # SQL Server: bracket-quoted table identifiers ([ViewName]) but NOT BigQuery
+            _is_ss_kpi = (not _is_bq_kpi) and bool(re.search(r'\[[A-Za-z][\w\s]*\]', _raw_kpi_sql))
             _bq_date_col = (
                 (kpi_definition.metadata or {}).get('date_column', 'transaction_date')
                 if hasattr(kpi_definition, 'metadata') and isinstance(getattr(kpi_definition, 'metadata', None), dict)
                 else 'transaction_date'
             )
 
-            # 1) Generate Base SQL via DPA (or directly for BigQuery KPIs)
+            # 1) Generate Base SQL via DPA (or directly for BigQuery / SQL Server KPIs)
             base_sql = ""
             _gen_dp_id = getattr(kpi_definition, 'data_product_id', None)
             if _is_bq_kpi:
@@ -2026,6 +2030,15 @@ class A9_Situation_Awareness_Agent:
                 self.logger.info(f"[BQ path] base_sql for '{kpi_name}': {base_sql[:140]}")
                 if not base_sql:
                     self.logger.error(f"[BQ path] Failed to build base SQL for {kpi_name}")
+                    return None
+            elif _is_ss_kpi:
+                # SQL Server path: apply ISO date filter directly (T-SQL accepts BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD').
+                # DPA's generate_sql_for_kpi_comparison cannot inject a date filter when the stored T-SQL
+                # has no pre-existing timeframe condition, so we mirror the BigQuery pattern here.
+                base_sql = self._bq_apply_period(_raw_kpi_sql, timeframe, is_comparison=False, date_col=_bq_date_col)
+                self.logger.info(f"[SS path] base_sql for '{kpi_name}': {base_sql[:140]}")
+                if not base_sql:
+                    self.logger.error(f"[SS path] Failed to build base SQL for {kpi_name}")
                     return None
             else:
                 try:
@@ -2077,13 +2090,14 @@ class A9_Situation_Awareness_Agent:
                 return None
             # ── Build monthly series SQL (sync, no I/O) ──
             # BQ-native KPIs: use _raw_kpi_sql (backtick refs, no date filter)
+            # SS KPIs: monthly series not yet supported (T-SQL parsing differs) — skip
             # DPA-path KPIs: use base_sql (double-quoted view, date filter stripped inside)
-            monthly_source = _raw_kpi_sql if _is_bq_kpi else base_sql
+            monthly_source = _raw_kpi_sql if _is_bq_kpi else (None if _is_ss_kpi else base_sql)
             monthly_sql = ""
             if monthly_source:
                 monthly_sql = self._bq_monthly_series_sql(monthly_source, date_col=_bq_date_col, num_months=9)
 
-            # ── Build comparison SQL (sync for BQ-native, async for DPA-path) ──
+            # ── Build comparison SQL (sync for BQ/SS-native, async for DPA-path) ──
             comp_sql = ""
             if comparison_type:
                 if _is_bq_kpi:
@@ -2093,6 +2107,15 @@ class A9_Situation_Awareness_Agent:
                         date_col=_bq_date_col
                     )
                     self.logger.info(f"[BQ path] comp_sql for '{kpi_name}': {comp_sql[:140]}")
+                elif _is_ss_kpi:
+                    # SQL Server: apply comparison period date filter directly to raw T-SQL.
+                    # ISO date strings work in T-SQL, so _bq_apply_period is reusable.
+                    comp_sql = self._bq_apply_period(
+                        _raw_kpi_sql, timeframe,
+                        is_comparison=True, comparison_type=comparison_type,
+                        date_col=_bq_date_col
+                    )
+                    self.logger.info(f"[SS path] comp_sql for '{kpi_name}': {comp_sql[:140]}")
                 else:
                     try:
                         comp_sql_resp = await self.data_product_agent.generate_sql_for_kpi_comparison(
