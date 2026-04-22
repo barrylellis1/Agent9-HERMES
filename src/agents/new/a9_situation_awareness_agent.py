@@ -1087,26 +1087,24 @@ class A9_Situation_Awareness_Agent:
         return sql + f" WHERE {cond}"
 
     def _bq_monthly_series_sql(self, base_sql: str, date_col: str = "transaction_date", num_months: int = 9) -> str:
-        """Generate SQL that returns monthly aggregates for the last N months.
+        """Generate SQL returning the most recent N monthly aggregates for a KPI.
 
-        Takes the base KPI SQL (which has a SUM/aggregate) and transforms it
-        into a GROUP BY month query returning num_months rows ordered ascending.
+        Approach: no hard-coded date window. Let the data determine which months
+        exist by using ORDER BY period DESC LIMIT N, then wrap to return ascending.
+        This works regardless of what calendar period the dataset covers.
+
+        Non-date WHERE conditions (version, account_type, etc.) are preserved.
+        Any existing date range filter is stripped — the subquery LIMIT handles recency.
         """
         import re as _re
-        from datetime import date as _date
-        try:
-            from dateutil.relativedelta import relativedelta as _rd
-        except ImportError:
-            self.logger.warning("[Monthly] python-dateutil not available; skipping monthly series")
-            return ""
 
-        today = _date.today()
-        start_date = (today - _rd(months=num_months - 1)).replace(day=1)
-        end_date = today
-
-        # Match: SELECT <agg> as total_value FROM <table_ref> [rest]
+        # Match: SELECT <agg> AS <alias> FROM <table_ref> [rest]
+        # table_ref may be backtick-quoted (`project.dataset.view`),
+        # double-quoted ("ViewName"), or unquoted (ViewName).
         match = _re.match(
-            r"SELECT\s+(.+?)\s+as\s+total_value\s+FROM\s+(`[^`]+`(?:\.\S+)*)(.*)",
+            r'SELECT\s+(.+?)\s+AS\s+\w+\s+FROM\s+'
+            r'((?:`[^`]+`|"[^"]+"|\w+)(?:\.(?:`[^`]+`|"[^"]+"|\w+))*)'
+            r'(.*)',
             base_sql,
             _re.IGNORECASE | _re.DOTALL,
         )
@@ -1116,31 +1114,45 @@ class A9_Situation_Awareness_Agent:
 
         agg_expr = match.group(1).strip()
         table_ref = match.group(2).strip()
-        where_clause = match.group(3).strip()
+        rest = match.group(3).strip()
 
-        date_filter = f"{date_col} >= '{start_date.isoformat()}' AND {date_col} <= '{end_date.isoformat()}'"
+        # If DPA injected a time_dim JOIN (DuckDB pattern), extract just the WHERE
+        # portion and drop the JOIN — BigQuery resolves the view via default_dataset.
+        where_match = _re.search(r'\bWHERE\b(.*)', rest, _re.IGNORECASE | _re.DOTALL)
+        where_clause = ("WHERE" + where_match.group(1)) if where_match else rest
 
+        # Normalise date_col: strip surrounding double-quotes
+        bare_date_col = date_col.strip('"')
+
+        # Strip ALL date range conditions — recency is handled by LIMIT, not a WHERE filter
         if where_clause.upper().startswith("WHERE"):
             existing_conditions = where_clause[5:].strip()
-            # Remove any pre-existing date range conditions to avoid conflicts
+            date_col_pattern = rf'"?{_re.escape(bare_date_col)}"?'
             cleaned = _re.sub(
-                rf"\s*AND\s+{_re.escape(date_col)}\s+(?:BETWEEN|>=|<=|>|<)\s+['\d\-]+(?:\s+AND\s+['\d\-]+)?",
-                "",
+                rf'(?:\bAND\s+)?{date_col_pattern}\s+'
+                rf'(?:BETWEEN\s+[\'"\d\-T]+\s+AND\s+[\'"\d\-T]+|[<>]=?\s*[\'"\d\-T]+)',
+                '',
                 existing_conditions,
                 flags=_re.IGNORECASE,
-            )
-            cleaned = cleaned.strip()
-            full_where = f"WHERE {cleaned} AND {date_filter}" if cleaned else f"WHERE {date_filter}"
+            ).strip().lstrip(',').strip()
+            cleaned = _re.sub(r'^AND\s+', '', cleaned, flags=_re.IGNORECASE).strip()
+            non_date_where = f"WHERE {cleaned}" if cleaned else ""
         else:
-            full_where = f"WHERE {date_filter}"
+            non_date_where = ""
 
+        # transaction_date is stored as STRING (YYYY-MM-DD) in BigQuery.
+        # LEFT(..., 7) extracts YYYY-MM from any ISO date string.
+        # Outer query re-orders to ascending so the chart reads left→right chronologically.
         monthly_sql = (
-            f"SELECT FORMAT_DATE('%Y-%m', {date_col}) as period, "
-            f"{agg_expr} as value "
+            f"SELECT period, value FROM ("
+            f"SELECT LEFT({bare_date_col}, 7) AS period, "
+            f"{agg_expr} AS value "
             f"FROM {table_ref} "
-            f"{full_where} "
+            f"{non_date_where} "
             f"GROUP BY period "
-            f"ORDER BY period ASC"
+            f"ORDER BY period DESC "
+            f"LIMIT {num_months}"
+            f") ORDER BY period ASC"
         )
         return monthly_sql
 
@@ -2022,6 +2034,7 @@ class A9_Situation_Awareness_Agent:
 
             # 1) Generate Base SQL via DPA (or directly for BigQuery KPIs)
             base_sql = ""
+            _gen_dp_id = getattr(kpi_definition, 'data_product_id', None)
             if _is_bq_kpi:
                 base_sql = self._bq_apply_period(_raw_kpi_sql, timeframe, is_comparison=False, date_col=_bq_date_col)
                 self.logger.info(f"[BQ path] base_sql for '{kpi_name}': {base_sql[:140]}")
@@ -2037,6 +2050,8 @@ class A9_Situation_Awareness_Agent:
                     )
                     if isinstance(gen_resp, dict) and gen_resp.get('success') and isinstance(gen_resp.get('sql', ''), str):
                         base_sql = gen_resp['sql']
+                        # Propagate data_product_id for SQL Server backend routing
+                        _gen_dp_id = gen_resp.get('data_product_id') or getattr(kpi_definition, 'data_product_id', None)
                     else:
                         self.logger.error(f"Failed to generate base SQL for KPI {kpi_name}: {gen_resp}")
                         return None
@@ -2056,7 +2071,7 @@ class A9_Situation_Awareness_Agent:
             # 2) Execute Base SQL via DPA to obtain current KPI value
             current_value = None
             try:
-                exec_resp = await self.data_product_agent.execute_sql(base_sql, parameters=None, principal_context=principal_context)
+                exec_resp = await self.data_product_agent.execute_sql(base_sql, parameters=None, principal_context=principal_context, data_product_id=_gen_dp_id)
                 rows = exec_resp.get('rows') or exec_resp.get('data') or []
                 if rows:
                     first = rows[0]
@@ -2074,38 +2089,96 @@ class A9_Situation_Awareness_Agent:
             except Exception as e:
                 self.logger.error(f"Error executing base SQL for {kpi_name}: {e}")
                 return None
-            # ── Monthly series (9 months) for trend visualization ──
-            monthly_values = None
-            try:
-                if _is_bq_kpi and _raw_kpi_sql:
-                    monthly_sql = self._bq_monthly_series_sql(_raw_kpi_sql, date_col=_bq_date_col, num_months=9)
-                    if monthly_sql:
-                        self.logger.info(f"[Monthly] Executing monthly series for {kpi_name}")
-                        monthly_result = await self.data_product_agent.execute_sql(monthly_sql, parameters=None, principal_context=principal_context)
-                        if monthly_result and (monthly_result.get("rows") or monthly_result.get("data")):
-                            raw_rows = monthly_result.get("rows") or monthly_result.get("data") or []
-                            monthly_values = []
-                            for row in raw_rows:
-                                if isinstance(row, dict):
-                                    period = row.get("period", "")
-                                    val = row.get("value")
-                                elif isinstance(row, (list, tuple)) and len(row) >= 2:
-                                    period = str(row[0])
-                                    val = row[1]
-                                else:
-                                    continue
-                                if val is not None:
-                                    try:
-                                        monthly_values.append({"period": period, "value": float(val)})
-                                    except (ValueError, TypeError):
-                                        pass
-                            self.logger.info(f"[Monthly] Got {len(monthly_values)} monthly values for {kpi_name}")
+            # ── Build monthly series SQL (sync, no I/O) ──
+            # BQ-native KPIs: use _raw_kpi_sql (backtick refs, no date filter)
+            # DPA-path KPIs: use base_sql (double-quoted view, date filter stripped inside)
+            monthly_source = _raw_kpi_sql if _is_bq_kpi else base_sql
+            monthly_sql = ""
+            if monthly_source:
+                monthly_sql = self._bq_monthly_series_sql(monthly_source, date_col=_bq_date_col, num_months=9)
+
+            # ── Build comparison SQL (sync for BQ-native, async for DPA-path) ──
+            comp_sql = ""
+            if comparison_type:
+                if _is_bq_kpi:
+                    comp_sql = self._bq_apply_period(
+                        _raw_kpi_sql, timeframe,
+                        is_comparison=True, comparison_type=comparison_type,
+                        date_col=_bq_date_col
+                    )
+                    self.logger.info(f"[BQ path] comp_sql for '{kpi_name}': {comp_sql[:140]}")
                 else:
-                    # TODO: add monthly series support for DuckDB KPIs
+                    try:
+                        comp_sql_resp = await self.data_product_agent.generate_sql_for_kpi_comparison(
+                            kpi_definition=kpi_definition,
+                            timeframe=timeframe,
+                            comparison_type=comparison_type,
+                            filters=merged_filters
+                        )
+                        if isinstance(comp_sql_resp, dict) and comp_sql_resp.get('success') and isinstance(comp_sql_resp.get('sql', ''), str):
+                            comp_sql = comp_sql_resp['sql']
+                        else:
+                            self.logger.warning(f"No comparison SQL generated for KPI {kpi_name}: {comp_sql_resp}")
+                    except Exception as _ce:
+                        self.logger.warning(f"Could not generate comparison SQL for {kpi_name}: {_ce}")
+
+            # Cache comparison SQL for UI debug
+            if comp_sql:
+                try:
+                    if kpi_name not in self._last_sql_cache:
+                        self._last_sql_cache[kpi_name] = {}
+                    self._last_sql_cache[kpi_name]['comparison_sql'] = comp_sql
+                    self.logger.info(f"[SA SQL-DEBUG] cached comparison_sql for '{kpi_name}', length={len(comp_sql)}")
+                except Exception:
                     pass
-            except Exception as _me:
-                self.logger.warning(f"[Monthly] Failed to get monthly series for {kpi_name}: {_me}")
-                monthly_values = None
+
+            # ── Fire monthly series + comparison queries concurrently ──
+            import asyncio as _asyncio
+
+            async def _fetch_monthly():
+                if not monthly_sql:
+                    return None
+                self.logger.info(f"[Monthly] Executing monthly series for {kpi_name}")
+                try:
+                    result = await self.data_product_agent.execute_sql(monthly_sql, parameters=None, principal_context=principal_context)
+                    if not result or not (result.get("rows") or result.get("data")):
+                        self.logger.info(f"[Monthly] No rows returned for {kpi_name}")
+                        return None
+                    raw_rows = result.get("rows") or result.get("data") or []
+                    vals = []
+                    for row in raw_rows:
+                        if isinstance(row, dict):
+                            period = row.get("period", "")
+                            val = row.get("value")
+                        elif isinstance(row, (list, tuple)) and len(row) >= 2:
+                            period = str(row[0])
+                            val = row[1]
+                        else:
+                            continue
+                        if val is not None:
+                            try:
+                                vals.append({"period": period, "value": float(val)})
+                            except (ValueError, TypeError):
+                                pass
+                    self.logger.info(f"[Monthly] Got {len(vals)} monthly values for {kpi_name}")
+                    return vals or None
+                except Exception as _me:
+                    self.logger.warning(f"[Monthly] Failed to get monthly series for {kpi_name}: {_me}")
+                    return None
+
+            async def _fetch_comparison():
+                if not comp_sql:
+                    return None
+                try:
+                    return await self.data_product_agent.execute_sql(comp_sql, parameters=None, principal_context=principal_context)
+                except Exception as _ce:
+                    self.logger.warning(f"Comparison query failed for {kpi_name}: {_ce}")
+                    return None
+
+            monthly_values, exec_comp_result = await _asyncio.gather(
+                _fetch_monthly(),
+                _fetch_comparison(),
+            )
 
             # For testing/MVP when comparison not available, return basic KPI value
             if not comparison_type:
@@ -2119,41 +2192,11 @@ class A9_Situation_Awareness_Agent:
                     percent_change=None,
                     monthly_values=monthly_values
                 )
-            
-            # If comparison is requested, generate comparison SQL once and execute it
-            comparison_value = None
-            try:
-                comp_sql = ""
-                if _is_bq_kpi:
-                    comp_sql = self._bq_apply_period(
-                        _raw_kpi_sql, timeframe,
-                        is_comparison=True, comparison_type=comparison_type,
-                        date_col=_bq_date_col
-                    )
-                    self.logger.info(f"[BQ path] comp_sql for '{kpi_name}': {comp_sql[:140]}")
-                else:
-                    comp_sql_resp = await self.data_product_agent.generate_sql_for_kpi_comparison(
-                        kpi_definition=kpi_definition,
-                        timeframe=timeframe,
-                        comparison_type=comparison_type,
-                        filters=merged_filters
-                    )
-                    if isinstance(comp_sql_resp, dict) and comp_sql_resp.get('success') and isinstance(comp_sql_resp.get('sql', ''), str):
-                        comp_sql = comp_sql_resp['sql']
-                    else:
-                        self.logger.warning(f"No comparison SQL generated for KPI {kpi_name}: {comp_sql_resp}")
 
+            comparison_value = None
+            exec_comp = exec_comp_result or {}
+            try:
                 if comp_sql:
-                    # Cache comparison SQL for UI
-                    try:
-                        if kpi_name not in self._last_sql_cache:
-                            self._last_sql_cache[kpi_name] = {}
-                        self._last_sql_cache[kpi_name]['comparison_sql'] = comp_sql
-                        self.logger.info(f"[SA SQL-DEBUG] cached comparison_sql for '{kpi_name}', length={len(comp_sql)}")
-                    except Exception:
-                        pass
-                    # Execute comparison SQL
-                    exec_comp = await self.data_product_agent.execute_sql(comp_sql, parameters=None, principal_context=principal_context)
                     crows = exec_comp.get('rows') or exec_comp.get('data') or []
                     if crows:
                         cfirst = crows[0]

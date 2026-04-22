@@ -221,7 +221,7 @@ class DataProductRegistrationRequest(A9AgentBaseRequest):
     """Request model for registering the data product in the registry."""
 
     data_product_id: str = Field(..., description="Unique identifier for the data product")
-    contract_path: str = Field(..., description="Path to the persisted YAML contract")
+    contract_path: Optional[str] = Field(None, description="Path to YAML contract (deprecated — Supabase is canonical)")
     display_name: Optional[str] = Field(None, description="Human-friendly display name")
     domain: Optional[str] = Field(None, description="Business domain for the data product")
     description: Optional[str] = Field(None, description="Description of the data product")
@@ -418,7 +418,7 @@ class DataProductQARequest(A9AgentBaseRequest):
     """Request to validate the onboarding output before activation."""
 
     data_product_id: str = Field(..., description="Identifier for the data product under validation")
-    contract_path: str = Field(..., description="Path to the generated YAML contract")
+    contract_path: Optional[str] = Field(None, description="Path to YAML contract (deprecated — Supabase is canonical)")
     environment: str = Field(
         "dev", description="Environment in which QA checks should run"
     )
@@ -565,7 +565,7 @@ class DataProductOnboardingWorkflowResponse(A9AgentBaseResponse):
         ..., description="Identifier for the onboarded data product"
     )
     contract_paths: List[str] = Field(
-        default_factory=list, description="Persisted contract paths generated during onboarding"
+        default_factory=list, description="Deprecated — Supabase is canonical registry backend"
     )
     governance_status: str = Field(
         "pending", description="Aggregated status for governance-related steps"

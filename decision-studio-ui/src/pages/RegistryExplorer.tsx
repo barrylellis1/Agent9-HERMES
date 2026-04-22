@@ -37,10 +37,10 @@ type ColumnDef = {
 
 const REGISTRIES: RegistryDescriptor[] = [
   {
-    key: 'glossary',
-    label: 'Business Glossary',
-    icon: BookOpen,
-    colorClass: 'text-purple-400 bg-purple-500/10',
+    key: 'business-processes',
+    label: 'Business Processes',
+    icon: Briefcase,
+    colorClass: 'text-amber-400 bg-amber-500/10',
     editable: true,
   },
   {
@@ -58,17 +58,17 @@ const REGISTRIES: RegistryDescriptor[] = [
     editable: true,
   },
   {
-    key: 'business-processes',
-    label: 'Business Processes',
-    icon: Briefcase,
-    colorClass: 'text-amber-400 bg-amber-500/10',
-    editable: true,
-  },
-  {
     key: 'principals',
     label: 'Principals',
     icon: KeyRound,
     colorClass: 'text-slate-300 bg-slate-500/10',
+    editable: true,
+  },
+  {
+    key: 'glossary',
+    label: 'Business Glossary',
+    icon: BookOpen,
+    colorClass: 'text-purple-400 bg-purple-500/10',
     editable: true,
   },
 ]
@@ -791,6 +791,13 @@ export function RegistryExplorer() {
       <main className="max-w-6xl mx-auto">
         {/* Horizontal registry tabs */}
         <div className="flex items-center gap-1 mb-6 border-b border-slate-800 pb-0">
+          <Link
+            to="/settings/company-profile"
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600 mr-2"
+          >
+            <Building2 className="w-4 h-4" />
+            Company Profile
+          </Link>
           {REGISTRIES.map((r) => {
             const Icon = r.icon
             const isActive = r.key === registryKey
@@ -810,13 +817,6 @@ export function RegistryExplorer() {
               </button>
             )
           })}
-          <Link
-            to="/settings/company-profile"
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600 ml-auto"
-          >
-            <Building2 className="w-4 h-4" />
-            Company Profile
-          </Link>
         </div>
 
         <div>

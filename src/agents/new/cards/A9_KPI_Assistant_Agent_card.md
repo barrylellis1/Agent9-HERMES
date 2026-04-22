@@ -1,6 +1,6 @@
 # A9_KPI_Assistant_Agent Card
 
-Status: Active (LLM-powered KPI definition assistant)
+Status: Active (LLM-powered KPI definition assistant; API-only, no UI)
 
 ## Overview
 The `A9_KPI_Assistant_Agent` provides an LLM-powered conversational interface for defining comprehensive KPIs during data product onboarding. It analyzes schema metadata from the Data Product Agent, suggests business-relevant KPIs with complete attribute sets including strategic metadata tags (line, altitude, profit_driver_type, lens_affinity), and enables iterative refinement through natural language interaction.

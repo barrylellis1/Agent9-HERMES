@@ -146,6 +146,8 @@ class A9_Data_Product_Agent(DataProductProtocol):
         self.logger.info("Database connection initialized successfully")
         # Cached BigQuery manager — created on first BigQuery SQL execution
         self._bq_manager = None
+        # Cached SQL Server manager — created on first T-SQL execution
+        self._ss_manager = None
         
         # MCP Service Agent will be initialized in _async_init
         self.mcp_service_agent = None
@@ -753,7 +755,12 @@ class A9_Data_Product_Agent(DataProductProtocol):
     async def generate_contract_yaml(
         self, request: DataProductContractGenerationRequest
     ) -> DataProductContractGenerationResponse:
-        """Generate a YAML contract from inspection results and overrides."""
+        """Generate an in-memory contract dict from inspection results.
+
+        No YAML files are persisted to disk — Supabase is the canonical
+        registry backend.  The contract dict is returned for downstream
+        steps that need schema metadata.
+        """
 
         request_id = request.request_id
         try:
@@ -767,29 +774,13 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 contract_dict, sort_keys=False, allow_unicode=True
             )
 
-            contract_path: Optional[str] = None
-            if request.target_contract_path:
-                try:
-                    contract_path = self._persist_contract_yaml(
-                        request.target_contract_path, contract_yaml
-                    )
-                except Exception as persist_err:
-                    return DataProductContractGenerationResponse.error(
-                        request_id=request_id,
-                        error_message=f"Failed to write contract YAML: {persist_err}",
-                        contract_yaml=contract_yaml,
-                        contract_path=None,
-                        validation_messages=[],
-                        warnings=["Contract persisted to memory only"],
-                    )
-
             # Minimal schema validation: ensure required top-level sections exist
             validation_messages: List[str] = self._validate_contract_dict(contract_dict)
 
             return DataProductContractGenerationResponse.success(
                 request_id=request_id,
                 contract_yaml=contract_yaml,
-                contract_path=contract_path,
+                contract_path=None,
                 validation_messages=validation_messages,
                 warnings=[],
             )
@@ -865,6 +856,24 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 "register_tables",
                 "create_default_view",
             ]
+
+            # When no contract path is provided (Supabase-only mode), skip file-based QA checks
+            if not request.contract_path:
+                self.logger.warning("No contract_path provided — skipping file-based QA checks (Supabase is canonical)")
+                results.append(
+                    QAResult(
+                        check="lint_contract",
+                        status="skip",
+                        details={"reason": "No contract path — YAML persistence disabled, Supabase is canonical"},
+                        human_action_required=False,
+                    )
+                )
+                return DataProductQAResponse.success(
+                    request_id=request_id,
+                    results=results,
+                    blockers=[],
+                    overall_status="pass",
+                )
 
             contract_yaml: Optional[str] = None
             try:
@@ -1921,13 +1930,6 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 contract[key] = value
 
         return contract
-
-    def _persist_contract_yaml(self, target_path: str, yaml_text: str) -> str:
-        path = os.path.abspath(target_path)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as fh:
-            fh.write(yaml_text)
-        return path
 
     def _validate_contract_dict(self, contract: Dict[str, Any]) -> List[str]:
         messages: List[str] = []
@@ -3541,10 +3543,68 @@ class A9_Data_Product_Agent(DataProductProtocol):
             self._bq_manager = None
             return False
 
-    async def execute_sql(self, sql_query: Union[str, 'SQLExecutionRequest'], parameters: Optional[Dict[str, Any]] = None, principal_context=None) -> Dict[str, Any]:
+    async def _ensure_sqlserver_connected(self, data_product_id: Optional[str] = None) -> bool:
+        """Return a connected SqlServerManager, creating and caching it on first call.
+
+        Connection config is resolved in priority order:
+        1. Metadata embedded in the data product registry record (host, database, etc.)
+        2. Environment variables: SS_HOST, SS_DATABASE, SS_USERNAME, SS_PASSWORD, SS_PORT
+        3. Defaults targeting the Docker dev container (localhost:1433, agent9_lubricants, sa).
+        """
+        if self._ss_manager is not None:
+            return True
+        try:
+            from src.database.backends.sqlserver_manager import SqlServerManager
+            import os
+
+            config: Dict[str, Any] = {
+                "host": os.getenv("SS_HOST", "localhost"),
+                "port": int(os.getenv("SS_PORT", "1433")),
+                "database": os.getenv("SS_DATABASE", "agent9_lubricants"),
+                "username": os.getenv("SS_USERNAME", "sa"),
+                "password": os.getenv("SS_PASSWORD", "Agent9Test!2024"),
+                "schema": os.getenv("SS_SCHEMA", "dbo"),
+                "encrypt": os.getenv("SS_ENCRYPT", "false").lower() == "true",
+                "trust_server_certificate": True,
+            }
+
+            # Override from data product registry metadata when available
+            if data_product_id and hasattr(self, "registry_factory") and self.registry_factory:
+                try:
+                    dp_provider = self.registry_factory.get_provider("data_product")
+                    dp = dp_provider.get(data_product_id) if dp_provider else None
+                    if dp and hasattr(dp, "metadata") and isinstance(dp.metadata, dict):
+                        meta = dp.metadata
+                        for env_key, meta_key in [
+                            ("host",     "sqlserver_host"),
+                            ("database", "sqlserver_database"),
+                            ("username", "sqlserver_username"),
+                            ("password", "sqlserver_password"),
+                            ("schema",   "sqlserver_schema"),
+                        ]:
+                            if meta.get(meta_key):
+                                config[env_key] = meta[meta_key]
+                        if meta.get("sqlserver_port"):
+                            config["port"] = int(meta["sqlserver_port"])
+                except Exception as meta_err:
+                    self.logger.debug(f"Could not load SQL Server config from data product registry: {meta_err}")
+
+            self._ss_manager = SqlServerManager(config, logger=self.logger)
+            ok = await self._ss_manager.connect({})
+            if not ok:
+                self._ss_manager = None
+                self.logger.warning("SqlServerManager failed to connect — check host/credentials")
+            return ok
+        except Exception as e:
+            self.logger.error(f"Error creating SqlServerManager: {e}")
+            self._ss_manager = None
+            return False
+
+    async def execute_sql(self, sql_query: Union[str, 'SQLExecutionRequest'], parameters: Optional[Dict[str, Any]] = None, principal_context=None, data_product_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Execute a SQL query using the embedded DuckDBManager (or BigQueryManager when the SQL
-        contains fully-qualified BigQuery table references).  Returns a protocol-compliant dict
+        contains fully-qualified BigQuery table references, or SqlServerManager when the SQL
+        contains bracket-quoted T-SQL identifiers).  Returns a protocol-compliant dict
         with columns, rows, row_count, execution_time, and success flag.
         """
         transaction_id = str(uuid.uuid4())
@@ -3639,6 +3699,54 @@ class A9_Data_Product_Agent(DataProductProtocol):
                         "data": [],
                     }
             # ── End BigQuery routing ─────────────────────────────────────────────
+
+            # ── SQL Server routing ───────────────────────────────────────────────
+            # Detect T-SQL bracket-quoted identifiers: [TableName] or [schema].[TableName]
+            _SS_PATTERN = _re.compile(r'\[\w[\w\s]*\]')
+            if _SS_PATTERN.search(sql_query):
+                self.logger.info(f"[TXN:{transaction_id}] Routing to SQL Server (detected bracket-quoted identifier)")
+                ss_ok = await self._ensure_sqlserver_connected(data_product_id=data_product_id)
+                if ss_ok and self._ss_manager is not None:
+                    t0 = time.time()
+                    try:
+                        df = await self._ss_manager.execute_query(sql_query, parameters or {}, transaction_id)
+                        exec_ms = (time.time() - t0) * 1000.0
+                        columns = list(getattr(df, "columns", [])) if hasattr(df, "columns") else []
+                        rows = df.to_dict(orient="records") if hasattr(df, "to_dict") else (df if isinstance(df, list) else [])
+                        return {
+                            "transaction_id": transaction_id,
+                            "sql": sql_query,
+                            "columns": columns,
+                            "rows": rows,
+                            "row_count": len(rows),
+                            "execution_time": exec_ms,
+                            "query_time_ms": exec_ms,
+                            "success": True,
+                            "status": "success",
+                            "message": f"SQL Server executed in {exec_ms:.2f} ms",
+                            "data": rows,
+                        }
+                    except Exception as ss_err:
+                        self.logger.error(f"[TXN:{transaction_id}] SQL Server execution error: {ss_err}")
+                        return {
+                            "transaction_id": transaction_id,
+                            "sql": sql_query,
+                            "columns": [], "rows": [], "row_count": 0,
+                            "execution_time": 0, "query_time_ms": 0,
+                            "success": False, "status": "error",
+                            "message": str(ss_err), "error": str(ss_err), "data": [],
+                        }
+                else:
+                    return {
+                        "transaction_id": transaction_id,
+                        "sql": sql_query,
+                        "columns": [], "rows": [], "row_count": 0,
+                        "execution_time": 0, "query_time_ms": 0,
+                        "success": False, "status": "error",
+                        "message": "SQL Server not available — check host/credentials or ODBC driver",
+                        "data": [],
+                    }
+            # ── End SQL Server routing ───────────────────────────────────────────
 
             # Validate SQL using manager guardrails
             try:
@@ -3892,6 +4000,22 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 if bq_sql:
                     self.logger.info(f"[TXN:{transaction_id}] [BQ path] SQL for '{kpi_name}': {bq_sql[:120]}")
                     return {"sql": bq_sql, "kpi_name": kpi_name, "transaction_id": transaction_id, "success": True, "message": f"BigQuery SQL generated for {kpi_name}"}
+
+            # Detect SQL Server KPI: sql_query/calculation contains bracket-quoted T-SQL identifiers [view]
+            _SS_PAT = _re.compile(r'\[\w[\w\s]*\]')
+            if _raw_sql and _SS_PAT.search(_raw_sql):
+                self.logger.info(f"[TXN:{transaction_id}] [SS path] Using stored T-SQL for '{kpi_name}': {_raw_sql[:120]}")
+                # Attach data_product_id so execute_sql can pick the right connection config
+                _dp_id = getattr(kpi_definition, "data_product_id", None)
+                return {
+                    "sql": _raw_sql,
+                    "kpi_name": kpi_name,
+                    "transaction_id": transaction_id,
+                    "success": True,
+                    "message": f"SQL Server SQL (stored) for {kpi_name}",
+                    "data_product_id": _dp_id,
+                    "source_system": "sqlserver",
+                }
 
             sql = await self._generate_sql_for_kpi(
                 kpi_definition,

@@ -365,3 +365,28 @@ kpis:
       critical:
         value: -8.0
         description: "Significant B2B revenue loss - check fleet customers"
+
+  - name: Base Oil & Additives Cost
+    description: "Raw material costs for base oil and additives (volatile, key risk factor)"
+    data_product_id: dp_lubricants_sqlserver
+    aggregation: SUM
+    base_column: amount
+    filter_type: account_category
+    filter_value: Raw Materials
+    calculation: "SUM(-CAST(amount AS FLOAT)) WHERE account_category = 'Raw Materials'"
+    unit: "$"
+    join_tables:
+      - LubricantsStarSchemaView
+    business_terms:
+      - "Finance: Expense Management"
+    thresholds:
+      warning:
+        value: 5.0
+        description: "Base oil costs rising"
+      critical:
+        value: 15.0
+        description: "Base oil cost spike - crude oil volatility"
+    diagnostic_questions:
+      - "Which product line is most exposed to base oil cost increases?"
+      - "Is the cost increase concentrated in a specific account category?"
+      - "How does this compare to the same period last year?"

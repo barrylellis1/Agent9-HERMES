@@ -103,9 +103,9 @@ class KPIFinalizeRequest(BaseModel):
 
 
 class KPIFinalizeResponse(A9AgentBaseResponse):
-    """Response from KPI finalization"""
-    updated_contract_yaml: str
-    registry_updates: Dict[str, Any]
+    """Response from KPI finalization — writes directly to Supabase registry"""
+    registered_kpi_count: int = Field(default=0)
+    registry_updates: Dict[str, Any] = Field(default_factory=dict)
 
 
 class A9_KPI_Assistant_Agent:
@@ -355,34 +355,25 @@ class A9_KPI_Assistant_Agent:
     
     async def finalize_kpis(self, request: KPIFinalizeRequest) -> KPIFinalizeResponse:
         """
-        Finalize KPIs and update data product contract YAML.
-        
-        Adds validated KPIs to the data product contract and triggers registry updates.
-        Supports both replace mode (new products) and extend mode (adding to existing products).
+        Finalize KPIs by registering them directly to the Supabase registry.
+
+        Supabase is the canonical backend — no YAML contract files are generated.
+        Supports both replace mode (new products) and extend mode (adding to existing).
         """
         try:
             mode_str = "extend" if request.extend_mode else "replace"
             self.logger.info(f"Finalizing {len(request.kpis)} KPIs for {request.data_product_id} (mode: {mode_str})")
-            
-            # Load existing contract
-            contract_yaml = await self._load_contract_yaml(request.data_product_id)
-            
-            # Update KPIs section (merge or replace based on extend_mode)
-            updated_yaml = self._update_contract_with_kpis(contract_yaml, request.kpis, extend_mode=request.extend_mode)
-            
-            # Save updated contract
-            await self._save_contract_yaml(request.data_product_id, updated_yaml)
-            
-            # Trigger registry updates
+
+            # Write KPIs directly to Supabase via registry provider
             registry_updates = await self._trigger_registry_updates(request.data_product_id, request.kpis)
-            
+
             return KPIFinalizeResponse(
                 status="success",
                 request_id=request.request_id,
-                updated_contract_yaml=updated_yaml,
+                registered_kpi_count=len(registry_updates.get("success", [])),
                 registry_updates=registry_updates
             )
-            
+
         except Exception as e:
             import traceback
             error_details = traceback.format_exc()
@@ -391,7 +382,7 @@ class A9_KPI_Assistant_Agent:
                 status="error",
                 request_id=request.request_id,
                 error_message=str(e),
-                updated_contract_yaml="",
+                registered_kpi_count=0,
                 registry_updates={}
             )
     
@@ -886,101 +877,6 @@ If the user is requesting changes to KPIs, format your response with clear JSON 
         """Check if dimension field exists in schema"""
         all_columns = schema.measures + schema.dimensions + schema.time_columns + schema.identifiers
         return any(col.get('name') == field for col in all_columns)
-    
-    async def _load_contract_yaml(self, data_product_id: str) -> str:
-        """Load existing contract YAML from staging or registered location"""
-        
-        # Look in staging directory first (for new products)
-        staging_path = f"src/registry_references/data_product_registry/staging/{data_product_id}.yaml"
-        
-        if os.path.exists(staging_path):
-            with open(staging_path, 'r', encoding='utf-8') as f:
-                return f.read()
-        
-        # Check if this is a registered product by looking up in registry
-        try:
-            from src.registry.factory import RegistryFactory
-            factory = RegistryFactory()
-            if not factory.is_initialized:
-                await factory.initialize()
-            
-            provider = factory.get_data_product_provider()
-            if provider:
-                data_product = provider.get(data_product_id)
-                if data_product and hasattr(data_product, 'metadata'):
-                    yaml_contract_path = data_product.metadata.get('yaml_contract_path')
-                    if yaml_contract_path and os.path.exists(yaml_contract_path):
-                        with open(yaml_contract_path, 'r', encoding='utf-8') as f:
-                            return f.read()
-        except Exception as e:
-            self.logger.warning(f"Could not load from registry: {e}")
-        
-        # Fallback to old location
-        old_path = f"src/registry/data_product/{data_product_id}.yaml"
-        if os.path.exists(old_path):
-            with open(old_path, 'r', encoding='utf-8') as f:
-                return f.read()
-        
-        raise FileNotFoundError(f"Contract not found for {data_product_id}")
-    
-    def _update_contract_with_kpis(self, contract_yaml: str, kpis: List[Dict[str, Any]], extend_mode: bool = False) -> str:
-        """
-        Update contract YAML with KPIs.
-        
-        Args:
-            contract_yaml: Existing contract YAML content
-            kpis: New KPIs to add
-            extend_mode: If True, merge with existing KPIs; if False, replace all KPIs
-        """
-        
-        # Parse existing contract
-        contract = yaml.safe_load(contract_yaml)
-        
-        if extend_mode and 'kpis' in contract and contract['kpis']:
-            # Merge mode: Add new KPIs to existing ones
-            existing_kpis = contract['kpis']
-            existing_kpi_ids = {kpi.get('id') for kpi in existing_kpis if isinstance(kpi, dict)}
-            
-            # Add only new KPIs (avoid duplicates by ID)
-            merged_kpis = list(existing_kpis)
-            for new_kpi in kpis:
-                if isinstance(new_kpi, dict):
-                    kpi_id = new_kpi.get('id')
-                    if kpi_id not in existing_kpi_ids:
-                        merged_kpis.append(new_kpi)
-                        self.logger.info(f"Adding new KPI: {kpi_id}")
-                    else:
-                        # Update existing KPI with same ID
-                        for i, existing_kpi in enumerate(merged_kpis):
-                            if isinstance(existing_kpi, dict) and existing_kpi.get('id') == kpi_id:
-                                merged_kpis[i] = new_kpi
-                                self.logger.info(f"Updating existing KPI: {kpi_id}")
-                                break
-            
-            contract['kpis'] = merged_kpis
-            self.logger.info(f"Merged {len(kpis)} new KPIs with {len(existing_kpis)} existing KPIs, total: {len(merged_kpis)}")
-        else:
-            # Replace mode: Set KPIs section to new KPIs
-            contract['kpis'] = kpis
-            self.logger.info(f"Replaced KPIs section with {len(kpis)} new KPIs")
-        
-        # Convert back to YAML
-        return yaml.dump(contract, sort_keys=False, allow_unicode=True)
-    
-    async def _save_contract_yaml(self, data_product_id: str, yaml_content: str) -> None:
-        """Save updated contract YAML to staging location"""
-        
-        # Save to staging directory
-        staging_path = f"src/registry_references/data_product_registry/staging/{data_product_id}.yaml"
-        
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(staging_path), exist_ok=True)
-        
-        # Write updated contract
-        with open(staging_path, 'w', encoding='utf-8') as f:
-            f.write(yaml_content)
-        
-        self.logger.info(f"Updated contract saved to {staging_path}")
     
     async def _trigger_registry_updates(self, data_product_id: str, kpis: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Trigger registry updates for new KPIs"""

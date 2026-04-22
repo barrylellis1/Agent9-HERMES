@@ -66,9 +66,26 @@ function AnimatedStat({ value, suffix, label }: { value: string; suffix?: string
 }
 
 // ─────────────────────────────────────────────────
-// Screenshot placeholder (swap with real images later)
+// Screenshot frame — use src prop with an image path,
+// or omit src to show the labelled placeholder.
+// Images live in: decision-studio-ui/public/screenshots/
 // ─────────────────────────────────────────────────
-function ScreenshotFrame({ label, aspect = '16/10' }: { label: string; aspect?: string }) {
+function ScreenshotFrame({ label, src, aspect = '16/10' }: { label: string; src?: string; aspect?: string }) {
+  if (src) {
+    return (
+      <div
+        className="rounded-xl overflow-hidden border border-slate-700/40 shadow-2xl shadow-slate-950/60"
+        style={{ aspectRatio: aspect }}
+      >
+        <img
+          src={src}
+          alt={label}
+          className="w-full h-full object-cover object-top"
+          loading="lazy"
+        />
+      </div>
+    )
+  }
   return (
     <div
       className="rounded-xl bg-slate-800/60 border border-slate-700/50 overflow-hidden"
@@ -242,12 +259,6 @@ export function LandingPage() {
             >
               Data Onboarding
             </Link>
-            <Link
-              to="/login"
-              className="text-sm text-slate-400 hover:text-white transition-colors hidden sm:block"
-            >
-              Sign In
-            </Link>
             <button
               onClick={() => scrollTo('conversation')}
               className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
@@ -281,17 +292,18 @@ export function LandingPage() {
             variants={fadeUp}
             className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight text-white mb-6"
           >
-            Decisions deserve more than{' '}
-            <span className="text-indigo-400">a dashboard and a gut check.</span>
+            Your data platform is built. Your KPIs are governed.{' '}
+            <span className="text-indigo-400">So why are decisions still made the same way?</span>
           </motion.h1>
 
           <motion.p
             variants={fadeUp}
             className="text-lg sm:text-xl text-slate-300 max-w-2xl mx-auto mb-12 leading-relaxed"
           >
-            AI agents that watch your business continuously, diagnose problems
-            with structured analysis, and prove whether your actions worked.
-            You stay in control of every decision.
+            You've invested years in your data infrastructure. Decision Studio is what
+            makes that investment finally pay off — automated monitoring, structured
+            root-cause analysis, and proof that your actions worked. You stay in control
+            of every decision.
           </motion.p>
 
           <motion.div
@@ -315,6 +327,44 @@ export function LandingPage() {
       </section>
 
       {/* ═══════════════════════════════════════════
+          1b. THE AI INVESTMENT GAP (bridge)
+      ═══════════════════════════════════════════ */}
+      <section className="py-20 px-6 border-t border-slate-800/40">
+        <div className="max-w-4xl mx-auto">
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-60px' }}
+          >
+            <motion.p variants={fadeUp} className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-4">
+              The AI investment gap
+            </motion.p>
+            <motion.h2
+              variants={fadeUp}
+              className="text-2xl sm:text-3xl font-bold text-white mb-4 leading-snug"
+            >
+              Your board wants AI that moves the P&amp;L. Not another chatbot.
+            </motion.h2>
+            <motion.p
+              variants={fadeUp}
+              className="text-slate-300 leading-relaxed mb-4 max-w-3xl"
+            >
+              Every executive team is under pressure to show AI investment. Most options —
+              copilots, assistants, prompt playgrounds — can't tie their output to a financial
+              outcome. Decision Studio connects directly to your governed data, delivers
+              actionable analysis in hours, and tracks whether its recommendations actually
+              moved the KPI. AI that earns its keep.
+            </motion.p>
+            <motion.div variants={fadeUp} className="mt-5 flex items-center gap-2 text-xs text-slate-500">
+              <span className="inline-block w-1 h-1 rounded-full bg-slate-600" />
+              Only 15% of AI decision-makers can tie AI value to P&amp;L changes — Forrester 2026
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════
           2. THE THREE PROBLEMS
       ═══════════════════════════════════════════ */}
       <section className="py-28 px-6">
@@ -333,6 +383,11 @@ export function LandingPage() {
                 you have answers, the market has moved again.
               </p>
               <p className="text-slate-400 text-sm leading-relaxed max-w-3xl">
+                Your KPI views are there — refreshed daily, queryable, governed. The data is
+                trustworthy. But nobody is watching it proactively. And when they do look, they're
+                looking backward.
+              </p>
+              <p className="text-slate-400 text-sm leading-relaxed max-w-3xl mt-3">
                 Dashboards show you what happened. They don't watch for you. Alerts fire on
                 thresholds without context — is this a blip or a trend? Is it one product line
                 or systemic? You still need an analyst to figure out what it means.
@@ -438,7 +493,7 @@ export function LandingPage() {
                   a situation card with the analysis already started.
                 </p>
               </div>
-              <ScreenshotFrame label="Situation cards with KPI context → screenshot" />
+              <ScreenshotFrame label="Situation Awareness Console" src="/screenshots/01-situation-cards.png" />
             </motion.div>
 
             {/* Step 2 */}
@@ -458,7 +513,7 @@ export function LandingPage() {
                 </p>
               </div>
               <div className="md:order-1">
-                <ScreenshotFrame label="Deep Analysis with diverging bar chart → screenshot" />
+                <ScreenshotFrame label="Deep Analysis — Is / Is Not" src="/screenshots/02-deep-analysis.png" />
               </div>
             </motion.div>
 
@@ -479,7 +534,7 @@ export function LandingPage() {
                   commissioning separate research.
                 </p>
               </div>
-              <ScreenshotFrame label="Market signals integrated into analysis → screenshot" />
+              <ScreenshotFrame label="Market Context" src="/screenshots/03-market-context.png" />
             </motion.div>
 
             {/* Step 4 — HITL Refinement */}
@@ -499,7 +554,7 @@ export function LandingPage() {
                 </p>
               </div>
               <div className="md:order-1">
-                <ScreenshotFrame label="Problem refinement conversation → screenshot" />
+                <ScreenshotFrame label="Problem Refinement Chat" src="/screenshots/04-problem-refinement.png" />
               </div>
             </motion.div>
 
@@ -519,7 +574,7 @@ export function LandingPage() {
                   don't, and why. Then you approve, reject, or refine.
                 </p>
               </div>
-              <ScreenshotFrame label="Council debate with trade-off matrix → screenshot" />
+              <ScreenshotFrame label="Council Debate" src="/screenshots/05-council-debate.png" />
             </motion.div>
 
             {/* Step 6 — Proof */}
@@ -539,7 +594,7 @@ export function LandingPage() {
                 </p>
               </div>
               <div className="md:order-1">
-                <ScreenshotFrame label="Portfolio with trajectory tracking → screenshot" />
+                <ScreenshotFrame label="Value Assurance Portfolio" src="/screenshots/06-portfolio.png" />
               </div>
             </motion.div>
 
@@ -617,7 +672,7 @@ export function LandingPage() {
           whileInView="visible"
           viewport={{ once: true }}
         >
-          <AnimatedStat value="Hours" suffix="" label="Time to first insight" />
+          <AnimatedStat value="5 days" suffix="" label="Onboarding to first insight" />
           <AnimatedStat value="3" suffix="×" label="Strategic perspectives" />
           <AnimatedStat value="100" suffix="%" label="Decision audit trail" />
           <AnimatedStat value="DiD" suffix="" label="Causal attribution" />
@@ -735,7 +790,7 @@ export function LandingPage() {
                     <textarea
                       id="message" name="message" rows={3}
                       value={form.message} onChange={onChange}
-                      placeholder="e.g. Margin declined 3 points over 6 months and we can't pinpoint why..."
+                      placeholder="e.g. We have 20+ KPIs in Snowflake views but nobody's watching them proactively..."
                       className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition resize-none"
                     />
                   </div>

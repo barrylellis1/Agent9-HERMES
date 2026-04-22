@@ -2,10 +2,10 @@ workflow:
   name: Data Product Onboarding
   category: operational_maintenance
   description: >
-    Repeatable intake workflow that inspects a new source schema, generates Agent9
-    data product contracts, registers KPI metadata with Data Governance, assigns
-    principal ownership, and validates readiness for automated SQL generation and
-    drill-path analysis across environments.
+    Repeatable intake workflow that inspects a new source schema, registers data
+    products and KPI metadata directly to Supabase, assigns principal ownership,
+    and validates readiness for automated monitoring and drill-path analysis.
+    Supabase is the canonical registry backend — no YAML contracts are persisted.
 
   definitions:
     data_product:
@@ -47,16 +47,10 @@ workflow:
       purpose: Profile the source (DuckDB, BigQuery, etc.), retrieve table/column metadata, and propose KPI candidates.
 
     - agent: A9_Data_Product_Agent
-      entrypoint: generate_contract_yaml
-      input_model: DataProductContractGenerationRequest
-      output_model: DataProductContractGenerationResponse
-      purpose: Produce YAML contracts (schema, measures, drill paths) conforming to Agent9 standards.
-
-    - agent: A9_Data_Product_Agent
       entrypoint: register_data_product
       input_model: DataProductRegistrationRequest
       output_model: DataProductRegistrationResponse
-      purpose: Persist contract references into the data product registry and expose MCP references for downstream agents.
+      purpose: Register data product directly to the Supabase registry with schema metadata for downstream agent discovery.
 
     - agent: A9_Data_Governance_Agent
       entrypoint: register_kpi_metadata
@@ -91,7 +85,6 @@ workflow:
 
   outputs:
     - data_product_id: str
-    - contract_paths: List[str]
     - governance_status: str
     - principal_owner: Dict[str, Any]
     - qa_report: Dict[str, Any]
@@ -99,10 +92,10 @@ workflow:
 
   validations:
     - All request/response models must be Pydantic v2 models stored in src/agents/models/.
-    - Generated contracts must pass schema validation and be saved under src/registry_references/data_product_registry/data_products/.
+    - Data product and KPI registrations are persisted to Supabase (canonical backend).
     - KPI registry updates must include source system identifiers and drill-path metadata for automated analysis.
     - Principal ownership resolution must fall back to business context configuration when HR lookups fail.
-    - QA step must confirm SQL generation paths for both dev and prod environments or block activation.
+    - QA step (optional) confirms SQL generation paths; skips file-based checks when no contract path is provided.
 
   notes:
     - Workflow may be initiated via CLI, Admin UI, or orchestrator API and can run asynchronously.

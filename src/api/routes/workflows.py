@@ -189,7 +189,7 @@ class DataProductOnboardingWorkflowApiRequest(BaseModel):
     include_samples: bool = Field(False, description="Whether to include sample values during profiling")
     environment: str = Field("dev", description="Target environment (dev/test/prod)")
     connection_overrides: Optional[Dict[str, Any]] = Field(None, description="Per-environment connection overrides")
-    contract_output_path: Optional[str] = Field(None, description="Filesystem path for generated contract")
+    contract_output_path: Optional[str] = Field(None, description="Deprecated — Supabase is canonical registry backend")
     data_product_name: Optional[str] = Field(None, description="Human friendly name")
     data_product_domain: Optional[str] = Field(None, description="Business domain")
     data_product_description: Optional[str] = Field(None, description="Narrative description")

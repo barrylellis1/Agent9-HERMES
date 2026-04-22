@@ -119,10 +119,10 @@ class FinalizeKPIsAPIRequest(BaseModel):
 
 
 class FinalizeKPIsAPIResponse(BaseModel):
-    """API response for KPI finalization"""
+    """API response for KPI finalization — writes directly to Supabase registry"""
     status: str
-    updated_contract_yaml: str
-    registry_updates: Dict[str, Any]
+    registered_kpi_count: int = 0
+    registry_updates: Dict[str, Any] = {}
     error: Optional[str] = None
 
 
@@ -272,31 +272,29 @@ async def finalize_kpis(
     agent: A9_KPI_Assistant_Agent = Depends(get_kpi_assistant_agent)
 ) -> FinalizeKPIsAPIResponse:
     """
-    Finalize KPIs and update data product contract YAML.
-    
-    Adds validated KPIs to the data product contract and triggers registry updates.
+    Finalize KPIs by registering them directly to the Supabase registry.
+
+    Writes KPIs to the canonical Supabase backend. No YAML contracts are generated.
     """
     try:
         mode_str = "extend" if request.extend_mode else "replace"
         logger.info(f"Finalizing {len(request.kpis)} KPIs for {request.data_product_id} (mode: {mode_str})")
-        
-        # Create agent request
+
         agent_request = KPIFinalizeRequest(
             data_product_id=request.data_product_id,
             kpis=request.kpis,
             extend_mode=request.extend_mode
         )
-        
-        # Call agent
+
         response = await agent.finalize_kpis(agent_request)
-        
+
         return FinalizeKPIsAPIResponse(
             status=response.status,
-            updated_contract_yaml=response.updated_contract_yaml,
+            registered_kpi_count=response.registered_kpi_count,
             registry_updates=response.registry_updates,
             error=response.error_message if response.status == "error" else None
         )
-        
+
     except Exception as e:
         logger.error(f"Error in finalize_kpis endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))

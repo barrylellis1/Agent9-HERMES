@@ -5,6 +5,7 @@ Defines the data structures for principal profiles in the registry system.
 This replaces the hardcoded principal data with a flexible, data-driven model.
 """
 
+import os
 from typing import Dict, List, Optional, Union
 from pydantic import BaseModel, Field, model_validator
 
@@ -40,7 +41,7 @@ class PrincipalProfile(BaseModel):
     """
     
     id: str = Field(..., description="Unique identifier for the principal profile")
-    client_id: str = Field("lubricants", description="Client/tenant this principal belongs to")
+    client_id: str = Field(default_factory=lambda: os.getenv("ACTIVE_CLIENT_ID", "lubricants"), description="Client/tenant this principal belongs to")
     name: str = Field(..., description="Human-readable name of the principal profile")
     title: str = Field(..., description="Title of the principal (e.g., CFO, CEO)")
     email: Optional[str] = Field(None, description="Contact email address for PIB delivery")

@@ -1,6 +1,6 @@
 # A9_Data_Product_Agent Card
 
-Status: MVP (contract-driven SQL generation)
+Status: Active (contract-driven SQL generation; BigQuery + SQL Server + DuckDB backends)
 
 ## Overview
 The `A9_Data_Product_Agent` is responsible for contract-driven SQL orchestration **and** the automated onboarding “data factory” pipeline. It reads from database-backed registry metadata plus YAML contracts to understand schema, KPIs, and column mappings, and it now profiles upstream platforms (BigQuery, Snowflake, Databricks, Datasphere) via pluggable adapters.
@@ -8,7 +8,7 @@ The `A9_Data_Product_Agent` is responsible for contract-driven SQL orchestration
 ## Protocol Entrypoints
 - Query execution:
   - `generate_sql_for_kpi(kpi_definition, timeframe, filters, topn, breakdown, override_group_by) -> Dict`
-  - `execute_sql(sql) -> Dict`
+  - `execute_sql(sql, data_product_id=None) -> Dict`  — routes to BigQuery, SQL Server (bracket-quoted T-SQL detection), or DuckDB
   - `register_tables_from_contract(contract_path) -> Dict`
   - `create_view_from_contract(contract_path, view_name) -> Dict`
 - Data factory onboarding:

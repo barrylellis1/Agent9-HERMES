@@ -358,9 +358,9 @@ export async function detectSituations(
 
   const { data: { request_id } } = await runResponse.json();
 
-  // 2. Poll for completion
+  // 2. Poll for completion (90s — monthly series adds ~15s to detection)
   let attempts = 0;
-  while (attempts < 30) { // Timeout after 30s
+  while (attempts < 90) {
     const statusResponse = await fetch(`${API_BASE}/workflows/situations/${request_id}/status`);
     const { data } = await statusResponse.json();
 
@@ -376,7 +376,7 @@ export async function detectSituations(
       throw new Error(data.error || 'Workflow failed');
     }
 
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s
+    await new Promise(resolve => setTimeout(resolve, 1000));
     attempts++;
   }
   throw new Error('Workflow timed out');

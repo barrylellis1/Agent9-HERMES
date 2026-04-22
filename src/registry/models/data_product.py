@@ -5,6 +5,7 @@ Defines the data structures for data products in the registry system.
 This replaces hardcoded data product references with a flexible, data-driven model.
 """
 
+import os
 from enum import Enum
 from typing import Dict, List, Optional, Union, Any
 from pydantic import BaseModel, Field
@@ -58,7 +59,7 @@ class DataProduct(BaseModel):
     """
     
     id: str = Field(..., description="Unique identifier for the data product")
-    client_id: str = Field("lubricants", description="Client/tenant this data product belongs to")
+    client_id: str = Field(default_factory=lambda: os.getenv("ACTIVE_CLIENT_ID", "lubricants"), description="Client/tenant this data product belongs to")
     name: str = Field(..., description="Human-readable name of the data product")
     description: Optional[str] = Field(None, description="Description of the data product")
     domain: str = Field(..., description="Business domain this data product belongs to")

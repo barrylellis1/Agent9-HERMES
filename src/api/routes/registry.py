@@ -460,9 +460,8 @@ async def delete_term(term_name: str, factory: RegistryFactory = Depends(get_reg
 # Clients (multi-tenant)
 # ---------------------------------------------------------------------------
 
-# Hardcoded client list — single source of truth for demo environments.
-# When Supabase business_contexts has data, this is the authoritative fallback.
-_DEMO_CLIENTS = [
+# Fallback list used when Supabase business_contexts is unavailable.
+_FALLBACK_CLIENTS = [
     {
         "id": "lubricants",
         "name": "Lubricants Business",
@@ -480,5 +479,31 @@ _DEMO_CLIENTS = [
 
 @router.get("/clients", response_model=Envelope)
 async def list_clients():
-    """Return available client/tenant configurations for the demo environment selector."""
-    return wrap(_DEMO_CLIENTS)
+    """Return available client/tenant configurations from Supabase business_contexts.
+
+    Reads live from the business_contexts table so newly onboarded clients appear
+    immediately without a code deployment. Falls back to the hardcoded list if
+    Supabase is unavailable.
+    """
+    try:
+        factory = RegistryFactory()
+        provider = factory.get_business_context_provider()
+        if provider is not None:
+            rows = await provider.list_contexts()
+            if rows:
+                clients = [
+                    {
+                        "id": row.get("id"),
+                        "name": row.get("name") or row.get("id"),
+                        "industry": row.get("industry", ""),
+                        "data_product_ids": row.get("data_product_ids") or [],
+                    }
+                    for row in rows
+                    if row.get("id")
+                ]
+                if clients:
+                    return wrap(clients)
+    except Exception:
+        pass  # fall through to hardcoded fallback
+
+    return wrap(_FALLBACK_CLIENTS)

@@ -282,9 +282,10 @@ export function DataOnboarding() {
               variants={fadeUp}
               className="text-lg sm:text-xl text-slate-300 max-w-2xl leading-relaxed"
             >
-              Decision Studio connects to your existing data infrastructure without migration,
-              ETL pipelines, or warehouse redesign. Your data stays where it is. Analysis starts
-              the same day.
+              Decision Studio connects to your governed data layer — views, tables, and KPIs
+              you've already defined at the database level. No migration. No ETL. No
+              reverse-engineering your BI reports. Your data stays where it is. Analysis starts
+              the same week.
             </motion.p>
           </motion.div>
         </div>
@@ -401,7 +402,7 @@ export function DataOnboarding() {
                 number="1"
                 icon={<Database className="w-4 h-4" />}
                 title="Connect"
-                body="Point Decision Studio at your existing data warehouse — BigQuery, Snowflake, Databricks, PostgreSQL, or local DuckDB. No data migration. No ETL. Your data stays where it is. The system stores a connection profile, not a copy."
+                body="Point Decision Studio at your existing data warehouse — BigQuery, SQL Server / Azure SQL, Snowflake, Databricks, PostgreSQL, or local DuckDB. No data migration. No ETL. Your data stays where it is. The system stores a connection profile, not a copy."
               />
               <WorkflowStep
                 number="2"
@@ -455,6 +456,21 @@ export function DataOnboarding() {
                 </div>
               </motion.div>
             </div>
+
+            {/* Prerequisite qualifier */}
+            <motion.div
+              variants={fadeUp}
+              className="mt-12 rounded-xl bg-slate-900/60 border border-slate-800/50 px-6 py-5"
+            >
+              <p className="text-white font-semibold text-sm mb-2">Prerequisite: governed KPIs at the database level</p>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                Decision Studio works best when KPIs are defined as database views or tables —
+                the governed layer your data team maintains. If your KPIs only exist in reporting
+                tools like Power BI or Tableau, we recommend a short data readiness engagement to
+                establish governed definitions before onboarding.
+              </p>
+            </motion.div>
+
           </motion.div>
         </div>
       </section>
@@ -548,8 +564,9 @@ export function DataOnboarding() {
               KPI definition, the same registry output.
             </motion.p>
 
-            <motion.div variants={fadeUp} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <motion.div variants={fadeUp} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <PlatformBadge name="Google BigQuery" status="production" />
+              <PlatformBadge name="SQL Server / Azure SQL" status="production" />
               <PlatformBadge name="Snowflake" status="supported" />
               <PlatformBadge name="Databricks" status="supported" />
               <PlatformBadge name="PostgreSQL" status="supported" />

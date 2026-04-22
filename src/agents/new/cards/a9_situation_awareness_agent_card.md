@@ -1,7 +1,7 @@
 # A9_Situation_Awareness_Agent Card
 
 ## Agent Description
-The Situation Awareness Agent provides automated KPI monitoring and situation detection based on principal context and business processes. It analyzes Finance KPIs from the FI Star Schema to detect anomalies, trends, and insights, presenting them as actionable situations with severity levels, business impact analysis, and suggested next steps.
+The Situation Awareness Agent provides automated KPI monitoring and situation detection based on principal context and business processes. It analyzes KPIs from any registered data product (BigQuery, SQL Server, DuckDB) to detect anomalies, trends, and insights, presenting them as actionable situations with severity levels, business impact analysis, and suggested next steps. Propagates `data_product_id` through the generate→execute pipeline for correct backend routing.
 
 ## Primary Purpose
 To provide personalized situation awareness for Finance KPIs, enabling principals to quickly understand the current state of their business metrics, identify anomalies, and take appropriate action.

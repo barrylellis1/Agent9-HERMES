@@ -529,7 +529,6 @@ class A9_Orchestrator_Agent:
 
         steps: List[WorkflowStepSummary] = []
         context: Dict[str, Any] = {}
-        contract_paths: List[str] = []
         principal_owner: Dict[str, Any] = {}
         qa_report: Dict[str, Any] = {}
         activation_context: Dict[str, Any] = {}
@@ -539,7 +538,7 @@ class A9_Orchestrator_Agent:
             payload = {
                 "steps": steps,
                 "data_product_id": request.data_product_id,
-                "contract_paths": contract_paths,
+                "contract_paths": [],  # Deprecated — Supabase is canonical
                 "governance_status": governance_status,
                 "principal_owner": principal_owner,
                 "qa_report": qa_report,
@@ -646,37 +645,12 @@ class A9_Orchestrator_Agent:
             schema_summary = inspection_details.get("tables", [])
             inferred_kpis = inspection_details.get("inferred_kpis", [])
 
-            # Save to staging area during onboarding; promote to production after governance approval
-            target_contract_path = request.contract_output_path or f"src/registry_references/data_product_registry/staging/{request.data_product_id}.yaml"
-            contract_payload = {
-                "request_id": request.request_id,
-                "principal_id": request.principal_id,
-                "data_product_id": request.data_product_id,
-                "schema_summary": schema_summary,
-                "kpi_proposals": inferred_kpis,
-                "target_contract_path": target_contract_path,
-                "contract_overrides": request.contract_overrides or {},
-            }
-            contract_step = await _run_step(
-                "A9_Data_Product_Agent",
-                "generate_contract_yaml",
-                DataProductContractGenerationRequest,
-                contract_payload,
-                "generate_contract_yaml",
-            )
-            if contract_step.status == "error":
-                return _build_response("error", "Contract generation failed")
-
-            contract_details = context.get("generate_contract_yaml", {})
-            contract_path = contract_details.get("contract_path") or target_contract_path
-            if contract_path and contract_path not in contract_paths:
-                contract_paths.append(contract_path)
-
+            # Register data product directly to Supabase (no YAML contract generation)
             registration_payload = {
                 "request_id": request.request_id,
                 "principal_id": request.principal_id,
                 "data_product_id": request.data_product_id,
-                "contract_path": contract_path,
+                "contract_path": None,
                 "display_name": request.data_product_name,
                 "domain": request.data_product_domain,
                 "description": request.data_product_description,
@@ -771,7 +745,7 @@ class A9_Orchestrator_Agent:
                     "request_id": request.request_id,
                     "principal_id": request.principal_id,
                     "data_product_id": request.data_product_id,
-                    "contract_path": contract_path,
+                    "contract_path": None,  # No YAML — Supabase is canonical
                     "environment": request.environment,
                     "checks": request.qa_checks or [],
                     "additional_context": request.qa_additional_context or {},

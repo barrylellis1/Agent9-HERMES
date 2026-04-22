@@ -5,6 +5,7 @@ Defines the data structures for KPIs in the registry system.
 This replaces the enum-based approach with a flexible, data-driven model.
 """
 
+import os
 from enum import Enum
 from typing import Dict, List, Optional, Union
 from pydantic import BaseModel, Field
@@ -82,7 +83,7 @@ class KPI(BaseModel):
     """
     
     id: str = Field(..., description="Unique identifier for the KPI")
-    client_id: str = Field("lubricants", description="Client/tenant this KPI belongs to")
+    client_id: str = Field(default_factory=lambda: os.getenv("ACTIVE_CLIENT_ID", "lubricants"), description="Client/tenant this KPI belongs to")
     name: str = Field(..., description="Human-readable name of the KPI")
     domain: str = Field(..., description="Business domain this KPI belongs to (e.g., Finance, HR, Sales)")
     description: Optional[str] = Field(None, description="Detailed description of the KPI")
