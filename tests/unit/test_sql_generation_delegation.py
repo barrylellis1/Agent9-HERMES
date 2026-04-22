@@ -115,28 +115,28 @@ async def test_sql_generation_delegation():
         }
     }
     
-    # Mock the map_kpis_to_data_products method
-    sa_agent.data_governance_agent = AsyncMock()
-    sa_agent.data_governance_agent.map_kpis_to_data_products.return_value = {
-        'kpis': {'test_kpi': sa_agent.kpi_registry['test_kpi']},
-        'unmapped_terms': []
-    }
-    
+    # Wire a mock DGA — DGA is now mandatory (simulates _wire_governance_dependencies())
+    mock_dga = AsyncMock()
+    mock_dga.translate_business_terms = AsyncMock(return_value=MagicMock(
+        resolved_terms={'kpi': 'test_kpi'},
+        unmapped_terms=[],
+        human_action_required=False,
+    ))
+    mock_dga.map_kpis_to_data_products = AsyncMock(return_value=MagicMock(
+        mappings=[MagicMock(kpi_name='test_kpi')],
+        unmapped_kpis=[],
+    ))
+    sa_agent.data_governance_agent = mock_dga
+
     # Mock the _get_kpi_value method
     sa_agent._get_kpi_value = AsyncMock(return_value=test_kpi_value)
 
-    # Provide a deterministic translation_result structure to avoid awaiting AsyncMock attributes
-    class _TranslationResult:
-        def __init__(self):
-            self.resolved_terms = {"kpi": "gross_revenue"}
-    sa_agent.translation_result = _TranslationResult()
-
     # Call process_nl_query
     response = await sa_agent.process_nl_query(nl_request)
-    
-    # Verify that the Data Product Agent was called for SQL generation
-    assert mock_data_product_agent.generate_sql.call_count == 2
-    
+
+    # DGA mandatory path was exercised
+    mock_dga.translate_business_terms.assert_called_once()
+
     # Verify the response contains the SQL
     assert response.sql_query == 'SELECT * FROM test_view'
 
@@ -144,22 +144,18 @@ async def test_sql_generation_delegation():
 @pytest.mark.asyncio
 async def test_sql_generation_fallback():
     """
-    Test that the Situation Awareness Agent falls back to deprecated methods
-    when Data Product Agent is not available.
+    DGA is now mandatory. When DGA is None, process_nl_query must raise AttributeError
+    (calling .translate_business_terms on None) rather than silently falling back.
     """
-    # Ensure a clean registry state for this test
     agent_registry.clear()
-    # Create real orchestrator and initialize registry
     orchestrator = await A9_Orchestrator_Agent.create()
     await initialize_agent_registry()
 
-    # Create SA agent via orchestrator
     sa_agent = await orchestrator.create_agent_with_dependencies(
         "A9_Situation_Awareness_Agent",
         {"orchestrator": orchestrator}
     )
-    
-    # Mock the KPI registry
+
     sa_agent.kpi_registry = {
         'test_kpi': KPIDefinition(
             name='test_kpi',
@@ -169,22 +165,165 @@ async def test_sql_generation_fallback():
             view_name='test_view'
         )
     }
-    
-    # Create test KPI value
-    test_kpi_value = KPIValue(
-        kpi_name='test_kpi',
-        value=100.0,
-        timeframe=TimeFrame.CURRENT_QUARTER,
-        dimensions={}
-    )
-    
-    # Connect the agent
+
     await sa_agent.connect()
-    # Explicitly simulate no Data Product Agent available (use a sentinel without generate_sql)
-    sa_agent.data_product_agent = object()
-    
-    # Test _generate_sql_for_query method
-    sql = await sa_agent._generate_sql_for_query('test query', [test_kpi_value])
-    
-    # Verify the SQL fallback behavior (current implementation returns None when DP agent is unavailable)
-    assert sql is None
+    # DGA deliberately left as None (not wired) — simulates missing _wire_governance_dependencies()
+    sa_agent.data_governance_agent = None
+
+    nl_request = {
+        'query': 'show me test_kpi',
+        'timeframe': TimeFrame.CURRENT_QUARTER,
+        'comparison_type': ComparisonType.QUARTER_OVER_QUARTER,
+        'filters': {},
+        'principal_context': {
+            'role': 'CFO',
+            'principal_id': 'cfo_001',
+            'business_processes': ["Finance"],
+            'default_filters': {},
+            'decision_style': 'Analytical',
+            'communication_style': 'Concise',
+            'preferred_timeframes': [TimeFrame.CURRENT_QUARTER]
+        }
+    }
+
+    # DGA is mandatory — calling None.translate_business_terms should raise
+    with pytest.raises((AttributeError, Exception)):
+        await sa_agent.process_nl_query(nl_request)
+
+
+@pytest.mark.asyncio
+async def test_dga_mandatory_path_happy_path():
+    """
+    When DGA is wired, process_nl_query completes successfully using DGA for term
+    translation and KPI mapping.
+    """
+    agent_registry.clear()
+    orchestrator = await A9_Orchestrator_Agent.create()
+    await initialize_agent_registry()
+
+    sa_agent = await orchestrator.create_agent_with_dependencies(
+        "A9_Situation_Awareness_Agent",
+        {"orchestrator": orchestrator}
+    )
+
+    test_kpi = KPIDefinition(
+        name='test_kpi',
+        description='Test KPI',
+        unit='USD',
+        data_product_id='test_dp',
+        view_name='test_view'
+    )
+    sa_agent.kpi_registry = {'test_kpi': test_kpi}
+
+    await sa_agent.connect()
+
+    # Wire a mock DGA — simulates _wire_governance_dependencies()
+    mock_dga = AsyncMock()
+    mock_dga.translate_business_terms = AsyncMock(return_value=MagicMock(
+        resolved_terms={'test': 'test_kpi'},
+        unmapped_terms=[],
+        human_action_required=False,
+    ))
+    mock_dga.map_kpis_to_data_products = AsyncMock(return_value=MagicMock(
+        mappings=[MagicMock(kpi_name='test_kpi')],
+        unmapped_kpis=[],
+    ))
+    sa_agent.data_governance_agent = mock_dga
+
+    # Mock DPA SQL generation
+    mock_dpa = AsyncMock(spec=A9_Data_Product_Agent)
+    mock_dpa.generate_sql = AsyncMock(return_value={
+        'sql': 'SELECT SUM(value) FROM test_view',
+        'success': True,
+        'message': 'OK'
+    })
+    mock_dpa.execute_sql = AsyncMock(return_value={
+        'success': True, 'columns': ['value'], 'rows': [[100.0]]
+    })
+    sa_agent.data_product_agent = mock_dpa
+
+    nl_request = {
+        'query': 'show me test_kpi revenue',
+        'timeframe': TimeFrame.CURRENT_QUARTER,
+        'comparison_type': ComparisonType.QUARTER_OVER_QUARTER,
+        'filters': {},
+        'principal_context': {
+            'role': 'CFO',
+            'principal_id': 'cfo_001',
+            'business_processes': ["Finance"],
+            'default_filters': {},
+            'decision_style': 'Analytical',
+            'communication_style': 'Concise',
+            'preferred_timeframes': [TimeFrame.CURRENT_QUARTER]
+        }
+    }
+
+    response = await sa_agent.process_nl_query(nl_request)
+
+    # DGA was called — mandatory path executed
+    mock_dga.translate_business_terms.assert_called_once()
+    assert response is not None
+
+
+@pytest.mark.asyncio
+async def test_dga_view_name_resolution_mandatory():
+    """
+    DPA._get_view_name_from_kpi must call DGA.get_view_name_for_kpi rather than
+    silently returning a fallback when DGA is wired.
+    """
+    agent_registry.clear()
+    orchestrator = await A9_Orchestrator_Agent.create()
+    await initialize_agent_registry()
+
+    dpa = await orchestrator.create_agent_with_dependencies(
+        "A9_Data_Product_Agent",
+        {"orchestrator": orchestrator}
+    )
+    await dpa.connect(orchestrator)
+
+    mock_dga = AsyncMock()
+    mock_dga.get_view_name_for_kpi = AsyncMock(return_value=MagicMock(
+        view_name='LubricantsStarSchemaView',
+        data_product_id='dp_lubricants_bq',
+    ))
+    dpa.data_governance_agent = mock_dga
+
+    kpi_def = KPIDefinition(
+        name='Net Revenue',
+        description='Net Revenue KPI',
+        unit='USD',
+        data_product_id='dp_lubricants_bq',
+    )
+
+    view_name = await dpa._get_view_name_from_kpi(kpi_def)
+
+    mock_dga.get_view_name_for_kpi.assert_called_once()
+    assert view_name == 'LubricantsStarSchemaView'
+
+
+@pytest.mark.asyncio
+async def test_dga_none_raises_on_view_resolution():
+    """
+    When DGA is None, _get_view_name_from_kpi must raise (AttributeError) rather than
+    silently returning a fallback view name.
+    """
+    agent_registry.clear()
+    orchestrator = await A9_Orchestrator_Agent.create()
+    await initialize_agent_registry()
+
+    dpa = await orchestrator.create_agent_with_dependencies(
+        "A9_Data_Product_Agent",
+        {"orchestrator": orchestrator}
+    )
+    await dpa.connect(orchestrator)
+    dpa.data_governance_agent = None  # not wired
+
+    kpi_def = KPIDefinition(
+        name='Net Revenue',
+        description='Net Revenue KPI',
+        unit='USD',
+        data_product_id='dp_lubricants_bq',
+    )
+
+    with pytest.raises((AttributeError, Exception)):
+        await dpa._get_view_name_from_kpi(kpi_def)

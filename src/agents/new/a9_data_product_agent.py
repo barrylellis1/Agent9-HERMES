@@ -3073,19 +3073,22 @@ class A9_Data_Product_Agent(DataProductProtocol):
         This method intentionally avoids data-product-specific logic; if the governance agent is
         unavailable, it falls back to KPI-provided metadata and finally a neutral default.
         """
+        if self.data_governance_agent is None:
+            raise RuntimeError(
+                "Data Governance Agent not initialized. "
+                "Ensure _wire_governance_dependencies() was called during startup."
+            )
+
         try:
             kpi_name = getattr(kpi_definition, 'name', 'unknown')
-            # Primary: resolve view name via Data Governance Agent
-            try:
-                req = KPIViewNameRequest(kpi_name=kpi_name)
-                resp = await self.data_governance_agent.get_view_name_for_kpi(req)
-                view_name = getattr(resp, 'view_name', None)
-                if isinstance(view_name, str) and view_name.strip() and view_name.strip().lower() != 'unknown':
-                    return view_name
-            except Exception as e:
-                self.logger.warning(f"Data Governance Agent unavailable for view name resolution (KPI '{kpi_name}'): {str(e)}")
+            # Primary: resolve view name via Data Governance Agent (mandatory)
+            req = KPIViewNameRequest(kpi_name=kpi_name)
+            resp = await self.data_governance_agent.get_view_name_for_kpi(req)
+            view_name = getattr(resp, 'view_name', None)
+            if isinstance(view_name, str) and view_name.strip() and view_name.strip().lower() != 'unknown':
+                return view_name
 
-            # Fallbacks without embedding product-specific logic
+            # Secondary: KPI object metadata (authoritative field-level override)
             if hasattr(kpi_definition, 'view_name') and isinstance(kpi_definition.view_name, str) and kpi_definition.view_name.strip():
                 return kpi_definition.view_name.strip()
             if hasattr(kpi_definition, 'metadata') and isinstance(kpi_definition.metadata, dict):
@@ -4077,17 +4080,14 @@ class A9_Data_Product_Agent(DataProductProtocol):
         if not candidate or not include_mapping:
             return candidate
 
-        # Enrich with governance mapping via DGA
-        try:
-            from src.agents.models.data_governance_models import KPIDataProductMappingRequest
+        # Enrich with governance mapping via DGA (mandatory)
+        from src.agents.models.data_governance_models import KPIDataProductMappingRequest
 
-            mapping_req = KPIDataProductMappingRequest(kpi_names=[kpi_name], context={})
-            mapping_resp = await self.data_governance_agent.map_kpis_to_data_products(mapping_req)
-            if mapping_resp and mapping_resp.mappings:
-                candidate.metadata = candidate.metadata or {}
-                candidate.metadata.setdefault("data_product_mapping", mapping_resp.mappings[0].model_dump())
-        except Exception as e:
-            self.logger.warning(f"Data Governance Agent unavailable for KPI mapping enrichment: {e}")
+        mapping_req = KPIDataProductMappingRequest(kpi_names=[kpi_name], context={})
+        mapping_resp = await self.data_governance_agent.map_kpis_to_data_products(mapping_req)
+        if mapping_resp and mapping_resp.mappings:
+            candidate.metadata = candidate.metadata or {}
+            candidate.metadata.setdefault("data_product_mapping", mapping_resp.mappings[0].model_dump())
 
         return candidate
 

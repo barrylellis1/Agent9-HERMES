@@ -638,90 +638,76 @@ class A9_Situation_Awareness_Agent:
         Returns:
             NLQueryResponse containing the answer, KPI values, and SQL query
         """
+        if self.data_governance_agent is None:
+            raise RuntimeError(
+                "Data Governance Agent not initialized. "
+                "Ensure _wire_governance_dependencies() was called during startup."
+            )
+
         try:
             logger.info(f"Processing NL query: {request.query}")
-            
+
             # Extract business terms from the query using Data Governance Agent
             # This is a simple extraction for MVP - in production would use NLP Agent
             query_terms = [term.strip() for term in request.query.split() if len(term.strip()) > 3]
             
-            try:
-                # Import the request/response models
-                from src.agents.models.data_governance_models import BusinessTermTranslationRequest
+            # Translate business terms to technical attribute names via DGA (mandatory)
+            from src.agents.models.data_governance_models import BusinessTermTranslationRequest
 
-                # Translate business terms to technical attribute names via DGA
-                translation_result = await self.data_governance_agent.translate_business_terms(
-                    BusinessTermTranslationRequest(
-                        business_terms=query_terms,
-                        system="duckdb",
+            translation_result = await self.data_governance_agent.translate_business_terms(
+                BusinessTermTranslationRequest(
+                    business_terms=query_terms,
+                    system="duckdb",
+                    context={
+                        "principal_context": request.principal_context.model_dump() if request.principal_context else {},
+                        "business_processes": getattr(request, 'business_processes', None) or (
+                            request.principal_context.business_processes if request.principal_context else []
+                        )
+                    }
+                )
+            )
+            # Persist for later checks in this method
+            self.translation_result = translation_result
+
+            if translation_result.human_action_required:
+                logger.warning(f"Unmapped business terms: {translation_result.unmapped_terms}")
+                if not translation_result.resolved_terms:
+                    logger.warning("No business terms could be mapped, proceeding with direct KPI matching")
+            
+            # Extract KPI mentions from the query
+            query_lower = request.query.lower()
+            kpi_values = []
+            
+            # Map KPIs to data products via DGA (mandatory)
+            from src.agents.models.data_governance_models import KPIDataProductMappingRequest
+
+            mapped_kpis = []
+            potential_kpi_names = []
+
+            if hasattr(self, 'translation_result') and getattr(self.translation_result, 'resolved_terms', None):
+                potential_kpi_names.extend(list(self.translation_result.resolved_terms.values()))
+
+            for kpi_name in self.kpi_registry.keys():
+                if kpi_name.lower() in query_lower:
+                    potential_kpi_names.append(kpi_name)
+
+            potential_kpi_names = list(set(potential_kpi_names))
+
+            if potential_kpi_names:
+                mapping_response = await self.data_governance_agent.map_kpis_to_data_products(
+                    KPIDataProductMappingRequest(
+                        kpi_names=potential_kpi_names,
                         context={
-                            "principal_context": request.principal_context.model_dump() if request.principal_context else {},
+                            "principal_id": request.principal_context.principal_id if request.principal_context else "",
                             "business_processes": getattr(request, 'business_processes', None) or (
                                 request.principal_context.business_processes if request.principal_context else []
                             )
                         }
                     )
                 )
-                # Persist for later checks in this method
-                self.translation_result = translation_result
-
-                # Check for unmapped terms that require human input
-                if translation_result.human_action_required:
-                    logger.warning(f"Unmapped business terms: {translation_result.unmapped_terms}")
-
-                    # For MVP, we continue with what we have rather than failing
-                    # In production, this would return a HITL response
-                    if not translation_result.resolved_terms:
-                        logger.warning("No business terms could be mapped, falling back to direct KPI matching")
-            except Exception as e:
-                logger.warning(f"Data Governance Agent unavailable for term translation, using direct matching: {str(e)}")
-            
-            # Extract KPI mentions from the query
-            query_lower = request.query.lower()
-            kpi_values = []
-            
-            # Try to map KPIs using Data Governance Agent first
-            mapped_kpis = []
-            try:
-                # Import the request model
-                from src.agents.models.data_governance_models import KPIDataProductMappingRequest
-
-                # Get potential KPI names from business terms and direct query text
-                potential_kpi_names = []
-
-                # Add translated business terms if available
-                if hasattr(self, 'translation_result') and getattr(self.translation_result, 'resolved_terms', None):
-                    potential_kpi_names.extend(list(self.translation_result.resolved_terms.values()))
-
-                # Add direct matches from query
-                for kpi_name in self.kpi_registry.keys():
-                    if kpi_name.lower() in query_lower:
-                        potential_kpi_names.append(kpi_name)
-
-                # Deduplicate
-                potential_kpi_names = list(set(potential_kpi_names))
-
-                if potential_kpi_names:
-                    # Use Data Governance Agent to map KPIs to data products
-                    mapping_response = await self.data_governance_agent.map_kpis_to_data_products(
-                        KPIDataProductMappingRequest(
-                            kpi_names=potential_kpi_names,
-                            context={
-                                "principal_id": request.principal_context.principal_id if request.principal_context else "",
-                                "business_processes": getattr(request, 'business_processes', None) or (
-                                    request.principal_context.business_processes if request.principal_context else []
-                                )
-                            }
-                        )
-                    )
-
-                    # Process mapped KPIs
-                    for mapping in mapping_response.mappings:
-                        mapped_kpis.append(mapping.kpi_name)
-
-                    logger.info(f"Data Governance Agent mapped {len(mapping_response.mappings)} KPIs")
-            except Exception as e:
-                logger.warning(f"Data Governance Agent unavailable for KPI mapping, using direct matching: {e}")
+                for mapping in mapping_response.mappings:
+                    mapped_kpis.append(mapping.kpi_name)
+                logger.info(f"Data Governance Agent mapped {len(mapping_response.mappings)} KPIs")
             
             # Process KPIs - first from Data Governance Agent mappings, then fall back to direct matching
             processed_kpis = set()

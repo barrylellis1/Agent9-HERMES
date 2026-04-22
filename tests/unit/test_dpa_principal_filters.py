@@ -1,5 +1,6 @@
 import pytest
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 import os
 import sys
 
@@ -23,6 +24,18 @@ async def _get_dp_agent():
         "A9_Data_Product_Agent",
         {"orchestrator": orchestrator, "registry_factory": rf}
     )
+    # Wire a mock DGA — DGA is mandatory after Phase 10B-DGA wiring.
+    # Returns view_name from KPI definition metadata so existing test assertions hold.
+    mock_dga = AsyncMock()
+    mock_dga.get_view_name_for_kpi = AsyncMock(return_value=MagicMock(
+        view_name="unknown",  # tests provide view_name on kpi_def directly
+        data_product_id=None,
+    ))
+    mock_dga.map_kpis_to_data_products = AsyncMock(return_value=MagicMock(
+        mappings=[],
+        unmapped_kpis=[],
+    ))
+    dp_agent.data_governance_agent = mock_dga
     return dp_agent
 
 

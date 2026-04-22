@@ -432,37 +432,31 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 self.logger.info(f"plan_deep_analysis: kpi={request.kpi_name} timeframe={request.timeframe} dims_from_contract={len(dimensions)}")
             except Exception:
                 pass
-            # Fallback to DG metadata if contract not available
-            if not dimensions:
-                try:
-                    if request.kpi_name:
-                        mapping_req = KPIDataProductMappingRequest(
-                            kpi_names=[request.kpi_name],
-                            context={"principal_id": getattr(request, "principal_id", None)}
-                        )
-                        mapping_resp = await self.data_governance_agent.map_kpis_to_data_products(mapping_req)
-                        if mapping_resp and getattr(mapping_resp, "mappings", None):
-                            md = mapping_resp.mappings[0].metadata or {}
-                            if isinstance(md, dict):
-                                dims = md.get("dimensions")
-                                if isinstance(dims, list):
-                                    # Extract field name from dimension objects
-                                    extracted_dims = []
-                                    for d in dims:
-                                        if d:
-                                            if isinstance(d, dict):
-                                                # Use 'name' or 'field' key if available
-                                                dim_name = d.get('name') or d.get('field') or str(d)
-                                            elif hasattr(d, 'name'):
-                                                dim_name = d.name
-                                            elif hasattr(d, 'field'):
-                                                dim_name = d.field
-                                            else:
-                                                dim_name = str(d)
-                                            extracted_dims.append(dim_name)
-                                    dimensions = extracted_dims
-                except Exception as e:
-                    self.logger.warning(f"Data Governance Agent unavailable for dimension resolution: {e}")
+            # Supplement from DGA registry metadata if contract yielded no dimensions
+            if not dimensions and request.kpi_name:
+                mapping_req = KPIDataProductMappingRequest(
+                    kpi_names=[request.kpi_name],
+                    context={"principal_id": getattr(request, "principal_id", None)}
+                )
+                mapping_resp = await self.data_governance_agent.map_kpis_to_data_products(mapping_req)
+                if mapping_resp and getattr(mapping_resp, "mappings", None):
+                    md = mapping_resp.mappings[0].metadata or {}
+                    if isinstance(md, dict):
+                        dims = md.get("dimensions")
+                        if isinstance(dims, list):
+                            extracted_dims = []
+                            for d in dims:
+                                if d:
+                                    if isinstance(d, dict):
+                                        dim_name = d.get('name') or d.get('field') or str(d)
+                                    elif hasattr(d, 'name'):
+                                        dim_name = d.name
+                                    elif hasattr(d, 'field'):
+                                        dim_name = d.field
+                                    else:
+                                        dim_name = str(d)
+                                    extracted_dims.append(dim_name)
+                            dimensions = extracted_dims
 
             # Create skeleton steps for grouped/timeframe comparisons (executed by DPA later)
             steps: List[Dict[str, Any]] = self._build_group_compare_steps(dimensions, request.timeframe, request.filters)

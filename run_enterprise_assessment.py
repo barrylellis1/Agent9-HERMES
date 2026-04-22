@@ -152,9 +152,26 @@ async def _create_core_agents(orchestrator, registry_factory) -> None:
         ),
     ]
 
+    agents: dict[str, Any] = {}
     for agent_name, config in agent_plan:
         agent = await orchestrator.create_agent_with_dependencies(agent_name, config)
         await _connect_agent(agent_name, agent, orchestrator)
+        agents[agent_name] = agent
+
+    # Wire DGA into consuming agents after all agents are created and connected.
+    # Mirrors runtime.py _wire_governance_dependencies() — keeps governance routing
+    # consistent between API server and assessment CLI.
+    dga = agents.get("A9_Data_Governance_Agent")
+    if dga:
+        wired = []
+        for name in ("A9_Situation_Awareness_Agent", "A9_Data_Product_Agent", "A9_Deep_Analysis_Agent"):
+            ag = agents.get(name)
+            if ag:
+                ag.data_governance_agent = dga
+                wired.append(name)
+        logger.info(f"Data Governance Agent wired into: {', '.join(wired)}")
+    else:
+        logger.warning("Data Governance Agent not found — governance wiring skipped")
 
 
 async def initialize_runtime() -> Tuple[Any, Any]:
