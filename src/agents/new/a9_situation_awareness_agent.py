@@ -2249,11 +2249,15 @@ class A9_Situation_Awareness_Agent:
                         if _ptg is not None:
                             _inverse_logic = not bool(_ptg)
 
-            # For inverse_logic KPIs (e.g. costs stored as negative debits), normalise
-            # percent_change so that "costs went up" always shows as a positive number.
-            # Raw formula: (current - comparison) / |comparison| gives negative when costs
-            # increase in absolute-value terms because values are stored as negatives.
-            if _inverse_logic and percent_change is not None:
+            # For inverse_logic KPIs where costs are stored as negative debits (e.g. raw
+            # SUM(amount) returns a negative number), normalise percent_change so that
+            # "costs went up" always shows as a positive number.
+            # IMPORTANT: Only flip when current_value is actually negative.  Many KPI SQL
+            # queries already negate at the SQL level (SUM(-amount)), making the value
+            # positive — applying a second flip here would produce double-negation and
+            # incorrectly invert the sign, causing threshold comparisons to evaluate the
+            # wrong direction (a cost increase would appear as a decrease).
+            if _inverse_logic and percent_change is not None and current_value is not None and current_value < 0:
                 percent_change = -percent_change
 
             return KPIValue(

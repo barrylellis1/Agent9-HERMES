@@ -307,6 +307,26 @@ includes `escalate_to_da: bool` for direct routing to DA by the assessment engin
 - Captures more KPI recovery and outperformance signals
 - Aligns with Phase 8 opportunity detection design
 
+## inverse_logic Sign-Flip Fix (Apr 2026)
+
+### Root Cause
+`_get_kpi_value()` applied `percent_change = -percent_change` for ALL inverse_logic KPIs (line ~2256).
+This worked for KPIs where SQL returns raw negative debits (`SUM(amount)` with negative amount records).
+For lubricants BigQuery/SS KPIs that negate at SQL level (`SUM(-amount)`), values are already positive —
+applying the sign-flip created double-negation: a 19.5% cost increase became -19.5%, which the
+`vt_cfg` inverse_logic threshold check (`percent_change <= green_threshold`) treated as "within green."
+
+### Fix
+Guard the sign-flip: only apply when `current_value < 0` (actual negative raw values).
+KPIs with SQL-level negation (`SUM(-amount)`) return positive values — skip the flip.
+
+### Downstream Impact Fixed
+- SA severity: INFORMATION → CRITICAL for threshold-breaching cost KPIs
+- SA direction: "decreased" → "increased" in situation descriptions
+- DA SCQA framing: now uses correct direction ("over-performing vs prior period" for cost overruns)
+- DA dimensional IS/IS NOT: BigQuery breakdown preserves SUM(-amount) → positive deltas →
+  correctly classifies segments with `delta > 0` as IS (problem) when `trend_positive=False`
+
 ## Phase 10B-DGA: Data Governance Wiring (Apr 2026)
 
 ### client_id Propagation to KPI Filtering
