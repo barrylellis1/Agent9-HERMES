@@ -1558,7 +1558,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     change_points=change_points,
                     spec=spec_main,
                     principal_id=getattr(plan, "principal_id", "system"),
-                    analysis_mode=getattr(request, "analysis_mode", "problem"),
+                    analysis_mode=getattr(plan, "analysis_mode", "problem"),
                 )
             except Exception as _scqa_err:
                 self.logger.warning("[DA] SCQA generation failed: %s", _scqa_err)

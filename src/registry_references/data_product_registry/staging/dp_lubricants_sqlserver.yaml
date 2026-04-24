@@ -1,0 +1,115 @@
+metadata:
+  id: dp_lubricants_sqlserver
+  name: Dp Lubricants Sqlserver
+  domain: Unknown
+tables:
+- name: LubricantsStarSchemaView
+  columns:
+  - name: transaction_id
+    data_type: nvarchar
+    semantic_tags:
+    - identifier
+  - name: fiscal_year
+    data_type: int
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: fiscal_period
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: transaction_date
+    data_type: nvarchar
+    semantic_tags:
+    - time
+  - name: amount
+    data_type: decimal
+    semantic_tags:
+    - measure
+  - name: version
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: currency
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: account_name
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: account_type
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: account_category
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: account_group
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: product_name
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: product_line
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: product_category
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: customer_name
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: customer_segment
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: customer_region
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: profit_center_name
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: business_unit
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: channel_name
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: channel_type
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  primary_keys:
+  - transaction_id
+  time_columns:
+  - transaction_date
+views:
+- name: dp_lubricants_sqlserver_LubricantsStarSchemaView_view
+  sql: SELECT transaction_id, fiscal_year, fiscal_period, transaction_date, amount,
+    version, currency, account_name, account_type, account_category, account_group,
+    product_name, product_line, product_category, customer_name, customer_segment,
+    customer_region, profit_center_name, business_unit, channel_name, channel_type
+    FROM LubricantsStarSchemaView
+  source_table: LubricantsStarSchemaView
+kpis:
+- name: Total Amount
+  expression: SUM(amount)
+  grain: transaction_id
+  dimensions:
+  - fiscal_period
+  - version
+  - currency
+  - account_name
+  - account_type
+  description: Aggregated amount for LubricantsStarSchemaView

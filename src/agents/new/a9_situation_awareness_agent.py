@@ -2988,6 +2988,90 @@ class A9_Situation_Awareness_Agent:
     
     # SQL generation methods have been moved to the Data Product Agent
         
+    async def _generate_key_observations(
+        self,
+        kpi_definition: "KPIDefinition",
+        kpi_value: "KPIValue",
+        situation: "Situation",
+    ) -> List[str]:
+        """
+        Generate 2–3 plain-language observations for a detected situation using a lightweight
+        Haiku LLM call. Returns an empty list if the LLM service is unavailable or if any
+        error occurs — this method must never raise.
+        """
+        if self.llm_service_agent is None:
+            return []
+        try:
+            from src.agents.new.a9_llm_service_agent import A9_LLM_Request
+
+            # Build streak description from monthly_values if present
+            streak_description = ""
+            if kpi_value.monthly_values:
+                n = len(kpi_value.monthly_values)
+                positive_trend_is_good = getattr(kpi_definition, "positive_trend_is_good", True)
+                # Determine the direction of the most-recent movement
+                if n >= 2:
+                    vals = [
+                        m["value"] if isinstance(m, dict) else float(m)
+                        for m in kpi_value.monthly_values
+                    ]
+                    moves = [vals[i] - vals[i - 1] for i in range(1, n)]
+                    # Count consecutive periods at the end moving in the same direction as the last move
+                    last_direction = 1 if moves[-1] >= 0 else -1
+                    streak = 1
+                    for move in reversed(moves[:-1]):
+                        if (1 if move >= 0 else -1) == last_direction:
+                            streak += 1
+                        else:
+                            break
+                    direction_word = "up" if last_direction > 0 else "down"
+                    streak_description = f"{streak} of last {n} periods trending {direction_word}"
+                else:
+                    streak_description = f"{n} period(s) of data available"
+
+            trend_line = (
+                f"Trend (last {len(kpi_value.monthly_values)} periods): {streak_description}"
+                if streak_description
+                else ""
+            )
+
+            prompt_lines = [
+                "You are a financial analyst assistant. Given these facts about a KPI, write exactly 2-3 short observations (each under 15 words, plain language, no markdown bullets). Return as a JSON array of strings.",
+                "",
+                f"KPI: {kpi_definition.name}",
+                f"Current value: {kpi_value.value} (vs {kpi_value.comparison_value}, {kpi_value.comparison_type})",
+                f"Change: {kpi_value.percent_change:+.1f}%" if kpi_value.percent_change is not None else "Change: N/A",
+                f"Severity: {situation.severity.value if hasattr(situation.severity, 'value') else situation.severity}",
+            ]
+            if trend_line:
+                prompt_lines.append(trend_line)
+            prompt_lines.append("")
+            prompt_lines.append('Return ONLY a JSON array, e.g. ["observation 1", "observation 2", "observation 3"]')
+
+            prompt = "\n".join(prompt_lines)
+
+            request = A9_LLM_Request(
+                request_id=str(uuid.uuid4()),
+                principal_id="system",
+                prompt=prompt,
+                operation="generate",
+                temperature=0.2,
+                model="claude-haiku-4-5-20251001",
+            )
+
+            response = await self.llm_service_agent.generate(request)
+            content = response.content if hasattr(response, "content") else str(response)
+
+            array_match = re.search(r'\[[\s\S]*?\]', content)
+            if array_match:
+                observations = json.loads(array_match.group())
+                if isinstance(observations, list):
+                    return [str(o) for o in observations[:3]]
+            return []
+        except Exception as exc:
+            self.logger.warning(f"_generate_key_observations failed for {kpi_definition.name}: {exc}")
+            return []
+
     async def _detect_situations_from_kpi_values(
         self,
         kpi_values: List[KPIValue],
@@ -3028,7 +3112,11 @@ class A9_Situation_Awareness_Agent:
             )
             
             self.logger.info(f"Detected {len(kpi_situations)} situations for KPI {kpi_value.kpi_name}")
-            
+
+            # Enrich each situation with lightweight Haiku observations
+            for sit in kpi_situations:
+                sit.key_observations = await self._generate_key_observations(kpi_definition, kpi_value, sit)
+
             # Add to all situations
             all_situations.extend(kpi_situations)
         

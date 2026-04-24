@@ -13,7 +13,7 @@ HEADERS = {
     "apikey": SUPA_KEY,
     "Authorization": f"Bearer {SUPA_KEY}",
     "Content-Type": "application/json",
-    "Prefer": "return=minimal",
+    "Prefer": "resolution=merge-duplicates,return=minimal",
 }
 
 STRAT = {

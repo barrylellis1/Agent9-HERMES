@@ -24,7 +24,7 @@ Composes and delivers Principal Intelligence Briefings (PIBs) — structured ema
 
 ## Content Sections
 
-1. **New Situations** — DETECTED KPI assessments from latest client assessment run, with Investigate and Delegate one-click tokens
+1. **New Situations** — DETECTED KPI assessments from latest client assessment run, with Investigate and Delegate one-click tokens; `key_observations` from `Situation` rendered as bullet list when present
 2. **Urgency Flags** — Situations open > N days without action
 3. **Solutions in Progress** — VA-tracked approved solutions with expected impact
 4. **Managed Situations** — Delegation actions taken by this principal, with resolved delegate names

@@ -1,0 +1,300 @@
+metadata:
+  id: temp_discovery
+  name: Temp Discovery
+  domain: Unknown
+tables:
+- name: Channels
+  columns:
+  - name: channel_id
+    data_type: nvarchar
+    semantic_tags:
+    - identifier
+  - name: channel_name
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: channel_type
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  primary_keys:
+  - channel_id
+- name: Customers
+  columns:
+  - name: customer_id
+    data_type: nvarchar
+    semantic_tags:
+    - identifier
+  - name: customer_name
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: customer_segment
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: customer_region
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  primary_keys:
+  - customer_id
+- name: FinancialTransactions
+  columns:
+  - name: transaction_id
+    data_type: nvarchar
+    semantic_tags:
+    - identifier
+  - name: fiscal_year
+    data_type: int
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: fiscal_period
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: transaction_date
+    data_type: nvarchar
+    semantic_tags:
+    - time
+  - name: gl_account_id
+    data_type: nvarchar
+    semantic_tags:
+    - identifier
+  - name: product_id
+    data_type: nvarchar
+    semantic_tags:
+    - identifier
+  - name: customer_id
+    data_type: nvarchar
+    semantic_tags:
+    - identifier
+  - name: profit_center_id
+    data_type: nvarchar
+    semantic_tags:
+    - identifier
+  - name: channel_id
+    data_type: nvarchar
+    semantic_tags:
+    - identifier
+  - name: amount
+    data_type: decimal
+    semantic_tags:
+    - measure
+  - name: version
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: currency
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  primary_keys:
+  - transaction_id
+  - gl_account_id
+  - product_id
+  - customer_id
+  - profit_center_id
+  - channel_id
+  time_columns:
+  - transaction_date
+- name: GLAccounts
+  columns:
+  - name: gl_account_id
+    data_type: nvarchar
+    semantic_tags:
+    - identifier
+  - name: account_name
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: account_type
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: account_category
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: account_group
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  primary_keys:
+  - gl_account_id
+- name: LubricantsStarSchemaView
+  columns:
+  - name: transaction_id
+    data_type: nvarchar
+    semantic_tags:
+    - identifier
+  - name: fiscal_year
+    data_type: int
+    semantic_tags:
+    - dimension
+    - numeric
+  - name: fiscal_period
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: transaction_date
+    data_type: nvarchar
+    semantic_tags:
+    - time
+  - name: amount
+    data_type: decimal
+    semantic_tags:
+    - measure
+  - name: version
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: currency
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: account_name
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: account_type
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: account_category
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: account_group
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: product_name
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: product_line
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: product_category
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: customer_name
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: customer_segment
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: customer_region
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: profit_center_name
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: business_unit
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: channel_name
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: channel_type
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  primary_keys:
+  - transaction_id
+  time_columns:
+  - transaction_date
+- name: Products
+  columns:
+  - name: product_id
+    data_type: nvarchar
+    semantic_tags:
+    - identifier
+  - name: product_name
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: product_line
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: product_category
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  primary_keys:
+  - product_id
+- name: ProfitCenters
+  columns:
+  - name: profit_center_id
+    data_type: nvarchar
+    semantic_tags:
+    - identifier
+  - name: profit_center_name
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  - name: business_unit
+    data_type: nvarchar
+    semantic_tags:
+    - dimension
+  primary_keys:
+  - profit_center_id
+views:
+- name: temp_discovery_Channels_view
+  sql: SELECT channel_id, channel_name, channel_type FROM Channels
+  source_table: Channels
+- name: temp_discovery_Customers_view
+  sql: SELECT customer_id, customer_name, customer_segment, customer_region FROM Customers
+  source_table: Customers
+- name: temp_discovery_FinancialTransactions_view
+  sql: SELECT transaction_id, fiscal_year, fiscal_period, transaction_date, gl_account_id,
+    product_id, customer_id, profit_center_id, channel_id, amount, version, currency
+    FROM FinancialTransactions
+  source_table: FinancialTransactions
+- name: temp_discovery_GLAccounts_view
+  sql: SELECT gl_account_id, account_name, account_type, account_category, account_group
+    FROM GLAccounts
+  source_table: GLAccounts
+- name: temp_discovery_LubricantsStarSchemaView_view
+  sql: SELECT transaction_id, fiscal_year, fiscal_period, transaction_date, amount,
+    version, currency, account_name, account_type, account_category, account_group,
+    product_name, product_line, product_category, customer_name, customer_segment,
+    customer_region, profit_center_name, business_unit, channel_name, channel_type
+    FROM LubricantsStarSchemaView
+  source_table: LubricantsStarSchemaView
+- name: temp_discovery_Products_view
+  sql: SELECT product_id, product_name, product_line, product_category FROM Products
+  source_table: Products
+- name: temp_discovery_ProfitCenters_view
+  sql: SELECT profit_center_id, profit_center_name, business_unit FROM ProfitCenters
+  source_table: ProfitCenters
+kpis:
+- name: Total Amount
+  expression: SUM(amount)
+  grain: transaction_id,gl_account_id,product_id,customer_id,profit_center_id,channel_id
+  dimensions:
+  - fiscal_period
+  - version
+  - currency
+  description: Aggregated amount for FinancialTransactions
+- name: Total Amount
+  expression: SUM(amount)
+  grain: transaction_id
+  dimensions:
+  - fiscal_period
+  - version
+  - currency
+  - account_name
+  - account_type
+  description: Aggregated amount for LubricantsStarSchemaView

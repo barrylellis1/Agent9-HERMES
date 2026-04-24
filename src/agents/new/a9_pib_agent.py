@@ -269,6 +269,9 @@ class A9_PIB_Agent:
             severity_score = ka.get("severity") or 0.0
             severity_label = self._severity_label(severity_score)
 
+            raw_obs = sit_data.get("key_observations")
+            key_observations = raw_obs if isinstance(raw_obs, list) else []
+
             item = SituationBriefingItem(
                 situation_id=sit_data.get("id", kpi_id),
                 kpi_assessment_id=ka.get("id", ""),
@@ -282,6 +285,7 @@ class A9_PIB_Agent:
                 deep_link_token=deep_link_token,
                 delegate_token=delegate_token,
                 request_info_token=request_info_token,
+                key_observations=key_observations,
             )
 
             if is_new:

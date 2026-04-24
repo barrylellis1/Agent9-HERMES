@@ -171,6 +171,13 @@
         {% if sit.deviation_summary and sit.deviation_summary != sit.description %}
         <p class="sit-deviation">{{ sit.deviation_summary }}</p>
         {% endif %}
+        {% if sit.key_observations %}
+        <ul style="margin: 6px 0 0 0; padding-left: 16px; color: #94a3b8; font-size: 12px; line-height: 1.6;">
+          {% for obs in sit.key_observations %}
+          <li>{{ obs }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
         <div class="sit-actions">
           {% if sit.deep_link_token %}
           <a href="{{ content.decision_studio_url }}/action?token={{ sit.deep_link_token }}" class="btn" style="background-color:#0284c7;color:#ffffff!important;">Investigate →</a>

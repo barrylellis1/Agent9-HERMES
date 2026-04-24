@@ -10,7 +10,7 @@ It uses **Difference-in-Differences (DiD) counterfactual attribution** — explo
 
 ## Protocol Entrypoints
 
-- `register_solution(request: RegisterSolutionRequest) -> RegisterSolutionResponse`
+- `register_solution(request: RegisterSolutionRequest) -> RegisterSolutionResponse` — `solution_id` is deterministic: `sha256(kpi_id + situation_id)[:32]`; re-approving the same situation upserts rather than inserts a duplicate
 - `evaluate_solution_impact(request: EvaluateSolutionRequest) -> EvaluateSolutionResponse`
 - `check_strategy_alignment(request: CheckStrategyAlignmentRequest) -> CheckStrategyAlignmentResponse`
 - `project_inaction_cost(request: ProjectInactionCostRequest) -> ProjectInactionCostResponse`

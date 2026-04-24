@@ -207,12 +207,20 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
         )}
       </div>
 
-      {/* ── Sparkline (edge-to-edge at bottom) ── */}
-      {sparkline && (
+      {/* ── Insights OR sparkline (edge-to-edge at bottom) ── */}
+      {situation.key_observations && situation.key_observations.length > 0 ? (
+        <div className="mt-auto pt-3 pb-4 space-y-1">
+          {situation.key_observations.slice(0, 3).map((obs, i) => (
+            <p key={i} className="text-[11px] text-slate-400 leading-snug">
+              {obs}
+            </p>
+          ))}
+        </div>
+      ) : sparkline ? (
         <div className="-mx-5 mt-auto">
           {sparkline}
         </div>
-      )}
+      ) : null}
     </button>
   );
 };

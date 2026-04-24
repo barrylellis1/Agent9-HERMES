@@ -51,6 +51,7 @@ class SituationBriefingItem(BaseModel):
     deep_link_token: Optional[str] = None   # UUID token for Launch DA link
     delegate_token: Optional[str] = None
     request_info_token: Optional[str] = None
+    key_observations: Optional[List[str]] = None
 
 
 class SolutionProgressItem(BaseModel):

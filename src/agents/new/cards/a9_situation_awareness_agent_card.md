@@ -12,6 +12,7 @@ To provide personalized situation awareness for Finance KPIs, enabling principal
 - Business process-aligned KPI prioritization
 - Principal KPI preference-aware ordering using KPI `metadata.line` / `metadata.altitude` and principal profile `metadata.kpi_line_preference` / `metadata.kpi_altitude_preference`
 - Natural language query processing for KPI insights
+- Lightweight Haiku LLM call per detected situation generates `key_observations` (2–3 plain-language insight bullets: pattern, magnitude, context); stored on `Situation.key_observations`; rendered on KPI tiles and in PIB email in place of sparkline
 - Human-in-the-loop feedback handling
 - Recommended diagnostic questions
 - Contract-driven KPI enrichment with defensive registry fallbacks (normalized KPI IDs, view/date column resolution, filter injection)

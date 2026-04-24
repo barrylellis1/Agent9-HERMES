@@ -318,7 +318,12 @@ class A9_Value_Assurance_Agent:
                 self.name, request.request_id, request.principal_id, request.kpi_id,
             )
 
-        solution_id = str(uuid.uuid4())
+        # Deterministic ID: same KPI + same situation always produces the same solution_id.
+        # Prevents duplicate rows when the same HITL approval fires more than once
+        # (e.g. dev re-runs or retry paths). The upsert on `id` then merges rather than inserts.
+        import hashlib as _hashlib
+        _dedup_key = f"{request.kpi_id}:{request.situation_id or ''}"
+        solution_id = _hashlib.sha256(_dedup_key.encode()).hexdigest()[:32]
 
         # Build strategy snapshot if not supplied
         snapshot = request.strategy_snapshot or await self._build_strategy_snapshot(
