@@ -12,6 +12,13 @@ import {
   UserCircle,
   Users,
 } from 'lucide-react'
+import {
+  KPIGridAnimation,
+  IsIsNotAnimation,
+  MarketContextAnimation,
+  CouncilDebateAnimation,
+  TrajectoryMiniChart,
+} from '../components/animations/AgentAnimations'
 
 // ─────────────────────────────────────────────────
 // Satoshi font (loaded from Fontshare CDN)
@@ -166,6 +173,7 @@ interface AgentSectionProps {
   differentiator?: React.ReactNode
   hitlNote?: string
   index: number
+  animation?: React.ReactNode
 }
 
 function AgentSection({
@@ -180,6 +188,7 @@ function AgentSection({
   differentiator,
   hitlNote,
   index,
+  animation,
 }: AgentSectionProps) {
   const isEven = index % 2 === 0
   const accentText = color === 'emerald' ? 'text-emerald-400' : 'text-indigo-400'
@@ -238,7 +247,9 @@ function AgentSection({
     </div>
   )
 
-  const visual = (
+  const visual = animation ? (
+    <div>{animation}</div>
+  ) : (
     <div className={`rounded-xl border ${accentBorder} bg-slate-900/60 flex flex-col items-center justify-center p-8 gap-4 min-h-[200px]`}>
       <div className={`w-16 h-16 rounded-2xl ${accentBg} ${accentText} flex items-center justify-center`}>
         <span className="scale-150">{icon}</span>
@@ -480,7 +491,8 @@ export function HowItWorks() {
               icon={<Eye className="w-4 h-4" />}
               color="indigo"
               title="Continuous, automatic monitoring"
-              whatItDoes="Monitors KPIs against thresholds and historical patterns. Detects both problems (threshold breaches) and opportunities (consistent outperformance). Runs without anyone asking a question."
+              animation={<KPIGridAnimation />}
+              whatItDoes="Monitors KPIs against thresholds and historical patterns — and surfaces situation cards automatically, without anyone asking."
               methodology={
                 <span>
                   Threshold monitoring with contextual filtering — not just a simple "value &lt;
@@ -501,7 +513,8 @@ export function HowItWorks() {
               icon={<Search className="w-4 h-4" />}
               color="indigo"
               title="Structured root cause, not narrative guessing"
-              whatItDoes="Runs structured root cause analysis to isolate exactly where, when, and what changed — working against your actual data, not generating a plausible-sounding story."
+              animation={<IsIsNotAnimation />}
+              whatItDoes="Isolates exactly where, when, and what changed — using structured IS/IS NOT analysis against your actual data, not a plausible-sounding guess."
               methodology={
                 <span>
                   <span className="text-white font-medium">Kepner-Tregoe IS/IS NOT analysis</span>
@@ -538,7 +551,8 @@ export function HowItWorks() {
               icon={<Globe className="w-4 h-4" />}
               color="indigo"
               title="Is this internal or systemic?"
-              whatItDoes="Scans external sources for competitor moves, industry trends, and regulatory changes relevant to the detected situation. Answers the question that's often left unanswered: is this our problem, or is everyone dealing with it?"
+              animation={<MarketContextAnimation />}
+              whatItDoes="Scans external sources for competitor moves, industry trends, and regulatory changes — answering whether the situation is your problem or everyone's problem."
               methodology={
                 <span>
                   Web search synthesis via{' '}
@@ -560,7 +574,8 @@ export function HowItWorks() {
               icon={<Users className="w-4 h-4" />}
               color="indigo"
               title="Three perspectives, visible disagreement"
-              whatItDoes="Generates strategic recommendations from three independent perspectives, then synthesizes them into a unified briefing — with the disagreements left visible, not smoothed over."
+              animation={<CouncilDebateAnimation />}
+              whatItDoes="Generates recommendations from three independent analytical perspectives — then synthesizes them with the disagreements left visible, not smoothed over."
               methodology={
                 <span>
                   <span className="text-white font-medium">MBB-inspired multi-persona architecture</span>
@@ -586,7 +601,13 @@ export function HowItWorks() {
               icon={<LineChart className="w-4 h-4" />}
               color="emerald"
               title="Did it actually work?"
-              whatItDoes="Tracks whether approved decisions produced the expected results — and separates your impact from market noise. This is the part most systems skip entirely."
+              animation={
+                <div className="rounded-xl border border-emerald-500/30 bg-slate-900/60 p-6 flex flex-col items-center justify-center gap-4">
+                  <TrajectoryMiniChart />
+                  <p className="text-xs text-slate-500 text-center">Inaction vs. expected vs. actual — from approval date forward</p>
+                </div>
+              }
+              whatItDoes="Tracks whether approved decisions produced the expected results, and separates your impact from market noise. This is the part most systems skip entirely."
               methodology={
                 <span>
                   <span className="text-white font-medium">Difference-in-Differences (DiD) causal attribution</span>

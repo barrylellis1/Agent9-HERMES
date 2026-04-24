@@ -96,13 +96,16 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
           const pct = Math.min(Math.abs(percentChange), 80) / 100;
           const base = 100;
           const pts: number[] = [];
+          // Direction follows the raw value movement (positive % = line up, negative = line down).
+          // Color already communicates good/bad; direction matches what real monthly data would show.
+          const trendUp = (percentChange ?? 0) >= 0;
           for (let i = 0; i < 9; i++) {
             const t = i / 8;
             // Ease-in curve: most of the movement happens in later periods
             const ease = t * t;
-            const drift = isGoodTrend
-              ? base * (1 + ease * pct)       // trending up
-              : base * (1 - ease * pct);      // trending down
+            const drift = trendUp
+              ? base * (1 + ease * pct)       // value increasing
+              : base * (1 - ease * pct);      // value decreasing
             pts.push(drift);
           }
           return pts;

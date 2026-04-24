@@ -1,7 +1,7 @@
 # Agent9-HERMES Development Plan
 
 **Created:** 2026-03-14
-**Last updated:** 2026-04-11
+**Last updated:** 2026-04-23
 **Status:** Active
 
 ---
@@ -61,10 +61,14 @@ run_enterprise_assessment.py
 | Unified situation stream (merge problem + opportunity) | Phase 11C |
 | Adaptive calibration loop (KPI Assistant → monitoring profiles) | Phase 11D |
 | Audio briefings (TTS flash briefing) | Phase 11E |
+| DA market signal conflict detection (outperforming / confirming / missing tailwinds) | Phase 11F |
 | Business Optimization workflow (top-down strategic) | Phase 12 |
 | KPI Assistant UI | Phase 12 |
 | Slack notifications | Phase 12 |
+| Platform Admin & Client Onboarding (4-step guided flow) | Infra A2 |
+| Usage monitoring (events, quotas, alerts) | Infra A3 |
 | Authentication (Supabase Auth) | Infra B |
+| Azure OpenAI provider + LLM audit export | Infra B2 |
 | Multi-tenant isolation | Infra B |
 
 ### Known tech debt (remaining)
@@ -386,6 +390,33 @@ Agent9 connects to customer data warehouses at three progressive levels of integ
 
 **Moat:** After 12 months, switching means losing calibrated profiles for 50+ KPIs and validated noise/signal history.
 
+#### 11F: DA Market Signal Conflict Detection
+
+**Goal:** When internal KPI data moves in the opposite direction to the market intelligence signal, surface that conflict as the lead insight in the SCQA narrative — not as two separate sections sitting side by side.
+
+**Why this matters:** Today the DA presents IS/IS NOT dimensional analysis and market intelligence independently. If a company's base oil costs fell 19.5% while market data shows industry-wide cost pressures of 15-25%, those two signals contradict each other — and the contradiction *is* the most valuable insight. The DA should detect, interpret, and frame it explicitly.
+
+**Three conflict patterns to handle:**
+
+| Pattern | Internal | Market | DA Framing |
+|---------|----------|--------|------------|
+| **Outperforming headwinds** | Costs ↓ 19% | Market costs ↑ 15-25% | "You are beating the market by ~35pp. What procurement strategy drove this? Is it structural or temporary?" |
+| **Not capturing tailwinds** | Costs ↓ 5% | Market costs ↓ 20% | "Market conditions moved in your favour but you only captured 25% of available savings. Which contracts are locking you into above-market rates?" |
+| **Confirming pressure** | Costs ↑ 19% | Market costs ↑ 15-25% | External validation. "Your experience aligns with market conditions. Focus shifts to which segments are most exposed." |
+
+**Implementation:**
+
+| Deliverable | Description |
+|------------|-------------|
+| Direction extraction | After MA agent returns, extract direction and magnitude of market signal (up/down/neutral, estimated %) |
+| Conflict detection | Compare internal `percent_change` direction + magnitude against market signal direction |
+| SCQA prompt update | Pass both signals into `_generate_scqa_summary()` with explicit instruction: "If directions conflict, lead with that conflict as the Complication. Interpret whether the company is outperforming or missing tailwinds." |
+| Conflict badge in UI | Optional — small badge in DA view: "Outperforming market" / "Underperforming tailwind" / "Confirming market" |
+
+**Prerequisite:** Phase 11C (unified situation stream) — direction is cleanly expressed as `percent_change` + `inverse_logic` by then, making conflict detection straightforward.
+
+---
+
 #### 11E: Audio Briefings ⏸ ON HOLD (post-MVP)
 
 **Goal:** 60-second audio flash briefing — the "not a dashboard" differentiator for commuting executives.
@@ -441,6 +472,68 @@ Agent9 connects to customer data warehouses at three progressive levels of integ
 - GCP credentials materialized from `GCP_SERVICE_ACCOUNT_JSON` at startup
 - Bicycle/FI DuckDB data not available in production — lubricants BigQuery works
 
+### Infra A2: Platform Admin & Client Onboarding
+
+**Goal:** Enable new enterprise clients to be registered and onboarded entirely through the UI, without running seed scripts. Sits above the per-client experience — a platform-level capability used by Decision Studio staff (not by clients themselves).
+
+**Context:** The Login page already calls `listClients()` and shows all registered clients. Company Profile already creates a `BusinessContext` and locks a `client_id`. The Data Product Onboarding wizard already exists. What's missing is the entry point and sequencing that ties these together as a new-client flow.
+
+**Current workaround:** Seed scripts (`demo_seed_lubricants.py`, `sync_yaml_to_supabase.py`, `update_principals_lubricants.py`) run manually from the command line. Not viable for self-service or partner delivery.
+
+#### What to build
+
+| Deliverable | Description |
+|------------|-------------|
+| Platform Admin login path | Separate credential or `role=platform_admin` flag at login. Admin sees all clients; per-client users see only their workspace. |
+| Client Management screen | Table of all registered clients (id, name, industry, status, created date). "New Client" button initiates onboarding. |
+| Guided onboarding flow (4 steps) | **Step 1 — Company Profile** (already built: `CompanyProfile.tsx` creates BusinessContext + locks `client_id`). **Step 2 — Data Product** (already built: Data Product Onboarding wizard). **Step 3 — Principals** (new: create initial principal profiles for the client). **Step 4 — Validation** (new: run a dry-run SA detect to confirm the pipeline is live). |
+| Workspace badge (done ✅) | Persistent `client_id` indicator in Settings header so users always know which workspace they're managing. |
+| `client_id` stamped server-side | API create endpoints (`/kpis`, `/principals`, `/data-products`, etc.) read `client_id` from session/token — never from form payload. Form templates omit `client_id`; backend injects it. |
+
+#### Design decisions
+- **No self-service registration** — client accounts are created by Decision Studio staff or partners, not by end users. The admin flow is an internal tool.
+- **Onboarding = existing tools composed** — Company Profile + Data Product Onboarding + Principal setup are already built. The admin flow sequences them with a progress indicator, not net-new UI.
+- **client_id is session-constant** — once logged in, `client_id` cannot be changed within a session. Registry forms never expose it as an editable field.
+
+**Phase:** Infra B prerequisite — complete before first pilot customer.
+
+---
+
+### Infra A3: Usage Monitoring
+
+**Goal:** Track decision volume per client to support pricing conversations, identify expansion opportunities, and detect churn risk — before building automated billing.
+
+**Decision:** Yes to usage monitoring. No to in-app credit purchase yet. First pilot customers will be on negotiated contracts; self-serve purchase belongs after 3+ live clients reveal where limits are actually hit.
+
+#### What to build
+
+| Deliverable | Description |
+|------------|-------------|
+| `usage_events` table (Supabase) | `client_id`, `event_type` (assessment_run / solution_session / nl_query / kpi_scan), `kpi_id` (nullable), `principal_id` (nullable), `llm_tokens_used` (nullable), `timestamp`. Append-only — no deletes. |
+| Usage hooks in orchestrator | Emit a `usage_event` row when: (1) SA assessment completes, (2) SF debate completes, (3) NL query returns a result. Single call to a `UsageService` utility — no agent changes required. |
+| Monthly rollup view | Supabase view: `usage_summary_monthly` — assessments, solution_sessions, nl_queries, total_tokens grouped by `client_id` + month. |
+| Quota config in client profile | Add `included_assessments` and `included_solution_sessions` fields to `BusinessContext` (or a separate `client_quotas` table). Platform admin sets these at onboarding. |
+| Admin Console — Usage panel | Table: client name / assessments this month / solution sessions this month / NL queries / tokens. Color-coded: green (under 80%), amber (80–100%), red (over). |
+| Client-facing usage widget | Small section in Settings or Dashboard: "Sessions used: 3 of 4 included this month. Need more? Contact us." CTA sends an email (no purchase flow yet). |
+| 80% alert to platform admin | When a client hits 80% of included sessions, log a WARNING in the backend and optionally send an internal email. Platform admin reaches out proactively. |
+
+#### What NOT to build yet
+- Stripe integration or automated billing — not until 3+ paying customers
+- Hard quota gates (block SF after limit) — warn only; first customers should not hit a wall
+- Self-serve credit purchase — revisit when a client actually asks "can I just buy more right now?"
+
+#### KPI-tier bundle pricing (future)
+Once usage data from live customers calibrates breach rates:
+- 10 KPIs → 2 solution sessions included (low-volatility)
+- 25 KPIs → 6 sessions included (growth)
+- 50+ KPIs → 15 sessions included (enterprise)
+
+KPI count predicts decision volume — bundle sessions to KPI tiers to make pricing predictable for both sides.
+
+**Phase:** Build alongside or immediately after Infra A2. Prerequisite for any pricing conversation with a pilot customer.
+
+---
+
 ### Infra B: Customer Infrastructure ← BLOCKER for first pilot
 
 **When:** Before first signed pilot (target Sep 2026)
@@ -457,3 +550,22 @@ Agent9 connects to customer data warehouses at three progressive levels of integ
 | Customer data export | Medium | Self-service export for enterprise procurement |
 
 **Cost:** $200–$500/month base + $50–$100/month per customer on paid tiers.
+
+### Infra B2: Enterprise LLM Deployment Options
+
+**Goal:** Unblock regulated-industry prospects (banking, pharma, PE-backed) who cannot send financial data to third-party APIs. Azure OpenAI puts LLM processing inside the customer's own cloud tenant — same analytical capability, zero data residency risk.
+
+**Context:** The `A9_LLM_Service_Agent` already routes to Claude (Anthropic) and has multi-provider architecture. Adding Azure OpenAI is a new provider implementation + config, not a rebuild. Anthropic API already has zero-data-retention by default — Azure OpenAI is for customers who need everything inside their own Azure subscription contractually.
+
+| Deliverable | Description |
+|------------|-------------|
+| `AzureOpenAIService` provider | New `llm_services/azure_openai_service.py` implementing the same `generate()` interface as `ClaudeService`. Auth via `AZURE_OPENAI_API_KEY` + `AZURE_OPENAI_ENDPOINT` env vars. |
+| `A9_LLM_Service_Agent` routing | Add `azure_openai` as a valid `LLM_PROVIDER` value. Model mapping: `gpt-4o` → synthesis, `gpt-4o-mini` → Stage 1 persona calls (equivalent to Haiku/Sonnet split). |
+| Connection profile config | Document how to set `LLM_PROVIDER=azure_openai` in Railway env vars for a customer's dedicated deployment. |
+| On-premise LLM stub (future) | Ollama provider stub — placeholder only. For customers with no cloud allowed. Quality trade-off vs. GPT-4o/Claude is significant; evaluate per-customer. |
+| Enterprise security one-pager | `docs/strategy/enterprise_security_faq.md` — answers the five standard security questions buyers raise. Referenced from Data Onboarding page. |
+| LLM prompt audit export | Export button in CouncilDebate UI — downloads the full prompt/response log for a session as JSON. GC/CISO review path before contract signing. |
+
+**Trigger:** Build when a prospect is blocked specifically by data residency concerns. Do not build speculatively — Anthropic API covers 80% of enterprise buyers without this.
+
+**Reference:** `docs/strategy/enterprise_security_faq.md`

@@ -2,6 +2,14 @@ import { useState, useRef, useEffect, FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import {
+  TrajectoryMiniChart,
+  KPIGridAnimation,
+  IsIsNotAnimation,
+  MarketContextAnimation,
+  RefinementChatAnimation,
+  CouncilDebateAnimation,
+} from '../components/animations/AgentAnimations'
+import {
   ArrowRight,
   CheckCircle2,
   ChevronRight,
@@ -65,141 +73,7 @@ function AnimatedStat({ value, suffix, label }: { value: string; suffix?: string
   )
 }
 
-// ─────────────────────────────────────────────────
-// Screenshot frame — use src prop with an image path,
-// or omit src to show the labelled placeholder.
-// Images live in: decision-studio-ui/public/screenshots/
-// ─────────────────────────────────────────────────
-function ScreenshotFrame({ label, src, aspect = '16/10' }: { label: string; src?: string; aspect?: string }) {
-  if (src) {
-    return (
-      <div
-        className="rounded-xl overflow-hidden border border-slate-700/40 shadow-2xl shadow-slate-950/60"
-        style={{ aspectRatio: aspect }}
-      >
-        <img
-          src={src}
-          alt={label}
-          className="w-full h-full object-cover object-top"
-          loading="lazy"
-        />
-      </div>
-    )
-  }
-  return (
-    <div
-      className="rounded-xl bg-slate-800/60 border border-slate-700/50 overflow-hidden"
-      style={{ aspectRatio: aspect }}
-    >
-      <div className="w-full h-full flex items-center justify-center">
-        <span className="text-slate-500 text-sm">{label}</span>
-      </div>
-    </div>
-  )
-}
 
-// ─────────────────────────────────────────────────
-// Trajectory mini-chart (SVG — shows the accountability loop concept)
-// ─────────────────────────────────────────────────
-function TrajectoryMiniChart() {
-  const months = [0, 1, 2, 3, 4, 5, 6, 7, 8]
-  const inaction = [60, 57, 54, 51, 48, 45, 42, 39, 36]
-  const expected = [60, 62, 64, 66, 68, 70]
-  const actual = [60, 61, 63, 66, 69]
-
-  const w = 320
-  const h = 160
-  const pad = { top: 20, right: 20, bottom: 30, left: 40 }
-  const plotW = w - pad.left - pad.right
-  const plotH = h - pad.top - pad.bottom
-
-  const xScale = (i: number) => pad.left + (i / (months.length - 1)) * plotW
-  const yScale = (v: number) => pad.top + plotH - ((v - 30) / 50) * plotH
-
-  const toPath = (data: number[]) =>
-    data.map((v, i) => `${i === 0 ? 'M' : 'L'}${xScale(i).toFixed(1)},${yScale(v).toFixed(1)}`).join(' ')
-
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full max-w-sm mx-auto" style={{ fontFamily: 'Satoshi, sans-serif' }}>
-      {/* Grid lines */}
-      {[40, 50, 60, 70].map((v) => (
-        <line key={v} x1={pad.left} x2={w - pad.right} y1={yScale(v)} y2={yScale(v)} stroke="#334155" strokeWidth={0.5} />
-      ))}
-
-      {/* Approval marker */}
-      <line x1={xScale(0)} y1={pad.top} x2={xScale(0)} y2={h - pad.bottom} stroke="#6366f1" strokeWidth={1} strokeDasharray="3,3" opacity={0.4} />
-      <text x={xScale(0) + 4} y={pad.top + 10} fill="#6366f1" fontSize={8} opacity={0.6}>Approval</text>
-
-      {/* Inaction line (red, dashed) */}
-      <motion.path
-        d={toPath(inaction)}
-        fill="none"
-        stroke="#ef4444"
-        strokeWidth={1.5}
-        strokeDasharray="5,3"
-        initial={{ pathLength: 0 }}
-        whileInView={{ pathLength: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 1.5, ease: 'easeOut' }}
-      />
-
-      {/* Expected line (blue, dashed) */}
-      <motion.path
-        d={toPath(expected)}
-        fill="none"
-        stroke="#3b82f6"
-        strokeWidth={1.5}
-        strokeDasharray="5,3"
-        initial={{ pathLength: 0 }}
-        whileInView={{ pathLength: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 1.2, ease: 'easeOut', delay: 0.3 }}
-      />
-
-      {/* Actual line (emerald, solid) */}
-      <motion.path
-        d={toPath(actual)}
-        fill="none"
-        stroke="#10b981"
-        strokeWidth={2.5}
-        initial={{ pathLength: 0 }}
-        whileInView={{ pathLength: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 1, ease: 'easeOut', delay: 0.6 }}
-      />
-
-      {/* Actual dots */}
-      {actual.map((v, i) => (
-        <motion.circle
-          key={i}
-          cx={xScale(i)}
-          cy={yScale(v)}
-          r={3}
-          fill="#10b981"
-          initial={{ opacity: 0, scale: 0 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.6 + i * 0.15 }}
-        />
-      ))}
-
-      {/* Legend */}
-      <g transform={`translate(${pad.left}, ${h - 8})`}>
-        <line x1={0} y1={0} x2={16} y2={0} stroke="#ef4444" strokeWidth={1.5} strokeDasharray="4,2" />
-        <text x={20} y={3} fill="#94a3b8" fontSize={8}>Inaction</text>
-        <line x1={70} y1={0} x2={86} y2={0} stroke="#3b82f6" strokeWidth={1.5} strokeDasharray="4,2" />
-        <text x={90} y={3} fill="#94a3b8" fontSize={8}>Expected</text>
-        <line x1={145} y1={0} x2={161} y2={0} stroke="#10b981" strokeWidth={2} />
-        <text x={165} y={3} fill="#94a3b8" fontSize={8}>Actual</text>
-      </g>
-
-      {/* Y-axis label */}
-      <text x={pad.left - 8} y={pad.top - 6} fill="#64748b" fontSize={8} textAnchor="end">KPI %</text>
-    </svg>
-  )
-}
-
-// ═══════════════════════════════════════════════════
 // LANDING PAGE
 // ═══════════════════════════════════════════════════
 export function LandingPage() {
@@ -493,7 +367,7 @@ export function LandingPage() {
                   a situation card with the analysis already started.
                 </p>
               </div>
-              <ScreenshotFrame label="Situation Awareness Console" src="/screenshots/01-situation-cards.png" />
+              <KPIGridAnimation />
             </motion.div>
 
             {/* Step 2 */}
@@ -513,7 +387,7 @@ export function LandingPage() {
                 </p>
               </div>
               <div className="md:order-1">
-                <ScreenshotFrame label="Deep Analysis — Is / Is Not" src="/screenshots/02-deep-analysis.png" />
+                <IsIsNotAnimation />
               </div>
             </motion.div>
 
@@ -534,7 +408,7 @@ export function LandingPage() {
                   commissioning separate research.
                 </p>
               </div>
-              <ScreenshotFrame label="Market Context" src="/screenshots/03-market-context.png" />
+              <MarketContextAnimation />
             </motion.div>
 
             {/* Step 4 — HITL Refinement */}
@@ -554,7 +428,7 @@ export function LandingPage() {
                 </p>
               </div>
               <div className="md:order-1">
-                <ScreenshotFrame label="Problem Refinement Chat" src="/screenshots/04-problem-refinement.png" />
+                <RefinementChatAnimation />
               </div>
             </motion.div>
 
@@ -574,28 +448,7 @@ export function LandingPage() {
                   don't, and why. Then you approve, reject, or refine.
                 </p>
               </div>
-              <ScreenshotFrame label="Council Debate" src="/screenshots/05-council-debate.png" />
-            </motion.div>
-
-            {/* Step 6 — Proof */}
-            <motion.div variants={fadeUp} className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
-              <div className="md:order-2">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 rounded-full bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center">
-                    <LineChart className="w-4 h-4 text-emerald-400" />
-                  </div>
-                  <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Step 06</span>
-                </div>
-                <h3 className="text-xl font-bold text-white mb-3">Proof It Worked</h3>
-                <p className="text-slate-300 text-sm leading-relaxed">
-                  After you approve a solution, Decision Studio tracks what actually happened
-                  versus what would have happened without action. Causal attribution — not
-                  correlation. The first system that closes the accountability loop.
-                </p>
-              </div>
-              <div className="md:order-1">
-                <ScreenshotFrame label="Value Assurance Portfolio" src="/screenshots/06-portfolio.png" />
-              </div>
+              <CouncilDebateAnimation />
             </motion.div>
 
           </motion.div>
@@ -603,19 +456,26 @@ export function LandingPage() {
       </section>
 
       {/* ═══════════════════════════════════════════
-          4. THE ACCOUNTABILITY LOOP
+          4. STEP 06 — PROOF IT WORKED (Accountability Loop)
       ═══════════════════════════════════════════ */}
-      <section className="py-28 px-6">
+      <section className="py-28 px-6 border-t border-slate-800/40">
         <div className="max-w-5xl mx-auto">
           <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-60px' }}>
 
-            <motion.div variants={fadeUp} className="text-center mb-16">
+            <motion.div variants={fadeUp} className="mb-16">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-8 h-8 rounded-full bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center">
+                  <LineChart className="w-4 h-4 text-emerald-400" />
+                </div>
+                <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Step 06</span>
+              </div>
               <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-                The accountability loop
+                Proof it worked.
               </h2>
-              <p className="text-slate-400 max-w-2xl mx-auto">
-                Most tools stop at the recommendation. Decision Studio tracks three trajectories
-                after every approved decision — so you know whether it actually worked.
+              <p className="text-slate-300 max-w-2xl leading-relaxed">
+                After you approve a solution, Decision Studio tracks three trajectories — so you
+                know whether your decision actually moved the KPI, or whether the market recovered
+                on its own. Most tools stop at the recommendation. This closes the loop.
               </p>
             </motion.div>
 
@@ -651,7 +511,7 @@ export function LandingPage() {
                   <div>
                     <p className="text-white font-semibold text-sm mb-1">Actual results</p>
                     <p className="text-slate-400 text-sm leading-relaxed">
-                      What really happened — measured monthly, with causal attribution that separates your impact from market noise.
+                      What really happened — measured monthly, with causal attribution that separates your decision's impact from market noise.
                     </p>
                   </div>
                 </div>

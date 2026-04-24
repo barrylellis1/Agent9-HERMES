@@ -158,6 +158,7 @@ function parseJsonObject(text: string): Record<string, unknown> {
 export function RegistryExplorer() {
   const [registryKey, setRegistryKey] = useState<RegistryKey>('glossary')
   const active = useMemo(() => REGISTRIES.find((r) => r.key === registryKey)!, [registryKey])
+  const workspaceId = localStorage.getItem('a9_client_id') ?? 'unknown'
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -783,6 +784,11 @@ export function RegistryExplorer() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-white">Settings</h1>
             <p className="text-sm text-slate-400">Registry management &amp; data product onboarding</p>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/60">
+            <Building2 className="w-3.5 h-3.5 text-slate-500" />
+            <span className="text-xs text-slate-400">Workspace</span>
+            <span className="text-xs font-semibold text-white font-mono">{workspaceId}</span>
           </div>
         </div>
         <BrandLogo size={32} />
