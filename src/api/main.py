@@ -41,10 +41,12 @@ app = FastAPI(
 
 # CORS: allow_origins=["*"] is incompatible with allow_credentials=True (CORS spec).
 # When FRONTEND_URL is set, use explicit origins + credentials.
+# FRONTEND_URL supports comma-separated values for multiple domains.
 # When not set (local dev), allow all origins but disable credentials.
-_frontend_url = os.getenv("FRONTEND_URL", "").rstrip("/")
+_frontend_url = os.getenv("FRONTEND_URL", "").strip()
 if _frontend_url:
-    _cors_origins = [_frontend_url, "http://localhost:5173", "http://127.0.0.1:5173"]
+    _cors_origins = [u.strip().rstrip("/") for u in _frontend_url.split(",") if u.strip()]
+    _cors_origins += ["http://localhost:5173", "http://127.0.0.1:5173"]
     _allow_credentials = True
 else:
     _cors_origins = ["*"]
