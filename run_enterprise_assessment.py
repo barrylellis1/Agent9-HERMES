@@ -341,6 +341,7 @@ class EnterpriseAssessmentEngine:
             principal_context = PrincipalContext(
                 principal_id="system",
                 role="system",
+                client_id=self.config.client_id,
                 business_processes=getattr(kpi, "business_process_ids", []) or [],
                 default_filters={},
                 decision_style="analytical",
@@ -495,6 +496,11 @@ async def main(
     client_id: str | None = None,
     dry_run: bool = False,
 ) -> int:
+    # Client_id is mandatory — all assessments must be scoped to a tenant
+    if not client_id:
+        logger.error("client_id is required. Pass --client <client_id> or set ACTIVE_CLIENT_ID env var")
+        return 1
+
     config = AssessmentConfig(client_id=client_id, dry_run=dry_run)
     orchestrator, registry_factory = await initialize_runtime()
     engine = EnterpriseAssessmentEngine(orchestrator, registry_factory, config)
@@ -516,8 +522,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--client",
         metavar="CLIENT_ID",
-        default=None,
-        help="Restrict the assessment to KPIs belonging to this client (e.g. 'lubricants').",
+        default=os.getenv("ACTIVE_CLIENT_ID"),
+        required=not os.getenv("ACTIVE_CLIENT_ID"),
+        help="Restrict the assessment to KPIs belonging to this client (e.g. 'lubricants'). "
+             "Defaults to ACTIVE_CLIENT_ID env var if set, otherwise required.",
     )
     parser.add_argument(
         "--kpi",

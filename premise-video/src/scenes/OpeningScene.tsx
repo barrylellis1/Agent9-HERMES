@@ -46,9 +46,9 @@ export const OpeningScene: React.FC = () => {
 
   // Beat 3 (5-11s): Three questions stagger 1.8s apart
   const questions = [
-    'Is the market real?',
-    'Does the product hold up?',
-    'Can this become a business?',
+    'Is there a real problem worth solving?',
+    'Does the product actually work?',
+    'Can this become a real business?',
   ];
   const questionsStart = fps * 5;
   const questionStagger = fps * 1.8;
@@ -101,7 +101,7 @@ export const OpeningScene: React.FC = () => {
 
           <div style={{ opacity: subtitleOpacity }}>
             <p className="text-2xl text-center" style={{ color: COLORS.muted }}>
-              March 2026 — 18-Month Stress Test
+              April 2026 — Where We Stand
             </p>
           </div>
 
@@ -161,7 +161,7 @@ export const OpeningScene: React.FC = () => {
           }}
         >
           <p className="text-4xl font-bold" style={{ color: COLORS.text }}>
-            We stress-tested every assumption. Here is what we found.
+            We built it, tested it, and deployed it. Here is where things stand.
           </p>
         </div>
 

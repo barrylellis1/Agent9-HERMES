@@ -1,0 +1,235 @@
+metadata:
+  id: dp_lubricants_snowflake
+  name: Lubricants Business Financial Analytics (Snowflake)
+  description: >
+    Lubricants industry financial star schema on Snowflake. Same data and KPI
+    definitions as the BigQuery version (dp_lubricants_financials).
+    Source: Snowflake AGENT9_DEMO.LUBRICANTS.LubricantsStarSchemaView
+  domain: Finance
+  owner: Finance Analytics Team
+  version: "1.0.0"
+  source_system: snowflake
+  tags:
+    - finance
+    - lubricants
+    - snowflake
+    - demo
+    - oil-and-gas
+
+supported_business_processes:
+  - "Finance: Profitability Analysis"
+  - "Finance: Revenue Growth Analysis"
+  - "Finance: Expense Management"
+
+# Canonical column aliases for SQL generation
+column_aliases:
+  measure: "amount"
+  date: "transaction_date"
+  version: "version"
+  default_version_value: "Actual"
+
+# Business term mapping for LLM and UI
+business_terms:
+  product_line:
+    column: product_line
+    description: "Product line (Engine Oils, Industrial Lubricants, etc.)"
+  customer_segment:
+    column: customer_segment
+    description: "Customer segment (Retail Partners, Service Centers, Commercial Fleet, etc.)"
+  channel:
+    column: channel_name
+    description: "Sales channel (DIY Retail, DIFM Service Centers, B2B Direct, E-Commerce, International)"
+  profit_center:
+    column: profit_center_name
+    description: "Profit center / business division"
+  account_type:
+    column: account_type
+    description: "Account type (Revenue, COGS, SGA, Other)"
+  account_category:
+    column: account_category
+    description: "Account category (Product Sales, Raw Materials, Distribution, etc.)"
+
+fallback_group_by_dimensions:
+  - product_line
+  - channel
+  - profit_center
+
+views:
+  - name: LubricantsStarSchemaView
+    llm_profile:
+      exposed_columns:
+        - "transaction_id"
+        - "fiscal_year"
+        - "fiscal_period"
+        - "transaction_date"
+        - "amount"
+        - "version"
+        - "currency"
+        - "account_name"
+        - "account_type"
+        - "account_category"
+        - "account_group"
+        - "product_name"
+        - "product_line"
+        - "product_category"
+        - "customer_name"
+        - "customer_segment"
+        - "customer_region"
+        - "profit_center_name"
+        - "business_unit"
+        - "channel_name"
+        - "channel_type"
+      dimension_semantics:
+        - "product_name"
+        - "product_line"
+        - "product_category"
+        - "customer_name"
+        - "customer_segment"
+        - "customer_region"
+        - "profit_center_name"
+        - "business_unit"
+        - "channel_name"
+        - "channel_type"
+        - "account_name"
+        - "account_type"
+        - "account_category"
+        - "account_group"
+        - "fiscal_year"
+        - "fiscal_period"
+        - "transaction_date"
+    sql: |
+      SELECT
+        transaction_id,
+        fiscal_year,
+        fiscal_period,
+        transaction_date,
+        amount,
+        version,
+        currency,
+        account_name,
+        account_type,
+        account_category,
+        account_group,
+        product_name,
+        product_line,
+        product_category,
+        customer_name,
+        customer_segment,
+        customer_region,
+        profit_center_name,
+        business_unit,
+        channel_name,
+        channel_type
+      FROM LubricantsStarSchemaView
+
+# Connection metadata for Snowflake
+connection:
+  type: snowflake
+  account_env: SF_ACCOUNT
+  database: AGENT9_DEMO
+  schema: LUBRICANTS
+  warehouse: AGENT9_WH
+  view: LubricantsStarSchemaView
+
+kpis:
+  - name: Net Revenue
+    description: "Total net revenue across all channels and product lines"
+    data_product_id: dp_lubricants_snowflake
+    aggregation: SUM
+    base_column: amount
+    filter_type: account_type
+    filter_value: Revenue
+    unit: "$"
+    join_tables:
+      - LubricantsStarSchemaView
+    business_terms:
+      - "Finance: Revenue Growth Analysis"
+      - "Finance: Profitability Analysis"
+    thresholds:
+      warning:
+        value: -2.0
+        description: "Revenue declining vs comparison period"
+      critical:
+        value: -5.0
+        description: "Significant revenue drop"
+
+  - name: Gross Margin %
+    description: "Gross Profit as percentage of Revenue (target: 33-37%)"
+    data_product_id: dp_lubricants_snowflake
+    calculation: "(SUM(CASE WHEN account_type IN ('Revenue','COGS') THEN amount ELSE 0 END) / NULLIF(SUM(CASE WHEN account_type = 'Revenue' THEN amount ELSE 0 END), 0)) * 100"
+    unit: "%"
+    join_tables:
+      - LubricantsStarSchemaView
+    business_terms:
+      - "Finance: Profitability Analysis"
+    thresholds:
+      warning:
+        value: 30.0
+        description: "Gross margin below target range"
+      critical:
+        value: 28.0
+        description: "Gross margin critically low"
+
+  - name: Cost of Goods Sold
+    description: "Total COGS including base oil, blending, packaging, and distribution"
+    data_product_id: dp_lubricants_snowflake
+    aggregation: SUM
+    base_column: amount
+    filter_type: account_type
+    filter_value: COGS
+    calculation: "SUM(-amount) WHERE account_type = 'COGS'"
+    unit: "$"
+    join_tables:
+      - LubricantsStarSchemaView
+    business_terms:
+      - "Finance: Expense Management"
+      - "Finance: Profitability Analysis"
+    thresholds:
+      warning:
+        value: 5.0
+        description: "COGS increasing faster than expected"
+      critical:
+        value: 10.0
+        description: "COGS spike - investigate raw material costs"
+
+  - name: SG&A Expense
+    description: "Selling, General & Administrative expenses"
+    data_product_id: dp_lubricants_snowflake
+    aggregation: SUM
+    base_column: amount
+    filter_type: account_type
+    filter_value: SGA
+    calculation: "SUM(-amount) WHERE account_type = 'SGA'"
+    unit: "$"
+    join_tables:
+      - LubricantsStarSchemaView
+    business_terms:
+      - "Finance: Expense Management"
+    thresholds:
+      warning:
+        value: 5.0
+        description: "SG&A over budget"
+      critical:
+        value: 10.0
+        description: "SG&A significantly over budget"
+
+  - name: E-Commerce Revenue
+    description: "Revenue from e-commerce / digital channel"
+    data_product_id: dp_lubricants_snowflake
+    aggregation: SUM
+    base_column: amount
+    filters:
+      channel_name: "E-Commerce"
+      account_type: "Revenue"
+    unit: "$"
+    join_tables:
+      - LubricantsStarSchemaView
+    business_terms:
+      - "Finance: Revenue Growth Analysis"
+    thresholds:
+      warning:
+        value: 5.0
+        description: "E-Commerce growth slowing"
+      critical:
+        value: -5.0
+        description: "E-Commerce revenue declining"

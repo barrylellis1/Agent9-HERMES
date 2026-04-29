@@ -81,6 +81,7 @@ class A9_Data_Governance_Agent:
         self.registry_factory = None
         self.business_glossary_provider = None
         self.kpi_provider = None
+        self.data_product_provider = None
         
         # Setup logging
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -132,7 +133,16 @@ class A9_Data_Governance_Agent:
                     self.kpi_provider = self.registry_factory.get_provider("kpi")
             except Exception as e:
                 self.logger.warning(f"Could not get KPI Provider from registry factory: {e}")
-            
+
+            # Get the Data Product Provider
+            try:
+                self.data_product_provider = self.registry_factory.get_data_product_provider()
+                if not self.data_product_provider:
+                    # Try alternate method
+                    self.data_product_provider = self.registry_factory.get_provider("data_product")
+            except Exception as e:
+                self.logger.warning(f"Could not get Data Product Provider from registry factory: {e}")
+
             self.logger.info("Connected to dependent services and registries")
             return True
         except Exception as e:
@@ -246,36 +256,56 @@ class A9_Data_Governance_Agent:
         """
         principal_client = getattr(request, 'client_id', None)
 
-        # Resolve the data product's client_id from the KPI provider / registry
+        # Resolve the data product's client_id from the registry
         dp_client = None
-        if self.kpi_provider:
+
+        # Tier 1: Look up from data product provider directly
+        if self.data_product_provider:
+            dp = self.data_product_provider.get(request.data_product_id)
+            if dp:
+                dp_client = getattr(dp, 'client_id', None)
+
+        # Tier 2 fallback: Look up from KPI provider (in case data product isn't in registry yet)
+        if not dp_client and self.kpi_provider:
             for kpi in self.kpi_provider.get_all():
                 dp_id = self._get_data_product_id_for_kpi(kpi)
                 if dp_id == request.data_product_id:
                     dp_client = getattr(kpi, 'client_id', None)
                     break
 
-        # If either side has no client_id, allow (backward compat) but warn
-        if not principal_client or not dp_client:
+        # Tenant isolation check: strict match when principal has a client_id
+        if principal_client:
+            if dp_client and principal_client != dp_client:
+                # Cross-client access forbidden (only when data product client is known)
+                self.logger.warning(
+                    f"Access DENIED: principal={request.principal_id} (client={principal_client}) "
+                    f"attempted to access dp={request.data_product_id} (client={dp_client})"
+                )
+                return DataAccessValidationResponse(
+                    allowed=False,
+                    reason=f"Client mismatch: principal belongs to '{principal_client}', "
+                           f"data product belongs to '{dp_client}'"
+                )
+            elif not dp_client:
+                # Data product's client not found in registry — allow but warn
+                # This can happen during early development or when KPI/DP registries aren't fully seeded
+                self.logger.warning(
+                    f"Access ALLOWED (unverified): scoped principal={request.principal_id} (client={principal_client}) "
+                    f"accessing data_product={request.data_product_id} with unknown client_id (may not match registry)"
+                )
+                return DataAccessValidationResponse(
+                    allowed=True,
+                    reason=f"Access granted (data product client not found in registry — allowing for backward compat)"
+                )
+        else:
+            # No principal_client — admin/system context, allow regardless of data product client_id
             self.logger.info(
-                f"Access ALLOWED (no client scope): principal={request.principal_id} "
-                f"dp={request.data_product_id} principal_client={principal_client} dp_client={dp_client}"
+                f"Access ALLOWED (admin/unscoped): principal={request.principal_id} "
+                f"dp={request.data_product_id} dp_client={dp_client}"
             )
             return DataAccessValidationResponse(
                 allowed=True,
-                reason="Access granted — client_id not set on principal or data product (backward compat)"
-            )
-
-        # Tenant isolation check
-        if principal_client != dp_client:
-            self.logger.warning(
-                f"Access DENIED: principal={request.principal_id} (client={principal_client}) "
-                f"attempted to access dp={request.data_product_id} (client={dp_client})"
-            )
-            return DataAccessValidationResponse(
-                allowed=False,
-                reason=f"Client mismatch: principal belongs to '{principal_client}', "
-                       f"data product belongs to '{dp_client}'"
+                reason=f"Access granted (unscoped principal, system context)"
             )
 
         self.logger.info(

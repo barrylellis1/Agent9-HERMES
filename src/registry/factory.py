@@ -142,59 +142,26 @@ class RegistryFactory:
     
     def get_business_process_provider(self) -> Optional[BusinessProcessProvider]:
         """
-        Get the business process provider. If it doesn't exist, create and register a default one.
-        
+        Get the business process provider.
+
         Returns:
-            BusinessProcessProvider instance or None if creation fails
+            BusinessProcessProvider instance or None if not registered by bootstrap
         """
         provider = self.get_provider("business_process")
-        
-        # If provider doesn't exist, create a default one
         if provider is None:
-            try:
-                from src.registry.providers.business_process_provider import BusinessProcessProvider
-                logger.info("Creating default business process provider since none exists")
-                provider = BusinessProcessProvider(
-                    source_path="src/registry/business_process/business_process_registry.yaml",
-                    storage_format="yaml"
-                )
-                self.register_provider("business_process", provider)
-                # Mark as initialized
-                self._provider_initialization_status["business_process"] = True
-                logger.info("Default business process provider created and registered successfully")
-            except Exception as e:
-                logger.error(f"Failed to create default business process provider: {str(e)}")
-                return None
-                
+            logger.error("Business process provider not registered — check Supabase bootstrap")
         return provider
-    
+
     def get_kpi_provider(self) -> Optional[KPIProvider]:
         """
-        Get the KPI provider. If it doesn't exist, create and register a default one.
-        
+        Get the KPI provider.
+
         Returns:
-            KPIProvider instance or None if creation fails
+            KPIProvider instance or None if not registered by bootstrap
         """
         provider = self.get_provider("kpi")
-        
-        # If provider doesn't exist, create a default one
         if provider is None:
-            try:
-                from src.registry.providers.kpi_provider import KPIProvider
-                logger.info("Creating default KPI provider since none exists")
-                # Load from YAML so that kpi_defaults and registry-driven semantics are applied
-                provider = KPIProvider(
-                    source_path="src/registry/kpi/kpi_registry.yaml",
-                    storage_format="yaml"
-                )
-                self.register_provider("kpi", provider)
-                # Mark as initialized
-                self._provider_initialization_status["kpi"] = True
-                logger.info("Default KPI provider created and registered successfully")
-            except Exception as e:
-                logger.error(f"Failed to create default KPI provider: {str(e)}")
-                return None
-                
+            logger.error("KPI provider not registered — check Supabase bootstrap")
         return provider
     
     def get_principal_profile_provider(self) -> Optional[PrincipalProfileProvider]:

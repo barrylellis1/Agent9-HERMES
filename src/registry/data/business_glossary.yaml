@@ -1,100 +1,18 @@
 terms:
-  - name: Revenue
-    synonyms:
-      - sales
-      - income
-      - turnover
-    description: Total income generated from sales
-    technical_mappings:
-      sap: REVENUE
-      duckdb: revenue
-
-  - name: Profit Margin
-    synonyms:
-      - margin
-      - profit percentage
-    description: Percentage of profit relative to revenue
-    technical_mappings:
-      sap: PROFIT_MARGIN
-      duckdb: profit_margin
-
-  - name: Expense
-    synonyms:
-      - cost
-      - expenditure
-      - spending
-    description: Money spent on goods, services, or operations
-    technical_mappings:
-      sap: EXPENSE
-      duckdb: expense
-
-  - name: Customer Satisfaction
-    synonyms:
-      - customer happiness
-      - satisfaction score
-      - csat
-    description: Measure of how satisfied customers are with products or services
-    technical_mappings:
-      sap: CUST_SATISFACTION
-      duckdb: customer_satisfaction
-
-  - name: Version
-    synonyms:
-      - scenario
-    description: Version dimension such as Actual or Budget
-    technical_mappings:
-      duckdb: Version
-
-  - name: Product
-    synonyms:
-      - product
-      - product_id
-      - product id
-      - sku
-      - item
-      - product name
-    description: Product identifier used for grouping and filtering
-    technical_mappings:
-      duckdb: "Product Name"
-
-  - name: Product Type
-    synonyms:
-      - product_type
-      - product category
-      - category
-    description: Product category/type identifier used for grouping and filtering
-    technical_mappings:
-      duckdb: "Product Category ID"
-
-  - name: Customer Type
-    synonyms:
-      - customer_type
-      - customer type
-    description: Customer type identifier used for grouping and filtering
-    technical_mappings:
-      duckdb: "Customer Type ID"
-
-  - name: Profit Center
-    synonyms:
-      - profit_center
-      - profit center
-      - pc
-    description: Profit center identifier used for grouping and filtering
-    technical_mappings:
-      duckdb: "Profit Center ID"
-
-  - name: Profit Center Hierarchyid
-    synonyms:
-      - profit_center_hierarchyid
-      - profit center hierarchyid
-    description: Profit Center hierarchy identifier
-    technical_mappings:
-      duckdb: "Profit Center Hierarchyid"
-
-  - name: Customer Hierarchyid
-    synonyms:
-      - customer_hierarchyid
-      - customer hierarchyid
-    description: Customer hierarchy identifier
-    technical_mappings:
-      duckdb: "Customer Hierarchyid"
+- name: Revenue
+  synonyms:
+  - sales
+  - income
+  - turnover
+  description: Total income generated from sales
+  technical_mappings:
+    sap: REVENUE
+    duckdb: revenue
+- name: Profit Margin
+  synonyms:
+  - margin
+  - profit percentage
+  description: Percentage of profit relative to revenue
+  technical_mappings:
+    sap: PROFIT_MARGIN
+    duckdb: profit_margin

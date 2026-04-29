@@ -11,39 +11,39 @@ import { COLORS } from '../shared/constants';
 
 const ROWS: { area: string; before: string; after: string }[] = [
   {
-    area: 'Platform',
-    before: 'SA→DA→SF pipeline',
-    after: 'Full SA→DA→MA→SF→VA pipeline, production deployed',
+    area: 'Product',
+    before: 'Spots problems and recommends fixes — live in production',
+    after: 'Now also tracks whether approved fixes actually worked — full loop closed',
   },
   {
-    area: 'Positioning',
-    before: 'Agentic consulting marketplace',
-    after: 'AI Decision Intelligence — domain-agnostic',
+    area: 'Client Data',
+    before: 'One demo dataset (bicycle retailer)',
+    after: 'Second industry added (industrial lubricants) — shows it works across domains',
   },
   {
-    area: 'Corporate',
-    before: 'No public presence',
-    after: 'decision-studios.com + brand identity + 4 pages',
+    area: 'Briefings',
+    before: 'Results visible in the app only',
+    after: 'Automated email summaries delivered to executives on demand',
+  },
+  {
+    area: 'Website',
+    before: 'decision-studios.com live, brand + 4 pages',
+    after: 'Same — no new pages; focus was on product, not marketing',
   },
   {
     area: 'Pricing',
-    before: 'Theoretical $25K-$300K',
-    after: '$15K-$25K pilots + incremental model under evaluation',
+    before: '$15K–$25K pilot projects being evaluated',
+    after: 'Unchanged — waiting for first demo to validate',
   },
   {
-    area: 'ICP',
-    before: 'Mid-market executives',
-    after: 'Never-engaged mid-market ($50M-$500M)',
+    area: 'Target Customer',
+    before: 'Mid-size companies ($50M–$500M) with no big consulting firm on retainer',
+    after: 'Unchanged — still the right profile',
   },
   {
-    area: 'Partners',
-    before: 'BCG outreach planned',
-    after: 'Tier 0 fractional CFOs now; Tier 1+ at 5+ customers',
-  },
-  {
-    area: 'Primary Risk',
-    before: 'Can we build this?',
-    after: 'Commercial: can we close first 2 pilots?',
+    area: 'Biggest Risk',
+    before: 'Can we build a product that actually works?',
+    after: 'Can we get two paying pilots? Product risk is resolved.',
   },
 ];
 
@@ -75,10 +75,10 @@ export const WhatChangedScene: React.FC = () => {
 
         {/* Section title */}
         <SectionTitle
-          subtitle="What was theoretical in February is now deployed."
+          subtitle="One month of focused building. Here is what moved."
           delay={titleDelay}
         >
-          Six Weeks of Execution
+          March to April — What Changed
         </SectionTitle>
 
         {/* Comparison table */}
@@ -98,7 +98,7 @@ export const WhatChangedScene: React.FC = () => {
                 className="text-base font-semibold uppercase tracking-wider"
                 style={{ color: COLORS.muted }}
               >
-                February 2026
+                March 2026
               </span>
             </div>
             <div className="w-[44%] shrink-0 pl-4">
@@ -106,7 +106,7 @@ export const WhatChangedScene: React.FC = () => {
                 className="text-base font-semibold uppercase tracking-wider"
                 style={{ color: COLORS.muted }}
               >
-                March 2026
+                April 2026
               </span>
             </div>
           </div>
@@ -139,7 +139,7 @@ export const WhatChangedScene: React.FC = () => {
             }}
           >
             <p className="text-2xl font-bold" style={{ color: COLORS.text }}>
-              The technical risk is resolved. What remains is commercial execution.
+              The product works end-to-end. The next question is: can we close the first two clients?
             </p>
           </div>
         </div>

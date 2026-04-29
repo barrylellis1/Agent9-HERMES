@@ -16,28 +16,28 @@ type MoatBar = {
 const MOAT_BARS: MoatBar[] = [
   {
     color: COLORS.accent,
-    label: 'Registry-Driven Domain Intelligence',
-    detail: 'KPIs, principals, processes, glossary',
+    label: 'Knows Your Business',
+    detail: 'Understands your KPIs, who owns them, and what they mean — not generic metrics',
   },
   {
     color: COLORS.blue,
-    label: 'Structured Analytical Methodology',
-    detail: 'KT IS/IS NOT, SCQA, MBB perspectives',
+    label: 'Structured Root-Cause Thinking',
+    detail: 'Finds why a number is off — not just that it\'s off — using a proven investigation method',
   },
   {
     color: COLORS.emerald,
-    label: 'Post-Decision Accountability',
-    detail: 'VA three-trajectory tracking, DiD attribution',
+    label: 'Tracks Whether Solutions Actually Worked',
+    detail: 'After you approve a fix, the system measures whether it delivered results — with evidence',
   },
   {
     color: COLORS.amber,
     label: 'Real-Time Market Context',
-    detail: 'Perplexity + Claude synthesis in every briefing',
+    detail: 'Pulls today\'s market news into every briefing automatically — no manual research',
   },
   {
     color: COLORS.purple,
-    label: 'Full Audit Trail',
-    detail: 'Detection → Diagnosis → Recommendation → Proof',
+    label: 'Complete Paper Trail',
+    detail: 'Problem spotted → investigated → solution chosen → outcome confirmed — all linked',
   },
 ];
 
@@ -87,8 +87,8 @@ export const MoatScene: React.FC = () => {
     <SceneContainer>
       <div className="w-full h-full flex flex-col px-16 py-14 relative">
         {/* Section title — 0-3s */}
-        <SectionTitle subtitle="It was never orchestration.">
-          The Real Differentiator
+        <SectionTitle subtitle="Anyone can connect AI to data. This is what they cannot copy.">
+          What Makes This Hard to Replicate
         </SectionTitle>
 
         {/* Commoditizes text + strikethrough — 3-8s */}
@@ -100,7 +100,7 @@ export const MoatScene: React.FC = () => {
           }}
         >
           <p className="text-2xl" style={{ color: COLORS.muted }}>
-            AWS Bedrock Agents gives you orchestration.
+            Any competitor can chain AI steps together.
           </p>
           {/* Strikethrough line */}
           <div
@@ -178,7 +178,7 @@ export const MoatScene: React.FC = () => {
           }}
         >
           <p className="text-2xl font-semibold" style={{ color: COLORS.accentLight }}>
-            Each layer reinforces the next. The combination is architecturally integrated.
+            Each layer makes the others more valuable. Together, they are much harder to replicate than any one piece.
           </p>
         </div>
 

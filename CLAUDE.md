@@ -103,8 +103,10 @@ orchestrated AI workflows. ~100K lines of backend and UI code, 10 months of deve
 | Backend | Status |
 |---|---|
 | DuckDB | Production-ready (local dev) |
-| PostgreSQL / Supabase | Production-ready (cloud) |
+| PostgreSQL / Supabase | Production-ready (cloud registry) |
 | BigQuery | Production-ready (read-only analytics) |
+| Snowflake | Wired (Apex Lubricants client) |
+| SQL Server | Wired (connection profile support) |
 
 ---
 
@@ -115,7 +117,7 @@ orchestrated AI workflows. ~100K lines of backend and UI code, 10 months of deve
 - **Databases:** DuckDB (local), Supabase/PostgreSQL (cloud), BigQuery (analytics)
 - **LLM:** A9_LLM_Service_Agent routes all calls — Claude (Anthropic) + GPT-4 (OpenAI)
 - **Protocol:** A2A (Agent-to-Agent) with standardized Pydantic I/O models
-- **Registries:** 6 YAML-backed registries with Supabase dual-persistence
+- **Registries:** Supabase-backed (sole backend) — no YAML fallbacks permitted
 
 ---
 
@@ -141,6 +143,29 @@ These apply when working anywhere in the codebase. See `src/agents/new/CLAUDE.md
 5. **Lifecycle Methods** 🔴
    - Implement `create()`, `connect()`, `disconnect()` — all async
 
+6. **Registry Data Source** 🔴
+   - Supabase is the SOLE registry backend — no YAML file reads for registry data
+   - NEVER add fallback code that reads `.yaml` files when a Supabase provider returns empty/None
+   - NEVER use `yaml.safe_load()` in agent files to load KPIs, principals, data products, or business processes
+   - If a provider returns no data, log an error and return empty — do NOT silently load from files
+   - The `src/registry/` YAML files have been deleted; contract schema files in `src/registry_references/` are separate (schema definitions, not registry data)
+   - RegistryFactory must NOT auto-create YAML-backed providers — if a provider isn't registered by bootstrap, return None
+
+7. **Multi-Tenant Client Isolation** 🔴
+   - Every KPI, Principal, Data Product belongs to a `client_id` — this field is MANDATORY in Supabase records
+   - API list endpoints MUST accept `client_id` query parameter and filter results when provided
+   - Tenant filters must be STRICT MATCH: `if kpi.client_id != client_id: exclude`. Never use `is not None` guards that let unscoped records (client_id=None) leak through
+   - When adding a new client: seed script must set `client_id` on every record; verify with `SELECT DISTINCT client_id FROM <table>`
+   - SA agent `_get_relevant_kpis()` filters by client_id — do not weaken this filter for test convenience. Fix test fixtures instead.
+   - DELETE endpoints must validate ownership — cannot delete a record belonging to a different client
+
+8. **SQL Backend Routing** 🔴
+   - Route SQL to backends by looking up `DataProduct.source_system` from the registry — NOT by regex on SQL syntax
+   - Every KPI has a `data_product_id` → look up the data product → read its `source_system` field (bigquery, snowflake, sqlserver, duckdb)
+   - Regex detection of backticks/brackets is a Tier 2 fallback ONLY when data_product_id is missing or unresolvable
+   - When onboarding a new data source type, add explicit routing in BOTH the SA agent (`_get_kpi_value`) and the DPA (`generate_sql_for_kpi` + `execute_sql`)
+   - KPI `sql_query` field stores the native SQL for that backend — do not assume DuckDB syntax
+
 ---
 
 ## Project Structure
@@ -150,7 +175,7 @@ Agent9-HERMES/
 ├── src/
 │   ├── agents/new/         # Core agent implementations (+ CLAUDE.md)
 │   ├── api/                # FastAPI routes and runtime
-│   ├── registry/           # Registry factory + 6 YAML-backed registries
+│   ├── registry/           # Registry factory + Supabase-backed providers (no YAML)
 │   ├── database/           # DuckDB / Postgres / BigQuery abstraction
 │   ├── llm_services/       # LLM provider implementations
 │   └── contracts/          # Data product contract YAML files
@@ -177,6 +202,20 @@ Agent9-HERMES/
 
 ---
 
+## New Client Onboarding Checklist
+
+When adding a new client/tenant:
+
+1. **Seed script** — must set `client_id` on every record (KPIs, principals, data product, business context)
+2. **Data product** — `source_system` field must match the actual backend (bigquery, snowflake, sqlserver, duckdb)
+3. **KPI SQL** — `sql_query` must use native syntax for that backend (e.g., backtick-quoted for BigQuery, bare for Snowflake)
+4. **Verify isolation** — after seeding, query Supabase: `SELECT id, client_id FROM kpis WHERE client_id = '<new_client>'`
+5. **Test login** — select the new client on login page, verify only its principals appear
+6. **Test SA scan** — run assessment for a principal of the new client, verify only that client's KPIs are evaluated
+7. **Test Registry Explorer** — filter by client, verify correct records shown
+
+---
+
 ## Critical Areas (Handle with Care)
 
 **Mission-critical — changes affect all workflows:**
@@ -194,28 +233,19 @@ Agent9-HERMES/
 
 ## Known Issues & Technical Debt
 
-1. **Business Process Provider Init** ⚠️ — Provider not found on startup; agent creates fallback. Expected, not breaking.
-2. **Data Governance → Data Product connection** ⚠️ — DG agent not initialized in DP agent's `connect()`; falls back to local resolution.
-3. **Principal ID vs Role-Based Lookup** 🔴 — PC Agent uses role names; should use IDs (`cfo_001`). Migration plan: `docs/architecture/principal_id_based_lookup_plan.md`.
-4. **Business Process Format Inconsistencies** ⚠️ — Mixed formats across registries. Blueprint: `docs/architecture/business_process_hierarchy_blueprint.md`.
-5. **Registry Provider Replacement Warnings** ℹ️ — Duplicate initialization; not breaking.
-6. **Hardcoded File Paths** 🔴 — Some absolute paths remain; should use relative or env-var-based paths.
-7. **Supabase DB URL Missing** ⚠️ — `.env` sets backend=supabase but `SUPABASE_DB_URL` not set → 5 registries fall back to YAML. Business Contexts registry works (uses REST API).
+1. **Data Governance → Data Product connection** ⚠️ — DGA wired post-bootstrap by `runtime._wire_governance_dependencies()`. If wiring fails, DGA calls raise RuntimeError (mandatory, no fallback).
+2. **Principal ID vs Role-Based Lookup** 🔴 — PC Agent uses role names; should use IDs (`cfo_001`). Migration plan: `docs/architecture/principal_id_based_lookup_plan.md`.
+3. **Business Process Format Inconsistencies** ⚠️ — Mixed formats across registries. Blueprint: `docs/architecture/business_process_hierarchy_blueprint.md`.
+4. **Hardcoded File Paths** 🔴 — Some absolute paths remain; should use relative or env-var-based paths.
 
 ### Expected Warnings on Startup (Not Errors)
 
 ```
 WARNING:src.registry.factory:Provider 'business_process' not found in registry factory
-WARNING:src.agents.new.a9_principal_context_agent.A9_Principal_Context_Agent:Business process provider not found, creating default provider
-WARNING:src.registry.factory:Provider 'business_process' exists but may not be properly initialized
 WARNING:src.agents.new.a9_data_product_agent:Data Governance Agent not available for view name resolution
-WARNING:src.registry.factory:Replacing existing kpi provider with new instance
-WARNING:src.registry.factory:Replacing existing principal_profile provider with new instance
-WARNING:src.registry.factory:Replacing existing data_product provider with new instance
-WARNING:src.registry.factory:Replacing existing business_glossary provider with new instance
 ```
 
-These indicate initialization sequence issues but fallback mechanisms are in place.
+These appear during the initialization window before `_wire_governance_dependencies()` runs. DGA is wired after all agents are created and connected.
 
 ---
 

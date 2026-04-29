@@ -11,7 +11,6 @@ import os
 import re
 import json
 import uuid
-import yaml
 import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple, Protocol, runtime_checkable
@@ -103,18 +102,7 @@ class A9_Situation_Awareness_Agent:
         # Initialize logging
         self.logger = logging.getLogger(self.__class__.__name__)
         
-        # Load contract and registries - use canonical registry_references path
-        default_contract_path = "src/registry_references/data_product_registry/data_products/fi_star_schema.yaml"
-        # Try absolute path if relative doesn't exist
-        if not os.path.exists(default_contract_path):
-            proj_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-            default_contract_path = os.path.join(proj_root, "src", "registry_references", "data_product_registry", "data_products", "fi_star_schema.yaml")
-        self.contract_path = config.get("contract_path", default_contract_path)
-        
-        # Load the contract and KPI definitions
-        self._load_contract()
-        
-        # Initialize KPI registry with empty registry to avoid errors
+        # KPI registry populated during connect() via _load_kpi_registry() from Supabase
         self.kpi_registry = {}
         # Cache for last generated SQL per KPI to avoid regenerating for UI display
         self._last_sql_cache: Dict[str, Dict[str, str]] = {}
@@ -239,19 +227,15 @@ class A9_Situation_Awareness_Agent:
     
     async def _load_kpi_registry(self):
         """
-        Load KPIs from the registry asynchronously.
+        Load KPIs from the Supabase-backed registry asynchronously.
+        No YAML fallbacks — if the provider returns no data, log an error and return empty.
         """
         try:
             # Prefer the shared, already-initialized registry factory injected via config.
-            # Creating a new RegistryFactory() instance would bypass Supabase initialization
-            # and result in 0 KPIs loaded (and therefore no SQL statements executed).
             registry_factory = self.config.get("registry_factory")
             if registry_factory is None:
-                try:
-                    from src.registry.registry_factory import RegistryFactory as _RF
-                except Exception:
-                    from src.registry.factory import RegistryFactory as _RF
-                registry_factory = _RF()
+                from src.registry.factory import RegistryFactory
+                registry_factory = RegistryFactory()
                 try:
                     if not registry_factory.is_initialized:
                         await registry_factory.initialize()
@@ -260,25 +244,15 @@ class A9_Situation_Awareness_Agent:
                         logger.info("Registry factory already initialized")
                 except Exception as e:
                     logger.warning(f"Error initializing registry factory: {str(e)}")
-            kpi_provider = None
-            try:
-                kpi_provider = registry_factory.get_kpi_provider()
-                if kpi_provider:
-                    logger.info(f"Successfully got KPI provider via get_kpi_provider: {kpi_provider}")
-            except Exception as e:
-                logger.warning(f"Error getting KPI provider via get_kpi_provider: {str(e)}")
+
+            kpi_provider = registry_factory.get_kpi_provider()
             if kpi_provider is None:
-                try:
-                    kpi_provider = registry_factory.get_provider("kpi")
-                    if kpi_provider:
-                        logger.info(f"Successfully got KPI provider via get_provider: {kpi_provider}")
-                except Exception as e:
-                    logger.warning(f"Error getting KPI provider: {str(e)}")
-                    kpi_provider = None
+                kpi_provider = registry_factory.get_provider("kpi")
+
             if not kpi_provider:
-                logger.warning("Could not get KPI provider from registry factory")
-                self._load_kpis_from_contract()
+                logger.error("KPI provider not available — check Supabase bootstrap")
                 return
+
             kpis = kpi_provider.get_all() or []
             if not kpis:
                 try:
@@ -286,33 +260,11 @@ class A9_Situation_Awareness_Agent:
                     kpis = kpi_provider.get_all() or []
                 except Exception as e:
                     logger.warning(f"KPI provider load attempt failed: {e}")
+
             if not kpis:
-                logger.warning("No KPIs found in registry, attempting to load from file")
-                try:
-                    registry_path = os.path.join("src", "registry", "kpi", "kpi_registry.yaml")
-                    if os.path.exists(registry_path):
-                        with open(registry_path, 'r') as file:
-                            yaml_data = yaml.safe_load(file)
-                            if yaml_data and "kpis" in yaml_data and isinstance(yaml_data["kpis"], list):
-                                try:
-                                    from src.registry.models.kpi import KPI as RegistryKPI
-                                except Exception:
-                                    RegistryKPI = None
-                                for kpi_item in yaml_data["kpis"]:
-                                    try:
-                                        if RegistryKPI and isinstance(kpi_item, dict):
-                                            kpi_obj = RegistryKPI(**kpi_item)
-                                            kpi_provider.register(kpi_obj)
-                                    except Exception:
-                                        continue
-                                kpis = kpi_provider.get_all() or []
-                                if kpis:
-                                    logger.info(f"Successfully loaded {len(kpis)} KPIs from file")
-                except Exception as e:
-                    logger.error(f"Error loading KPIs from file: {str(e)}")
-            if not kpis:
-                logger.warning("Still no KPIs found, using empty KPI registry")
+                logger.error("No KPIs found in Supabase registry — verify seed data")
                 return
+
             target_domains = self.config.get("target_domains", ["Finance"])
             logger.info(f"Filtering KPIs for domains: {target_domains}")
             self.kpi_registry = {}
@@ -323,43 +275,16 @@ class A9_Situation_Awareness_Agent:
                         self.kpi_registry[kpi_def.name] = kpi_def
             logger.info(f"Added {len(self.kpi_registry)} KPIs to registry for domains: {target_domains}")
             if not self.kpi_registry:
-                logger.warning("No matching KPIs found in registry, trying contract fallback")
-            
-            # Always try to load additional KPIs from contract to ensure full coverage
-            # This is important for KPIs defined in data products but not yet in the central registry
-            self._load_kpis_from_contract()
+                logger.warning("No matching KPIs found in registry for target domains")
         except Exception as e:
             logger.error(f"Error loading KPI registry: {str(e)}")
             self.kpi_registry = {}
-            self._load_kpis_from_contract()
     
     async def disconnect(self):
         """Disconnect from dependent services."""
         # Data Product Agent doesn't need explicit disconnection as it's managed by the orchestrator
         
         logger.info(f"{self.name} disconnected from dependent services")
-    
-    def _load_contract(self):
-        """
-        Load the data contract and KPI definitions.
-        While the contract is still loaded for reference, KPI definitions come from the KPI registry.
-        """
-        try:
-            # Load the contract for reference (tables, schema, etc.)
-            with open(self.contract_path, "r") as f:
-                self.contract = yaml.safe_load(f)
-            
-            # Extract business processes from the contract (if any)
-            self.business_processes = self.contract.get("supported_business_processes", [])
-            
-            # Load KPIs from the external registry
-            # Skip awaiting here as this is a synchronous method
-            # KPIs will be loaded during connect() which properly awaits the async method
-            
-            logger.info(f"Loaded {len(self.kpi_registry)} KPIs from registry and contract")
-        except Exception as e:
-            logger.error(f"Error loading contract or registry: {str(e)}")
-            raise
     
     # Principal profile management has been moved to the Principal Context Agent
     
@@ -423,7 +348,7 @@ class A9_Situation_Awareness_Agent:
             self.logger.info(f"Detecting situations for {request.principal_context.role}")
 
             # Get relevant KPIs based on principal context and business processes
-            client_id = getattr(request, "client_id", None)
+            client_id = getattr(request.principal_context, "client_id", None)
             relevant_kpis = self._get_relevant_kpis(
                 request.principal_context,
                 request.business_processes,
@@ -1144,136 +1069,44 @@ class A9_Situation_Awareness_Agent:
 
     # ──────────────────────────────────────────────────────────────────────────
 
-    def _load_kpis_from_contract(self):
+    def _resolve_source_system(self, data_product_id: Optional[str]) -> Optional[str]:
         """
-        Load KPIs directly from the contract file as a fallback when registry is unavailable.
-        Creates internal KPIDefinition objects from the contract's KPI specifications.
+        Look up source_system for a data product from the registry.
+
+        Tier 1 routing: direct registry lookup via data_product_id.
+        Used to route SQL execution to the correct backend (BigQuery, Snowflake, SQL Server, DuckDB).
+
+        Args:
+            data_product_id: The data product ID to look up
+
+        Returns:
+            The source_system (bigquery, snowflake, sqlserver, duckdb) or None if not found
         """
+        if not data_product_id:
+            return None
         try:
-            logger.info(f"Loading KPIs from contract file: {self.contract_path}")
-            
-            # Log the absolute path to contract file
-            abs_contract_path = os.path.abspath(self.contract_path)
-            logger.info(f"Loading KPIs from contract file (absolute path): {abs_contract_path}")
-            
-            # Check if contract file exists
-            if not os.path.exists(abs_contract_path):
-                logger.error(f"Contract file not found: {abs_contract_path}")
-                return
-                
-            logger.info(f"Contract file exists, attempting to parse YAML")
-            try:
-                with open(abs_contract_path, 'r') as f:
-                    contract_data = yaml.safe_load(f)
-                    logger.info(f"Contract file parsed successfully: {list(contract_data.keys()) if contract_data else 'empty'}") 
-            except Exception as yaml_err:
-                logger.error(f"Error parsing contract file: {str(yaml_err)}")
-                return
-                
-            # Extract KPIs from contract
-            kpis = contract_data.get('kpis', [])
-            logger.info(f"Found {len(kpis)} KPIs in contract file")
-            
-            # Log the first KPI to see its structure
-            if kpis:
-                logger.info(f"First KPI structure: {kpis[0].keys() if isinstance(kpis[0], dict) else 'not a dict'}")
-            else:
-                logger.warning("Contract file does not contain any KPIs under 'kpis' key")
-            
-            # Convert contract KPIs to internal KPI definitions
-            for kpi_data in kpis:
-                try:
-                    # Create a basic KPI definition from contract data
-                    kpi_name = kpi_data.get('name')
-                    if not kpi_name:
-                        continue
-                        
-                    # Map contract KPI fields to internal KPI definition
-                    thresholds = kpi_data.get('thresholds')
-                    thresholds_dict = thresholds if isinstance(thresholds, dict) else None
-
-                    # Prefer explicit calculation; if missing, synthesize from aggregation/base_column/filter_type
-                    calc_value = kpi_data.get('calculation')
-                    
-                    # Initialize filters dictionary
-                    filters_dict = {}
-                    
-                    # 1. Try top-level 'filters'
-                    if kpi_data.get('filters') and isinstance(kpi_data.get('filters'), dict):
-                        filters_dict.update(kpi_data.get('filters'))
-                        
-                    # 2. Try nested in 'calculation' if it's a dict
-                    if isinstance(calc_value, dict) and 'filters' in calc_value:
-                        if isinstance(calc_value['filters'], dict):
-                            filters_dict.update(calc_value['filters'])
-                            
-                    # 3. Try filter_type/filter_value pair (Legacy/Simple format)
-                    # This overrides previous keys if there's a conflict, which is desired for simple definitions
-                    filter_type = kpi_data.get('filter_type')
-                    filter_value = kpi_data.get('filter_value')
-                    if filter_type and filter_value:
-                        key = filter_type
-                        # Normalize common column names
-                        if str(filter_type).lower() == 'account_hierarchy_desc':
-                            key = "Account Hierarchy Desc"
-                        filters_dict[key] = filter_value
-
-                    if not calc_value:
-                        agg = kpi_data.get('aggregation')
-                        base_col = kpi_data.get('base_column')
-                        if agg and base_col:
-                            # Normalize base column quoting to match view aliases
-                            expr_col = base_col
-                            if isinstance(expr_col, str) and not expr_col.startswith('[') and ' ' in expr_col:
-                                expr_col = f"[{expr_col}]"
-                            calc_expr = f"{agg}({expr_col})"
-                            # Inline filter support for common pattern account_hierarchy_desc
-                            # (We still patch the string calculation for completeness, though filters_dict is what matters for SQL gen)
-                            if filter_type and filter_value:
-                                if str(filter_type).lower() == 'account_hierarchy_desc':
-                                    calc_value = f"{calc_expr} WHERE \"Account Hierarchy Desc\" = '{filter_value}'"
-                                else:
-                                    # Generic inline filter using provided type as column name
-                                    calc_value = f"{calc_expr} WHERE {filter_type} = '{filter_value}'"
-                            else:
-                                calc_value = calc_expr
-                        # else leave as None
-                    
-                    # Extract view name from join_tables if available
-                    view_name = None
-                    join_tables = kpi_data.get('join_tables')
-                    if join_tables and isinstance(join_tables, list) and len(join_tables) > 0:
-                        view_name = join_tables[0]
-
-                    kpi_def = KPIDefinition(
-                        name=kpi_name,
-                        description=kpi_data.get('description', ''),
-                        data_product_id=kpi_data.get('data_product_id') or contract_data.get('data_product', ''),
-                        calculation=calc_value,
-                        diagnostic_questions=kpi_data.get('diagnostic_questions'),
-                        business_processes=kpi_data.get('business_terms', []),
-                        thresholds=thresholds_dict,
-                        view_name=view_name,
-                        filters=filters_dict  # Pass the extracted filters
-                    )
-                    
-                    # Add to registry only if not already present (Registry takes precedence)
-                    if kpi_name not in self.kpi_registry:
-                        self.kpi_registry[kpi_name] = kpi_def
-                        logger.info(f"Added KPI from contract: {kpi_name}")
-                    else:
-                        logger.debug(f"Skipping KPI from contract (already in registry): {kpi_name}")
-                    
-                except Exception as kpi_err:
-                    logger.warning(f"Error creating KPI definition for {kpi_data.get('name', 'unknown')}: {str(kpi_err)}")
-                    
-            logger.info(f"Loaded {len(self.kpi_registry)} KPIs from contract file")
-            
+            registry_factory = self.config.get("registry_factory")
+            if not registry_factory:
+                from src.registry.factory import RegistryFactory
+                registry_factory = RegistryFactory()
+            dp_provider = registry_factory.get_provider("data_product")
+            if not dp_provider:
+                return None
+            dp = dp_provider.get(data_product_id)
+            if not dp:
+                return None
+            # Try direct source_system field first
+            ss = getattr(dp, "source_system", None)
+            # Fallback to metadata dict if not present as direct attribute
+            if not ss and hasattr(dp, "metadata") and isinstance(getattr(dp, "metadata", None), dict):
+                ss = dp.metadata.get("source_system")
+            return ss.lower() if ss else None
         except Exception as e:
-            logger.error(f"Error loading KPIs from contract: {str(e)}")
-            # Last resort - create empty registry
-            self.kpi_registry = {}
-    
+            self.logger.debug(f"Error resolving source_system for {data_product_id}: {e}")
+            return None
+
+    # ──────────────────────────────────────────────────────────────────────────
+
     def _kpi_matches_domains(self, kpi: KPI, target_domains: List[str]) -> bool:
         """
         Check if a KPI is relevant to any of the specified target domains.
@@ -1784,7 +1617,7 @@ class A9_Situation_Awareness_Agent:
             # This must happen before any other filtering to prevent cross-client leaks.
             if client_id:
                 kpi_client = getattr(kpi_def, 'client_id', None)
-                if kpi_client is not None and kpi_client != client_id:
+                if kpi_client != client_id:
                     continue
 
             # Include KPIs without business processes defined (test/dev data)
@@ -2007,15 +1840,23 @@ class A9_Situation_Awareness_Agent:
                 pass
 
             # Single-source SQL generation (for both execution and later UI display)
-            # Detect BigQuery KPIs: pre-built SQL that uses `project.dataset.view` refs.
-            # Detect SQL Server KPIs: pre-built T-SQL that uses [BracketQuoted] table refs.
-            # Both bypass generate_sql_for_kpi (DuckDB/time_dim-centric) entirely and
-            # receive date filters applied directly in this method.
+            # Tier 1: Look up source_system from data product registry
+            # Tier 2: Fallback to regex detection if data_product_id is missing or unresolvable
+            # Tier 3: Default to DuckDB path
             _raw_kpi_sql = (getattr(kpi_definition, 'calculation', None) or
                             getattr(kpi_definition, 'sql_query', None) or '')
-            _is_bq_kpi = bool(re.search(r'`[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_.-]+`', _raw_kpi_sql))
-            # SQL Server: bracket-quoted table identifiers ([ViewName]) but NOT BigQuery
-            _is_ss_kpi = (not _is_bq_kpi) and bool(re.search(r'\[[A-Za-z][\w\s]*\]', _raw_kpi_sql))
+            _gen_dp_id = getattr(kpi_definition, 'data_product_id', None)
+            _source_system = self._resolve_source_system(_gen_dp_id)
+
+            if _source_system:
+                _is_bq_kpi = _source_system == 'bigquery'
+                _is_ss_kpi = _source_system in ('sqlserver', 'sql_server', 'mssql')
+                _is_sf_kpi = _source_system == 'snowflake'
+            else:
+                # Tier 2 fallback: regex detection for unlinked queries
+                _is_bq_kpi = bool(re.search(r'`[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_.-]+`', _raw_kpi_sql))
+                _is_ss_kpi = (not _is_bq_kpi) and bool(re.search(r'\[[A-Za-z][\w\s]*\]', _raw_kpi_sql))
+                _is_sf_kpi = False
             _bq_date_col = (
                 (kpi_definition.metadata or {}).get('date_column', 'transaction_date')
                 if hasattr(kpi_definition, 'metadata') and isinstance(getattr(kpi_definition, 'metadata', None), dict)
@@ -2039,6 +1880,15 @@ class A9_Situation_Awareness_Agent:
                 self.logger.info(f"[SS path] base_sql for '{kpi_name}': {base_sql[:140]}")
                 if not base_sql:
                     self.logger.error(f"[SS path] Failed to build base SQL for {kpi_name}")
+                    return None
+            elif _is_sf_kpi:
+                # Snowflake path: apply ISO date filter directly (Snowflake accepts BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD').
+                # Similar to SQL Server, we apply the date filter here since DPA's generate_sql_for_kpi
+                # is DuckDB-centric and cannot reliably inject filters into Snowflake SQL.
+                base_sql = self._bq_apply_period(_raw_kpi_sql, timeframe, is_comparison=False, date_col=_bq_date_col)
+                self.logger.info(f"[SF path] base_sql for '{kpi_name}': {base_sql[:140]}")
+                if not base_sql:
+                    self.logger.error(f"[SF path] Failed to build base SQL for {kpi_name}")
                     return None
             else:
                 try:
@@ -2089,10 +1939,10 @@ class A9_Situation_Awareness_Agent:
                 self.logger.error(f"Error executing base SQL for {kpi_name}: {e}")
                 return None
             # ── Build monthly series SQL (sync, no I/O) ──
-            # BQ-native KPIs: use _raw_kpi_sql (backtick refs, no date filter)
+            # BQ-native and Snowflake KPIs: use _raw_kpi_sql (backtick refs for BQ, native for SF)
             # SS KPIs: monthly series not yet supported (T-SQL parsing differs) — skip
             # DPA-path KPIs: use base_sql (double-quoted view, date filter stripped inside)
-            monthly_source = _raw_kpi_sql if _is_bq_kpi else (None if _is_ss_kpi else base_sql)
+            monthly_source = _raw_kpi_sql if (_is_bq_kpi or _is_sf_kpi) else (None if _is_ss_kpi else base_sql)
             monthly_sql = ""
             if monthly_source:
                 monthly_sql = self._bq_monthly_series_sql(monthly_source, date_col=_bq_date_col, num_months=9)
@@ -2116,6 +1966,15 @@ class A9_Situation_Awareness_Agent:
                         date_col=_bq_date_col
                     )
                     self.logger.info(f"[SS path] comp_sql for '{kpi_name}': {comp_sql[:140]}")
+                elif _is_sf_kpi:
+                    # Snowflake: apply comparison period date filter directly.
+                    # ISO date strings work in Snowflake, so _bq_apply_period is reusable.
+                    comp_sql = self._bq_apply_period(
+                        _raw_kpi_sql, timeframe,
+                        is_comparison=True, comparison_type=comparison_type,
+                        date_col=_bq_date_col
+                    )
+                    self.logger.info(f"[SF path] comp_sql for '{kpi_name}': {comp_sql[:140]}")
                 else:
                     try:
                         comp_sql_resp = await self.data_product_agent.generate_sql_for_kpi_comparison(
@@ -2149,7 +2008,7 @@ class A9_Situation_Awareness_Agent:
                     return None
                 self.logger.info(f"[Monthly] Executing monthly series for {kpi_name}")
                 try:
-                    result = await self.data_product_agent.execute_sql(monthly_sql, parameters=None, principal_context=principal_context)
+                    result = await self.data_product_agent.execute_sql(monthly_sql, parameters=None, principal_context=principal_context, data_product_id=_gen_dp_id)
                     if not result or not (result.get("rows") or result.get("data")):
                         self.logger.info(f"[Monthly] No rows returned for {kpi_name}")
                         return None
@@ -2179,7 +2038,7 @@ class A9_Situation_Awareness_Agent:
                 if not comp_sql:
                     return None
                 try:
-                    return await self.data_product_agent.execute_sql(comp_sql, parameters=None, principal_context=principal_context)
+                    return await self.data_product_agent.execute_sql(comp_sql, parameters=None, principal_context=principal_context, data_product_id=_gen_dp_id)
                 except Exception as _ce:
                     self.logger.warning(f"Comparison query failed for {kpi_name}: {_ce}")
                     return None
@@ -3140,10 +2999,9 @@ class A9_Situation_Awareness_Agent:
                 self.logger.warning("Data Product Agent not available for SQL generation")
                 return None
             # Build a minimal context for DPA (let DPA decide how to use LLM/deterministic paths)
-            dp_id = os.path.splitext(os.path.basename(self.contract_path))[0] if hasattr(self, 'contract_path') else "fi_star_schema"
+            dp_id = self.config.get("data_product_id", "fi_star_schema")
             context = {
                 'data_product_id': dp_id,
-                'contract_path': getattr(self, 'contract_path', None),
                 'kpi_values': [kv.model_dump() if hasattr(kv, 'model_dump') else kv.__dict__ for kv in (kpi_values or [])]
             }
             dp_resp = await self.data_product_agent.generate_sql(query, context)
@@ -3290,7 +3148,7 @@ def create_situation_awareness_agent(config: Dict[str, Any]) -> "A9_Situation_Aw
     
     Args:
         config: Configuration dictionary with these options:
-            - contract_path: Path to the data contract YAML file (required)
+            - registry_factory: Initialized RegistryFactory instance (injected by bootstrap)
             - target_domains: List of domain prefixes to filter KPIs (optional, defaults to ['Finance'])
             - kpi_thresholds: Custom KPI thresholds (optional)
             - principal_profile_path: Custom principal profile path (optional)

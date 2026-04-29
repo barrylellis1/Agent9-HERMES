@@ -106,8 +106,11 @@ async def test_lubricants_principal_sees_only_lubricants_kpis():
 
 
 @pytest.mark.asyncio
-async def test_no_client_id_returns_all_kpis():
-    """Backward compatibility: no client_id → all KPIs returned."""
+async def test_unscoped_principal_sees_all_kpis():
+    """Admin/unscoped context: principal with no client_id sees all KPIs.
+
+    This is the system/admin context only. Normal principals always have a client_id.
+    """
     sa = await _get_sa_agent()
     ctx = _make_principal("admin_001", None)
     result = sa._get_relevant_kpis(ctx, business_processes=["Finance"])
@@ -128,10 +131,15 @@ async def test_client_id_from_principal_context_used_when_not_explicit():
 
 
 @pytest.mark.asyncio
-async def test_kpi_without_client_id_included_when_principal_has_client():
-    """A KPI with client_id=None should still be visible (legacy/shared data)."""
+async def test_kpi_without_client_id_excluded_when_principal_has_client():
+    """A KPI with client_id=None must NOT appear in a client-scoped scan.
+
+    When a principal has a client_id, the filter is strict: only KPIs with exactly
+    matching client_id are included. KPIs with client_id=None are unscoped and must
+    be excluded to prevent cross-tenant contamination.
+    """
     sa = await _get_sa_agent()
-    # Add a shared KPI with no client_id
+    # Add a shared KPI with no client_id (simulating contract-loaded or legacy data)
     sa.kpi_registry["Shared Metric"] = KPIDefinition(
         name="Shared Metric",
         description="Cross-client metric",
@@ -143,10 +151,10 @@ async def test_kpi_without_client_id_included_when_principal_has_client():
     ctx = _make_principal("cfo_001", "bicycle")
     result = sa._get_relevant_kpis(ctx, business_processes=["Finance"])
     names = set(result.keys())
-    # Bicycle KPIs + shared (no client_id) should be included
-    assert "Shared Metric" in names
+    # Only bicycle-scoped KPIs should be included — no unscoped metrics
+    assert "Shared Metric" not in names, "Unscoped KPI (client_id=None) must be excluded"
     assert "Gross Revenue" in names
-    # Lubricants should still be excluded
+    # Lubricants still excluded (cross-client)
     assert "Lubricant Sales" not in names
 
 
@@ -217,8 +225,13 @@ async def test_dga_denies_cross_client_access():
 
 
 @pytest.mark.asyncio
-async def test_dga_allows_when_no_client_id():
-    """Backward compat: no client_id on request → allow (legacy behavior)."""
+async def test_dga_allows_when_principal_is_unscoped():
+    """Admin/unscoped context: principal with no client_id can access any data product.
+
+    When a principal has no client_id (system/admin context), access is allowed
+    regardless of the data product's client_id. Normal principals always have
+    a client_id and are subject to strict tenant isolation.
+    """
     from src.agents.new.a9_orchestrator_agent import (
         A9_Orchestrator_Agent,
         initialize_agent_registry,

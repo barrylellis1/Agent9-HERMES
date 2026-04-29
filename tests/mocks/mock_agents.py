@@ -174,7 +174,7 @@ class MockDataProductAgent(DataProductProtocol):
     def __init__(self, config=None):
         """Initialize with optional config."""
         self.config = config or {}
-        self.contract_path = self.config.get("contract_path", "src/contracts/fi_star_schema.yaml")
+        self.data_product_id = self.config.get("data_product_id", "fi_star_schema")
         
     async def connect(self):
         """Connect to the agent."""

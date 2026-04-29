@@ -161,34 +161,9 @@ class A9_Principal_Context_Agent:
             # Get all principal profiles
             profiles = self._principal_provider.get_all() or {}
             if not profiles:
-                self.logger.warning("No principal profiles found in registry, attempting to load from file")
-                # Try to load from file
-                try:
-                    import yaml
-                    import os
-                    
-                    # Try to load from the standard registry location
-                    registry_path = os.path.join("src", "registry", "principal", "principal_registry.yaml")
-                    if os.path.exists(registry_path):
-                        with open(registry_path, 'r') as file:
-                            yaml_data = yaml.safe_load(file)
-                            if yaml_data and "principals" in yaml_data and isinstance(yaml_data["principals"], list):
-                                # Register profiles with provider
-                                for profile in yaml_data["principals"]:
-                                    self._principal_provider.register(profile)
-                                
-                                # Try to get profiles again
-                                profiles = self._principal_provider.get_all() or {}
-                                if profiles:
-                                    self.logger.info(f"Successfully loaded {len(profiles)} profiles from file")
-                except Exception as e:
-                    self.logger.error(f"Error loading profiles from file: {str(e)}")
-                
-                # If still no profiles, use defaults
-                if not profiles:
-                    self.logger.warning("Still no profiles found, using default profiles")
-                    self.principal_profiles = self._get_default_profiles()
-                    return
+                self.logger.error("No principal profiles found in Supabase registry — verify seed data")
+                self.principal_profiles = self._get_default_profiles()
+                return
             
             # Ensure profiles is in the correct format
             if isinstance(profiles, list):

@@ -109,6 +109,7 @@ async def get_assessment(run_id: str) -> AssessmentSummary:
 @router.post("/run", response_model=AssessmentRun)
 async def trigger_assessment(
     principal_id: Optional[str] = None,
+    client_id: Optional[str] = None,
     dry_run: bool = False,
     runtime=Depends(get_agent_runtime),
 ) -> AssessmentRun:
@@ -119,7 +120,7 @@ async def trigger_assessment(
     EnterpriseAssessmentEngine, stores the completed run and its per-KPI
     results, then returns the finished AssessmentRun.
     """
-    config = AssessmentConfig(principal_id=principal_id, dry_run=dry_run)
+    config = AssessmentConfig(principal_id=principal_id, client_id=client_id, dry_run=dry_run)
 
     run_id = str(uuid.uuid4())
     run = AssessmentRun(

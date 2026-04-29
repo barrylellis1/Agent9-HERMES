@@ -148,6 +148,8 @@ class A9_Data_Product_Agent(DataProductProtocol):
         self._bq_manager = None
         # Cached SQL Server manager — created on first T-SQL execution
         self._ss_manager = None
+        # Cached Snowflake manager — created on first Snowflake SQL execution
+        self._sf_manager = None
         
         # MCP Service Agent will be initialized in _async_init
         self.mcp_service_agent = None
@@ -1088,6 +1090,22 @@ class A9_Data_Product_Agent(DataProductProtocol):
             }
             settings["connection_params"] = {}
             settings["schema"] = schema
+
+        elif source_system == "snowflake":
+            import os as _os
+            overrides = settings["connection_overrides"]
+            settings["connection_config"] = {
+                "account": overrides.get("account") or _os.getenv("SF_ACCOUNT", ""),
+                "warehouse": overrides.get("warehouse") or _os.getenv("SF_WAREHOUSE", "AGENT9_WH"),
+                "database": overrides.get("database") or _os.getenv("SF_DATABASE", "AGENT9_DEMO"),
+                "schema": overrides.get("schema") or _os.getenv("SF_SCHEMA", "LUBRICANTS"),
+                "role": overrides.get("role") or _os.getenv("SF_ROLE", "ACCOUNTADMIN"),
+            }
+            settings["connection_params"] = {
+                "user": overrides.get("username") or _os.getenv("SF_USERNAME", ""),
+                "password": overrides.get("password") or _os.getenv("SF_PASSWORD", ""),
+            }
+            settings["schema"] = settings["connection_config"]["schema"]
 
         # Set defaults for inspection
         if not settings["schema"]:
@@ -3622,6 +3640,87 @@ class A9_Data_Product_Agent(DataProductProtocol):
             self._ss_manager = None
             return False
 
+    async def _ensure_snowflake_connected(self, data_product_id: Optional[str] = None) -> bool:
+        """Return a connected SnowflakeManager, creating and caching it on first call.
+
+        Connection config is resolved in priority order:
+        1. Metadata embedded in the data product registry record
+        2. Environment variables: SF_ACCOUNT, SF_DATABASE, SF_USERNAME, SF_PASSWORD, etc.
+        3. Defaults targeting the trial account.
+        """
+        if self._sf_manager is not None:
+            return True
+        try:
+            from src.database.backends.snowflake_manager import SnowflakeManager
+            import os
+
+            config: Dict[str, Any] = {
+                "account": os.getenv("SF_ACCOUNT", ""),
+                "warehouse": os.getenv("SF_WAREHOUSE", "AGENT9_WH"),
+                "database": os.getenv("SF_DATABASE", "AGENT9_DEMO"),
+                "schema": os.getenv("SF_SCHEMA", "LUBRICANTS"),
+                "role": os.getenv("SF_ROLE", "ACCOUNTADMIN"),
+            }
+            conn_params: Dict[str, Any] = {
+                "user": os.getenv("SF_USERNAME", ""),
+                "password": os.getenv("SF_PASSWORD", ""),
+            }
+
+            # Override from data product registry metadata when available
+            if data_product_id and hasattr(self, "registry_factory") and self.registry_factory:
+                try:
+                    dp_provider = self.registry_factory.get_provider("data_product")
+                    dp = dp_provider.get(data_product_id) if dp_provider else None
+                    if dp and hasattr(dp, "metadata") and isinstance(dp.metadata, dict):
+                        meta = dp.metadata
+                        for cfg_key, meta_key in [
+                            ("account",   "snowflake_account"),
+                            ("warehouse", "snowflake_warehouse"),
+                            ("database",  "snowflake_database"),
+                            ("schema",    "snowflake_schema"),
+                            ("role",      "snowflake_role"),
+                        ]:
+                            if meta.get(meta_key):
+                                config[cfg_key] = meta[meta_key]
+                        if meta.get("snowflake_username"):
+                            conn_params["user"] = meta["snowflake_username"]
+                        if meta.get("snowflake_password"):
+                            conn_params["password"] = meta["snowflake_password"]
+                except Exception as meta_err:
+                    self.logger.debug(f"Could not load Snowflake config from data product registry: {meta_err}")
+
+            if not config.get("account"):
+                self.logger.warning("Snowflake account not configured — set SF_ACCOUNT env var")
+                return False
+
+            self._sf_manager = SnowflakeManager(config, logger=self.logger)
+            ok = await self._sf_manager.connect(conn_params)
+            if not ok:
+                self._sf_manager = None
+                self.logger.warning("SnowflakeManager failed to connect — check credentials")
+            return ok
+        except Exception as e:
+            self.logger.error(f"Error creating SnowflakeManager: {e}")
+            self._sf_manager = None
+            return False
+
+    def _resolve_source_system(self, data_product_id: Optional[str]) -> Optional[str]:
+        """Look up the source_system for a data product from the registry."""
+        if not data_product_id or not hasattr(self, "registry_factory") or not self.registry_factory:
+            return None
+        try:
+            dp_provider = self.registry_factory.get_provider("data_product")
+            dp = dp_provider.get(data_product_id) if dp_provider else None
+            if dp:
+                # Try source_system attribute first, then metadata dict
+                ss = getattr(dp, "source_system", None)
+                if not ss and hasattr(dp, "metadata") and isinstance(dp.metadata, dict):
+                    ss = dp.metadata.get("source_system")
+                return ss.lower() if ss else None
+        except Exception:
+            pass
+        return None
+
     async def execute_sql(self, sql_query: Union[str, 'SQLExecutionRequest'], parameters: Optional[Dict[str, Any]] = None, principal_context=None, data_product_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Execute a SQL query using the embedded DuckDBManager (or BigQueryManager when the SQL
@@ -3673,6 +3772,54 @@ class A9_Data_Product_Agent(DataProductProtocol):
             }
 
         try:
+            # ── Source-system-based routing (when data_product_id is known) ─────
+            _resolved_source = self._resolve_source_system(data_product_id) if data_product_id else None
+
+            if _resolved_source == "snowflake":
+                self.logger.info(f"[TXN:{transaction_id}] Routing to Snowflake (source_system={_resolved_source}, dp={data_product_id})")
+                sf_ok = await self._ensure_snowflake_connected(data_product_id=data_product_id)
+                if sf_ok and self._sf_manager is not None:
+                    t0 = time.time()
+                    try:
+                        df = await self._sf_manager.execute_query(sql_query, parameters or {}, transaction_id)
+                        exec_ms = (time.time() - t0) * 1000.0
+                        columns = list(getattr(df, "columns", [])) if hasattr(df, "columns") else []
+                        rows = df.to_dict(orient="records") if hasattr(df, "to_dict") else (df if isinstance(df, list) else [])
+                        return {
+                            "transaction_id": transaction_id,
+                            "sql": sql_query,
+                            "columns": columns,
+                            "rows": rows,
+                            "row_count": len(rows),
+                            "execution_time": exec_ms,
+                            "query_time_ms": exec_ms,
+                            "success": True,
+                            "status": "success",
+                            "message": f"Snowflake executed in {exec_ms:.2f} ms",
+                            "data": rows,
+                        }
+                    except Exception as sf_err:
+                        self.logger.error(f"[TXN:{transaction_id}] Snowflake execution error: {sf_err}")
+                        return {
+                            "transaction_id": transaction_id,
+                            "sql": sql_query,
+                            "columns": [], "rows": [], "row_count": 0,
+                            "execution_time": 0, "query_time_ms": 0,
+                            "success": False, "status": "error",
+                            "message": str(sf_err), "error": str(sf_err), "data": [],
+                        }
+                else:
+                    return {
+                        "transaction_id": transaction_id,
+                        "sql": sql_query,
+                        "columns": [], "rows": [], "row_count": 0,
+                        "execution_time": 0, "query_time_ms": 0,
+                        "success": False, "status": "error",
+                        "message": "Snowflake not available — check SF_ACCOUNT/SF_PASSWORD env vars",
+                        "data": [],
+                    }
+            # ── End Snowflake routing ───────────────────────────────────────────
+
             # ── BigQuery routing ────────────────────────────────────────────────
             # Detect fully-qualified BigQuery references: `project.dataset.table`
             import re as _re
@@ -4011,11 +4158,24 @@ class A9_Data_Product_Agent(DataProductProtocol):
         kpi_name = getattr(kpi_definition, "name", "unknown")
         self.logger.info(f"[TXN:{transaction_id}] Generating SQL for KPI: {kpi_name}, timeframe={timeframe}, topn={topn}, breakdown={breakdown}, override_group_by={override_group_by}")
         try:
-            # Detect BigQuery KPI: sql_query contains a backtick-quoted project.dataset.table ref
             _raw_sql = (getattr(kpi_definition, "sql_query", "") or
                         getattr(kpi_definition, "calculation", "") or "")
-            _BQ_PAT = _re.compile(r'`[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_.-]+`')
-            if _BQ_PAT.search(_raw_sql):
+            _dp_id = getattr(kpi_definition, "data_product_id", None)
+
+            # Tier 1: Look up source_system from data product registry
+            _source_system = self._resolve_source_system(_dp_id)
+
+            # Tier 2: Fallback to regex detection if source_system not found
+            if not _source_system:
+                _BQ_PAT = _re.compile(r'`[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_.-]+`')
+                _SS_PAT = _re.compile(r'\[\w[\w\s]*\]')
+                if _BQ_PAT.search(_raw_sql):
+                    _source_system = 'bigquery'
+                elif _SS_PAT.search(_raw_sql):
+                    _source_system = 'sqlserver'
+
+            # Route by source_system
+            if _source_system == 'bigquery':
                 bq_sql = self._build_bq_dimensional_sql(
                     _raw_sql, kpi_definition, timeframe, topn, breakdown, override_group_by
                 )
@@ -4023,12 +4183,8 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     self.logger.info(f"[TXN:{transaction_id}] [BQ path] SQL for '{kpi_name}': {bq_sql[:120]}")
                     return {"sql": bq_sql, "kpi_name": kpi_name, "transaction_id": transaction_id, "success": True, "message": f"BigQuery SQL generated for {kpi_name}"}
 
-            # Detect SQL Server KPI: sql_query/calculation contains bracket-quoted T-SQL identifiers [view]
-            _SS_PAT = _re.compile(r'\[\w[\w\s]*\]')
-            if _raw_sql and _SS_PAT.search(_raw_sql):
+            elif _source_system in ('sqlserver', 'sql_server', 'mssql'):
                 self.logger.info(f"[TXN:{transaction_id}] [SS path] Using stored T-SQL for '{kpi_name}': {_raw_sql[:120]}")
-                # Attach data_product_id so execute_sql can pick the right connection config
-                _dp_id = getattr(kpi_definition, "data_product_id", None)
                 return {
                     "sql": _raw_sql,
                     "kpi_name": kpi_name,
@@ -4037,6 +4193,18 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     "message": f"SQL Server SQL (stored) for {kpi_name}",
                     "data_product_id": _dp_id,
                     "source_system": "sqlserver",
+                }
+
+            elif _source_system == 'snowflake':
+                self.logger.info(f"[TXN:{transaction_id}] [SF path] Using stored Snowflake SQL for '{kpi_name}': {_raw_sql[:120]}")
+                return {
+                    "sql": _raw_sql,
+                    "kpi_name": kpi_name,
+                    "transaction_id": transaction_id,
+                    "success": True,
+                    "message": f"Snowflake SQL (stored) for {kpi_name}",
+                    "data_product_id": _dp_id,
+                    "source_system": "snowflake",
                 }
 
             sql = await self._generate_sql_for_kpi(

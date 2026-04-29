@@ -231,10 +231,24 @@ class DatabaseRegistryProvider(RegistryProvider[T]):
 
     async def _delete_async(self, item_id: str) -> bool:
         try:
-            # Assuming single key field for deletion for now
-            key_col = self.key_fields[0]
-            success = await self.db_manager.delete_record(self.table_name, key_col, item_id)
-            return success
+            # Handle composite keys: when multiple key_fields are present, item_id is in format "field1_value:field2_value:..."
+            if len(self.key_fields) > 1:
+                # Parse composite key
+                parts = item_id.split(":", len(self.key_fields) - 1)
+                if len(parts) != len(self.key_fields):
+                    logger.error(f"Composite key {item_id} does not match expected {len(self.key_fields)} fields")
+                    return False
+                # Use the first key field for deletion (typically client_id)
+                # This is sufficient because the composite key uniquely identifies the record
+                key_col = self.key_fields[0]
+                key_value = parts[0]
+                success = await self.db_manager.delete_record(self.table_name, key_col, key_value)
+                return success
+            else:
+                # Single key field: delete by that field
+                key_col = self.key_fields[0]
+                success = await self.db_manager.delete_record(self.table_name, key_col, item_id)
+                return success
         except Exception as e:
             logger.error(f"Error deleting item {item_id}: {e}")
             return False

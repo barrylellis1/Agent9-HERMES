@@ -17,8 +17,8 @@ interface PremiseCard {
   title: string;
   febLevel: BadgeLevel;
   febLabel: string;
-  marLevel: BadgeLevel;
-  marLabel: string;
+  aprLevel: BadgeLevel;
+  aprLabel: string;
   verdict: string;
   borderColor: string;
   boxShadow?: string;
@@ -37,72 +37,72 @@ interface NewPremiseCard {
 const ORIGINAL_PREMISES: PremiseCard[] = [
   {
     id: 'P1',
-    title: 'No Marketplace Exists',
+    title: 'No One Is Already Doing This',
     febLevel: 'deferred',
     febLabel: 'Eroding',
-    marLevel: 'conditional',
-    marLabel: 'Repositioned',
-    verdict: 'Addressed — no longer the pitch',
+    aprLevel: 'conditional',
+    aprLabel: 'Repositioned',
+    verdict: 'Reframed — this is decision intelligence, not a marketplace',
     borderColor: COLORS.amber,
   },
   {
     id: 'P2',
-    title: 'Firms Slow to Adopt AI',
+    title: 'Companies Are Slow to Hire Consultants',
     febLevel: 'conditional',
     febLabel: 'Half True',
-    marLevel: 'conditional',
-    marLabel: 'Unchanged',
-    verdict: 'Not a factor for revised ICP',
+    aprLevel: 'conditional',
+    aprLabel: 'Unchanged',
+    verdict: 'Irrelevant for our target customer — they never hired big firms',
     borderColor: COLORS.amber,
   },
   {
     id: 'P3',
-    title: 'Mid-Market Will Buy',
+    title: 'Mid-Size Companies Will Buy',
     febLevel: 'conditional',
     febLabel: 'Conditional',
-    marLevel: 'improved',
-    marLabel: 'Improved',
-    verdict: 'Deployed product + 30-year career credibility',
+    aprLevel: 'improved',
+    aprLabel: 'Stronger',
+    verdict: 'Live product + demo-ready + 30 years of CFO-level credibility',
     borderColor: COLORS.emerald,
   },
   {
     id: 'P4',
-    title: 'Debate = Durable Moat',
+    title: 'The Method Is Hard to Copy',
     febLevel: 'conditional',
     febLabel: 'Closing',
-    marLevel: 'conditional',
-    marLabel: 'Deeper',
-    verdict: 'Registry + VA + MA make combination harder',
-    borderColor: COLORS.amber,
+    aprLevel: 'improved',
+    aprLabel: 'Stronger',
+    verdict: 'Five interlocking layers — now including outcome tracking',
+    borderColor: COLORS.emerald,
   },
   {
     id: 'P5',
-    title: 'Partners Encode IP',
+    title: 'Partners Will Embed Our Tools',
     febLevel: 'deferred',
-    febLabel: 'Unlikely',
-    marLevel: 'deferred',
-    marLabel: 'Deferred',
-    verdict: 'Correctly deferred — Tier 0 first',
+    febLabel: 'Too Early',
+    aprLevel: 'deferred',
+    aprLabel: 'Still Early',
+    verdict: 'Correctly deferred — need customers first',
     borderColor: COLORS.red,
   },
   {
     id: 'P6',
-    title: '$100K+ ACV Pre-Rev',
+    title: 'Pricing Can Start at $100K+',
     febLevel: 'deferred',
-    febLabel: 'Unrealistic',
-    marLevel: 'addressed',
-    marLabel: 'Addressed',
-    verdict: '$15K-$25K pilots accepted',
+    febLabel: 'Too High',
+    aprLevel: 'addressed',
+    aprLabel: 'Adjusted',
+    verdict: '$15K–$25K pilot gets us in the door; grows from there',
     borderColor: COLORS.emerald,
   },
   {
     id: 'P7',
-    title: 'Bootstrapped $2M ARR',
+    title: 'Can Reach $2M Revenue Solo',
     febLevel: 'conditional',
-    febLabel: 'Narrow',
-    marLevel: 'conditional',
-    marLabel: 'Revised',
-    verdict: '$600K-$1.4M base under incremental pricing',
+    febLabel: 'Stretch',
+    aprLevel: 'conditional',
+    aprLabel: 'Revised',
+    verdict: '$600K–$1.4M is realistic with per-KPI pricing model',
     borderColor: COLORS.amber,
   },
 ];
@@ -112,40 +112,40 @@ const NEW_PREMISES: NewPremiseCard[] = [
     id: 'P8',
     title: 'Never-Engaged ICP',
     level: 'strong',
-    verdict: 'No incumbent to displace; they never hired MBB',
+    verdict: 'No incumbent to displace — they never hired big consulting firms',
     borderColor: COLORS.emerald,
     boxShadow: `0 0 16px ${COLORS.emerald}30`,
   },
   {
     id: 'P9',
-    title: 'VA Tracking is Defensible',
+    title: 'Proving Results is a Differentiator',
     level: 'strong',
-    verdict: 'No competitor offers three-trajectory DiD tracking',
+    verdict: 'No competitor tracks whether a recommended fix actually worked',
     borderColor: COLORS.emerald,
     boxShadow: `0 0 16px ${COLORS.emerald}30`,
   },
   {
     id: 'P10',
-    title: '5-Day Onboarding = Moat',
+    title: 'Fast Setup Creates Lock-In',
     level: 'strong',
-    verdict: 'Template library compounds; switching costs from Day 1',
+    verdict: 'Once your KPIs are configured, switching means starting over',
     borderColor: COLORS.emerald,
     boxShadow: `0 0 16px ${COLORS.emerald}30`,
   },
   {
     id: 'P11',
-    title: 'Usage-Based Pricing',
+    title: 'Charge Per KPI Monitored',
     level: 'conditional',
     label: 'Plausible',
-    verdict: 'Needs demo feedback validation',
+    verdict: 'Needs validation from demo conversations',
     borderColor: COLORS.amber,
   },
   {
     id: 'P12',
-    title: 'Outcome-Based Component',
+    title: 'Tie Fees to Outcomes',
     level: 'conditional',
     label: 'Plausible',
-    verdict: 'VA trajectory = invoice justification',
+    verdict: 'Outcome tracking makes this possible — needs pilot to test',
     borderColor: COLORS.amber,
   },
 ];
@@ -182,7 +182,7 @@ export const PremisesScene: React.FC = () => {
           <>
             {/* Section title */}
             <SectionTitle
-              subtitle="Seven assumptions stress-tested against six weeks of execution."
+              subtitle="Seven assumptions we made at the start — and where they stand today."
               delay={titleDelay}
             >
               Core Premises — Reassessed
@@ -222,9 +222,9 @@ export const PremisesScene: React.FC = () => {
                           </div>
                           <div className="flex flex-col items-start gap-1">
                             <span className="text-xs uppercase tracking-wide" style={{ color: COLORS.muted }}>
-                              Mar
+                              Apr
                             </span>
-                            <ConfidenceBadge level={p.marLevel} label={p.marLabel} />
+                            <ConfidenceBadge level={p.aprLevel} label={p.aprLabel} />
                           </div>
                         </div>
                         <p className="text-sm mt-1" style={{ color: COLORS.muted }}>
@@ -268,9 +268,9 @@ export const PremisesScene: React.FC = () => {
                           </div>
                           <div className="flex flex-col items-start gap-1">
                             <span className="text-xs uppercase tracking-wide" style={{ color: COLORS.muted }}>
-                              Mar
+                              Apr
                             </span>
-                            <ConfidenceBadge level={p.marLevel} label={p.marLabel} />
+                            <ConfidenceBadge level={p.aprLevel} label={p.aprLabel} />
                           </div>
                         </div>
                         <p className="text-sm mt-1" style={{ color: COLORS.muted }}>
@@ -299,7 +299,7 @@ export const PremisesScene: React.FC = () => {
               }}
             >
               <span className="text-2xl font-bold text-white tracking-wide">
-                New Premises — March 2026
+                New Premises — April 2026
               </span>
             </div>
 
