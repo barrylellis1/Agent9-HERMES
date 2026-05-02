@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 from typing import Any, Dict, List, Optional
@@ -79,7 +80,7 @@ async def _fetch_principal_from_supabase(principal_id: str) -> Optional[Principa
                 params={"id": f"eq.{principal_id}", "select": "*"},
             )
             resp.raise_for_status()
-            rows = resp.json()
+            rows = json.loads(resp.text)
             if rows:
                 return PrincipalProfile.model_validate(rows[0])
     except Exception as e:
@@ -216,7 +217,7 @@ async def list_principals(
                         params={"client_id": f"eq.{client_id}", "select": "*"},
                     )
                     resp.raise_for_status()
-                    rows = resp.json()
+                    rows = json.loads(resp.text)
                     if rows:
                         items = [PrincipalProfile.model_validate(r) for r in rows]
                         return wrap(items)
@@ -546,9 +547,15 @@ def _get_glossary_provider(factory: RegistryFactory) -> BusinessGlossaryProvider
 
 
 @router.get("/glossary", response_model=Envelope)
-async def list_terms(factory: RegistryFactory = Depends(get_registry_factory)):
+async def list_terms(
+    client_id: Optional[str] = Query(None, description="Filter glossary terms by client/tenant ID"),
+    factory: RegistryFactory = Depends(get_registry_factory),
+):
     provider = _get_glossary_provider(factory)
-    return wrap(provider.get_all())
+    items = provider.get_all()
+    if client_id:
+        items = [t for t in items if getattr(t, "client_id", None) == client_id]
+    return wrap(items)
 
 
 @router.get("/glossary/{term_name}", response_model=Envelope)

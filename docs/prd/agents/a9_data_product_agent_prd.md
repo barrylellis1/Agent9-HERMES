@@ -2,8 +2,9 @@
 
 <!-- 
 CANONICAL PRD DOCUMENT
-Last updated: 2026-04-07
-MCP-first architecture locked; multi-warehouse SaaS connectivity
+Last updated: 2026-05-01
+Direct SDK connectors for multi-warehouse SaaS connectivity
+Status: BigQuery/DuckDB/SQL Server/Snowflake production; PostgreSQL/HANA/Databricks planned
 -->
 
 ## 1. Overview
@@ -14,21 +15,21 @@ The A9_Data_Product_Agent (DPA) is Decision Studio's universal data access layer
 
 ### 1.2 Design Philosophy
 
-**MCP-first external connectivity.** Decision Studio uses vendor-provided MCP (Model Context Protocol) servers for external warehouses, eliminating the need for per-client Python connectors and full SQL dialect translators. Vendors maintain the MCP server; Decision Studio maintains connection profiles and thin query dialect adapters.
+**Multi-backend connectivity via direct SDKs.** Decision Studio connects to enterprise data warehouses using vendor-provided SDKs (google-cloud-bigquery, snowflake-connector-python, pyodbc for SQL Server) and embedded engines (DuckDB). Each backend is a thin adapter layer that normalizes schema inspection and query execution responses.
 
 **Three-tier execution model:**
-- **Tier 1 (MCP):** External warehouses (Snowflake, Databricks, SAP Datasphere, HANA, PostgreSQL) → via vendor MCP servers
-- **Tier 2 (Direct SDK):** BigQuery → via google-cloud-bigquery SDK (mature SDK, no MCP server needed)
-- **Tier 3 (Embedded):** DuckDB → in-process, no external connection
+- **Tier 1 (Direct SDK):** Snowflake, SQL Server, BigQuery → via native SDKs (production)
+- **Tier 2 (Planned SDK):** PostgreSQL, HANA, Databricks → via native SDKs (future)
+- **Tier 3 (Embedded):** DuckDB → in-process via duckdb library (production)
 
 ### 1.3 Scope
 
 This document covers:
 - Multi-tenant connection profile resolution
-- Three-tier execution router
+- Three-tier execution router (BigQuery/SQL Server/Snowflake SDKs + DuckDB embedded)
 - QueryDialect abstraction for SQL syntax differences
-- Schema inspection adapters (DuckDB, BigQuery; Snowflake/Databricks/HANA follow on first client onboarding)
-- KPI time-series query entrypoint (`get_kpi_monthly_series`)
+- Schema inspection adapters (DuckDB, BigQuery, SQL Server, Snowflake production; PostgreSQL/HANA planned)
+- KPI data query entrypoint (`get_kpi_data`, `get_kpi_comparison_data`)
 - Data product discovery and contract management
 - LLM-assisted KPI definition workflow (API-only, no UI)
 - Error handling and governance integration
@@ -89,22 +90,29 @@ connection_profile:
 
 #### 3.1.2 Execution Router (Three-Tier Model)
 
-DPA routes queries based on `connectivity_type`:
+DPA routes queries based on `source_system` (resolved from KPI → data product metadata):
 
-| Tier | Source Systems | Execution Method | Vendor Responsibility | Decision Studio Responsibility |
+| Tier | Source System | SDK | Execution Method | Status |
 |---|---|---|---|---|
-| **MCP** | Snowflake, Databricks, PostgreSQL, HANA, SAP Datasphere | HTTP POST to MCP endpoint | Connection pooling, auth, SQL dialect, query execution | Connection profile, MCP server discovery, response normalization |
-| **Direct SDK** | BigQuery | google-cloud-bigquery SDK | Managed service, auth via GCP credentials | Service account resolution, query construction |
-| **Embedded** | DuckDB | In-process execution (duckdb library) | N/A | All execution and schema inspection |
+| **Tier 1** | BigQuery | google-cloud-bigquery | Native SDK via GCP credentials | ✅ Production |
+| **Tier 1** | Snowflake | snowflake-connector-python | Native SDK via connection profile | ✅ Production |
+| **Tier 1** | SQL Server | pyodbc | Native SDK via ODBC driver | ✅ Production |
+| **Tier 2** | PostgreSQL | psycopg2 | Native SDK via connection profile | 🔄 Planned |
+| **Tier 2** | HANA | hdbcli | Native SDK via connection profile | 🔄 Planned |
+| **Tier 2** | Databricks | databricks-sql-connector | Native SDK via connection profile | 🔄 Planned |
+| **Tier 3** | DuckDB | duckdb (embedded) | In-process execution | ✅ Production |
 
 **Routing logic:**
 ```python
-if connectivity_type == "mcp":
-    result = await mcp_execute(mcp_endpoint, query_params)
-elif connectivity_type == "direct_bq":
-    result = await bigquery_execute(query, credentials)
-elif connectivity_type == "direct_duckdb":
-    result = duckdb.execute(query)
+source_system = kpi_definition.data_product.source_system
+if source_system == "bigquery":
+    result = await bigquery_manager.execute_query(sql_query)
+elif source_system == "snowflake":
+    result = await snowflake_manager.execute_query(sql_query)
+elif source_system == "sqlserver":
+    result = await sqlserver_manager.execute_query(sql_query)
+elif source_system == "duckdb":
+    result = duckdb.execute(sql_query)
 ```
 
 #### 3.1.3 QueryDialect Layer
@@ -135,17 +143,18 @@ DPA leverages the Unified Registry Access Layer to discover data products:
 - Use the Data Product Provider to find data products by attribute, domain, or business process
 - Support both legacy enum-based discovery and registry-based discovery
 
-#### 3.1.5 KPI Time-Series Queries
+#### 3.1.5 KPI Data Queries
 
-**Entrypoint:** `get_kpi_monthly_series(kpi_definition, timeframe, num_months=9)`
+**Primary entrypoints:**
+1. `get_kpi_data(kpi_definition, timeframe, filters, principal_context)` — base KPI data
+2. `get_kpi_comparison_data(kpi_definition, timeframe, comparison_type, filters, principal_context)` — comparison data (YoY, MoM, vs budget)
 
-This is the canonical entry point for all trend data used by SA and other agents. DPA:
-1. Resolves the KPI's data product
-2. Looks up the connection profile for that data product
-3. Selects the appropriate QueryDialect
-4. Constructs SQL using dialect to build time-series grouping
-5. Routes query to correct tier (MCP/SDK/embedded)
-6. Normalises response: `{"columns": [...], "rows": [...], "row_count": int}`
+These are the canonical entry points for all data used by SA and other agents. DPA:
+1. Resolves the KPI's data product → looks up `source_system` and connection config
+2. Selects the appropriate backend manager (BigQuery/Snowflake/SQL Server/DuckDB)
+3. Generates SQL using appropriate QueryDialect for that backend
+4. Executes query via native SDK
+5. Normalizes response: `{"columns": [...], "rows": [...], "row_count": int}`
 
 **Response format (all tiers):**
 ```python
@@ -312,35 +321,39 @@ src/registry/
 
 ## 5. Implementation Status
 
-**Phase 10C** (Current):
+**Phase 10C** (Current — May 2026):
 
-| Capability | Status | Notes |
-|---|---|---|
-| **Execution Router** | Partial | BigQuery + DuckDB only; MCP infrastructure stubbed |
-| **Connection Profile Resolution** | Partial | Supabase registry lookup works; MCP credential routing TBD |
-| **QueryDialect: BigQuery** | Production | Phase 9B |
-| **QueryDialect: DuckDB** | Production | Phase 9B |
-| **QueryDialect: Snowflake** | Stub | Phase 10C; live when first Snowflake client onboards |
-| **QueryDialect: Databricks** | Stub | Phase 10C; live when first Databricks client onboards |
-| **QueryDialect: HANA/Datasphere** | Stub | Phase 10C; live when first SAP client onboards |
-| **QueryDialect: PostgreSQL** | Stub | Phase 10C; live when first Postgres client onboards |
-| **`get_kpi_monthly_series`** | Phase 10C | Entry point for SA agent; BigQuery/DuckDB working, MCP pending |
-| **Schema Inspection: DuckDB** | Production | Phase 5, used in onboarding |
-| **Schema Inspection: BigQuery** | Production | Phase 5, used in onboarding |
-| **Schema Inspection: Snowflake/Databricks/HANA** | Stub | Phase 10C; MCP adapters follow dialect implementation |
-| **Data Product Onboarding Workflow** | Production | Phase 5-6, 8-step automation |
-| **KPI Assistant API** | Production | Phase 7A (API routes exist; React UI not yet built) |
-| **LLM-Assisted KPI Definition** | Production | Phase 7A endpoints working; UI integration pending |
+| Capability | Status | Backend Support | Notes |
+|---|---|---|---|
+| **Execution Router** | ✅ Production | BigQuery, Snowflake, SQL Server, DuckDB | Direct SDK connections working |
+| **Connection Profile Resolution** | ✅ Production | All backends | Supabase registry lookup + credential env var resolution |
+| **QueryDialect: BigQuery** | ✅ Production | BigQuery | Time-aware date formatting |
+| **QueryDialect: Snowflake** | ✅ Production | Snowflake | Phase 10D, native SQL dialect |
+| **QueryDialect: SQL Server** | ✅ Production | SQL Server | Phase 10D, T-SQL dialect with bracket notation |
+| **QueryDialect: DuckDB** | ✅ Production | DuckDB | Embedded execution |
+| **QueryDialect: PostgreSQL** | 🔄 Planned | PostgreSQL | Phase 10D |
+| **QueryDialect: HANA** | 🔄 Planned | SAP HANA | Phase 10D |
+| **QueryDialect: Databricks** | 🔄 Planned | Databricks | Phase 10D |
+| **`get_kpi_data()`** | ✅ Production | All backends | Entry point for SA agent; all backends working |
+| **`get_kpi_comparison_data()`** | ✅ Production | All backends | YoY, MoM, vs budget comparisons; all backends working |
+| **Schema Inspection: BigQuery** | ✅ Production | BigQuery | Phase 5, used in onboarding |
+| **Schema Inspection: Snowflake** | ✅ Production | Snowflake | Phase 10C, inspect_source_schema adapter |
+| **Schema Inspection: SQL Server** | ✅ Production | SQL Server | Phase 10C, inspect_source_schema adapter |
+| **Schema Inspection: DuckDB** | ✅ Production | DuckDB | Phase 5, used in onboarding |
+| **Schema Inspection: PostgreSQL/HANA/Databricks** | 🔄 Planned | Future backends | Phase 10D |
+| **Data Product Onboarding Workflow** | ✅ Production | All backends | 8-step automation, full schema profiling |
+| **KPI Assistant API** | ✅ Production | All backends | All 4 endpoints working (suggest, refine, validate, finalize) |
+| **LLM-Assisted KPI Definition** | ✅ Production | All backends | Endpoints fully functional; UI integration pending (Phase 11+) |
 
 ## 6. Known Limitations
 
-1. **MCP Execution Not Yet Live:** Snowflake, Databricks, HANA, Datasphere, PostgreSQL profiles are defined but execution routes to MCP stub. Live when first client using that backend is onboarded.
+1. **PostgreSQL, HANA, Databricks:** Not yet implemented. SDK integration planned for Phase 10D.
 
-2. **Schema Inspection Adapters:** DuckDB and BigQuery adapters are complete. Snowflake/Databricks adapters follow MCP dialect completion.
+2. **Connection Profile Credentials:** Currently resolved from environment variables only. OAuth2 flow for SaaS clients is planned but not implemented.
 
-3. **Connection Profile Credentials:** Currently resolved from environment variables only. OAuth2 flow for SaaS clients is planned but not implemented.
+3. **Cost Control for External Warehouses:** BigQuery, Snowflake, and SQL Server queries may incur per-query warehouse costs. Rate limiting and result row capping are planned.
 
-4. **Cost Control for External Warehouses:** MCP and BigQuery queries may incur per-query warehouse costs. Rate limiting and result row capping are planned.
+4. **Concurrent Query Limits:** No connection pooling limits enforced per client. High-concurrency workloads may exceed warehouse connection limits.
 
 ## 7. Non-Functional Requirements
 
@@ -400,6 +413,13 @@ src/registry/
 - DuckDB (local file or memory)
 
 ## 10. Change Log
+
+**2026-05-01 (v2.1)** — Align with actual direct SDK architecture
+- Corrected design philosophy from MCP-first to direct SDK connections
+- Updated execution router to document BigQuery, Snowflake, SQL Server, DuckDB (all production)
+- Changed canonical entry points from `get_kpi_monthly_series()` to `get_kpi_data()` + `get_kpi_comparison_data()`
+- Updated implementation status to reflect actual Phase 10C state: 4 backends production-ready
+- Removed MCP references; kept PostgreSQL/HANA/Databricks as Phase 10D planned work
 
 **2026-04-07 (v2.0)** — MCP-first architecture locked
 - Removed deprecated A9_Data_Product_MCP_Service_Agent references

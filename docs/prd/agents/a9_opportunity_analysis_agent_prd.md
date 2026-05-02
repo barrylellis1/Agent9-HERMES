@@ -13,9 +13,9 @@ Last updated: 2026-04-01 (deprecation notice added)
 > both problem segments (underperformers) and opportunity segments (internal benchmarks /
 > top-quartile outperformers). There is no separate "opportunity pipeline."
 >
-> The unified design is documented in `DEVELOPMENT_PLAN.md` Phase 9G.
+> A separate opportunity analysis agent is **not in the current development plan**.
 > The `Situation.from_opportunity_signal()` classmethod and `OpportunitySignal` model
-> in `a9_situation_awareness_agent.py` are deprecated and will be removed in Phase 9G.
+> in `a9_situation_awareness_agent.py` are deprecated.
 >
 > This file is retained for historical reference only.
 

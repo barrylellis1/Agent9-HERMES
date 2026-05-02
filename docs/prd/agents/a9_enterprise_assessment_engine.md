@@ -1,5 +1,13 @@
 # Phase 9 — Situation Monitor & Principal Intelligence Briefing (PIB)
 
+<!-- arch-suppress-prd-phases: This document describes roadmap/future work. Phase 9A-9G references are historical; phases are not in DEVELOPMENT_PLAN.md. -->
+
+> ⚠️ **CONCEPT DOCUMENT — NOT IN CURRENT DEVELOPMENT PLAN**
+> 
+> This document describes roadmap/future work for Phase 9B–9G. These phases are not in DEVELOPMENT_PLAN.md.
+> The Phase 9 work (Situation Monitor, PIB composition, etc.) has been absorbed into later phases or deferred pending 
+> enterprise assessment architecture redesign. This document is retained for historical reference and product direction clarity.
+
 <!--
 CANONICAL PRD DOCUMENT
 Comprehensive PRD for Phase 9B (Situation Monitor) and Phase 9D-9E (PIB).

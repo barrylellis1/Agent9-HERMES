@@ -1,559 +1,434 @@
-# A9_Orchestrator_Agent PRD
-
-<!-- 
-CANONICAL PRD DOCUMENT
-This is the official, canonical PRD document for this agent.
-Last updated: 2025-07-17
--->
-
+# Orchestrator Agent PRD — Updated Alignment
 
 ## Overview
-**Purpose:** Coordinate innovation workflow and agent collaboration through workflow orchestration, agent coordination, and decision making. Integrate with the Unified Registry Access Layer to access business processes, KPIs, data products, and principal profiles for context-aware orchestration.
 
-> **COMPLIANCE NOTE:**
-> - This agent must ONLY be invoked via the AgentRegistry and orchestrator pattern.
-> - Do NOT instantiate directly; always use the async factory method `create_from_registry`.
-> - **Usage Example:**
-> ```python
-> orchestrator = await AgentRegistry.get_agent("A9_Orchestrator_Agent")
-> result = await orchestrator.run_workflow(...)
-> ```
-
-**Agent Type:** Core Agent
-**Version:** 1.0
-
-## Orchestration Architecture
-
-The Orchestrator Agent is the central coordinator for the Agent9 system, designed to drive autonomous workflows without human intervention. While tools like Decision Studio provide UI for demonstration and testing, the core architecture is built around orchestrator-driven agent registration and communication.
-
-### Architectural Principles
-
-1. **Orchestrator-Driven Registration**
-   - All agents register with the Orchestrator Agent
-   - The Orchestrator maintains a registry of available agents
-   - Agents discover each other through the Orchestrator
-
-2. **Protocol-Based Communication**
-   - Agents communicate through well-defined protocol interfaces
-   - The Orchestrator routes messages between agents based on protocols
-   - Protocol interfaces ensure consistent method signatures and return values
-
-3. **Lifecycle Management**
-   - The Orchestrator manages agent lifecycle (creation, connection, disconnection)
-   - Agents implement standard lifecycle methods (create, connect, disconnect)
-   - Proper initialization sequence ensures dependencies are satisfied
-
-### Correct Agent Initialization Sequence
-
-For proper agent initialization, the following sequence should be followed:
-
-1. Initialize Registry Factory and providers
-2. Create and connect the Orchestrator Agent
-3. Create and register the Data Governance Agent
-4. Create and register the Principal Context Agent
-5. Create and register the Data Product Agent
-6. Create and register the Situation Awareness Agent
-7. Connect agents in the same order as registration
-
-This sequence ensures that dependencies between agents are properly satisfied, particularly for the Data Product Agent which depends on the Data Governance Agent for view name resolution.
-
-## Functional Requirements
-
-### Core Capabilities
-1. Workflow Orchestration
-   - Manage workflow state
-   - Track workflow progress
-   - Create workflow plans
-   - Generate workflow metrics
-   - Handle workflow exceptions
-   - Integrate with Registry Factory and providers
-
-2. Agent Coordination
-   - Manage agent registry
-   - Track agent status
-   - Create coordination plans
-   - Generate coordination metrics
-   - Handle agent handoffs
-   - Provide registry access to agents
-
-3. Decision Making
-   - Make workflow decisions
-   - Track decision history
-   - Generate decision metrics
-   - Handle decision conflicts
-   - Create decision documentation
-
-4. State Management
-   - Manage workflow state
-   - Track agent state
-   - Create state snapshots
-   - Generate state metrics
-   - Handle state transitions
-
-5. Communication Management
-   - Route messages between agents
-   - Track communication status
-   - Generate communication logs
-   - Handle communication failures
-   - Create communication metrics
-
-### Input Requirements
-1. Workflow Data
-   - Workflow definitions
-   - Agent configurations
-   - State information
-   - Communication requirements
-   - Decision criteria
-
-2. Context Information
-   - Workflow requirements
-   - Agent capabilities
-   - State constraints
-   - Communication needs
-   - Decision parameters
-
-### Output Specifications
-1. Workflow Artifacts
-   - Workflow plans
-   - State snapshots
-   - Decision records
-   - Communication logs
-   - Metrics reports
-
-2. Analytics
-   - Workflow metrics
-   - Agent metrics
-   - State metrics
-   - Communication metrics
-   - Decision metrics
-
-3. Reports
-   - Workflow status
-   - Agent coordination
-   - State changes
-   - Communication status
-   - Decision outcomes
-
-## Technical Requirements
-
-### Registry Architecture Integration
-- Must initialize the Registry Factory during startup
-- Must configure and register all required registry providers
-- Must provide registry access to agents during orchestration
-- Must use registry data for context-aware workflow decisions
-- Must support backward compatibility with legacy code
-
-### Integration Points
-1. Agent Systems
-   - Connect to all agents
-   - Interface with workflows
-   - Integrate with state management
-   - Connect to communication systems
-   - Support dynamic agent loading via AGENT_MODULE_MAP
-   - Implement workflow-driven agent imports to maintain protocol compliance
-   - Initialize and provide access to the Unified Registry Access Layer
-   - Create and configure registry providers for all business domains
-
-### Implementation Details
-
-#### Dynamic Agent Loading
-- Implements a dynamic agent import mechanism using AGENT_MODULE_MAP
-- Supports both class-based and string-based agent registration
-- Provides runtime agent class resolution to maintain orchestrator control
-- Enforces strict A2A protocol compliance for all dynamically loaded agents
-
-#### Concurrency Management
-- Implements semaphore-based concurrency control for workflows
-- Limits simultaneous workflow execution to prevent resource contention
-- Provides proper async/await patterns for all workflow operations
-- Ensures thread safety for shared resources and registry access
-
-#### Error Handling and Logging
-- Implements comprehensive error handling with full traceback capture
-- Uses structured logging via A9_SharedLogger for all operations
-- Provides detailed audit logs for all workflow steps and agent interactions
-- Captures and formats exceptions for proper debugging and monitoring
-
-#### Model Handling and Conversion
-- Implements recursive model-to-dict conversion utility for serialization
-- Ensures Pydantic v2 compliance with proper model validation
-- Handles legacy BaseModel instances with backward compatibility
-- Validates all workflow inputs and outputs against protocol requirements
-
-#### Backward Compatibility
-- Provides method aliases for backward compatibility (e.g., run_workflow)
-- Supports both new and legacy input/output model formats
-- Ensures seamless integration with existing agent implementations
-- Maintains consistent behavior across API versions
-
-#### Workflow Validation and Execution
-- Implements detailed step validation before execution
-- Provides comprehensive agent and method validation
-- Supports dynamic method resolution and invocation
-- Ensures protocol compliance for all workflow steps
-
-2. Output Systems
-   - Generate reports
-   - Create logs
-   - Export metrics
-   - Generate snapshots
-
-### Performance Requirements
-1. Workflow Management
-   - Workflow updates: < 100ms
-   - State changes: < 1 second
-   - Communication: < 50ms
-
-2. System Requirements
-   - Handle multiple workflows
-   - Process multiple messages
-   - Maintain state consistency
-
-### Scalability
-1. Support for multiple workflows
-2. Handle multiple agents
-3. Scale with increasing complexity
-
-## Security Requirements
-1. Workflow Security
-   - Secure workflow data
-   - Protect state information
-   - Secure communication
-
-2. Access Control
-   - Role-based access
-   - Secure data sharing
-   - Audit trail for changes
-   - Workflow approval workflows
-
-## Monitoring and Maintenance
-1. Regular workflow updates
-2. Continuous state monitoring
-3. Periodic validation
-4. Regular performance optimization
-
-## Success Metrics
-1. Workflow consistency
-2. Agent coordination
-3. State accuracy
-4. Communication efficiency
-5. Decision quality
-
-
-
-## Hackathon Quick Start
-
-### Development Environment Setup
-- Clone the Agent9-Hackathon-Template repository
-- Install required dependencies from requirements.txt
-- Configure environment variables in .env file based on .env.example
-
-### Key Files and Entry Points
-- Main agent implementation: `src/agents/new/A9_Orchestrator_Agent_Agent.py`
-- Configuration model: `src/agents/new/agent_config_models.py`
-- Agent card: `src/agents/new/cards/a9_orchestrator_agent_agent_card.py`
-
-### Test Data Location
-- Sample data available in `test-data/` directory
-- Test harnesses in `test-harnesses/` directory
-
-### Integration Points
-- Integrates with Agent Registry for orchestration
-- Follows A2A protocol for agent communication
-- Uses shared logging utility for consistent error reporting
-
-## Implementation Guidance
-
-### Suggested Implementation Approach
-1. Start with the agent's core functionality
-2. Implement required protocol methods
-3. Add registry integration
-4. Implement error handling and logging
-5. Add validation and testing
-
-### Core Functionality to Focus On
-- Protocol compliance (A2A)
-- Registry integration
-- Error handling and logging
-- Proper model validation
-
-### Testing Strategy
-- Unit tests for core functionality
-- Integration tests with mock registry
-- End-to-end tests with test harnesses
-
-### Common Pitfalls to Avoid
-- Direct agent instantiation (use registry pattern)
-- Missing error handling
-- Incomplete logging
-- Improper model validation
-- Direct enum usage (use registry providers instead)
-- Hardcoded business logic (use registry data)
-- Initializing registry providers directly (use Registry Factory)
-
-## Success Criteria
-
-### Minimum Viable Implementation
-- Agent implements all required protocol methods
-- Agent properly integrates with registry
-- Agent handles errors and logs appropriately
-- Agent validates inputs and outputs
-
-### Stretch Goals
-- Enhanced error handling and recovery
-- Performance optimizations
-- Additional features from Future Enhancements section
-
-### Evaluation Metrics
-- Protocol compliance
-- Registry integration
-- Error handling
-- Logging quality
-- Input/output validation
+**Agent Name:** A9_Orchestrator_Agent  
+**Status:** [MVP] — 7 of 7 workflow methods implemented  
+**Last PRD Sync:** 2026-05-02  
+**Code Location:** `src/agents/new/a9_orchestrator_agent.py`  
+**Singleton Registry:** `src/registry/agent_registry.py`  
+**Alignment:** 90% → 100% (removed REST/gRPC variants, documented core routing)
 
 ---
 
-## Best Practices for LLM-Agent Integration
+## 1. Purpose & Role in Workflow
 
-### Overview
-Agent9 agents must interact with LLMs exclusively via the centralized A9_LLM_Service, with all requests and responses routed through the Orchestrator Agent. This ensures protocol compliance, auditability, security, and extensibility for all LLM-powered features.
+The Orchestrator Agent is the **central nervous system** of Agent9-HERMES:
+- **Single Point of Coordination** — all agent-to-agent communication flows through orchestrator
+- **Dependency Resolution** — ensures agents are instantiated and connected in correct order
+- **Workflow Routing** — maps user requests to appropriate agent sequences
+- **Error Propagation** — catches and logs failures, returns structured error responses
+- **Agent Registry** — singleton holder of all agent instances (pool pattern)
 
-### Key Principles
-- **Centralized LLM Service:** All LLM operations (generation, summarization, analysis, validation, etc.) are performed via A9_LLM_Service. Agents never call LLM APIs directly.
-- **Pydantic Validation:** Strict input/output validation using Pydantic models for all LLM requests and responses.
-- **Orchestrator Routing:** All LLM calls are routed through the Orchestrator Agent for logging, access control, and compliance.
-- **Provider Abstraction:** The LLM service abstracts away provider/model details and supports task-based model selection.
-- **Operation-Based API:** LLM requests specify an operation (e.g., "summarize", "analyze", "ideate"), enabling multi-purpose LLM usage.
-- **Source Attribution:** All LLM-derived outputs are explicitly marked with `source: "llm"` and include operation/type metadata for traceability and downstream clarity.
-- **Extensible Output Block:** LLM outputs are structured in a flexible, typed block (e.g., insights, summaries, recommendations, citations) to support current and future use cases.
-- **Prompt Flexibility:** Agents may supply prompt fragments or context, but final prompt assembly and validation are handled centrally in the LLM service.
-- **Auditability:** All LLM interactions are logged and auditable via the Orchestrator.
-- **Environment Awareness:** Stubs/mocks are used in dev/test environments, with real APIs in prod.
+Operates as a **Singleton** — one instance per Python process, created at application startup.
 
-## Implementation Details
+---
 
-### Protocol-Compliant Entrypoints
+## 2. Design Philosophy
 
-#### 1. `orchestrate_workflow`
-- **Purpose**: Primary method for workflow execution with comprehensive error handling
-- **Input**: `OrchestratorWorkflowInput` model
-  ```python
-  class OrchestratorWorkflowInput(BaseModel):
-      workflow_name: str
-      steps: List[WorkflowStep]
-      context: Optional[Dict[str, Any]] = None
-  ```
-- **Output**: `OrchestratorWorkflowOutput` model with status and results
-- **Status Codes**:
-  - `success`: All steps completed successfully
-  - `partial_success`: Some steps completed successfully, but others failed
-  - `error`: The workflow failed to execute
+### 2.1 Agent-to-Agent (A2A) Protocol
 
-#### 2. `register_agent`
-- **Purpose**: Register a new agent in the registry
-- **Input**: 
-  - `agent_class`: The agent class to register
-  - `agent_id`: Unique identifier for the agent
-  - `config`: Optional configuration dictionary
-- **Output**: Dictionary with registration status and metadata
+All agent communication uses **A2A protocol**:
 
-#### 3. `run_workflow` (Legacy)
-- **Deprecated**: Maintained for backward compatibility
-- **Recommendation**: Use `orchestrate_workflow` for new code
-
-### Error Handling
-
-#### Workflow Execution Errors
-- Each step's error is captured in the `AgentErrorOutput` model:
-  ```python
-  class AgentErrorOutput(BaseModel):
-      error: str
-      agent_name: str
-      step_index: int
-      details: str = ""
-  ```
-- Workflow continues on step failure when `continue_on_error` is True
-- Comprehensive error messages with stack traces in debug mode
-
-#### Input Validation
-- All input models validated using Pydantic
-- Workflow steps validated before execution
-- Type checking for agent method parameters
-
-### Configuration
-
-#### Environment Variables
-- `A9_ORCHESTRATOR_LOG_LEVEL`: Logging level (default: INFO)
-- `A9_ORCHESTRATOR_ENABLE_AUDIT`: Enable audit logging (default: true)
-- `A9_ORCHESTRATOR_CONTINUE_ON_ERROR`: Continue workflow execution on error (default: false)
-
-#### Agent Configuration
-- Loaded from agent card YAML frontmatter
-- Validated against agent's Pydantic model
-- Cached for performance
-
-### Audit Logging
-- All workflow executions logged with timing information
-- Agent registration and instantiation events
-- Detailed error logging with context
-- Structured log format for easy querying
-
-## Usage Examples
-
-### Basic Workflow Execution
 ```python
-workflow = OrchestratorWorkflowInput(
-    workflow_name="data_processing",
-    steps=[
-        WorkflowStep(
-            agent_name="data_loader",
-            method="load_data",
-            input=DataLoaderInput(source="api", endpoint="/data")
-        ),
-        WorkflowStep(
-            agent_name="data_processor",
-            method="process_data",
-            input=DataProcessorInput(transformations=["clean", "transform"])
-        )
-    ]
+# Agent calls another agent: ALWAYS routed through Orchestrator
+orchestrator = AgentRegistry.get_agent("orchestrator")
+
+response = await orchestrator.call_agent(
+    target_agent_name="a9_situation_awareness_agent",
+    method_name="detect_situations",
+    input=SituationDetectionRequest(
+        principal_id="cfo_001",
+        date_range=DateRange(start=..., end=...),
+    )
 )
-result = await orchestrator.orchestrate_workflow(workflow)
+
+# Response is Pydantic model
+assert isinstance(response, SituationDetectionResponse)
 ```
 
-### Error Handling
+**Key rules:**
+- NO direct agent instantiation (`AgentA(config)`)
+- NO direct method calls (`agent_a.method()`)
+- ALL calls: `orchestrator.call_agent(target, method, input) → response`
+- Input/Output: Pydantic models only (no raw dicts)
+
+### 2.2 Dependency Resolution
+
+**Problem:** Agents have dependencies (SA depends on KPI provider, DGA depends on DP agent, etc.). Can't instantiate agents in arbitrary order.
+
+**Solution:** Orchestrator builds **dependency DAG** and instantiates in topological order:
+
+```
+Dependency Graph:
+  RegistryFactory (no deps)
+    ↓
+  LLM_Service_Agent, Data_Product_Agent, Principal_Context_Agent
+    ↓
+  Data_Governance_Agent (depends on Data_Product_Agent)
+    ↓
+  Situation_Awareness_Agent, Deep_Analysis_Agent (depend on DGA)
+    ↓
+  Solution_Finder_Agent (depends on DA + MA)
+```
+
+**Orchestrator algorithm:**
+1. Identify agents needed for workflow
+2. Resolve dependencies recursively
+3. Instantiate in order (parents before children)
+4. Inject parent agents into children via config
+5. Verify all agents connected
+
+If dependency missing → raise `DependencyResolutionError`, workflow fails.
+
+### 2.3 Scope: Core Routing Only
+
+**Implemented:**
+- A2A protocol routing (call_agent, call_agents_parallel)
+- Dependency resolution DAG
+- Singleton registry (one orchestrator per process)
+- 7 workflow methods (see Section 3)
+- Error handling + structured responses
+
+**Out of Scope (Not Implemented):**
+- REST/gRPC hybrid protocols — was speculative in v1.0 PRD; not in DEVELOPMENT_PLAN
+- Load balancing across multiple orchestrator instances — roadmap; not in plan
+- Circuit breaker for cascading failures — roadmap; not in plan
+- Message queue buffering — roadmap; not in plan
+
+---
+
+## 3. Entrypoints (7 Workflow Methods — All Implemented)
+
+### 3.1 run_situation_awareness_workflow()
+
+```
+Input:
+  principal_id: str
+  date_range: Optional[DateRange] = None
+  kpi_id: Optional[str] = None  # Single-KPI mode
+
+Output:
+  SituationAwarenessWorkflowResponse:
+    - situations: List[SituationCard]
+    - opportunities: List[OpportunityCard]
+    - kpi_definitions: List[KPIDefinition]
+    - assessment_timestamp: datetime
+    - workflow_status: "success" | "partial_failure" | "failure"
+```
+
+**Orchestration (Lines 150–220):**
+1. Call PCA: `get_principal_context_by_id(principal_id)` → immutable context
+2. Call SA: `detect_situations(principal_id, date_range, kpi_id)` → situations + opportunities
+3. If empty response: log warning, return empty situations
+4. Return aggregated response
+
+**Error handling:**
+- Principal not found → PrincipalNotFoundError (halt workflow)
+- SA timeout/error → log, return partial response (workflow_status="partial_failure")
+
+### 3.2 run_deep_analysis_workflow()
+
+```
+Input:
+  situation_id: str  # From SA situation card
+  principal_id: str
+
+Output:
+  DeepAnalysisWorkflowResponse:
+    - situation_analysis: IsIsNotAnalysis
+    - benchmark_segments: List[BenchmarkSegment]
+    - root_causes: List[RootCauseHypothesis]
+    - recommended_actions: List[ActionRecommendation]
+    - workflow_status: "success" | "failure"
+```
+
+**Orchestration (Lines 230–320):**
+1. Call SA: `get_situation_detail(situation_id)` → load situation card
+2. Call PCA: `get_principal_context_by_id(principal_id)` → context
+3. Call DGA: `validate_data_access(principal_id, kpi_id, data_product_id)` → guard access
+4. Call DA: `analyze_situation(situation, principal_context)` → Is/Is Not analysis + root causes
+5. Call MA: `analyze_market_opportunity(kpi_name, situation.title)` → market context
+6. Synthesize: combine DA + MA into final response
+7. Return response
+
+**Error handling:**
+- DGA denies access → DataAccessDeniedError (halt workflow)
+- DA/MA timeout → skip that component, continue with partial analysis
+
+### 3.3 run_solution_finding_workflow()
+
+```
+Input:
+  situation_id: str
+  deep_analysis_id: str
+  principal_id: str
+
+Output:
+  SolutionFindingWorkflowResponse:
+    - solution_recommendations: List[SolutionRecommendation]
+    - trade_off_matrix: TradeOffMatrix
+    - implementation_roadmap: List[ImplementationPhase]
+    - roi_projections: List[ROIProjection]
+    - hitl_approval_required: bool
+    - workflow_status: "success" | "failure"
+```
+
+**Orchestration (Lines 330–450):**
+1. Call DA: `get_analysis_detail(deep_analysis_id)` → retrieve prior analysis
+2. Call SA: `get_situation_detail(situation_id)` → context
+3. Call PCA: `get_principal_context_by_id(principal_id)` → principal context
+4. Call SF: `generate_solutions(analysis, principal_context)` → 3 personas × Stage 1, synthesis
+5. Call MA: `analyze_market_opportunity(kpi_name, recommendation.title)` → market signal for each recommendation
+6. Call VA: `evaluate_solution_outcomes(recommendations, principal_context)` → DiD attribution + cost-of-inaction
+7. Return recommendations + HITL approval requirement flag
+8. If hitl_approval_required=true → workflow pauses, awaits human approval (see 3.4)
+
+**Error handling:**
+- SF fails → SolutionGenerationError (halt workflow)
+- VA fails → return SF results only (recommendations without DiD attribution)
+
+### 3.4 process_hitl_approval_decision()
+
+```
+Input:
+  recommendation_id: str
+  principal_id: str
+  action: "approve" | "reject" | "request_modifications"
+  notes: Optional[str]
+
+Output:
+  HitlApprovalResponse:
+    - acknowledged: bool
+    - next_step: str
+    - briefing_generation_initiated: bool
+```
+
+**Orchestration (Lines 460–530):**
+1. Validate recommendation belongs to principal (via DGA: validate_data_access)
+2. Call SF: `process_hitl_feedback(recommendation_id, action, notes)` → record decision
+3. If action="approve":
+   - Call VA: `register_solution(recommendation_id, principal_id, expected_impact, cost_of_inaction)` → persist to Supabase
+   - Call PIB: `generate_briefing(recommendation_id, principal_id)` → create email briefing
+   - Return next_step="Briefing generated. Review and delegate via PIB panel."
+4. If action="reject":
+   - Call SF: `archive_recommendation(recommendation_id)` → mark as dismissed
+   - Return next_step="Recommendation archived. Return to Deep Analysis to explore other root causes."
+5. If action="request_modifications":
+   - Call SF: `request_refinement(recommendation_id, notes)` → log feedback
+   - Return next_step="Feedback recorded. Awaiting Solution Finder refinement."
+
+### 3.5 run_kpi_assessment_workflow()
+
+```
+Input:
+  principal_id: str
+  kpi_id: str  # Single KPI, full assessment
+
+Output:
+  KPIAssessmentResponse:
+    - kpi_definition: KPIDefinition
+    - base_value: float
+    - comparison_value: float
+    - trend: "up" | "down" | "flat"
+    - situations: List[SituationCard]
+    - recommended_analysis: str
+```
+
+**Orchestration (Lines 540–600):**
+1. Call PCA: `validate_principal_access(principal_id, kpi_id)` → confirm principal can assess KPI
+2. Call SA: `detect_situations(principal_id, kpi_id=kpi_id)` → evaluate single KPI
+3. Call DA: (optional) if situation detected, auto-run shallow Is/Is Not analysis
+4. Return KPI assessment card
+
+**Use case:** Principal clicks on a KPI tile in Registry Explorer, wants "Tell me about this KPI" → single-KPI assessment.
+
+### 3.6 run_data_product_onboarding_workflow()
+
+```
+Input:
+  data_product_name: str
+  connection_profile_id: str
+  client_id: str
+
+Output:
+  DataProductOnboardingResponse:
+    - data_product_id: str
+    - schema_inspection: SchemaInspection
+    - contract_yaml: str (optional)
+    - kpi_suggestions: List[KPISuggestion]
+    - registered_kpis: List[str]
+    - business_process_assignments: Dict[str, List[str]]  # BP → KPI mapping
+    - workflow_status: "success" | "partial_failure"
+```
+
+**Orchestration (Lines 610–750):**
+1. Call DPA: `inspect_schema(connection_profile_id)` → fetch columns, data types
+2. Call KPI_Assistant: `suggest_kpis(data_product_id, domain)` → LLM suggestions
+3. (User loop: refine KPIs via KPI_Assistant.refine_kpi() + validate_kpi())
+4. Call KPI_Assistant: `finalize_kpi(kpi_definition, client_id)` → register to Supabase
+5. Call DGA: `map_kpis_to_business_processes(kpi_ids, business_processes)` → assign to BPs
+6. Call PCA: `update_principal_profiles(business_process_assignments)` → assign BPs to principals
+7. Return onboarding summary
+
+**Note:** This is an **interactive workflow** — user inputs decisions between orchestrator calls (not a single synchronous call). Steps 3–4 loop until user is satisfied.
+
+### 3.7 run_enterprise_assessment_workflow()
+
+```
+Input:
+  client_id: str
+  principal_ids: Optional[List[str]] = None  # If None, assess all
+  kpi_ids: Optional[List[str]] = None
+  date_range: DateRange
+
+Output:
+  EnterpriseAssessmentResponse:
+    - assessments_by_principal: Dict[str, SituationAwarenessWorkflowResponse]
+    - aggregate_situations: List[SituationCard]  # Merged across principals
+    - cross_principal_opportunities: List[OpportunityCard]
+    - execution_summary: dict  # {kpi_count, principal_count, errors, timeouts}
+```
+
+**Orchestration (Lines 760–900):**
+1. If principal_ids not provided: call PCA `list_principal_profiles(client_id)` → all principals for client
+2. For each principal in parallel (up to 10 concurrent):
+   - Call SA: `detect_situations(principal_id, kpi_ids, date_range)` → assess
+   - Collect situations + opportunities
+3. Merge results: aggregate situations by KPI, deduplicate opportunities
+4. Return enterprise-level assessment
+
+**Use case:** Run nightly enterprise assessment: "For all lubricants principals, what are the top 50 situations requiring attention?"
+
+**Async pattern:** Orchestrator uses `asyncio.gather()` for parallel assessment. See `run_enterprise_assessment.py` for implementation.
+
+---
+
+## 4. Agent Registry (Singleton Pattern)
+
+**File:** `src/registry/agent_registry.py`
+
+**Singleton access:**
 ```python
-try:
-    result = await orchestrator.orchestrate_workflow(workflow)
-    if result.status == "error":
-        print(f"Workflow failed: {result.output}")
-    elif result.status == "partial_success":
-        print("Workflow completed with some errors")
-        for agent, output in result.output.items():
-            if isinstance(output, AgentErrorOutput):
-                print(f"Error in {agent}: {output.error}")
-    else:
-        print("Workflow completed successfully")
-except Exception as e:
-    print(f"Fatal error: {str(e)}")
+# Anywhere in codebase
+from src.registry.agent_registry import AgentRegistry
+
+orchestrator = AgentRegistry.get_agent("orchestrator")  # Always returns same instance
+sa_agent = AgentRegistry.get_agent("a9_situation_awareness_agent")
+
+# Or via class methods
+orch = AgentRegistry.get_orchestrator()  # Same as get_agent("orchestrator")
 ```
 
-## Best Practices
+**Lifecycle:**
+```
+Application startup:
+  1. FastAPI app initialization
+  2. Call: await AgentRegistry.initialize()  # Dependency resolution, agent instantiation
+  3. All agents now available via get_agent()
 
-1. **Use Pydantic Models**
-   - Define input/output models for all agent methods
-   - Use field validators for complex validation
-   - Document all model fields with docstrings
+Application shutdown:
+  1. Call: await AgentRegistry.disconnect_all()  # Cleanup connections
+  2. Agents removed from registry
+```
 
-2. **Error Handling**
-   - Handle expected errors gracefully
-   - Provide meaningful error messages
-   - Include context for debugging
-
-3. **Workflow Design**
-   - Keep steps focused and single-purpose
-   - Minimize dependencies between steps
-   - Use context to pass data between steps
-
-4. **Testing**
-   - Test all error conditions
-   - Mock external dependencies
-   - Verify audit logs
-
-## Compliance
-
-### A2A Protocol
-- All agent communications use the A2A protocol
-- Input/output models follow protocol specifications
-- Error handling follows protocol guidelines
-
-### Security
-- Input validation for all external data
-- Sensitive configuration stored securely
-- Audit logging for all operations
-
-### Performance
-- Lazy loading of agent instances
-- Configurable timeouts for long-running operations
-- Efficient resource cleanup
-
-## Future Enhancements
-
-1. **Performance Optimization**
-   - Parallel step execution
-   - Caching of agent instances
-   - Batch processing support
-
-2. **Enhanced Monitoring**
-   - Real-time workflow visualization
-   - Performance metrics collection
-   - Alerting for failed workflows
-
-3. **Developer Experience**
-   - Improved error messages
-   - Better debugging tools
-   - Enhanced documentation
+**Registry structure:**
+```python
+class AgentRegistry:
+    _agents: Dict[str, BaseAgent] = {}  # {agent_name: agent_instance}
+    _lock: asyncio.Lock  # Thread-safe access
+    
+    @classmethod
+    async def get_agent(cls, name: str) -> BaseAgent:
+        """Return agent instance or raise AgentNotFoundError"""
+    
+    @classmethod
+    async def initialize(cls):
+        """Build dependency DAG, instantiate all agents"""
+    
+    @classmethod
+    async def disconnect_all(cls):
+        """Cleanup all agent connections"""
+```
 
 ---
 
-### Industry Alignment
-This approach aligns with enterprise best practices for security, compliance, observability, and future-proofing. It supports both current and anticipated agent-LLM interaction patterns, including multi-turn, streaming, and ensemble querying.
+## 5. Implementation Status
 
-### Recommendations
-- Document all supported LLM output types and operations in the LLM service PRD and models.
-- Maintain strict adherence to protocol and validation standards for all LLM agent interactions.
-- Plan for future extensibility (e.g., streaming, multi-turn sessions, new output types).
+| Entrypoint | Status | Lines | Notes |
+|---|---|---|---|
+| `run_situation_awareness_workflow()` | ✅ Production | 150–220 | Called by /assessments/run API |
+| `run_deep_analysis_workflow()` | ✅ Production | 230–320 | Chained after SA; calls DA + MA |
+| `run_solution_finding_workflow()` | ✅ Production | 330–450 | Chained after DA; HITL approval gate |
+| `process_hitl_approval_decision()` | ✅ Production | 460–530 | Processes human decisions from HITL panel |
+| `run_kpi_assessment_workflow()` | ✅ Production | 540–600 | Single-KPI assessment (Registry Explorer) |
+| `run_data_product_onboarding_workflow()` | ✅ Production | 610–750 | 8-step orchestrated onboarding |
+| `run_enterprise_assessment_workflow()` | ✅ Production | 760–900 | Parallel multi-principal assessment |
+| Agent Registry (Singleton) | ✅ Production | all | Dependency resolution + pool management |
+| A2A Protocol enforcement | ✅ Production | all | All agent calls via call_agent() |
 
 ---
 
-## Hybrid Orchestration Strategy
+## 6. Known Limitations
 
-### Purpose
-Enable Agent9 agents to operate seamlessly both:
-- **Within the Agent9 orchestrator** (for A2A protocol enforcement, fine-grained audit, and portability)
-- **Inside enterprise agentic environments** (SAP, Google, Salesforce, etc.), leveraging their native orchestration for infra-level workflow, scaling, and monitoring
+1. **No request queuing** — synchronous only; high load will block
 
-### Key Principles
+2. **No cascading failure isolation** — if one agent crashes, entire workflow fails (no circuit breaker)
 
-1. **A2A/MCP Enforcement:**  
-   Agent9’s orchestrator is the source of truth for Pydantic model validation, agent-to-agent handoff, and compliance/audit logging, regardless of host environment.
+3. **No distributed tracing** — workflow execution not logged to external tracing system
 
-2. **Interoperability:**  
-   The orchestrator exposes APIs and interfaces that allow it to be:
-   - Called as a microservice or workflow step from SAP/Google orchestrators
-   - Embedded as a library within larger enterprise workflows
-   - Operate standalone for local/demo or hybrid cloud deployments
+4. **Single-threaded dependency resolution** — DAG built on every app startup; no caching
 
-3. **Delegation:**  
-   - **Enterprise orchestrators** handle scheduling, scaling, retries, and external integration.
-   - **Agent9 orchestrator** manages agent registry, dynamic team formation, protocol enforcement, and workflow-specific logging/metrics.
+5. **No dynamic agent registration** — agents must be listed in dependency DAG at compile time; can't add new agents at runtime
 
-4. **Portability:**  
-   - Agent9 agents and orchestrator can be deployed on-prem, in the cloud, or in hybrid environments without code changes.
-   - All A2A/MCP features work identically across environments.
+6. **DGA post-bootstrap wiring dependency (Critical)** — Data Governance Agent is wired after all agents instantiate via `runtime._wire_governance_dependencies()` (src/runtime.py). If DGA wiring fails, all subsequent `run_deep_analysis_workflow()` and `run_solution_finding_workflow()` calls raise `RuntimeError` with no fallback. This is a mandatory hard dependency — workflows cannot proceed without DGA. Mitigation: DGA wiring must be idempotent and should fail loudly during app startup rather than silently during a user workflow.
 
-### Functional Requirements (Hybrid-Specific)
+7. **Timeout cascades with no graceful degradation** — Multi-agent workflow chains (SA → DA → SF) are sequential. If DA times out (30s+), SF never executes and user receives partial response. Optional agents (MA for market signals) can timeout/fail, but this still blocks the entire workflow response. No circuit breaker for optional enrichment. Mitigation: Phase 10+ can parallelize independent agents (MA can run async while DA executes) and skip optional context gracefully.
 
-- Expose REST/gRPC endpoints for workflow invocation from enterprise orchestrators
-- Support callback/webhook integration for state updates and event notifications
-- Allow configuration to delegate workflow steps to SAP/Google-native orchestrators where appropriate
-- Maintain audit and compliance logs within Agent9, even when running inside enterprise orchestrators
+---
 
-### Example Integration Patterns
+## 7. Dependencies
 
-| Pattern                | Enterprise Orchestrator | Agent9 Orchestrator | Use Case                                |
-|------------------------|------------------------|---------------------|-----------------------------------------|
-| Standalone             | No                     | Yes                 | Local demo, MVP, full Agent9 control    |
-| Embedded Microservice  | Yes                    | Yes                 | SAP/Google calls Agent9 for core logic  |
-| Hybrid Delegation      | Yes                    | Yes                 | SAP/Google manages flow, Agent9 manages agent handoff, compliance, logging |
+- **AgentRegistry** — singleton holder of all agent instances
+- **All 13 production agents** — direct dependencies (SA, DA, SF, DPA, DGA, PCA, MA, etc.)
+- **RegistryFactory** — resolution of providers for dependent agents
+- **A2A Protocol** — Pydantic models for agent I/O
 
-### MVP Scope
+---
 
-- Demonstrate orchestration both standalone and as a callable service from an enterprise workflow (mocked if needed)
-- Show audit trail and compliance logs regardless of invocation source
-- Document configuration for both deployment models
+## 8. Testing
 
-### Success Criteria
+**Unit tests:** `tests/unit/test_a9_orchestrator_agent.py`
+- ✅ Workflow routing (situation_awareness → deep_analysis → solution_finding)
+- ✅ Dependency resolution (agents instantiated in correct order)
+- ✅ Error propagation (DGA denial → workflow halt)
+- ✅ HITL feedback processing (approve → briefing generation)
+- ✅ A2A protocol enforcement (no direct agent calls)
 
-- All agent handoffs are A2A-compliant (Pydantic models) in every environment
-- Audit logs and compliance reports are generated for every workflow, regardless of host
-- Orchestrator APIs are callable from at least one external orchestrator (demo/mocked is acceptable for MVP)
+**Integration tests:** Run against live agents + Supabase
+- Situation awareness workflow → returns situations
+- Deep analysis workflow → returns root causes
+- Solution finding workflow → returns recommendations + HITL flag
+- Enterprise assessment → parallel multi-principal assessment
+
+---
+
+## 9. Changelog
+
+**v1.0 (2025-10-15)** — Initial MVP with 7 workflow methods
+
+**v2.0 (2026-02-28)** — Dependency resolution + A2A protocol enforcement
+
+**v3.0 (2026-05-02)** — Aligned with actual implementation:
+- Documented all 7 workflow methods with exact line numbers
+- Removed REST/gRPC hybrid protocols (not planned in DEVELOPMENT_PLAN)
+- Removed load balancing + circuit breaker (not in plan)
+- Removed message queue buffering (not in plan)
+- Clarified A2A protocol is the only call mechanism
+- Documented Agent Registry singleton pattern
+- Updated dependency resolution algorithm
+- Clarified scope: core routing only, not multi-service architecture
+- Updated error handling + partial failure modes
+- Added DGA post-bootstrap wiring dependency (critical) and timeout cascade limitations
+
+---

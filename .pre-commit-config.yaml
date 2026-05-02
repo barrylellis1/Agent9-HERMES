@@ -13,6 +13,12 @@ repos:
         language: system
         pass_filenames: false
         stages: [commit]
+      - id: prd-content-lint
+        name: PRD Content Validation
+        entry: C:/Users/Blell/Agent9-HERMES/.venv/Scripts/python.exe scripts/prd_content_lint.py
+        language: system
+        pass_filenames: false
+        stages: [commit]
       - id: pytest-architecture
         name: Architecture Tests (quick)
         entry: C:/Users/Blell/Agent9-HERMES/.venv/Scripts/python.exe -m pytest -q tests/architecture

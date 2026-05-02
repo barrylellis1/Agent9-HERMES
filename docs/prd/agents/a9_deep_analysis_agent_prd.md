@@ -857,6 +857,40 @@ All LLM operations for the Deep Analysis Agent will be centralized through a ded
 
 ---
 
+## 10. Deferred Analysis Capabilities (Not in Current Development Plan)
+
+### 10.1 Dimension Hierarchy Analysis
+
+**Original plan (v1.0):** Recognize multi-level dimensions (Region → Country → City) and drill-down intelligently.
+
+**Status:** Not implemented. Is/Is Not table currently treats all dimensions as flat.
+
+**When relevant:** Not in DEVELOPMENT_PLAN. Deferred pending ontology work and explicit customer demand.
+
+**Rationale for deferral:** Flat dimensional analysis sufficient for MVP. Multi-level hierarchies add complexity without current business requirement.
+
+### 10.2 Causal Inference (Mechanism Discovery)
+
+**Original plan (v1.0):** Infer causal mechanisms using instrumental variables and structural equation modeling.
+
+**Status:** Not implemented. Current DA is correlational only — identifies which dimensions changed together but does NOT infer why.
+
+**When relevant:** Not in DEVELOPMENT_PLAN. Requires investment in causal inference research (Phase 13+).
+
+**Rationale for deferral:** Correlational analysis + expert judgment sufficient for MVP. Causal inference is research-grade, requiring domain expertise beyond current scope.
+
+### 10.3 Counterfactual Scenario Modeling
+
+**Original plan (v1.0):** Generate "what-if" scenarios (e.g., "If this region had matched peer growth, revenue would be +$5M").
+
+**Status:** Not implemented. Would require causal models + sensitivity analysis engine.
+
+**When relevant:** Phase 13+ Future (research direction; not currently scheduled). Depends on Section 10.2 (causal inference work).
+
+**Rationale for deferral:** Useful for board-level narratives but requires causal infrastructure. Deferred pending Phase 13+ research initiative.
+
+---
+
 ## Future Consideration: Ensemble LLM Hallucination Mitigation
 
 **Objective:**

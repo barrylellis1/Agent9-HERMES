@@ -39,7 +39,7 @@ def _make_agent_with_mock_registry(loop, mock_registry_factory):
         "registry_factory": mock_registry_factory,
     }
     # Instantiate directly (no connect) to avoid orchestrator side-effects
-    agent = A9_Situation_Awareness_Agent(config)  # arch-lint-skip
+    agent = A9_Situation_Awareness_Agent(config)  # arch-allow-agent-ctor
     # Manually load KPIs from the mocked registry
     loop.run_until_complete(agent._load_kpi_registry())
     return agent
