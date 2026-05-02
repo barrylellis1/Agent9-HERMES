@@ -25,7 +25,7 @@ jobs:
 
       - name: Run pre-commit (all files)
         env:
-          SKIP: architecture-lint,pydantic-v1-lint,pytest-architecture
+          SKIP: pydantic-v1-lint,pytest-architecture
         run: |
           python -m pip install pre-commit
           pre-commit run --all-files

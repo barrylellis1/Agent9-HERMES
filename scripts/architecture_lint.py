@@ -194,7 +194,7 @@ def main() -> int:
     agent_violations = lint_agents()
     test_violations = lint_tests()
     sync_violations = lint_code_config_sync()
-    doc_warnings = lint_doc_sync()
+    doc_violations = lint_doc_sync()
     if agent_violations:
         print("[ARCH] Agent violations:")
         for loc, msg in agent_violations:
@@ -210,10 +210,11 @@ def main() -> int:
         for loc, msg in sync_violations:
             print(f" - {loc} -> {msg}")
         violations.extend(sync_violations)
-    if doc_warnings:
-        print("[WARN] Doc sync reminders (non-blocking — update PRD/card when convenient):")
-        for loc, msg in doc_warnings:
+    if doc_violations:
+        print("[ARCH] Doc sync violations (PRD must be updated/created alongside agent code):")
+        for loc, msg in doc_violations:
             print(f" - {loc}\n   {msg}")
+        violations.extend(doc_violations)
     if violations:
         print(f"\n[ARCH] Found {len(violations)} architecture violation(s).", file=sys.stderr)
         return 1
