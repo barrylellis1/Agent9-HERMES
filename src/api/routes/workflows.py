@@ -238,7 +238,9 @@ async def run_situations_workflow(
 
 @router.get("/situations/{request_id}/status", response_model=Envelope)
 async def get_situations_status(request_id: str) -> Envelope:
-    record = await _ensure_record(request_id, "situations")
+    record = await _get_record(request_id)
+    if record is None or record.workflow_type != "situations":
+        return wrap({"request_id": request_id, "state": "not_found", "error": "Workflow request not found"})
     return wrap(record.to_dict())
 
 
@@ -778,10 +780,13 @@ async def _record_solution_action(
 async def _run_situations_workflow(request_id: str, runtime: AgentRuntime, request: SituationWorkflowRequest) -> None:
     try:
         orchestrator = runtime.get_orchestrator()
+        pc_lookup_args: dict = {"principal_id": request.principal_id}
+        if request.client_id:
+            pc_lookup_args["client_id"] = request.client_id
         principal_resp = await orchestrator.execute_agent_method(
             "A9_Principal_Context_Agent",
             "get_principal_context_by_id",
-            {"principal_id": request.principal_id},
+            pc_lookup_args,
         )
 
         principal_context = None

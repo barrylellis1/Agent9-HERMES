@@ -55,11 +55,11 @@ def load_to_snowflake(dry_run: bool = False):
         return
 
     # ── Connect to Snowflake (password auth via env var) ──
-    sf_password = os.environ.get("SNOWFLAKE_PASSWORD", "")
+    sf_password = os.environ.get("SF_PASSWORD") or os.environ.get("SNOWFLAKE_PASSWORD", "")
     if not sf_password:
-        print("\nError: Set SNOWFLAKE_PASSWORD environment variable first.")
-        print("  Windows: set SNOWFLAKE_PASSWORD=your_password")
-        print("  Bash:    export SNOWFLAKE_PASSWORD=your_password")
+        print("\nError: Set SF_PASSWORD (or SNOWFLAKE_PASSWORD) environment variable first.")
+        print("  Windows: set SF_PASSWORD=your_password")
+        print("  Bash:    export SF_PASSWORD=your_password")
         sys.exit(1)
 
     print(f"\nConnecting to Snowflake ({SF_ACCOUNT})...")
@@ -158,6 +158,41 @@ def load_to_snowflake(dry_run: bool = False):
             cur.executemany(insert_sql, rows)
             loaded = min(i + BATCH_SIZE, len(transactions))
             print(f"  {loaded}/{len(transactions)} rows loaded...")
+
+        # ── Create/replace the star schema view ──
+        print("\nCreating LubricantsStarSchemaView...")
+        cur.execute("""
+CREATE OR REPLACE VIEW LubricantsStarSchemaView AS
+SELECT
+    ft.transaction_id,
+    ft.fiscal_year,
+    ft.fiscal_period,
+    ft.transaction_date,
+    ft.amount,
+    ft.version,
+    ft.currency,
+    gl.account_name,
+    gl.account_type,
+    gl.account_category,
+    gl.account_group,
+    p.product_name,
+    p.product_line,
+    p.product_category,
+    c.customer_name,
+    c.customer_segment,
+    c.customer_region,
+    pc.profit_center_name,
+    pc.business_unit,
+    ch.channel_name,
+    ch.channel_type
+FROM        FinancialTransactions    ft
+LEFT JOIN   GLAccounts              gl  ON ft.gl_account_id    = gl.gl_account_id
+LEFT JOIN   Products                p   ON ft.product_id       = p.product_id
+LEFT JOIN   Customers               c   ON ft.customer_id      = c.customer_id
+LEFT JOIN   ProfitCenters           pc  ON ft.profit_center_id = pc.profit_center_id
+LEFT JOIN   Channels                ch  ON ft.channel_id       = ch.channel_id
+        """)
+        print("  LubricantsStarSchemaView created.")
 
         # ── Verify ──
         print("\nVerifying...")

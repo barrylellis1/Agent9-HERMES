@@ -1,6 +1,6 @@
 # A9_Data_Product_Agent Card
 
-Status: Active (contract-driven SQL generation; BigQuery + SQL Server + DuckDB backends; DGA mandatory; `_get_view_name_from_kpi` preserves KPI metadata fallback even when DGA throws)
+Status: Active (contract-driven SQL generation; BigQuery + SQL Server + DuckDB + Snowflake backends; DGA mandatory; `_get_view_name_from_kpi` preserves KPI metadata fallback even when DGA throws)
 
 ## Overview
 The `A9_Data_Product_Agent` is responsible for contract-driven SQL orchestration **and** the automated onboarding “data factory” pipeline. It reads from database-backed registry metadata plus YAML contracts to understand schema, KPIs, and column mappings, and it now profiles upstream platforms (BigQuery, Snowflake, Databricks, Datasphere) via pluggable adapters.

@@ -31,9 +31,9 @@ PROJECT_ID = "agent9-465818"
 DATASET_ID = "LubricantsBusiness"
 VIEW_NAME = "LubricantsStarSchemaView"
 
-# Date range: 2024-01-01 through 2026-02-28
+# Date range: 2024-01-01 through 2026-12-31
 DATE_START = date(2024, 1, 1)
-DATE_END = date(2026, 2, 28)
+DATE_END = date(2026, 12, 31)
 
 random.seed(42)  # Reproducible data
 
@@ -199,8 +199,8 @@ def generate_transactions() -> List[Dict]:
     txn_counter = 0
 
     # Base monthly revenue before seasonality.
-    # Channel weights sum to 0.80 -> effective revenue = 146M * 0.80 = ~$117M/month = ~$1.4B/year
-    base_monthly_revenue = 146_000_000
+    # Channel weights sum to 0.80 -> effective revenue = 14.6M * 0.80 = ~$11.7M/month = ~$140M/year
+    base_monthly_revenue = 14_600_000
 
     # Profit-center mapping by channel
     CHANNEL_PC = {

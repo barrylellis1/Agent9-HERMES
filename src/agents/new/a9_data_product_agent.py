@@ -1,4 +1,5 @@
 """
+# doc-sync-skip
 A9_Data_Product_Agent - Centralized data access for data products.
 
 This agent provides a standardized interface for data access operations,
@@ -3648,7 +3649,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
         2. Environment variables: SF_ACCOUNT, SF_DATABASE, SF_USERNAME, SF_PASSWORD, etc.
         3. Defaults targeting the trial account.
         """
-        if self._sf_manager is not None:
+        if self._sf_manager is not None and self._sf_manager.conn is not None:
             return True
         try:
             from src.database.backends.snowflake_manager import SnowflakeManager
@@ -4146,6 +4147,138 @@ class A9_Data_Product_Agent(DataProductProtocol):
             self.logger.warning(f"_build_bq_dimensional_sql error: {ex}")
             return None
 
+    def _build_sf_dimensional_sql(
+        self,
+        raw_sql: str,
+        kpi_definition: Any,
+        timeframe: Any,
+        topn: Any,
+        breakdown: bool,
+        override_group_by: Optional[List[str]],
+    ) -> Optional[str]:
+        """
+        Build a Snowflake-compatible SQL query for dimensional analysis.
+        Mirrors _build_bq_dimensional_sql but uses standard SQL identifiers (no backticks).
+        """
+        try:
+            import re as _re
+            import calendar as _cal
+            from datetime import date
+
+            date_col = "transaction_date"
+            md = getattr(kpi_definition, "metadata", None)
+            if isinstance(md, dict):
+                date_col = md.get("date_column", "transaction_date")
+
+            def _period_dates(tf_str):
+                today = date.today()
+                y, m = today.year, today.month
+                def qd(yr, qtr):
+                    sm = (qtr - 1) * 3 + 1
+                    em = qtr * 3
+                    return date(yr, sm, 1), date(yr, em, _cal.monthrange(yr, em)[1])
+                tf = str(tf_str or "last_quarter").strip().lower()
+                cur_q = (m - 1) // 3 + 1
+                if tf == "last_quarter":
+                    bq = cur_q - 1 or 4
+                    by = y if cur_q > 1 else y - 1
+                    s, e = qd(by, bq)
+                elif tf in ("current_quarter", "quarter_to_date"):
+                    s, e = qd(y, cur_q)
+                    e = min(e, today)
+                elif tf in ("year_to_date", "current_year"):
+                    s, e = date(y, 1, 1), today
+                elif tf == "last_year":
+                    s, e = date(y - 1, 1, 1), date(y - 1, 12, 31)
+                else:
+                    bq = cur_q - 1 or 4
+                    by = y if cur_q > 1 else y - 1
+                    s, e = qd(by, bq)
+                return str(s), str(e)
+
+            def _prev_period_dates(tf_str):
+                tf = str(tf_str or "last_quarter").strip().lower()
+                today = date.today()
+                y, m = today.year, today.month
+                def qd(yr, qtr):
+                    sm = (qtr - 1) * 3 + 1
+                    em = qtr * 3
+                    return date(yr, sm, 1), date(yr, em, _cal.monthrange(yr, em)[1])
+                cur_q = (m - 1) // 3 + 1
+                if tf in ("year_to_date", "current_year"):
+                    s = date(y - 1, 1, 1)
+                    e = date(y - 1, m, min(today.day, _cal.monthrange(y - 1, m)[1]))
+                    return str(s), str(e)
+                if tf == "last_year":
+                    return str(date(y - 2, 1, 1)), str(date(y - 2, 12, 31))
+                if tf in ("current_quarter", "quarter_to_date"):
+                    base_q = cur_q
+                    base_y = y
+                else:
+                    base_q = cur_q - 1 or 4
+                    base_y = y if cur_q > 1 else y - 1
+                pq = base_q - 1 or 4
+                py = base_y if base_q > 1 else base_y - 1
+                s, e = qd(py, pq)
+                return str(s), str(e)
+
+            def _append_date(sql, start, end):
+                cond = f"{date_col} BETWEEN '{start}' AND '{end}'"
+                if _re.search(r'\bWHERE\b', sql, _re.IGNORECASE):
+                    return sql + f" AND {cond}"
+                return sql + f" WHERE {cond}"
+
+            if not breakdown or not override_group_by:
+                s, e = _period_dates(timeframe)
+                return _append_date(raw_sql, s, e)
+
+            dim = override_group_by[0]
+            # Snowflake stores unquoted identifiers as uppercase (case-insensitive match).
+            # Only double-quote identifiers that contain special characters (spaces, hyphens,
+            # dots, etc.) — quoting a plain snake_case name forces case-sensitive lookup and
+            # will fail because the view columns were created as UPPERCASE.
+            _needs_quote = bool(_re.search(r'[^a-zA-Z0-9_]', dim))
+            dim_quoted = f'"{dim}"' if _needs_quote else dim
+
+            # Parse raw_sql: "SELECT {agg_expr} AS value FROM ..."
+            pat = _re.compile(r'^SELECT\s+(.+?)\s+AS\s+value\s+(FROM\s+.+)', _re.IGNORECASE | _re.DOTALL)
+            m = pat.match(raw_sql.strip())
+            if not m:
+                return None
+            agg_expr = m.group(1).strip()
+            from_clause = m.group(2)
+
+            base = f"SELECT {dim_quoted}, {agg_expr} AS value {from_clause}"
+
+            if topn and isinstance(topn, dict):
+                n = topn.get("n", 50)
+                s_cur, e_cur = _period_dates(timeframe)
+                s_prev, e_prev = _prev_period_dates(timeframe)
+
+                def _period_subquery(start, end):
+                    sql = _append_date(base, start, end)
+                    return sql + f" GROUP BY {dim_quoted}"
+
+                curr_sql = _period_subquery(s_cur, e_cur)
+                prev_sql = _period_subquery(s_prev, e_prev)
+                return (
+                    f"WITH curr AS ({curr_sql}), "
+                    f"prev AS ({prev_sql}) "
+                    f"SELECT curr.{dim_quoted}, curr.value AS current_value, "
+                    f"COALESCE(prev.value, 0) AS previous_value, "
+                    f"(curr.value - COALESCE(prev.value, 0)) AS delta_prev "
+                    f"FROM curr LEFT JOIN prev ON curr.{dim_quoted} = prev.{dim_quoted} "
+                    f"ORDER BY delta_prev DESC LIMIT {n}"
+                )
+            else:
+                s, e = _period_dates(timeframe)
+                sql = _append_date(base, s, e)
+                return sql + f" GROUP BY {dim_quoted}"
+
+        except Exception as ex:
+            self.logger.warning(f"_build_sf_dimensional_sql error: {ex}")
+            return None
+
     async def generate_sql_for_kpi(self, kpi_definition: Any, timeframe: Any = None, filters: Dict[str, Any] = None, topn: Any = None, breakdown: bool = False, override_group_by: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         Wrapper that generates SQL for a KPI definition using _generate_sql_for_kpi and returns
@@ -4196,6 +4329,20 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 }
 
             elif _source_system == 'snowflake':
+                sf_sql = self._build_sf_dimensional_sql(
+                    _raw_sql, kpi_definition, timeframe, topn, breakdown, override_group_by
+                )
+                if sf_sql:
+                    self.logger.info(f"[TXN:{transaction_id}] [SF path] SQL for '{kpi_name}': {sf_sql[:120]}")
+                    return {
+                        "sql": sf_sql,
+                        "kpi_name": kpi_name,
+                        "transaction_id": transaction_id,
+                        "success": True,
+                        "message": f"Snowflake SQL generated for {kpi_name}",
+                        "data_product_id": _dp_id,
+                        "source_system": "snowflake",
+                    }
                 self.logger.info(f"[TXN:{transaction_id}] [SF path] Using stored Snowflake SQL for '{kpi_name}': {_raw_sql[:120]}")
                 return {
                     "sql": _raw_sql,
