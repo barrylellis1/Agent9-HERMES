@@ -246,11 +246,16 @@ export default function CompanyProfile() {
     setNotes(ctx.notes ?? '')
   }
 
-  // ── On mount: load existing profile ──
+  // ── On mount: load existing profile scoped to active client ──
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/v1/company-profile`)
+        // Use the client selected at login, falling back to the previously stored profile client
+        const activeClientId = localStorage.getItem('a9_active_client_id') || localStorage.getItem(CLIENT_ID_KEY)
+        const url = activeClientId
+          ? `${API_BASE_URL}/api/v1/company-profile?client_id=${encodeURIComponent(activeClientId)}`
+          : `${API_BASE_URL}/api/v1/company-profile`
+        const res = await fetch(url)
         if (!res.ok) {
           setIsNew(true)
           return

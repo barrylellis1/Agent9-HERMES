@@ -50,8 +50,9 @@ export type BusinessTerm = {
   technical_mappings?: Record<string, unknown>;
 };
 
-export async function listGlossaryTerms(): Promise<BusinessTerm[]> {
-  const envelope = await requestJson<Envelope<BusinessTerm[]>>(`/registry/glossary`);
+export async function listGlossaryTerms(clientId?: string): Promise<BusinessTerm[]> {
+  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
+  const envelope = await requestJson<Envelope<BusinessTerm[]>>(`/registry/glossary${qs}`);
   return envelope.data || [];
 }
 
@@ -83,8 +84,9 @@ export async function deleteGlossaryTerm(termName: string): Promise<void> {
 // KPI Registry API
 // ------------------------------------------------------------------
 
-export async function listKpis(): Promise<any[]> {
-  const envelope = await requestJson<Envelope<any[]>>(`/registry/kpis`);
+export async function listKpis(clientId?: string): Promise<any[]> {
+  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
+  const envelope = await requestJson<Envelope<any[]>>(`/registry/kpis${qs}`);
   return envelope.data || [];
 }
 
@@ -183,8 +185,9 @@ export async function deletePrincipal(id: string): Promise<void> {
 // Data Product Registry API
 // ------------------------------------------------------------------
 
-export async function listDataProducts(): Promise<any[]> {
-  const envelope = await requestJson<Envelope<any[]>>(`/registry/data-products`);
+export async function listDataProducts(clientId?: string): Promise<any[]> {
+  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
+  const envelope = await requestJson<Envelope<any[]>>(`/registry/data-products${qs}`);
   return envelope.data || [];
 }
 
@@ -230,8 +233,9 @@ export async function deleteDataProduct(id: string): Promise<void> {
 // Business Process Registry API
 // ------------------------------------------------------------------
 
-export async function listBusinessProcesses(): Promise<any[]> {
-  const envelope = await requestJson<Envelope<any[]>>(`/registry/business-processes`);
+export async function listBusinessProcesses(clientId?: string): Promise<any[]> {
+  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
+  const envelope = await requestJson<Envelope<any[]>>(`/registry/business-processes${qs}`);
   return envelope.data || [];
 }
 
@@ -357,6 +361,10 @@ export async function detectSituations(
   }
 
   const { data: { request_id } } = await runResponse.json();
+
+  if (!request_id || typeof request_id !== 'string' || !request_id.startsWith('situation_')) {
+    throw new Error(`Invalid request_id received from server: ${request_id}`);
+  }
 
   // 2. Poll for completion (90s — monthly series adds ~15s to detection)
   let attempts = 0;

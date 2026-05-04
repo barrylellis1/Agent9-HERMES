@@ -1,6 +1,6 @@
 # A9_Deep_Analysis_Agent Card
 
-Status: Active (contract-driven planning; DGA mandatory for dimension resolution)
+Status: Active — client_id scoped (Phase 10B) (contract-driven planning; DGA mandatory for dimension resolution)
 
 ## Overview
 The `A9_Deep_Analysis_Agent` plans and executes transparent, auditable deep analysis for KPIs using KT "Is/Is Not" as the core method, with lightweight SCQA/MECE framing. It delegates all SQL to the Data Product Agent (DPA) and uses `A9_LLM_Service` for narrative-only summarization/hypotheses (no direct LLM calls).

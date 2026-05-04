@@ -159,7 +159,15 @@ These apply when working anywhere in the codebase. See `src/agents/new/CLAUDE.md
    - SA agent `_get_relevant_kpis()` filters by client_id — do not weaken this filter for test convenience. Fix test fixtures instead.
    - DELETE endpoints must validate ownership — cannot delete a record belonging to a different client
 
-8. **SQL Backend Routing** 🔴
+8. **Registry Record Identity** 🔴
+   - Record IDs must be natural, semantic identifiers — NEVER encode tenant identity in the ID
+   - CORRECT: `id="net_revenue"`, `client_id="lubricants"` — uniqueness is guaranteed by the composite PK `(client_id, id)`
+   - WRONG: `id="lub_net_revenue"`, `id="apex_cfo_001"`, `id="hess_upstream_revenue"` — the client name belongs in `client_id`, not in `id`
+   - This applies to every registry table: KPIs, Principals, Data Products, Business Processes, Glossary Terms
+   - Prefixing IDs with a client name is a red flag that `client_id` is not being used as the tenant key
+   - The composite key `(client_id, id)` is the uniqueness contract — do not add application-layer workarounds on top of it
+
+9. **SQL Backend Routing** 🔴
    - Route SQL to backends by looking up `DataProduct.source_system` from the registry — NOT by regex on SQL syntax
    - Every KPI has a `data_product_id` → look up the data product → read its `source_system` field (bigquery, snowflake, sqlserver, duckdb)
    - Regex detection of backticks/brackets is a Tier 2 fallback ONLY when data_product_id is missing or unresolvable

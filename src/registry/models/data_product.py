@@ -8,7 +8,7 @@ This replaces hardcoded data product references with a flexible, data-driven mod
 import os
 from enum import Enum
 from typing import Dict, List, Optional, Union, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class DataSourceType(str, Enum):
@@ -40,13 +40,13 @@ class TableDefinition(BaseModel):
 class ViewDefinition(BaseModel):
     """
     Definition of a view within a data product.
-    
+
     Views are derived from tables or other views through SQL queries.
     """
-    
-    name: str = Field(..., description="Name of the view")
+
+    name: Optional[str] = Field(None, description="Name of the view (backfilled from dict key by DataProduct validator)")
     description: Optional[str] = Field(None, description="Description of the view")
-    sql_definition: str = Field(..., description="SQL query defining the view")
+    sql_definition: Optional[str] = Field(None, description="SQL query defining the view")
     depends_on: List[str] = Field(default_factory=list, description="Tables or views this view depends on")
 
 
@@ -77,6 +77,20 @@ class DataProduct(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata for extensions")
     kpis: List[Dict[str, Any]] = Field(default_factory=list, description="KPIs defined for this data product")
     
+    @model_validator(mode="after")
+    def _backfill_view_names(self) -> "DataProduct":
+        """Backfill ViewDefinition.name from the dict key when the stored payload omits it.
+
+        Views are stored as Dict[str, ViewDefinition] where the key is the view name.
+        Seeds and legacy records may not include 'name' inside the nested dict, causing
+        Pydantic to see name=None. This validator fills it from the key so that code
+        reading dp.views[k].name always gets a usable value.
+        """
+        for key, view in (self.views or {}).items():
+            if isinstance(view, ViewDefinition) and not view.name:
+                view.name = key
+        return self
+
     @classmethod
     def from_enum_value(cls, enum_value: str, domain: str = "Finance") -> "DataProduct":
         """

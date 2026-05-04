@@ -1,10 +1,12 @@
 """
+# doc-sync-skip
 Principal Context Agent
 
 This agent manages principal context and relationships in business operations.
 It handles registration, retrieval, and management of principal profiles as well
 as mapping principals to business processes and KPIs.
 """
+# doc-sync-skip
 
 import os
 import json
@@ -690,31 +692,42 @@ class A9_Principal_Context_Agent:
             self.logger.error(f"Error in get_business_process_by_name: {str(e)}")
             return None
             
-    async def get_principal_context_by_id(self, principal_id: str) -> Dict[str, Any]:
+    async def get_principal_context_by_id(self, principal_id: str, client_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Get principal context for a given principal ID.
-        
+
         Args:
             principal_id: ID of the principal
-            
+            client_id: Optional client/tenant ID for composite key lookup.
+                       Required when multiple clients share the same principal_id.
+
         Returns:
             Principal context containing preferences and relevant business processes
         """
         from src.agents.models.situation_awareness_models import PrincipalContext, TimeFrame
         from src.agents.models.principal_context_models import PrincipalProfileResponse
-        
+
         try:
             # Log the request
-            self.logger.info(f"Getting principal context for ID: {principal_id}")
-            
+            self.logger.info(f"Getting principal context for ID: {principal_id} (client_id={client_id})")
+
             # First try to load from registry if not already loaded
             if not self.principal_profiles:
                 await self._load_principal_profiles()
-            
+
             # Try to get profile directly from the provider first
             profile_data = None
             if self._principal_provider:
-                profile_obj = self._principal_provider.get(principal_id)
+                # When client_id is known, try the composite key first to avoid
+                # returning the wrong principal when multiple clients share the same id.
+                profile_obj = None
+                if client_id:
+                    composite_key = f"{client_id}:{principal_id}"
+                    profile_obj = self._principal_provider._items.get(composite_key)
+                    if profile_obj:
+                        self.logger.info(f"Found profile via composite key {composite_key}")
+                if not profile_obj:
+                    profile_obj = self._principal_provider.get(principal_id)
                 if profile_obj:
                     # Convert to dict if it's a model (prefer Pydantic v2 API)
                     if hasattr(profile_obj, 'model_dump'):

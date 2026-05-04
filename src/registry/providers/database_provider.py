@@ -153,12 +153,22 @@ class DatabaseRegistryProvider(RegistryProvider[T]):
         self._items[key] = item
 
     def get(self, id_or_name: str) -> Optional[T]:
-        """Get an item by ID. Tries composite key (client_id:id) first, then plain id."""
+        """Get an item by ID. Tries composite key (client_id:id) first, then plain id,
+        then a bare-id linear scan for items cached under a different client prefix
+        (e.g. shared records stored with client_id='default')."""
         if self.client_id:
             result = self._items.get(f"{self.client_id}:{id_or_name}")
             if result is not None:
                 return result
-        return self._items.get(id_or_name)
+        result = self._items.get(id_or_name)
+        if result is not None:
+            return result
+        # Fallback: scan for matching bare id — handles items stored under a client_id
+        # prefix different from the lookup context (e.g. shared records with client_id='default')
+        for item in self._items.values():
+            if getattr(item, "id", None) == id_or_name:
+                return item
+        return None
 
     def get_all(self) -> List[T]:
         """Get all items."""
@@ -233,15 +243,15 @@ class DatabaseRegistryProvider(RegistryProvider[T]):
         try:
             # Handle composite keys: when multiple key_fields are present, item_id is in format "field1_value:field2_value:..."
             if len(self.key_fields) > 1:
-                # Parse composite key
+                # Parse composite key (format: "{field0_value}:{field1_value}:...")
                 parts = item_id.split(":", len(self.key_fields) - 1)
                 if len(parts) != len(self.key_fields):
                     logger.error(f"Composite key {item_id} does not match expected {len(self.key_fields)} fields")
                     return False
-                # Use the first key field for deletion (typically client_id)
-                # This is sufficient because the composite key uniquely identifies the record
-                key_col = self.key_fields[0]
-                key_value = parts[0]
+                # Use the LAST key field (typically "id") to target a single record.
+                # Using key_fields[0] ("client_id") would delete ALL records for that client.
+                key_col = self.key_fields[-1]
+                key_value = parts[-1]
                 success = await self.db_manager.delete_record(self.table_name, key_col, key_value)
                 return success
             else:

@@ -1,4 +1,5 @@
 """
+# doc-sync-skip
 A9 Value Assurance Agent
 
 Closes the insight-to-outcome loop: after a principal approves a solution at HITL,
@@ -15,6 +16,7 @@ Core capabilities (Phase 7A):
 All LLM calls are routed through A9_LLM_Service_Agent via the orchestrator.
 No direct anthropic/openai imports.
 """
+# doc-sync-skip
 from __future__ import annotations
 
 import logging
@@ -361,6 +363,7 @@ class A9_Value_Assurance_Agent:
             situation_id=request.situation_id,
             kpi_id=request.kpi_id,
             principal_id=request.principal_id,
+            client_id=getattr(request, "client_id", None),
             approved_at=approved_at,
             solution_description=request.solution_description,
             expected_impact_lower=request.expected_impact_lower,
@@ -974,7 +977,9 @@ class A9_Value_Assurance_Agent:
         # Load from Supabase if in-memory store is empty (e.g., after restart)
         if not self._solutions_store and self._va_store and self._va_store.enabled:
             try:
-                rows = await self._va_store.get_solutions_by_principal(request.principal_id)
+                rows = await self._va_store.get_solutions_by_principal(
+                    request.principal_id, client_id=getattr(request, "client_id", None)
+                )
                 for row in rows:
                     try:
                         sol = AcceptedSolution(**row)

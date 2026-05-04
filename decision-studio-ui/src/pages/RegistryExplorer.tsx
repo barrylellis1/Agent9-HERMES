@@ -159,6 +159,8 @@ export function RegistryExplorer() {
   const [registryKey, setRegistryKey] = useState<RegistryKey>('glossary')
   const active = useMemo(() => REGISTRIES.find((r) => r.key === registryKey)!, [registryKey])
   const workspaceId = localStorage.getItem('a9_client_id') ?? 'unknown'
+  // Active client is set at login — use it to scope all registry list calls
+  const activeClientId = localStorage.getItem('a9_active_client_id') ?? undefined
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -222,15 +224,15 @@ export function RegistryExplorer() {
         let data: any[] = []
 
         if (registryKey === 'glossary') {
-          data = await listGlossaryTerms()
+          data = await listGlossaryTerms(activeClientId)
         } else if (registryKey === 'data-products') {
-          data = await listDataProducts()
+          data = await listDataProducts(activeClientId)
         } else if (registryKey === 'kpis') {
-          data = await listKpis()
+          data = await listKpis(activeClientId)
         } else if (registryKey === 'business-processes') {
-          data = await listBusinessProcesses()
+          data = await listBusinessProcesses(activeClientId)
         } else if (registryKey === 'principals') {
-          data = await listPrincipals()
+          data = await listPrincipals(activeClientId)
         }
 
         if (!canceled) setItems(Array.isArray(data) ? data : [])
@@ -790,6 +792,12 @@ export function RegistryExplorer() {
             <span className="text-xs text-slate-400">Workspace</span>
             <span className="text-xs font-semibold text-white font-mono">{workspaceId}</span>
           </div>
+          {activeClientId && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-indigo-700/50 bg-indigo-950/40">
+              <span className="text-xs text-indigo-400">Client</span>
+              <span className="text-xs font-semibold text-indigo-300 font-mono">{activeClientId}</span>
+            </div>
+          )}
         </div>
         <BrandLogo size={32} />
       </header>

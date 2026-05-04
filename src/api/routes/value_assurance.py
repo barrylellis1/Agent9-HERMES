@@ -25,7 +25,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from src.agents.models.value_assurance_models import (
     LegacyAcceptedSolution as AcceptedSolution,
@@ -369,17 +369,20 @@ async def evaluate_solution(
 async def get_portfolio(
     principal_id: str,
     include_superseded: bool = False,
+    client_id: Optional[str] = Query(None),
 ) -> StrategyAwarePortfolio:
     """
     Aggregate all tracked solutions into a strategy-aware portfolio summary for a principal.
 
     When include_superseded=False (default), solutions whose strategy alignment is
     SUPERSEDED are excluded from ROI totals but still appear in the solutions list.
+    When client_id is provided, only solutions for that tenant are returned.
     """
     portfolio_req = PortfolioSummaryRequest(
         request_id=str(uuid.uuid4()),
         principal_id=principal_id,
         include_superseded=include_superseded,
+        client_id=client_id,
     )
     agent = await _get_va_agent()
     try:

@@ -20,7 +20,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 import json as _json_module
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from src.agents.shared.a9_debate_protocol_models import A9_PS_BusinessContext
@@ -121,8 +121,13 @@ class IndustryResearchResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.get("", response_model=Dict[str, Any])
-async def get_company_profile() -> Dict[str, Any]:
-    """Load the singleton company profile for this deployment.
+async def get_company_profile(client_id: Optional[str] = Query(None)) -> Dict[str, Any]:
+    """Load the company profile for the given client, or the active singleton if unscoped.
+
+    When ``client_id`` is provided (set by the frontend from the active login session)
+    the profile for that specific client is returned. This enforces tenant isolation in
+    multi-client deployments. Falls back to ``_find_active_client_id()`` for
+    single-tenant or env-var scoped deployments.
 
     Returns the profile dict including ``client_id``, or ``{}`` if no profile
     has been saved yet (HTTP 200 in both cases).
@@ -132,16 +137,17 @@ async def get_company_profile() -> Dict[str, Any]:
         logger.warning("Business context provider unavailable; returning empty profile")
         return {}
 
-    client_id = await _find_active_client_id(provider)
-    if not client_id:
+    # Use the provided client_id (from logged-in session) or fall back to singleton resolution
+    active_client_id = client_id or await _find_active_client_id(provider)
+    if not active_client_id:
         return {}
 
-    context = await provider.get_context(client_id)
+    context = await provider.get_context(active_client_id)
     if context is None:
         return {}
 
     result = context.model_dump(exclude_none=True)
-    result['client_id'] = client_id   # always surface the client_id to the frontend
+    result['client_id'] = active_client_id   # always surface the client_id to the frontend
     return result
 
 

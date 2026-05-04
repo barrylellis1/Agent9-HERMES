@@ -1,4 +1,5 @@
 """
+# doc-sync-skip
 A9 Situation Awareness Agent
 
 This agent provides automated situation awareness for Finance KPIs,
@@ -6,6 +7,7 @@ detecting anomalies, trends, and insights based on principal context.
 
 MVP implementation focuses on the Finance KPIs from the FI Star Schema.
 """
+# doc-sync-skip
 
 import os
 import re
@@ -347,8 +349,12 @@ class A9_Situation_Awareness_Agent:
             
             self.logger.info(f"Detecting situations for {request.principal_context.role}")
 
-            # Get relevant KPIs based on principal context and business processes
-            client_id = getattr(request.principal_context, "client_id", None)
+            # Get relevant KPIs based on principal context and business processes.
+            # Prefer client_id from the request body; fall back to principal_context.client_id.
+            client_id = (
+                getattr(request, "client_id", None)
+                or getattr(request.principal_context, "client_id", None)
+            )
             relevant_kpis = self._get_relevant_kpis(
                 request.principal_context,
                 request.business_processes,
@@ -1265,11 +1271,13 @@ class A9_Situation_Awareness_Agent:
                 if hasattr(kpi, 'business_process_ids') and kpi.business_process_ids:
                     business_process_ids = kpi.business_process_ids
                     for bp_id in kpi.business_process_ids:
-                        # Format: domain_process_name
+                        # Store raw ID for direct matching when process_strings contains IDs
+                        if bp_id not in business_processes:
+                            business_processes.append(bp_id)
+                        # Also store display name for matching when process_strings contains display names
                         parts = bp_id.split('_', 1)
                         if len(parts) > 1:
                             domain, process = parts
-                            # Format for display: "Domain: Process Name"
                             formatted_bp = f"{domain.capitalize()}: {process.replace('_', ' ').title()}"
                             if formatted_bp not in business_processes:
                                 business_processes.append(formatted_bp)

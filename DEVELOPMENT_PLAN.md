@@ -45,7 +45,7 @@ run_enterprise_assessment.py
 | Data Product Onboarding (8-step orchestrated workflow) | Production-ready |
 | Decision Studio UI (React/Vite/Tailwind, Swiss Style) | Production-ready |
 | Supabase-backed registries (6 registries) | Production-ready |
-| DuckDB + BigQuery + PostgreSQL data sources | Production-ready |
+| DuckDB + BigQuery + SQL Server + Snowflake + PostgreSQL data sources | Production-ready |
 | Production deployment (Railway + Vercel + Supabase Cloud) | Live (deployed Mar 2026) |
 | SF fast debate mode (2 calls dev / 4 calls production) | Production-ready |
 
@@ -54,8 +54,7 @@ run_enterprise_assessment.py
 | Capability | Planned phase |
 |-----------|--------------|
 | DGA mandatory wiring (eliminate 16 governance fallback paths) | Phase 10B-DGA |
-| Multi-tenant data connectivity (MCP-first, Snowflake/Databricks/HANA) | Phase 10C |
-| KPI trend chart (monthly_values populated for all backends) | Phase 10C |
+| KPI trend chart (monthly_values populated for all backends) | Phase 10D |
 | KPI accountability registry (dimensional ownership) | Phase 11A |
 | LLM-assisted accountability import from HCM documents | Phase 11B |
 | Unified situation stream (merge problem + opportunity) | Phase 11C |
@@ -125,6 +124,33 @@ Swiss Style brand identity across all UI surfaces:
 - Measured CTA copy — "Request a Conversation", "View the Analysis"
 - Mobile-safe layout tested on Gmail
 - Flash Briefing text block structured for future TTS delivery
+
+### Phase 10C: Multi-Warehouse Direct SDK Connectors ✅ COMPLETE (May 2026)
+
+All four backends operational and verified end-to-end via SA scan:
+
+| Backend | Client | Situations detected | Notes |
+|---------|--------|-------------------|-------|
+| DuckDB | bicycle | 0 | No 2026 Actual data in dev dataset |
+| BigQuery | lubricants | 8 | Production-ready |
+| SQL Server | hess | 4 | Docker `agent9_sqlserver`, `agent9_lubricants` DB |
+| Snowflake | apex_lubricants | 3 | `AGENT9_DEMO.LUBRICANTS.LubricantsStarSchemaView` |
+
+**What was built (prior to May 2026 — plan was stale):**
+- `src/database/backends/sqlserver_manager.py` — pyodbc + asyncio.to_thread, MERGE upsert, INFORMATION_SCHEMA profiling
+- `src/database/backends/snowflake_manager.py` — snowflake-connector-python, async wrapper
+- `src/database/backends/databricks_manager.py` — Databricks SQL connector
+- DPA `_ensure_sqlserver_connected()` / `_ensure_snowflake_connected()` — config from data product metadata → env vars → defaults
+- DPA `_profile_table_sqlserver()` — full INFORMATION_SCHEMA profiling with FK extraction
+- SA agent `_resolve_source_system()` — Tier 1 routing via `data_product_id` registry lookup
+- SA agent `_get_kpi_value()` — `_is_ss_kpi` / `_is_sf_kpi` routing, T-SQL and Snowflake date injection, comparison SQL
+
+**Connection config resolution (both backends):**
+1. Data product `metadata` fields (e.g. `sqlserver_host`, `snowflake_account`)
+2. Env vars (`SS_HOST`, `SS_PASSWORD` / `SF_ACCOUNT`, `SF_PASSWORD`)
+3. Hard-coded dev defaults
+
+---
 
 ### Phase 10D: Solution Finder Performance Tuning ✅ COMPLETE (Apr 2026)
 
@@ -226,7 +252,7 @@ Agent9 connects to customer data warehouses at three progressive levels of integ
 
 | Phase | Tier | What Gets Built |
 |-------|------|-----------------|
-| **10C** | Tier 1 | SnowflakeManager + DatabricksManager direct SDK connectors |
+| **10C** ✅ | Tier 1 | SqlServerManager + SnowflakeManager + DatabricksManager direct SDK connectors — complete |
 | **10D** | Tier 2 | MCP client + vendor MCP endpoint wiring; replaces direct SDK via decorator pattern |
 | **11F** | Tier 3 | DGA routing to Cortex Analyst / Genie for complex NL follow-up |
 
@@ -270,28 +296,6 @@ Agent9 connects to customer data warehouses at three progressive levels of integ
 
 ---
 
-
-### Phase 10C: Multi-Warehouse Schema Parsing & Direct SDK Connectors
-
-**Goal:** Enable enterprise data warehouses (Snowflake, Databricks) to connect via direct SDK with intelligent schema parsing. Data Product Onboarding accepts curated customer views, parses them to extract schema metadata, and executes customer's native SQL without translation.
-
-**Architecture decisions (non-negotiable):**
-- **No SQL translation** — customer's native SQL is already optimized. We parse schema, not translate SQL.
-- **Schema-parsing-first** — QueryDialect extracts base tables, FK relationships, column lineage from view definitions.
-- **Direct SDK for trial accounts** (Phase 10C) — SnowflakeManager, DatabricksManager via Python SDKs.
-- **MCP abstraction deferred** (Phase 10D) — swap only `connect()` method when vendor MCP servers available.
-
-| Deliverable | Description |
-|------------|-------------|
-| SnowflakeManager + DatabricksManager | Direct SDK connectors implementing DatabaseManager ABC |
-| QueryDialect parsers | Parse view SQL to extract schema metadata (no SQL translation) |
-| DPA schema parsing | Extract metadata from customer view definitions for contract generation |
-| DPA execution routing | Route to correct backend based on data_product_id's source_system |
-| Unit + integration tests | Verify managers, dialects, factory, integration (11+ test cases) |
-
-**Reference:** `PHASE_10C_PLAN.md` — full implementation guide with code examples and test suite.
-
----
 
 ### Phase 10D: MCP Abstraction Layer
 

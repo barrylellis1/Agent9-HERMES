@@ -94,6 +94,7 @@ class VASolutionsStore:
                 "situation_id": solution.situation_id,
                 "kpi_id": solution.kpi_id,
                 "principal_id": solution.principal_id,
+                "client_id": getattr(solution, "client_id", None),
                 "approved_at": solution.approved_at,
                 "solution_description": solution.solution_description,
                 "expected_impact_lower": solution.expected_impact_lower,
@@ -181,24 +182,30 @@ class VASolutionsStore:
             logger.warning("VASolutionsStore.get_solution failed (non-fatal): %s", exc)
             return None
 
-    async def get_solutions_by_principal(self, principal_id: str) -> List[Dict[str, Any]]:
+    async def get_solutions_by_principal(
+        self, principal_id: str, client_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """
         Return all solution rows for a given principal, ordered by approved_at descending.
 
+        When ``client_id`` is provided only solutions belonging to that tenant are returned.
         Returns an empty list on any error.
         """
         if not self.enabled:
             return []
         try:
+            params: Dict[str, Any] = {
+                "principal_id": f"eq.{principal_id}",
+                "select": "*",
+                "order": "approved_at.desc",
+            }
+            if client_id:
+                params["client_id"] = f"eq.{client_id}"
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     self.solutions_endpoint,
                     headers=self.headers,
-                    params={
-                        "principal_id": f"eq.{principal_id}",
-                        "select": "*",
-                        "order": "approved_at.desc",
-                    },
+                    params=params,
                 )
                 response.raise_for_status()
                 rows = json.loads(response.content) if response.content else []

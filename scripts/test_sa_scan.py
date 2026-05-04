@@ -39,7 +39,7 @@ def main():
     parser.add_argument("--principal",  default="coo_001",      help="principal_id (default: coo_001 = Rachel Kim COO)")
     parser.add_argument("--client",     default="lubricants",   help="client_id    (default: lubricants)")
     parser.add_argument("--timeframe",  default="year_to_date", help="timeframe    (default: year_to_date)")
-    parser.add_argument("--comparison", default="yoy",          help="comparison_type (default: yoy)")
+    parser.add_argument("--comparison", default="year_over_year", help="comparison_type (default: year_over_year)")
     args = parser.parse_args()
 
     payload = {
@@ -103,15 +103,21 @@ def main():
     inner  = result.get("result", {}) or {}
     wrapper = inner.get("situations", {}) or {}
 
-    # The response can be nested as situations.situations (list) or situations directly
-    situations = (
-        wrapper.get("situations")
-        or (wrapper if isinstance(wrapper, list) else None)
-        or inner.get("situations")
-        or []
-    )
+    # Extract the situations list — handles two nesting patterns:
+    #   result.situations.situations  (SituationDetectionResponse serialised inside envelope)
+    #   result.situations             (flat list — legacy)
+    # Use explicit isinstance checks so an empty list [] is treated as "found, just zero items"
+    # and does NOT fall through to the dict-level key iteration bug.
+    _raw = wrapper.get("situations") if isinstance(wrapper, dict) else None
+    if not isinstance(_raw, list):
+        _raw = inner.get("situations") if isinstance(inner, dict) else None
+    situations = _raw if isinstance(_raw, list) else []
 
-    kpis_evaluated = wrapper.get("kpis_evaluated") or inner.get("kpis_evaluated") or 0
+    meta_block = wrapper.get("metadata") or inner.get("metadata") or {}
+    kpis_evaluated = (meta_block.get("kpis_evaluated")
+                      or wrapper.get("kpis_evaluated")
+                      or inner.get("kpis_evaluated")
+                      or 0)
     error_msg      = wrapper.get("error") or inner.get("error")
 
     print(f"KPIs evaluated : {kpis_evaluated}")
@@ -123,18 +129,28 @@ def main():
     if situations:
         print("-" * 60)
         for i, s in enumerate(situations, 1):
-            print(f"[{i}] {s.get('title') or s.get('name') or 'Situation'}")
-            print(f"    KPI      : {s.get('kpi_name') or s.get('kpi_id') or '?'}")
-            print(f"    Severity : {s.get('severity') or '?'}")
-            print(f"    Change   : {s.get('percent_change') or s.get('change') or '?'}")
-            print(f"    Current  : {s.get('current_value') or '?'}")
-            print(f"    Previous : {s.get('previous_value') or '?'}")
+            if isinstance(s, str):
+                print(f"[{i}] {s}")
+            else:
+                kv = s.get('kpi_value') or {}
+                pct = kv.get('percent_change')
+                pct_str = f"{pct:+.1f}%" if pct is not None else "?"
+                print(f"[{i}] {s.get('kpi_name') or '?'}  [{s.get('severity','?')}]")
+                print(f"    Change   : {pct_str}")
+                print(f"    Current  : {kv.get('value','?')}")
+                print(f"    Previous : {kv.get('comparison_value','?')}")
+                print(f"    Type     : {s.get('card_type','?')}")
         print()
     else:
         print("No situations detected.")
         print()
         print("Full result payload (for debugging):")
         print(json.dumps(inner, indent=2, default=str))
+
+    # Always show raw payload when --debug flag is set
+    if "--debug" in sys.argv:
+        print("\n=== RAW RESULT ===")
+        print(json.dumps(result, indent=2, default=str))
 
 
 if __name__ == "__main__":

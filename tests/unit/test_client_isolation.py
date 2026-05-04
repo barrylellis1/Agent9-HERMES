@@ -179,6 +179,12 @@ async def test_dga_allows_same_client_access():
         {"orchestrator": orchestrator, "registry_factory": rf},
     )
 
+    # Inject mock data product provider so the DGA can resolve dp_client="bicycle"
+    mock_dp_provider = MagicMock()
+    mock_dp = SimpleNamespace(client_id="bicycle", id="bicycle_star_schema")
+    mock_dp_provider.get.return_value = mock_dp
+    dga.data_product_provider = mock_dp_provider
+
     req = DataAccessValidationRequest(
         principal_id="cfo_001",
         data_product_id="bicycle_star_schema",
@@ -250,7 +256,7 @@ async def test_dga_allows_when_principal_is_unscoped():
     req = DataAccessValidationRequest(
         principal_id="cfo_001",
         data_product_id="bicycle_star_schema",
-        # No client_id → backward compat
+        # No client_id → admin/system context, access allowed regardless of DP client
     )
     resp = await dga.validate_data_access(req)
     assert resp.allowed is True

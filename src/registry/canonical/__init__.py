@@ -1,0 +1,44 @@
+"""
+Canonical registry taxonomy — single source of truth for shared terminology.
+
+The lists defined here are seeded into every client's registry at onboarding time.
+The database rows are derived from these definitions; never the reverse.
+
+Usage:
+    from src.registry.canonical import FINANCE_BUSINESS_PROCESSES, ALL_BUSINESS_PROCESSES
+    from src.registry.canonical import CORE_GLOSSARY_TERMS
+"""
+
+from src.registry.canonical.business_processes import (
+    FINANCE_BUSINESS_PROCESSES,
+    STRATEGY_BUSINESS_PROCESSES,
+    OPERATIONS_BUSINESS_PROCESSES,
+    HR_BUSINESS_PROCESSES,
+    IT_BUSINESS_PROCESSES,
+    MARKETING_BUSINESS_PROCESSES,
+    SALES_BUSINESS_PROCESSES,
+    COMPLIANCE_BUSINESS_PROCESSES,
+    DATA_BUSINESS_PROCESSES,
+    TEAM_BUSINESS_PROCESSES,
+    PRICING_BUSINESS_PROCESSES,
+    SUPPLY_CHAIN_BUSINESS_PROCESSES,
+    ALL_BUSINESS_PROCESSES,
+)
+from src.registry.canonical.glossary import CORE_GLOSSARY_TERMS
+
+__all__ = [
+    "FINANCE_BUSINESS_PROCESSES",
+    "STRATEGY_BUSINESS_PROCESSES",
+    "OPERATIONS_BUSINESS_PROCESSES",
+    "HR_BUSINESS_PROCESSES",
+    "IT_BUSINESS_PROCESSES",
+    "MARKETING_BUSINESS_PROCESSES",
+    "SALES_BUSINESS_PROCESSES",
+    "COMPLIANCE_BUSINESS_PROCESSES",
+    "DATA_BUSINESS_PROCESSES",
+    "TEAM_BUSINESS_PROCESSES",
+    "PRICING_BUSINESS_PROCESSES",
+    "SUPPLY_CHAIN_BUSINESS_PROCESSES",
+    "ALL_BUSINESS_PROCESSES",
+    "CORE_GLOSSARY_TERMS",
+]

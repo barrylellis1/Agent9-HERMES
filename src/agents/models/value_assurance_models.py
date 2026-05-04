@@ -156,6 +156,7 @@ class AcceptedSolution(BaseModel):
     situation_id: str
     kpi_id: str
     principal_id: str
+    client_id: Optional[str] = None
     approved_at: str
     solution_description: str
     expected_impact_lower: float
@@ -196,6 +197,7 @@ class RegisterSolutionRequest(BaseModel):
     expected_impact_lower: float
     expected_impact_upper: float
     measurement_window_days: int = 30
+    client_id: Optional[str] = None
     ma_market_signals: Optional[List[str]] = None
     strategy_snapshot: Optional[StrategySnapshot] = None
     # Phase 7C: full BenchmarkSegment objects from DA
@@ -270,6 +272,7 @@ class PortfolioSummaryRequest(BaseModel):
     request_id: str
     principal_id: str
     include_superseded: bool = False
+    client_id: Optional[str] = None
 
 
 class StrategyAwarePortfolio(BaseModel):

@@ -1,9 +1,11 @@
 """
+# doc-sync-skip
 A9 Orchestrator Agent
 
 The Orchestrator Agent manages agent-to-agent communication and workflow orchestration.
 It maintains a registry of available agents and handles agent lifecycle management.
 """
+# doc-sync-skip
 
 import asyncio
 import time
@@ -1221,7 +1223,7 @@ async def initialize_agent_registry():
 
     # Register agent factories
     agent_registry.register_agent_factory("A9_Principal_Context_Agent", A9_Principal_Context_Agent.create)
-    agent_registry.register_agent_factory("A9_Situation_Awareness_Agent", create_situation_awareness_agent)
+    agent_registry.register_agent_factory("A9_Situation_Awareness_Agent", A9_Situation_Awareness_Agent.create)
     agent_registry.register_agent_factory("A9_Data_Product_Agent", A9_Data_Product_Agent.create)
     agent_registry.register_agent_factory("A9_Data_Governance_Agent", A9_Data_Governance_Agent.create)
     agent_registry.register_agent_factory("A9_NLP_Interface_Agent", A9_NLP_Interface_Agent.create)

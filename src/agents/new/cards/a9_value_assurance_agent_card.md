@@ -1,6 +1,6 @@
 # A9_Value_Assurance_Agent Card
 
-Status: Active (Phase 7C + VA Lifecycle)
+Status: Active — client_id scoped (Phase 10B) (Phase 7C + VA Lifecycle)
 
 ## Overview
 

@@ -125,7 +125,7 @@ class SnowflakeManager(DatabaseManager):
             self.logger.debug(f"[{transaction_id}] Executing query: {sql[:200]}...")
 
             # Execute query in thread pool
-            cursor = await asyncio.to_thread(self.conn.cursor)
+            cursor = await asyncio.to_thread(lambda: self.conn.cursor())
             await asyncio.to_thread(cursor.execute, sql, parameters)
 
             # Fetch results and convert to DataFrame

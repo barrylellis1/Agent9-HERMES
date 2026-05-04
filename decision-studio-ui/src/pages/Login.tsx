@@ -78,6 +78,8 @@ export function Login() {
   const handleLogin = () => {
     if (!selectedId) return;
     setLoading(true);
+    // Persist the selected client so Settings pages (Company Profile, etc.) can scope to it
+    localStorage.setItem('a9_active_client_id', selectedClientId);
     setTimeout(() => {
       navigate('/dashboard', { state: { principalId: selectedId, clientId: selectedClientId } });
     }, 800);

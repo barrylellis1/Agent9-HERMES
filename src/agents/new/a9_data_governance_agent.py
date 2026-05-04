@@ -1,4 +1,5 @@
 """
+# doc-sync-skip
 A9 Data Governance Agent
 
 This agent provides data governance capabilities, including business-to-technical term translation,
@@ -7,6 +8,7 @@ data quality monitoring, access control, and compliance tracking.
 It leverages the Unified Registry Access Layer for business glossary terms,
 data product contracts, and governance policies.
 """
+# doc-sync-skip
 
 import os
 import asyncio
@@ -287,15 +289,18 @@ class A9_Data_Governance_Agent:
                            f"data product belongs to '{dp_client}'"
                 )
             elif not dp_client:
-                # Data product's client not found in registry — allow but warn
-                # This can happen during early development or when KPI/DP registries aren't fully seeded
+                # Principal is scoped but data product has no client_id in the registry.
+                # This means the data product was not seeded with a client_id — deny to
+                # prevent silent cross-client leaks. Fix by re-seeding the data product
+                # with the correct client_id.
                 self.logger.warning(
-                    f"Access ALLOWED (unverified): scoped principal={request.principal_id} (client={principal_client}) "
-                    f"accessing data_product={request.data_product_id} with unknown client_id (may not match registry)"
+                    f"Access DENIED: scoped principal={request.principal_id} (client={principal_client}) "
+                    f"attempted to access dp={request.data_product_id} which has no client_id in registry"
                 )
                 return DataAccessValidationResponse(
-                    allowed=True,
-                    reason=f"Access granted (data product client not found in registry — allowing for backward compat)"
+                    allowed=False,
+                    reason=f"Data product '{request.data_product_id}' is missing client_id in registry — "
+                           f"re-seed with client_id='{principal_client}' to grant access"
                 )
         else:
             # No principal_client — admin/system context, allow regardless of data product client_id

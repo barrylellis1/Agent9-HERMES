@@ -101,16 +101,16 @@ export function useDecisionStudio() {
   const [selectedPreset, setSelectedPreset] = useState("mbb_council");
   const [selectedPersonas, setSelectedPersonas] = useState<string[]>([]);
   
-  // Context / Principal
-  const [selectedPrincipal, setSelectedPrincipal] = useState("cfo_001");
+  // Context / Principal — seed from router state so there's only one SA scan on mount
+  const [selectedPrincipal, setSelectedPrincipal] = useState(location.state?.principalId || "cfo_001");
   const [timeframe, setTimeframe] = useState("year_to_date"); // 'year_to_date' | 'current_month'
   const [principalInput, setPrincipalInput] = useState<{current_priorities: string[], known_constraints: string[]}>({
       current_priorities: [],
       known_constraints: []
   });
 
-  // Multi-client support
-  const [selectedClientId, setSelectedClientId] = useState("lubricants");
+  // Multi-client support — seed from router state so principal load uses the right client immediately
+  const [selectedClientId, setSelectedClientId] = useState(location.state?.clientId || "lubricants");
   const [availableClients, setAvailableClients] = useState<Client[]>([]);
   const [availablePrincipals, setAvailablePrincipals] = useState<Principal[]>(AVAILABLE_PRINCIPALS);
 
@@ -118,14 +118,8 @@ export function useDecisionStudio() {
   // State (not ref) so the matching effect re-runs when it arrives after situations load.
   const [pendingKpiName, setPendingKpiName] = useState<string | null>(null);
 
-  // Effect to set principal, client, and pending KPI from router state
+  // Effect for deep-link KPI name from router state (principal/client already seeded in useState)
   useEffect(() => {
-    if (location.state?.clientId) {
-      setSelectedClientId(location.state.clientId);
-    }
-    if (location.state?.principalId) {
-      setSelectedPrincipal(location.state.principalId);
-    }
     if (location.state?.kpiName) {
       setPendingKpiName(location.state.kpiName);
     }

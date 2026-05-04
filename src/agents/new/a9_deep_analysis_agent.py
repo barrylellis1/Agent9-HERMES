@@ -1,9 +1,11 @@
 """
+# doc-sync-skip
 A9 Deep Analysis Agent (MVP skeleton)
 - Implements DeepAnalysisProtocol
 - Uses Data Product Agent for deterministic grouped/timeframe comparisons
 - Uses A9_LLM_Service for narrative (optional)
 """
+# doc-sync-skip
 from __future__ import annotations
 
 import logging
@@ -519,6 +521,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     self.logger.debug(f"execute_deep_analysis: KPI load failed: {e}")
 
                 if kpi_def is not None:
+                    dp_id = getattr(kpi_def, "data_product_id", None)
                     cur_tf = getattr(plan, "timeframe", None)
                     # Default to current_quarter if no timeframe specified
                     if not cur_tf:
@@ -707,10 +710,10 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                     if not all(g.get("success") for g in [_gen_nc, _gen_np, _gen_dc, _gen_dp]):
                                         raise ValueError("bridge: SQL generation failed for one or more components")
 
-                                    _m_nc = _as_map(await self.data_product_agent.execute_sql(_gen_nc["sql"]))
-                                    _m_np = _as_map(await self.data_product_agent.execute_sql(_gen_np["sql"]))
-                                    _m_dc = _as_map(await self.data_product_agent.execute_sql(_gen_dc["sql"]))
-                                    _m_dp = _as_map(await self.data_product_agent.execute_sql(_gen_dp["sql"]))
+                                    _m_nc = _as_map(await self.data_product_agent.execute_sql(_gen_nc["sql"], data_product_id=dp_id))
+                                    _m_np = _as_map(await self.data_product_agent.execute_sql(_gen_np["sql"], data_product_id=dp_id))
+                                    _m_dc = _as_map(await self.data_product_agent.execute_sql(_gen_dc["sql"], data_product_id=dp_id))
+                                    _m_dp = _as_map(await self.data_product_agent.execute_sql(_gen_dp["sql"], data_product_id=dp_id))
 
                                     _total_den_cur = sum(_m_dc.values()) or 1.0
 
@@ -750,7 +753,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             )
                             if not gen_cur.get("success"):
                                 return []
-                            cur_exec = await self.data_product_agent.execute_sql(gen_cur.get("sql"))
+                            cur_exec = await self.data_product_agent.execute_sql(gen_cur.get("sql"), data_product_id=dp_id)
                             m_cur = _as_map(cur_exec)
 
                             if comparator == "budget":
@@ -766,8 +769,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 )
                                 if not (gen_act.get("success") and gen_bud.get("success")):
                                     return []
-                                act_exec = await self.data_product_agent.execute_sql(gen_act.get("sql"))
-                                bud_exec = await self.data_product_agent.execute_sql(gen_bud.get("sql"))
+                                act_exec = await self.data_product_agent.execute_sql(gen_act.get("sql"), data_product_id=dp_id)
+                                bud_exec = await self.data_product_agent.execute_sql(gen_bud.get("sql"), data_product_id=dp_id)
                                 m_act = _as_map(act_exec)
                                 m_bud = _as_map(bud_exec)
                                 keys = set(m_act.keys()) | set(m_bud.keys())
@@ -791,7 +794,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 )
                                 if not gen_prev.get("success"):
                                     return []
-                                prev_exec = await self.data_product_agent.execute_sql(gen_prev.get("sql"))
+                                prev_exec = await self.data_product_agent.execute_sql(gen_prev.get("sql"), data_product_id=dp_id)
                                 m_prev = _as_map(prev_exec)
                                 keys = set(m_cur.keys()) | set(m_prev.keys())
                                 for k in keys:
@@ -905,8 +908,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 )
                                 if not (gen_act_tot.get("success") and gen_bud_tot.get("success")):
                                     return None
-                                act_exec_tot = await self.data_product_agent.execute_sql(gen_act_tot.get("sql"))
-                                bud_exec_tot = await self.data_product_agent.execute_sql(gen_bud_tot.get("sql"))
+                                act_exec_tot = await self.data_product_agent.execute_sql(gen_act_tot.get("sql"), data_product_id=dp_id)
+                                bud_exec_tot = await self.data_product_agent.execute_sql(gen_bud_tot.get("sql"), data_product_id=dp_id)
                                 current_total = _extract_scalar(act_exec_tot)
                                 baseline_total = _extract_scalar(bud_exec_tot)
                             else:
@@ -920,8 +923,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 )
                                 if not (gen_cur_tot.get("success") and gen_prev_tot.get("success")):
                                     return None
-                                cur_exec_tot = await self.data_product_agent.execute_sql(gen_cur_tot.get("sql"))
-                                prev_exec_tot = await self.data_product_agent.execute_sql(gen_prev_tot.get("sql"))
+                                cur_exec_tot = await self.data_product_agent.execute_sql(gen_cur_tot.get("sql"), data_product_id=dp_id)
+                                prev_exec_tot = await self.data_product_agent.execute_sql(gen_prev_tot.get("sql"), data_product_id=dp_id)
                                 current_total = _extract_scalar(cur_exec_tot)
                                 baseline_total = _extract_scalar(prev_exec_tot)
 
@@ -1066,7 +1069,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                         topn={"type": "top", "n": 50, "metric": "delta_prev"}  # Fetch more for threshold analysis
                                     )
                                 if all_req.get("success"):
-                                    all_exec = await self.data_product_agent.execute_sql(all_req.get("sql"))
+                                    all_exec = await self.data_product_agent.execute_sql(all_req.get("sql"), data_product_id=dp_id)
                                     queries_executed += 1
                                     rows = all_exec.get("rows") or []
                                     cols = [str(c) for c in (all_exec.get("columns") or [])]
@@ -1137,7 +1140,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                         kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim]
                                     )
                                     if gen_cur.get("success"):
-                                        cur_exec = await self.data_product_agent.execute_sql(gen_cur.get("sql"))
+                                        cur_exec = await self.data_product_agent.execute_sql(gen_cur.get("sql"), data_product_id=dp_id)
                                         queries_executed += 1
                                         m_cur = _as_map(cur_exec)
                                         m_prev: Dict[str, float] = {}
@@ -1146,7 +1149,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                                 kpi_def, timeframe=prev_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim]
                                             )
                                             if gen_prev.get("success"):
-                                                prev_exec = await self.data_product_agent.execute_sql(gen_prev.get("sql"))
+                                                prev_exec = await self.data_product_agent.execute_sql(gen_prev.get("sql"), data_product_id=dp_id)
                                                 queries_executed += 1
                                                 m_prev = _as_map(prev_exec)
                                         # Compute deltas per group
@@ -1204,8 +1207,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                             kpi_def, timeframe=cur_tf, filters=f_bud, breakdown=True, override_group_by=[dim]
                                         )
                                         if gen_act_h.get("success") and gen_bud_h.get("success"):
-                                            act_exec_h = await self.data_product_agent.execute_sql(gen_act_h.get("sql"))
-                                            bud_exec_h = await self.data_product_agent.execute_sql(gen_bud_h.get("sql"))
+                                            act_exec_h = await self.data_product_agent.execute_sql(gen_act_h.get("sql"), data_product_id=dp_id)
+                                            bud_exec_h = await self.data_product_agent.execute_sql(gen_bud_h.get("sql"), data_product_id=dp_id)
                                             m_act_h = _as_map(act_exec_h)
                                             m_bud_h = _as_map(bud_exec_h)
                                             keys_h = set(m_act_h.keys()) | set(m_bud_h.keys())
@@ -1225,8 +1228,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                                 kpi_def, timeframe=prev_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim]
                                             )
                                             if gen_cur_h.get("success") and gen_prev_h.get("success"):
-                                                cur_exec_h = await self.data_product_agent.execute_sql(gen_cur_h.get("sql"))
-                                                prev_exec_h = await self.data_product_agent.execute_sql(gen_prev_h.get("sql"))
+                                                cur_exec_h = await self.data_product_agent.execute_sql(gen_cur_h.get("sql"), data_product_id=dp_id)
+                                                prev_exec_h = await self.data_product_agent.execute_sql(gen_prev_h.get("sql"), data_product_id=dp_id)
                                                 m_cur_h = _as_map(cur_exec_h)
                                                 m_prev_h = _as_map(prev_exec_h)
                                                 keys_h = set(m_cur_h.keys()) | set(m_prev_h.keys())
@@ -1297,7 +1300,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket], topn={"type": "top", "n": 3, "metric": "delta_prev"}
                         )
                         if t_top.get("success"):
-                            t_top_exec = await self.data_product_agent.execute_sql(t_top.get("sql"))
+                            t_top_exec = await self.data_product_agent.execute_sql(t_top.get("sql"), data_product_id=dp_id)
                             queries_executed += 1
                             rows_t = t_top_exec.get("rows") or []
                             cols_t = [str(c) for c in (t_top_exec.get("columns") or [])]
@@ -1324,7 +1327,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket], topn={"type": "bottom", "n": 3, "metric": "delta_prev"}
                         )
                         if t_bot.get("success"):
-                            t_bot_exec = await self.data_product_agent.execute_sql(t_bot.get("sql"))
+                            t_bot_exec = await self.data_product_agent.execute_sql(t_bot.get("sql"), data_product_id=dp_id)
                             queries_executed += 1
                             rows_tb = t_bot_exec.get("rows") or []
                             cols_tb = [str(c) for c in (t_bot_exec.get("columns") or [])]
@@ -1353,7 +1356,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket]
                             )
                             if gen_cur_t.get("success"):
-                                cur_exec_t = await self.data_product_agent.execute_sql(gen_cur_t.get("sql"))
+                                cur_exec_t = await self.data_product_agent.execute_sql(gen_cur_t.get("sql"), data_product_id=dp_id)
                                 queries_executed += 1
                                 m_cur_t = _as_map(cur_exec_t)
                             else:
@@ -1364,7 +1367,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                     kpi_def, timeframe=prev_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket]
                                 )
                                 if gen_prev_t.get("success"):
-                                    prev_exec_t = await self.data_product_agent.execute_sql(gen_prev_t.get("sql"))
+                                    prev_exec_t = await self.data_product_agent.execute_sql(gen_prev_t.get("sql"), data_product_id=dp_id)
                                     queries_executed += 1
                                     m_prev_t = _as_map(prev_exec_t)
                             keys_t = set(m_cur_t.keys()) | set(m_prev_t.keys())

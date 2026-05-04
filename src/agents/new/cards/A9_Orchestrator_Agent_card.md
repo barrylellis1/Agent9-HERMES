@@ -1,6 +1,6 @@
 # A9_Orchestrator_Agent Card
 
-Status: Active (central coordinator, agent registry singleton)
+Status: Active — client_id scoped (Phase 10B) (central coordinator, agent registry singleton)
 
 ## Overview
 The `A9_Orchestrator_Agent` is the central coordinator for all Agent9 workflows. It maintains the agent registry singleton, handles dependency resolution, and provides 7 workflow methods that orchestrate multi-agent pipelines (SA → DA → SF → VA).
