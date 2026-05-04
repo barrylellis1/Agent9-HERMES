@@ -262,15 +262,16 @@ def onboard_client(
         # 3. business_glossary_terms  (core + client extras)
         # ------------------------------------------------------------------
         print("[3/6] business_glossary_terms")
-        # Table columns: id, term, definition, aliases, tags, metadata, client_id
+        # Table columns: id, name, term, definition, aliases, tags, metadata, client_id
+        # 'name' is required (NOT NULL) — populate from 'term' if absent.
         # The canonical list includes a 'domain' field that doesn't exist in the table — strip it.
-        _GLOSSARY_COLS = {"id", "term", "definition", "aliases", "tags", "metadata", "client_id"}
+        _GLOSSARY_COLS = {"id", "name", "term", "definition", "aliases", "tags", "metadata", "client_id"}
         core_stamped = [
-            {k: v for k, v in {**t, "client_id": client_id}.items() if k in _GLOSSARY_COLS}
+            {k: v for k, v in {**t, "name": t.get("name") or t.get("term", ""), "client_id": client_id}.items() if k in _GLOSSARY_COLS}
             for t in CORE_GLOSSARY_TERMS
         ]
         extra_glossary_stamped = [
-            {k: v for k, v in {**t, "client_id": client_id}.items() if k in _GLOSSARY_COLS}
+            {k: v for k, v in {**t, "name": t.get("name") or t.get("term", ""), "client_id": client_id}.items() if k in _GLOSSARY_COLS}
             for t in extra_glossary
         ]
         all_glossary = core_stamped + [
