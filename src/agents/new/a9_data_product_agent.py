@@ -3694,6 +3694,15 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 self.logger.warning("Snowflake account not configured — set SF_ACCOUNT env var")
                 return False
 
+            self.logger.info(
+                f"[SF-DIAG] account={config.get('account')!r} "
+                f"warehouse={config.get('warehouse')!r} "
+                f"database={config.get('database')!r} "
+                f"schema={config.get('schema')!r} "
+                f"user={conn_params.get('user')!r} "
+                f"password_len={len(conn_params.get('password') or '')}"
+            )
+
             self._sf_manager = SnowflakeManager(config, logger=self.logger)
             ok = await self._sf_manager.connect(conn_params)
             if not ok:
