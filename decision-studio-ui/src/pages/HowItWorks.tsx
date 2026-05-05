@@ -848,7 +848,45 @@ export function HowItWorks() {
       </section>
 
       {/* ═══════════════════════════════════════════
-          7. CTA
+          7. PIPELINE VISUAL SUMMARY
+      ═══════════════════════════════════════════ */}
+      <section className="py-20 px-6 border-t border-slate-800/40">
+        <div className="max-w-4xl mx-auto">
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-60px' }}
+          >
+            <motion.p variants={fadeUp} className="text-xs font-semibold uppercase tracking-widest text-slate-500 text-center mb-12">
+              The full pipeline
+            </motion.p>
+            <motion.div variants={fadeUp} className="flex items-center justify-center gap-0">
+              {[
+                { label: 'Monitor',   color: 'bg-blue-500' },
+                { label: 'Detect',    color: 'bg-red-500' },
+                { label: 'Diagnose',  color: 'bg-amber-500' },
+                { label: 'Recommend', color: 'bg-violet-400' },
+                { label: 'Decide',    color: 'bg-indigo-500' },
+                { label: 'Prove',     color: 'bg-emerald-500' },
+              ].map((step, i, arr) => (
+                <div key={step.label} className="flex items-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className={`w-14 h-14 rounded-full ${step.color} shadow-lg`} />
+                    <span className="text-xs text-slate-400 font-medium tracking-wide">{step.label}</span>
+                  </div>
+                  {i < arr.length - 1 && (
+                    <div className="w-10 sm:w-16 border-t-2 border-dashed border-slate-700 mb-5 mx-1" />
+                  )}
+                </div>
+              ))}
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════
+          8. CTA
       ═══════════════════════════════════════════ */}
       <section className="py-28 px-6">
         <div className="max-w-3xl mx-auto">

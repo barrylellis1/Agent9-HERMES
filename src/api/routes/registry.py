@@ -596,6 +596,12 @@ async def delete_term(term_name: str, factory: RegistryFactory = Depends(get_reg
 # Fallback list used when Supabase business_contexts is unavailable.
 _FALLBACK_CLIENTS = [
     {
+        "id": "apex_lubricants",
+        "name": "Apex Lubricants",
+        "industry": "Specialty Chemicals & Automotive Aftermarket",
+        "data_product_ids": ["dp_lubricants_snowflake"],
+    },
+    {
         "id": "lubricants",
         "name": "Lubricants Business",
         "industry": "Oil & Gas / Specialty Chemicals",

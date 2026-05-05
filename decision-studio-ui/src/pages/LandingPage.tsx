@@ -164,20 +164,28 @@ export function LandingPage() {
         >
           <motion.h1
             variants={fadeUp}
-            className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight text-white mb-6"
+            className="text-4xl sm:text-5xl lg:text-5xl font-bold leading-[1.1] tracking-tight text-white mb-6"
           >
-            Your data platform is built. Your KPIs are governed.{' '}
-            <span className="text-indigo-400">So why are decisions still made the same way?</span>
+            <span className="block">Decisions get made every day.</span>
+            <span className="block text-indigo-400">Most of them can't be defended afterward.</span>
           </motion.h1>
 
           <motion.p
             variants={fadeUp}
-            className="text-lg sm:text-xl text-slate-300 max-w-2xl mx-auto mb-12 leading-relaxed"
+            className="text-base sm:text-lg text-slate-400 max-w-xl mx-auto mb-6 leading-relaxed"
           >
-            You've invested years in your data infrastructure. Decision Studio is what
-            makes that investment finally pay off — automated monitoring, structured
-            root-cause analysis, and proof that your actions worked. You stay in control
-            of every decision.
+            Most organizations make high-stakes decisions with whatever data is available,
+            move on, and never know if the response actually worked. Decision Studio changes
+            that — rigorous, structured analysis with you guiding every step, from the first
+            anomaly to the approved solution and the proof it moved the KPI.
+          </motion.p>
+
+          <motion.p
+            variants={fadeUp}
+            className="text-xl sm:text-2xl font-semibold text-white max-w-xl mx-auto mb-12 leading-snug"
+          >
+            <span className="block">Decisions you can defend.</span>
+            <span className="block text-indigo-300">Before your coffee gets cold.</span>
           </motion.p>
 
           <motion.div
@@ -233,6 +241,56 @@ export function LandingPage() {
             <motion.div variants={fadeUp} className="mt-5 flex items-center gap-2 text-xs text-slate-500">
               <span className="inline-block w-1 h-1 rounded-full bg-slate-600" />
               Only 15% of AI decision-makers can tie AI value to P&amp;L changes — Forrester 2026
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════
+          1c. THE DECISION GAP (bridge)
+      ═══════════════════════════════════════════ */}
+      <section className="py-20 px-6 border-t border-slate-800/40">
+        <div className="max-w-4xl mx-auto">
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-60px' }}
+          >
+            <motion.p variants={fadeUp} className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-4">
+              The decision gap
+            </motion.p>
+
+            <motion.h2 variants={fadeUp} className="text-2xl sm:text-3xl font-bold text-white mb-4 leading-snug">
+              Decisions you can defend. Before your coffee gets cold.
+            </motion.h2>
+
+            <motion.p variants={fadeUp} className="text-slate-300 leading-relaxed mb-4 max-w-3xl">
+              Daniel Kahneman identified two cognitive modes. System 2 is slow, deliberate,
+              and rigorous — the kind of structured analysis a McKinsey engagement delivers
+              in twelve weeks. System 1 is fast, pattern-matching, and instinctual — the
+              response that activates when there's no time, no budget, or no structured
+              framework available.
+            </motion.p>
+
+            <motion.p variants={fadeUp} className="text-slate-400 text-sm leading-relaxed max-w-3xl">
+              In enterprise leadership, System 2 has historically required teams of analysts
+              or external consultants — making it available for perhaps four decisions per year.
+              The rest are made on intuition, precedent, and available data. When those decisions
+              don't pan out, it's rarely because the executive was careless. It's because rigorous
+              analysis simply wasn't a realistic option in the time available.
+            </motion.p>
+
+            <motion.p variants={fadeUp} className="text-slate-400 text-sm leading-relaxed max-w-3xl mt-3">
+              Decision Studio changes the economics. It orchestrates structured analysis —
+              Kepner-Tregoe root-cause isolation, multi-perspective synthesis, causal attribution —
+              with the executive guiding every step, in the time it takes to finish a cup of coffee.
+              Not a faster guess. A defensible decision, with the evidence to show your work.
+            </motion.p>
+
+            <motion.div variants={fadeUp} className="mt-5 flex items-center gap-2 text-xs text-slate-500">
+              <span className="inline-block w-1 h-1 rounded-full bg-slate-600" />
+              78% of business leaders say decisions are made first, then justified with data — Hydrogen BI 2025
             </motion.div>
           </motion.div>
         </div>
@@ -516,6 +574,21 @@ export function LandingPage() {
                   </div>
                 </div>
               </div>
+
+              <motion.div variants={fadeUp} className="md:col-span-2 mt-6 pt-8 border-t border-slate-800/40">
+                <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-3">
+                  The compounding effect
+                </p>
+                <p className="text-slate-300 text-sm leading-relaxed max-w-2xl">
+                  Over time, this feedback loop does something more powerful than attribution.
+                  Every approved solution, tracked outcome, and verified ROI becomes part of the
+                  Registry — a compounding institutional memory. Executive intuition, trained on
+                  verified outcomes rather than market noise, becomes progressively more accurate.
+                  When leadership changes, the organization doesn't reset. It inherits a verified
+                  playbook of what actually worked, and the causal evidence to distinguish strategy
+                  from luck. Decision quality compounds.
+                </p>
+              </motion.div>
 
             </motion.div>
 
