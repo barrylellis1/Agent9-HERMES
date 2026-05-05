@@ -140,7 +140,7 @@ export function useDecisionStudio() {
           const mapped = data.map(mapApiPrincipal);
           setAvailablePrincipals(mapped);
           // Reset to first principal in new list if current selection not found
-          setSelectedPrincipal(prev =>
+          setSelectedPrincipal((prev: string) =>
             mapped.find(p => p.id === prev) ? prev : mapped[0].id
           );
         }
