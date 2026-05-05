@@ -102,6 +102,7 @@ class PostgresManager(DatabaseManager):
                 max_size=params.get("max_pool_size", 10),
                 ssl=ssl_setting,
                 init=_init_json_codec,
+                statement_cache_size=0,  # Required for pgbouncer compatibility (Railway/Supabase)
             )
             
             self._is_connected = True
