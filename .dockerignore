@@ -1,0 +1,45 @@
+# Frontend (built separately on Cloudflare Pages)
+decision-studio-ui/
+
+# Python virtual environment
+.venv/
+venv/
+
+# Local data files (not needed in production)
+*.duckdb
+*.duckdb.wal
+data/
+*.csv
+
+# Test suite
+tests/
+
+# Scripts (not needed at runtime)
+scripts/
+
+# Docs
+docs/
+
+# Git
+.git/
+.github/
+
+# Node
+node_modules/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Local env files
+.env
+.env.local
+
+# Supabase local config
+supabase/
+
+# Misc
+*.log
+.DS_Store
