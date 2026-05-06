@@ -3694,6 +3694,12 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 self.logger.warning("Snowflake account not configured — set SF_ACCOUNT env var")
                 return False
 
+            # Dump all SF_* env vars so we can confirm what the process actually sees
+            import os as _os
+            sf_env_vars = {k: (v if "PASSWORD" not in k else f"<{len(v)}chars>")
+                           for k, v in _os.environ.items() if k.startswith("SF_")}
+            self.logger.info(f"[SF-DIAG-ENV] SF_ vars visible to process: {sf_env_vars}")
+
             self.logger.info(
                 f"[SF-DIAG] account={config.get('account')!r} "
                 f"warehouse={config.get('warehouse')!r} "
