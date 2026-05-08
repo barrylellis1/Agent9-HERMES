@@ -361,3 +361,5 @@ KPIs with SQL-level negation (`SUM(-amount)`) return positive values — skip th
 - Machine learning-based anomaly detection
 - Multi-dimensional trend analysis
 - Enhanced visualization capabilities in Decision Studio UI
+
+- May 2026: Bug fixes — NaN normalization, multi-tenant kpi_registry collision fix, comparison value extraction

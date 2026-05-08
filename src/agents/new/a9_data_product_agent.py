@@ -3800,7 +3800,9 @@ class A9_Data_Product_Agent(DataProductProtocol):
                         df = await self._sf_manager.execute_query(sql_query, parameters or {}, transaction_id)
                         exec_ms = (time.time() - t0) * 1000.0
                         columns = list(getattr(df, "columns", [])) if hasattr(df, "columns") else []
-                        rows = df.to_dict(orient="records") if hasattr(df, "to_dict") else (df if isinstance(df, list) else [])
+                        # Replace pandas NaN (Snowflake NULL sentinel) with None so callers see clean Python types
+                        _raw = df.to_dict(orient="records") if hasattr(df, "to_dict") else (df if isinstance(df, list) else [])
+                        rows = [{k: (None if isinstance(v, float) and (v != v or v == float('inf') or v == float('-inf')) else v) for k, v in r.items()} for r in _raw] if _raw else []
                         return {
                             "transaction_id": transaction_id,
                             "sql": sql_query,
@@ -3849,7 +3851,9 @@ class A9_Data_Product_Agent(DataProductProtocol):
                         df = await self._bq_manager.execute_query(sql_query, parameters or {}, transaction_id)
                         exec_ms = (time.time() - t0) * 1000.0
                         columns = list(getattr(df, "columns", [])) if hasattr(df, "columns") else []
-                        rows = df.to_dict(orient="records") if hasattr(df, "to_dict") else (df if isinstance(df, list) else [])
+                        # Replace pandas NaN (BigQuery NULL sentinel) with None so callers see clean Python types
+                        _raw = df.to_dict(orient="records") if hasattr(df, "to_dict") else (df if isinstance(df, list) else [])
+                        rows = [{k: (None if isinstance(v, float) and (v != v or v == float('inf') or v == float('-inf')) else v) for k, v in r.items()} for r in _raw] if _raw else []
                         return {
                             "transaction_id": transaction_id,
                             "sql": sql_query,
@@ -3897,7 +3901,8 @@ class A9_Data_Product_Agent(DataProductProtocol):
                         df = await self._ss_manager.execute_query(sql_query, parameters or {}, transaction_id)
                         exec_ms = (time.time() - t0) * 1000.0
                         columns = list(getattr(df, "columns", [])) if hasattr(df, "columns") else []
-                        rows = df.to_dict(orient="records") if hasattr(df, "to_dict") else (df if isinstance(df, list) else [])
+                        _raw = df.to_dict(orient="records") if hasattr(df, "to_dict") else (df if isinstance(df, list) else [])
+                        rows = [{k: (None if isinstance(v, float) and (v != v or v == float('inf') or v == float('-inf')) else v) for k, v in r.items()} for r in _raw] if _raw else []
                         return {
                             "transaction_id": transaction_id,
                             "sql": sql_query,
@@ -3984,7 +3989,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     # Avoid importing pandas at top-level; use duck-typing
                     if hasattr(resp, "to_dict") and hasattr(resp, "columns"):
                         columns = list(getattr(resp, "columns", []))
-                        rows = resp.to_dict(orient="records")  # list of dicts
+                        rows = resp.where(resp.notna(), other=None).to_dict(orient="records")  # list of dicts, NaN → None
                     elif isinstance(resp, list):
                         # Best-effort: list of rows but unknown columns
                         rows = resp
@@ -4032,6 +4037,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
         topn: Any,
         breakdown: bool,
         override_group_by: Optional[List[str]],
+        comparison_period: bool = False,
     ) -> Optional[str]:
         """
         Build a BigQuery-compatible SQL query for dimensional analysis, preserving the
@@ -4154,7 +4160,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     f"ORDER BY delta_prev DESC LIMIT {n}"
                 )
             else:
-                s, e = _period_dates(timeframe)
+                s, e = _prev_period_dates(timeframe) if comparison_period else _period_dates(timeframe)
                 sql = _append_date(base, s, e)
                 return sql + f" GROUP BY `{dim}`"
 
@@ -4170,6 +4176,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
         topn: Any,
         breakdown: bool,
         override_group_by: Optional[List[str]],
+        comparison_period: bool = False,
     ) -> Optional[str]:
         """
         Build a Snowflake-compatible SQL query for dimensional analysis.
@@ -4286,7 +4293,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     f"ORDER BY delta_prev DESC LIMIT {n}"
                 )
             else:
-                s, e = _period_dates(timeframe)
+                s, e = _prev_period_dates(timeframe) if comparison_period else _period_dates(timeframe)
                 sql = _append_date(base, s, e)
                 return sql + f" GROUP BY {dim_quoted}"
 
@@ -4294,7 +4301,114 @@ class A9_Data_Product_Agent(DataProductProtocol):
             self.logger.warning(f"_build_sf_dimensional_sql error: {ex}")
             return None
 
-    async def generate_sql_for_kpi(self, kpi_definition: Any, timeframe: Any = None, filters: Dict[str, Any] = None, topn: Any = None, breakdown: bool = False, override_group_by: Optional[List[str]] = None) -> Dict[str, Any]:
+    def _build_ss_dimensional_sql(
+        self,
+        raw_sql: str,
+        kpi_definition: Any,
+        timeframe: Any,
+        topn: Any,
+        breakdown: bool,
+        override_group_by: Optional[List[str]],
+        comparison_period: bool = False,
+    ) -> Optional[str]:
+        """
+        Build a SQL Server T-SQL query for dimensional analysis.
+        Mirrors _build_sf_dimensional_sql but uses square-bracket identifiers
+        and SQL Server date syntax.
+        """
+        try:
+            import re as _re
+            import calendar as _cal
+            from datetime import date
+
+            date_col = "transaction_date"
+            md = getattr(kpi_definition, "metadata", None)
+            if isinstance(md, dict):
+                date_col = md.get("date_column", "transaction_date")
+
+            def _period_dates(tf_str):
+                today = date.today()
+                y, m = today.year, today.month
+                def qd(yr, qtr):
+                    sm = (qtr - 1) * 3 + 1
+                    em = qtr * 3
+                    return date(yr, sm, 1), date(yr, em, _cal.monthrange(yr, em)[1])
+                tf = str(tf_str or "last_quarter").strip().lower()
+                cur_q = (m - 1) // 3 + 1
+                if tf == "last_quarter":
+                    bq = cur_q - 1 or 4
+                    by = y if cur_q > 1 else y - 1
+                    s, e = qd(by, bq)
+                elif tf in ("current_quarter", "quarter_to_date"):
+                    s, e = qd(y, cur_q)
+                    e = min(e, today)
+                elif tf in ("year_to_date", "current_year"):
+                    s, e = date(y, 1, 1), today
+                elif tf == "last_year":
+                    s, e = date(y - 1, 1, 1), date(y - 1, 12, 31)
+                else:
+                    bq = cur_q - 1 or 4
+                    by = y if cur_q > 1 else y - 1
+                    s, e = qd(by, bq)
+                return str(s), str(e)
+
+            def _prev_period_dates(tf_str):
+                tf = str(tf_str or "last_quarter").strip().lower()
+                today = date.today()
+                y, m = today.year, today.month
+                def qd(yr, qtr):
+                    sm = (qtr - 1) * 3 + 1
+                    em = qtr * 3
+                    return date(yr, sm, 1), date(yr, em, _cal.monthrange(yr, em)[1])
+                cur_q = (m - 1) // 3 + 1
+                if tf in ("year_to_date", "current_year"):
+                    s = date(y - 1, 1, 1)
+                    e = date(y - 1, m, min(today.day, _cal.monthrange(y - 1, m)[1]))
+                    return str(s), str(e)
+                if tf == "last_year":
+                    return str(date(y - 2, 1, 1)), str(date(y - 2, 12, 31))
+                if tf in ("current_quarter", "quarter_to_date"):
+                    base_q = cur_q
+                    base_y = y
+                else:
+                    base_q = cur_q - 1 or 4
+                    base_y = y if cur_q > 1 else y - 1
+                pq = base_q - 1 or 4
+                py = base_y if base_q > 1 else base_y - 1
+                s, e = qd(py, pq)
+                return str(s), str(e)
+
+            def _append_date(sql, start, end):
+                cond = f"[{date_col}] BETWEEN '{start}' AND '{end}'"
+                if _re.search(r'\bWHERE\b', sql, _re.IGNORECASE):
+                    return sql + f" AND {cond}"
+                return sql + f" WHERE {cond}"
+
+            if not breakdown or not override_group_by:
+                s, e = _period_dates(timeframe)
+                return _append_date(raw_sql, s, e)
+
+            dim = override_group_by[0]
+            dim_quoted = f"[{dim}]"
+
+            # Parse raw_sql: "SELECT {agg_expr} AS value FROM ..."
+            pat = _re.compile(r'^SELECT\s+(.+?)\s+AS\s+value\s+(FROM\s+.+)', _re.IGNORECASE | _re.DOTALL)
+            m = pat.match(raw_sql.strip())
+            if not m:
+                return None
+            agg_expr = m.group(1).strip()
+            from_clause = m.group(2)
+
+            base = f"SELECT {dim_quoted}, {agg_expr} AS value {from_clause}"
+            s, e = _prev_period_dates(timeframe) if comparison_period else _period_dates(timeframe)
+            sql = _append_date(base, s, e)
+            return sql + f" GROUP BY {dim_quoted}"
+
+        except Exception as ex:
+            self.logger.warning(f"_build_ss_dimensional_sql error: {ex}")
+            return None
+
+    async def generate_sql_for_kpi(self, kpi_definition: Any, timeframe: Any = None, filters: Dict[str, Any] = None, topn: Any = None, breakdown: bool = False, override_group_by: Optional[List[str]] = None, comparison_period: bool = False) -> Dict[str, Any]:
         """
         Wrapper that generates SQL for a KPI definition using _generate_sql_for_kpi and returns
         a protocol-compliant response.
@@ -4325,13 +4439,20 @@ class A9_Data_Product_Agent(DataProductProtocol):
             # Route by source_system
             if _source_system == 'bigquery':
                 bq_sql = self._build_bq_dimensional_sql(
-                    _raw_sql, kpi_definition, timeframe, topn, breakdown, override_group_by
+                    _raw_sql, kpi_definition, timeframe, topn, breakdown, override_group_by, comparison_period
                 )
                 if bq_sql:
                     self.logger.info(f"[TXN:{transaction_id}] [BQ path] SQL for '{kpi_name}': {bq_sql[:120]}")
                     return {"sql": bq_sql, "kpi_name": kpi_name, "transaction_id": transaction_id, "success": True, "message": f"BigQuery SQL generated for {kpi_name}"}
 
             elif _source_system in ('sqlserver', 'sql_server', 'mssql'):
+                if breakdown and override_group_by:
+                    ss_sql = self._build_ss_dimensional_sql(
+                        _raw_sql, kpi_definition, timeframe, topn, breakdown, override_group_by, comparison_period
+                    )
+                    if ss_sql:
+                        self.logger.info(f"[TXN:{transaction_id}] [SS path] Dimensional SQL for '{kpi_name}': {ss_sql[:120]}")
+                        return {"sql": ss_sql, "kpi_name": kpi_name, "transaction_id": transaction_id, "success": True, "message": f"SQL Server dimensional SQL generated for {kpi_name}", "data_product_id": _dp_id, "source_system": "sqlserver"}
                 self.logger.info(f"[TXN:{transaction_id}] [SS path] Using stored T-SQL for '{kpi_name}': {_raw_sql[:120]}")
                 return {
                     "sql": _raw_sql,
@@ -4345,7 +4466,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
 
             elif _source_system == 'snowflake':
                 sf_sql = self._build_sf_dimensional_sql(
-                    _raw_sql, kpi_definition, timeframe, topn, breakdown, override_group_by
+                    _raw_sql, kpi_definition, timeframe, topn, breakdown, override_group_by, comparison_period
                 )
                 if sf_sql:
                     self.logger.info(f"[TXN:{transaction_id}] [SF path] SQL for '{kpi_name}': {sf_sql[:120]}")

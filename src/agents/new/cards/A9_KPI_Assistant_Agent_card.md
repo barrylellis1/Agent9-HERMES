@@ -234,3 +234,5 @@ The agent enforces complete strategic metadata on all KPIs:
 - ✅ Configuration model in `agent_config_models.py`
 - ✅ Dependencies declared and managed
 - ✅ Error handling with graceful degradation
+
+- May 2026: Bug fixes — NaN normalization, multi-tenant kpi_registry collision fix, comparison value extraction

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   AlertTriangle,
@@ -123,6 +124,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   principalId,
   initialMarketSignals
 }) => {
+  const navigate = useNavigate();
   const currentAnalysis = analysisResults;
 
   // Accordion state — Situation Summary and Root Cause expanded by default
@@ -429,17 +431,20 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                              </button>
                              <button
                                  onClick={() => {
-                                   localStorage.setItem(`situation_${situation.situation_id}`, JSON.stringify(situation));
-                                   localStorage.setItem(`analysis_${situation.situation_id}`, JSON.stringify(currentAnalysis));
-                                   localStorage.setItem(`market_signals_${situation.situation_id}`, JSON.stringify(initialMarketSignals || []));
-                                   localStorage.setItem(`principal_context_${situation.situation_id}`, JSON.stringify(principalContext || {}));
-                                   localStorage.setItem(`debate_config_${situation.situation_id}`, JSON.stringify({
+                                   const debateConfig = {
                                      selectedPersonas: ['mckinsey', 'bcg', 'bain'],
                                      councilType: 'preset',
                                      selectedPreset: 'recommended',
                                      useHybridCouncil: false
-                                   }));
-                                   window.location.href = `/debate/${situation.situation_id}`;
+                                   };
+                                   try {
+                                     localStorage.setItem(`situation_${situation.situation_id}`, JSON.stringify(situation));
+                                     localStorage.setItem(`analysis_${situation.situation_id}`, JSON.stringify(currentAnalysis));
+                                     localStorage.setItem(`market_signals_${situation.situation_id}`, JSON.stringify(initialMarketSignals || []));
+                                     localStorage.setItem(`principal_context_${situation.situation_id}`, JSON.stringify(principalContext || {}));
+                                     localStorage.setItem(`debate_config_${situation.situation_id}`, JSON.stringify(debateConfig));
+                                   } catch (_) { /* quota exceeded — router state is the primary channel */ }
+                                   navigate(`/debate/${situation.situation_id}`, { state: { situation, analysis: currentAnalysis, marketSignals: initialMarketSignals || [], principalContext: principalContext || {}, debateConfig } });
                                  }}
                                  className="w-full mt-2 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded font-medium flex items-center justify-center gap-2"
                              >
@@ -492,17 +497,20 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                     </div>
                                     <button
                                         onClick={() => {
-                                          localStorage.setItem(`situation_${situation.situation_id}`, JSON.stringify(situation));
-                                          localStorage.setItem(`analysis_${situation.situation_id}`, JSON.stringify(currentAnalysis));
-                                          localStorage.setItem(`market_signals_${situation.situation_id}`, JSON.stringify(initialMarketSignals || []));
-                                          localStorage.setItem(`principal_context_${situation.situation_id}`, JSON.stringify(principalContext || {}));
-                                          localStorage.setItem(`debate_config_${situation.situation_id}`, JSON.stringify({
+                                          const debateConfig = {
                                             selectedPersonas: refinementResult?.recommended_council_members?.map(m => m.persona_id) ?? ['mckinsey', 'bcg', 'bain'],
                                             councilType: 'preset',
                                             selectedPreset: 'recommended',
                                             useHybridCouncil: false
-                                          }));
-                                          window.location.href = `/debate/${situation.situation_id}`;
+                                          };
+                                          try {
+                                            localStorage.setItem(`situation_${situation.situation_id}`, JSON.stringify(situation));
+                                            localStorage.setItem(`analysis_${situation.situation_id}`, JSON.stringify(currentAnalysis));
+                                            localStorage.setItem(`market_signals_${situation.situation_id}`, JSON.stringify(initialMarketSignals || []));
+                                            localStorage.setItem(`principal_context_${situation.situation_id}`, JSON.stringify(principalContext || {}));
+                                            localStorage.setItem(`debate_config_${situation.situation_id}`, JSON.stringify(debateConfig));
+                                          } catch (_) { /* quota exceeded */ }
+                                          navigate(`/debate/${situation.situation_id}`, { state: { situation, analysis: currentAnalysis, marketSignals: initialMarketSignals || [], principalContext: principalContext || {}, debateConfig } });
                                         }}
                                         className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wide bg-purple-600 hover:bg-purple-500 text-white rounded flex items-center gap-2"
                                     >
@@ -608,17 +616,20 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
 
                              <button
                                  onClick={() => {
-                                   localStorage.setItem(`situation_${situation.situation_id}`, JSON.stringify(situation));
-                                   localStorage.setItem(`analysis_${situation.situation_id}`, JSON.stringify(currentAnalysis));
-                                   localStorage.setItem(`market_signals_${situation.situation_id}`, JSON.stringify(initialMarketSignals || []));
-                                   localStorage.setItem(`principal_context_${situation.situation_id}`, JSON.stringify(principalContext || {}));
-                                   localStorage.setItem(`debate_config_${situation.situation_id}`, JSON.stringify({
+                                   const debateConfig = {
                                      selectedPersonas: useHybridCouncil ? selectedPersonas : (refinementResult?.recommended_council_members?.map(m => m.persona_id) ?? ['mckinsey', 'bcg', 'bain']),
                                      councilType: councilType,
                                      selectedPreset: selectedPreset,
                                      useHybridCouncil: useHybridCouncil
-                                   }));
-                                   window.location.href = `/debate/${situation.situation_id}`;
+                                   };
+                                   try {
+                                     localStorage.setItem(`situation_${situation.situation_id}`, JSON.stringify(situation));
+                                     localStorage.setItem(`analysis_${situation.situation_id}`, JSON.stringify(currentAnalysis));
+                                     localStorage.setItem(`market_signals_${situation.situation_id}`, JSON.stringify(initialMarketSignals || []));
+                                     localStorage.setItem(`principal_context_${situation.situation_id}`, JSON.stringify(principalContext || {}));
+                                     localStorage.setItem(`debate_config_${situation.situation_id}`, JSON.stringify(debateConfig));
+                                   } catch (_) { /* quota exceeded */ }
+                                   navigate(`/debate/${situation.situation_id}`, { state: { situation, analysis: currentAnalysis, marketSignals: initialMarketSignals || [], principalContext: principalContext || {}, debateConfig } });
                                  }}
                                  className="w-full mt-2 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-medium flex items-center justify-center gap-2"
                              >

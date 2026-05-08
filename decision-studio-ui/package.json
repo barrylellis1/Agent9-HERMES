@@ -23,6 +23,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.10.1",
+    "simple-icons": "^16.18.1",
     "tailwind-merge": "^2.0.0"
   },
   "devDependencies": {

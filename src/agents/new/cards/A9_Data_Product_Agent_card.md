@@ -72,3 +72,5 @@ Uses `_contract_path()` method to resolve contract files from registry:
 - Removed 2 remaining `if self.data_governance_agent:` guards — DGA calls are now always attempted:
   - `_get_view_name_from_kpi()` (line ~2871): DGA is primary path, KPI metadata fallback still available
   - `_lookup_kpi_by_name()` (line ~3752): KPI mapping enrichment via DGA, silently skipped on failure
+
+- May 2026: Bug fixes — NaN normalization, multi-tenant kpi_registry collision fix, comparison value extraction

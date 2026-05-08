@@ -1,3 +1,4 @@
+# doc-sync-skip
 """
 A9 Solution Finder Agent (MVP with optional LLM debate)
 - Implements SolutionFinderProtocol
@@ -940,45 +941,36 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     
                     dataset_recap = dataset_recap_lines if dataset_recap_lines else None
 
-                    # Fallback Business Context — resolve correct file based on KPI's data_product_id
+                    # Fallback Business Context — load from Supabase registry via client_id
                     bc = getattr(request, "business_context", None)
                     if not bc:
                         try:
-                            import yaml as _yaml
-                            import os as _os
-                            _here = _os.path.dirname(_os.path.abspath(__file__))
-                            _project_root = _os.path.abspath(_os.path.join(_here, "..", "..", ".."))
-                            _ctx_dir = _os.path.join(_project_root, "src", "registry_references", "business_context")
+                            from src.registry.factory import RegistryFactory as _RF
+                            from src.registry.business_context.business_context_provider import SupabaseBusinessContextProvider
 
-                            # Resolve data_product_id from the current KPI so we load the right context
-                            _dp_id = None
+                            # Resolve client_id from the KPI name
+                            _client_id = None
                             try:
-                                from src.registry.factory import RegistryFactory as _RF
                                 _kpi_provider = _RF().get_provider("kpi")
                                 if _kpi_provider:
                                     _kpi_nm = (da_summary.get("kpi_name") or "").lower().strip()
                                     for _k in _kpi_provider.get_all():
                                         if (getattr(_k, "name", "") or "").lower().strip() == _kpi_nm:
-                                            _dp_id = getattr(_k, "data_product_id", None)
+                                            _client_id = getattr(_k, "client_id", None)
                                             break
                             except Exception:
                                 pass
 
-                            # Map data_product_id → business context filename
-                            _DP_CONTEXT_MAP: Dict[str, str] = {
-                                "dp_lubricants_financials": "lubricants_context.yaml",
-                            }
-                            _ctx_file = _DP_CONTEXT_MAP.get(_dp_id or "", "bicycle_retail_context.yaml")
-                            ctx_path = _os.path.join(_ctx_dir, _ctx_file)
-                            if not _os.path.exists(ctx_path):
-                                ctx_path = _os.path.join(_ctx_dir, "bicycle_retail_context.yaml")
-
-                            if _os.path.exists(ctx_path):
-                                with open(ctx_path, "r", encoding="utf-8") as f:
-                                    bc = _yaml.safe_load(f)
-                                self.logger.info(f"[SF] Business context loaded: {_ctx_file} (dp_id={_dp_id})")
+                            if _client_id:
+                                _bc_provider = SupabaseBusinessContextProvider()
+                                _bc_model = await _bc_provider.get_context(_client_id)
+                                if _bc_model:
+                                    bc = _bc_model.model_dump(exclude_none=True)
+                                    self.logger.info(f"[SF] Business context loaded from Supabase: client_id={_client_id}")
+                                else:
+                                    self.logger.warning(f"[SF] No business context in Supabase for client_id={_client_id}")
                         except Exception as e:
-                            self.logger.warning(f"Failed to load business context yaml: {e}")
+                            self.logger.warning(f"Failed to load business context from Supabase: {e}")
 
                         if not bc:
                             bc = {

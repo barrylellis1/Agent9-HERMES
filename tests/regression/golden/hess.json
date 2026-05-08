@@ -1,0 +1,96 @@
+{
+  "_meta": {
+    "client_id": "hess",
+    "principal_id": "cfo_001",
+    "backend": "sqlserver",
+    "timeframe": "year_to_date",
+    "comparison_type": "year_over_year",
+    "captured_at": "2026-05-08T14:01:36.129834+00:00",
+    "git_commit": "1b670a5",
+    "situation_count": 10,
+    "opportunity_count": 0
+  },
+  "situations": {
+    "Upstream Revenue": {
+      "severity": "critical",
+      "card_type": "problem",
+      "current_value": 221052158.12,
+      "comparison_value": 329378218.41,
+      "percent_change": -32.888,
+      "comparison_type": "year_over_year"
+    },
+    "Midstream Revenue": {
+      "severity": "critical",
+      "card_type": "problem",
+      "current_value": 106389398.76,
+      "comparison_value": 158539180.83,
+      "percent_change": -32.8939,
+      "comparison_type": "year_over_year"
+    },
+    "Total Revenue": {
+      "severity": "critical",
+      "card_type": "problem",
+      "current_value": 221052158.12,
+      "comparison_value": 329378218.41,
+      "percent_change": -32.888,
+      "comparison_type": "year_over_year"
+    },
+    "Gross Profit": {
+      "severity": "critical",
+      "card_type": "problem",
+      "current_value": 390313303.08,
+      "comparison_value": 561100635.08,
+      "percent_change": -30.4379,
+      "comparison_type": "year_over_year"
+    },
+    "EBITDA": {
+      "severity": "critical",
+      "card_type": "problem",
+      "current_value": 422593272.36,
+      "comparison_value": 612666956.75,
+      "percent_change": -31.024,
+      "comparison_type": "year_over_year"
+    },
+    "Production Revenue": {
+      "severity": "critical",
+      "card_type": "problem",
+      "current_value": 114662759.36,
+      "comparison_value": 170839037.58,
+      "percent_change": -32.8826,
+      "comparison_type": "year_over_year"
+    },
+    "Operating Income": {
+      "severity": "critical",
+      "card_type": "problem",
+      "current_value": 422593272.36,
+      "comparison_value": 612666956.75,
+      "percent_change": -31.024,
+      "comparison_type": "year_over_year"
+    },
+    "SG&A Expense": {
+      "severity": "critical",
+      "card_type": "problem",
+      "current_value": -32279969.28,
+      "comparison_value": -51566321.67,
+      "percent_change": -37.4011,
+      "comparison_type": "year_over_year"
+    },
+    "Return on Capital Employed": {
+      "severity": "high",
+      "card_type": "problem",
+      "current_value": 318.62,
+      "comparison_value": 310.01,
+      "percent_change": 2.7773,
+      "comparison_type": "year_over_year"
+    },
+    "Gross Margin %": {
+      "severity": "high",
+      "card_type": "opportunity",
+      "current_value": 176.57,
+      "comparison_value": 170.35,
+      "percent_change": 3.6513,
+      "comparison_type": "year_over_year"
+    }
+  },
+  "opportunities": {}
+}

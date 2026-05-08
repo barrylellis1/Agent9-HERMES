@@ -389,6 +389,7 @@ DATA_PRODUCT = {
         "snowflake_schema": "LUBRICANTS",
         "snowflake_warehouse": "AGENT9_WH",
         "snowflake_view": "LubricantsStarSchemaView",
+        "snowflake_username": "BARRYLELLIS1",
     },
     "tables": {},
     "views": {

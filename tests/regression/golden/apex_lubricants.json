@@ -1,0 +1,128 @@
+{
+  "_meta": {
+    "client_id": "apex_lubricants",
+    "principal_id": "cfo_001",
+    "backend": "snowflake",
+    "timeframe": "year_to_date",
+    "comparison_type": "year_over_year",
+    "captured_at": "2026-05-08T14:01:30.966596+00:00",
+    "git_commit": "1b670a5",
+    "situation_count": 14,
+    "opportunity_count": 0
+  },
+  "situations": {
+    "Gross Profit": {
+      "severity": "critical",
+      "card_type": "problem",
+      "current_value": 8345909.15,
+      "comparison_value": 9765580.26,
+      "percent_change": -14.5375,
+      "comparison_type": "year_over_year"
+    },
+    "Gross Margin %": {
+      "severity": "critical",
+      "card_type": "problem",
+      "current_value": 24.6109,
+      "comparison_value": 29.6485,
+      "percent_change": -16.9911,
+      "comparison_type": "year_over_year"
+    },
+    "Operating Income": {
+      "severity": "critical",
+      "card_type": "problem",
+      "current_value": 3391309.19,
+      "comparison_value": 4608948.08,
+      "percent_change": -26.419,
+      "comparison_type": "year_over_year"
+    },
+    "EBITDA": {
+      "severity": "critical",
+      "card_type": "problem",
+      "current_value": 4382229.18,
+      "comparison_value": 5571006.32,
+      "percent_change": -21.3386,
+      "comparison_type": "year_over_year"
+    },
+    "E-Commerce Revenue": {
+      "severity": "critical",
+      "card_type": "problem",
+      "current_value": 3199845.7,
+      "comparison_value": 3106646.5,
+      "percent_change": 3.0,
+      "comparison_type": "year_over_year"
+    },
+    "Cost of Goods Sold": {
+      "severity": "critical",
+      "card_type": "problem",
+      "current_value": 25565485.46,
+      "comparison_value": 23172241.65,
+      "percent_change": 10.3281,
+      "comparison_type": "year_over_year"
+    },
+    "Base Oil & Additives Cost": {
+      "severity": "critical",
+      "card_type": "problem",
+      "current_value": 11131835.0,
+      "comparison_value": 9158988.78,
+      "percent_change": 21.54,
+      "comparison_type": "year_over_year"
+    },
+    "Net Revenue": {
+      "severity": "high",
+      "card_type": "problem",
+      "current_value": 33911394.61,
+      "comparison_value": 32937821.91,
+      "percent_change": 2.9558,
+      "comparison_type": "year_over_year"
+    },
+    "Product Sales Revenue": {
+      "severity": "high",
+      "card_type": "problem",
+      "current_value": 29188009.23,
+      "comparison_value": 28352011.0,
+      "percent_change": 2.9486,
+      "comparison_type": "year_over_year"
+    },
+    "Service Revenue": {
+      "severity": "high",
+      "card_type": "problem",
+      "current_value": 4723385.38,
+      "comparison_value": 4585810.91,
+      "percent_change": 3.0,
+      "comparison_type": "year_over_year"
+    },
+    "SG&A Expense": {
+      "severity": "high",
+      "card_type": "opportunity",
+      "current_value": 4954599.96,
+      "comparison_value": 5156632.18,
+      "percent_change": -3.9179,
+      "comparison_type": "year_over_year"
+    },
+    "Average Transaction Value": {
+      "severity": "high",
+      "card_type": "opportunity",
+      "current_value": 6557.9955,
+      "comparison_value": 6473.6285,
+      "percent_change": 1.3032,
+      "comparison_type": "year_over_year"
+    },
+    "B2B Direct Revenue": {
+      "severity": "high",
+      "card_type": "problem",
+      "current_value": 8729640.47,
+      "comparison_value": 8489516.9,
+      "percent_change": 2.8285,
+      "comparison_type": "year_over_year"
+    },
+    "Premium Product Mix %": {
+      "severity": "medium",
+      "card_type": "problem",
+      "current_value": 14.0056,
+      "comparison_value": 14.8358,
+      "percent_change": -5.5957,
+      "comparison_type": "year_over_year"
+    }
+  },
+  "opportunities": {}
+}

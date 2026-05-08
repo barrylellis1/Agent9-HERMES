@@ -136,7 +136,7 @@ KPIS: List[Dict[str, Any]] = [
         "data_product_id": "dp_lubricants_financials",
         "view_name": _VIEW,
         "business_process_ids": ["finance_revenue_growth_analysis"],
-        "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE channel = 'B2B' AND account_type = 'Revenue' AND version = 'Actual'",
+        "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE channel_name = 'B2B' AND account_type = 'Revenue' AND version = 'Actual'",
         "filters": {"channel": "B2B", "version": "Actual"},
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
@@ -157,7 +157,7 @@ KPIS: List[Dict[str, Any]] = [
         "data_product_id": "dp_lubricants_financials",
         "view_name": _VIEW,
         "business_process_ids": ["finance_revenue_growth_analysis"],
-        "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE channel = 'E-Commerce' AND account_type = 'Revenue' AND version = 'Actual'",
+        "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE channel_name = 'E-Commerce' AND account_type = 'Revenue' AND version = 'Actual'",
         "filters": {"channel": "E-Commerce", "version": "Actual"},
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 15.0, "yellow_threshold": 5.0, "red_threshold": 0.0, "inverse_logic": False},
@@ -331,8 +331,8 @@ KPIS: List[Dict[str, Any]] = [
         "data_product_id": "dp_lubricants_financials",
         "view_name": _VIEW,
         "business_process_ids": ["finance_expense_management"],
-        "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE cost_category = 'Base Oil' AND version = 'Actual'",
-        "filters": {"cost_category": "Base Oil", "version": "Actual"},
+        "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_category = 'Base Oil' AND version = 'Actual'",
+        "filters": {"account_category": "Base Oil", "version": "Actual"},
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": -5.0, "yellow_threshold": 5.0, "red_threshold": 15.0, "inverse_logic": True},
         ],
@@ -352,8 +352,8 @@ KPIS: List[Dict[str, Any]] = [
         "data_product_id": "dp_lubricants_financials",
         "view_name": _VIEW,
         "business_process_ids": ["finance_expense_management"],
-        "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE cost_category = 'Distribution' AND version = 'Actual'",
-        "filters": {"cost_category": "Distribution", "version": "Actual"},
+        "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_category = 'Distribution' AND version = 'Actual'",
+        "filters": {"account_category": "Distribution", "version": "Actual"},
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
         ],

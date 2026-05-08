@@ -183,6 +183,9 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             return fpath
                     except Exception:
                         continue
+                # No contract YAML found for this data product — return empty string so
+                # _dims_from_contract returns [] and the KPI registry fallback takes over.
+                return ""
         except Exception as e:
             self.logger.debug(f"_contract_path_for_kpi error: {e}")
         return self._contract_path()
@@ -460,6 +463,29 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                     extracted_dims.append(dim_name)
                             dimensions = extracted_dims
 
+            # Fallback: use KPI dimensions from registry when neither contract nor DGA yielded dims
+            if not dimensions and request.kpi_name:
+                try:
+                    from src.registry.factory import RegistryFactory
+                    kpi_provider = RegistryFactory().get_provider("kpi")
+                    if kpi_provider:
+                        kpi_name_lower = request.kpi_name.lower().strip()
+                        for k in kpi_provider.get_all():
+                            if (getattr(k, "name", "") or "").lower().strip() == kpi_name_lower:
+                                kpi_dims = getattr(k, "dimensions", None) or []
+                                dimensions = [
+                                    (d.get("field") or d.get("name") if isinstance(d, dict) else
+                                     getattr(d, "field", None) or getattr(d, "name", None) or str(d))
+                                    for d in kpi_dims
+                                    if d
+                                ]
+                                dimensions = [d for d in dimensions if d]
+                                if dimensions:
+                                    self.logger.info(f"plan_deep_analysis: using {len(dimensions)} dims from KPI registry for '{request.kpi_name}'")
+                                break
+                except Exception as e:
+                    self.logger.debug(f"plan_deep_analysis: KPI registry dim fallback failed: {e}")
+
             # Create skeleton steps for grouped/timeframe comparisons (executed by DPA later)
             steps: List[Dict[str, Any]] = self._build_group_compare_steps(dimensions, request.timeframe, request.filters)
 
@@ -701,11 +727,11 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                     _gen_nc = await self.data_product_agent.generate_sql_for_kpi(
                                         _num_proxy, timeframe=cur_tf, filters=_base_f, breakdown=True, override_group_by=[level_label])
                                     _gen_np = await self.data_product_agent.generate_sql_for_kpi(
-                                        _num_proxy, timeframe=prev_tf, filters=_base_f, breakdown=True, override_group_by=[level_label])
+                                        _num_proxy, timeframe=prev_tf, filters=_base_f, breakdown=True, override_group_by=[level_label], comparison_period=True)
                                     _gen_dc = await self.data_product_agent.generate_sql_for_kpi(
                                         _den_proxy, timeframe=cur_tf, filters=_base_f, breakdown=True, override_group_by=[level_label])
                                     _gen_dp = await self.data_product_agent.generate_sql_for_kpi(
-                                        _den_proxy, timeframe=prev_tf, filters=_base_f, breakdown=True, override_group_by=[level_label])
+                                        _den_proxy, timeframe=prev_tf, filters=_base_f, breakdown=True, override_group_by=[level_label], comparison_period=True)
 
                                     if not all(g.get("success") for g in [_gen_nc, _gen_np, _gen_dc, _gen_dp]):
                                         raise ValueError("bridge: SQL generation failed for one or more components")
@@ -790,7 +816,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 if not prev_tf:
                                     return []
                                 gen_prev = await self.data_product_agent.generate_sql_for_kpi(
-                                    kpi_def, timeframe=prev_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[level_label]
+                                    kpi_def, timeframe=prev_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[level_label], comparison_period=True
                                 )
                                 if not gen_prev.get("success"):
                                     return []
@@ -1146,7 +1172,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                         m_prev: Dict[str, float] = {}
                                         if prev_tf:
                                             gen_prev = await self.data_product_agent.generate_sql_for_kpi(
-                                                kpi_def, timeframe=prev_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim]
+                                                kpi_def, timeframe=prev_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim], comparison_period=True
                                             )
                                             if gen_prev.get("success"):
                                                 prev_exec = await self.data_product_agent.execute_sql(gen_prev.get("sql"), data_product_id=dp_id)
@@ -1225,7 +1251,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                                 kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim]
                                             )
                                             gen_prev_h = await self.data_product_agent.generate_sql_for_kpi(
-                                                kpi_def, timeframe=prev_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim]
+                                                kpi_def, timeframe=prev_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim], comparison_period=True
                                             )
                                             if gen_cur_h.get("success") and gen_prev_h.get("success"):
                                                 cur_exec_h = await self.data_product_agent.execute_sql(gen_cur_h.get("sql"), data_product_id=dp_id)
@@ -1364,7 +1390,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             m_prev_t: Dict[str, float] = {}
                             if prev_tf:
                                 gen_prev_t = await self.data_product_agent.generate_sql_for_kpi(
-                                    kpi_def, timeframe=prev_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket]
+                                    kpi_def, timeframe=prev_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket], comparison_period=True
                                 )
                                 if gen_prev_t.get("success"):
                                     prev_exec_t = await self.data_product_agent.execute_sql(gen_prev_t.get("sql"), data_product_id=dp_id)

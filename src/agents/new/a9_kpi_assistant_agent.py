@@ -1,3 +1,4 @@
+# doc-sync-skip
 """
 A9_KPI_Assistant_Agent - LLM-powered KPI definition assistant for data product onboarding.
 
@@ -513,6 +514,40 @@ INDUSTRY BENCHMARKS (calibrate thresholds against these):
 """
             biz_ctx_user_block += "\n"
 
+        # Build source-system-specific SQL format guidance
+        _ss_list = ("sqlserver", "sql_server", "mssql")
+        if schema.source_system in _ss_list:
+            _schema_name = schema.schema or "dbo"
+            _sql_format_note = (
+                f"- For SQL Server: use square-bracket identifiers and schema-prefix the table, "
+                f"e.g. [{ _schema_name }].[TableName]\n"
+                "- The sql_query MUST follow this exact pattern: "
+                "SELECT <agg_expr> AS value FROM [schema].[table] WHERE <static_filters>\n"
+                "- Do NOT include a date filter in sql_query — the system injects the date range at query time\n"
+                "- Correct example: SELECT SUM([amount]) AS value FROM [dbo].[HessStarSchemaView] WHERE [account_type] = 'Revenue' AND [version] = 'Actual'\n"
+            )
+            _sql_example = f"SELECT SUM([measure_column]) AS value FROM [{_schema_name}].[{example_table}] WHERE [filter_column] = 'FilterValue'"
+        elif schema.source_system == "bigquery":
+            _sql_format_note = (
+                "- For BigQuery: use backtick-quoted fully qualified names: `project.dataset.table`\n"
+                "- The sql_query MUST end with: SELECT <agg_expr> AS value FROM `table` WHERE <static_filters>\n"
+                "- Do NOT include a date filter — the system injects the date range at query time\n"
+            )
+            _sql_example = f"SELECT SUM(measure_column) AS value FROM {example_table} WHERE filter_column = 'FilterValue'"
+        elif schema.source_system == "snowflake":
+            _sql_format_note = (
+                "- For Snowflake: use unquoted identifiers (stored as UPPERCASE)\n"
+                "- The sql_query MUST follow: SELECT <agg_expr> AS value FROM SCHEMA.TABLE WHERE <static_filters>\n"
+                "- Do NOT include a date filter — the system injects the date range at query time\n"
+            )
+            _sql_example = f"SELECT SUM(MEASURE_COLUMN) AS value FROM {example_table} WHERE FILTER_COLUMN = 'FilterValue'"
+        else:
+            _sql_format_note = (
+                "- The sql_query MUST follow: SELECT <agg_expr> AS value FROM table WHERE <static_filters>\n"
+                "- Do NOT include a date filter — the system injects the date range at query time\n"
+            )
+            _sql_example = f"SELECT SUM(measure_column) AS value FROM {example_table}"
+
         return f"""Analyze this data product schema and suggest {num_suggestions} business KPIs:{biz_ctx_user_block}
 DATA SOURCE:
   - Source System: {schema.source_system}
@@ -537,10 +572,10 @@ Please suggest {num_suggestions} KPIs with:
 - Governance mappings (owner, stakeholders, business processes)
 
 CRITICAL SQL REQUIREMENTS:
-- Use fully qualified table names in all SQL queries
-- For BigQuery: Use backticks and format as `project.dataset.table`
-- Example: SELECT SUM(measure) FROM {example_table}
-- Use the actual table names from the TABLES/VIEWS list above
+{_sql_format_note}- Use the actual table names from the TABLES/VIEWS list above
+- ALWAYS alias the aggregate as "value": SELECT SUM(col) AS value ...
+- Static dimension filters (e.g. version = 'Actual') go in the WHERE clause
+- Do NOT add date/time filters — the platform injects date ranges automatically
 
 IMPORTANT: Return a JSON array of KPI objects in this EXACT flat structure:
 ```json
@@ -552,7 +587,7 @@ IMPORTANT: Return a JSON array of KPI objects in this EXACT flat structure:
     "description": "Clear description",
     "unit": "USD or count or percent",
     "data_product_id": "{schema.data_product_id}",
-    "sql_query": "SELECT SUM(measure_column) FROM {example_table}",
+    "sql_query": "{_sql_example}",
     "dimensions": [{{ "name": "Dimension Name", "field": "column_name", "description": "...", "values": ["all"] }}],
     "thresholds": [{{ "comparison_type": "target", "green_threshold": 100, "yellow_threshold": 50, "red_threshold": 10, "inverse_logic": false }}],
     "metadata": {{

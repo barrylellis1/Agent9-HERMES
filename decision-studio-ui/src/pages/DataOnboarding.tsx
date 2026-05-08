@@ -1,4 +1,11 @@
 import { useState, useEffect } from 'react'
+import {
+  siGooglebigquery,
+  siSnowflake,
+  siPostgresql,
+  siDatabricks,
+  siSap,
+} from 'simple-icons'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
@@ -145,6 +152,43 @@ function DifferentiatorCard({
 // ─────────────────────────────────────────────────
 // Platform badge
 // ─────────────────────────────────────────────────
+// Icons sourced directly from simple-icons package for accuracy.
+// SQL Server is not in simple-icons — rendered as a text badge instead.
+const PLATFORM_ICON_MAP: Record<string, { path: string; hex: string } | null> = {
+  'Google BigQuery':        { path: siGooglebigquery.path, hex: siGooglebigquery.hex },
+  'Snowflake':              { path: siSnowflake.path,      hex: siSnowflake.hex },
+  'SQL Server / Azure SQL': null, // text badge fallback
+  'PostgreSQL':             { path: siPostgresql.path,     hex: siPostgresql.hex },
+  'Databricks':             { path: siDatabricks.path,     hex: siDatabricks.hex },
+  'SAP Business Data Cloud': { path: siSap.path,           hex: siSap.hex },
+}
+
+function PlatformIcon({ name }: { name: string }) {
+  const icon = PLATFORM_ICON_MAP[name]
+  if (!icon) {
+    // SQL Server — text badge fallback
+    return (
+      <span
+        className="inline-flex items-center justify-center w-7 h-7 rounded text-[9px] font-bold tracking-tight"
+        style={{ background: '#0078D4', color: '#fff' }}
+      >
+        SQL
+      </span>
+    )
+  }
+  return (
+    <svg
+      role="img"
+      viewBox="0 0 24 24"
+      className="w-7 h-7 flex-shrink-0"
+      fill={`#${icon.hex}`}
+      aria-label={name}
+    >
+      <path d={icon.path} />
+    </svg>
+  )
+}
+
 function PlatformBadge({
   name,
   status,
@@ -164,8 +208,9 @@ function PlatformBadge({
   }
   return (
     <div
-      className={`rounded-xl border px-5 py-4 flex flex-col gap-2 ${statusStyles[status]}`}
+      className={`rounded-xl border px-5 py-4 flex flex-col gap-3 ${statusStyles[status]}`}
     >
+      <PlatformIcon name={name} />
       <span className="font-semibold text-white text-sm">{name}</span>
       <span className={`text-xs font-medium ${statusStyles[status].split(' ')[0]}`}>
         {statusLabel[status]}
@@ -402,7 +447,7 @@ export function DataOnboarding() {
                 number="1"
                 icon={<Database className="w-4 h-4" />}
                 title="Connect"
-                body="Point Decision Studio at your existing data warehouse — BigQuery, SQL Server / Azure SQL, Snowflake, Databricks, PostgreSQL, or local DuckDB. No data migration. No ETL. Your data stays where it is. The system stores a connection profile, not a copy."
+                body="Point Decision Studio at your existing data warehouse — BigQuery, SQL Server / Azure SQL, Snowflake, Databricks, PostgreSQL, or SAP Business Data Cloud. No data migration. No ETL. Your data stays where it is. The system stores a connection profile, not a copy."
               />
               <WorkflowStep
                 number="2"
@@ -567,10 +612,10 @@ export function DataOnboarding() {
             <motion.div variants={fadeUp} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <PlatformBadge name="Google BigQuery" status="production" />
               <PlatformBadge name="SQL Server / Azure SQL" status="production" />
-              <PlatformBadge name="Snowflake" status="supported" />
+              <PlatformBadge name="Snowflake" status="production" />
               <PlatformBadge name="Databricks" status="supported" />
               <PlatformBadge name="PostgreSQL" status="supported" />
-              <PlatformBadge name="DuckDB" status="local" />
+              <PlatformBadge name="SAP Business Data Cloud" status="supported" />
             </motion.div>
 
             <motion.div

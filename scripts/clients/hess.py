@@ -39,7 +39,6 @@ DATA_PRODUCT = {
         "Source: SQL Server agent9_hess database."
     ),
     "owner": "Finance",
-    "owner_role": "CFO",
     "version": "1.0.0",
     "related_business_processes": [
         "finance_revenue_growth_analysis",
@@ -52,7 +51,7 @@ DATA_PRODUCT = {
         "source_system": "sqlserver",
         "sqlserver_host": "localhost",
         "sqlserver_port": "1433",
-        "sqlserver_database": "agent9_hess",
+        "sqlserver_database": "agent9_lubricants",
         "sqlserver_schema": "dbo",
         "sqlserver_view": "HessStarSchemaView",
     },
@@ -691,6 +690,7 @@ BUSINESS_PROCESS_IDS = [
 EXTRA_BUSINESS_PROCESSES: List[Dict[str, Any]] = [
     {
         "id": "operations_production_cost_management",
+        "client_id": CLIENT_ID,
         "name": "Production Cost Management",
         "domain": "Operations",
         "display_name": "Operations: Production Cost Management",

@@ -274,8 +274,14 @@ class A9_Situation_Awareness_Agent:
                 if self._kpi_matches_domains(kpi, target_domains):
                     kpi_def = self._convert_to_kpi_definition(kpi)
                     if kpi_def:
+                        # Store under plain name (used by NL-query name lookups, last-write wins).
                         self.kpi_registry[kpi_def.name] = kpi_def
-            logger.info(f"Added {len(self.kpi_registry)} KPIs to registry for domains: {target_domains}")
+                        # Also store under a client-qualified key so multi-tenant scans can
+                        # iterate collision-free even when two clients share a KPI name.
+                        if kpi_def.client_id:
+                            self.kpi_registry[f"{kpi_def.client_id}:{kpi_def.name}"] = kpi_def
+            unique_names = len([k for k in self.kpi_registry if ':' not in k])
+            logger.info(f"Added {unique_names} unique KPI names to registry for domains: {target_domains}")
             if not self.kpi_registry:
                 logger.warning("No matching KPIs found in registry for target domains")
         except Exception as e:
@@ -1619,10 +1625,27 @@ class A9_Situation_Awareness_Agent:
         if not client_id and hasattr(principal_context, 'client_id'):
             client_id = getattr(principal_context, 'client_id', None)
 
-        # Filter KPIs by business process
-        for kpi_name, kpi_def in self.kpi_registry.items():
-            # Client scoping: skip KPIs that don't belong to the requested client.
-            # This must happen before any other filtering to prevent cross-client leaks.
+        # Filter KPIs by business process.
+        # When client_id is known, iterate only the client-qualified keys
+        # (stored as "{client_id}:{kpi_name}") so that name collisions between
+        # clients (e.g. both "lubricants" and "apex_lubricants" having "Net Revenue")
+        # do not cause one tenant's KPIs to silently overwrite another's.
+        if client_id:
+            registry_items = [
+                (key.split(':', 1)[1], kpi_def)
+                for key, kpi_def in self.kpi_registry.items()
+                if key.startswith(f"{client_id}:")
+            ]
+        else:
+            # No client scoping — iterate name-keyed entries only (skip qualified duplicates)
+            registry_items = [
+                (key, kpi_def)
+                for key, kpi_def in self.kpi_registry.items()
+                if ':' not in key
+            ]
+
+        for kpi_name, kpi_def in registry_items:
+            # Secondary client guard (defensive — should already be satisfied by key prefix)
             if client_id:
                 kpi_client = getattr(kpi_def, 'client_id', None)
                 if kpi_client != client_id:
@@ -1933,13 +1956,16 @@ class A9_Situation_Awareness_Agent:
                 if rows:
                     first = rows[0]
                     if isinstance(first, (list, tuple)) and len(first) > 0:
-                        current_value = float(first[0])
+                        v = first[0]
+                        current_value = float(v) if v is not None else None
                     elif isinstance(first, dict):
                         # Prefer common alias if present
                         if 'total_value' in first:
-                            current_value = float(first['total_value'])
+                            v = first['total_value']
+                            current_value = float(v) if v is not None else None
                         elif len(first.values()) > 0:
-                            current_value = float(list(first.values())[0])
+                            v = list(first.values())[0]
+                            current_value = float(v) if v is not None else None
                 if current_value is None:
                     current_value = 0.0
                 self.logger.info(f"Extracted KPI value for {kpi_name}: {current_value}")
@@ -2077,19 +2103,23 @@ class A9_Situation_Awareness_Agent:
                     if crows:
                         cfirst = crows[0]
                         if isinstance(cfirst, (list, tuple)) and len(cfirst) > 0:
-                            comparison_value = float(cfirst[0])
+                            cv = cfirst[0]
+                            comparison_value = float(cv) if cv is not None else None
                         elif isinstance(cfirst, dict):
                             if 'total_value' in cfirst:
-                                comparison_value = float(cfirst['total_value'])
-                            elif len(cfirst.values()) > 0:
-                                comparison_value = float(list(cfirst.values())[0])
+                                cv = cfirst['total_value']
+                            elif cfirst:
+                                cv = list(cfirst.values())[0]
+                            else:
+                                cv = None
+                            comparison_value = float(cv) if cv is not None else None
             except Exception as comp_error:
                 self.logger.warning(f"Error generating/executing comparison SQL for {kpi_name}: {str(comp_error)}")
                 # Continue without comparison value
             
             # Calculate percent change if we have both values
             percent_change = None
-            if comparison_value is not None and comparison_value != 0:
+            if current_value is not None and comparison_value is not None and comparison_value != 0:
                 percent_change = ((current_value - comparison_value) / abs(comparison_value)) * 100
 
             # Read inverse_logic from KPI threshold config (cost/expense KPIs).
@@ -2648,7 +2678,7 @@ class A9_Situation_Awareness_Agent:
                         ))
         
         # Check for significant changes if comparison value exists
-        if kpi_value.comparison_value is not None and kpi_value.comparison_value != 0:
+        if kpi_value.value is not None and kpi_value.comparison_value is not None and kpi_value.comparison_value != 0:
             # Calculate percent change
             percent_change = (kpi_value.value - kpi_value.comparison_value) / abs(kpi_value.comparison_value) * 100
 

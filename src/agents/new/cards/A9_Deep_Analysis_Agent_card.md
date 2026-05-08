@@ -155,3 +155,5 @@ topic, generating targeted follow-up questions rather than generic open-ended on
 - Removed 1 remaining `if self.data_governance_agent is not None:` guard in `plan_deep_analysis()` (line ~438):
   - DGA dimension resolution is now always attempted as primary path
   - Contract-based dimensions fallback to DPA if DGA unavailable
+
+- May 2026: Bug fixes — NaN normalization, multi-tenant kpi_registry collision fix, comparison value extraction

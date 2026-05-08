@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle, Loader2, CheckCircle2 } from 'lucide-react';
 import { runSolutionFinder } from '../api/client';
 import { BrandLogo } from '../components/BrandLogo';
@@ -86,6 +86,7 @@ const FirmThinking: React.FC<{ label: string; accent: string; stageLabel: string
 export const CouncilDebatePage: React.FC = () => {
   const { situationId } = useParams<{ situationId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [phase, setPhase] = useState<number>(0);
   const [stageOneHypotheses, setStageOneHypotheses] = useState<Record<string, any> | null>(null);
@@ -102,28 +103,50 @@ export const CouncilDebatePage: React.FC = () => {
 
   const debateStarted = useRef(false);
 
-  // Load localStorage data on mount
+  // Load data on mount — prefer router state (client-side nav), fall back to localStorage (page refresh)
   useEffect(() => {
     if (!situationId) { setError('No situation ID'); setLoading(false); return; }
 
     try {
-      const sit = localStorage.getItem(`situation_${situationId}`);
-      if (!sit) { setError('Situation data not found'); setLoading(false); return; }
-      setSituation(JSON.parse(sit));
+      const routerState = location.state as any;
 
-      const cfg = localStorage.getItem(`debate_config_${situationId}`);
-      if (cfg) setDebateConfig(JSON.parse(cfg));
+      // Situation: router state first, then localStorage
+      const sitData = routerState?.situation || (() => {
+        const raw = localStorage.getItem(`situation_${situationId}`);
+        return raw ? JSON.parse(raw) : null;
+      })();
+      if (!sitData) { setError('Situation data not found'); setLoading(false); return; }
+      setSituation(sitData);
 
-      const analysis = localStorage.getItem(`analysis_${situationId}`);
-      if (analysis) setDeepAnalysisResults(JSON.parse(analysis));
+      // Debate config
+      const cfgData = routerState?.debateConfig || (() => {
+        const raw = localStorage.getItem(`debate_config_${situationId}`);
+        return raw ? JSON.parse(raw) : null;
+      })();
+      if (cfgData) setDebateConfig(cfgData);
 
-      const signals = localStorage.getItem(`market_signals_${situationId}`);
-      if (signals) setMarketSignals(JSON.parse(signals));
+      // Analysis
+      const analysisData = routerState?.analysis || (() => {
+        const raw = localStorage.getItem(`analysis_${situationId}`);
+        return raw ? JSON.parse(raw) : null;
+      })();
+      if (analysisData) setDeepAnalysisResults(analysisData);
 
-      const ctx = localStorage.getItem(`principal_context_${situationId}`);
-      if (ctx) setPrincipalContext(JSON.parse(ctx));
+      // Market signals
+      const signalsData = routerState?.marketSignals || (() => {
+        const raw = localStorage.getItem(`market_signals_${situationId}`);
+        return raw ? JSON.parse(raw) : null;
+      })();
+      if (signalsData) setMarketSignals(signalsData);
 
-      // If debate already ran, restore results
+      // Principal context
+      const ctxData = routerState?.principalContext || (() => {
+        const raw = localStorage.getItem(`principal_context_${situationId}`);
+        return raw ? JSON.parse(raw) : null;
+      })();
+      if (ctxData) setPrincipalContext(ctxData);
+
+      // If debate already ran, restore results from localStorage
       const saved = localStorage.getItem(`solutions_${situationId}`);
       if (saved) {
         const s = JSON.parse(saved);

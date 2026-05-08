@@ -835,14 +835,16 @@ async def _run_situations_workflow(request_id: str, runtime: AgentRuntime, reque
             _situations_logger = _lg.getLogger("workflows.situations")
             store = SituationsStore()
             if store.enabled:
-                for situation in response.situations:
+                _situations = response.situations if hasattr(response, "situations") else (response.get("situations") or [])
+                _opportunities = response.opportunities if hasattr(response, "opportunities") else (response.get("opportunities") or [])
+                for situation in _situations:
                     await store.upsert_situation(situation)
-                for opportunity in response.opportunities:
+                for opportunity in _opportunities:
                     await store.upsert_opportunity(opportunity)
                 _situations_logger.info(
                     "Persisted %d situations and %d opportunities to Supabase",
-                    len(response.situations),
-                    len(response.opportunities),
+                    len(_situations),
+                    len(_opportunities),
                 )
         except Exception as e:
             import logging as _lg

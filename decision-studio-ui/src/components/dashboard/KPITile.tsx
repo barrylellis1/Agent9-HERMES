@@ -41,7 +41,7 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
   // ── Formatted displays ──
 
   const deviationDisplay = (() => {
-    if (percentChange == null) return null;
+    if (percentChange == null || !isFinite(percentChange)) return null;
     const sign = percentChange >= 0 ? '+' : '';
     return `${sign}${percentChange.toFixed(1)}%`;
   })();
@@ -56,6 +56,7 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
   const absoluteDisplay = (() => {
     if (!situation.kpi_value) return null;
     const { value, currency, unit } = situation.kpi_value;
+    if (value == null) return null;
     const prefix = currency || '';
     if (Math.abs(value) >= 1_000_000_000)
       return `${prefix}${(value / 1_000_000_000).toFixed(1)}B`;

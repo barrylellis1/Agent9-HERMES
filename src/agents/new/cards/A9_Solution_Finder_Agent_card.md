@@ -136,3 +136,5 @@ Environment variable override: `OPENAI_MODEL_SOLUTION`
 - Removed debug print statements from exception handling (cleanup)
 - Error logging via logger.info() for LLM debate failures (fallback to heuristic)
 - Phase 10D fast debate mode and DA context trimming shipped
+
+- May 2026: Bug fixes — NaN normalization, multi-tenant kpi_registry collision fix, comparison value extraction

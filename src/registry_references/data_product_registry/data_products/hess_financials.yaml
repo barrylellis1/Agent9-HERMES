@@ -1,0 +1,182 @@
+metadata:
+  id: dp_hess_financials
+  name: Hess Corporation Financial Analytics
+  description: >
+    Financial star schema for Hess Corporation E&P operations.
+    Covers upstream revenue, production costs, capital expenditure, and operating metrics.
+    View HessStarSchemaView is hosted in agent9_lubricants (Docker SQL Server 2022).
+    Dimension columns map lubricants source data to Hess E&P terminology for demo purposes.
+  domain: Finance
+  owner: Finance
+  version: "1.0.0"
+  source_system: sqlserver
+  tags:
+    - finance
+    - hess
+    - sqlserver
+    - oil-gas
+    - ep
+
+supported_business_processes:
+  - "Finance: Revenue Growth Analysis"
+  - "Finance: Profitability Analysis"
+  - "Finance: Expense Management"
+  - "Finance: Cash Flow Management"
+  - "Strategy: EBITDA Growth Tracking"
+  - "Operations: Production Cost Management"
+
+column_aliases:
+  measure: "amount"
+  date: "transaction_date"
+  version: "version"
+  default_version_value: "Actual"
+
+business_terms:
+  segment:
+    column: segment_name
+    description: "Business segment (E&P, Midstream)"
+  basin:
+    column: basin_name
+    description: "Operating basin (Guyana, Bakken, Gulf of Mexico, Southeast Asia, Corporate)"
+  asset:
+    column: asset_name
+    description: "Individual asset or field name"
+  country:
+    column: country
+    description: "Country of operation"
+  business_unit:
+    column: business_unit
+    description: "Business unit"
+  account_type:
+    column: account_type
+    description: "Account type (Revenue, COGS, SGA, CapEx, OperatingCF, DA)"
+  account_category:
+    column: account_category
+    description: "Account category (Lifting Costs, Exploration, Development, Midstream, etc.)"
+
+fallback_group_by_dimensions:
+  - segment_name
+  - basin_name
+  - account_category
+
+views:
+  - name: HessStarSchemaView
+    llm_profile:
+      exposed_columns:
+        - "transaction_id"
+        - "fiscal_year"
+        - "fiscal_period"
+        - "transaction_date"
+        - "amount"
+        - "version"
+        - "currency"
+        - "account_name"
+        - "account_type"
+        - "account_category"
+        - "segment_name"
+        - "basin_name"
+        - "asset_name"
+        - "country"
+        - "region"
+        - "business_unit"
+      dimension_semantics:
+        - "segment_name"
+        - "basin_name"
+        - "asset_name"
+        - "country"
+        - "business_unit"
+        - "account_type"
+        - "account_category"
+        - "account_name"
+        - "fiscal_year"
+        - "fiscal_period"
+      dimension_hierarchies:
+        geography:
+          - "country"
+          - "basin_name"
+          - "asset_name"
+        segment:
+          - "segment_name"
+          - "business_unit"
+        financials:
+          - "account_type"
+          - "account_category"
+          - "account_name"
+
+connection:
+  type: sqlserver
+  host: localhost
+  port: 1433
+  database: agent9_lubricants
+  username: sa
+  password: "Agent9Test!2024"
+  schema: dbo
+  encrypt: false
+  trust_server_certificate: true
+
+kpis:
+  - name: Upstream Revenue
+    description: "Total upstream revenue from E&P operations across all basins and assets"
+    data_product_id: dp_hess_financials
+    aggregation: SUM
+    base_column: amount
+    filters:
+      account_type: "Revenue"
+      version: "Actual"
+    unit: "$"
+    diagnostic_questions:
+      - "Which basin is driving the revenue change?"
+      - "Is the variance concentrated in E&P or Midstream?"
+      - "Which asset shows the most variance vs prior year?"
+
+  - name: Midstream Revenue
+    description: "Revenue from Midstream segment operations"
+    data_product_id: dp_hess_financials
+    aggregation: SUM
+    base_column: amount
+    filters:
+      segment_name: "Midstream"
+      account_type: "Revenue"
+      version: "Actual"
+    unit: "$"
+
+  - name: Total Revenue
+    description: "Total consolidated revenue across all segments"
+    data_product_id: dp_hess_financials
+    aggregation: SUM
+    base_column: amount
+    filters:
+      account_type: "Revenue"
+      version: "Actual"
+    unit: "$"
+
+  - name: Lifting Cost
+    description: "Production operating expenses — per-barrel cost to extract oil and gas"
+    data_product_id: dp_hess_financials
+    aggregation: SUM
+    base_column: amount
+    filters:
+      account_category: "Lifting Costs"
+      version: "Actual"
+    unit: "$"
+    diagnostic_questions:
+      - "Which basin has the highest lifting cost increase?"
+      - "Is cost inflation driven by labour, materials, or third-party services?"
+
+  - name: Capital Expenditure
+    description: "Total CapEx invested in development drilling and facilities"
+    data_product_id: dp_hess_financials
+    aggregation: SUM
+    base_column: amount
+    filters:
+      account_type: "CapEx"
+      version: "Actual"
+    unit: "$"
+
+  - name: EBITDA
+    description: "Earnings before interest, taxes, depreciation, and amortisation"
+    data_product_id: dp_hess_financials
+    unit: "$"
+    diagnostic_questions:
+      - "Which segment is compressing EBITDA margins?"
+      - "Is the change driven by revenue decline or cost escalation?"
