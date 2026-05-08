@@ -149,7 +149,7 @@ class RegistryBootstrap:
                             db_manager=db_manager,
                             table_name="principal_profiles",
                             model_class=PrincipalProfile,
-                            client_id=active_client_id
+                            client_id=None  # Load all clients; PCA filters by composite key (client_id:id) at request time
                         )
                         await principal_provider.load()
                         cls._factory.register_provider('principal_profile', principal_provider)
