@@ -224,6 +224,35 @@ Agent9-HERMES/
 
 ---
 
+## Registry Data Sync Protocol
+
+Registry data lives in Supabase (local and production). Only **code** travels automatically through git → Railway. **Data changes must be synced manually.**
+
+### The rule (Option D hybrid)
+
+| Change type | How to persist |
+|---|---|
+| Schema change (new column, new table) | SQL migration in `supabase/migrations/` — commit and apply via `supabase db push --linked` |
+| Data change (KPI tweak, SQL fix, new principal) | Update `scripts/clients/<client_id>.py` seed file — commit it, then run `onboard_client.py` against production |
+
+### When you change registry data locally during debugging
+
+1. **Update the seed file** — `scripts/clients/<client_id>.py` is the source of truth for all client data
+2. **Commit the seed file** alongside your code changes — the pre-push hook will remind you if you forget
+3. **After the push lands**, run against production:
+   ```bash
+   python scripts/onboard_client.py --client <id> --env production --dry-run  # verify first
+   python scripts/onboard_client.py --client <id> --env production
+   ```
+4. **Verify** production matches the seed:
+   ```bash
+   python scripts/verify_prod_registry.py --client <id>
+   ```
+
+The pre-push hook (`registry-sync-reminder`) fires automatically when `scripts/clients/*.py` changes and prints the exact commands needed.
+
+---
+
 ## New Client Onboarding Checklist
 
 When adding a new client/tenant:

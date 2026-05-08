@@ -25,3 +25,9 @@ repos:
         language: system
         pass_filenames: false
         stages: [commit]
+      - id: registry-sync-reminder
+        name: Registry Sync Reminder (push)
+        entry: C:/Users/Blell/Agent9-HERMES/.venv/Scripts/python.exe scripts/registry_sync_lint.py
+        language: system
+        pass_filenames: false
+        stages: [push]
