@@ -5,5 +5,19 @@
       "Bash(ls:*)",
       "Bash(powershell.exe -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\Blell\\\\Agent9-HERMES\\\\restart_decision_studio_ui.ps1\")"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const p=process.env.CLAUDE_TOOL_INPUT_FILE_PATH||''; if(p.endsWith('.tsx')||p.endsWith('.ts')&&p.includes('decision-studio-ui')){console.log('\\n[UI] .tsx file edited: '+p.split('/').pop()+'\\nVerify visually before committing:\\n  1. Stack running? If not: .\\\\\\\\restart_decision_studio_ui.ps1\\n  2. Open http://localhost:5173 and check the affected component\\n  3. Check browser console for errors\\n  4. Run: cd decision-studio-ui && npm run build\\n');}\"",
+            "blocking": false
+          }
+        ]
+      }
+    ]
   }
 }
