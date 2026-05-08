@@ -1,12 +1,16 @@
 # A9_Market_Analysis_Agent Card
 
-Status: MVP Active
+**Last Updated:** 2026-05-08  
+**Status:** MVP Active
 
 ## Overview
 The `A9_Market_Analysis_Agent` retrieves external market signals relevant to a KPI anomaly and synthesises them into an executive-ready narrative using A9_LLM_Service_Agent. It is called optionally from the Solution Finder synthesis stage to enrich recommendations with external context.
 
 ## Protocol Entrypoints
-- `analyze_market(request: MarketAnalysisRequest) -> MarketAnalysisResponse`
+
+| Method | Signature | Returns |
+|--------|-----------|---------|
+| `analyze_market` | `async def analyze_market(request: MarketAnalysisRequest) -> MarketAnalysisResponse` | Market signals + synthesis + confidence |
 
 Models defined in `src/agents/models/market_analysis_models.py`.
 
@@ -58,7 +62,56 @@ industry. Signals are tagged `source="llm_knowledge"` and `sources_queried=["llm
 This ensures `MarketAnalysisResponse.signals` is always populated (not empty) so the refinement
 amber panel renders and `external_context` is seeded even without a Perplexity subscription.
 
+## Request/Response Models
+
+### MarketAnalysisRequest
+```python
+session_id: str                     # Caller-supplied session ID
+kpi_name: str                       # Name of KPI under investigation
+kpi_context: str                    # Anomaly description (e.g., "Gross Margin dropped 2.3pp")
+industry: Optional[str]             # Industry segment (e.g., "lubricants")
+principal_id: Optional[str]         # Principal making the request
+max_signals: int = 5                # Max signals to return (1–20)
+```
+
+### MarketSignal
+```python
+source: str                         # "perplexity" or "llm_knowledge"
+title: str                          # Headline
+summary: str                        # 1–2 sentence summary
+relevance_score: float              # 0.0–1.0 (relevance to KPI)
+published_at: Optional[str]         # ISO date string
+url: Optional[str]                  # Source URL
+```
+
+### MarketAnalysisResponse
+```python
+session_id: str                     # Echoed session ID
+kpi_name: str                       # Echoed KPI name
+signals: List[MarketSignal]         # Retrieved market signals (empty list if no sources found)
+synthesis: str                      # LLM-synthesized executive narrative
+competitor_context: Optional[str]   # Reserved for future enrichment
+confidence: float                   # Agent confidence (0.0–1.0)
+sources_queried: List[str]          # ["perplexity"] or ["llm_knowledge"] (or both as fallback)
+error: Optional[str]                # Error message if search/synthesis failed
+timestamp: str                      # ISO timestamp of response generation
+```
+
+## Error Behaviour
+
+| Scenario | Returns | Graceful Fallback |
+|----------|---------|-------------------|
+| Perplexity API unavailable | sources_queried excludes "perplexity"; signals may be empty or LLM-only | LLM fallback: `_llm_generate_signals()` asks Claude for signals from training knowledge |
+| LLM service unavailable | synthesis falls back to formatted signal text; confidence reduced | Plain-text summary of raw signal titles/summaries |
+| No signals found from any source | signals=[], synthesis="" | Empty lists + confidence=0.5; do NOT raise exception (non-blocking) |
+| Perplexity timeout (>5s) | Caught and logged; skips to LLM fallback | LLM-only mode activated |
+| Invalid JSON in LLM signal response | Attempts regex fallback; logs warning | Returns empty signal list; does not break SF pipeline |
+
+**Key Design:** All failures are caught and logged. The agent never raises exceptions that would break the Solution Finder synthesis pipeline — it gracefully degrades to LLM-only or empty signals.
+
 ## Compliance
 - A2A Pydantic IO for requests/responses
 - Orchestrator-compatible lifecycle: `create()`, `connect()`, `disconnect()`
 - Non-blocking — all failures are caught and logged; never breaks the SF pipeline
+- Registry lookups via orchestrator when available; direct AgentRegistry fallback when not
+- LLM calls routed through A9_LLM_Service_Agent (acquired at connect time)

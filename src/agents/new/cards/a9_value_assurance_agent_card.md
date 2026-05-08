@@ -1,6 +1,7 @@
 # A9_Value_Assurance_Agent Card
 
-Status: Active — client_id scoped (Phase 10B) (Phase 7C + VA Lifecycle)
+**Last Updated:** 2026-05-08  
+**Status:** Active — client_id scoped (Phase 10B) (Phase 7C + VA Lifecycle)
 
 ## Overview
 
@@ -10,16 +11,18 @@ It uses **Difference-in-Differences (DiD) counterfactual attribution** — explo
 
 ## Protocol Entrypoints
 
-- `register_solution(request: RegisterSolutionRequest) -> RegisterSolutionResponse` — `solution_id` is deterministic: `sha256(kpi_id + situation_id)[:32]`; re-approving the same situation upserts rather than inserts a duplicate
-- `evaluate_solution_impact(request: EvaluateSolutionRequest) -> EvaluateSolutionResponse`
-- `check_strategy_alignment(request: CheckStrategyAlignmentRequest) -> CheckStrategyAlignmentResponse`
-- `project_inaction_cost(request: ProjectInactionCostRequest) -> ProjectInactionCostResponse`
-- `get_portfolio_summary(request: PortfolioSummaryRequest) -> StrategyAwarePortfolio`
-- `generate_narrative(request: GenerateNarrativeRequest) -> GenerateNarrativeResponse`
-- `record_kpi_measurement(request: RecordKPIMeasurementRequest) -> RecordKPIMeasurementResponse`
-- `update_solution_phase(request: UpdateSolutionPhaseRequest) -> UpdateSolutionPhaseResponse`
+| Method | Signature | Returns |
+|--------|-----------|---------|
+| `register_solution` | `async def register_solution(request: RegisterSolutionRequest) -> RegisterSolutionResponse` | solution_id + phase=APPROVED + status=MEASURING |
+| `evaluate_solution_impact` | `async def evaluate_solution_impact(request: EvaluateSolutionRequest) -> EvaluateSolutionResponse` | ImpactEvaluation + verdict + confidence |
+| `check_strategy_alignment` | `async def check_strategy_alignment(request: CheckStrategyAlignmentRequest) -> CheckStrategyAlignmentResponse` | StrategyAlignmentCheck + alignment_verdict |
+| `record_kpi_measurement` | `async def record_kpi_measurement(request: RecordKPIMeasurementRequest) -> RecordKPIMeasurementResponse` | actual_trend array + actual_trend_dates |
+| `update_solution_phase` | `async def update_solution_phase(request: UpdateSolutionPhaseRequest) -> UpdateSolutionPhaseResponse` | phase (validated forward transition) |
+| `project_inaction_cost` | `async def project_inaction_cost(request: ProjectInactionCostRequest) -> ProjectInactionCostResponse` | InactionCostProjection + trend forecasts |
+| `get_portfolio_summary` | `async def get_portfolio_summary(request: PortfolioSummaryRequest) -> StrategyAwarePortfolio` | Portfolio aggregate + sorted by ROI |
+| `generate_narrative` | `async def generate_narrative(request: GenerateNarrativeRequest) -> GenerateNarrativeResponse` | Executive narrative (LLM-generated) |
 
-Models defined in `src/agents/models/value_assurance_models.py`.
+Models defined in `src/agents/models/value_assurance_models.py`. **All entrypoints are async; idempotence on upsert via deterministic solution_id.**
 
 ## Configuration Schema
 
@@ -133,6 +136,74 @@ Phase transitions are validated (must follow order). The `update_solution_phase(
 - APPROVED/IMPLEMENTING: Cost of Inaction line only (shows money left on the table during delay)
 - LIVE/MEASURING: All three lines (inaction + expected + actual)
 - COMPLETE: All three lines + verdict annotation
+
+## Request/Response Models — Quick Reference
+
+### RegisterSolutionRequest → RegisterSolutionResponse
+**Input:** kpi_id, situation_id, principal_id, solution_description, expected_impact_lower/upper, measurement_window_days, optional strategy_snapshot
+**Output:** solution_id (deterministic hash), phase=APPROVED, status=MEASURING
+**Idempotence:** Same (kpi_id, situation_id) always produces same solution_id; subsequent calls upsert rather than duplicate.
+
+### EvaluateSolutionRequest → EvaluateSolutionResponse
+**Input:** solution_id, current_kpi_value, control_group_kpi_values[], market_recovery_estimate, seasonal_estimate
+**Output:** ImpactEvaluation (verdict + confidence + composite + narrative), phase auto-transitions to COMPLETE
+**Auto-Transition:** Phase automatically moves APPROVED/IMPLEMENTING/LIVE → MEASURING → COMPLETE on evaluation.
+
+### CheckStrategyAlignmentRequest → CheckStrategyAlignmentResponse
+**Input:** solution_id, principal_id
+**Output:** StrategyAlignmentCheck (alignment_verdict: ALIGNED|DRIFTED|SUPERSEDED, priority_overlap, drift_factors)
+**Called by:** evaluate_solution_impact() internally; also callable standalone for drift detection.
+
+### RecordKPIMeasurementRequest → RecordKPIMeasurementResponse
+**Input:** solution_id, kpi_value, measured_at (optional, defaults to now)
+**Output:** actual_trend array (appended), actual_trend_dates array (appended)
+**Idempotence:** Each call appends one measurement; no deduplication on date (caller must avoid duplicates).
+
+### UpdateSolutionPhaseRequest → UpdateSolutionPhaseResponse
+**Input:** solution_id, new_phase (must be forward transition)
+**Output:** phase (updated), message
+**Validation:** Raises ValueError if attempting backward transition (e.g., LIVE → APPROVED).
+**Go-Live Trigger:** On LIVE transition, resets actual_trend to [baseline] and actual_trend_dates to [now] for fresh measurement.
+
+### ProjectInactionCostRequest → ProjectInactionCostResponse
+**Input:** kpi_id, situation_id, historical_trend[], current_kpi_value
+**Output:** InactionCostProjection (projected_30d, projected_90d, revenue_impact_30d/90d, trend_direction, confidence)
+**Confidence:** LOW if <5 data points; MODERATE if ≥5 points.
+
+### GetPortfolioSummaryRequest → StrategyAwarePortfolio
+**Input:** client_id, principal_id (optional), filter_by_phase (optional), min_roi_confidence
+**Output:** Aggregated portfolio stats: total_roi, solutions_by_verdict, solutions_by_phase, top_solutions_by_impact
+**Filtering:** Filters out SUPERSEDED solutions; only includes verdicts with include_in_roi_totals=True.
+
+### GenerateNarrativeRequest → GenerateNarrativeResponse
+**Input:** solution_id, narrative_type ("executive" | "detailed")
+**Output:** narrative (LLM-generated, ~200 words executive summary)
+**Model:** claude-haiku-4-5-20251001 (fast, cost-efficient)
+
+## Error Behaviour
+
+| Scenario | Entrypoint | Raises | Fallback |
+|----------|-----------|--------|----------|
+| Solution not found | All except register_solution | ValueError | None (exception propagates) |
+| Invalid phase transition | update_solution_phase | ValueError | None (user must correct) |
+| No historical_trend data | project_inaction_cost | ValueError | None (user must provide at least [1]) |
+| control_group_kpi_values empty | evaluate_solution_impact | None (allowed) | confidence = MODERATE or LOW; control_change = 0.0 |
+| Principal not in registry | register_solution (building snapshot) | Caught; logs warning | Uses safe defaults: empty priorities, principal_id as principal_name |
+| LLM service unavailable | generate_narrative | Caught; logs warning | Returns empty string + status="error" |
+| Supabase unavailable | All (except logic) | Non-fatal (try/except) | In-memory store still updated; Supabase persist skipped |
+| Market signals not available | register_solution | None (allowed) | ma_market_signals set to empty list |
+
+## Phase Transition Guards
+
+```
+APPROVED ──→ IMPLEMENTING ──→ LIVE ──→ MEASURING ──→ COMPLETE
+  ↑                                         ↑              ↑
+  └─ register_solution() sets              └─ evaluate_solution_impact()
+  └─ Backward transitions blocked          └─ update_solution_phase() enforces order
+```
+
+**Manual transitions:** APPROVED → IMPLEMENTING → LIVE (via `update_solution_phase()`)
+**Auto-transitions:** MEASURING → COMPLETE (via `evaluate_solution_impact()`)
 
 ## Pipeline Position
 

@@ -121,6 +121,20 @@ orchestrated AI workflows. ~100K lines of backend and UI code, 10 months of deve
 
 ---
 
+## Agent Card Rule (MANDATORY)
+
+Before modifying **any** agent file (`src/agents/new/a9_*.py`), read its card first:
+
+```
+src/agents/new/cards/A9_<AgentName>_card.md
+```
+
+The card tells you: entrypoints, input/output models, what the agent delegates, and what it must NOT do.
+Reading the card replaces most exploratory Grep work and prevents adding duplicate logic.
+If the card is missing or stale, update it as part of the same commit.
+
+---
+
 ## Critical Protocol Requirements (NON-NEGOTIABLE)
 
 These apply when working anywhere in the codebase. See `src/agents/new/CLAUDE.md` for code examples.
