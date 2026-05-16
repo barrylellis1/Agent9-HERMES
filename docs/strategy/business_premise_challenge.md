@@ -1,8 +1,9 @@
-# Decision Studio Business Premise Challenge — Revised
+# Decision Studio Business Premise Challenge — Updated
 **Original:** February 12, 2026
 **Revised:** March 27, 2026
+**Updated:** May 14, 2026 | Version 1.2
 **Scope:** 18-month forward-looking stress test (Q2 2026 → Q4 2027)
-**Purpose:** Reassess existential threats and strategic positioning now that the platform is demo-ready and corporate site is live
+**Purpose:** Reassess existential threats and strategic positioning with Phase 10A-10D shipped capabilities and production deployment live
 
 ---
 
@@ -67,8 +68,8 @@ The original premise challenge was written when the platform was mid-build. Six 
 
 **P11 (New — Mar 27): "Usage-based incremental pricing is a better fit than flat SaaS."**
 - Confidence: 🟡 **Plausible — needs demo feedback**
-- The platform's real cost drivers map naturally to usage dimensions: KPIs monitored (SA scan volume), assessment cycles (DA→SF→MA pipeline runs), solution tracking (VA trajectory monitoring), data products connected (onboarding + query volume)
-- A full SA→DA→SF→MA pipeline run costs ~$0.50-$1.00 in LLM fees — this is measurable and billable
+- The platform's real cost drivers map naturally to usage dimensions: KPIs monitored (SA scan volume), assessment cycles (DA→MA→SF pipeline runs), solution tracking (VA trajectory monitoring), data products connected (onboarding + query volume)
+- A full SA→DA→MA→SF pipeline run costs ~$0.50-$1.00 in LLM fees — this is measurable and billable
 - Per-KPI monitoring ($300/KPI/month) is the dominant billing axis: 37-53% of annual revenue across all customer tiers
 - Natural expansion: customers who see value on 10 KPIs want 50; no new sales cycle needed
 - Pilot entry point becomes very low: 1 data product + 10 KPIs + base platform ≈ $3K/month — within executive discretion budget for never-engaged ICP

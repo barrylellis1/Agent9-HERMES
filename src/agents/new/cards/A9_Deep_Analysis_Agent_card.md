@@ -157,3 +157,4 @@ topic, generating targeted follow-up questions rather than generic open-ended on
   - Contract-based dimensions fallback to DPA if DGA unavailable
 
 - May 2026: Bug fixes — NaN normalization, multi-tenant kpi_registry collision fix, comparison value extraction
+- May 2026 (Phase 10B-DGA final): Added mandatory `is None → raise RuntimeError` guard before DGA call in `plan_deep_analysis()` dimension-supplement branch (line ~441). Previously the call was unguarded — a missing DGA would produce an opaque `AttributeError`. Guard now matches the pattern established in SA and DPA: clean `RuntimeError("Data Governance Agent not initialized…")` surfaces through the outer try/except as `DeepAnalysisResponse(status="error")`.

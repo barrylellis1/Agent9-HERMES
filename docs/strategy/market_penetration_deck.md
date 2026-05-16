@@ -1,16 +1,19 @@
-# Agent9 Market Penetration Strategy
-## Consulting-as-a-Service (CaaS) Platform
+# Decision Studio Market Penetration Strategy
+## AI-Powered Decision Intelligence Platform
+
+**Last Updated:** May 2026 | Version 2.0
+**Status:** Phase 10A-10D shipped; production deployment live (Railway + Cloudflare Pages + Supabase Cloud since Apr 2026)
 
 ---
 
 # SLIDE 1: Title
 
-## Agent9
+## Decision Studio
 ### AI-Powered Decision Intelligence
 
 **Registry-driven, multi-agent analysis for enterprise decision-makers**
 
-*February 2026 | Confidential*
+*May 2026 | Confidential*
 
 ---
 
@@ -119,7 +122,8 @@
 ### Core Workflows
 - ✅ **Situation Awareness** — Continuous anomaly detection across KPIs
 - ✅ **Deep Analysis** — Root cause investigation with evidence
-- ✅ **Solution Finding** — Multi-agent debate with recommendations
+- ✅ **Market Analysis** — Market context + problem framing (Perplexity + Claude synthesis) enriching solution options
+- ✅ **Solution Finding** — Multi-agent debate with recommendations aligned to market conditions
 
 ### Platform Features
 - ✅ **Orchestrator** — Coordinates agents, manages workflows
@@ -127,13 +131,19 @@
 - ✅ **Human-in-the-Loop** — Principals review and approve decisions
 - ✅ **Data Product Registry** — Connect any enterprise data source
 
-### Recently Completed
-- ✅ **Decision Studio UI** — Principal-facing cockpit (React, functional)
+### Recently Completed (Phase 10A-10D, Apr-May 2026)
+- ✅ **Decision Studio UI** — Swiss Style brand identity across all UI surfaces
 - ✅ **Registry Explorer** — Browse/edit KPIs, principals, processes, data products, glossary
 - ✅ **Principal-Driven Analysis** — Decision style maps to consulting persona framing
+- ✅ **Market Analysis Agent** — Real-time market intelligence via Perplexity + Claude synthesis
+- ✅ **Value Assurance Agent** — 5-phase lifecycle (Approved→Implementing→Live→Measuring→Complete), three-trajectory tracking, DiD attribution
+- ✅ **White-Paper Report** — Gartner-style standalone document at `/report/:situationId`
+- ✅ **PIB Email Delivery** — Jinja2 templates, SMTP, single-use briefing tokens, delegation flow
+- ✅ **Multi-Warehouse Direct SDK Connectors** — DuckDB, BigQuery, Snowflake, Databricks, SQL Server (dev)
+- ✅ **Production Deployment** — Railway (backend), Cloudflare Pages (frontend), Supabase Cloud (database), GCP (BigQuery)
 
 ### Roadmap (Post-First-Revenue)
-- � **Branded Agent Marketplace** — Partner agents with proprietary IP (Year 3+)
+- 📋 **Branded Agent Marketplace** — Partner agents with proprietary IP (Year 3+)
 - 📋 **RAG Integration** — Partner knowledge bases
 - 📋 **BI Embed Adapter** — Insight cards in Tableau/Power BI
 
@@ -141,7 +151,7 @@
 
 # SLIDE 7: The CaaS Business Model
 
-## Three-Sided Marketplace
+## Three-Sided Market Model
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -155,13 +165,13 @@
 │                                                     │
 │         ↘                        ↙                  │
 │              ┌──────────────┐                       │
-│              │   AGENT9     │                       │
+│              │Decision Studio│                      │
 │              │  PLATFORM    │                       │
 │              └──────────────┘                       │
 │                                                     │
 │  Revenue Streams (Phased):                           │
-│  Year 1: Pilot subscriptions ($15K-$30K)           │
-│  Year 2: Annual contracts ($40K-$80K)              │
+│  Year 1: Pilot subscriptions ($18K-$30K)           │
+│  Year 2: Annual contracts ($75K-$140K)             │
 │  Year 3+: Platform + partner revenue share         │
 │                                                     │
 └─────────────────────────────────────────────────────┘
@@ -231,21 +241,21 @@
 
 ### Phase 1: First Pilots (May-Sep 2026)
 **Founder-led warm network sales**
-- 20 discovery calls, 5 demos, 1-2 pilot proposals
-- $15K-$25K pilot pricing (3-6 months)
-- Goal: 1-2 signed pilots by Sep 2026
+- 25 discovery calls, 8 demos, 2-3 pilot proposals
+- $18K-$30K pilot pricing (3-6 months)
+- Goal: 2-3 signed pilots by Sep 2026
 
 ### Phase 2: Prove & Grow (Oct 2026-Dec 2027)
 **Deliver pilots, expand, add customers**
-- Convert pilots to annual contracts ($40K-$80K)
-- Build case studies, begin outbound
-- Goal: 5-8 customers, $200K-$320K ARR (base)
+- Convert pilots to annual contracts ($75K-$140K)
+- Build case studies with VA trajectory data, begin outbound
+- Goal: 5-8 customers, $375K-$760K ARR (base)
 
 ### Phase 3: Scale & Partner Exploration (2028)
 **Grow customer base, explore first partnerships**
 - Target mid-tier consulting firms (FTI, A&M, Huron)
-- Enterprise tier launch ($100K+ with SOC 2)
-- Goal: 10-20 customers, $600K-$1.2M ARR (base)
+- Enterprise tier launch ($70K-$100K with SOC 2)
+- Goal: 10-20 customers, $900K-$2.16M ARR (base)
 
 ---
 
@@ -346,20 +356,21 @@ Partner interest (Year 3+)
 
 | Metric | Year 1 (2026) | Year 2 (2027) | Year 3 (2028) |
 |--------|--------------|--------------|--------------|
-| **Customers (base)** | 1-3 | 5-8 | 10-20 |
-| **Avg. ACV** | $15K-$30K | $40K-$80K | $60K-$120K |
-| **ARR (base)** | $15K-$75K | $200K-$320K | $600K-$1.2M |
-| **ARR (upside)** | $75K+ | $600K-$900K | $1.6M-$2.4M |
-| **Partner Revenue** | $0 | $0 | Exploration only |
+| **Customers (base)** | 1-3 | 5-8 | 12-22 |
+| **Avg. ACV** | $18K-$40K | $75K-$95K | $90K-$110K |
+| **ARR (base)** | $20K-$120K | $375K-$760K | $1.08M-$2.42M |
+| **ARR (upside)** | $75K-$120K | $900K-$2.16M | $2.72M-$4.85M |
+| **Partner Revenue** | $0 | $0-$50K | $50K-$1M |
 
-### Unit Economics (Realistic for Solo Founder)
+### Unit Economics (Updated for May 2026)
 | Metric | Year 1 | Year 2+ |
 |--------|--------|---------|
 | CAC | $5K-$10K | $15K-$25K |
-| ACV | $15K-$30K | $40K-$80K |
-| LTV:CAC | 8-12x | 6-10x |
-| Gross Margin | 80-85% | 75-80% |
-| Payback Period | 3-6 months | 4-8 months |
+| ACV | $18K-$40K | $75K-$140K |
+| LTV:CAC | 14-20x | 18-25x |
+| Gross Margin | 80-85% | 85-90% |
+| Payback Period | 3-5 months | 3-6 months |
+| NRR | 115% | 135-150% |
 
 ---
 
@@ -367,32 +378,37 @@ Partner interest (Year 3+)
 
 ## What We've Built
 
-### Platform (Complete)
-- ✅ Multi-agent orchestration framework
-- ✅ Situation Awareness workflow
-- ✅ Deep Analysis workflow  
-- ✅ Solution Finder with LLM debate
+### Platform (Complete — May 2026)
+- ✅ Multi-agent orchestration framework (14 agents operational)
+- ✅ Situation Awareness + Deep Analysis + Solution Finder + Market Analysis + Value Assurance pipeline
 - ✅ Audit trail and HITL checkpoints
-- ✅ Data product onboarding
-
-### Recently Completed (Feb 2026)
-- ✅ Decision Studio UI (React, functional)
+- ✅ Data product onboarding (8-step orchestrated workflow)
+- ✅ Decision Studio UI (Swiss Style brand identity)
 - ✅ Registry Explorer (KPIs, principals, processes, data products, glossary)
-- ✅ Principal-driven analysis (decision style → consulting persona framing)
-- ✅ Database-agnostic backend (DuckDB, Supabase/Postgres, BigQuery)
+- ✅ Production deployment (Railway + Cloudflare Pages + Supabase Cloud + BigQuery)
+
+### Recently Completed (Phase 10A-10D, Apr-May 2026)
+- ✅ Swiss Style brand refresh across all UI surfaces
+- ✅ Market Analysis Agent (Perplexity + Claude synthesis)
+- ✅ Value Assurance Agent (5-phase lifecycle, three-trajectory tracking, DiD attribution)
+- ✅ White-paper report (Gartner-style cold-eyes document)
+- ✅ PIB email delivery (Jinja2, SMTP, single-use tokens, delegation flow)
+- ✅ Multi-warehouse direct SDK connectors (Phase 10C)
+- ✅ Solution Finder performance tuning (3× speedup, fast/full debate modes)
 
 ### In Progress
-- 🔄 Demo video and landing page
+- 🔄 Demo video recorded
 - 🔄 Warm network identification (20 contacts)
 
 ### Next Milestones
 | Milestone | Target Date |
 |-----------|-------------|
-| Demo video recorded | Apr 2026 |
-| First 10 discovery calls | Jun 2026 |
+| Landing page live | Q2 2026 |
+| First 20 warm contacts identified | May-Jun 2026 |
+| First 10 discovery calls | Jun-Jul 2026 |
 | First pilot signed | Sep 2026 |
-| First case study | Jan 2027 |
-| 5 customers / $200K ARR (base) | Dec 2027 |
+| First case study (with VA trajectory data) | Jan 2027 |
+| 5 customers / $250K+ ARR (base) | Dec 2027 |
 
 ---
 
@@ -415,10 +431,10 @@ Partner interest (Year 3+)
 ## What We Need to Execute
 
 ### For Early Customers
-- **Seeking:** 1-2 pilot customers by Sep 2026
-- **Pricing:** $15K-$25K for 3-6 month pilot
-- **Timeline:** 8-12 weeks to first insights
-- **Outcome:** Validated decision intelligence capability, case study
+- **Seeking:** 2-3 pilot customers by Sep 2026
+- **Pricing:** $18K-$30K for 3-6 month pilot (Fast Start + full monitoring + multi-perspective debate + ROI tracking)
+- **Timeline:** 5 days to first insights (Fast Start onboarding), then continuous monitoring
+- **Outcome:** Validated decision intelligence capability + VA trajectory data for case study
 
 ### For Future Investors (Post-Revenue)
 - **Timing:** After 3+ paying customers, $200K+ ARR
@@ -449,9 +465,10 @@ Partner interest (Year 3+)
 4. **Consulting partner pipeline** — Cultivate mid-tier firm relationships now; activate Year 3
 
 ### Competitive Urgency
-- AI finance startups well-funded (Hebbia $130M, Runway $60M+) but narrow scope (documents, FP&A)
-- None have continuous monitoring + multi-perspective debate + audit trail + domain registry in one platform
-- Window to establish as the "decision intelligence" category is 12-18 months
+- AI finance startups well-funded (Hebbia $130M, Runway $60M+) but narrow scope (documents, FP&A only)
+- None have: continuous monitoring + multi-perspective debate + market intelligence + three-trajectory outcome tracking + domain registry in one platform
+- Vendor AI is becoming commodity (Snowflake Cortex Analyst, Databricks Genie, Microsoft Fabric Copilot); Decision Studio's moat is the SA→DA→SF→VA pipeline + Registry + VA outcome corpus
+- Window to establish as the "decision intelligence" category is 12-18 months before consulting firms expand AI downmarket
 
 ---
 

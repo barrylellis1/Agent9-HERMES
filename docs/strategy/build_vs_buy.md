@@ -1,7 +1,8 @@
 # Decision Studio — Build vs. Buy Analysis
 
 **Audience:** CFO, CTO, VP Engineering, procurement committees
-**Last updated:** April 2026
+**Last Updated:** May 2026 | Version 1.1
+**Status:** Phase 10A-10D capabilities now shipped; pricing model finalized (Business Plan v1.6)
 
 ---
 

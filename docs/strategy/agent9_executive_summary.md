@@ -1,7 +1,7 @@
 # Decision Studio: AI-Powered Decision Intelligence
 
 ## One-Page Executive Summary
-**Last Updated:** March 22, 2026
+**Last Updated:** May 2026
 
 ---
 
@@ -45,6 +45,12 @@ The result: mid-market executives ($50M–$500M revenue) make critical decisions
 │         └───────────────┬────────────────┘              │
 │                         ▼                               │
 │         ┌────────────────────────────────┐              │
+│         │      MARKET ANALYSIS           │              │
+│         │  Market context + problem      │              │
+│         │  framing (Perplexity + Claude) │              │
+│         └───────────────┬────────────────┘              │
+│                         ▼                               │
+│         ┌────────────────────────────────┐              │
 │         │      SOLUTION FINDER           │              │
 │         │  Multi-perspective debate      │              │
 │         │  Trade-off matrix + risk scores│              │
@@ -59,7 +65,7 @@ The result: mid-market executives ($50M–$500M revenue) make critical decisions
 └─────────────────────────────────────────────────────────┘
 ```
 
-*Note: The MBB partnership model (MBB methodology RAG + Agent9 data pipeline = joint product) is a Year 3+ roadmap item. LLM model trust is on a rapid growth trajectory; operational decisions are reaching the trust threshold now.*
+*Note: The mid-tier consulting firm partnership model (encoded methodology + Decision Studio pipeline = joint product) is a Year 3+ roadmap item; MBB engagement deferred to Year 4+. The moat is the SA→DA→MA→SF→VA pipeline + Registry + VA outcome corpus — not data connectivity. Vendor semantic layers (Snowflake Cortex Analyst, Databricks Genie) commoditize the connectivity layer; Decision Studio adapts to them via a three-tier connectivity model (native SDK / vendor MCP / vendor AI agent).*
 
 ---
 
@@ -130,7 +136,7 @@ The result: mid-market executives ($50M–$500M revenue) make critical decisions
 
 **Domains:** Finance (margin, revenue, cost), Operations (cycle time, yield, fulfillment), Sales & Revenue (pipeline, win rate, churn), Supply Chain, and more.
 
-**Pilot Program:** $15K for 3 months — 5-day onboarding, first insight in week one
+**Pilot Program:** $18K for 3 months (Fast Start) or $30K–$40K for 6 months (Full Pilot) — 5-day onboarding, first insight in week one
 
 ### For Mid-Market Executives
 
@@ -141,7 +147,7 @@ The result: mid-market executives ($50M–$500M revenue) make critical decisions
 - Institutional memory that survives executive turnover
 - Works across any domain where KPIs are measured
 
-**Pilot Program:** $25K-$30K for 6 months, first situation card in 5 days
+**Pilot Program:** $30K–$40K for 6 months (Full Pilot — SA + DA + SF + MA + VA tracking), first situation card in 5 days
 
 ---
 
@@ -158,22 +164,27 @@ The result: mid-market executives ($50M–$500M revenue) make critical decisions
 
 ### Traction & Roadmap
 
-**Completed (March 2026):**
-- ✅ Multi-agent orchestration (SA, Deep Analysis, Solution Finder)
-- ✅ Decision Studio UI (React, functional)
-- ✅ Registry Explorer (KPIs, principals, processes, data products)
-- ✅ Principal-driven analysis (decision style → consulting persona)
-- ✅ Database-agnostic backend (DuckDB, Supabase, BigQuery)
-- ✅ Market Analysis Agent (Perplexity + Claude synthesis — competitor signals, market context)
-- ✅ Value Assurance Agent (three-trajectory tracking, DiD attribution, Supabase persistence)
-- ✅ Portfolio Dashboard with trajectory chart (inaction/expected/actual KPI recovery)
+**Completed through May 2026 (14 operational agents, ~100K LOC):**
+- ✅ Multi-agent orchestration (MA, SA, Deep Analysis, Solution Finder, VA, PIB, etc.)
+- ✅ Decision Studio UI (React/Vite/Tailwind, Swiss Style brand identity — Phase 10A)
+- ✅ Registry Explorer (KPIs, principals, processes, data products) with `client_id` multi-tenant isolation
+- ✅ Principal-driven analysis (decision style → consulting persona framing)
+- ✅ **Multi-warehouse direct SDK connectors (Phase 10C, May 2026):** DuckDB, BigQuery, Snowflake, Databricks, SQL Server (dev)
+- ✅ Market Analysis Agent (Phase pre-SA): Perplexity + Claude synthesis → market context + problem framing before SA scan, plus SF enrichment with market alignment signals
+- ✅ Value Assurance Agent — 5-phase lifecycle (Approved → Implementing → Live → Measuring → Complete), three-trajectory tracking, DiD attribution
+- ✅ Portfolio Dashboard with phase-aware TrajectoryChart and KPI-aware impact formatting
 - ✅ Cost of Inaction banner in Executive Briefing (pre-approval projection)
 - ✅ Opportunity Detection (positive KPI outperformance, benchmark segments, replication targets)
 - ✅ HITL Approve & Track workflow with VA solution registration
+- ✅ **PIB email delivery (Phase 10B):** Jinja2 templates, SMTP, single-use briefing tokens, delegation flow
+- ✅ **White-paper report (Apr 2026):** standalone Gartner-style document with print + PDF
+- ✅ **Production deployment (Apr 2026):** Railway backend + Cloudflare Pages frontend + Supabase Cloud + BigQuery via GCP creds
+- ✅ **Enterprise Assessment Pipeline (Phase 9A–C):** client-scoped batch KPI scans with per-KPI monitoring profiles
+- ✅ **Solution Finder performance tuning (Phase 10D):** fast/full debate modes (~3 min dev / 4 calls production)
 
 **Next Milestones:**
-- Enterprise Assessment Pipeline (autonomous scheduled monitoring): April 2026
-- Pre-video UI polish and demo recording: April 2026
+- Demo video + landing page (trydecisionstudio.com): Q2 2026
+- Infrastructure hardening for pilot (Infra A4 registry live-reload, SQL Server production, Infra B Supabase Auth + multi-tenant isolation): May–Aug 2026
 - First pilot signed: September 2026
 - 5 customers, $250K ARR: December 2027
 
@@ -202,4 +213,4 @@ The result: mid-market executives ($50M–$500M revenue) make critical decisions
 
 ---
 
-*Confidential | March 2026*
+*Confidential | May 2026*

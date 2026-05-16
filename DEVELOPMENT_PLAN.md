@@ -53,7 +53,7 @@ run_enterprise_assessment.py
 
 | Capability | Planned phase |
 |-----------|--------------|
-| DGA mandatory wiring (eliminate 16 governance fallback paths) | Phase 10B-DGA |
+| DGA mandatory wiring — test suite (happy path, init failure, view resolution) | Phase 10B-DGA tests |
 | KPI trend chart (monthly_values populated for all backends) | Phase 10D |
 | KPI accountability registry (dimensional ownership) | Phase 11A |
 | LLM-assisted accountability import from HCM documents | Phase 11B |
@@ -78,6 +78,7 @@ run_enterprise_assessment.py
 | `kpisScanned={14}` hardcoded in `DecisionStudio.tsx` | Wire real count from assessment API in Phase 11C |
 | Separate `OpportunitySignal` / `Situation` models | Unify in Phase 11C |
 | `run_enterprise_assessment.py` has no scheduler | CLI only — scheduler deferred |
+| SA/PCA/DPA agents cache registry data at startup | KPIs, principals, and data products loaded into memory at `connect()` — registry changes (new client, new KPI) require a service restart to take effect. Fix: live-query Supabase per request in `_get_relevant_kpis()`, `get_principal_context_by_id()`, and DPA data product lookup. |
 
 ---
 
@@ -133,8 +134,10 @@ All four backends operational and verified end-to-end via SA scan:
 |---------|--------|-------------------|-------|
 | DuckDB | bicycle | 0 | No 2026 Actual data in dev dataset |
 | BigQuery | lubricants | 8 | Production-ready |
-| SQL Server | hess | 4 | Docker `agent9_sqlserver`, `agent9_lubricants` DB |
+| SQL Server | hess | 4 | Dev only — `pyodbc`/ODBC driver not in production Docker image |
 | Snowflake | apex_lubricants | 3 | `AGENT9_DEMO.LUBRICANTS.LubricantsStarSchemaView` |
+
+**Production gap — SQL Server:** `pyodbc` requires the Microsoft ODBC Driver 18 at the OS level. The current `python:3.11-slim` Docker image does not include it. SQL Server works in local dev but returns `Cannot connect: pyodbc/unixODBC not available` in Railway. Fix tracked in Infra A4: SQL Server Production Enablement below.
 
 **What was built (prior to May 2026 — plan was stale):**
 - `src/database/backends/sqlserver_manager.py` — pyodbc + asyncio.to_thread, MERGE upsert, INFORMATION_SCHEMA profiling
@@ -260,39 +263,24 @@ Agent9 connects to customer data warehouses at three progressive levels of integ
 
 ---
 
-### Phase 10B-DGA: Data Governance Agent — Mandatory Wiring
+### Phase 10B-DGA: Data Governance Agent — Mandatory Wiring ✅ COMPLETE (May 2026)
 
-**Goal:** Eliminate the 16 fallback paths that allow agents to bypass the DGA. The DGA methods for view resolution, KPI→data-product mapping, and business term translation are fully implemented but optional everywhere. This phase makes them the primary execution path — a required prerequisite before adding new data connectors in 10C.
+**Steps 1 & 2 complete.** All 16 optional `if self.data_governance_agent:` guards removed. Mandatory `RuntimeError` guards in place in all three agent files. DGA wired post-bootstrap via `runtime._wire_governance_dependencies()`.
 
-**Why now (before 10C):** Every new connector (Snowflake, Databricks, SAP HANA) creates additional KPI→data-product resolution paths. Wiring the DGA first means new connectors inherit governance automatically rather than adding more fallback surface area.
+**What was done:**
+- SA agent (`process_nl_query`): 3 optional guards removed; mandatory `is None → raise RuntimeError` guard + 2 direct DGA calls
+- DPA (`_get_view_name_from_kpi`, `_lookup_kpi_by_name`): 2 optional guards removed; mandatory `is None → raise RuntimeError` guard + 2 direct DGA calls
+- DA agent (`plan_deep_analysis`): mandatory `is None → raise RuntimeError` guard added (May 2026, final fix closing the phase)
 
-**Execution sequence (no active customers — break-and-fix approach):**
+**DGA-B: DEFERRED** — `validate_data_access()` stays always-true stub. No real tenants → no cross-client risk. Revisit with Infra B (multi-tenant isolation, pre-Sep 2026).
 
-| Step | Deliverables | Effort |
-|------|-------------|--------|
-| **Step 1 — DGA init fix** | Wire DGA into `A9_Data_Product_Agent.connect()` and `A9_Situation_Awareness_Agent.connect()` as hard dependencies. Fix orchestrator init order so DGA is always ready before SA and DPA need it. Eliminates the startup warning `Data Governance Agent not available`. | ~4–6h |
-| **Step 2 — DGA-A: Wire all 16 mandatory paths** | Remove all `if self.data_governance_agent:` guards. Wire calls directly with error propagation. Work file-by-file in ascending blast-radius order: DA agent (1 path) → DPA (5 paths) → SA agent (8 paths). Run unit suite after each file; fix failures before moving on. | ~27–39h |
-| **Step 3 — Test update** | Update `test_sql_generation_fallback` to assert a hard error rather than `None` — converts a "validates the old fallback" test into a "validates the new contract" test. Add 3 new tests: mandatory DGA path happy path, DGA init failure → visible error, view name resolution through DGA. | ~4–6h |
-| **DGA-B: DEFERRED** | `validate_data_access()` stays always-true stub. No real tenants → no cross-client risk. Revisit with Infra B (multi-tenant isolation, pre-Sep 2026). | — |
-| **DGA-C: PARTIAL only** | Full Supabase registry hardening deferred. Only the init sequencing fix in Step 1 is in scope now. | — |
+**Remaining (Step 3 — tests):**
+No DGA-specific test file exists. Three tests needed:
+1. Mandatory DGA path happy path (SA `process_nl_query` with DGA wired → succeeds)
+2. DGA init failure → clean `RuntimeError` (not `AttributeError`)
+3. View name resolution through DGA in DPA `_get_view_name_from_kpi`
 
-**Current fallback inventory (16 paths across 3 files):**
-
-| Tier | Paths | Files affected | DGA methods (already implemented) |
-|------|-------|---------------|-----------------------------------|
-| Tier 2 — Core mapping/view | 4 | SA agent, DA agent, DPA | `map_kpis_to_data_products()`, `get_view_name_for_kpi()` |
-| Tier 3 — Translation | 5 | SA agent, DPA | `translate_business_terms()`, `get_view_name_for_kpi()` |
-| Tier 1 — Client scoping | 2 | SA agent | `validate_data_access()` (deferred to DGA-B) |
-| Tier 4 — Structural/registry | 5 | SA agent, DPA | Registry init sequencing |
-
-**Critical files:**
-- `src/agents/new/a9_situation_awareness_agent.py` — 8 fallback paths
-- `src/agents/new/a9_data_product_agent.py` — 5 fallback paths
-- `src/agents/new/a9_deep_analysis_agent.py` — 1 fallback path
-- `src/agents/new/a9_data_governance_agent.py` — DGA implementation (methods ready)
-- `docs/architecture/data_governance_agent_connection.md` — documents known missing wiring
-
-**Entry point for new conversation:** Read `connect()` methods in SA agent, DPA, and orchestrator init sequence before touching anything. Confirm DGA is absent from DPA `connect()` — that's the root cause of the 8 SA fallback paths existing in the first place.
+**Test file to create:** `tests/unit/test_a9_data_governance_wiring.py`
 
 ---
 
@@ -462,6 +450,67 @@ Agent9 connects to customer data warehouses at three progressive levels of integ
 | Principal Learning Profile | Enterprise tier only |
 | KPI execution plan cache | Post first paying client — justified by usage data only. Keyed on `(kpi_id, timeframe, comparison_type, filters_hash)`, stores compiled SQL + result TTL in Supabase. Revisit when: >50 KPIs on daily cadence, or LLM costs >10% of infrastructure, or client requests it. |
 | LLM-assisted NL→SQL for complex follow-up questions | Phase 11F or later — NLP Interface regex handles simple TopN queries today; LLM SQL generation needed for complex ad hoc P&L queries. MCP-connected warehouses (Snowflake Cortex, Databricks AI/BI) may handle this natively — evaluate before building. |
+| **Decision Altitude classifier** | VA agent feature. Tags every approved decision as Operational or Strategic at approval time. Operational decisions → 90-day VA tracking with strict ROI measurement. Strategic decisions → long-horizon milestones, explicitly decoupled from short-term ROI scoring. Prevents Goodhart's Law: executives gaming the system by only approving safe, measurable tweaks to protect bonus metrics. |
+| **Decoupling Event detection** | MA Agent enhancement. Detects when the current market regime differs materially from the regime under which historical Registry ROI data was generated. SF surfaces a confidence warning: "This playbook was built under a low-interest-rate / pre-tariff environment — confidence in replication is LOW." Circuit breaker for regime-shift errors. |
+| **Systemic Shock mode** | SA Agent enhancement. When 80%+ of Tier 1 KPIs breach critical thresholds simultaneously, abandon dimensional Is/Is Not analysis (control group collapses) and enter Crisis Mode: cash preservation, liquidity exposure, and drawdown mapping replace normal situation cards. UI treatment changes to signal the shift. DiD attribution is suspended — VA cannot produce clean causal attribution during systemic shocks. |
+| **Executive Autopsy view** | Registry / onboarding feature. When a new executive joins, surface a verified historical record of which prior initiatives moved KPIs and which did not (with DiD attribution). Framed as "objective autopsy, not legacy playbook" — caters to new executives' desire to establish their own baseline by showing them exactly what the old regime got wrong. Mitigates organ-rejection risk when leadership changes. |
+
+---
+
+### Thought Leadership Roadmap
+
+Three content assets implied by the Kahneman / organizational RL product vision (May 2026).
+These are external-facing pieces — white papers, keynotes, or long-form blog posts.
+Not landing page copy (landing page handled separately in the positioning plan).
+
+#### Asset 1: "The Organizational Learning Engine" (White Paper)
+
+**Audience:** CTO, CDO, Chief Strategy Officer — not just CFO.
+**Thesis:** Decision Studio is not an analytics tool. It is a calibration system for executive cognition. The full SA → DA → SF → VA pipeline maps directly to a reinforcement learning reward loop operating at the organizational level. Every verified VA outcome recalibrates executive System 1 intuition away from noise and toward ground truth. Over 12–18 months, executive decision quality compounds.
+
+**Arc:**
+1. Why organizational "instinct" is currently trained on false positives (confirmation bias, attribution without counterfactuals)
+2. The Kahneman System 1 / System 2 gap — and why System 2 has historically been unavailable for most decisions
+3. How each pipeline stage maps to the RL loop: SA (environment sensor) → DA (threat identification) → SF (action selection with multi-perspective debate) → VA (reward signal / causal attribution)
+4. The Registry as durable institutional memory — decisions, rationale, and verified outcomes persist when executives leave
+5. Compounding effect: organizations that run 20+ decisions through the VA loop build a proprietary playbook of what actually works at their scale, in their market
+
+**Adversarial section (builds credibility):** Four ways this breaks — regime shift, black swans, executive departure, Goodhart's Law — and the specific mitigations built into the architecture.
+
+---
+
+#### Asset 2: "Why Smart Executives Make Bad Decisions (And It's Not Their Fault)" (Keynote / Blog)
+
+**Audience:** Executive audience at a business/finance conference. Also works as a LinkedIn long-form post.
+**Thesis:** When System 2 analysis costs $500K and twelve weeks, System 1 wins by default. This isn't irrationality — it's the only rational response to the options available. The problem isn't the executive; it's the economics of rigorous analysis.
+
+**Hook:** A CFO sees a 15% margin drop. The evolutionary alarm fires. Without structured analysis available in the time window, they cut costs — the most available System 1 response. Six months later, the cut damaged a key supplier relationship. They never knew if the margin drop was even their fault. A competitor had a supply chain issue that quarter.
+
+**Key points:**
+- System 1 vs System 2: why enterprises run on instinct by necessity
+- The "monitoring gap": why dashboards fail (staring at stable KPIs is cognitively exhausting)
+- How peripheral vision works vs. how dashboards work
+- The "78% make decisions first, justify with data after" stat (Hydrogen BI 2025)
+- Decision Studio closes the economics gap: System 2 rigor at System 1 speed
+
+---
+
+#### Asset 3: "Four Ways AI Decision Tools Fail — And How We Built Around Them" (Sales / Positioning)
+
+**Audience:** Skeptical CFO or CTO in a late-stage sales conversation. Also works as a "Quiet Expert" thought leadership piece.
+**Thesis:** AI systems fail when they assume the future looks like the past. By naming our own failure modes — and showing the specific architectural mitigations — we establish credibility that no competitor who is still pitching "AI magic" can match.
+
+**The four failure modes:**
+1. **Regime shift** — historical ROI data becomes obsolete during macro disruption. Mitigation: MA Agent Decoupling Event flag
+2. **Black swans** — control group collapses, DiD attribution impossible. Mitigation: Systemic Shock mode suspends attribution, switches to crisis framing
+3. **Executive departure** — new leadership rejects inherited playbooks. Mitigation: Executive Autopsy view reframes history as objective evidence, not endorsement
+4. **Goodhart's Law** — executives game measurable metrics, avoid bold bets. Mitigation: Decision Altitude classifier decouples strategic decisions from short-term VA scoring
+
+**Closer:** "We point out these limits before you do because we've built around them. That's the difference between a demo that looks impressive and a system you can run your organization on."
+
+---
+
+**Production sequence:** Asset 2 first (shortest, sharpest, LinkedIn-native). Asset 3 second (arms the sales team). Asset 1 last (requires multiple VA cycles to have case study material).
 
 ---
 
@@ -535,6 +584,79 @@ Once usage data from live customers calibrates breach rates:
 KPI count predicts decision volume — bundle sessions to KPI tiers to make pricing predictable for both sides.
 
 **Phase:** Build alongside or immediately after Infra A2. Prerequisite for any pricing conversation with a pilot customer.
+
+---
+
+### Infra A4: Production Hardening
+
+**Goal:** Make the production system resilient to registry changes, operational surprises, and growth in client count — without requiring service restarts or CLI access.
+
+#### Registry Live-Reload (CRITICAL — fix before second pilot client)
+
+**Problem:** SA, PCA, and DPA agents cache registry data (KPIs, principals, data products) in memory at `connect()` time. Any registry change — new client seeded, KPI added, SQL updated — is invisible to the running service until Railway restarts. Discovered when seeding the Hess client: hess KPIs were in Supabase but the SA agent returned 0 situations because its in-memory registry was stale.
+
+**Fix:**
+
+| Agent | Cached data | Fix |
+|-------|------------|-----|
+| `A9_Situation_Awareness_Agent` | `self.kpi_registry` (all KPIs) | `_get_relevant_kpis()` queries Supabase provider directly per request, filtered by `client_id` |
+| `A9_Principal_Context_Agent` | Principal profiles | Already queries per request via provider — verify no startup cache |
+| `A9_Data_Product_Agent` | Data product metadata | Look up data product from provider on each KPI execution, not from startup dict |
+
+**Design rule:** Agents may cache registry data only within the scope of a single request (local variable). No instance-level registry dicts that persist across requests.
+
+**Performance note:** SA scan already executes N SQL queries against external warehouses (BigQuery, Snowflake, SQL Server). One additional Supabase read per scan is negligible.
+
+#### Admin-Triggered Registry Reload (stopgap until live-reload ships)
+
+Add a `POST /api/v1/admin/registry/reload` endpoint that calls `connect()` on SA, PCA, and DPA agents to force a registry refresh without a full service restart. Protected by a platform-admin check. Useful as an immediate fix and as a diagnostic tool.
+
+#### Connection Health Dashboard
+
+Surface in the Admin Console: test each registered data product's connection profile, show last-successful query timestamp, warehouse status. Especially important for Snowflake (auto-suspend) and SQL Server (VPN/firewall dependencies).
+
+#### Seed-from-UI (see Infra A2)
+
+Running seed scripts with production credentials from a developer's machine is not a viable long-term workflow. Infra A2 (Platform Admin & Client Onboarding) replaces this entirely — seed operations become API calls that Railway executes server-side with its own env vars.
+
+**Priority order:**
+1. Registry live-reload in SA agent — unblocks Hess and any future client additions without restart
+2. Admin reload endpoint — immediate operational relief
+3. Connection health dashboard — visibility before adding a third pilot client
+4. Seed-from-UI — required before handing onboarding to a non-engineer
+
+#### SQL Server Production Enablement
+
+**Problem:** Railway's `python:3.11-slim` container lacks the Microsoft ODBC Driver 18 and `unixODBC`, which `pyodbc` requires. The hess/SQL Server client is fully seeded and working in dev but returns `Cannot connect: pyodbc/unixODBC not available` in production.
+
+**Recommended approach — Options 1 + 3 combined:**
+
+1. **Add ODBC driver to Dockerfile** — install Microsoft ODBC Driver 18 + `unixodbc-dev` via the Microsoft apt repository. Adds ~200MB to the image, ~2 min to build time. One-time change. Makes ANY SQL Server (on-premise or cloud) work in production.
+
+2. **Stand up Azure SQL Database for hess demo data** — Azure SQL Serverless tier (~$5–15/month at demo usage). Public endpoint accessible from Railway without VPN. Migrate the hess seed data into it. Update the hess connection profile in Supabase to point to the Azure SQL endpoint. Demo is then always-on and cloud-hosted — no local SQL Server dependency for prospect demos.
+
+**Why not on-premise only:** On-premise SQL Server requires network accessibility from Railway (VPN tunnel or public IP). Azure SQL resolves this cleanly for the demo use case. Real customer SQL Servers are addressed in Infra B (customer infrastructure).
+
+**Dockerfile change required:**
+```dockerfile
+# Microsoft ODBC Driver 18 for SQL Server
+RUN apt-get update && apt-get install -y curl gnupg \
+ && curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /usr/share/keyrings/microsoft.gpg \
+ && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" > /etc/apt/sources.list.d/mssql-release.list \
+ && apt-get update \
+ && ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+```
+
+**Azure SQL setup steps:**
+1. Create Azure SQL Database (serverless, General Purpose S0 or free tier)
+2. Set firewall rule to allow Azure services (Railway's egress IPs or 0.0.0.0/0 for demo)
+3. Run `seed_sqlserver_hess.py` against Azure SQL (update connection string)
+4. Update hess data product connection profile in Supabase: `sqlserver_host`, `sqlserver_database`, `sqlserver_username`, `sqlserver_password`
+5. Store credentials as Railway env vars: `HESS_SS_HOST`, `HESS_SS_PASSWORD`, etc.
+6. Deploy updated Dockerfile → verify hess SA scan returns situations in production
+
+**Priority:** After Infra A4 registry live-reload. Before first SQL Server pilot customer.
 
 ---
 

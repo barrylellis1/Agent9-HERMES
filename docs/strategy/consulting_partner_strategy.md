@@ -1,7 +1,10 @@
 # Agent9: Consulting Partner Strategy
 
-**Last Updated:** March 2026
+**Version:** 2.0  
+**Last Updated:** May 2026  
 **Status:** Tier 0 activation in progress. Tier 1 activation at 5+ customers. Full CaaS marketplace deferred to Year 3+.
+
+**Document Consolidation (May 2026):** This document now consolidates partner strategy content from `caas_market_opportunity.md` and `partner_outreach_materials.md`. Source files retained for archive purposes.
 
 ---
 
@@ -132,6 +135,56 @@ The opportunity with these firms is eventual — not imminent.
 
 ---
 
+## Market Sizing & Partner Pipeline Economics
+
+### Total Addressable Market
+
+| Market Segment | Size | Notes |
+|---|---|---|
+| Global consulting services | $800B+ annually | Includes strategy, implementation, managed services |
+| BI/analytics platforms | $100B+ annually | Data-driven decision-making infrastructure |
+| Agentic consulting (CaaS) | Undefined | No true CaaS marketplace exists today |
+
+### The Never-Engaged Mid-Market (Primary GTM, 2026-2027)
+
+The largest addressable market for Decision Studio in Years 1-2 is **not** consulting firm partnerships — it is the **50,000+ mid-market companies ($50M–$500M revenue) that have never engaged MBB consulting** due to cost.
+
+| Metric | Traditional Consulting Market | Never-Engaged Mid-Market |
+|---|---|---|
+| **Addressable companies** | 5,000–10,000 (MBB clients) | 50,000+ |
+| **Sales motion** | Displacement (overcome incumbent) | Net-new capability (no incumbent) |
+| **Sales cycle** | 4–6 months (committee, competitive review) | 4–8 weeks (clear ROI, no competition) |
+| **Pilot pricing** | Needs to beat ~$500K/year spend | $15K–$25K pilot is an obvious yes |
+| **ACV** | $60K–$120K | $44K–$80K |
+
+**Why this market is easier to close:**
+- No "but we have McKinsey" objection — they don't
+- Pain is immediate (executives + spreadsheets + gut instinct on $200M company)
+- ROI is net-new, not incremental — any structured analysis is better than nothing
+- Pilot risk is minimal relative to the alternative (no analysis at all)
+
+**How the platform maps to this segment:**
+- Continuous KPI monitoring replaces manual Excel tracking
+- Structured analysis provides access to insights never available before
+- Opportunity detection surfaces growth signals entirely missed by traditional approaches
+- Outcome tracking proves the platform's own value — self-reinforcing retention driver
+
+This segment is the **primary GTM focus through 2027**. The CaaS/partner marketplace becomes relevant only after this segment generates case studies that attract consulting firm interest.
+
+### Partner Pipeline Overlay: Lead Volume & Value
+
+The direct mid-market customer base is also the **source of partner pipeline**. Every Decision Studio customer generates situations. A fraction of those situations (estimated 15–25%) will exceed what the platform handles autonomously. Those become consulting engagement opportunities.
+
+**Pipeline economics from 10 direct customers:**
+- Situations generated annually: ~50 per customer = 500 total
+- Consulting-ready escalations (15–25%): 75–125 per year
+- Average engagement value: $50K–$150K
+- **Annual partner pipeline value: $3.75M–$18.75M**
+
+This is the credibility number for partner conversations — not "partner with our platform," but "we're generating $X million in qualified leads that need a delivery partner."
+
+---
+
 ## Prerequisites Before Activating Partner Conversations
 
 These gates must be met before investing time in partner conversations:
@@ -148,6 +201,89 @@ These gates must be met before investing time in partner conversations:
 | Legal: data sharing agreement template reviewed | H1 2028 | Required before any client data is adjacent to a partner |
 
 **Tier 0 conversations can begin immediately.** For Tier 1+, do not begin partner outreach until gates 2, 3, and 4 are met.
+
+---
+
+## Pilot Program Structure
+
+For partners willing to co-invest in branded agent development, a structured 14-week pilot validates the CaaS model while building the first production partner agents.
+
+### Phase 1: Discovery (2 weeks)
+
+**Objective:** Map partner methodology to Agent9 agent capabilities
+
+**Deliverables:**
+- Methodology decomposition document
+- RAG dataset requirements (what case studies, benchmarks, reference materials)
+- Agent capability specification (outputs, decision framework, debate role)
+
+**Investment:**
+- Partner: 20 hours
+- Agent9: 40 hours
+- **Cost: $25,000** (waived for Tier 1 partners)
+
+### Phase 2: Build (6 weeks)
+
+**Objective:** Develop branded agent with partner IP integrated
+
+**Deliverables:**
+- Functional branded agent deployed in staging
+- RAG integration (up to 100 partner documents)
+- Debate participation capability (model can participate in multi-agent scenarios)
+- Audit trail and attribution (decision audit trails, source attribution)
+
+**Investment:**
+- Partner: 40 hours
+- Agent9: 200 hours
+- **Cost: $75,000** (50% co-investment for Tier 1 partners; Agent9 covers $37,500)
+
+### Phase 3: Validate (6 weeks)
+
+**Objective:** Pilot with 3–5 mutual customers in production
+
+**Deliverables:**
+- Customer feedback and NPS
+- Usage metrics and ROI data
+- Go-to-market refinement (pricing, messaging, positioning)
+
+**Investment:**
+- Partner: 30 hours
+- Agent9: 60 hours
+- **Cost: $50,000** (included in Phase 2 cost for Tier 1 partners)
+
+### Total Pilot Investment
+
+- **Standard Partner (Tier 2–3):** $150,000 over 14 weeks
+- **Tier 1 Strategic Partner:** $37,500 (75% Agent9 subsidy) + methodology contribution + dedicated partner PM
+
+**Success criteria:** ≥3 mutual customers adopt branded agent, NPS ≥60, ≥10 debates run per week, 1+ follow-on opportunities identified.
+
+---
+
+## Partner Tiers & Revenue Model
+
+### Tier 0–2 Partner Categories
+
+| Tier | Profile | Pilot Investment | Revenue Share | Benefits |
+|---|---|---|---|---|
+| **Tier 0** | Fractional CFO practitioners, solo consultants | No formal pilot | Commission-based (10–20% of subscription) | Lead routing, outcome tracking, brand positioning |
+| **Tier 1** | Boutique FP&A advisory firms, CFO service firms | $37,500 (75% subsidized) | 15–25% of Year 1 subscription for referred clients | Subsidized pilot, dedicated onboarding, co-marketing, priority support |
+| **Tier 2** | Mid-tier consultancies (FTI, A&M, Huron) | $75,000–$150,000 | 10–20% of subscription (negotiable) | Standard pilot, marketplace listing, white-label option, lead attribution dashboard |
+
+### Revenue Share Model
+
+For all partner tiers:
+
+| Revenue Stream | Partner Share | Agent9 Share | Notes |
+|---|---|---|---|
+| Agent subscription fees (referred clients) | 15–25% | 75–85% | Year 1 premium for lead generation |
+| Ongoing subscriptions (Years 2+) | 10–15% | 85–90% | Retention commission lower than acquisition |
+| Implementation services | 10–20% | 80–90% | Agent customization, domain tuning |
+
+**Negotiation principles:**
+- Tier 1 partners: 75% subsidy on pilot costs; higher revenue share in Year 1 to incentivize adoption
+- Tier 2 partners: Standard pricing; revenue share reflects higher lead volume expected
+- Tier 3 (future): White-label and RAG infrastructure premium; agent exclusivity in category
 
 ---
 
@@ -177,17 +313,121 @@ These are not partner-facing features — they are the internal tracking infrast
 
 ---
 
+## Competitive Landscape
+
+### Cloud Platform Agent Marketplaces
+
+| Platform | Model | What They Offer | Limitations |
+|---|---|---|---|
+| **Google Cloud AI Agent Space** | SaaS agents in Gemini Enterprise | Agent Cards (A2A protocol), enterprise governance, partner monetization | Generic SaaS agents, no consulting IP, no multi-agent debate |
+| **AWS Bedrock Agents** | LLM agents with tool use | Single-agent deployment, AWS ecosystem integration | Single-agent, no branded consulting personas |
+| **Microsoft Copilot Studio** | Custom copilots for M365 | Enterprise workflow automation | M365-centric, not consulting insights |
+
+**Key Insight:** These platforms sell **infrastructure** (build your own agents). They do not package or monetize consulting expertise.
+
+### ERP Vendor AI Strategies
+
+| Vendor | Product | Focus | Partner Model |
+|---|---|---|---|
+| **SAP** | Joule + Joule for Consultants | SAP implementation acceleration | Consulting firms USE Joule to deliver SAP projects faster |
+| **Oracle** | AI Agent Studio | Oracle Fusion automation | Partners (Deloitte, PwC, Accenture) build agents for Oracle workflows |
+
+**Critical Distinction:**
+- **SAP/Oracle Model:** Their IP → Powers agents → Consultants USE them
+- **Agent9 CaaS Model:** Consulting Firm IP → Powers agents → Enterprises USE them
+
+SAP and Oracle are building tools **for** consultants to deliver their (SAP/Oracle) projects faster. Agent9 is building a platform **for** consultants to monetize their (consulting firm) IP to solve business problems. These are fundamentally different value propositions.
+
+### AI-Native Consulting Startups
+
+| Startup | Approach | Limitation |
+|---|---|---|
+| **Xavier AI** | AI strategy chatbot, business plans | Generic advice, no proprietary methodology depth |
+| **NextStrat** | Multi-agent consultant automation | No branded IP, no multi-methodology debate |
+| **Consulting IQ** | AI for SMBs, 5000+ prompts | Subscription chatbot, not enterprise-grade |
+
+**Key Insight:** These startups offer generic AI-powered advice. They do not have relationships with top consulting firms or access to proprietary methodologies.
+
+### What Consulting Firms Are NOT Doing
+
+Despite the AI agent marketplace growth, major consulting firms have NOT:
+- Packaged their core IP (7S Framework, Growth-Share Matrix, etc.) as RAG-powered agents
+- Offered methodology-grounded agents for broad problem solving
+- Enabled multi-methodology debates (McKinsey vs BCG approach)
+- Created platforms for IP monetization at scale
+
+**They're building TOOLS, not digitizing their THINKING.** This is Agent9's competitive opening.
+
+---
+
+## Moat Strategy: The Decision Outcome Corpus
+
+### What IS NOT a Moat
+
+| Feature | Why Not Defensible |
+|---|---|
+| Multi-brand debate | Easily replicable by Google/AWS |
+| Partner RAG infrastructure | Commodity technology |
+| Pretty UI | Trivial to copy |
+
+### Defensible Moats (Agent9 Focus)
+
+| Moat | Description | Why Defensible |
+|---|---|---|
+| **Decision Outcome Corpus** | Track which recommendations worked across methodologies, verticals, and partner firms | ✅ Proprietary, compounds with every decision, impossible to replicate without the platform |
+| **Vertical Depth** | Deep expertise in retail/manufacturing/healthcare decision support | ✅ Harder to replicate domain knowledge |
+| **Partner Outcome Analytics** | Show partners their methodology's win rate vs. competitors and benchmarks | ✅ Value back to partners, creates stickiness |
+| **VA Trajectory Tracking** | Prove partner-delivered engagement ROI post-delivery (three-trajectory chart) | ✅ Unique — no competitor offers post-engagement outcome proof |
+| **First-Mover Partner Lock-in** | Exclusive/preferred deals with 2–3 boutique firms establishing the model | ⚠️ Medium defensibility — firms may hedge bets |
+| **Enterprise Integration Depth** | Deep hooks into customer data (ERP, CRM, BI via Phase 10C MCP protocols) | ✅ High switching cost once embedded |
+
+### The Decision Outcome Corpus (Primary Moat)
+
+```
+Problem Statement → Recommendations → Decision Made → Outcome Tracked
+
+Examples:
+- "For COGS problems in retail, Option A worked 73% of the time"
+- "McKinsey's approach outperformed BCG's in supply chain by 12%"
+- "When the executive rejected Option 1, Option 2 succeeded 68% of the time"
+```
+
+This corpus is:
+- **Proprietary to Agent9** (not partner IP)
+- **Compounds with every decision** (network effect)
+- **Impossible for Google/AWS to replicate** without the platform
+- **Valuable to partners** (they learn what works)
+
+**Partner-specific value of the corpus:**
+- Partners see which of their engagement types deliver the best outcomes (anonymised across clients)
+- The corpus creates a **switching cost** for partners: leaving Agent9 means losing access to outcome data that improves their own methodology
+- Over time, the corpus enables Agent9 to recommend which *type* of partner engagement works best for a given situation — "For COGS problems in manufacturing, implementation-focused engagements outperformed strategy-only by 2.3x"
+
+### Moat Building Timeline
+
+| Phase | Timeframe | Focus | Moat Building |
+|---|---|---|---|
+| **0–12 months** | Now–Q2 2027 | Speed to market, 1–2 partner pilots, Tier 0 activation | First-mover advantage, early partner relationships |
+| **12–24 months** | Q2 2027–Q2 2028 | Outcome tracking, vertical depth, VA data accumulation | Decision corpus accumulation, benchmark reports |
+| **24+ months** | Q2 2028+ | Meta-insights, partner outcome analytics, regulatory depth | Proprietary "what works" IP, partner outcome benchmarking |
+
+---
+
 ## The Partner Conversation Arc
 
-**Now (Tier 0 activation):** Identify 5-10 fractional CFO practitioners. Offer them Agent9 as a practice tool — not as a partnership. The partnership emerges naturally as they adopt. When their clients need more than the platform delivers, they route to themselves. When they encounter situations that need a specialist, the escalation path becomes visible.
+### Activation Timeline: 2026–2027
 
-**Year 1-2 (Tier 1 activation):** With 5+ customers and VA trajectory data from at least one completed measurement window, begin conversations with boutique FP&A advisory firms. Frame as: "We've been generating consulting engagement leads — pre-diagnosed, with market context and benchmark data. We'd like to route relevant situations to your firm."
+**Now (Q2 2026 — Tier 0 activation):** Identify 5–10 fractional CFO practitioners. Offer them Agent9 as a practice tool — not as a partnership. The partnership emerges naturally as they adopt. When their clients need more than the platform delivers, they route to themselves. When they encounter situations that need a specialist, the escalation path becomes visible.
 
-**Year 2 (First signed Tier 1 partner):** Target one boutique FP&A specialist for a 12-month pilot partnership. Measure: situations escalated, conversions to engagements, revenue share paid, VA trajectory outcomes for partner-delivered engagements.
+**H2 2026 (Tier 1 early conversations):** With 3+ customers and first situations escalated to service partners, begin informal conversations with boutique FP&A advisory firms. Frame as: "We're seeing patterns in mid-market decision situations — early wins with practitioners who want to scale. Would you be interested in pilots?"
 
-**Year 2-3 (Tier 2 conversations):** With a boutique partnership validated and VA data showing measurable outcomes, approach mid-tier firms. The conversation is backed by: (1) referral data, (2) a boutique partner who can vouch for the model, (3) VA trajectory charts proving partner-delivered engagement ROI.
+**Q4 2026–Q1 2027 (Tier 1 pilot design):** With 5+ customers and VA trajectory data from at least one completed measurement window, target one boutique FP&A specialist for a structured 14-week pilot partnership using the Pilot Program Structure above. Measure: situations escalated, conversions to engagements, branded agent adoption, VA trajectory outcomes.
 
-**Year 3+ (CaaS marketplace):** If demand warrants, build branded agent configuration — partner logo, specialisation routing rules, white-label situation cards. This is the full CaaS offering described in `caas_market_opportunity.md`. Only build when partner volume justifies the infrastructure investment.
+**Q2–Q3 2027 (First signed Tier 1 partner):** First pilot partnership concludes; decision on formal tier 1 agreement. Success criteria met: ≥3 escalations per month, ≥$500K attributed pipeline, ≥60 NPS, 1+ follow-on opportunities.
+
+**Q4 2027+ (Tier 2 conversations):** With a boutique partnership signed and VA data showing measurable outcomes, approach mid-tier firms. The conversation is backed by: (1) referral data, (2) a boutique partner case study, (3) VA trajectory charts proving partner-delivered engagement ROI, (4) decision outcome corpus insights.
+
+**Q2 2028+ (CaaS marketplace planning):** If partner volume and customer demand justify, plan CaaS infrastructure build — branded agent marketplace, white-label situation cards, partner-specific routing rules, automated revenue share tracking. This is the full marketplace vision. Only build when 3+ active partners and 25+ customers are live.
 
 ---
 
@@ -219,6 +459,79 @@ These are not partner-facing features — they are the internal tracking infrast
 
 ---
 
+## Partner Outreach Materials & Engagement Sequence
+
+### Discovery Call Sequence (30 minutes)
+
+**Objective:** Assess fit, understand current challenges, position Agent9 opportunity
+
+1. **Opening (5 min):** Brief overview of Decision Studio and CaaS vision — not a pitch, a conversation starter
+2. **Problem identification (10 min):** "What are the biggest threats your firm faces in the next 3 years? (AI commoditizing discovery work? Client pressure on engagement costs? Difficulty attracting junior talent?)"
+3. **Agent9 fit (10 min):** "We're generating qualified consulting leads — pre-diagnosed, with market context and outcome tracking. Would this be valuable to your firm?"
+4. **Next steps (5 min):** If interested: technical deep dive scheduled; if not: stay in touch for future collaboration
+
+### Technical Deep Dive (2 hours)
+
+1. **Platform architecture walkthrough (30 min):** Live demo of SA→DA→MA→SF→VA pipeline with real situation card
+2. **Methodology mapping workshop (45 min):** Map partner's framework to Agent9's debate roles; identify RAG requirements
+3. **Pilot scope definition (30 min):** 14-week program overview, investment, success criteria, timeline
+4. **Q&A and decision criteria**
+
+### Customized Pilot Proposal (Delivered within 1 week)
+
+- Investment: $25K–$150K (depending on tier)
+- Timeline: 14 weeks to functional branded agent
+- Success criteria: NPS ≥60, ≥10 debates/week in production, ≥3 mutual customers
+- Revenue share: 10–25% (negotiable)
+- Governance: Monthly steering, named partner PM, weekly syncs
+
+### Ideal Partner Profile (Tier 1–2)
+
+**Must-Haves:**
+- ✅ Documented methodology or framework (not just tacit knowledge)
+- ✅ Executive sponsor with innovation mandate
+- ✅ Willingness to co-invest (time, resources, or capital)
+- ✅ Existing client base for pilot validation
+
+**Nice-to-Haves:**
+- ✅ AI/ML experience or dedicated innovation team
+- ✅ Existing digital delivery capabilities
+- ✅ Regulatory/compliance expertise (for audit trail value)
+- ✅ Relationship to 5+ mid-market companies
+
+### Sample Positioning Statements
+
+**For Boutique FP&A Firms:**
+> "We monitor your clients' KPIs continuously. When a situation needs more than AI can deliver, we route it to you — pre-diagnosed, with market context and benchmark data. After you deliver, our outcome tracking proves it worked. You get qualified leads and measurable case studies. Your clients get faster, better-scoped engagements."
+
+**For Finance Transformation Specialists:**
+> "We surface implementation opportunities before your competitors do. Every KPI threshold breach becomes an opportunity to show how your expertise drives measurable outcomes. Our outcome tracking lets you prove ROI in the renewal conversation — not with gut feel, but with chart data."
+
+**For Interim/Fractional CFO Practitioners:**
+> "Serve more clients at higher quality. We provide enterprise-grade analytical capability and opportunity detection across your portfolio. Your clients see continuous monitoring and diagnostics. You focus on strategy and delivery. Every client is a potential new subscription."
+
+### Branded Agent Examples
+
+#### Example 1: "Boutique FP&A Agent"
+- **Methodology:** Waterfall analysis, driver-based modeling, variance decomposition
+- **RAG Content:** 50+ client case studies, FP&A benchmarks by industry, transformation playbooks
+- **Debate Role:** Detailed financial diagnostics, cost-reduction opportunity identification
+- **Output:** Situation cards with financial impact estimates, variance deep-dives, benchmarked performance
+
+#### Example 2: "Interim CFO Agent"
+- **Methodology:** Strategic financial planning, executive reporting, board communication
+- **RAG Content:** Governance frameworks, board-level communication templates, crisis response playbooks
+- **Debate Role:** Strategic financial advisory, risk identification, board communication guidance
+- **Output:** Strategic recommendations with confidence scores, stakeholder communication guides
+
+#### Example 3: "Change Management Agent"
+- **Methodology:** Organizational change frameworks (ADKAR, Kotter), stakeholder mapping, resistance patterns
+- **RAG Content:** Change management playbooks, resistance pattern libraries, communication templates
+- **Debate Role:** Change impact assessment, resistance prediction, mitigation strategy
+- **Output:** Change readiness scorecards, stakeholder communication plans, resistance mitigation options
+
+---
+
 ## Risks and Mitigations
 
 | Risk | Likelihood | Mitigation |
@@ -227,17 +540,65 @@ These are not partner-facing features — they are the internal tracking infrast
 | Partner client data inadvertently exposed | Low | Strict opt-in architecture; no partner portal access to client data |
 | Partner refers low-quality clients who churn | Medium | Onboarding gate: data readiness assessment required |
 | Large consulting firm acquires a competitor | Low-Medium | First-mover partner relationships create switching cost |
-| Partner expects revenue share before Agent9 is generating leads | High in early conversations | Set expectations explicitly: first 12 months relationship-building only |
-| Partners use Agent9 pitch to buy time while building internal AI | Medium | Track partner engagement frequency; re-evaluate at 12-month marks |
+| Partner expects revenue share before Agent9 is generating leads | High in early conversations | Set expectations explicitly: pilot partnership earns commission on *referred* client subscriptions only; no upfront payment |
+| Partners use Agent9 pitch to buy time while building internal AI | Medium | Track partner engagement frequency; re-evaluate at 12-month marks; escalate to exec sponsor if inactive |
+| Tier 2 mid-market firms prioritize competitors over Agent9 | Medium | Lock in Tier 1 relationships early; use boutique partner success story as proof point |
+| Pilot program overruns timeline or budget | Medium-High | Firm project governance; phase exit gates; weekly steering alignment |
+
+---
+
+---
+
+## Strategic Context & Recent Updates (May 2026)
+
+### LLM Provider & Data Backend Status
+
+As of May 2026, Agent9's infrastructure is operationalized as follows:
+
+**LLM Provider:** Anthropic Claude (sole provider, Mar 2026 switchover)
+- Stage 1 analysis: Claude Haiku
+- Synthesis/cross-review: Claude Sonnet
+- All partner agents will use Claude models via A9_LLM_Service_Agent routing
+
+**Data Backend Status:**
+- ✅ DuckDB: Production-ready (local dev, bicycle/FI dataset)
+- ✅ BigQuery: Production-ready (analytics, lubricants client)
+- ✅ PostgreSQL/Supabase: Production-ready (registry, cloud)
+- ✅ Snowflake: Operational (Phase 10C MCP integration)
+- ✅ Databricks: Operational (Phase 10C MCP integration)
+- ✅ SQL Server: Wired (connection profile support)
+- 🔄 SAP Datasphere: Planned (Phase 10D)
+
+Partners can leverage multi-backend connectivity via the MCP (Model Context Protocol) abstraction layer — no need to build backend-specific integration logic.
+
+### Moat Strategy Alignment (Apr 2026)
+
+The Apr 2026 strategic refresh clarified that **data connectivity is commodity infrastructure** (vendors like Cortex Analyst and Genie commoditize it). The true moat is the **SA→DA→MA→SF→VA pipeline + Decision Outcome Corpus + Value Assurance outcome tracking**.
+
+Partner activations should emphasize:
+1. Agent9's pipeline diagnostics (SA, DA, SF) as the value add, not data access
+2. VA outcome tracking as the unique proof point for partner-delivered engagement ROI
+3. Decision outcome corpus as the long-term competitive advantage
+
+Partners who assume they're signing up for "data connectivity" should be re-scoped to the consulting lead pipeline model instead.
 
 ---
 
 ## What This Document Is Not
 
-This is not a partnership pitch deck. It is not a term sheet. It is not a commitment that Agent9 will build the marketplace, the branded agent infrastructure, or the revenue share mechanism on any specific timeline.
+This is not a partnership pitch deck. It is not a term sheet. It is not a commitment that Agent9 will build the full CaaS marketplace infrastructure on any specific timeline.
 
 This document is the strategic rationale for why consulting firm partnerships are worth building toward — and the preconditions that must be true before the investment is justified.
 
 ---
 
-*Confidential | March 2026*
+## Changelog
+
+| Version | Date | Changes |
+|---|---|---|
+| 2.0 | May 2026 | Consolidated `caas_market_opportunity.md` + `partner_outreach_materials.md`; added market sizing, pilot program structure, partner tiers & revenue model, competitive landscape, moat strategy, outreach materials; updated LLM provider (Claude) and data backend status (Snowflake/Databricks operational); updated activation timeline (Q4 2026 → Q1 2027 Tier 1 conversations); added strategic context refresh (Apr 2026 moat alignment) |
+| 1.0 | March 2026 | Initial partner strategy document |
+
+---
+
+*Confidential | May 2026 | Version 2.0*

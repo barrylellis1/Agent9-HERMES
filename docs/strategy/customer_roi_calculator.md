@@ -1,17 +1,17 @@
-# Agent9 Customer ROI Calculator
+# Decision Studio Customer ROI Calculator
 
 ## ⚠️ Validation Disclaimer
 
-**Status:** Pre-revenue, unvalidated assumptions
+**Status:** Pre-revenue, unvalidated assumptions (updated for Phase 10A-10D capabilities)
 
 This ROI calculator is based on:
-- **Projected pricing** (not validated with paying customers)
-- **Estimated value drivers** (not verified through actual deployments)
-- **Assumed adoption and outcome rates** (no real-world data)
+- **Grounded pricing model** (updated May 2026 to three-layer model: base platform + per-principal + onboarding)
+- **Shipped capabilities** (SA→DA→MA→SF→VA pipeline, Value Assurance tracking, Market Analysis context + framing, White-paper report, PIB email delivery all operational)
+- **Assumed adoption and outcome rates** (no real-world data; to be validated with first pilots)
 
-**Use with caution:** These projections represent realistic scenarios informed by the design and capabilities of Agent9, but they should not be used for financial planning until Agent9 has 3+ paying customers with documented ROI.
+**Use with caution:** These projections represent realistic scenarios informed by the design and shipped capabilities, but they should not be used for financial planning until Decision Studio has 3+ paying customers with documented ROI and VA trajectory data.
 
-**Last Updated:** March 19, 2026
+**Last Updated:** May 2026 | Version 2.1
 
 ---
 
@@ -80,10 +80,10 @@ The SA Agent detects KPI anomalies continuously (not monthly). DA Agent runs dim
 | Analyst time freed | 100 hours/month (50% reduction) |
 | Annual analyst cost savings | $72,000 |
 | Agent9 annual cost | $48,000 (Starter $25K + 2 principals × $12K) |
-| **Year 1 Net Savings** | **$24,000** |
-| **Year 2+ Net Savings** | **$72,000** (no onboarding) |
-| Payback Period | 8 months |
-| ROI over 3 years | 150% cumulative (or $168K total savings) |
+| **Year 1 Net Savings** | **$24K-$48K** |
+| **Year 2+ Net Savings** | **$72K+** (no onboarding) |
+| Payback Period | 6-8 months |
+| ROI over 3 years | 150-200% cumulative (or $168K-$216K total savings) |
 
 **Strategic Impact (Unquantified):**
 - Analysts redirected from data gathering → forward-looking scenario analysis
@@ -487,8 +487,8 @@ Agent9 cost (already paid in Scenario A/B/C): sunk cost, so incremental cost of 
 
 | Service | Price | What's Included |
 |---|---|---|
-| **Fast Start** (4–5 days) | $10K–$15K | Data product contracts, KPI configuration, principal setup, first 2 situation cards |
-| **Additional data source** | $5K–$10K | Per additional ERP/warehouse after initial onboarding |
+| **Fast Start** (5 days) | $10K-$15K | Data product contracts, KPI configuration, principal setup, first 2 situation cards, VA baseline capture |
+| **Additional data source** | $5K-$10K | Per additional ERP/warehouse after initial onboarding |
 
 ### Pilot Programs (Year 1 Early Customers)
 

@@ -1,7 +1,8 @@
 # Decision Studio — Enterprise Security FAQ
 
 **Audience:** IT Security, CISO, General Counsel, procurement teams
-**Last updated:** April 2026
+**Last Updated:** May 2026 | Version 1.1
+**Status:** Phase 10A-10D shipped; production deployment on Railway + Cloudflare Pages + Supabase Cloud live
 
 ---
 

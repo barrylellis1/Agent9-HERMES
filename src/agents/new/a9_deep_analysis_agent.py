@@ -439,6 +439,11 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 pass
             # Supplement from DGA registry metadata if contract yielded no dimensions
             if not dimensions and request.kpi_name:
+                if self.data_governance_agent is None:
+                    raise RuntimeError(
+                        "Data Governance Agent not initialized. "
+                        "Ensure _wire_governance_dependencies() was called during startup."
+                    )
                 mapping_req = KPIDataProductMappingRequest(
                     kpi_names=[request.kpi_name],
                     context={"principal_id": getattr(request, "principal_id", None)}

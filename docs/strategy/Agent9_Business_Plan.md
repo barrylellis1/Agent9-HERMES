@@ -1,6 +1,6 @@
 # Agent9 Business Plan
-**Last Updated:** March 2026
-**Version:** 1.5 — Pilot Data Onboarding ("bring your own extract") added to GTM Phase 1; production data backend roadmap (Snowflake, Databricks, SQL Server, SAP Datasphere); DuckDB deprecated as customer-facing backend
+**Last Updated:** May 2026
+**Version:** 1.6 — Phase 10A–10D shipped (Swiss Style UI, PIB email delivery, multi-warehouse direct SDK connectors, SF performance tuning, VA 5-phase lifecycle, white-paper report); production deployment live on Railway + Cloudflare Pages + Supabase Cloud; strategic moat refresh — the SA→DA→SF→VA pipeline + Registry + VA outcome corpus is the moat; data connectivity is commodity
 
 ---
 
@@ -17,8 +17,8 @@ Agent9 addresses five independent value propositions — each justifiable on its
 
 **The primary market is not consulting displacement.** The largest addressable segment is the mid-market ($50M–$500M revenue) that never engaged MBB consulting because of cost. Agent9 is net-new capability for these companies — not a cheaper substitute.
 
-**Current Stage:** Pre-revenue, platform built (~100K LOC), moonlighting development
-**Go-to-Market Launch:** Q2 2026 (demo-ready, warm network outreach)
+**Current Stage:** Pre-revenue, platform built (~100K LOC), production deployment live (Railway + Cloudflare Pages + Supabase Cloud since Apr 2026), moonlighting development
+**Go-to-Market Launch:** Q2–Q3 2026 (demo-ready, warm network outreach beginning May 2026)
 **Primary Entry Buyer:** VP-level functional leaders (FP&A, Operations, Revenue) → C-suite champion for platform expansion
 **Target:** $200K-$500K ARR within 18 months of first customer (raised from $150K-$350K — shipped MA/VA/Opportunity enable higher ACV and stronger renewal rates)
 **Exit Strategy:** Strategic acquisition at $2M-$3M ARR for $15M-$30M (infrastructure/data platform framing)
@@ -56,10 +56,11 @@ Agent9 addresses five independent value propositions — each justifiable on its
 - *Replaces:* Manual weekly dashboard reviews, reactive fire-fighting
 
 **Pillar 2 — Consulting-Quality Insight on Demand (replaces expensive substitute OR net-new for never-engaged market)**
+- Market Analysis Agent provides context and problem framing between DA and SF (Perplexity + Claude synthesis)
 - Structured SCQA root cause analysis (Situation, Complication, Question, Answer)
 - Multi-perspective solution debate with trade-off matrix (Financial, Operational, Strategic, Risk lenses)
 - Role-personalised output: same KPI, different framing for CFO (analytical), COO (pragmatic), CEO (visionary)
-- External market intelligence via Market Analysis Agent (Perplexity + Claude synthesis)
+- Market intelligence enriches Solution Finder with competitive signals and alignment validation
 - *For consulting users:* replaces $500K-$2M engagements; delivers in hours not weeks
 - *For never-engaged mid-market:* net-new structured analysis capability at a fraction of the cost ($44K-$100K ACV)
 
@@ -89,24 +90,28 @@ Agent9 addresses five independent value propositions — each justifiable on its
 5. **5-day onboarding** — first situation card in one week, not 8-12 weeks (see Onboarding Moat doc)
 6. **Branded expertise** — partner consulting methodology encoded as agents (Year 3+)
 
-### Platform Capabilities (As of March 2026)
-- ✅ Multi-agent orchestration framework (A2A protocol-compliant)
-- ✅ Situation Awareness workflow (problem detection + positive KPI opportunity detection)
-- ✅ Deep Analysis workflow (SCQA, Is/Is Not, BigQuery routing)
-- ✅ Solution Finder with multi-call LLM debate (Stage 1 parallel Haiku × 3 + Sonnet synthesis)
+### Platform Capabilities (As of May 2026)
+- ✅ Multi-agent orchestration framework (A2A protocol-compliant) — 14 agents operational
+- ✅ Market Analysis workflow (market context + problem framing before SA scan via Perplexity + Claude synthesis)
+- ✅ Situation Awareness workflow (problem detection + positive KPI opportunity detection, context-aware, MA-informed, client-scoped enterprise assessment)
+- ✅ Deep Analysis workflow (SCQA, Is/Is Not, change-point detection, benchmark segments, BigQuery routing)
+- ✅ Solution Finder with multi-call LLM debate (Stage 1 parallel Haiku × 3 + Sonnet synthesis, MA enrichment); fast/full debate modes (~3 min dev, 4 calls production)
 - ✅ Executive Decision Briefing (19-page structured output with McKinsey/BCG/Bain framing)
-- ✅ Data product onboarding (YAML contract-driven)
+- ✅ Data product onboarding (8-step orchestrated workflow, YAML contract-driven)
 - ✅ Audit trail and human-in-the-loop checkpoints
-- ✅ Registry system (KPIs, principals, business processes, data products, glossary)
-- ✅ Decision Studio UI (React, functional — production-quality)
+- ✅ Registry system (KPIs, principals, business processes, data products, glossary) — Supabase-backed, multi-tenant `client_id` isolation
+- ✅ Decision Studio UI (React/Vite/Tailwind, Swiss Style brand identity, production-quality)
 - ✅ Registry Explorer UI (browse/edit all registry entities)
-- ✅ Database-agnostic backend (BigQuery, Supabase/Postgres; Snowflake, Databricks, SQL Server, SAP Datasphere planned)
+- ✅ **Multi-warehouse direct SDK connectors (Phase 10C)** — DuckDB (local), BigQuery (operational), Snowflake (operational), SQL Server (operational in dev; production blocked on ODBC driver in Dockerfile); SAP Datasphere planned
 - ✅ Market Analysis Agent — external intelligence layer via Perplexity + Claude synthesis (competitor signals, market context, trend validation)
-- ✅ Value Assurance Agent — full lifecycle: solution registration, three-trajectory tracking (inaction/expected/actual), DiD attribution, composite verdict matrix, Supabase persistence
+- ✅ Value Assurance Agent — full 5-phase lifecycle (Approved → Implementing → Live → Measuring → Complete), three-trajectory tracking (inaction/expected/actual), DiD attribution, composite verdict matrix, Supabase persistence, phase-aware TrajectoryChart, KPI-aware Portfolio formatting
 - ✅ Opportunity Detection — positive KPI outperformance detection, benchmark segment classification, replication target identification
-- ✅ Portfolio Dashboard UI — trajectory chart (inaction/expected/actual lines), measurement recording, portfolio-wide tracking
+- ✅ Portfolio Dashboard UI — trajectory chart, phase transition buttons (Mark Implementing, Go Live), measurement recording, portfolio-wide tracking
 - ✅ Cost of Inaction Banner — pre-approval projection in Executive Briefing (slope-based 30d/90d forecast)
 - ✅ HITL Approval Workflow — Approve & Track with VA solution registration, confirmation card, portfolio link
+- ✅ **PIB email delivery (Phase 10B)** — Jinja2 templates, SMTP via Gmail App Password, Swiss Style monochrome design, single-use briefing tokens, delegation flow with audit trail
+- ✅ **White-paper report (Apr 2026)** — standalone Gartner-style document at `/report/:situationId`, print + PDF support, Draft/Approved badges
+- ✅ **Production deployment (Apr 2026)** — Railway backend (Docker/FastAPI), Cloudflare Pages frontend (replaced Vercel), Supabase Cloud database, GCP credentials for BigQuery materialized at startup
 - 🔄 Demo video and landing page (in progress)
 - 📋 Branded agent marketplace (post-first-revenue, Year 3+ roadmap)
 
@@ -284,16 +289,22 @@ The original single-tier pricing anchors Agent9 to consulting engagement analogi
 
 ## 5. Go-to-Market Strategy
 
-### Phase 0: Demo-Ready (Mar-Apr 2026) ✅ PLATFORM COMPLETE
-**Goal:** Record demo video and prepare outreach materials
+### Phase 0: Demo-Ready (Mar-Apr 2026) ✅ COMPLETE
 
-**Status (March 19, 2026):** Platform is demo-ready NOW. All 5 value pillars have shipped product (SA+DA+SF+MA+VA+Opportunity). Remaining work is UI polish and video recording, not feature development.
+**Status (May 2026):** All 5 value pillars have shipped product (SA + DA + SF + MA + VA + Opportunity). Production deployment is live (Railway + Cloudflare Pages + Supabase Cloud since Apr 2026). Swiss Style brand identity shipped across all UI surfaces. Multi-warehouse direct SDK connectors operational (DuckDB, BigQuery, Snowflake; SQL Server in dev). PIB email delivery with single-use tokens and delegation flow shipped. VA 5-phase lifecycle and white-paper report shipped.
 
-**Activities:**
-- Pre-video UI polish (3 fixes: sticky footer, accordion collapse, registry editing)
-- Record demo video (Situation Awareness → Deep Analysis → Market Intelligence → Solution Finder → Approve & Track → VA Portfolio)
-- Build landing page
-- Prepare 3-slide pitch deck for discovery calls
+**Completed:**
+- ✅ Pre-video UI polish (sticky footer, accordion collapse, registry editing)
+- ✅ Swiss Style brand refresh across Login, DelegatePage, ActionHandler, ExecutiveBriefing, Portfolio
+- ✅ Production deployment (Railway + Cloudflare Pages + Supabase Cloud, GCP credentials for BigQuery)
+- ✅ Multi-warehouse direct SDK connectors (Phase 10C)
+- ✅ PIB email delivery + delegation flow (Phase 10B)
+- ✅ VA 5-phase lifecycle + white-paper report
+
+**Remaining (carries into Phase 1):**
+- 🔄 Record demo video (Situation Awareness → Deep Analysis → Market Intelligence → Solution Finder → Approve & Track → VA Portfolio)
+- 🔄 Build landing page
+- 🔄 Prepare 3-slide pitch deck for discovery calls
 
 **Investment:** $2K-$3K (self-funded)
 **Time Commitment:** 15 hours/week
@@ -326,19 +337,21 @@ Mid-market buyers are cautious about connecting AI tools to production ERP syste
 - Data Product Onboarding workflow handles the rest (schema inspection, contract generation, KPI mapping)
 - When the customer is ready to go live, swap the extract-based connection profile for a direct database connection — same contract YAML, different data source
 
-**Production data backends:**
+**Production data backends (Updated May 2026):**
 
 | Backend | Role | Status |
 |---------|------|--------|
 | **Supabase/PostgreSQL** | Platform state (registries, situations, VA solutions) + pilot extract storage | ✅ Operational |
 | **BigQuery** | Customer analytics data (read-only) | ✅ Operational |
-| **Snowflake** | Customer analytics data (read-only) | 📋 Planned — high priority (dominant in mid-market data stacks) |
-| **Databricks** | Customer analytics data (read-only, Unity Catalog / SQL warehouse) | 📋 Planned |
-| **SQL Server** | Customer analytics data (read-only) — common in companies running SAP, Oracle ERP, or legacy on-prem stacks | 📋 Planned |
+| **Snowflake** | Customer analytics data (read-only) — verified end-to-end via SA scan | ✅ Operational (Phase 10C) |
+| **Databricks** | Customer analytics data (read-only, Unity Catalog / SQL warehouse) | ✅ Operational (Phase 10C) |
+| **SQL Server** | Customer analytics data (read-only) — common in companies running SAP, Oracle ERP, or legacy on-prem stacks | ✅ Operational in dev; production gated on ODBC driver in Dockerfile + Azure SQL for cloud demo data |
 | **SAP Datasphere** | Customer analytics data (read-only) — direct connection for SAP-native customers; eliminates CSV extract step | 📋 Planned |
 | **DuckDB** | Local development only — used for early prototyping with SAP sample CSV data; not customer-facing | ✅ Dev only |
 
-**Connector priority** is driven by ICP overlap: Snowflake and Databricks cover the "modern data stack" segment (60%+ of target ICP). SQL Server covers legacy mid-market. SAP Datasphere covers SAP-native customers who want a direct connection rather than extracts. Each connector reuses the existing Data Product Agent architecture — schema inspection, contract generation, and KPI mapping are backend-agnostic by design.
+**Connector reality (May 2026):** Snowflake, BigQuery, and Databricks direct SDK connectors are operational and SA-scan verified. SQL Server works in local dev but the Railway production container lacks the Microsoft ODBC Driver 18 — fix is tracked as Infra A4 (add ODBC driver to Dockerfile + stand up Azure SQL for hess demo data). SAP Datasphere remains roadmap. Each connector reuses the Data Product Agent architecture — schema inspection, contract generation, and KPI mapping are backend-agnostic by design.
+
+**Connectivity tier framework (Apr 2026 strategic refresh):** Agent9 connects to customer warehouses at three progressive levels — Tier 1 native SDK (where Agent9 owns the connection), Tier 2 vendor MCP server (vendor hosts the endpoint; Agent9-generated SQL flows through), and Tier 3 vendor AI agent (Cortex Analyst, Genie — handle complex NL follow-up). SA and DA always operate at Tier 1 or 2 for deterministic monitoring; Tier 3 is for ad-hoc questions only. The DGA routes across tiers. Phase 10C ships Tier 1 for the four backends above; Phase 10D wires Tier 2 via decorator pattern as vendor MCPs mature; Phase 11F adds Tier 3 routing for follow-up.
 
 **Investment:** $3K-$5K additional
 **Time Commitment:** 15-20 hours/week
@@ -394,7 +407,7 @@ Mid-market buyers are cautious about connecting AI tools to production ERP syste
 
 ## 6. Competitive Landscape
 
-### Direct Competitors (Updated February 2026)
+### Direct Competitors (Updated May 2026)
 
 | Player | What They Do | Gap/Weakness |
 |--------|--------------|---------------|
@@ -405,6 +418,8 @@ Mid-market buyers are cautious about connecting AI tools to production ERP syste
 | **Palantir AIP** | Data platform + AI agents | Enterprise-grade but complex, expensive, and technical — not strategic advisory. |
 | **AWS Bedrock / Azure AI Agents** | Cloud-native agent orchestration | Infrastructure layer — no domain models, no consulting methodology, no vertical application. |
 | **Tableau/Power BI + Copilot** | Dashboards + AI narration | Shows data and explains trends; doesn't advise, recommend, or debate options. |
+| **Snowflake Cortex Analyst** | Vendor-native NL-to-SQL + semantic views over Snowflake data | Answers data questions; not a decision pipeline. No SA monitoring, no DA dimensional root cause, no SF multi-persona debate, no VA outcome tracking. Agent9 adapts to it (Tier 3 routing) rather than competes. |
+| **Databricks Genie Spaces / AI/BI** | Vendor-native conversational analytics over Unity Catalog | Same gap as Cortex — strong on data access and NL questions; no automated KPI monitoring, root-cause analysis, or post-decision attribution. |
 
 ### Agent9 Unique Position
 
@@ -424,23 +439,42 @@ LOW SCALE ────────────┼──────────�
 
 **Positioning (updated):** Agent9 is not an "agentic consulting marketplace" (Year 1). It is **AI-powered decision intelligence** that combines registry-driven domain context, multi-agent analysis, and full audit trails. The marketplace layer is a Year 3+ evolution.
 
-*Key competitive insight: Multi-agent orchestration is becoming commodity infrastructure (AWS, Azure, open-source). The durable differentiator is the registry-driven domain model (KPIs, principals, business processes, data products, glossary) that gives agents enterprise context no generic platform provides.*
+### Strategic Positioning (Updated May 2026)
 
-**New as of March 2026:** Agent9 now includes operational Market Analysis (real-time competitor and market intelligence via Perplexity), Value Assurance with three-trajectory tracking (inaction vs expected vs actual KPI recovery), and Opportunity Detection (positive outperformance surfaced alongside problems). No competitor in any category offers post-decision ROI attribution with visual trajectory tracking.
+The Apr 2026 strategic refresh draws a hard line between Agent9's moat and the commodity layer beneath it.
 
-### Defensibility & Moat (Revised February 2026)
+**Moat layer — never outsource:**
+- The SA → DA → MA → SF → VA pipeline (market context → automated KPI monitoring → dimensional root-cause analysis → multi-persona solution debate → DiD outcome attribution)
+- Registry-driven domain intelligence (KPIs, principals, business processes, data products, glossary — encoded per customer, deepens over time)
+- VA outcome corpus (every approved decision creates a tracked trajectory; cross-customer pattern insights compound)
+- Executive briefing composition, single-use tokens, delegation flow, HITL approval
+- Calibrated monitoring profiles + validated signal/noise history (compounding moat — 12 months of calibration is hard to replicate)
+
+**Commodity layer — Agent9 adapts to vendor semantic layers:**
+- Database connectivity and query execution (Snowflake, Databricks, BigQuery vendors do this better)
+- Schema discovery and metadata enrichment (Unity Catalog, Cortex semantic views)
+- NL-to-SQL translation (Cortex Analyst, Genie commoditize this)
+- Basic data governance (RBAC, row/column security)
+
+**Architectural consequence:** The Data Product Agent and NLP Interface Agent become thin adapters over whatever semantic layer the customer has. The Data Governance Agent is the intelligent router that knows which data product answers each question and which vendor semantic layer to use. Agent9's data contracts remain the fallback for customers without vendor semantic layers, and the substrate for the onboarding workflow.
+
+*Key competitive insight: Multi-agent orchestration AND data connectivity are both becoming commodity infrastructure. The durable differentiator is the analytical pipeline itself + the registry domain model + the VA outcome corpus — none of which any vendor is building. No competitor in any category offers post-decision ROI attribution with visual trajectory tracking.*
+
+### Defensibility & Moat (Revised May 2026)
 
 | Moat | Durability | How It Works |
 |------|-----------|---------------|
+| **SA→DA→MA→SF→VA Pipeline** | 🟢 Strong (the moat) | The full loop — market context + framing → automated KPI monitoring → dimensional root-cause analysis → multi-persona solution debate → DiD outcome attribution — is what no vendor is building. Cortex Analyst and Genie answer questions; they do not run this pipeline. This is the product. |
 | **Registry-Driven Domain Intelligence** | 🟢 Strong | KPI definitions, principal profiles, business process mappings, data product contracts — deep enterprise context that takes months to build per customer. Hard to replicate without similar architecture. |
 | **5-Day Onboarding Template Library** | 🟢 Strong (compounds with customers) | Pre-built data product contracts and KPI templates per ERP/data stack (SAP, Oracle, NetSuite, Snowflake). First customer takes 5 days; tenth customer in same stack takes 2. Competitors starting from scratch need months. *See Onboarding Moat document.* |
 | **Decision Outcome Corpus** | 🟢 Strong (grows with customers) | Every debate, analysis, and recommendation builds a proprietary dataset of decision patterns. More customers = better recommendations. |
 | **Operational Embedding** | 🟢 Strong (grows over time) | Once integrated into monthly close process, board pack preparation, and KPI monitoring rhythm, switching cost grows every month. By month 6, the registry IS their source of truth. |
 | **Value Assurance Feedback Loop** | 🟢 Strong (grows with decisions) | Every approved decision creates a tracked trajectory — inaction projection, expected recovery, actual outcome. Over time, this builds a proprietary decision quality corpus: which types of recommendations work for this company, at this scale, in this industry. No competitor tracks post-decision KPI attribution. |
+| **Calibrated Monitoring Profiles** | 🟢 Strong (compounding) | After 12 months, switching means losing calibrated noise/signal thresholds for 50+ KPIs and validated escalation history. Phase 11D adaptive calibration loop deepens this further. |
 | **Audit Trail Standard** | 🟡 Medium | First to define "explainable AI decision intelligence" with full provenance. Defensible until cloud platforms add similar features (~18-24 months). |
 | **Partner Network** | 🔴 Future (Year 3+) | Not a moat until partners exist. Mid-tier consulting firms (FTI, A&M, Huron) are the first targets. Lead generation + revenue assurance framing. *See Consulting Partner Strategy document.* |
 
-**Multi-agent orchestration is explicitly NOT listed as a moat.** It is commodity infrastructure by Q4 2027. The moat is everything listed above — the domain model, the templates, the embedded data, and the decision corpus.
+**Multi-agent orchestration AND data connectivity are explicitly NOT listed as moats.** Both are commodity infrastructure — orchestration via AWS Bedrock / Azure AI Agents / LangGraph, connectivity via vendor MCP servers and semantic layers. The moat is the analytical pipeline itself, the registry domain model, the VA outcome corpus, and the calibrated monitoring profiles that compound with each customer-month.
 
 ---
 
@@ -626,20 +660,28 @@ LOW SCALE ────────────┼──────────�
 - Net revenue retention: >115% (Opportunity Detection + principal expansion drives upsell)
 - Reference-ability: >80%
 
-### Milestones (Rebased to March 2026)
+### Milestones (Rebased to May 2026)
 
 | Milestone | Target Date | Status |
 |-----------|-------------|--------|
 | SA→DA→SF pipeline stable (19-page Executive Briefing) | Mar 2026 | ✅ Complete |
 | 5-pillar value proposition + updated strategy docs | Mar 2026 | ✅ Complete |
 | Market Analysis Agent PRD complete | Mar 2026 | ✅ Complete |
-| Market Analysis Agent built + wired into SF pipeline | Apr 2026 | 📋 Sprint |
-| Positive KPI opportunity detection (SA) | Apr 2026 | 📋 Sprint |
-| Value Assurance data model (AcceptedSolution) | Apr 2026 | 📋 Sprint |
-| Demo video recorded (lubricants + bikes) | Apr 2026 | 📋 Pending |
-| Landing page live | Apr 2026 | 📋 Pending |
-| First 20 warm contacts identified (FP&A + never-engaged CFO) | May 2026 | 📋 Pending |
-| First 10 discovery calls | Jun 2026 | 📋 Pending |
+| Market Analysis Agent built + wired into SF pipeline | Apr 2026 | ✅ Complete |
+| Positive KPI opportunity detection (SA) | Apr 2026 | ✅ Complete |
+| Value Assurance data model + 5-phase lifecycle (Approved→Implementing→Live→Measuring→Complete) | Apr 2026 | ✅ Complete |
+| Swiss Style brand refresh (Phase 10A) | Apr 2026 | ✅ Complete |
+| PIB email delivery + single-use tokens + delegation flow (Phase 10B) | Apr 2026 | ✅ Complete |
+| White-paper report (Gartner-style, /report/:situationId) | Apr 2026 | ✅ Complete |
+| Production deployment live (Railway + Cloudflare Pages + Supabase Cloud) | Apr 2026 | ✅ Complete |
+| Multi-warehouse direct SDK connectors (DuckDB, BigQuery, Snowflake, SQL Server dev) (Phase 10C) | May 2026 | ✅ Complete |
+| Solution Finder performance tuning (fast/full debate modes, Phase 10D) | Apr 2026 | ✅ Complete |
+| Demo video recorded (lubricants + bikes) | Q2 2026 | 🔄 In progress |
+| Landing page live | Q2 2026 | 🔄 In progress |
+| First 20 warm contacts identified (FP&A + never-engaged CFO) | May–Jun 2026 | 📋 Pending |
+| First 10 discovery calls | Jun–Jul 2026 | 📋 Pending |
+| Infra A4 registry live-reload + SQL Server production enablement | Jul–Aug 2026 | 📋 Pending |
+| Infra B: Auth + multi-tenant isolation (pre-pilot blocker) | Aug 2026 | 📋 Pending |
 | First pilot signed | Sep 2026 | 📋 Pending |
 | First case study documented | Jan 2027 | 📋 Pending |
 | Second paying customer | Mar 2027 | 📋 Pending |
@@ -661,10 +703,10 @@ LOW SCALE ────────────┼──────────�
 
 ### Key Risks
 
-**1. Commoditization Risk: Multi-agent orchestration becomes table stakes** *(NEW)*
-- **Mitigation:** Shift differentiation from orchestration to registry-driven domain intelligence. The platform layer is commodity; the domain model (KPIs, principals, business processes, data products) is the moat.
-- **Likelihood:** High (already happening — AWS Bedrock, Azure AI Agents, LangGraph)
-- **Impact:** High
+**1. Commoditization Risk: Multi-agent orchestration AND data connectivity both become table stakes** *(Updated May 2026)*
+- **Mitigation:** Shift differentiation from orchestration and connectivity to the SA→DA→MA→SF→VA pipeline + Registry domain model + VA outcome corpus. Vendor semantic layers (Snowflake Cortex Analyst, Databricks Genie) commoditize NL-to-SQL and data access; Agent9 adapts to them (Tier 2/3 routing) rather than competes. The DPA and NLP agents become thin adapters; the analytical pipeline above them is what no vendor is building.
+- **Likelihood:** High (already happening — AWS Bedrock, Azure AI Agents, LangGraph for orchestration; Cortex Analyst, Genie Spaces, Unity Catalog for connectivity)
+- **Impact:** High if Agent9 over-invests in orchestration/connectivity; Low if focus stays on the pipeline + registry + VA corpus
 
 **2. Competitive Risk: Well-funded AI finance startups saturate ICP**
 - **Mitigation:** Differentiate on multi-perspective analysis and audit trails vs. narrow FP&A tools. Target customers who need strategic advisory, not just financial automation.
@@ -778,25 +820,54 @@ LOW SCALE ────────────┼──────────�
 
 ## 12b. Infrastructure Roadmap
 
-*The platform runs locally as of March 2026. Cloud deployment, multi-tenancy, authentication, and monitoring must be in place before the first pilot customer.*
+*The platform is deployed and live as of May 2026. Production hosting (Railway backend + Cloudflare Pages frontend + Supabase Cloud database + GCP credentials for BigQuery) is operational. Multi-tenant isolation, authentication, registry live-reload, and monitoring must be hardened before the first pilot customer.*
 
-### Phase 0: Pre-Outreach (April-May 2026) — Free-Tier Launch
+### Phase 0: Free-Tier / Self-Funded Launch ✅ COMPLETE (Apr 2026)
 
-Nearly every component of Phase 0 runs on free tiers. The only hard cost is the domain name. Paid tiers become relevant only when a paying customer's data requires production-grade reliability (daily backups, no cold starts, SLA-backed uptime).
+Backend deployed to Railway (Docker/FastAPI; on a paid tier for no-sleep reliability). Frontend on Cloudflare Pages (replaced Vercel Apr 2026). Database on Supabase Cloud (Postgres). BigQuery access via `GCP_SERVICE_ACCOUNT_JSON` env var materialized at startup. Domain registered, SSL via hosting providers. Every push to `master` triggers automatic deployment (2–3 min) to both Cloudflare Pages and Railway.
 
-| Item | Priority | Effort | Free Tier | Paid Tier (upgrade trigger) |
-|------|----------|--------|-----------|----------------------------|
-| **Backend hosting** | 🔴 Critical | 2-3 days | Railway: $5 free credit/month (hobby); Render: free tier (750 hrs/month, sleeps after 15 min inactivity) | Railway Pro ($20/month) or Render Starter ($7/month) — upgrade when cold starts annoy a real user |
-| **Frontend hosting** | 🔴 Critical | included | Vercel: free (hobby) — unlimited static/SSR deploys, custom domain supported | Vercel Pro ($20/month) — only needed for team collaboration or analytics |
-| **Database** | 🔴 Critical | included | Supabase Cloud free: 500MB DB, 1GB storage, 50K MAU auth, 500K edge function invocations | Supabase Pro ($25/month) — upgrade when you need daily backups or exceed 500MB |
-| **Authentication** | 🔴 Critical | 2-3 days | Supabase Auth: included in free tier (email + password, 50K MAU) | Included in Supabase Pro |
-| **Domain + SSL** | 🔴 Critical | 1 day | SSL: free via hosting provider | Domain: $12-$50/year (only unavoidable cost) |
-| **Error monitoring** | High | 1 day | Sentry free: 5K errors/month | Sentry Team ($26/month) — unlikely to need early on |
-| **Transactional email** | Medium | 1 day | Resend free: 3K emails/month; SendGrid free: 100 emails/day | Resend Pro ($20/month) — only at scale |
-| **Landing page** | High | 1-2 days | Vercel free — static site with contact form | $0 |
-| **CI/CD** | High | 1 day | GitHub Actions free: 2K minutes/month | $0 — unlikely to exceed |
+**Phase 0 hard cost: ~$50/year (domains) + Railway paid tier (~$20/month) + Supabase free tier.**
 
-**Phase 0 hard cost: ~$15-$50/year (domain only). Everything else is $0 on free tiers.**
+### Phase 1: Pre-Pilot Hardening (May–Aug 2026)
+
+Items in flight or queued before first signed pilot. Tracked in `DEVELOPMENT_PLAN.md` as Infra A2, A3, A4.
+
+| Item | Priority | Effort | Status / Notes |
+|------|----------|--------|----------------|
+| **Registry live-reload (Infra A4)** | 🔴 Critical | 1–2 weeks | SA, PCA, DPA cache registry at startup; new client requires Railway restart. Fix: per-request Supabase reads. Discovered when seeding the hess (SQL Server) client. |
+| **Admin-triggered registry reload endpoint** | 🔴 Critical | 1–2 days | `POST /api/v1/admin/registry/reload` — operational stopgap until live-reload ships. |
+| **SQL Server production enablement** | 🟠 High | 3–5 days | Add Microsoft ODBC Driver 18 + unixODBC to Dockerfile (~200MB, ~2 min build); stand up Azure SQL Database for hess demo data (~$5–15/month). Currently works in dev only. |
+| **Platform Admin & Client Onboarding UI (Infra A2)** | 🟠 High | 2–3 weeks | Composes existing Company Profile + Data Product Onboarding wizards into a guided 4-step flow. Replaces seed-script dependency. Required before non-engineer can onboard a client. |
+| **Usage monitoring (Infra A3)** | 🟡 Medium | 1 week | `usage_events` table, monthly rollup view, admin dashboard, client-facing usage widget. No automated billing yet — pricing conversations only. |
+| **Connection health dashboard** | 🟡 Medium | 3–5 days | Per-data-product connection status (Snowflake auto-suspend, SQL Server VPN, BigQuery quota). Operational visibility before 3rd client. |
+
+### Phase 2: Customer Infrastructure (Pre-First-Pilot, target Aug–Sep 2026)
+
+Hard blockers for first signed pilot. Tracked as Infra B.
+
+| Item | Priority | Effort | Notes |
+|------|----------|--------|-------|
+| **Authentication** | 🔴 Critical | 1–2 weeks | Supabase Auth (email + password) + API keys for programmatic access. Required before any production-grade pilot. |
+| **Multi-tenant isolation** | 🔴 Critical | 2–3 weeks | Per-customer Supabase project OR Row-Level Security with strict `client_id` enforcement. Cannot run two customers simultaneously without this. |
+| **Customer provisioning script** | 🔴 Critical | 1 week | Create project → seed registries → configure contracts → send welcome. Runs server-side from Platform Admin UI; no developer machine involvement. |
+| **CI/CD pipeline (GitHub Actions)** | 🟠 High | 3–5 days | test → build → staging → manual promote to production. |
+| **Error monitoring (Sentry)** | 🟠 High | 1 day | Free tier sufficient until 5K errors/month. |
+| **Staging environment** | 🟠 High | 3–5 days | Separate Railway instance + Supabase project. Pre-production validation. |
+| **Automated registry backups** | 🟠 High | 2–3 days | Nightly Supabase export to versioned storage. |
+| **Customer data export** | 🟡 Medium | 1 week | Self-service export for enterprise procurement. |
+
+**Phase 2 cost:** $200–$500/month base + $50–$100/month per customer on paid tiers.
+
+### Phase 3: Enterprise Optional (post-first-pilot, as needed)
+
+Tracked as Infra B2 — built only when a prospect is blocked specifically by data residency or LLM provider requirements.
+
+| Item | Trigger |
+|------|---------|
+| **Azure OpenAI provider in A9_LLM_Service_Agent** | Regulated-industry prospect (banking, pharma, PE-backed) cannot send data to Anthropic API. |
+| **LLM prompt audit export (JSON download)** | GC/CISO review path before contract signing. |
+| **Enterprise security one-pager** | Standardized answers to the five security questions enterprise buyers raise. |
+| **On-premise LLM stub (Ollama)** | Customer with no cloud allowed. Quality trade-off vs Claude/GPT-4o is significant; evaluate per-customer. |
 
 **When to upgrade to paid tiers:**
 - **First demo to a real prospect:** Upgrade backend hosting to eliminate cold-start delays (~$7-$20/month)
@@ -931,26 +1002,26 @@ Nearly every component of Phase 0 runs on free tiers. The only hard cost is the 
 
 ---
 
-## 15. Next Steps (30/60/90 Days from March 2026)
+## 15. Next Steps (30/60/90 Days from May 2026)
 
-### Next 30 Days (Mar-Apr 2026) — Development Sprint
-*Full 7-day sprint plan: `docs/strategy/sprint_plan_march_2026.md`*
-- [ ] Build Market Analysis Agent (Pydantic models, Perplexity service, Sonnet synthesis)
-- [ ] Wire MA into SF pipeline → Market Intelligence badge in Executive Briefing
-- [ ] Add positive KPI opportunity detection in SA → green opportunity card in Decision Studio
-- [ ] Build Value Assurance data model (AcceptedSolution + Supabase persistence)
-- [ ] End-to-end lubricants run with all changes; record 5-minute demo video
+### Next 30 Days (May–Jun 2026) — Pre-Outreach Polish + Pre-Pilot Hardening
+- [ ] Record 5-minute demo video (lubricants end-to-end: SA → DA → MA → SF → Approve & Track → VA Portfolio + white-paper report)
+- [ ] Launch landing page (trydecisionstudio.com) — static site with contact form
 - [ ] Draft 2-slide pitch deck: FP&A entry pitch + CFO expansion pitch
+- [ ] Start Infra A4: registry live-reload fix (SA/PCA/DPA agents per-request Supabase reads)
+- [ ] Identify first 20 warm contacts (never-engaged mid-market CFOs, VP FP&A) — outreach list only, no commercial contact yet
 
-### Next 60 Days (May-Jun 2026) — Outreach Begins
-- [ ] Launch landing page (trydecisionstudio.com)
+### Next 60 Days (Jun–Jul 2026) — Outreach + Infra Hardening
 - [ ] Begin warm network outreach — 20 contacts prioritising never-engaged mid-market CFOs and VP FP&A
 - [ ] Schedule first 10 discovery calls (position as "AI Decision Intelligence", not "consulting marketplace")
 - [ ] First discovery insight: are prospects more receptive as never-engaged (net-new) or consulting-augmentation buyers?
+- [ ] Ship SQL Server production enablement (ODBC driver in Dockerfile + Azure SQL for hess demo data)
+- [ ] Start Infra A2: Platform Admin + Client Onboarding UI
 
-### Next 90 Days (Jul-Sep 2026) — First Pilot
-- [ ] Identify 3-5 serious prospects; create tailored demos
-- [ ] Send first pilot proposals at $15K-$25K (Fast Start Pilot tier)
+### Next 90 Days (Aug–Sep 2026) — First Pilot
+- [ ] Ship Infra B: Supabase Auth + multi-tenant isolation (pre-pilot blocker)
+- [ ] Identify 3–5 serious prospects; create tailored demos
+- [ ] Send first pilot proposals at $18K–$30K (Fast Start Pilot tier)
 - [ ] Close first pilot customer (target: Sep 2026)
 - [ ] Begin delivery — weekly check-ins, Value Assurance baseline capture
 - [ ] Assess: Is ICP right? Is pricing right? Never-engaged vs FP&A vs PE — which converts fastest?
@@ -1026,7 +1097,7 @@ Nearly every component of Phase 0 runs on free tiers. The only hard cost is the 
 ---
 
 **Document Control:**
-- **Version:** 1.5
-- **Last Updated:** March 2026
+- **Version:** 1.6
+- **Last Updated:** May 2026
 - **Next Review:** After first pilot signed (Sep 2026)
 - **Owner:** Founder/CEO

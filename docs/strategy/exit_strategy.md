@@ -1,6 +1,7 @@
 # Decision Studio Exit Strategy Analysis
 **Created:** March 27, 2026
-**Basis:** Incremental pricing model projections from business_premise_challenge.md
+**Last Updated:** May 2026 | Version 1.1
+**Basis:** Incremental pricing model projections from Agent9_Business_Plan.md v1.6 (May 2026)
 **Status:** Strategic planning — not actionable until first paying customers
 
 ---
@@ -45,12 +46,12 @@ AI-native vertical SaaS companies are currently valued at:
 **Founder outcome:** $5M-$21M, 100% equity (bootstrapped). Even at low end, meaningful outcome for solo founder.
 
 ### Scenario B: Funded Growth → Strategic Acquisition (Month 30-48)
-**Trigger:** Upside case — $1.5M-$6M ARR, raise seed/Series A to accelerate
+**Trigger:** Upside case — $1.5M-$6M ARR at exit (Business Plan v1.6 upside: 10-18 customers), raise seed/Series A to accelerate
 
 | Metric | Value |
 |--------|-------|
 | ARR at exit | $3M-$10M (with 12-18 months of funded growth post-raise) |
-| Likely multiple | 15-25× (funded, fast-growing, AI vertical) |
+| Likely multiple | 15-25× (funded, fast-growing, AI vertical, high NRR) |
 | **Valuation range** | **$45M-$250M** |
 | Acquirer type | Strategic platform (Salesforce, ServiceNow, Workday), large analytics player |
 

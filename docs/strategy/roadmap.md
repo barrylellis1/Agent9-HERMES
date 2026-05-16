@@ -1,99 +1,138 @@
 # Agent9 Product Roadmap
-**Last Updated:** March 19, 2026
-**Version:** 2.2 — MA Agent shipped; Value Assurance full UI shipped; Opportunity Detection shipped; Phase 7-8 complete
+**Last Updated:** May 2026
+**Version:** 2.3 — Phase 10A-10D shipped (Swiss Style UI, PIB email delivery, multi-warehouse direct SDK connectors, SF performance tuning, VA 5-phase lifecycle, white-paper report); production deployment live (Railway + Cloudflare Pages + Supabase Cloud since Apr 2026); strategic moat refresh — the SA→DA→SF→VA pipeline + Registry + VA outcome corpus is the moat; data connectivity is commodity (vendors like Snowflake Cortex Analyst and Databricks Genie commoditize it)
 
 ---
 
 ## Guiding Principles
 
 1. **Every agent built must map to a customer conversation.** If we can't explain why a mid-market executive (CFO, COO, VP Ops, or FP&A team) cares, it doesn't get prioritised.
-2. **Multi-agent orchestration is infrastructure, not a differentiator.** All platform/technical work is in service of agent capability delivery.
+2. **Multi-agent orchestration AND data connectivity are infrastructure, not differentiators.** All platform/technical work is in service of agent capability delivery. Vendor semantic layers (Snowflake Cortex Analyst, Databricks Genie, SAP Datasphere) commoditize the connectivity layer; Agent9 adapts to them via the Tier 1/2/3 connectivity model. The moat is the SA→DA→MA→SF→VA pipeline + Registry + VA outcome corpus.
 3. **The consulting firm partner model shapes Phase 3 sequencing.** Agents that enable the delivery lifecycle (change management, stakeholder engagement) are prerequisites for partner conversations.
 4. **5-day onboarding is a product capability, not just a process.** KPI Assistant Agent completion and template library expansion directly enable it.
 
 ---
 
-## Current State (February 2026) — Built and Functional
+## Current State (May 2026) — Built and Functional
 
-### Core Agent Platform
-- ✅ A9_Orchestrator_Agent — workflow coordination, agent lifecycle, dependency resolution
-- ✅ A9_Situation_Awareness_Agent — continuous KPI monitoring, anomaly detection, severity scoring
-- ✅ A9_Deep_Analysis_Agent — SCQA root cause analysis, KT Is/Is-Not decomposition, dimensional variance
-- ✅ A9_Solution_Finder_Agent — multi-perspective debate, trade-off matrix, reversibility scoring
-- ✅ A9_Principal_Context_Agent — role-based personalisation (CFO, CEO, COO, VP Ops, Finance Manager)
+### Core Agent Platform (14 operational agents)
+- ✅ A9_Orchestrator_Agent — workflow coordination, agent lifecycle, dependency resolution (7 workflow methods, singleton registry)
+- ✅ A9_Situation_Awareness_Agent — client-scoped enterprise KPI monitoring, anomaly + opportunity detection, NL query, per-KPI monitoring profiles (Phase 9A), single-KPI assessment mode
+- ✅ A9_Deep_Analysis_Agent — SCQA root cause analysis, KT Is/Is-Not decomposition, change-point detection, benchmark segments (replication candidates), BigQuery routing
+- ✅ A9_Solution_Finder_Agent — multi-perspective debate (3×Stage1 parallel Haiku + Sonnet synthesis), trade-off matrix, fast/full debate modes, MA enrichment, HITL approval
+- ✅ A9_Principal_Context_Agent — 8 principal profiles, dual lookup, business process mapping, role-based personalisation
 - ✅ A9_Data_Governance_Agent — data access policies, business term translation, audit logging
-- ✅ A9_Data_Product_Agent — data product registry, SQL execution delegation, schema validation
-- ✅ A9_LLM_Service_Agent — centralised LLM routing, model selection, prompt engineering
-- ✅ A9_NLP_Interface_Agent — natural language query parsing, intent recognition
-- ✅ A9_Data_Product_MCP_Service_Agent — SQL execution against DuckDB/Snowflake/BigQuery
-- 🔄 A9_KPI_Assistant_Agent — partial build; LLM integration and SQL validation TODOs pending
-- ✅ A9_Market_Analysis_Agent — real-time market intelligence via Perplexity + Claude synthesis
-- ✅ A9_Value_Assurance_Agent — solution registration, three-trajectory tracking, DiD attribution, composite verdict
+- ✅ A9_Data_Product_Agent — schema inspection (DuckDB / BigQuery / Postgres / Snowflake / SQL Server), contract YAML, SQL execution
+- ✅ A9_LLM_Service_Agent — centralised LLM routing (Anthropic Claude — Haiku for Stage 1, Sonnet for synthesis; GPT-4 deprecated Mar 2026), model selection, token tracking, guardrails
+- ✅ A9_NLP_Interface_Agent — deterministic regex parsing (TopN, timeframe, grouping extraction); no LLM
+- ✅ A9_Market_Analysis_Agent — real-time market intelligence via Perplexity + Claude synthesis (LLM-only fallback)
+- ✅ A9_Value_Assurance_Agent — solution registration, 5-phase lifecycle (Approved → Implementing → Live → Measuring → Complete), three-trajectory tracking (inaction/expected/actual), DiD attribution, composite verdict, Supabase persistence
+- ✅ A9_PIB_Agent — briefing composition, Jinja2 email rendering, SMTP delivery, single-use briefing tokens, delegation flow
+- 🔄 A9_KPI_Assistant_Agent — API-only (4 endpoints under `/api/v1/data-product-onboarding/kpi-assistant/`); React UI panel pending
+- ⛔ A9_Data_Product_MCP_Service_Agent — **DEPRECATED** (remove after 2025-11-30); direct SDK connectors replaced it
+- ⛔ A9_Risk_Analysis_Agent — **DEAD CODE**, no tests, no registration; PRD exists; rewrite slated for Phase 12
 
-### Platform Infrastructure
-- ✅ Decision Studio UI (React, functional)
-- ✅ Registry Explorer (KPIs, principals, business processes, data products, glossary)
-- ✅ Database-agnostic backend (DuckDB, Supabase/Postgres, BigQuery)
+### Platform Infrastructure (May 2026)
+- ✅ Decision Studio UI (React/Vite/Tailwind, Swiss Style brand identity — Phase 10A)
+- ✅ Registry Explorer (KPIs, principals, business processes, data products, glossary) — form-based editing
+- ✅ **Multi-warehouse direct SDK connectors (Phase 10C)** — DuckDB (local), BigQuery, Snowflake, Databricks, SQL Server (dev only; production gated on Dockerfile ODBC driver). Tier 1 in the connectivity model.
+- ✅ Supabase-backed registries (sole backend; no YAML fallbacks) — 6 registries with `client_id` multi-tenant isolation
 - ✅ Audit trail and HITL checkpoints
 - ✅ Principal-driven analysis (decision style → consulting persona framing)
-- ✅ Value Assurance Portfolio Dashboard (trajectory chart, measurement recording)
+- ✅ Value Assurance Portfolio Dashboard (phase-aware TrajectoryChart, KPI-aware Portfolio formatting, phase transition buttons)
 - ✅ Cost of Inaction Banner in Executive Briefing
 - ✅ Opportunity Detection (positive KPI, benchmark segments, replication targets, green KPI tiles)
 - ✅ HITL Approve & Track workflow with VA solution registration
-- ✅ Supabase persistence for situations, opportunities, VA solutions, VA evaluations
+- ✅ **PIB email delivery (Phase 10B)** — Jinja2 templates, SMTP via Gmail App Password, Swiss Style monochrome design, single-use tokens, delegation flow with audit trail
+- ✅ **White-paper report (Apr 2026)** — standalone Gartner-style document at `/report/:situationId`, print + PDF, Draft/Approved badges
+- ✅ **Production deployment (Apr 2026)** — Railway backend, Cloudflare Pages frontend (replaced Vercel), Supabase Cloud database, GCP credentials for BigQuery materialized at startup; every push to `master` triggers auto-deploy
+- ✅ Supabase persistence for situations, opportunities, VA solutions, VA evaluations, assessment runs
 
-### Known Issues to Resolve Before First Demo
-- 🔴 Hardcoded `C:\Users\barry\` path in a9_solution_finder_agent.py:821
-- 🔴 Business process field name mismatch (kpi_registry vs principal_registry)
-- ⚠️ KPI Assistant Agent LLM integration incomplete (4 TODOs)
-- ⚠️ McKinsey/BCG agent diagram removed from external-facing materials (done in exec summary)
+### Known Issues to Resolve Before First Pilot
+- ⚠️ **Registry live-reload (Infra A4 — CRITICAL):** SA/PCA/DPA cache registry at startup; new client requires Railway restart. Fix slated May–Jun 2026.
+- ⚠️ **SQL Server production enablement (Infra A4):** Railway `python:3.11-slim` lacks Microsoft ODBC Driver 18; works in dev only. Fix: add ODBC driver to Dockerfile + stand up Azure SQL for hess demo data.
+- ⚠️ **Multi-tenant auth (Infra B — pre-pilot BLOCKER):** Supabase Auth + per-customer isolation required before first signed pilot (target Aug 2026).
+- ⚠️ A9_KPI_Assistant_Agent UI — API exists; React panel pending (Phase 11D).
+- 🟢 Resolved: hardcoded `C:\Users\barry\` paths, business process field name mismatch (fixed Apr–May 2026)
 
 ---
 
-## Phase 0 — Demo Ready (Now → April 2026)
-*Goal: Stable pipeline + external intelligence layer + opportunity detection. This is the full 5-value-pillar foundation.*
+## Phase 0 — Demo Ready (Mar–Apr 2026) ✅ COMPLETE
+*Original goal: Stable pipeline + external intelligence layer + opportunity detection. Achieved.*
 
-### ✅ Completed (March 2026)
+### ✅ Shipped (Mar–Apr 2026)
 - ✅ SA → DA → SF pipeline stable and production-quality
 - ✅ Executive Decision Briefing: 19-page output with firm proposals, cross-review, options, roadmap, risk
-- ✅ Progressive reveal: real McKinsey/BCG/Bain cards in Council In Session
 - ✅ Multi-call SF architecture (stage1_only → hypothesis → cross_review → synthesis)
-- ✅ ROI units (`pp`), LLM-generated recommendation rationale, argument formatting fixed
-
-### Sprint: March–April 2026 (see `docs/strategy/sprint_plan_march_2026.md`)
-- [x] **Day 1:** MA Agent — Pydantic models + skeleton (`src/agents/models/market_analysis_models.py`, `src/agents/new/a9_market_analysis_agent.py`)
-- [x] **Day 2:** Perplexity service + Haiku KPI classification (`src/llm_services/perplexity_service.py`)
-- [x] **Day 3:** Sonnet synthesis + `analyze_market_opportunity` full flow
-- [x] **Day 4:** Wire MA into SA→SF pipeline; SF uses `market_analysis_input`; Market Intelligence badge in UI
-- [x] **Day 5:** Positive KPI opportunity detection in SA; green opportunity card in Decision Studio UI
-- [x] **Day 6:** Value Assurance data model — `AcceptedSolution` Pydantic model + Supabase persistence
-- [x] **Day 7:** Polish, end-to-end test, agent card, unit tests
-
-### Remaining Phase 0 (Post-Sprint)
-- [ ] Fix business process field name mismatch across registries
-- [ ] Complete KPI Assistant Agent LLM integration (4 TODOs)
-- [ ] Demo flow polish: Situation → Deep Analysis → Solution Finder → Audit Trail
-- [ ] Record 5-minute demo video (lubricants + bikes)
-- [ ] Build landing page (trydecisionstudio.com)
-- [ ] List 20 warm contacts (FP&A and executive-level)
-- [ ] Draft 2-slide pitch deck: FP&A entry pitch + executive expansion pitch
-- [ ] **A9_Risk_Analysis_Agent** — MVP scope: market/operational/financial risk; weighted scoring
-  - *Deferred from immediate sprint to allow MA to stabilise first*
-  - *Effort:* 1–2 sprints
+- ✅ MA Agent shipped (Pydantic models, Perplexity + Claude synthesis, wired into SF pipeline)
+- ✅ Positive KPI opportunity detection in SA; green opportunity card in Decision Studio UI
+- ✅ Value Assurance data model + full UI (AcceptedSolution model, Portfolio Dashboard, trajectory chart, CostOfInaction Banner)
+- ✅ HITL Approve & Track workflow with VA solution registration
 
 ---
 
-## Phase 1 — Pilot Delivery (May 2026 → March 2027)
-*Goal: 1-2 signed pilots, deliver successfully, build first case study.*
+## Phase 10A–10D — Production Shipping (Apr–May 2026) ✅ COMPLETE
+*Goal: Production-quality demo with brand identity, email delivery, multi-warehouse access, performance tuning. Achieved.*
 
-### Agent Builds
+### Phase 10A — Swiss Style Brand Refresh ✅ Apr 2026
+- BrandLogo aperture component shared across Login, DelegatePage, ActionHandler, ExecutiveBriefing, Portfolio
+- Satoshi font global; semantic color tokens; monochrome base
+- KPI tile visual refresh (deep slate card, 1px severity border, factual summary copy)
+- DivergingBarChart for variance/delta
+- DA Is/Is Not McKinsey-exhibit treatment
+- TrajectoryChart dark background; CouncilDebate terminal log aesthetic
+- Dead code removed (VarianceDrawer, RidgelineScanner, SnowflakeScanner)
 
-**A9_Market_Analysis_Agent** *(SHIPPED — March 2026)*
-- PRD complete: `docs/prd/agents/a9_market_analysis_agent_prd.md`
-- ✅ Delivered March 2026 (accelerated from original June 2026 target)
-- Perplexity web search + Claude synthesis → competitor signals, market trends, strategic context
+### Phase 10B — PIB Email Template Refresh ✅ Apr 2026
+- Swiss Style monochrome email template
+- Section hierarchy: New Situations → Urgency → Solutions → Managed
+- Top 3 IS driver rows per situation block; measured CTA copy
+- Mobile-safe layout tested on Gmail
+- Flash Briefing text block structured for future TTS delivery
 
-**A9_Stakeholder_Analysis_Agent** *(Medium priority — build in second half of Phase 1)*
+### Phase 10C — Multi-Warehouse Direct SDK Connectors ✅ May 2026
+- DuckDB / BigQuery / Snowflake / Databricks / SQL Server (dev) operational
+- SA scan verified end-to-end against all four production-target backends
+- DPA + SA agent route via `_resolve_source_system()` (Tier 1 routing via `data_product_id` registry lookup)
+- Connection config resolution: data product metadata → env vars → defaults
+- Production gap (SQL Server): ODBC Driver 18 not in Railway `python:3.11-slim` Docker image — Infra A4 fix tracked
+
+### Phase 10D — Solution Finder Performance Tuning ✅ Apr 2026
+- Fast debate mode (`VITE_DEBATE_MODE`): dev 2 calls (stage1_only + synthesis), production 4 calls
+- DA context trimming (~8–12K token reduction when Stage 1 hypotheses exist)
+- Result: dev latency reduced from ~9 min to ~3 min per debate (3× speedup)
+- Model routing preserved: Stage 1 → Haiku, Synthesis → Sonnet
+
+### Additional shipped Apr 2026
+- ✅ VA 5-phase lifecycle (Approved → Implementing → Live → Measuring → Complete) with phase-aware TrajectoryChart and KPI-aware Portfolio formatting
+- ✅ White-paper report (Gartner-style cold-eyes document at `/report/:situationId`)
+- ✅ Production deployment (Railway + Cloudflare Pages + Supabase Cloud)
+
+---
+
+## Phase 1 — Pre-Pilot Hardening + Outreach (May 2026 → Sep 2026)
+*Goal: Production-grade multi-tenant deployment + first signed pilot. Tracked in DEVELOPMENT_PLAN.md as Infra A4 + Infra B.*
+
+### Infrastructure (May–Aug 2026 — pre-pilot blockers)
+- [ ] **Infra A4: Registry live-reload** — SA, PCA, DPA agents query Supabase per request (drop instance-level caches); admin reload endpoint as stopgap
+- [ ] **Infra A4: SQL Server production enablement** — Microsoft ODBC Driver 18 in Dockerfile + Azure SQL for hess demo data
+- [ ] **Infra A2: Platform Admin & Client Onboarding UI** — composes Company Profile + Data Product Onboarding wizards into guided 4-step flow; replaces seed-script dependency
+- [ ] **Infra A3: Usage monitoring** — `usage_events` table, monthly rollup view, admin dashboard, client-facing widget
+- [ ] **Infra B: Supabase Auth** — email + password, API keys
+- [ ] **Infra B: Multi-tenant isolation** — per-customer Supabase project OR strict RLS with `client_id` enforcement
+- [ ] **Phase 10B-DGA: DGA mandatory wiring** — eliminate 16 governance fallback paths; new connectors inherit governance automatically
+
+### Outreach (May–Sep 2026)
+- [ ] Record 5-minute demo video (lubricants end-to-end through VA Portfolio + white-paper report)
+- [ ] Launch landing page (trydecisionstudio.com)
+- [ ] Identify first 20 warm contacts (never-engaged mid-market CFOs, VP FP&A)
+- [ ] Schedule first 10 discovery calls
+- [ ] Send first pilot proposals at $18K–$30K (Fast Start tier)
+- [ ] Close first pilot customer (target: Sep 2026)
+
+### Agent Builds (deferred to Phase 2)
+
+**A9_Stakeholder_Analysis_Agent** *(Medium priority — build in Phase 2)*
 - **Why Phase 1:** When pilots produce their first solution recommendations, the executive's next question is "who do I need to get on board?" This agent answers that.
 - **What it does:** Maps stakeholder landscape, assesses influence/impact, identifies domain owners, generates StakeholderAnalysisCompletedEvent
 - **Customer value:** Makes recommendations actionable — not just "raise prices" but "here's who needs to approve it and who might resist"
@@ -216,15 +255,26 @@
 ## Agent Sequencing Summary
 
 ```
-PHASE 0 (Now — April 2026)
+PHASE 0 (Mar–Apr 2026) ✅ COMPLETE
   Market Analysis ────────────────────────────── ✅ SHIPPED Mar 2026
   Positive KPI detection ─────────────────────── ✅ SHIPPED Mar 2026
-  Value Assurance data model + full UI ──────── ✅ SHIPPED Mar 2026 (trajectory chart, portfolio, CostOfInaction)
-  Risk Analysis ─────────────────────────────── Completes core workflow loop
+  Value Assurance data model + full UI ──────── ✅ SHIPPED Mar 2026
 
-PHASE 1 (2026 pilots)
-  Value Assurance UI (T+30/60/90) ────────────── ✅ SHIPPED Mar 2026 (pulled forward from Phase 1)
-  Enterprise Assessment Pipeline ────────────── Autonomous scheduled KPI monitoring (Phase 9)
+PHASE 10A–10D (Apr–May 2026) ✅ COMPLETE
+  Swiss Style brand identity ─────────────────── ✅ SHIPPED Apr 2026
+  PIB email delivery + tokens + delegation ───── ✅ SHIPPED Apr 2026
+  VA 5-phase lifecycle + white-paper report ──── ✅ SHIPPED Apr 2026
+  Production deployment (Railway+CF+Supabase) ── ✅ SHIPPED Apr 2026
+  Multi-warehouse SDK connectors (Tier 1) ────── ✅ SHIPPED May 2026 (Snowflake, Databricks, SQL Server dev)
+  SF performance tuning (fast/full modes) ────── ✅ SHIPPED Apr 2026
+  SA→DA→MA→SF→VA pipeline sequencing ─────────── ✅ SHIPPED (MA between DA and SF for framing + SF enrichment)
+
+PHASE 1 (May–Sep 2026 — Pre-Pilot Hardening + Outreach)
+  Phase 10B-DGA: Mandatory DGA wiring ─────────── 📋 Next
+  Infra A4: Registry live-reload ──────────────── 📋 Next
+  Infra A4: SQL Server production ─────────────── 📋 Pending
+  Infra A2: Platform Admin Onboarding UI ──────── 📋 Pending
+  Infra B: Auth + multi-tenant isolation ──────── 📋 BLOCKER for first pilot
   Stakeholder Analysis + Engagement ──────────── Makes recommendations actionable
 
 PHASE 2 (2027 growth)
@@ -246,32 +296,46 @@ PHASE 4 (2028+ marketplace)
 
 ---
 
-## Milestone Summary
+## Milestone Summary (Rebased May 2026)
 
 | Milestone | Target Date | Status |
 |-----------|-------------|--------|
 | Executive Decision Briefing stable (SA→DA→SF) | Mar 2026 | ✅ Complete |
 | 5-pillar value proposition + updated strategy docs | Mar 2026 | ✅ Complete |
-| MA Agent PRD complete | Mar 2026 | ✅ Complete |
-| MA Agent built + wired into SF pipeline | Mar 2026 | ✅ Complete (shipped early) |
+| MA Agent built + wired into SF pipeline | Mar 2026 | ✅ Complete |
 | Positive KPI opportunity detection (SA+DA) | Mar 2026 | ✅ Complete |
-| Value Assurance full UI (trajectory chart, portfolio, CostOfInaction) | Mar 2026 | ✅ Complete (shipped early) |
-| Enterprise Assessment Pipeline (Phase 9) | Apr 2026 | 📋 Next |
-| Risk Analysis Agent built | Apr 2026 | 📋 Pending |
-| BP field name fixes + KPI Assistant LLM complete | Apr 2026 | 📋 Pending |
-| Demo video recorded (lubricants + bikes) | Apr 2026 | 📋 Pending |
-| Landing page live | Apr 2026 | 📋 Pending |
+| Value Assurance full UI (trajectory chart, portfolio, CostOfInaction) | Mar 2026 | ✅ Complete |
+| Enterprise Assessment Pipeline (Phase 9A-C) | Apr 2026 | ✅ Complete |
+| Phase 10A: Swiss Style brand identity | Apr 2026 | ✅ Complete |
+| Phase 10B: PIB email delivery + single-use tokens + delegation flow | Apr 2026 | ✅ Complete |
+| Phase 10D: SF performance tuning (3× speedup) | Apr 2026 | ✅ Complete |
+| VA 5-phase lifecycle (Approved→Implementing→Live→Measuring→Complete) | Apr 2026 | ✅ Complete |
+| White-paper report (Gartner-style) | Apr 2026 | ✅ Complete |
+| Production deployment live (Railway + Cloudflare Pages + Supabase Cloud) | Apr 2026 | ✅ Complete |
+| Phase 10C: Multi-warehouse direct SDK connectors (DuckDB, BigQuery, Snowflake, Databricks, SQL Server dev) | May 2026 | ✅ Complete |
+| Demo video recorded (lubricants end-to-end) | Q2 2026 | 🔄 In progress |
+| Landing page live (trydecisionstudio.com) | Q2 2026 | 🔄 In progress |
+| BP field name fixes + KPI Assistant LLM complete | May 2026 | 🔄 Partial — KPI Assistant API done, UI pending |
+| Phase 10B-DGA: Mandatory DGA wiring (eliminate 16 fallback paths) | Jun 2026 | 📋 Next |
+| Infra A4: Registry live-reload (SA/PCA/DPA per-request Supabase reads) | Jun 2026 | 📋 Next |
+| Infra A4: SQL Server production enablement (ODBC + Azure SQL) | Jul 2026 | 📋 Pending |
+| Infra A2: Platform Admin + Client Onboarding UI | Jul 2026 | 📋 Pending |
+| Infra A3: Usage monitoring (events, quotas, alerts) | Aug 2026 | 📋 Pending |
+| Infra B: Supabase Auth + multi-tenant isolation (pre-pilot BLOCKER) | Aug 2026 | 📋 Pending |
+| First 20 warm contacts identified | May–Jun 2026 | 📋 Pending |
+| First 10 discovery calls | Jun–Jul 2026 | 📋 Pending |
 | First pilot signed | Sep 2026 | 📋 Pending |
 | Stakeholder Analysis + Engagement built | Oct 2026 | 📋 Pending |
 | 5-day onboarding template v1 (SAP) | Oct 2026 | 📋 Pending |
 | First case study documented | Jan 2027 | 📋 Pending |
 | Change Management Agent built | Apr 2027 | 📋 Pending |
 | Implementation Tracker + Risk Management built | Jun 2027 | 📋 Pending |
+| Quit day job decision point (2+ paying customers + runway) | Apr 2027 | 📋 Pending |
 | Hire #1 (Sales/CS) | Jun 2027 | 📋 Pending |
 | Opportunity Analysis Agent built | Aug 2027 | 📋 Pending |
 | 5 customers / $250K+ ARR | Dec 2027 | 📋 Pending |
 | SOC 2 readiness | H1 2028 | 📋 Pending |
-| First consulting firm partner pilot (MBB RAG) | H2 2028 | 📋 Pending |
+| First consulting firm partner pilot (mid-tier — FTI, A&M, Huron) | H2 2028 | 📋 Pending |
 | Performance + Business Optimization built | H2 2028 | 📋 Pending |
 | 10+ customers / $800K+ ARR | Jan 2029 | 📋 Pending |
 

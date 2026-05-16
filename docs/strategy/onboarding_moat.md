@@ -1,7 +1,8 @@
-# Agent9: 5-Day Onboarding as a Strategic Moat
+# Decision Studio: 5-Day Onboarding as a Strategic Moat
 
-**Last Updated:** February 2026
-**Status:** Methodology designed; KPI Assistant Agent partially built (LLM integration pending)
+**Last Updated:** May 2026
+**Version:** 2.0
+**Status:** Methodology shipped (Phase 10A-10D); Data Product Onboarding workflow operational; KPI Assistant Agent API-only (UI pending Phase 12)
 
 ---
 
@@ -183,22 +184,29 @@ The KPI Assistant Agent is the internal tool that makes Fast Start repeatable wi
 
 ---
 
-## Pricing Rationale
+## Pricing Rationale (Updated for May 2026)
 
-**Fast Start: $10,000–$15,000 (one-time)**
+**Fast Start Onboarding: $10K-$15K (one-time)**
 
-This pricing reflects:
+Pricing reflects:
 - Speed and certainty of delivery (5 days, not 8 weeks)
 - Template-based efficiency (not billed hourly)
 - Strategic value of the first situation card (opens the relationship)
 - Market comparison: competitors charge $50K–$150K for equivalent setup
+- Pilot pricing tier includes Fast Start + 3-6 months monitoring at $18K-$30K total
 
-The Fast Start is **not meant to be a profit center.** It should cover costs and signal professionalism. The value is in pulling forward the platform subscription and keeping the customer engaged before doubt accumulates.
+The Fast Start is **cost-to-serve neutral, not a profit center.** The value is in pulling forward the platform subscription and keeping the customer engaged before doubt accumulates.
 
-**Additional data source: $5,000–$10,000 (per source)**
+**Additional data source: $5K-$10K (per source)**
 - Each additional ERP or warehouse beyond the initial onboarding
 - Priced to be a straightforward expansion decision, not a renegotiation
 - As template library matures, cost-to-serve drops while price stays stable
+
+**Per-KPI Monitoring (Incremental Layer — May 2026)**
+- Base platform: $3K-$5K/month (dashboard, registries, NL queries, core monitoring)
+- Per-KPI monitoring: $300/KPI/month (first 10 included; above base tier)
+- Assessment credits: 4/month included; $750 each additional (full DA→SF→MA pipeline run)
+- Solution tracking: $500/quarter per active tracked initiative (VA trajectory monitoring)
 
 ---
 
@@ -238,20 +246,21 @@ Offered free to prospects who are close to signing. Serves two purposes:
 
 ---
 
-## Connection to Product Roadmap
+## Connection to Product Roadmap (May 2026)
 
-| Phase | Onboarding Moat Action |
-|-------|----------------------|
-| Phase 0 (Now) | Complete KPI Assistant Agent LLM integration (4 TODOs); finalize SAP template v1 |
-| Phase 1 (Pilot) | Validate Fast Start process with first 2 pilots; document lessons learned |
-| Phase 1 (Growth) | Build Oracle NetSuite template; add pre-onboarding data readiness assessment tool |
-| Phase 2 | Build Snowflake + dbt template; automate template selection based on data source type |
-| Phase 3 | Self-service Fast Start portal — customers initiate and complete with minimal Agent9 involvement |
-
----
-
-*"The moat is not the speed alone. The moat is that the template library gets better with every customer, and the switching costs accumulate from Day 1."*
+| Phase | Onboarding Moat Action | Status |
+|-------|----------------------|--------|
+| Phase 10C (Complete) | Multi-warehouse direct SDK connectors (DuckDB, BigQuery, Snowflake, Databricks, SQL Server dev) | ✅ Shipped |
+| Phase 1 (May-Sep 2026) | Validate Fast Start process with first 2-3 pilots; document lessons learned | 📋 Next |
+| Phase 1 (Growth) | Build Oracle NetSuite template; add pre-onboarding data readiness assessment tool | 📋 Pending |
+| Phase 2 | Build Snowflake + dbt template; automate template selection based on data source type | 📋 Pending |
+| Phase 3 | Self-service Fast Start portal — customers initiate and complete with minimal Agent9 involvement | 📋 Pending |
+| Phase 12 | KPI Assistant Agent UI — React panel for monitoring profile setup (currently API-only) | 📋 Pending |
 
 ---
 
-*Confidential | February 2026*
+*"The moat is not the speed alone. The moat is that the template library gets better with every customer, and the switching costs accumulate from Day 1. After 6 months of production use, a customer's calibrated KPI profiles, threshold baselines, and decision outcome history are effectively irreplaceable — 12+ months of institutional knowledge baked into the platform."*
+
+---
+
+*Confidential | May 2026 | Version 2.0*

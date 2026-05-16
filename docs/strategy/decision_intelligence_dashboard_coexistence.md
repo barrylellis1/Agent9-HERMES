@@ -1,10 +1,11 @@
 # Decision Intelligence Strategy: Coexisting with Existing Dashboards
 
-**Last updated:** January 19, 2026  
-**Author:** Agent9 Architecture Team
+**Last updated:** May 2026
+**Version:** 1.1 — SAP bridge moved to Phase 4 (H2 2028); Phase 10C connectivity context added; vendor semantic layer framing applied
+**Status:** Strategic framework for Year 2+ partner conversations. SAP-specific bridge work (embedded SAC cards, Datasphere connector) is deferred to Phase 4 (H2 2028) per the roadmap. Decision Studio works alongside any BI tool today via the standalone Decision Studio UI + PIB email + white-paper report.
 
 ## 1. Objective
-Deliver Agent9 decision intelligence in environments where customers already have deeply adopted dashboards (e.g., SAP Analytics Cloud backed by Datasphere/Business Data Cloud) without requiring dashboard replacement. Agent9 becomes the narrative, diagnostic, and orchestration layer sitting beside existing BI investments.
+Deliver Decision Studio decision intelligence in environments where customers already have deeply adopted dashboards (e.g., SAP Analytics Cloud backed by Datasphere/Business Data Cloud; Tableau; Power BI; Looker) without requiring dashboard replacement. Decision Studio becomes the narrative, diagnostic, and orchestration layer sitting beside existing BI investments.
 
 ## 2. Positioning Narrative
 1. **Dashboards show *what* happened; Agent9 explains *why* it matters and *what to do*.**  
@@ -54,18 +55,31 @@ Supabase Registry Metadata + YAML Contracts (Hybrid registry)
 3. **"Insight cards explain anomalies and recommend actions right where leaders already look."**  
 4. **"Built on your Datasphere/SAC foundation, using your governance and security."**
 
-## 7. Implementation Roadmap
-| Phase | Milestone | Notes |
-|-------|-----------|-------|
-| P0 | Datasphere ↔ Agent9 connectivity | Register key views as data products, validate SQL access |
-| P1 | SAC card embedding (web widget) | Stand up secure card endpoint, pass filters via script |
-| P2 | KPI reconciliation automation | Implement nightly diff + alerting |
-| P3 | Custom SAC widget / Analytic App | Full SDK integration, theming, interaction callbacks |
-| P4 | GTM collateral | Customer demo script, architecture diagram, pricing positioning |
+## 7. Implementation Roadmap (Revised May 2026)
 
-## 8. Next Actions
-1. **Product**: Build insight card endpoint with SAC-compatible auth + theming.  
-2. **Data**: Create Supabase entries mapping Datasphere views → SAC stories → KPIs.  
-3. **Architecture**: Document cache invalidation + refresh orchestration runbook.  
-4. **Sales Enablement**: Slide appendix highlighting “Decision Intelligence layer for existing dashboards.”  
-5. **Pilot**: Identify a reference customer running SAC over Datasphere to showcase embedded cards.
+SAP-specific bridge work has been deferred to Phase 4 (H2 2028) per the product roadmap. The general "coexist with dashboards" capability is already delivered through three mechanisms today:
+
+1. **PIB email delivery (Phase 10B, shipped Apr 2026)** — situations and recommendations land in the executive's inbox with single-use briefing tokens, delegation flow, and audit trail. No dashboard embedding required.
+2. **White-paper report (Apr 2026)** — Gartner-style narrative document delivered as standalone HTML/PDF, can be shared via any channel.
+3. **Decision Studio UI** — production-deployed; principals visit the URL directly when they want to investigate. No dashboard replacement, just an additional surface.
+
+| Phase | Milestone | Timeline | Status |
+|-------|-----------|----------|--------|
+| **Phase 10C** | Direct SDK connectors (Tier 1) for DuckDB, BigQuery, Snowflake, Databricks, SQL Server | May 2026 | ✅ Complete — covers most "modern data stack" customers |
+| **Phase 10D** | Vendor MCP routing (Tier 2) — Snowflake Cortex MCP, Databricks MCP, Postgres MCP | H2 2026 (vendor MCP maturity gated) | 📋 Pending |
+| **Phase 11F** | Vendor AI Agent routing (Tier 3) — DGA routes ad-hoc NL follow-up to Cortex Analyst / Genie / SAP Joule | H2 2026–H1 2027 | 📋 Pending |
+| **Phase 4 — SAP Bridge** | SAP Datasphere data product registration, SAC card embedding, KPI reconciliation automation | H2 2028 | 📋 Deferred — opens with SAP-native customer signed |
+| **Phase 4 — SAC Custom Widget** | SAC SDK integration, theming, interaction callbacks | H2 2028 | 📋 Deferred — gated on SAP-native customer demand |
+
+## 8. Strategic Context (May 2026)
+
+The Apr 2026 strategic moat refresh shifts how this coexistence is framed:
+
+- **Decision Studio does NOT need to embed in every dashboard.** The moat is the SA→DA→MA→SF→VA pipeline running above whatever data the customer has. Dashboards are display layers; Decision Studio is the analytical loop.
+- **Vendor semantic layers handle "what happened" questions natively.** Snowflake Cortex Analyst, Databricks Genie, Microsoft Fabric Copilot — all production-ready. Customers ask these tools about their data. Decision Studio runs the decision pipeline on top.
+- **SAP-specific embedding is a partner play, not a Year 1 product.** When a SAP-native pilot customer signs in 2027–2028, the SAC card embedding work becomes economically justified. Until then, Decision Studio's standalone UI + PIB email + white-paper report cover the coexistence need.
+
+## 9. Next Actions (Active, May 2026)
+1. **Outreach:** Lead with Decision Studio's standalone deployment proof point — production URL, real Lubricants data, live trajectory tracking. "We coexist with your BI" is true today; SAP-specific embedding is a Year 3 partner story.
+2. **Architecture (deferred):** SAC bridge spec stays in Phase 4. Revisit when first SAP-native pilot is signed or partner conversation requires it.
+3. **Sales Enablement:** Update slide appendix to say "Decision Studio coexists with any BI tool. Direct embedding (SAC, Tableau, Power BI) available as a Year 3 partner extension."
