@@ -236,6 +236,58 @@ class AgentRuntime:
             return "ready"
         return "initializing"
 
+    async def reload_registry(self) -> Dict[str, object]:
+        """Force a registry refresh on SA, PCA, and DPA without a service restart.
+
+        Calls the same per-request refresh paths that Infra A4-a wired into each
+        agent's public entrypoints.  Safe to call repeatedly — all operations are
+        idempotent.  Failures per-agent are non-fatal and reported in the result.
+        """
+        now = datetime.now(timezone.utc)
+        results: Dict[str, str] = {}
+
+        # SA — reload KPI registry
+        sa = self._agents.get("A9_Situation_Awareness_Agent")
+        if sa is not None:
+            try:
+                await sa._load_kpi_registry()
+                results["A9_Situation_Awareness_Agent"] = "ok"
+            except Exception as exc:
+                self._logger.warning("SA registry reload failed: %s", exc)
+                results["A9_Situation_Awareness_Agent"] = f"error: {exc}"
+        else:
+            results["A9_Situation_Awareness_Agent"] = "not_loaded"
+
+        # PCA — reload principal profiles
+        pca = self._agents.get("A9_Principal_Context_Agent")
+        if pca is not None:
+            try:
+                provider = getattr(pca, "_principal_provider", None)
+                if provider is not None:
+                    await provider.load()
+                await pca._load_principal_profiles()
+                results["A9_Principal_Context_Agent"] = "ok"
+            except Exception as exc:
+                self._logger.warning("PCA registry reload failed: %s", exc)
+                results["A9_Principal_Context_Agent"] = f"error: {exc}"
+        else:
+            results["A9_Principal_Context_Agent"] = "not_loaded"
+
+        # DPA — reload data product registry
+        dpa = self._agents.get("A9_Data_Product_Agent")
+        if dpa is not None:
+            try:
+                await dpa._refresh_data_product_registry()
+                results["A9_Data_Product_Agent"] = "ok"
+            except Exception as exc:
+                self._logger.warning("DPA registry reload failed: %s", exc)
+                results["A9_Data_Product_Agent"] = f"error: {exc}"
+        else:
+            results["A9_Data_Product_Agent"] = "not_loaded"
+
+        overall = "ok" if all(v == "ok" for v in results.values()) else "partial"
+        return {"status": overall, "agents": results, "timestamp": now.isoformat()}
+
 
 agent_runtime = AgentRuntime()
 
