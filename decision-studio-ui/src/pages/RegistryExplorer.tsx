@@ -321,11 +321,11 @@ export function RegistryExplorer() {
 
   const reload = async () => {
     let data: any[] = []
-    if (registryKey === 'glossary') data = await listGlossaryTerms()
-    if (registryKey === 'data-products') data = await listDataProducts()
-    if (registryKey === 'kpis') data = await listKpis()
-    if (registryKey === 'business-processes') data = await listBusinessProcesses()
-    if (registryKey === 'principals') data = await listPrincipals()
+    if (registryKey === 'glossary') data = await listGlossaryTerms(activeClientId)
+    if (registryKey === 'data-products') data = await listDataProducts(activeClientId)
+    if (registryKey === 'kpis') data = await listKpis(activeClientId)
+    if (registryKey === 'business-processes') data = await listBusinessProcesses(activeClientId)
+    if (registryKey === 'principals') data = await listPrincipals(activeClientId)
     setItems(data)
   }
 

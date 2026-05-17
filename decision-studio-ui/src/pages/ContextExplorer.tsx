@@ -165,6 +165,9 @@ function DetailPanel({ detail }: { detail: ActiveDetail }) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function ContextExplorer() {
+  // Scope all registry reads to the client selected at login
+  const activeClientId = localStorage.getItem('a9_active_client_id') ?? undefined
+
   // Raw data
   const [principals, setPrincipals] = useState<any[]>([])
   const [businessProcesses, setBusinessProcesses] = useState<any[]>([])
@@ -186,10 +189,10 @@ export function ContextExplorer() {
   // ── Load all data once ──────────────────────────────────────────────────────
   useEffect(() => {
     Promise.all([
-      listPrincipals(),
-      listBusinessProcesses(),
-      listKpis(),
-      listDataProducts(),
+      listPrincipals(activeClientId),
+      listBusinessProcesses(activeClientId),
+      listKpis(activeClientId),
+      listDataProducts(activeClientId),
     ])
       .then(([p, bp, k, dp]) => {
         setPrincipals(p)

@@ -18,6 +18,8 @@ interface BusinessProcess {
 }
 
 export function PrincipalManagement() {
+    const activeClientId = localStorage.getItem('a9_active_client_id') ?? undefined
+
     const [principals, setPrincipals] = useState<Principal[]>([]);
     const [businessProcesses, setBusinessProcesses] = useState<BusinessProcess[]>([]);
     const [selectedPrincipal, setSelectedPrincipal] = useState<Principal | null>(null);
@@ -30,8 +32,8 @@ export function PrincipalManagement() {
         async function fetchData() {
             try {
                 const [principalsData, bpData] = await Promise.all([
-                    listPrincipals(),
-                    listBusinessProcesses()
+                    listPrincipals(activeClientId),
+                    listBusinessProcesses(activeClientId)
                 ]);
                 setPrincipals(principalsData);
                 setBusinessProcesses(bpData);
