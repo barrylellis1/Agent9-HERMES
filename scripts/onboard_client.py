@@ -28,6 +28,7 @@ Seeding order (all idempotent upserts):
     4. data_products
     5. kpis
     6. principal_profiles
+    7. kpi_accountability     (optional — only if ACCOUNTABILITY is exported)
 """
 
 import argparse
@@ -333,6 +334,19 @@ def onboard_client(
 
         n = _upsert(http, base_url, service_key, "principal_profiles", principals, dry_run)
         print(f"  OK  {n} row(s) upserted\n")
+
+        # ------------------------------------------------------------------
+        # 7. kpi_accountability  (optional — only if client exports ACCOUNTABILITY)
+        # ------------------------------------------------------------------
+        accountability: List[Dict[str, Any]] = getattr(mod, "ACCOUNTABILITY", [])
+        if accountability:
+            print("[7/7] kpi_accountability")
+            bad_a = [a["id"] for a in accountability if a.get("client_id") != client_id]
+            if bad_a:
+                print(f"  ERROR: {len(bad_a)} accountability record(s) have wrong or missing client_id: {bad_a}")
+                sys.exit(1)
+            n = _upsert(http, base_url, service_key, "kpi_accountability", accountability, dry_run)
+            print(f"  OK  {n} row(s) upserted\n")
 
     print(f"{'='*60}")
     if dry_run:

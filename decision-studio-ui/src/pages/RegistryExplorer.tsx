@@ -1,11 +1,12 @@
 import { type ComponentType, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Activity, ArrowLeft, BookOpen, Box, Briefcase, CheckCircle2, Code2, Database, KeyRound, Loader2, Save, Trash2, Plus, X, XCircle, Building2 } from 'lucide-react'
+import { Activity, ArrowLeft, BookOpen, Box, Briefcase, CheckCircle2, Code2, Database, KeyRound, Loader2, Save, Trash2, Plus, X, XCircle, Building2, Users } from 'lucide-react'
 import { BrandLogo } from '../components/BrandLogo'
 import {
   type BusinessTerm,
   type ConnectionHealthResult,
   type ConnectionHealthResponse,
+  type KPIAccountability,
   listGlossaryTerms,
   createGlossaryTerm,
   updateGlossaryTerm,
@@ -20,6 +21,7 @@ import {
   createBusinessProcess, replaceBusinessProcess, deleteBusinessProcess,
   getConnectionHealth,
   testConnectionHealth,
+  listAccountabilities,
 } from '../api/client'
 
 type RegistryKey = 'glossary' | 'data-products' | 'kpis' | 'business-processes' | 'principals'
@@ -270,11 +272,113 @@ function ConnectionHealthPanel({ clientId }: { clientId?: string }) {
   )
 }
 
+// ── Accountability Panel ──────────────────────────────────────────────────────
+
+function AccountabilityPanel({ clientId }: { clientId?: string }) {
+  const [rows, setRows] = useState<KPIAccountability[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!clientId) return
+    let canceled = false
+    setLoading(true)
+    setError(null)
+
+    listAccountabilities(clientId)
+      .then((data) => { if (!canceled) setRows(data) })
+      .catch((e: unknown) => {
+        if (!canceled) setError(e instanceof Error ? e.message : 'Failed to load accountability records')
+      })
+      .finally(() => { if (!canceled) setLoading(false) })
+
+    return () => { canceled = true }
+  }, [clientId])
+
+  return (
+    <div>
+      <div className="mb-4">
+        <h2 className="text-lg font-semibold text-white">KPI Accountability</h2>
+        <p className="text-sm text-slate-400">
+          Principal accountability assignments per KPI — read-only in Phase 11A.
+        </p>
+      </div>
+
+      {loading && (
+        <div className="flex items-center gap-2 text-slate-400 text-sm py-4">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Loading accountability records&hellip;
+        </div>
+      )}
+
+      {error && !loading && (
+        <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm">{error}</div>
+      )}
+
+      {!loading && !error && rows.length === 0 && (
+        <p className="text-sm text-slate-500 italic py-4">
+          No accountability assignments &mdash; seed data to get started.
+        </p>
+      )}
+
+      {!loading && !error && rows.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-800 text-left">
+                <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">KPI</th>
+                <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Principal</th>
+                <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Scope</th>
+                <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Role</th>
+                <th className="pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className="border-b border-slate-800 hover:bg-slate-800/50">
+                  <td className="py-2.5 pr-4 text-white font-mono text-xs">{r.kpi_id}</td>
+                  <td className="py-2.5 pr-4 text-slate-300 font-mono text-xs">{r.principal_id}</td>
+                  <td className="py-2.5 pr-4">
+                    {r.scope_dimension == null ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-700 text-slate-300">
+                        Enterprise-wide
+                      </span>
+                    ) : (
+                      <span className="text-slate-300 text-xs">
+                        {r.scope_dimension}: {r.scope_value ?? '—'}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-2.5 pr-4">
+                    {r.role === 'accountable' ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                        accountable
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-700 text-slate-400 border border-slate-600">
+                        responsible
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-2.5 text-slate-400 text-xs truncate max-w-[280px]" title={r.notes ?? undefined}>
+                    {r.notes ?? '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function RegistryExplorer() {
   const [registryKey, setRegistryKey] = useState<RegistryKey>('glossary')
   const [showConnectionHealth, setShowConnectionHealth] = useState(false)
+  const [showAccountability, setShowAccountability] = useState(false)
   const active = useMemo(() => REGISTRIES.find((r) => r.key === registryKey)!, [registryKey])
   const workspaceId = localStorage.getItem('a9_client_id') ?? 'unknown'
   // Active client is set at login — use it to scope all registry list calls
@@ -932,11 +1036,11 @@ export function RegistryExplorer() {
           </Link>
           {REGISTRIES.map((r) => {
             const Icon = r.icon
-            const isActive = r.key === registryKey && !showConnectionHealth
+            const isActive = r.key === registryKey && !showConnectionHealth && !showAccountability
             return (
               <button
                 key={r.key}
-                onClick={() => { setRegistryKey(r.key); setShowConnectionHealth(false) }}
+                onClick={() => { setRegistryKey(r.key); setShowConnectionHealth(false); setShowAccountability(false) }}
                 className={
                   'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ' +
                   (isActive
@@ -950,7 +1054,7 @@ export function RegistryExplorer() {
             )
           })}
           <button
-            onClick={() => setShowConnectionHealth(true)}
+            onClick={() => { setShowConnectionHealth(true); setShowAccountability(false) }}
             className={
               'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ' +
               (showConnectionHealth
@@ -961,6 +1065,18 @@ export function RegistryExplorer() {
             <Activity className="w-4 h-4" />
             Connection Health
           </button>
+          <button
+            onClick={() => { setShowAccountability(true); setShowConnectionHealth(false) }}
+            className={
+              'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ' +
+              (showAccountability
+                ? 'border-indigo-400 text-white'
+                : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600')
+            }
+          >
+            <Users className="w-4 h-4" />
+            Accountability
+          </button>
         </div>
 
         <div>
@@ -970,7 +1086,13 @@ export function RegistryExplorer() {
             </div>
           ) : null}
 
-          <div className={showConnectionHealth ? 'hidden' : ''}>
+          {showAccountability ? (
+            <div className="bg-card border border-border rounded-xl p-6">
+              <AccountabilityPanel clientId={activeClientId} />
+            </div>
+          ) : null}
+
+          <div className={showConnectionHealth || showAccountability ? 'hidden' : ''}>
           <div className="bg-card border border-border rounded-xl p-6">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>

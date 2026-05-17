@@ -671,6 +671,31 @@ export async function getPrincipalActions(
 export type { PrincipalActionSummary };
 
 // ---------------------------------------------------------------------------
+// KPI Accountability — Phase 11A (read-only)
+// ---------------------------------------------------------------------------
+
+export interface KPIAccountability {
+  id: string;
+  client_id: string;
+  kpi_id: string;
+  principal_id: string;
+  scope_dimension: string | null;
+  scope_value: string | null;
+  role: 'accountable' | 'responsible';
+  notes: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function listAccountabilities(clientId: string): Promise<KPIAccountability[]> {
+  const envelope = await requestJson<Envelope<KPIAccountability[]>>(
+    `/accountability/?client_id=${encodeURIComponent(clientId)}`
+  );
+  return envelope.data || [];
+}
+
+// ---------------------------------------------------------------------------
 // Admin — Connection Health (Infra A4-d)
 // ---------------------------------------------------------------------------
 

@@ -33,6 +33,7 @@ from src.api.routes.assessments import router as assessments_router
 from src.api.routes.pib import router as pib_router
 from src.api.routes.company_profile import router as company_profile_router
 from src.api.routes.admin import router as admin_router
+from src.api.routes.kpi_accountability import router as accountability_router
 
 app = FastAPI(
     title="Agent9 API",
@@ -73,6 +74,7 @@ app.include_router(assessments_router)
 app.include_router(pib_router)
 app.include_router(company_profile_router)
 app.include_router(admin_router)
+app.include_router(accountability_router)
 
 
 @app.on_event("startup")

@@ -534,3 +534,232 @@ BUSINESS_PROCESS_IDS = [
 
 EXTRA_BUSINESS_PROCESSES: List[Dict[str, Any]] = []
 EXTRA_GLOSSARY_TERMS: List[Dict[str, Any]] = []
+
+# ---------------------------------------------------------------------------
+# Phase 11A: KPI Accountability assignments
+# ---------------------------------------------------------------------------
+# Ownership logic:
+#   cfo_001  — accountable for all enterprise P&L KPIs
+#   ceo_001  — accountable for strategic KPIs (ebitda, premium_mix_pct);
+#              responsible (not accountable) for net_revenue to avoid
+#              violating the singleton-accountable-per-scope constraint
+#   coo_001  — accountable for operational cost/delivery KPIs
+#   finance_001 — responsible for detailed revenue tracking KPIs
+#                 and gross_margin_pct
+#
+# IDs follow the pattern acc_lub_<principal>_<kpi>.
+
+ACCOUNTABILITY: List[Dict[str, Any]] = [
+    # ------------------------------------------------------------------
+    # CFO (Sarah Chen) — accountable for enterprise P&L KPIs
+    # ------------------------------------------------------------------
+    {
+        "id": "acc_lub_cfo_net_revenue",
+        "client_id": CLIENT_ID,
+        "kpi_id": "net_revenue",
+        "principal_id": "cfo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "CFO owns top-line revenue performance enterprise-wide.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_cfo_gross_profit",
+        "client_id": CLIENT_ID,
+        "kpi_id": "gross_profit",
+        "principal_id": "cfo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "CFO owns gross profit — primary margin control point.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_cfo_gross_margin_pct",
+        "client_id": CLIENT_ID,
+        "kpi_id": "gross_margin_pct",
+        "principal_id": "cfo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "CFO accountable for overall gross margin percentage.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_cfo_operating_income",
+        "client_id": CLIENT_ID,
+        "kpi_id": "operating_income",
+        "principal_id": "cfo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "CFO accountable for EBIT / operating income.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_cfo_ebitda",
+        "client_id": CLIENT_ID,
+        "kpi_id": "ebitda",
+        "principal_id": "cfo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "CFO accountable for enterprise EBITDA.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_cfo_sga_expense",
+        "client_id": CLIENT_ID,
+        "kpi_id": "sga_expense",
+        "principal_id": "cfo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "CFO owns SG&A cost discipline.",
+        "created_by": "seed",
+    },
+    # ------------------------------------------------------------------
+    # CEO (David Torres) — accountable for strategic KPIs;
+    # responsible for net_revenue (CFO is accountable)
+    # ------------------------------------------------------------------
+    {
+        "id": "acc_lub_ceo_net_revenue",
+        "client_id": CLIENT_ID,
+        "kpi_id": "net_revenue",
+        "principal_id": "ceo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "responsible",
+        "notes": "CEO is responsible for net revenue growth direction; CFO is accountable.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_ceo_ebitda",
+        "client_id": CLIENT_ID,
+        "kpi_id": "ebitda",
+        "principal_id": "ceo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "responsible",
+        "notes": "CEO responsible for EBITDA as a strategic outcome; CFO is accountable.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_ceo_premium_mix_pct",
+        "client_id": CLIENT_ID,
+        "kpi_id": "premium_mix_pct",
+        "principal_id": "ceo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "CEO sets product portfolio strategy; accountable for premium mix target.",
+        "created_by": "seed",
+    },
+    # ------------------------------------------------------------------
+    # COO (Rachel Kim) — accountable for operational cost/delivery KPIs
+    # ------------------------------------------------------------------
+    {
+        "id": "acc_lub_coo_cogs",
+        "client_id": CLIENT_ID,
+        "kpi_id": "cogs",
+        "principal_id": "coo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "COO owns direct manufacturing and supply chain costs.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_coo_base_oil_cost",
+        "client_id": CLIENT_ID,
+        "kpi_id": "base_oil_cost",
+        "principal_id": "coo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "COO accountable for raw material sourcing and base oil cost.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_coo_distribution_cost",
+        "client_id": CLIENT_ID,
+        "kpi_id": "distribution_cost",
+        "principal_id": "coo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "COO owns logistics network efficiency.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_coo_avg_transaction_value",
+        "client_id": CLIENT_ID,
+        "kpi_id": "avg_transaction_value",
+        "principal_id": "coo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "COO accountable for operational levers driving average transaction value.",
+        "created_by": "seed",
+    },
+    # ------------------------------------------------------------------
+    # Finance Manager (Marcus Webb) — responsible for detailed revenue
+    # tracking KPIs and gross_margin_pct
+    # ------------------------------------------------------------------
+    {
+        "id": "acc_lub_fin_product_sales_revenue",
+        "client_id": CLIENT_ID,
+        "kpi_id": "product_sales_revenue",
+        "principal_id": "finance_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "responsible",
+        "notes": "Finance Manager tracks and reports product sales revenue.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_fin_service_revenue",
+        "client_id": CLIENT_ID,
+        "kpi_id": "service_revenue",
+        "principal_id": "finance_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "responsible",
+        "notes": "Finance Manager tracks service revenue lines.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_fin_b2b_revenue",
+        "client_id": CLIENT_ID,
+        "kpi_id": "b2b_revenue",
+        "principal_id": "finance_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "responsible",
+        "notes": "Finance Manager responsible for B2B channel revenue reporting.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_fin_ecommerce_revenue",
+        "client_id": CLIENT_ID,
+        "kpi_id": "ecommerce_revenue",
+        "principal_id": "finance_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "responsible",
+        "notes": "Finance Manager tracks e-commerce channel performance.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_fin_gross_margin_pct",
+        "client_id": CLIENT_ID,
+        "kpi_id": "gross_margin_pct",
+        "principal_id": "finance_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "responsible",
+        "notes": "Finance Manager responsible for gross margin variance analysis.",
+        "created_by": "seed",
+    },
+]
