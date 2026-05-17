@@ -1,177 +1,101 @@
 /**
- * Connection Profile Storage Utility
- * 
- * Manages saving, loading, and deleting connection profiles for data product onboarding.
- * Profiles are stored in browser localStorage for quick access across sessions.
- * 
- * LIMITATIONS (localStorage approach):
- * - Profiles are per-browser/device (not synced across devices)
- * - Lost if browser cache is cleared
- * - Not shared with team members
- * - Credentials stored unencrypted in browser
- * - 5-10MB storage limit
- * 
- * SUITABLE FOR:
- * - Individual developer workflows
- * - Local development and testing
- * - Personal productivity improvements
- * 
- * MIGRATION PATH:
- * - Phase 1 (Current): localStorage for MVP
- * - Phase 2 (Hardening): Migrate to backend storage with Supabase
- * - Phase 3 (Production): Add encryption, team sharing, access controls
+ * Connection Profile Storage — Infra B (API-backed, Supabase-persisted)
+ *
+ * Profiles are stored in Supabase, scoped by client_id, with credentials
+ * encrypted server-side.  Credential values are returned as ••••••  (never
+ * the actual secret) so no sensitive data ever touches the browser.
+ *
+ * The public API mirrors the old localStorage interface so callers need only
+ * add await and pass clientId.
  */
 
-export interface ConnectionProfile {
-  id: string
-  name: string
-  sourceSystem: 'bigquery' | 'duckdb' | 'snowflake' | 'databricks'
-  createdAt: string
-  lastUsedAt: string
-  
-  // BigQuery specific
-  bigquery?: {
-    project: string
-    dataset?: string
-    serviceAccountPath?: string
-  }
-  
-  // DuckDB specific
-  duckdb?: {
-    path: string
-  }
-  
-  // Snowflake specific (future)
-  snowflake?: {
-    account: string
-    warehouse?: string
-    database?: string
-    schema?: string
-  }
-  
-  // Databricks specific (future)
-  databricks?: {
-    host: string
-    httpPath?: string
-    catalog?: string
-    schema?: string
-  }
+import {
+  ConnectionProfile,
+  CreateConnectionProfilePayload,
+  UpdateConnectionProfilePayload,
+  listConnectionProfiles as apiList,
+  createConnectionProfile as apiCreate,
+  updateConnectionProfile as apiUpdate,
+  deleteConnectionProfile as apiDelete,
+} from '../api/client';
+
+// Re-export the shared type so consumers keep the same import path.
+export type { ConnectionProfile };
+
+function activeClientId(): string {
+  return localStorage.getItem('a9_active_client_id') ?? '';
 }
 
-const STORAGE_KEY = 'agent9_connection_profiles'
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
-/**
- * Get all saved connection profiles
- */
-export function getConnectionProfiles(): ConnectionProfile[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (!stored) return []
-    
-    const profiles = JSON.parse(stored) as ConnectionProfile[]
-    return profiles.sort((a, b) => 
-      new Date(b.lastUsedAt).getTime() - new Date(a.lastUsedAt).getTime()
-    )
-  } catch (error) {
-    console.error('Error loading connection profiles:', error)
-    return []
-  }
+export async function getConnectionProfiles(
+  sourceSystem?: string,
+): Promise<ConnectionProfile[]> {
+  const cid = activeClientId();
+  if (!cid) return [];
+  return apiList(cid, sourceSystem);
+}
+
+export async function saveConnectionProfile(
+  profile: Omit<CreateConnectionProfilePayload, 'client_id'>,
+): Promise<ConnectionProfile> {
+  const cid = activeClientId();
+  if (!cid) throw new Error('No active client — cannot save connection profile.');
+  return apiCreate({ ...profile, client_id: cid });
+}
+
+export async function updateConnectionProfileById(
+  id: string,
+  updates: Omit<UpdateConnectionProfilePayload, 'client_id'>,
+): Promise<ConnectionProfile> {
+  const cid = activeClientId();
+  if (!cid) throw new Error('No active client — cannot update connection profile.');
+  return apiUpdate(id, { ...updates, client_id: cid });
+}
+
+export async function deleteConnectionProfileById(id: string): Promise<void> {
+  const cid = activeClientId();
+  if (!cid) throw new Error('No active client — cannot delete connection profile.');
+  return apiDelete(id, cid);
+}
+
+export async function markProfileAsUsed(id: string): Promise<void> {
+  const cid = activeClientId();
+  if (!cid) return;
+  await apiUpdate(id, { client_id: cid, last_used_by: 'user' }).catch(() => {
+    // Non-fatal — best-effort update.
+  });
 }
 
 /**
- * Save a new connection profile
+ * Build the connection override dict that the data-product-onboarding API
+ * expects.  Because credentials are always ••••••  on saved profiles, the
+ * overrides only include non-credential fields (project, dataset, path, etc.).
+ * The backend resolves secrets itself via the profile ID.
  */
-export function saveConnectionProfile(profile: Omit<ConnectionProfile, 'id' | 'createdAt' | 'lastUsedAt'>): ConnectionProfile {
-  const profiles = getConnectionProfiles()
-  
-  const newProfile: ConnectionProfile = {
-    ...profile,
-    id: `profile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    createdAt: new Date().toISOString(),
-    lastUsedAt: new Date().toISOString(),
-  }
-  
-  profiles.push(newProfile)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles))
-  
-  return newProfile
-}
-
-/**
- * Update an existing connection profile
- */
-export function updateConnectionProfile(id: string, updates: Partial<Omit<ConnectionProfile, 'id' | 'createdAt'>>): ConnectionProfile | null {
-  const profiles = getConnectionProfiles()
-  const index = profiles.findIndex(p => p.id === id)
-  
-  if (index === -1) return null
-  
-  profiles[index] = {
-    ...profiles[index],
-    ...updates,
-    lastUsedAt: new Date().toISOString(),
-  }
-  
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles))
-  return profiles[index]
-}
-
-/**
- * Delete a connection profile
- */
-export function deleteConnectionProfile(id: string): boolean {
-  const profiles = getConnectionProfiles()
-  const filtered = profiles.filter(p => p.id !== id)
-  
-  if (filtered.length === profiles.length) return false
-  
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered))
-  return true
-}
-
-/**
- * Get a specific connection profile by ID
- */
-export function getConnectionProfile(id: string): ConnectionProfile | null {
-  const profiles = getConnectionProfiles()
-  return profiles.find(p => p.id === id) || null
-}
-
-/**
- * Mark a profile as recently used (updates lastUsedAt)
- */
-export function markProfileAsUsed(id: string): void {
-  updateConnectionProfile(id, {})
-}
-
-/**
- * Get connection overrides from a profile for API requests
- */
-export function getConnectionOverrides(profile: ConnectionProfile): Record<string, any> {
-  switch (profile.sourceSystem) {
+export function getConnectionOverrides(profile: ConnectionProfile): Record<string, unknown> {
+  switch (profile.source_system) {
     case 'bigquery':
       return {
-        service_account_json_path: profile.bigquery?.serviceAccountPath || '',
-      }
+        project: profile.database_name ?? '',
+        dataset: profile.schema_name ?? '',
+      };
     case 'duckdb':
-      return {
-        path: profile.duckdb?.path || '',
-      }
+      return { path: profile.database_name ?? '' };
     case 'snowflake':
       return {
-        account: profile.snowflake?.account || '',
-        warehouse: profile.snowflake?.warehouse,
-        database: profile.snowflake?.database,
-        schema: profile.snowflake?.schema,
-      }
+        account: profile.host ?? '',
+        warehouse: profile.schema_name ?? '',
+        database: profile.database_name ?? '',
+      };
     case 'databricks':
       return {
-        host: profile.databricks?.host || '',
-        http_path: profile.databricks?.httpPath,
-        catalog: profile.databricks?.catalog,
-        schema: profile.databricks?.schema,
-      }
+        host: profile.host ?? '',
+        http_path: profile.schema_name ?? '',
+      };
     default:
-      return {}
+      return {};
   }
 }

@@ -8,7 +8,7 @@ import { KPIAssistantChat } from '../components/KPIAssistantChat'
 import { ConnectionProfileManager } from '../components/ConnectionProfileManager'
 import { DataProductSelector } from '../components/DataProductSelector'
 import { API_ENDPOINTS, API_BASE_URL, buildUrl } from '../config/api-endpoints'
-import { markProfileAsUsed } from '../utils/connectionProfileStorage'
+import type { ConnectionProfile } from '../utils/connectionProfileStorage'
 import { BrandLogo } from '../components/BrandLogo'
 
 // Step definitions
@@ -696,20 +696,12 @@ export function DataProductOnboardingNew() {
                                     {/* Connection Profile Manager */}
                                     <ConnectionProfileManager
                                         sourceSystem={sourceSystem}
-                                        onSelectProfile={(profile) => {
-                                            markProfileAsUsed(profile.id)
-                                            
-                                            if (profile.bigquery) {
-                                                setDatabase(profile.bigquery.project)
-                                                setSchema(profile.bigquery.dataset || '')
-                                                setConnectionOverrides({
-                                                    ...connectionOverrides,
-                                                    service_account_json_path: profile.bigquery.serviceAccountPath || ''
-                                                })
-                                            } else if (profile.duckdb) {
-                                                setSchema(profile.duckdb.path || 'main')
+                                        onSelectProfile={(profile: ConnectionProfile, overrides: Record<string, unknown>) => {
+                                            if (profile.database_name) setDatabase(profile.database_name)
+                                            if (profile.schema_name) setSchema(profile.schema_name)
+                                            if (Object.keys(overrides).length > 0) {
+                                                setConnectionOverrides({ ...connectionOverrides, ...overrides })
                                             }
-                                            
                                             setLogs(prev => [...prev, `Loaded connection profile: ${profile.name}`])
                                         }}
                                         currentValues={{

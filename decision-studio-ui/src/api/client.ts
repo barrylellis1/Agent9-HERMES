@@ -702,3 +702,96 @@ export async function testConnectionHealth(clientId?: string): Promise<Connectio
   const envelope = await requestJson<Envelope<ConnectionHealthResponse>>(`/admin/connection-health/test${qs}`, { method: 'POST' });
   return envelope.data ?? { status: 'error', probed_at: null, results: [] };
 }
+
+// ---------------------------------------------------------------------------
+// Connection Profiles — Infra B (Supabase-backed, client-scoped, encrypted)
+// ---------------------------------------------------------------------------
+
+export interface ConnectionProfileCredentials {
+  [key: string]: string;  // values are ••••••  on read; plain-text on write
+}
+
+export interface ConnectionProfile {
+  id: string;
+  client_id: string;
+  name: string;
+  source_system: 'bigquery' | 'snowflake' | 'duckdb' | 'sqlserver' | 'databricks' | string;
+  host?: string | null;
+  port?: number | null;
+  database_name?: string | null;
+  schema_name?: string | null;
+  credentials?: ConnectionProfileCredentials | null;  // masked ••••••  on read
+  is_default: boolean;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  last_used_at?: string | null;
+  last_used_by?: string | null;
+}
+
+export interface CreateConnectionProfilePayload {
+  client_id: string;
+  name: string;
+  source_system: string;
+  host?: string;
+  port?: number;
+  database_name?: string;
+  schema_name?: string;
+  credentials?: Record<string, string>;
+  is_default?: boolean;
+  created_by?: string;
+}
+
+export interface UpdateConnectionProfilePayload {
+  client_id: string;
+  name?: string;
+  host?: string;
+  port?: number;
+  database_name?: string;
+  schema_name?: string;
+  credentials?: Record<string, string>;  // omit to leave credentials unchanged
+  is_default?: boolean;
+  last_used_by?: string;
+}
+
+export async function listConnectionProfiles(
+  clientId: string,
+  sourceSystem?: string,
+): Promise<ConnectionProfile[]> {
+  const params = new URLSearchParams({ client_id: clientId });
+  if (sourceSystem) params.set('source_system', sourceSystem);
+  return requestJson<ConnectionProfile[]>(`/connection-profiles?${params.toString()}`);
+}
+
+export async function getConnectionProfile(id: string, clientId: string): Promise<ConnectionProfile> {
+  const params = new URLSearchParams({ client_id: clientId });
+  return requestJson<ConnectionProfile>(`/connection-profiles/${encodeURIComponent(id)}?${params.toString()}`);
+}
+
+export async function createConnectionProfile(
+  payload: CreateConnectionProfilePayload,
+): Promise<ConnectionProfile> {
+  return requestJson<ConnectionProfile>(`/connection-profiles`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateConnectionProfile(
+  id: string,
+  payload: UpdateConnectionProfilePayload,
+): Promise<ConnectionProfile> {
+  return requestJson<ConnectionProfile>(`/connection-profiles/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteConnectionProfile(id: string, clientId: string): Promise<void> {
+  const params = new URLSearchParams({ client_id: clientId });
+  await requestJson<void>(`/connection-profiles/${encodeURIComponent(id)}?${params.toString()}`, {
+    method: 'DELETE',
+  });
+}
