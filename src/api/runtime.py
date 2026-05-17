@@ -271,7 +271,7 @@ class AgentRuntime:
                     dp_id = getattr(dp, "id", None) or (dp.get("id") if isinstance(dp, dict) else None)
                     dp_name = getattr(dp, "name", None) or (dp.get("name") if isinstance(dp, dict) else dp_id)
                     dp_client = getattr(dp, "client_id", None) or (dp.get("client_id") if isinstance(dp, dict) else None)
-                    if client_id and dp_client and dp_client != client_id:
+                    if client_id and dp_client != client_id:
                         continue
                     if dp_id:
                         data_products.append({"id": dp_id, "name": dp_name, "client_id": dp_client})
