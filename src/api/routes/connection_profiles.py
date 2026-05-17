@@ -38,6 +38,11 @@ router = APIRouter(prefix="/api/v1/connection-profiles", tags=["connection-profi
 
 async def _get_pool() -> asyncpg.Pool:
     from src.registry.bootstrap import RegistryBootstrap
+    from src.api.runtime import agent_runtime
+
+    # Ensure the agent runtime (and thus the shared DB pool) is initialized.
+    # This is a no-op if it's already running.
+    await agent_runtime.initialize()
 
     db_manager = RegistryBootstrap._db_manager
     if db_manager is None or getattr(db_manager, "pool", None) is None:
