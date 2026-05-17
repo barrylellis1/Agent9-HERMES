@@ -565,10 +565,16 @@ class A9_Principal_Context_Agent:
         try:
             # Log the request
             self.logger.info(f"Getting principal context for role: {principal_role}")
-            
-            # First try to load from registry if not already loaded
-            if not self.principal_profiles:
-                await self._load_principal_profiles()
+
+            # Infra A4-a: refresh principal profiles per request so newly seeded
+            # principals become visible without a service restart. The provider's
+            # load() does a fresh read from the configured data source.
+            if self._principal_provider:
+                try:
+                    await self._principal_provider.load()
+                except Exception as e:
+                    self.logger.warning(f"Principal provider refresh failed; falling back to cached profiles: {e}")
+            await self._load_principal_profiles()
             
             # Convert enum to string if needed
             role_str = self._get_role_string(principal_role)
@@ -711,9 +717,15 @@ class A9_Principal_Context_Agent:
             # Log the request
             self.logger.info(f"Getting principal context for ID: {principal_id} (client_id={client_id})")
 
-            # First try to load from registry if not already loaded
-            if not self.principal_profiles:
-                await self._load_principal_profiles()
+            # Infra A4-a: refresh principal profiles per request so newly seeded
+            # principals (e.g. when onboarding a new client) become visible
+            # without a service restart. Provider load() does a fresh read.
+            if self._principal_provider:
+                try:
+                    await self._principal_provider.load()
+                except Exception as e:
+                    self.logger.warning(f"Principal provider refresh failed; falling back to cached profiles: {e}")
+            await self._load_principal_profiles()
 
             # Try to get profile directly from the provider first
             profile_data = None

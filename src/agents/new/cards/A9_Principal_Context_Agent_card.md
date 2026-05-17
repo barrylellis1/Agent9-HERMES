@@ -59,6 +59,9 @@ Both paths propagate client_id into the returned context.
 - Multi-tenant client_id support: all PrincipalProfile entries carry client_id
 - Role-based lookup added: `resolve_principal_by_role(client_id, role)` for workflow routing
 
+## Infra A4-a: Per-Request Registry Refresh (May 2026)
+- `get_principal_context_by_role` and `get_principal_context_by_id` now call `provider.load()` on every invocation (non-fatal fallback on error) then `_load_principal_profiles()` — replacing the lazy-load guard. New principals seeded post-startup are visible without a service restart.
+
 ## Phase 10B-DGA: Data Governance Wiring (Apr 2026)
 - **client_id propagation**: All 5 PrincipalContext constructor call sites now explicitly carry `client_id` from source PrincipalProfile to returned context object
 - **Cross-client data leak prevention**: client_id is the primary isolation boundary; all downstream agents (SA, DA, DPA, DG) validate this field before executing queries

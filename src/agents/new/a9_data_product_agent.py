@@ -561,6 +561,24 @@ class A9_Data_Product_Agent(DataProductProtocol):
     # The _load_default_data_products method has been removed as it's not appropriate for an enterprise environment
     # In an enterprise setting, data products must be properly registered through the Data Product and Data Governance Agents
     
+    async def _refresh_data_product_registry(self) -> None:
+        """
+        Infra A4-a: refresh the data product provider's cache from its source.
+
+        Why this exists: data_product_provider loads at startup; new data products
+        seeded post-startup (e.g. when onboarding a new client) are invisible until
+        the service restarts. Calling provider.load() per request fixes that.
+
+        Safe to call repeatedly — load() is idempotent. Failures are logged but
+        non-fatal so the agent falls back to the existing cached state.
+        """
+        if not self.data_product_provider:
+            return
+        try:
+            await self.data_product_provider.load()
+        except Exception as e:
+            self.logger.warning(f"Data product provider refresh failed; using cached state: {e}")
+
     def _get_data_product_by_id(self, data_product_id: str) -> Optional[Dict[str, Any]]:
         """
         Get a data product by ID.
@@ -588,7 +606,11 @@ class A9_Data_Product_Agent(DataProductProtocol):
         """
         transaction_id = str(uuid.uuid4())
         self.logger.info(f"[TXN:{transaction_id}] Getting data product: {data_product_id}")
-        
+
+        # Infra A4-a: refresh registry per request so newly seeded data products
+        # become visible without a service restart.
+        await self._refresh_data_product_registry()
+
         # Get the data product
         data_product = self._get_data_product_by_id(data_product_id)
         
@@ -4419,6 +4441,11 @@ class A9_Data_Product_Agent(DataProductProtocol):
         transaction_id = str(uuid.uuid4())
         kpi_name = getattr(kpi_definition, "name", "unknown")
         self.logger.info(f"[TXN:{transaction_id}] Generating SQL for KPI: {kpi_name}, timeframe={timeframe}, topn={topn}, breakdown={breakdown}, override_group_by={override_group_by}")
+
+        # Infra A4-a: refresh registry per request so newly seeded data products
+        # resolve correctly (source_system lookup below depends on this).
+        await self._refresh_data_product_registry()
+
         try:
             _raw_sql = (getattr(kpi_definition, "sql_query", "") or
                         getattr(kpi_definition, "calculation", "") or "")

@@ -352,8 +352,12 @@ class A9_Situation_Awareness_Agent:
         try:
             # Ensure we have a valid request_id for the response
             request_id = getattr(request, 'request_id', original_request_id)
-            
+
             self.logger.info(f"Detecting situations for {request.principal_context.role}")
+
+            # Infra A4-a: refresh KPI registry from Supabase per request so new
+            # clients / new KPIs become visible without a service restart.
+            await self._load_kpi_registry()
 
             # Get relevant KPIs based on principal context and business processes.
             # Prefer client_id from the request body; fall back to principal_context.client_id.
@@ -583,6 +587,10 @@ class A9_Situation_Awareness_Agent:
 
         try:
             logger.info(f"Processing NL query: {request.query}")
+
+            # Infra A4-a: refresh KPI registry from Supabase per request so new
+            # clients / new KPIs become visible without a service restart.
+            await self._load_kpi_registry()
 
             # Extract business terms from the query using Data Governance Agent
             # This is a simple extraction for MVP - in production would use NLP Agent
@@ -3157,6 +3165,10 @@ class A9_Situation_Awareness_Agent:
             Dictionary of KPI definitions keyed by KPI name
         """
         try:
+            # Infra A4-a: refresh KPI registry from Supabase per request so new
+            # clients / new KPIs become visible without a service restart.
+            await self._load_kpi_registry()
+
             bp_list: Optional[List[str]] = None
             if business_process is not None:
                 bp_name = (

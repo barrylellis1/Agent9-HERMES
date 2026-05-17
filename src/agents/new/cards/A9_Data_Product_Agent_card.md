@@ -74,3 +74,4 @@ Uses `_contract_path()` method to resolve contract files from registry:
   - `_lookup_kpi_by_name()` (line ~3752): KPI mapping enrichment via DGA, silently skipped on failure
 
 - May 2026: Bug fixes — NaN normalization, multi-tenant kpi_registry collision fix, comparison value extraction
+- May 2026 (Infra A4-a): Per-request data product registry refresh — new `_refresh_data_product_registry()` helper calls `data_product_provider.load()` inside `get_data_product` and `generate_sql_for_kpi`. Non-fatal; falls back to cached state on provider error.

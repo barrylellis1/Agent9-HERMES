@@ -363,3 +363,4 @@ KPIs with SQL-level negation (`SUM(-amount)`) return positive values — skip th
 - Enhanced visualization capabilities in Decision Studio UI
 
 - May 2026: Bug fixes — NaN normalization, multi-tenant kpi_registry collision fix, comparison value extraction
+- May 2026 (Infra A4-a): Per-request KPI registry refresh — `detect_situations`, `process_nl_query`, and `get_kpi_definitions` now call `_load_kpi_registry()` on every invocation so new clients/KPIs seeded post-startup are visible without a service restart.
