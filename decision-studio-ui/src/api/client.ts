@@ -669,3 +669,36 @@ export async function getPrincipalActions(
   return requestJson<PrincipalActionSummary[]>(`/pib/actions?${params.toString()}`);
 }
 export type { PrincipalActionSummary };
+
+// ---------------------------------------------------------------------------
+// Admin — Connection Health (Infra A4-d)
+// ---------------------------------------------------------------------------
+
+export interface ConnectionHealthResult {
+  data_product_id: string;
+  name: string;
+  client_id: string | null;
+  status: 'ok' | 'error' | 'unknown_source_system' | 'not_probed';
+  source_system: string;
+  latency_ms: number;
+  error: string | null;
+  note?: string;
+}
+
+export interface ConnectionHealthResponse {
+  status: 'ok' | 'partial' | 'error' | 'not_probed';
+  probed_at: string | null;
+  results: ConnectionHealthResult[];
+}
+
+export async function getConnectionHealth(clientId?: string): Promise<ConnectionHealthResponse> {
+  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
+  const envelope = await requestJson<Envelope<ConnectionHealthResponse>>(`/admin/connection-health${qs}`);
+  return envelope.data ?? { status: 'not_probed', probed_at: null, results: [] };
+}
+
+export async function testConnectionHealth(clientId?: string): Promise<ConnectionHealthResponse> {
+  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
+  const envelope = await requestJson<Envelope<ConnectionHealthResponse>>(`/admin/connection-health/test${qs}`, { method: 'POST' });
+  return envelope.data ?? { status: 'error', probed_at: null, results: [] };
+}

@@ -3742,6 +3742,63 @@ class A9_Data_Product_Agent(DataProductProtocol):
             self._sf_manager = None
             return False
 
+    async def test_connection(self, data_product_id: str) -> Dict[str, Any]:
+        """Probe the backend connection for a data product.
+
+        Infra A4-d: used by the Connection Health Dashboard admin endpoint.
+        Resolves source_system from the registry then runs a lightweight SELECT 1
+        against the appropriate backend.  Always returns a dict — never raises.
+
+        Returns:
+            status: "ok" | "error" | "unknown_source_system"
+            source_system: str
+            latency_ms: float
+            error: str | None
+        """
+        import time as _time
+        source_system = self._resolve_source_system(data_product_id) or "duckdb"
+        t0 = _time.time()
+
+        def _ms() -> float:
+            return round((_time.time() - t0) * 1000, 1)
+
+        try:
+            if source_system == "bigquery":
+                ok = await self._ensure_bq_connected()
+                if not ok:
+                    return {"status": "error", "source_system": source_system, "latency_ms": _ms(), "error": "BigQuery client failed to initialise — check GOOGLE_APPLICATION_CREDENTIALS"}
+                df = await self._bq_manager.execute_query("SELECT 1 AS probe", {}, "health_probe")
+                return {"status": "ok", "source_system": source_system, "latency_ms": _ms(), "error": None}
+
+            if source_system == "snowflake":
+                ok = await self._ensure_snowflake_connected(data_product_id=data_product_id)
+                if not ok:
+                    return {"status": "error", "source_system": source_system, "latency_ms": _ms(), "error": "Snowflake connect failed — check SF_ACCOUNT/SF_PASSWORD env vars"}
+                await self._sf_manager.execute_query("SELECT 1 AS probe", {}, "health_probe")
+                return {"status": "ok", "source_system": source_system, "latency_ms": _ms(), "error": None}
+
+            if source_system in ("sqlserver", "sql_server", "mssql"):
+                ok = await self._ensure_sqlserver_connected(data_product_id=data_product_id)
+                if not ok:
+                    return {"status": "error", "source_system": source_system, "latency_ms": _ms(), "error": "SQL Server connect failed — check SS_HOST/pyodbc/ODBC driver"}
+                await self._ss_manager.execute_query("SELECT 1 AS probe", {}, "health_probe")
+                return {"status": "ok", "source_system": source_system, "latency_ms": _ms(), "error": None}
+
+            if source_system in ("duckdb", "duck_db"):
+                if self._duckdb_manager is None:
+                    return {"status": "error", "source_system": source_system, "latency_ms": _ms(), "error": "DuckDB manager not initialised"}
+                await self._duckdb_manager.execute_query("SELECT 1 AS probe", {}, "health_probe")
+                return {"status": "ok", "source_system": source_system, "latency_ms": _ms(), "error": None}
+
+            if source_system in ("postgres", "postgresql", "supabase"):
+                return {"status": "ok", "source_system": source_system, "latency_ms": _ms(), "error": None, "note": "Postgres liveness inferred from registry access"}
+
+            return {"status": "unknown_source_system", "source_system": source_system, "latency_ms": _ms(), "error": f"No health probe implemented for source_system={source_system!r}"}
+
+        except Exception as exc:
+            self.logger.warning(f"Connection health probe failed for {data_product_id} ({source_system}): {exc}")
+            return {"status": "error", "source_system": source_system, "latency_ms": _ms(), "error": str(exc)}
+
     def _resolve_source_system(self, data_product_id: Optional[str]) -> Optional[str]:
         """Look up the source_system for a data product from the registry."""
         if not data_product_id or not hasattr(self, "registry_factory") or not self.registry_factory:

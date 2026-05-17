@@ -1,9 +1,11 @@
-import { type ComponentType, useEffect, useMemo, useState } from 'react'
+import { type ComponentType, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, BookOpen, Box, Briefcase, Code2, Database, KeyRound, Loader2, Save, Trash2, Plus, X, Building2 } from 'lucide-react'
+import { Activity, ArrowLeft, BookOpen, Box, Briefcase, CheckCircle2, Code2, Database, KeyRound, Loader2, Save, Trash2, Plus, X, XCircle, Building2 } from 'lucide-react'
 import { BrandLogo } from '../components/BrandLogo'
 import {
   type BusinessTerm,
+  type ConnectionHealthResult,
+  type ConnectionHealthResponse,
   listGlossaryTerms,
   createGlossaryTerm,
   updateGlossaryTerm,
@@ -16,6 +18,8 @@ import {
   createPrincipal, replacePrincipal, deletePrincipal,
   createDataProduct, replaceDataProduct, deleteDataProduct,
   createBusinessProcess, replaceBusinessProcess, deleteBusinessProcess,
+  getConnectionHealth,
+  testConnectionHealth,
 } from '../api/client'
 
 type RegistryKey = 'glossary' | 'data-products' | 'kpis' | 'business-processes' | 'principals'
@@ -155,8 +159,122 @@ function parseJsonObject(text: string): Record<string, unknown> {
   return JSON.parse(trimmed) as Record<string, unknown>
 }
 
+// ── Connection Health Panel ───────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: ConnectionHealthResult['status'] }) {
+  if (status === 'ok') return (
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+      <CheckCircle2 className="w-3.5 h-3.5" /> Connected
+    </span>
+  )
+  if (status === 'error') return (
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400">
+      <XCircle className="w-3.5 h-3.5" /> Error
+    </span>
+  )
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500">
+      <Activity className="w-3.5 h-3.5" /> {status}
+    </span>
+  )
+}
+
+function ConnectionHealthPanel({ clientId }: { clientId?: string }) {
+  const [health, setHealth] = useState<ConnectionHealthResponse | null>(null)
+  const [probing, setProbing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    try {
+      const data = await getConnectionHealth(clientId)
+      setHealth(data)
+    } catch (e: any) {
+      setError(e.message ?? 'Failed to load health data')
+    }
+  }, [clientId])
+
+  useEffect(() => { load() }, [load])
+
+  const probe = async () => {
+    setProbing(true)
+    setError(null)
+    try {
+      const data = await testConnectionHealth(clientId)
+      setHealth(data)
+    } catch (e: any) {
+      setError(e.message ?? 'Probe failed')
+    } finally {
+      setProbing(false)
+    }
+  }
+
+  const results = health?.results ?? []
+  const probedAt = health?.probed_at ? new Date(health.probed_at).toLocaleString() : null
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-lg font-semibold text-white">Connection Health</h2>
+          <p className="text-sm text-slate-400">
+            {probedAt ? `Last probed: ${probedAt}` : 'Not yet probed — click Test All to run.'}
+          </p>
+        </div>
+        <button
+          onClick={probe}
+          disabled={probing}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white text-sm font-medium"
+        >
+          {probing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
+          {probing ? 'Probing…' : 'Test All Connections'}
+        </button>
+      </div>
+
+      {error && (
+        <div className="mb-4 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm">{error}</div>
+      )}
+
+      {results.length === 0 && !probing ? (
+        <p className="text-sm text-slate-500 italic">No data products found. Click Test All Connections to probe.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-800 text-left">
+                <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Data Product</th>
+                <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Client</th>
+                <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Source System</th>
+                <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Status</th>
+                <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Latency</th>
+                <th className="pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide">Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((r) => (
+                <tr key={r.data_product_id} className="border-b border-slate-800/60 hover:bg-slate-800/20">
+                  <td className="py-2.5 pr-4 text-white font-medium">{r.name ?? r.data_product_id}</td>
+                  <td className="py-2.5 pr-4 text-slate-400 font-mono text-xs">{r.client_id ?? '—'}</td>
+                  <td className="py-2.5 pr-4">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-800 text-slate-300 font-mono">{r.source_system}</span>
+                  </td>
+                  <td className="py-2.5 pr-4"><StatusBadge status={r.status} /></td>
+                  <td className="py-2.5 pr-4 text-slate-400 text-xs">{r.latency_ms > 0 ? `${r.latency_ms} ms` : '—'}</td>
+                  <td className="py-2.5 text-red-400 text-xs truncate max-w-[300px]" title={r.error ?? undefined}>{r.error ?? (r.note ?? '—')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 export function RegistryExplorer() {
   const [registryKey, setRegistryKey] = useState<RegistryKey>('glossary')
+  const [showConnectionHealth, setShowConnectionHealth] = useState(false)
   const active = useMemo(() => REGISTRIES.find((r) => r.key === registryKey)!, [registryKey])
   const workspaceId = localStorage.getItem('a9_client_id') ?? 'unknown'
   // Active client is set at login — use it to scope all registry list calls
@@ -814,11 +932,11 @@ export function RegistryExplorer() {
           </Link>
           {REGISTRIES.map((r) => {
             const Icon = r.icon
-            const isActive = r.key === registryKey
+            const isActive = r.key === registryKey && !showConnectionHealth
             return (
               <button
                 key={r.key}
-                onClick={() => setRegistryKey(r.key)}
+                onClick={() => { setRegistryKey(r.key); setShowConnectionHealth(false) }}
                 className={
                   'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ' +
                   (isActive
@@ -831,9 +949,28 @@ export function RegistryExplorer() {
               </button>
             )
           })}
+          <button
+            onClick={() => setShowConnectionHealth(true)}
+            className={
+              'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ' +
+              (showConnectionHealth
+                ? 'border-emerald-400 text-white'
+                : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600')
+            }
+          >
+            <Activity className="w-4 h-4" />
+            Connection Health
+          </button>
         </div>
 
         <div>
+          {showConnectionHealth ? (
+            <div className="bg-card border border-border rounded-xl p-6">
+              <ConnectionHealthPanel clientId={activeClientId} />
+            </div>
+          ) : null}
+
+          <div className={showConnectionHealth ? 'hidden' : ''}>
           <div className="bg-card border border-border rounded-xl p-6">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
@@ -1026,6 +1163,7 @@ export function RegistryExplorer() {
               </div>
             </div>
           </div>
+          </div>{/* end registry panel wrapper */}
         </div>
       </main>
     </div>

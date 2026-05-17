@@ -25,6 +25,7 @@ class AgentRuntime:
         self._registry_factory: "RegistryFactory" | None = None
         self._orchestrator_connected: bool = False
         self._orchestrator_activity: datetime | None = None
+        self._last_health_probe: Dict[str, object] = {}
 
     async def initialize(self) -> None:
         if self._orchestrator is not None:
@@ -235,6 +236,66 @@ class AgentRuntime:
         if initialized:
             return "ready"
         return "initializing"
+
+    async def probe_connection_health(self, client_id: str | None = None) -> Dict[str, object]:
+        """Test the backend connection for every data product in the registry.
+
+        Infra A4-d: used by GET/POST /api/v1/admin/connection-health.
+        Delegates to A9_Data_Product_Agent.test_connection() per data product.
+        Results are cached on self._last_health_probe so GET can return them
+        without re-probing.
+        """
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        dpa = self._agents.get("A9_Data_Product_Agent")
+
+        if dpa is None:
+            result = {"status": "error", "error": "Data Product Agent not loaded", "probed_at": now.isoformat(), "results": []}
+            self._last_health_probe = result
+            return result
+
+        # Collect all data products from the registry
+        dp_provider = None
+        if self._registry_factory:
+            try:
+                dp_provider = self._registry_factory.get_provider("data_product")
+            except Exception:
+                pass
+
+        data_products = []
+        if dp_provider:
+            try:
+                all_dps = dp_provider.get_all() or []
+                for dp in all_dps:
+                    dp_id = getattr(dp, "id", None) or (dp.get("id") if isinstance(dp, dict) else None)
+                    dp_name = getattr(dp, "name", None) or (dp.get("name") if isinstance(dp, dict) else dp_id)
+                    dp_client = getattr(dp, "client_id", None) or (dp.get("client_id") if isinstance(dp, dict) else None)
+                    if client_id and dp_client and dp_client != client_id:
+                        continue
+                    if dp_id:
+                        data_products.append({"id": dp_id, "name": dp_name, "client_id": dp_client})
+            except Exception as exc:
+                self._logger.warning("Could not list data products for health probe: %s", exc)
+
+        probe_results = []
+        for dp in data_products:
+            dp_id = dp["id"]
+            try:
+                probe = await dpa.test_connection(dp_id)
+            except Exception as exc:
+                probe = {"status": "error", "source_system": "unknown", "latency_ms": 0, "error": str(exc)}
+            probe_results.append({
+                "data_product_id": dp_id,
+                "name": dp["name"],
+                "client_id": dp["client_id"],
+                **probe,
+            })
+
+        overall = "ok" if all(r["status"] == "ok" for r in probe_results) else ("partial" if any(r["status"] == "ok" for r in probe_results) else "error")
+        result = {"status": overall, "probed_at": now.isoformat(), "results": probe_results}
+        self._last_health_probe: Dict[str, object] = result
+        return result
 
     async def reload_registry(self) -> Dict[str, object]:
         """Force a registry refresh on SA, PCA, and DPA without a service restart.
