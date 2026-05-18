@@ -138,3 +138,28 @@ Environment variable override: `OPENAI_MODEL_SOLUTION`
 - Phase 10D fast debate mode and DA context trimming shipped
 
 - May 2026: Bug fixes — NaN normalization, multi-tenant kpi_registry collision fix, comparison value extraction
+
+## Opportunity Mode Framing (May 2026)
+
+When the upstream DA output carries `plan.analysis_mode = "opportunity"`, SF switches its framing from problem-solving to replication/scaling:
+
+**`analysis_mode` detection:**
+- Primary: `da_ctx["plan"]["analysis_mode"]` (propagated by DA into its plan object)
+- Secondary: `request.preferences["analysis_mode"]`
+- Default: `"problem"`
+
+**Stage 1 task (per-persona Haiku calls):**
+| Mode | Task | hypothesis field | recommended_focus |
+|------|------|-----------------|-------------------|
+| `problem` | "Form hypothesis about root cause; propose intervention" | Root cause of decline | Underperforming segment |
+| `opportunity` | "Form hypothesis about WHY the IS segment outperforms; propose replication strategy" | Outperformance driver | Leading IS segment entity |
+
+**`problem_statement` construction:**
+- Problem: `[KPI_DIRECTION: DECREASED] <KPI> dropped by X...`
+- Opportunity: `[ANALYSIS_MODE: OPPORTUNITY] <KPI> is outperforming... The leading IS segment is '<key>' — replicate its outperformance.`
+
+**Synthesis CRITICAL ACCURACY REQUIREMENT:**
+- Problem: "situation MUST reflect OVERALL direction; complication = mixed performance"
+- Opportunity: "situation MUST describe outperformance; complication = replication gap; all 3 options must address scaling, not fixing"
+
+**`da_compact_s1`** now includes `"analysis_mode"` key so Stage 1 personas see it in KEY ANALYSIS SIGNALS.

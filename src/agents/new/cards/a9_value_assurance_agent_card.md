@@ -140,9 +140,15 @@ Phase transitions are validated (must follow order). The `update_solution_phase(
 ## Request/Response Models — Quick Reference
 
 ### RegisterSolutionRequest → RegisterSolutionResponse
-**Input:** kpi_id, situation_id, principal_id, solution_description, expected_impact_lower/upper, measurement_window_days, optional strategy_snapshot
+**Input:** kpi_id, situation_id, principal_id, solution_description, expected_impact_lower/upper, measurement_window_days, optional strategy_snapshot, `analysis_mode` ("problem" | "opportunity")
 **Output:** solution_id (deterministic hash), phase=APPROVED, status=MEASURING
 **Idempotence:** Same (kpi_id, situation_id) always produces same solution_id; subsequent calls upsert rather than duplicate.
+
+**Opportunity mode inaction trend (May 2026):**
+- `analysis_mode = "opportunity"` → `pre_slope = 0.0` (flat inaction trend at baseline)
+- Rationale: for opportunity solutions, inaction = foregone replication benefit (modeled in `expected_trend`), not a continuing deterioration
+- `expected_trend` still rises linearly — representing the uplift that would be captured by acting
+- This prevents the "inaction looks like continued success" artifact where a rising `pre_slope` made doing nothing appear attractive
 
 ### EvaluateSolutionRequest → EvaluateSolutionResponse
 **Input:** solution_id, current_kpi_value, control_group_kpi_values[], market_recovery_estimate, seasonal_estimate

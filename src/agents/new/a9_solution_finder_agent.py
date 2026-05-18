@@ -422,7 +422,21 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     # Build compact debate prompt content using provided context
                     da_ctx = request.deep_analysis_output or {}
                     da_summary = _extract_deep_analysis_summary(da_ctx)
-                    
+
+                    # Detect analysis_mode from DA plan (propagated from DeepAnalysisRequest)
+                    _da_plan_dict = None
+                    try:
+                        _raw_plan = da_ctx.get("plan") if isinstance(da_ctx, dict) else None
+                        _da_plan_dict = _model_to_dict(_raw_plan)
+                    except Exception:
+                        pass
+                    analysis_mode: str = (
+                        (_da_plan_dict.get("analysis_mode") if isinstance(_da_plan_dict, dict) else None)
+                        or (prefs.get("analysis_mode") if isinstance(prefs, dict) else None)
+                        or "problem"
+                    )
+                    is_opportunity = analysis_mode == "opportunity"
+
                     # Derive a robust problem statement
                     ps_raw = (getattr(request, "problem_statement", None) or "").strip()
                     ps = ps_raw
@@ -451,22 +465,29 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                 try:
                                     delta_val = float(delta)
                                     delta_str = f"{delta_val:,.2f}"
-                                    direction = "dropped" if delta_val < 0 else "increased"
-                                    # Use absolute for narrative
+                                    if is_opportunity:
+                                        direction = "is outperforming" if delta_val > 0 else "shows opportunity"
+                                    else:
+                                        direction = "dropped" if delta_val < 0 else "increased"
                                     delta_abs = f"{abs(delta_val):,.2f}"
-                                except:
+                                except Exception:
                                     delta_str = str(delta)
-                                    direction = "changed"
+                                    direction = "opportunity detected" if is_opportunity else "changed"
                                     delta_abs = str(delta)
-                                
+
                                 try:
                                     val_str = f"{float(val):,.2f}"
-                                except:
+                                except Exception:
                                     val_str = str(val)
-                                
-                                ps_parts.append(f"{kpi} {direction} by {delta_abs} (Current Level: {val_str}). [KPI_DIRECTION: {direction.upper()}]")
-                                if dim and key:
-                                    ps_parts.append(f"This deviation is primarily driven by '{key}' within the {dim} segment.")
+
+                                if is_opportunity:
+                                    ps_parts.append(f"{kpi} {direction} (Leading segment current level: {val_str}, advantage: {delta_abs}). [ANALYSIS_MODE: OPPORTUNITY]")
+                                    if dim and key:
+                                        ps_parts.append(f"The leading IS segment is '{key}' within the {dim} dimension — the goal is to replicate its outperformance.")
+                                else:
+                                    ps_parts.append(f"{kpi} {direction} by {delta_abs} (Current Level: {val_str}). [KPI_DIRECTION: {direction.upper()}]")
+                                    if dim and key:
+                                        ps_parts.append(f"This deviation is primarily driven by '{key}' within the {dim} segment.")
                             else:
                                 ps_parts.append(f"{kpi} is showing significant anomalous behavior deviating from historical trends.")
                         
@@ -530,19 +551,29 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         sctx_kpi = sctx.get("kpi_name") if isinstance(sctx, dict) else getattr(sctx, "kpi_name", None)
                         
                         if isinstance(sctx_desc, str) and sctx_desc.strip():
-                            # Use situation description as the authoritative problem statement
-                            # It has the correct OVERALL direction from the situation detection
                             overall_ps = sctx_desc.strip()
-                            
-                            # Extract direction from the description for emphasis
-                            overall_direction = "DECREASED" if "decreased" in overall_ps.lower() or "dropped" in overall_ps.lower() else "INCREASED" if "increased" in overall_ps.lower() else "CHANGED"
-                            
-                            # Combine with segment analysis context
-                            ps = f"[OVERALL KPI DIRECTION: {overall_direction}] {overall_ps}"
-                            
-                            # Add context about segment variations if we have change points
-                            if change_points:
-                                ps += f"\n\nNOTE: While the OVERALL {sctx_kpi or 'KPI'} has {overall_direction.lower()}, individual segments show mixed performance. Some segments may have increased while others decreased. The Problem Reframe 'situation' field MUST reflect the OVERALL {overall_direction} direction, not individual segment increases."
+                            if is_opportunity:
+                                ps = f"[ANALYSIS_MODE: OPPORTUNITY] {overall_ps}"
+                                if change_points:
+                                    ps += (
+                                        f"\n\nOPPORTUNITY FRAMING: The IS segment is the outperforming leader."
+                                        " Solutions must ask 'how do we replicate/scale this success to the IS NOT (lagging) segments?'"
+                                        " Do NOT frame solutions as fixing a problem."
+                                    )
+                            else:
+                                overall_direction = (
+                                    "DECREASED" if "decreased" in overall_ps.lower() or "dropped" in overall_ps.lower()
+                                    else "INCREASED" if "increased" in overall_ps.lower()
+                                    else "CHANGED"
+                                )
+                                ps = f"[OVERALL KPI DIRECTION: {overall_direction}] {overall_ps}"
+                                if change_points:
+                                    ps += (
+                                        f"\n\nNOTE: While the OVERALL {sctx_kpi or 'KPI'} has {overall_direction.lower()},"
+                                        " individual segments show mixed performance. Some segments may have increased while others decreased."
+                                        f" The Problem Reframe 'situation' field MUST reflect the OVERALL {overall_direction} direction,"
+                                        " not individual segment increases."
+                                    )
                         elif sctx_kpi:
                             ps = f"KPI: {sctx_kpi} — generate actionable solution options."
                     except Exception:
@@ -706,6 +737,27 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         )
                         output_instruction = "## OUTPUT FORMAT (STRICT JSON)\n"
 
+                    if is_opportunity:
+                        _accuracy_req = (
+                            "- CRITICAL ACCURACY REQUIREMENT (OPPORTUNITY MODE):\n"
+                            "  * ANALYSIS_MODE is OPPORTUNITY — do NOT frame solutions as 'fixing a problem'.\n"
+                            "  * The IS segment is the outperforming leader; IS NOT segments are replication targets.\n"
+                            "  * The Problem Reframe 'situation' MUST describe the outperformance opportunity, not a decline.\n"
+                            "  * The 'complication' should describe the replication gap: why IS NOT segments lag behind IS.\n"
+                            "  * The 'question' should ask: How do we scale the IS segment's success to IS NOT segments?\n"
+                            "  * All 3 solution options must address replication/scaling of the outperforming practices.\n\n"
+                        )
+                    else:
+                        _accuracy_req = (
+                            "- CRITICAL ACCURACY REQUIREMENT:\n"
+                            "  * The 'problem_statement' field contains the OVERALL KPI direction (e.g., 'decreased by 27.2%').\n"
+                            "  * The Problem Reframe 'situation' field MUST reflect this OVERALL direction.\n"
+                            "  * The Deep Analysis shows MIXED performance: some segments improved, others degraded.\n"
+                            "  * The 'situation' should state the NET/OVERALL effect (from problem_statement).\n"
+                            "  * The 'complication' should acknowledge the mixed segment performance.\n"
+                            "  * Solution options should address BOTH: fixing degraded segments AND leveraging successful ones.\n\n"
+                        )
+
                     debate_spec = (
                         f"{role_section}\n"
                         f"{council_section}\n"
@@ -734,13 +786,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "- INTERNAL BENCHMARK FEASIBILITY: If benchmark_segments (internal_benchmark type) are present in deep_analysis_summary or kt_is_is_not, at least one option MUST address replication: how the outperforming segment's practices can be scaled to underperforming areas. Name the benchmark segment explicitly and quantify the replication upside using its delta.\n"
                         "- OPTION DIVERSITY REQUIREMENT: Generate EXACTLY 3 options with meaningfully different primary mechanisms — do NOT collapse them into a single 'Strategic Realignment'. Example structure: (1) an immediate operational intervention (0-90 days, lower cost, higher reversibility), (2) a structural fix targeting the root cause dimension (3-12 months), (3) a strategic portfolio or pricing play (12+ months, higher investment). Each option must be independently actionable and have a distinct title reflecting the specific lever.\n"
                         "- CONSISTENCY CHECK (mandatory before writing opt_2/opt_3): Before recommending mix shift toward a product category or customer segment, verify from the where_is data that the TARGET category has BETTER margin performance than the PROBLEM category. If the target segment is ALSO underperforming in the data, you MUST explicitly acknowledge this in the option description AND provide a resolution path (e.g., 'Step 1 is to restore that segment's margins via [mechanism], then accelerate shift'). Never recommend moving volume toward a segment with worse margins than the one being abandoned without resolving the contradiction.\n"
-                        "- CRITICAL ACCURACY REQUIREMENT:\n"
-                        "  * The 'problem_statement' field contains the OVERALL KPI direction (e.g., 'decreased by 27.2%').\n"
-                        "  * The Problem Reframe 'situation' field MUST reflect this OVERALL direction.\n"
-                        "  * The Deep Analysis shows MIXED performance: some segments improved, others degraded.\n"
-                        "  * The 'situation' should state the NET/OVERALL effect (from problem_statement).\n"
-                        "  * The 'complication' should acknowledge the mixed segment performance.\n"
-                        "  * Solution options should address BOTH: fixing degraded segments AND leveraging successful ones.\n\n"
+                        f"{_accuracy_req}"
                         f"{output_instruction}"
                         "IMPORTANT — fill in this JSON exactly as shown. Do NOT include a stage_1_hypotheses field.\n"
                         "{\n"
@@ -1059,6 +1105,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     if consulting_personas and not _skip_stage1:
                         da_compact_s1 = {
                             "kpi_name": da_summary.get("kpi_name"),
+                            "analysis_mode": analysis_mode,
                             "top_change_points": da_summary.get("top_change_points", [])[:3],
                             "where_signals": da_summary.get("where_signals", [])[:3],
                             "where_is_not": da_summary.get("where_is_not", [])[:3],
@@ -1130,6 +1177,38 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                         "## PRINCIPAL CONSTRAINTS\n"
                                         f"{_json_s1.dumps(refinement_compact_s1, indent=2)}\n\n"
                                     )
+                                if is_opportunity:
+                                    _s1_task = (
+                                        f"As {p.name}, apply your replication/scaling methodology to:\n"
+                                        "1. Form ONE specific hypothesis about WHY the IS (leading) segment is outperforming\n"
+                                        "2. Propose ONE actionable strategy to replicate/scale the IS segment's outperformance to the IS NOT (lagging) segments\n"
+                                        "3. Estimate the replication uplift using the KPI unit from SITUATION METRICS — recovery_range = potential uplift in lagging segments (MUST be non-zero)\n"
+                                        "4. Provide 3 specific data points as evidence from the analysis signals\n"
+                                        + (
+                                            "5. Name the IS segment (internal_benchmark) explicitly and quantify the replication potential using its delta.\n"
+                                            if da_compact_s1.get("internal_benchmarks") else ""
+                                        )
+                                        + "RULES: recommended_focus = the IS (leading) segment entity name only. "
+                                        "recovery_range low/high = estimated replication uplift in lagging segments (NEVER 0.0). "
+                                        "Frame hypothesis as 'outperformance driver', not 'root cause of problem'. "
+                                        "Respect any do_not_propose items from PRINCIPAL CONSTRAINTS.\n\n"
+                                    )
+                                else:
+                                    _s1_task = (
+                                        f"As {p.name}, apply your methodology to:\n"
+                                        "1. Form ONE specific hypothesis about the primary driver of this KPI situation\n"
+                                        "2. Propose ONE actionable intervention with a distinct mechanism\n"
+                                        "3. Estimate the recovery/uplift impact using the KPI unit from the SITUATION METRICS section above — recovery_range MUST be non-zero numbers proportional to the observed variance\n"
+                                        "4. Provide 3 specific data points as evidence from the analysis signals\n"
+                                        + (
+                                            "5. If internal_benchmarks are present in KEY ANALYSIS SIGNALS, consider replication strategies — "
+                                            "how can the outperforming segment's practices be scaled to underperforming areas?\n"
+                                            if da_compact_s1.get("internal_benchmarks") else ""
+                                        )
+                                        + "RULES: recommended_focus = entity name only, NO field prefixes (e.g. 'High Mileage Engine Oil', NOT 'product_name: High Mileage Engine Oil'). "
+                                        "recovery_range low/high = actual numeric estimates (NEVER 0.0). cost_signal and risk_signal must reflect your mechanism's complexity. "
+                                        "Respect any do_not_propose items and constraints from PRINCIPAL CONSTRAINTS — do not propose excluded options.\n\n"
+                                    )
                                 s1_prompt = (
                                     f"## ROLE\nYou are a {p.name} consultant.\n\n"
                                     f"## PERSONA\n{persona_profile}\n\n"
@@ -1142,19 +1221,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                     f"{_json_s1.dumps(situation_metadata or {}, indent=2)}\n\n"
                                     f"{principal_constraints_section}"
                                     "## YOUR TASK\n"
-                                    f"As {p.name}, apply your methodology to:\n"
-                                    "1. Form ONE specific hypothesis about the primary driver of this KPI situation\n"
-                                    "2. Propose ONE actionable intervention with a distinct mechanism\n"
-                                    "3. Estimate the recovery/uplift impact using the KPI unit from the SITUATION METRICS section above — recovery_range MUST be non-zero numbers proportional to the observed variance\n"
-                                    "4. Provide 3 specific data points as evidence from the analysis signals\n"
-                                    + (
-                                        "5. If internal_benchmarks are present in KEY ANALYSIS SIGNALS, consider replication strategies — "
-                                        "how can the outperforming segment's practices be scaled to underperforming areas?\n"
-                                        if da_compact_s1.get("internal_benchmarks") else ""
-                                    ) +
-                                    "RULES: recommended_focus = entity name only, NO field prefixes (e.g. 'High Mileage Engine Oil', NOT 'product_name: High Mileage Engine Oil'). "
-                                    "recovery_range low/high = actual numeric estimates (NEVER 0.0). cost_signal and risk_signal must reflect your mechanism's complexity. "
-                                    "Respect any do_not_propose items and constraints from PRINCIPAL CONSTRAINTS — do not propose excluded options.\n\n"
+                                    f"{_s1_task}"
                                     f"## OUTPUT (JSON only, no markdown):\n{s1_schema}"
                                 )
                                 s1_req = A9_LLM_AnalysisRequest(

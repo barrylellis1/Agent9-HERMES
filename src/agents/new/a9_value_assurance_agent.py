@@ -338,13 +338,15 @@ class A9_Value_Assurance_Agent:
         window_months = max(request.measurement_window_days // 30, 1)
         inaction_horizon = max(window_months * 2, 12)
 
-        # Pre-approval slope: rate of KPI change per month before approval
-        pre_slope = 0.0
-        if request.pre_approval_kpi_value is not None and baseline != 0:
-            # Assume comparison period is ~1 month by default
-            pre_slope = baseline - request.pre_approval_kpi_value  # positive = improving
+        _is_opportunity = getattr(request, "analysis_mode", "problem") == "opportunity"
 
-        # Inaction trend: extrapolate pre-approval decline (negative slope = deteriorating)
+        # Pre-approval slope: rate of KPI change per month before approval.
+        # For opportunity solutions the inaction trend is flat — cost of inaction is foregone
+        # replication benefit (modeled in expected_trend), not a deteriorating decline.
+        pre_slope = 0.0
+        if not _is_opportunity and request.pre_approval_kpi_value is not None and baseline != 0:
+            pre_slope = baseline - request.pre_approval_kpi_value  # negative = deteriorating
+
         inaction_trend = [baseline + pre_slope * m for m in range(inaction_horizon + 1)]
 
         # Expected trend: linear interpolation from baseline to baseline + midpoint recovery

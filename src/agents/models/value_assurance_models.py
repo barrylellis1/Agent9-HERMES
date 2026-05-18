@@ -204,6 +204,7 @@ class RegisterSolutionRequest(BaseModel):
     control_group_segments: Optional[List[dict]] = None  # BenchmarkSegment dicts (type=control_group)
     benchmark_segments: Optional[List[dict]] = None       # All BenchmarkSegment dicts
     pre_approval_kpi_value: Optional[float] = None        # comparison-period KPI value for slope calc
+    analysis_mode: str = "problem"                        # "problem" | "opportunity" — controls inaction trend direction
 
 
 class RegisterSolutionResponse(BaseModel):
