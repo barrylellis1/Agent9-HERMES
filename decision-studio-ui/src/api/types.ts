@@ -27,6 +27,7 @@ export interface Situation {
   };
   severity: 'low' | 'medium' | 'high' | 'critical';
   card_type?: 'problem' | 'opportunity';
+  direction?: 'up' | 'down';
   description: string;
   business_impact?: string;
   suggested_actions?: string[];

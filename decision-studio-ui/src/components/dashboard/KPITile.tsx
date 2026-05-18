@@ -8,7 +8,8 @@ interface KPITileProps {
 }
 
 export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegated = false }) => {
-  const isOpportunity = situation.card_type === 'opportunity';
+  const isUp = situation.direction === 'up' || situation.card_type === 'opportunity';
+  const isOpportunity = isUp; // alias kept for existing JSX references below
 
   const severityBorder: Record<string, string> = {
     critical: 'border-l-red-500',

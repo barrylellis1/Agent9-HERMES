@@ -4,7 +4,7 @@ Focused on Finance KPIs from the FI Star Schema for MVP implementation.
 """
 
 from enum import Enum
-from typing import Dict, List, Optional, Union, Any, ForwardRef
+from typing import Dict, List, Literal, Optional, Union, Any, ForwardRef
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -226,6 +226,14 @@ class Situation(BaseModel):
     assignment_decision: Optional[AssignmentDecision] = Field(
         default=None, description="Recorded assignment decision metadata"
     )
+    # Phase 11C: unified direction field — replaces card_type for new code
+    direction: Optional[Literal['up', 'down']] = Field(
+        None,
+        description=(
+            "Signal direction: 'up' (outperformance/opportunity) or 'down' (breach/problem). "
+            "Replaces card_type — use this field going forward."
+        )
+    )
     # Operational metadata
     dedupe_key: Optional[str] = Field(None, description="Key used for deduplication")
     cooldown_until: Optional[datetime] = Field(None, description="Cooldown expiry timestamp")
@@ -247,6 +255,7 @@ class Situation(BaseModel):
             kpi_value=kpi_value,
             severity=severity_map.get(signal.opportunity_type, SituationSeverity.MEDIUM),
             card_type="opportunity",
+            direction='up',
             description=signal.headline,
             business_impact=f"{signal.opportunity_type.replace('_', ' ').title()} of {abs(signal.delta_pct or 0):.1f}%",
             hitl_required=False,
@@ -264,11 +273,20 @@ class SituationDetectionRequest(BaseRequest):
     client_id: Optional[str] = Field(None, description="Client/tenant ID — limits KPI evaluation to this client's KPIs")
     
 class SituationDetectionResponse(BaseResponse):
-    """Response with detected situations."""
+    """Response with detected situations.
+
+    Phase 11C (unified situation stream): all signals — problems and opportunities alike —
+    are now returned as ``Situation`` cards in ``situations``.  The ``opportunities`` field
+    is kept for API-contract stability but is DEPRECATED and always empty as of Phase 11C.
+    """
     situations: List[Situation] = Field(description="Detected situations")
     opportunities: List[OpportunitySignal] = Field(
         default_factory=list,
-        description="Positive KPI opportunity signals detected alongside problems"
+        description=(
+            "DEPRECATED (Phase 11C) — always empty. "
+            "Opportunity signals are now surfaced as Situation cards with card_type='opportunity' "
+            "and direction='up' in the situations list."
+        )
     )
     sql_query: Optional[str] = Field(None, description="Sample SQL query used for detection")
     kpi_evaluated_count: Optional[int] = Field(None, description="Number of KPIs evaluated")

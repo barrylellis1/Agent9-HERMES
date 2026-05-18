@@ -320,7 +320,7 @@ class A9_Situation_Awareness_Agent_Config(BaseModel):
         description="Domain prefixes used to filter KPIs from the registry."
     )
 
-    # Opportunity detection settings
+    # Opportunity detection settings (Phase 11C: results now appear in situations[], not opportunities[])
     opportunity_threshold_multiplier: float = Field(
         1.5,
         ge=1.0,

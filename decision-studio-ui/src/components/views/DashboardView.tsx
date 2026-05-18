@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { KPITile } from '../dashboard/KPITile';
-import { RefreshCw, Settings, GitBranch, ChevronRight, Scan, Activity, Clock, TrendingUp, BarChart3 } from 'lucide-react';
+import { RefreshCw, Settings, GitBranch, ChevronRight, Scan, Activity, Clock, BarChart3 } from 'lucide-react';
 import { Situation, OpportunitySignal } from '../../api/types';
 import { Principal } from '../../api/types';
-import { OpportunityCard } from '../OpportunityCard';
 import { getVAPortfolio } from '../../api/client';
 import type { StrategyAwarePortfolio } from '../../types/valueAssurance';
 import { BrandLogo } from '../BrandLogo';
@@ -35,7 +34,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   scanComplete,
   loading,
   situations,
-  opportunities = [],
   kpisScanned,
   breachCount,
   impactLevel,
@@ -247,27 +245,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* State 2: Situation Grid (Post-Scan) */}
         {scanComplete && (
             <div className="space-y-4">
-                {/* Opportunities section — shown only when the backend returns opportunities */}
-                {opportunities.length > 0 && (
-                    <div className="mb-6">
-                        <h3 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                            <TrendingUp className="w-3.5 h-3.5" />
-                            Opportunities Detected ({opportunities.length})
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {opportunities.map((signal, i) => (
-                                <OpportunityCard
-                                    key={`${signal.kpi_name}-${i}`}
-                                    signal={signal}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                )}
-
                 <h2 className="text-lg font-semibold text-white mb-4">Priority Briefings</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {situations.map((sit, idx) => (
+                    {[...situations]
+                        .sort((a, b) => Math.abs(b.kpi_value?.percent_change ?? 0) - Math.abs(a.kpi_value?.percent_change ?? 0))
+                        .map((sit, idx) => (
                         <div key={idx} className="h-48">
                             <KPITile
                                 situation={sit}

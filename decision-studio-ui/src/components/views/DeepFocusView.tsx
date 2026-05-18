@@ -194,14 +194,14 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
           </button>
           <div>
             <div className="flex items-center gap-2 mb-1">
-               <span className={`px-2 py-0.5 text-xs font-bold rounded uppercase ${situation.card_type === 'opportunity' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                 {situation.card_type === 'opportunity' ? 'Opportunity' : situation.severity}
+               <span className={`px-2 py-0.5 text-xs font-bold rounded uppercase ${(situation.direction === 'up' || situation.card_type === 'opportunity') ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                 {(situation.direction === 'up' || situation.card_type === 'opportunity') ? 'Opportunity' : situation.severity}
                </span>
                <span className="text-slate-500 text-xs uppercase tracking-wider">
                  ID: {situation.situation_id?.substring(0, 8)}
                </span>
             </div>
-            <h1 className="text-xl font-bold text-white">{situation.kpi_name} {situation.card_type === 'opportunity' ? 'Opportunity' : 'Variance'}</h1>
+            <h1 className="text-xl font-bold text-white">{situation.kpi_name} {(situation.direction === 'up' || situation.card_type === 'opportunity') ? 'Opportunity' : 'Variance'}</h1>
           </div>
         </div>
         

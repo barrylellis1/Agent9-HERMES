@@ -460,8 +460,11 @@ class A9_Situation_Awareness_Agent:
                         _seen_kpi[_key] = sit
             situations = list(_seen_kpi.values())
 
-            # Sort situations by severity (critical first)
-            situations.sort(key=lambda s: list(SituationSeverity).index(s.severity) if s.severity in SituationSeverity else 99)
+            # Sort situations: primary = severity (critical first), secondary = |percent_change| descending
+            situations.sort(key=lambda s: (
+                list(SituationSeverity).index(s.severity) if s.severity in SituationSeverity else 99,
+                -abs((s.kpi_value.percent_change or 0) if s.kpi_value else 0)
+            ))
             
             # Generate summary SQL for debugging/transparency
             sample_sql = ""
@@ -502,11 +505,10 @@ class A9_Situation_Awareness_Agent:
                 request_id=request.request_id,
                 status="success",
                 message=(
-                    f"Detected {len(situations)} situations and "
-                    f"{len(opportunities)} opportunity signal(s) across {len(kpi_values)} KPIs"
+                    f"Detected {len(situations)} situations across {len(kpi_values)} KPIs"
                 ),
                 situations=situations,
-                opportunities=opportunities,
+                opportunities=[],  # Phase 11C: deprecated — opportunity signals are now Situation cards
                 sql_query=sample_sql,
                 kpi_evaluated_count=len(kpi_values),
                 kpis_evaluated=[kv.kpi_name for kv in kpi_values],
@@ -2884,6 +2886,7 @@ class A9_Situation_Awareness_Agent:
             kpi_name=kpi_definition.name,
             kpi_value=kpi_value,
             severity=severity,
+            direction='down',
             description=description,
             business_impact=business_impact,
             suggested_actions=suggested_actions,
