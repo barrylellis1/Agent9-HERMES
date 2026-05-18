@@ -501,7 +501,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 filters=request.filters,
                 dimensions=dimensions,
                 steps=steps,
-                notes="KT core with SCQA/MECE framing (auto-derived dimensions from data product contract)."
+                notes="KT core with SCQA/MECE framing (auto-derived dimensions from data product contract).",
+                analysis_mode=getattr(request, "analysis_mode", "problem"),
             )
             try:
                 self.logger.info(f"plan_deep_analysis: selected_dims={len(dimensions)} steps={len(steps)}")
@@ -1143,25 +1144,31 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                         trend_positive=kpi_trend_positive
                                     )
                                     
-                                    # Add significant variance items to where_is (with deduplication)
+                                    # POA swap: for opportunity mode, IS = outperformers (what drives the win),
+                                    # IS NOT = laggards (replication targets). Inverted vs problem mode.
+                                    _is_opp = getattr(plan, "analysis_mode", "problem") == "opportunity"
+                                    kt_is_items = where_is_not_items if _is_opp else where_is_items
+                                    kt_is_not_items = where_is_items if _is_opp else where_is_not_items
+                                    kt_is_note = "Leading segment" if _is_opp else None
+                                    kt_is_not_note = "Replication target" if _is_opp else "Outperforming"
+
                                     added_keys_topn = set()
-                                    self.logger.info(f"[DEDUP] Dim={dim}: {len(where_is_items)} IS items, {len(where_is_not_items)} IS-NOT items, existing keys={len(added_where_is_keys)}")
-                                    for key, c, p, d in where_is_items:
+                                    self.logger.info(f"[DEDUP] Dim={dim}: {len(kt_is_items)} IS items, {len(kt_is_not_items)} IS-NOT items, existing keys={len(added_where_is_keys)}")
+                                    for key, c, p, d in kt_is_items:
                                         dedup_key = (dim, key)
                                         if dedup_key not in added_where_is_keys:
-                                            entry_top = _format_where_entry(dim, key, d, c, p)
+                                            entry_top = _format_where_entry(dim, key, d, c, p, note=kt_is_note)
                                             kt.where_is.append(entry_top)
                                             change_points.append(ChangePoint(dimension=dim, key=key, current_value=c, previous_value=p, delta=d))
                                             added_keys_topn.add(key)
                                             added_where_is_keys.add(dedup_key)
                                         else:
                                             self.logger.warning(f"[DEDUP] Skipping duplicate: {dedup_key}")
-                                    
-                                    # Add healthy items to where_is_not (for contrast, with deduplication)
-                                    for key, c, p, d in where_is_not_items:
+
+                                    for key, c, p, d in kt_is_not_items:
                                         dedup_key = (dim, key)
                                         if key not in added_keys_topn and dedup_key not in added_where_is_not_keys:
-                                            entry_bot = _format_where_entry(dim, key, d, c, p, note="Outperforming")
+                                            entry_bot = _format_where_entry(dim, key, d, c, p, note=kt_is_not_note)
                                             kt.where_is_not.append(entry_bot)
                                             added_where_is_not_keys.add(dedup_key)
                                 
@@ -1202,22 +1209,27 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                             trend_positive=kpi_trend_positive
                                         )
                                         
-                                        # Add significant variance items to where_is (with deduplication)
+                                        # POA swap (same logic as primary path above)
+                                        _is_opp_fb = getattr(plan, "analysis_mode", "problem") == "opportunity"
+                                        fb_is_items = where_is_not_items if _is_opp_fb else where_is_items
+                                        fb_is_not_items = where_is_items if _is_opp_fb else where_is_not_items
+                                        fb_is_note = "Leading segment" if _is_opp_fb else None
+                                        fb_is_not_note = "Replication target" if _is_opp_fb else "Outperforming"
+
                                         added_keys_fallback = set()
-                                        for k, c, p, d in where_is_items:
+                                        for k, c, p, d in fb_is_items:
                                             dedup_key = (dim, k)
                                             if dedup_key not in added_where_is_keys:
-                                                entry_diff = _format_where_entry(dim, k, d, c, p)
+                                                entry_diff = _format_where_entry(dim, k, d, c, p, note=fb_is_note)
                                                 kt.where_is.append(entry_diff)
                                                 change_points.append(ChangePoint(dimension=dim, key=k, current_value=c, previous_value=p, delta=d))
                                                 added_keys_fallback.add(k)
                                                 added_where_is_keys.add(dedup_key)
-                                        
-                                        # Add healthy items to where_is_not (for contrast, with deduplication)
-                                        for k, c, p, d in where_is_not_items:
+
+                                        for k, c, p, d in fb_is_not_items:
                                             dedup_key = (dim, k)
                                             if k not in added_keys_fallback and dedup_key not in added_where_is_not_keys:
-                                                entry_low = _format_where_entry(dim, k, d, c, p, note="Outperforming")
+                                                entry_low = _format_where_entry(dim, k, d, c, p, note=fb_is_not_note)
                                                 kt.where_is_not.append(entry_low)
                                                 added_where_is_not_keys.add(dedup_key)
                                 # Always compute and attach distribution summary for this dimension
@@ -2109,13 +2121,25 @@ If nothing relevant is found for a category, use an empty list."""
         ]
         comparator = (spec or {}).get("comparison_type", "prior period")
         inv = (spec or {}).get("inverse_logic", False)
-        direction = "over" if inv else "under"
+        # For problem mode: direction describes the adverse condition ("under" for revenue, "over" for cost).
+        # For opportunity mode: direction is inverted — the KPI is doing better than expected.
+        if analysis_mode == "opportunity":
+            direction = "under" if inv else "over"
+        else:
+            direction = "over" if inv else "under"
 
         # Deterministic fallback (used when LLM unavailable or fails)
         def _fallback() -> str:
-            is_str = ", ".join(is_items) if is_items else "certain segments"
-            is_not_str = ", ".join(is_not_items) if is_not_items else "others"
+            is_str = ", ".join(is_items) if is_items else "leading segments"
+            is_not_str = ", ".join(is_not_items) if is_not_items else "remaining segments"
             cp_str = "; ".join(top_cps) if top_cps else "key contributors identified"
+            if analysis_mode == "opportunity":
+                return (
+                    f"Situation: {plan.kpi_name} is {direction}-performing vs. {comparator}. "
+                    f"Complication: The outperformance is concentrated in {is_str} — creating a replication opportunity in {is_not_str}. "
+                    f"Key drivers: {cp_str}. "
+                    f"Question: How do we scale the {is_str} performance across {is_not_str}?"
+                )
             return (
                 f"Situation: {plan.kpi_name} is {direction}-performing vs. {comparator}. "
                 f"Complication: The variance is concentrated in {is_str}, while {is_not_str} are within range. "

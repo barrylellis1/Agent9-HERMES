@@ -90,17 +90,25 @@ When a KPI carries `metadata.kpi_type = "ratio"` with `bridge_numerator_sql` and
 
 This prevents the "100% margin" artifact that occurs when COGS is not allocated at the same dimensional granularity as Revenue in the source data.
 
-## Phase 8 — Unified Opportunity Analysis (Mar 2026)
-DA now always produces both problem segments AND internal benchmarks from the same IS/IS NOT table — no separate opportunity analysis agent.
+## Phase 8 — Unified Opportunity Analysis (Mar 2026, corrected May 2026)
+DA produces both problem segments AND opportunity segments from the same IS/IS NOT table — no separate opportunity analysis agent.
 
-**New fields:**
-- `DeepAnalysisRequest.analysis_mode`: `"problem"` (default) | `"opportunity"` — controls SCQA framing
-- `KTIsIsNot.benchmark_segments: List[BenchmarkSegment]` — IS NOT items classified into `internal_benchmark` (top quartile by |delta|) or `control_group`
-- `BenchmarkSegment`: `dimension`, `key`, `current_value`, `previous_value`, `delta`, `delta_pct`, `benchmark_type`, `replication_potential`
+**`analysis_mode` field (on both `DeepAnalysisRequest` and `DeepAnalysisPlan`):**
+- `"problem"` (default): IS = underperforming segments (breach drivers); IS NOT = healthy segments (control group)
+- `"opportunity"`: IS = outperforming segments (what's driving the win); IS NOT = lagging segments (replication targets — KT POA framing)
 
-**New logic:**
-- `_classify_benchmark_segments()`: classifies IS NOT items; top-quartile delta items become `internal_benchmark` with a `replication_potential` score (0–1)
-- `_generate_scqa_summary(analysis_mode)`: when `analysis_mode="opportunity"`, uses McKinsey "the gap IS the strategy" framing — IS NOT outperformers are replication targets, not just healthy segments
+**IS/IS NOT framing by mode:**
+| | Problem (PA) | Opportunity (POA) |
+|---|---|---|
+| IS | Where IS the breach? | Where IS the outperformance? |
+| IS NOT | Where is it NOT? (control group) | Where is it NOT yet? (replication targets) |
+| SCQA answer | Root cause to eliminate | Leading segment to replicate |
+
+**Key logic:**
+- `analysis_mode` is now propagated from `DeepAnalysisRequest` → `DeepAnalysisPlan` → `execute_deep_analysis`
+- `execute_deep_analysis`: when `analysis_mode="opportunity"`, swaps which list goes to `kt.where_is` vs `kt.where_is_not`
+- `_generate_scqa_summary`: direction string and fallback text are both mode-aware
+- `_classify_benchmark_segments()`: classifies IS NOT items into `internal_benchmark` (top quartile) or `control_group`
 
 ## Recent Updates (Dec 2025)
 - Contract path consolidated to single source of truth in `registry_references`

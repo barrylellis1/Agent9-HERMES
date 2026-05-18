@@ -287,7 +287,7 @@ export function useDecisionStudio() {
           sit.kpi_name,
           selectedPrincipal,
           timeframe,
-          sit.card_type === 'opportunity' ? 'opportunity' : 'problem'
+          (sit.direction === 'up' || sit.card_type === 'opportunity') ? 'opportunity' : 'problem'
         );
         
         if (!result || !result.execution) {

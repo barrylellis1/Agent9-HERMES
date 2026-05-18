@@ -38,6 +38,10 @@ class DeepAnalysisPlan(A9AgentBaseModel):
     dimensions: List[str] = Field(default_factory=list, description="Candidate dimensions to analyze (MECE-guided)")
     steps: List[Dict[str, Any]] = Field(default_factory=list, description="Ordered execution steps for DPA (grouped/timeframe comparisons)")
     notes: Optional[str] = None
+    analysis_mode: Literal["problem", "opportunity"] = Field(
+        default="problem",
+        description="Propagated from DeepAnalysisRequest — controls IS/IS NOT framing and SCQA narrative direction."
+    )
 
 
 class BenchmarkSegment(A9AgentBaseModel):
