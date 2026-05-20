@@ -143,6 +143,7 @@ class DeepAnalysisWorkflowRequest(BaseModel):
     hypotheses: Optional[List[str]] = Field(None, description="Optional hypotheses to evaluate")
     include_supporting_evidence: bool = Field(True, description="Whether to compute supporting evidence artifacts")
     analysis_mode: Optional[str] = Field(default="problem", description="Analysis framing: 'problem' or 'opportunity'")
+    client_id: Optional[str] = Field(None, description="Client/tenant ID — scopes KPI lookup to this client only")
 
 
 class SolutionWorkflowRequest(BaseModel):
@@ -859,10 +860,13 @@ async def _run_situations_workflow(request_id: str, runtime: AgentRuntime, reque
 async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, request: DeepAnalysisWorkflowRequest) -> None:
     try:
         orchestrator = runtime.get_orchestrator()
+        pc_lookup_args_da: dict = {"principal_id": request.principal_id}
+        if request.client_id:
+            pc_lookup_args_da["client_id"] = request.client_id
         principal_resp = await orchestrator.execute_agent_method(
             "A9_Principal_Context_Agent",
             "get_principal_context_by_id",
-            {"principal_id": request.principal_id},
+            pc_lookup_args_da,
         )
         principal_context = None
         if isinstance(principal_resp, dict):
@@ -877,6 +881,8 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
             "timeframe": request.scope.timeframe or "current_quarter",
             "filters": {},
         }
+        if request.client_id:
+            deep_request_payload["client_id"] = request.client_id
         if principal_context is not None:
             deep_request_payload["principal_context"] = principal_context
             # Merge principal's default_filters into the request filters

@@ -66,10 +66,14 @@ Output:
 
 **Behavior:**
 1. Load principal email from PCA
-2. Aggregate SA situation, DA analysis, SF recommendation, MA signals, VA impact
-3. Render Jinja2 template with assessment context
-4. Generate unique briefing tokens for snooze/delegate/approve actions
-5. Return briefing HTML + token list
+2. Load KPI accountability assignments for the principal via `KPIAccountabilityProvider`
+3. Filter assessment results to accountable KPIs — principals see only situations for KPIs they own
+   - Fallback: if no assignments exist, all assessments are included (backward compatible)
+   - Fallback: if provider raises, all assessments are included (resilient)
+4. Aggregate SA situation, DA analysis, SF recommendation, MA signals, VA impact
+5. Render Jinja2 template with assessment context
+6. Generate unique briefing tokens for snooze/delegate/approve actions
+7. Return briefing HTML + token list
 
 ---
 

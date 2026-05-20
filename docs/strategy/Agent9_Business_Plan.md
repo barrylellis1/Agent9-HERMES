@@ -1,6 +1,6 @@
 # Agent9 Business Plan
-**Last Updated:** May 2026
-**Version:** 1.6 — Phase 10A–10D shipped (Swiss Style UI, PIB email delivery, multi-warehouse direct SDK connectors, SF performance tuning, VA 5-phase lifecycle, white-paper report); production deployment live on Railway + Cloudflare Pages + Supabase Cloud; strategic moat refresh — the SA→DA→SF→VA pipeline + Registry + VA outcome corpus is the moat; data connectivity is commodity
+**Last Updated:** 2026-05-20
+**Version:** 1.7 — Analytical Intelligence Layers added (Layer 1: DA statistical enrichment Phase 11H; Layer 2: KPI causal intelligence Phase 2; Layer 3: portfolio optimization Phase 3). ICP expanded: CDO/Analytics as Layer 1 champion, CSO as Layer 2 buyer, CEO/PE CFO as Layer 3 expansion sponsor. Mixed Analysis Mode (Phase 11G) captures the dominant enterprise case — KPIs with simultaneous problem and opportunity segments.
 
 ---
 
@@ -82,6 +82,13 @@ Agent9 addresses five independent value propositions — each justifiable on its
 - Creates a reinforced learning loop — Agent9 gets better as it accumulates decision outcomes
 - *Replaces:* Nothing currently — ROI attribution from business intelligence decisions does not exist in any tool
 
+**Pillar 6 — Analytical Intelligence (roadmap: Phases 11G–11H, 2027–2028)**
+- **Mixed Analysis Mode (Phase 11G):** Single IS/IS NOT view surfaces both problem segments and opportunity segments simultaneously — the normal enterprise state, not an edge case
+- **Layer 1 — Statistical Rigor (Phase 11H):** Every IS/IS NOT finding confidence-scored with effect size, seasonal decomposition, and outlier detection. Moves from "this segment is down" to "this finding is statistically robust at 0.91 confidence." Answers the CDO gatekeeper's first challenge.
+- **Layer 2 — Causal KPI Mapping (Phase 2, 2027):** KPI interdependency map detects when two simultaneously recommended solutions will partially cancel each other before the CFO approves both. No current tool does this.
+- **Layer 3 — Portfolio Optimization (Phase 3, 2028):** Optimal sequencing of concurrent interventions aligned to declared corporate strategy. Transforms Decision Studio from a per-KPI tool into an enterprise portfolio intelligence platform.
+- *Replaces:* Nothing currently — no platform reasons about cross-KPI interaction effects or statistical confidence of dimensional findings
+
 ### Key Differentiators
 1. **Registry-driven domain intelligence** — KPIs, principals, business processes, data products encoded per customer; deep context no generic AI provides
 2. **Always-on monitoring** — proactive, not reactive; runs 24/7 between consulting engagements
@@ -123,6 +130,19 @@ Agent9 addresses five independent value propositions — each justifiable on its
 
 #### Entry Buyer Pattern
 VP-level functional leaders are the primary entry point across all domains — shorter sales cycles (4-6 weeks), budget authority for pilot pricing, and they create C-suite champions for platform expansion.
+
+#### Stakeholder Map by Analytical Intelligence Layer
+
+As the platform matures through its three analytical intelligence layers, distinct stakeholder personas activate at each layer. Understanding this map prevents mis-targeting and unlocks faster internal champions:
+
+| Layer | Activates | Role in Deal | Why They Care |
+|-------|-----------|-------------|---------------|
+| **Current pipeline (SA→DA→SF→VA)** | VP FP&A / CFO | Economic buyer + primary user | Consulting-quality insight on demand; proven ROI via VA trajectory chart |
+| **Layer 1 — Statistical Rigor (Phase 11H)** | CDO / Head of Analytics | **Gatekeeper → Champion** | Currently the most likely blocker — will challenge any recommendation not statistically grounded. Layer 1 converts them. "Decision Studio surfaces confidence-scored findings" is the only message that turns this audience from critic to sponsor. |
+| **Layer 2 — Causal KPI Mapping (Phase 2)** | CSO / Head of Strategy | **Expansion buyer** | KPI interdependency map is their domain. Conflict detection before approval ("these two solutions will partially cancel") is an immediate, visceral value prop — they currently manage this conversation manually over weeks. |
+| **Layer 3 — Portfolio Optimization (Phase 3)** | CEO / PE-backed CFO | **Enterprise sponsor** | Capital allocation across coupled KPI systems. PE firms have a quantitative accountability to investors that makes portfolio optimization directly relevant to their value creation plan. |
+
+**Implication for Year 1 sales:** Lead with CFO / VP FP&A for the initial pilot. The CDO conversation becomes important before the pilot closes at a data-mature company — prepare a one-page on statistical rigor for that audience. CSO and CEO conversations open during the annual renewal when Layer 2 roadmap becomes concrete.
 
 #### 1. Finance — VP FP&A / CFO ⭐⭐⭐ *(Launch Domain — Demo Ready)*
 - **Size:** 10,000+ mid-market companies
@@ -472,6 +492,7 @@ The Apr 2026 strategic refresh draws a hard line between Agent9's moat and the c
 | **Value Assurance Feedback Loop** | 🟢 Strong (grows with decisions) | Every approved decision creates a tracked trajectory — inaction projection, expected recovery, actual outcome. Over time, this builds a proprietary decision quality corpus: which types of recommendations work for this company, at this scale, in this industry. No competitor tracks post-decision KPI attribution. |
 | **Calibrated Monitoring Profiles** | 🟢 Strong (compounding) | After 12 months, switching means losing calibrated noise/signal thresholds for 50+ KPIs and validated escalation history. Phase 11D adaptive calibration loop deepens this further. |
 | **Audit Trail Standard** | 🟡 Medium | First to define "explainable AI decision intelligence" with full provenance. Defensible until cloud platforms add similar features (~18-24 months). |
+| **Analytical Intelligence Layers (L1–L3)** | 🟢 Strong (roadmap moat) | No BI tool or analytics platform confidence-scores dimensional variance findings, maps KPI interdependencies, or detects cross-intervention conflicts before approval. Layer 1 converts CDO gatekeepers to champions; Layer 2 expands into the CSO; Layer 3 is the enterprise portfolio story. Each layer deepens switching cost and elevates the buyer conversation. |
 | **Partner Network** | 🔴 Future (Year 3+) | Not a moat until partners exist. Mid-tier consulting firms (FTI, A&M, Huron) are the first targets. Lead generation + revenue assurance framing. *See Consulting Partner Strategy document.* |
 
 **Multi-agent orchestration AND data connectivity are explicitly NOT listed as moats.** Both are commodity infrastructure — orchestration via AWS Bedrock / Azure AI Agents / LangGraph, connectivity via vendor MCP servers and semantic layers. The moat is the analytical pipeline itself, the registry domain model, the VA outcome corpus, and the calibrated monitoring profiles that compound with each customer-month.
@@ -683,7 +704,10 @@ The Apr 2026 strategic refresh draws a hard line between Agent9's moat and the c
 | Infra A4 registry live-reload + SQL Server production enablement | Jul–Aug 2026 | 📋 Pending |
 | Infra B: Auth + multi-tenant isolation (pre-pilot blocker) | Aug 2026 | 📋 Pending |
 | First pilot signed | Sep 2026 | 📋 Pending |
+| DA Mixed Analysis Mode (Phase 11G) — unified problem + opportunity IS/IS NOT view | H2 2026 | 📋 Pending |
+| Layer 1: DA Statistical Enrichment — confidence-scored IS/IS NOT, effect size, seasonal decomp (Phase 11H) | H2 2026 | 📋 Pending |
 | First case study documented | Jan 2027 | 📋 Pending |
+| Layer 2: KPI Causal Intelligence — interdependency map, cross-KPI conflict detection (Phase 2) | 2027 | 📋 Pending |
 | Second paying customer | Mar 2027 | 📋 Pending |
 | Quit day job decision point | Apr 2027 | 📋 Pending |
 | First hire Sales/CS (if full-time) | Jun 2027 | 📋 Pending |

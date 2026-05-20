@@ -16,6 +16,7 @@ from src.agents.shared.a9_agent_base_model import (
 class DeepAnalysisRequest(A9AgentBaseRequest):
     """Request to enumerate, plan, or execute deep analysis for a KPI."""
     kpi_name: str = Field(..., description="Target KPI to analyze")
+    client_id: Optional[str] = Field(None, description="Client/tenant ID — scopes KPI lookup to this client only")
     timeframe: Optional[str] = Field(None, description="Timeframe token from Decision Studio (e.g., last_quarter)")
     filters: Optional[Dict[str, Any]] = Field(default=None, description="Additional KPI filters")
     target_count: int = Field(5, description="Desired number of top results or dimensions to consider")
@@ -33,6 +34,7 @@ class DeepAnalysisRequest(A9AgentBaseRequest):
 class DeepAnalysisPlan(A9AgentBaseModel):
     """Planned steps for a deep analysis execution."""
     kpi_name: str
+    client_id: Optional[str] = None
     timeframe: Optional[str] = None
     filters: Optional[Dict[str, Any]] = None
     dimensions: List[str] = Field(default_factory=list, description="Candidate dimensions to analyze (MECE-guided)")

@@ -24,6 +24,7 @@ interface IsIsNotExhibitProps {
   data: KTIsIsNotData
   kpiName?: string
   width?: number
+  isOpportunity?: boolean
 }
 
 // ─── IsIsNotExhibit — printed exhibit style, two-level expand ────────────────
@@ -31,6 +32,7 @@ interface IsIsNotExhibitProps {
 export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
   data,
   kpiName = 'KPI',
+  isOpportunity = false,
 }) => {
   const [expandedDimensions, setExpandedDimensions] = useState<Set<string>>(new Set())
 
@@ -127,8 +129,14 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
 
   if (!data || processedData.length === 0) {
     return (
-      <div className="flex items-center justify-center h-24 text-slate-500 text-sm">
-        No Is / Is Not data available
+      <div className="flex flex-col items-center justify-center h-24 gap-1 text-slate-500 text-sm">
+        {isOpportunity
+          ? <>
+              <span>Dimensional breakdown not available for this KPI</span>
+              <span className="text-xs text-slate-600">Opportunity detected at aggregate level — segment-level data requires dimensional SQL support</span>
+            </>
+          : 'No Is / Is Not data available'
+        }
       </div>
     )
   }
@@ -142,12 +150,12 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
         </span>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-sm bg-red-600" />
-            <span className="text-[10px] text-slate-500">Problem area</span>
+            <div className={`w-2 h-2 rounded-sm ${isOpportunity ? 'bg-emerald-600' : 'bg-red-600'}`} />
+            <span className="text-[10px] text-slate-500">{isOpportunity ? 'Leading segment' : 'Problem area'}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-sm bg-emerald-700" />
-            <span className="text-[10px] text-slate-500">Healthy</span>
+            <div className="w-2 h-2 rounded-sm bg-slate-600" />
+            <span className="text-[10px] text-slate-500">{isOpportunity ? 'Unrealised potential' : 'Healthy'}</span>
           </div>
         </div>
       </div>
@@ -180,7 +188,7 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                 </span>
 
                 {/* Net IS variance */}
-                <span className={`w-24 flex-shrink-0 text-right font-mono text-xs ${hasProblem ? 'text-red-400' : 'text-slate-600'}`}>
+                <span className={`w-24 flex-shrink-0 text-right font-mono text-xs ${hasProblem ? (isOpportunity ? 'text-emerald-400' : 'text-red-400') : 'text-slate-600'}`}>
                   {hasProblem
                     ? dim.netIsVariance.toLocaleString(undefined, { maximumFractionDigits: 0 })
                     : '—'
@@ -190,13 +198,13 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                 {/* IS count badge */}
                 <div className="flex items-center gap-2 ml-auto">
                   {hasProblem && (
-                    <span className="text-[10px] px-2 py-0.5 bg-red-950 border border-red-900/60 text-red-400 rounded font-medium">
-                      {dim.is.length} {dim.is.length === 1 ? 'problem area' : 'problem areas'}
+                    <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${isOpportunity ? 'bg-emerald-950 border border-emerald-900/60 text-emerald-400' : 'bg-red-950 border border-red-900/60 text-red-400'}`}>
+                      {dim.is.length} {isOpportunity ? (dim.is.length === 1 ? 'leading' : 'leading') : (dim.is.length === 1 ? 'problem area' : 'problem areas')}
                     </span>
                   )}
                   {hasHealthy && (
-                    <span className="text-[10px] px-2 py-0.5 bg-emerald-950 border border-emerald-900/40 text-emerald-600 rounded font-medium">
-                      {dim.isNot.length} healthy
+                    <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${isOpportunity ? 'bg-amber-950 border border-amber-900/40 text-amber-600' : 'bg-emerald-950 border border-emerald-900/40 text-emerald-600'}`}>
+                      {dim.isNot.length} {isOpportunity ? 'unrealised' : 'healthy'}
                     </span>
                   )}
                   {!hasProblem && !hasHealthy && (
@@ -208,7 +216,7 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
               {/* Level 2: Expanded item bars */}
               {isExpanded && (
                 <div className="bg-slate-950/60 border-t border-slate-800/60 px-4 py-3 space-y-2">
-                  {/* IS items — red bars */}
+                  {/* IS items — red bars (problem) or green bars (opportunity leaders) */}
                   {dim.is.map((item, i) => {
                     const barPct = Math.max(4, Math.abs(item.delta || 0) / maxDelta * 100)
                     return (
@@ -218,18 +226,18 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                         </div>
                         <div className="flex-1 h-4 bg-slate-900 rounded overflow-hidden">
                           <div
-                            className="h-full bg-red-700 rounded"
+                            className={`h-full rounded ${isOpportunity ? 'bg-emerald-700' : 'bg-red-700'}`}
                             style={{ width: `${barPct}%` }}
                           />
                         </div>
-                        <span className="w-20 flex-shrink-0 text-right font-mono text-xs text-red-400">
+                        <span className={`w-20 flex-shrink-0 text-right font-mono text-xs ${isOpportunity ? 'text-emerald-400' : 'text-red-400'}`}>
                           {item.delta?.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                         </span>
                       </div>
                     )
                   })}
 
-                  {/* IS NOT items — green bars */}
+                  {/* IS NOT items — green bars (healthy) or amber bars (replication targets) */}
                   {dim.isNot.map((item, i) => {
                     const absDelta = Math.abs(item.delta || 0)
                     const showCurrent = absDelta < 0.001 && (item.current || 0) !== 0
@@ -249,11 +257,11 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                         </div>
                         <div className="flex-1 h-4 bg-slate-900 rounded overflow-hidden">
                           <div
-                            className="h-full bg-emerald-800 rounded"
+                            className={`h-full rounded ${isOpportunity ? 'bg-amber-800' : 'bg-emerald-800'}`}
                             style={{ width: `${barPct}%` }}
                           />
                         </div>
-                        <span className="w-20 flex-shrink-0 text-right font-mono text-xs text-emerald-600">
+                        <span className={`w-20 flex-shrink-0 text-right font-mono text-xs ${isOpportunity ? 'text-amber-600' : 'text-emerald-600'}`}>
                           {displayVal}
                         </span>
                       </div>

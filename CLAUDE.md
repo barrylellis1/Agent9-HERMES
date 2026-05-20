@@ -76,6 +76,7 @@ orchestrated AI workflows. ~100K lines of backend and UI code, 10 months of deve
 | **A9_PIB_Agent** | Briefing composition from assessment results, Jinja2 email rendering, SMTP delivery, delegation flow, briefing tokens | Operational |
 | **A9_Data_Product_MCP_Service_Agent** | SQL execution via MCP | **DEPRECATED** (remove after 2025-11-30) |
 | **A9_Risk_Analysis_Agent** | Weighted risk scoring | **Dead code** — no tests, no registration |
+| **A9_Business_Optimization_Agent** | Portfolio conflict detection, causal dependency graphing, strategic alignment scoring, execution sequencing, KPI trajectory forecasting | Planned (Phase 3 — 2028) |
 
 ### What's NOT Built Yet
 

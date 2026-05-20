@@ -44,6 +44,7 @@ from src.agents.models.pib_models import (
 from src.database.assessment_store import AssessmentStore
 from src.database.briefing_store import BriefingStore
 from src.database.situations_store import SituationsStore
+from src.registry.providers.accountability_provider import KPIAccountabilityProvider
 
 logger = logging.getLogger(__name__)
 
@@ -234,6 +235,34 @@ class A9_PIB_Agent:
 
         # Load full assessment rows to get names/descriptions
         assessments = await self._load_assessments(run_id)
+
+        # Filter to KPIs this principal is accountable for. When no assignments
+        # exist the briefing falls back to all detected assessments so existing
+        # behaviour is preserved for un-seeded principals.
+        try:
+            _assignments = await KPIAccountabilityProvider().get_for_principal(
+                config.client_id, config.principal_id
+            )
+            _accountable_ids = {a.kpi_id for a in _assignments}
+        except Exception as _exc:
+            logger.warning(
+                "PIB: accountability lookup failed for %s — using all assessments: %s",
+                config.principal_id, _exc,
+            )
+            _accountable_ids = set()
+
+        if _accountable_ids:
+            _before = len(assessments)
+            assessments = [a for a in assessments if a.get("kpi_id") in _accountable_ids]
+            logger.info(
+                "PIB: accountability filter — %d → %d assessments for principal %s",
+                _before, len(assessments), config.principal_id,
+            )
+        else:
+            logger.info(
+                "PIB: no accountability assignments for %s — including all %d assessments",
+                config.principal_id, len(assessments),
+            )
 
         # Load open situations from situations table for descriptions.
         # Index by kpi_name (primary) and id (fallback) — no principal_id filter

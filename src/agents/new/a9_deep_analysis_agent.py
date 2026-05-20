@@ -497,6 +497,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             # Build plan (no SQL here; DPA handles execution in execute_deep_analysis)
             plan = DeepAnalysisPlan(
                 kpi_name=request.kpi_name,
+                client_id=getattr(request, "client_id", None),
                 timeframe=request.timeframe,
                 filters=request.filters,
                 dimensions=dimensions,
@@ -540,12 +541,17 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     from src.registry.factory import RegistryFactory
                     rf_provider = RegistryFactory().get_provider("kpi")
                     kpi_def = None
+                    _plan_client_id = getattr(plan, "client_id", None)
                     if rf_provider:
                         kpi_name_lower = (plan.kpi_name or "").lower().strip()
                         for k in rf_provider.get_all():
-                            if (getattr(k, "name", "") or "").lower().strip() == kpi_name_lower:
-                                kpi_def = k
-                                break
+                            if (getattr(k, "name", "") or "").lower().strip() != kpi_name_lower:
+                                continue
+                            # Enforce client isolation: skip KPIs from other tenants when client_id is known
+                            if _plan_client_id and getattr(k, "client_id", None) and getattr(k, "client_id") != _plan_client_id:
+                                continue
+                            kpi_def = k
+                            break
                         if kpi_def is None:
                             kpi_def = rf_provider.get(plan.kpi_name)
                 except Exception as e:
@@ -1641,11 +1647,16 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             kt.where_is_not, dq_issues_is_not = dq_filter.filter_and_dedupe(kt.where_is_not)
             self.logger.info(f"[POST-FILTER] where_is has {len(kt.where_is)} items, dq_issues_is has {len(dq_issues_is)} items")
 
-            # Classify IS NOT items into benchmark segments
-            if kt.where_is_not:
-                kt.benchmark_segments = _classify_benchmark_segments(kt.where_is_not)
+            # Classify benchmark segments.
+            # In problem mode: IS NOT = healthy/outperforming → use as benchmarks.
+            # In opportunity mode: IS = leading/outperforming → use as blueprints to replicate FROM;
+            #   IS NOT = lagging segments (replication targets) → shown separately, not as benchmarks.
+            _is_opportunity = getattr(plan, "analysis_mode", "problem") == "opportunity"
+            _benchmark_source = kt.where_is if _is_opportunity else kt.where_is_not
+            if _benchmark_source:
+                kt.benchmark_segments = _classify_benchmark_segments(_benchmark_source)
                 self.logger.info(
-                    f"[BENCHMARK] Classified {len(kt.benchmark_segments)} IS NOT items: "
+                    f"[BENCHMARK] Classified {len(kt.benchmark_segments)} {'IS (opportunity)' if _is_opportunity else 'IS NOT (problem)'} items: "
                     f"{sum(1 for s in kt.benchmark_segments if s.benchmark_type == 'internal_benchmark')} internal_benchmark, "
                     f"{sum(1 for s in kt.benchmark_segments if s.benchmark_type == 'control_group')} control_group"
                 )
@@ -2153,15 +2164,21 @@ If nothing relevant is found for a category, use an empty list."""
 
             if analysis_mode == "opportunity":
                 prompt = (
-                    f"Write a concise SCQA narrative for a CFO reviewing a growth opportunity in "
+                    f"Write a concise SCQA narrative for a CFO reviewing a GROWTH OPPORTUNITY in "
                     f"'{plan.kpi_name}' ({plan.timeframe or 'current period'}).\n\n"
-                    f"High-performing segments (IS): {', '.join(is_items) or 'see change points'}\n"
-                    f"Segments yet to capture the same performance (IS NOT — replication targets): "
+                    f"Leading segments (IS — the blueprint to replicate): {', '.join(is_items) or 'see change points'}\n"
+                    f"Segments with unrealised potential (IS NOT — replication targets): "
                     f"{', '.join(is_not_items) or 'none identified'}\n"
                     f"Largest change-points: {'; '.join(top_cps) or 'none'}\n\n"
-                    f"Frame the Answer as: the gap between IS and IS NOT segments IS the strategy. "
-                    f"Output exactly 4 labelled sentences: 'Situation:', 'Complication:', 'Question:', 'Answer:'. "
-                    f"Be specific and quantitative. No bullet points."
+                    f"CRITICAL FRAMING RULES:\n"
+                    f"- This is an OPPORTUNITY card. The KPI is OUTPERFORMING overall.\n"
+                    f"- The IS segments are the SUCCESS STORY. Lead with what they are doing RIGHT.\n"
+                    f"- Do NOT use words like 'underperform', 'underperformance', 'decline', 'problem'.\n"
+                    f"- The IS NOT segments have UNREALISED POTENTIAL, not a failure.\n"
+                    f"- The Question and Answer must be about REPLICATING the IS success, not fixing IS NOT.\n\n"
+                    f"Output exactly 4 labelled sentences with no preamble: "
+                    f"'Situation:', 'Complication:', 'Question:', 'Answer:'. "
+                    f"Be specific and quantitative. No bullet points. No headers."
                 )
             else:
                 prompt = (
@@ -2185,12 +2202,33 @@ If nothing relevant is found for a category, use an empty list."""
             )
             resp = await self.llm_service_agent.generate(req)
             content = (getattr(resp, "content", "") or "").strip()
+
+            # Strip LLM-added preamble before the SCQA (e.g. "# SCQA Narrative: ...")
+            if "Situation:" in content:
+                content = content[content.index("Situation:"):].strip()
+            # Strip LLM artifact metadata appended after the SCQA (e.g. "---\n**VERIFIED_ACTION:** N/A")
+            for _sep in ["\n---", "\n\n---"]:
+                if _sep in content:
+                    content = content[:content.index(_sep)].strip()
+                    break
+
             # Accept only if it looks like a real SCQA (has all 4 labels and no placeholder brackets)
             if (content and "Situation:" in content and "Complication:" in content
                     and "[" not in content and "MISSING" not in content
                     and "please provide" not in content.lower()
                     and "missing" not in content.lower()):
-                return content
+                # For opportunity mode: reject if the LLM slipped into problem framing
+                problem_framing = any(
+                    w in content.lower()
+                    for w in [
+                        "under-performing", "underperforming", "underperformance",
+                        "declined", "decreasing", "falling short",
+                    ]
+                )
+                if analysis_mode == "opportunity" and problem_framing:
+                    self.logger.info("[DA] SCQA LLM returned problem framing for opportunity mode — using deterministic fallback")
+                else:
+                    return content
             self.logger.info("[DA] SCQA LLM returned placeholder/incomplete — using deterministic fallback")
         except Exception as _e:
             self.logger.warning("[DA] SCQA LLM call failed, using deterministic fallback: %s", _e)

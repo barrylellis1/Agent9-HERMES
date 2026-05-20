@@ -146,14 +146,19 @@ export const CouncilDebatePage: React.FC = () => {
       })();
       if (ctxData) setPrincipalContext(ctxData);
 
-      // If debate already ran, restore results from localStorage
-      const saved = localStorage.getItem(`solutions_${situationId}`);
-      if (saved) {
-        const s = JSON.parse(saved);
-        setStageOneHypotheses(s.stage_1_hypotheses || null);
-        setCrossReview(s.cross_review || null);
-        setSynthesis(s);
-        setPhase(4);
+      // Restore cached results only on page refresh (no router state).
+      // On fresh navigation from DeepFocusView, routerState.situation is always set —
+      // in that case always run a new debate so the user sees the full 3-stage flow.
+      const isPageRefresh = !routerState?.situation;
+      if (isPageRefresh) {
+        const saved = localStorage.getItem(`solutions_${situationId}`);
+        if (saved) {
+          const s = JSON.parse(saved);
+          setStageOneHypotheses(s.stage_1_hypotheses || null);
+          setCrossReview(s.cross_review || null);
+          setSynthesis(s);
+          setPhase(4);
+        }
       }
 
       setLoading(false);
@@ -256,10 +261,13 @@ export const CouncilDebatePage: React.FC = () => {
       );
       lastRequestId = s4Result.request_id;
       const finalSol = s4Result.result?.solutions || stageResults[stageResults.length - 1]?.solutions;
+      // In fast mode, cross_review comes from the synthesis call rather than a dedicated stage
+      const effectiveCrossReview = crossReviewData || finalSol?.cross_review || null;
+      if (effectiveCrossReview && !crossReviewData) setCrossReview(effectiveCrossReview);
       const enriched = finalSol ? { ...finalSol } : null;
       if (enriched) {
         if (hyps && !enriched.stage_1_hypotheses) enriched.stage_1_hypotheses = hyps;
-        if (crossReviewData) enriched.cross_review = crossReviewData;
+        if (effectiveCrossReview) enriched.cross_review = effectiveCrossReview;
       }
       setSynthesis(enriched || null);
 

@@ -5,8 +5,11 @@ import {
   ArrowRight,
   ChevronRight,
   ChevronLeft,
+  Database,
   Eye,
+  FileCode2,
   Globe,
+  Layers,
   LineChart,
   Search,
   UserCircle,
@@ -848,7 +851,79 @@ export function HowItWorks() {
       </section>
 
       {/* ═══════════════════════════════════════════
-          7. PIPELINE VISUAL SUMMARY
+          7. DATA CONNECTIVITY
+      ═══════════════════════════════════════════ */}
+      <section className="py-20 px-6">
+        <div className="max-w-4xl mx-auto">
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-60px' }}
+          >
+            <motion.div variants={fadeUp} className="mb-10">
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
+                Your data stays in your warehouse
+              </h2>
+              <p className="text-slate-400 max-w-2xl text-sm leading-relaxed">
+                Decision Studio connects to where your data already lives.
+                No migration, no shadow copies, no rebuilding what you've already built.
+              </p>
+            </motion.div>
+
+            <motion.div variants={fadeUp} className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
+              <div className="rounded-xl border border-slate-700/40 bg-slate-900/60 px-6 py-6">
+                <div className="w-9 h-9 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center mb-4">
+                  <Database className="w-4 h-4" />
+                </div>
+                <p className="text-white text-sm font-semibold mb-2">Direct warehouse connection</p>
+                <p className="text-slate-400 text-sm leading-relaxed">
+                  Native SDK connectors for Snowflake, BigQuery, Databricks, SQL Server,
+                  PostgreSQL, and DuckDB. Your data stays in your warehouse.
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-700/40 bg-slate-900/60 px-6 py-6">
+                <div className="w-9 h-9 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center mb-4">
+                  <Layers className="w-4 h-4" />
+                </div>
+                <p className="text-white text-sm font-semibold mb-2">Works with your semantic layer</p>
+                <p className="text-slate-400 text-sm leading-relaxed">
+                  If you've already built Cortex Analyst views or Databricks Genie Spaces,
+                  Decision Studio routes KPI queries through them. Your business definitions,
+                  our analytics pipeline.
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-700/40 bg-slate-900/60 px-6 py-6">
+                <div className="w-9 h-9 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center mb-4">
+                  <FileCode2 className="w-4 h-4" />
+                </div>
+                <p className="text-white text-sm font-semibold mb-2">Or bring your KPI contracts</p>
+                <p className="text-slate-400 text-sm leading-relaxed">
+                  If you don't have a semantic layer, Decision Studio provides its own KPI
+                  registry and data contract layer. Start without pre-existing infrastructure.
+                </p>
+              </div>
+            </motion.div>
+
+            <motion.div
+              variants={fadeUp}
+              className="rounded-lg border border-slate-700/40 bg-slate-900/60 px-5 py-4"
+            >
+              <p className="text-sm text-slate-400 leading-relaxed">
+                These three modes are not mutually exclusive. A single deployment can use direct
+                SDK connections for transactional data, route through Cortex Analyst for curated
+                metrics, and fall back to Decision Studio's own contracts for KPIs that don't yet
+                live in a semantic layer. The routing is automatic.
+              </p>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════
+          8. PIPELINE VISUAL SUMMARY
       ═══════════════════════════════════════════ */}
       <section className="py-20 px-6 border-t border-slate-800/40">
         <div className="max-w-4xl mx-auto">

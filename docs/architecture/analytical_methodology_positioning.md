@@ -1,6 +1,6 @@
 # Agent9 Analytical Methodology: KT + MBB Architecture
 
-**Last updated:** 2026-03-13
+**Last updated:** 2026-05-20
 **Status:** Positioning & design rationale document
 
 ---
@@ -17,6 +17,16 @@ Diagnose               Prescribe               Measure
 IS / IS NOT            Persona frameworks       Control groups from IS NOT
 Automated, data-driven Expert judgment, LLM     Causal attribution
 ```
+
+**The next evolution — three Analytical Intelligence Layers** extend the architecture from reporting what the data says to reasoning about how much to trust it, how KPIs interact, and how to optimize across them simultaneously:
+
+| Layer | Capability | Agent Owner | Phase |
+|-------|-----------|-------------|-------|
+| **Layer 1 — Statistical Rigor** | Confidence-scored IS/IS NOT; effect size; seasonal decomposition; outlier flagging | DA Agent | Phase 11H |
+| **Layer 2 — Causal KPI Mapping** | KPI interdependency map; cross-KPI conflict detection before solution approval | DGA + DA | Phase 2 (2027) |
+| **Layer 3 — Portfolio Optimization** | Optimal sequencing of concurrent interventions; cross-intervention conflict detection; strategic alignment scoring | Business Optimization Agent | Phase 3 (2028) |
+
+See Section 8 for the full design rationale.
 
 ---
 
@@ -56,6 +66,8 @@ Kepner-Tregoe Problem Analysis asks four questions across two columns:
 | KT struggles with multi-causal problems when multiple changes occur simultaneously | VA Agent reflects this as reduced confidence scoring |
 | KT output is technical, not executive-friendly | LLM narrative generation translates to SCQA framing |
 | KT doesn't assess strategic relevance | VA Strategy Alignment checks whether the problem still matters |
+| **KT reports variance but doesn't say how much to trust it** — a segment delta could be statistical noise, a seasonal artefact, or a single outlier distorting the group mean | **Layer 1 (DA Statistical Enrichment)** — effect size relative to segment weight, seasonal decomposition, confidence scoring. KT's falsifiability principle is only meaningful if the IS/IS NOT distinction itself is statistically significant. |
+| **KT analyses one KPI at a time** — it cannot detect when fixing KPI A degrades KPI B, or when two simultaneously recommended solutions conflict | **Layer 2 (KPI Causal Intelligence)** — interdependency map in DGA; conflict detection before solution approval; strategic alignment scoring across the full KPI portfolio |
 
 ---
 
@@ -243,7 +255,81 @@ This positions Agent9 as the **credible analytical partner** — not a black box
 
 ---
 
-## 8. Implications for the Video / Customer Outreach
+## 8. Analytical Intelligence Layers: The Next Evolution
+
+The KT + MBB + VA architecture established in Sections 2–7 is structurally correct but analytically shallow in two ways that matter for enterprise adoption:
+
+1. **KT IS/IS NOT analysis reports what the numbers say — it doesn't say how much to trust them.** A CDO or FP&A team will immediately ask: is National Auto Parts Chain A's +90bps a statistically robust finding, or is it one large transaction distorting the group mean? Is Service Centers Division's outperformance a structural 12-month trend, or a seasonal artefact? The current architecture has no answer.
+
+2. **Each KPI is analysed in isolation.** Real enterprise KPIs are coupled — Revenue Growth and Gross Margin % are in structural tension; Customer Satisfaction and Cost of Service move together. When SA flags both simultaneously and SF recommends independent solutions, those solutions may partially cancel each other. The current architecture has no mechanism to detect this.
+
+The three Analytical Intelligence Layers address these gaps progressively.
+
+---
+
+### Layer 1 — Statistical Rigor (DA Agent, Phase 11H)
+
+**What it adds to KT:** Statistical evidence behind every IS/IS NOT finding. KT's falsifiability principle — "explain why Region East is affected but Region West isn't" — is only meaningful if the IS vs IS NOT distinction is itself statistically significant.
+
+| Capability | What it produces |
+|-----------|-----------------|
+| **Effect size scoring** | Each segment delta expressed as % of total KPI variance — surfaces which segments actually drive the headline number, not just which have the largest absolute delta |
+| **Seasonal decomposition** | Separates trend + seasonal + residual for segments with ≥12 periods of history. A delta that is structural (trend component) has high replication confidence; one that is seasonal has low confidence |
+| **Confidence-scored IS/IS NOT** | Replaces heuristic `replication_potential` (0–1) with evidence-based score: `effect_size × trend_stability × data_completeness` |
+| **Outlier flagging** | Segments with delta >2σ from peer distribution are flagged — "statistical outlier; interpret with caution" |
+
+**ICP resonance:** CDO and Head of Analytics are the gatekeepers who will challenge any recommendation built on weak statistical ground. Layer 1 converts them from blockers to champions — Decision Studio is now analytically rigorous by their standard.
+
+---
+
+### Layer 2 — Causal KPI Mapping (DGA + DA, Phase 2 — 2027)
+
+**What it adds beyond KT:** Cross-KPI reasoning. Enterprises are complex systems where KPIs interact. The same IS NOT segment that is a healthy control group for Gross Margin % may be an IS segment for a Revenue Growth analysis running simultaneously. Layer 2 maps these relationships.
+
+| Capability | What it produces |
+|-----------|-----------------|
+| **KPI interdependency registry** | Governed in DGA — which KPIs are causally linked, in which direction, with what estimated lag. Populated from business process hierarchy and empirical correlation analysis |
+| **Cross-KPI conflict detection** | Before the CFO approves solutions on two simultaneously flagged KPIs, the system flags: "These two solutions are causally coupled and will partially offset each other — expected net impact is X, not X + Y" |
+| **Strategic alignment scoring** | Maps the portfolio of pending solutions against the client's declared corporate priorities (growth / margin / efficiency weighting). A solution that improves Gross Margin % but degrades Revenue Growth scores low when the declared strategy is "profitable growth" |
+
+**ICP resonance:** CFO and CSO are the primary buyers. The CFO lives in the world of competing KPI trade-offs daily — surfacing these conflicts before approval is a direct pain point solution. The CSO's entire job is managing strategic trade-offs; the interdependency map is their domain.
+
+The most immediately valuable output of Layer 2 is not the full optimization result — it is **conflict detection before approval**. The CFO can see "you are about to approve actions on two causally coupled KPIs that will partially cancel each other out" before committing. No current tool does this.
+
+---
+
+### Layer 3 — Portfolio Optimization (Business Optimization Agent, Phase 3 — 2028)
+
+**What it adds beyond Layer 2:** Full constrained optimization across the enterprise KPI portfolio. Corporate strategy is an optimization problem — given the causal structure of the KPI system and the declared strategic priorities, what is the optimal allocation of management attention and capital across all active situations?
+
+| Capability | What it produces |
+|-----------|-----------------|
+| **Portfolio-level KPI forecasting** | Projected aggregate KPI movement under proposed solution sequence, with uncertainty bands |
+| **Execution sequencing DAG** | Optimal order to execute approved solutions, respecting causal dependencies and interaction effects |
+| **Cross-intervention conflict detection** | Extends Layer 2's pre-approval detection to the full active solution portfolio |
+| **Dimensional targeting** | Solutions targeted at the specific segment coordinates where variance lives — not at the KPI headline |
+
+**The key insight behind Layer 3:** The unit of decision is not the KPI — it is the segment. "Revenue is down 3%" is not actionable. "National Auto Parts Chain A is up 90bps while Manual Gear Oil is down 1.13bps" are two actionable coordinates in the same KPI. Portfolio optimization operates at the segment level and aggregates back to KPI recovery.
+
+**ICP resonance:** CEO and PE-backed CFOs. Their investment thesis is a bet on specific KPI movements within a defined timeframe. Portfolio optimization directly maps to the value creation plan their sponsors are tracking. Enterprise PMO and transformation offices managing 20–40 concurrent initiatives are the user-level stakeholder.
+
+---
+
+### Mixed Analysis Mode: The Natural Completion of KT
+
+A direct consequence of the three-layer model is that the binary problem/opportunity framing is insufficient for real enterprise KPIs.
+
+**KT's IS/IS NOT structure already contains both problem and opportunity information simultaneously.** In a mixed-signal KPI, some segments are lagging (IS — problem coordinates) and some are outperforming (IS NOT — opportunity / replication proof). The current architecture forces a choice between analysing the laggards or the leaders. The correct analysis presents both.
+
+**Mixed mode framing (Phase 11G):**
+
+> "Despite Gross Margin % being 2% below target, Service Centers (+20bps) and National Auto Parts Chain A (+90bps) are outperforming — indicating a deployment gap rather than a market constraint. The question is how to systematically transfer proven mechanics from leading segments to lagging segments."
+
+This is the most executive-natural frame. It is also the most actionable: the leading segments are not a distraction from the problem — they are the answer to it. Decision Studio is the only platform that presents both dimensions in a single coherent narrative because it is the only platform where the analytical framework (KT IS/IS NOT) naturally produces both simultaneously.
+
+---
+
+## 9. Implications for the Video / Customer Outreach
 
 ### The Story Arc
 

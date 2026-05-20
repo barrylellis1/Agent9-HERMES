@@ -174,19 +174,21 @@ for situation in response.situations:
 - Multi-tenant `client_id` support: KPI scan filters by `client_id` from request; passes `client_id` to SA request model
 - BigQuery KPI detection: checks `sql_query`/`calculation` for backtick-qualified table refs; bypasses DuckDB/time_dim path and uses `_bq_apply_period()` for date filtering
 
-## Opportunity Detection (Mar 2026)
+## Opportunity Detection (Mar 2026, updated Phase 11C)
 
 ### Overview
-Alongside problem detection, the agent now detects **positive KPI opportunities** — KPIs that are
-trending significantly better than expected or crossing back above performance thresholds. These
-surface as `OpportunitySignal` objects in `SituationDetectionResponse.opportunities`.
+Alongside problem detection, the agent detects **positive KPI opportunities** — KPIs trending
+significantly better than expected. High-confidence signals (≥ 0.7) are converted to `Situation`
+cards with `direction='up'` via `Situation.from_opportunity_signal()` and appear in the unified
+`situations` list. **`SituationDetectionResponse.opportunities` is always empty as of Phase 11C.**
 
-### Card Type
-`Situation.card_type` distinguishes display intent:
-- `"problem"` (default) — red card in the UI; existing behaviour unchanged.
-- `"opportunity"` — green card; `Situation` objects with this type are now created automatically
-  from `OpportunitySignal` objects with `confidence >= 0.7` via `Situation.from_opportunity_signal()`.
-  These appear as clickable cards in the Decision Studio dashboard alongside problem cards.
+### Direction Field (Phase 11C)
+`Situation.direction` is the canonical signal direction:
+- `'down'` — breach/problem card (red in UI)
+- `'up'` — opportunity/outperformance card (green in UI)
+
+`card_type` (`"problem"` / `"opportunity"`) is retained for backward compatibility but `direction`
+takes precedence in new code.
 
 ### Opportunity Types
 | Type | When fired |
@@ -224,25 +226,18 @@ class OpportunitySignal(BaseModel):
     confidence: float                  # 0.0–1.0
 ```
 
-### `SituationDetectionResponse` — new field
+### `SituationDetectionResponse`
 ```python
 class SituationDetectionResponse(BaseResponse):
-    situations: List[Situation]             # Unchanged — problem cards
-    opportunities: List[OpportunitySignal]  # NEW — opportunity signals (default [])
+    situations: List[Situation]             # unified stream — both problem and opportunity cards
+    opportunities: List[OpportunitySignal]  # DEPRECATED (Phase 11C) — always []
     ...
 ```
 
 ### Design Notes
-- Opportunity detection is additive: problem detection logic is **not** changed.
-- `_detect_opportunities()` is called per-KPI immediately after `_detect_kpi_situations()`.
-- Errors in `_detect_opportunities` are caught and logged at WARNING level — they never
-  interrupt the main problem-detection pipeline.
-- Directional awareness: inverse-logic KPIs (lower is better, e.g. COGS) use inverted
-  comparison logic so "doing better" always maps to a positive `delta_pct`.
-
-## Phase 8 Update (Mar 2026)
-- `Situation.from_opportunity_signal(signal, kpi_value)` classmethod added to `situation_awareness_models.py` — converts an `OpportunitySignal` with `confidence >= 0.7` into a `Situation` with `card_type="opportunity"`, dedupe key `opp_{kpi_name}_{opportunity_type}`, and severity mapped from opportunity type (`outperformance` → HIGH, `recovery` → MEDIUM, `trend_reversal` → LOW).
-- SA agent `detect_situations` now appends these opportunity Situations to the main situations list after each per-KPI opportunity scan.
+- `_detect_opportunities()` still runs per-KPI; high-confidence results become `Situation` cards with `direction='up'`.
+- `opportunities` field in the response is always `[]` — consumers should read `situations` only.
+- Situations sorted: severity desc, then `abs(percent_change)` desc within each severity bucket.
 
 ## Monthly Series for Trend Visualization (Apr 2026)
 - `_bq_monthly_series_sql(base_sql, date_col, num_months=9)` — generates BigQuery SQL returning monthly aggregates for the last N months

@@ -1,7 +1,7 @@
 # Decision Studio: AI-Powered Decision Intelligence
 
 ## One-Page Executive Summary
-**Last Updated:** May 2026
+**Last Updated:** 2026-05-20
 
 ---
 
@@ -65,6 +65,8 @@ The result: mid-market executives ($50M–$500M revenue) make critical decisions
 └─────────────────────────────────────────────────────────┘
 ```
 
+**Analytical Intelligence Roadmap:** Three layers extend the platform from reporting what the data says to reasoning about how much to trust it and how KPIs interact. **Layer 1** (Phase 11H): statistical confidence scoring on every IS/IS NOT finding — effect size, seasonal decomposition, outlier detection. Answers the CDO's first challenge: "is this variance statistically significant, or is it noise?" **Layer 2** (Phase 2, 2027): KPI causal mapping — detects when two simultaneously recommended solutions will partially cancel each other before the CFO approves both. **Layer 3** (Phase 3, 2028): portfolio optimization across coupled KPIs aligned to declared corporate strategy.
+
 *Note: The mid-tier consulting firm partnership model (encoded methodology + Decision Studio pipeline = joint product) is a Year 3+ roadmap item; MBB engagement deferred to Year 4+. The moat is the SA→DA→MA→SF→VA pipeline + Registry + VA outcome corpus — not data connectivity. Vendor semantic layers (Snowflake Cortex Analyst, Databricks Genie) commoditize the connectivity layer; Decision Studio adapts to them via a three-tier connectivity model (native SDK / vendor MCP / vendor AI agent).*
 
 ---
@@ -83,6 +85,8 @@ The result: mid-market executives ($50M–$500M revenue) make critical decisions
 | ROI validation (post-implementation) | ✅ | ❌ | ❌ |
 | Post-decision ROI tracking | ✅ (trajectory chart) | ❌ | ❌ |
 | Opportunity detection (positive KPI) | ✅ | ⚠️ (ad hoc) | ❌ |
+| Statistical confidence on findings | ✅ (roadmap L1) | ⚠️ (manual) | ❌ |
+| Cross-KPI conflict detection | ✅ (roadmap L2) | ⚠️ (manual) | ❌ |
 
 ---
 
@@ -186,7 +190,10 @@ The result: mid-market executives ($50M–$500M revenue) make critical decisions
 - Demo video + landing page (trydecisionstudio.com): Q2 2026
 - Infrastructure hardening for pilot (Infra A4 registry live-reload, SQL Server production, Infra B Supabase Auth + multi-tenant isolation): May–Aug 2026
 - First pilot signed: September 2026
+- DA Mixed Analysis Mode (Phase 11G) — unified IS/IS NOT view for mixed-signal KPIs: H2 2026
+- Layer 1: DA Statistical Enrichment — confidence-scored IS/IS NOT, effect size, seasonal decomposition (Phase 11H): H2 2026
 - 5 customers, $250K ARR: December 2027
+- Layer 2: KPI Causal Intelligence — cross-KPI conflict detection, strategic alignment (Phase 2): 2027
 
 ---
 

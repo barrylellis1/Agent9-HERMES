@@ -1,12 +1,12 @@
 # Agent9-HERMES Development Plan
 
 **Created:** 2026-03-14
-**Last updated:** 2026-04-23
+**Last updated:** 2026-05-20
 **Status:** Active
 
 ---
 
-## Where We Are — April 2026
+## Where We Are — May 2026
 
 ### Pipeline status: fully operational end-to-end
 
@@ -46,39 +46,50 @@ run_enterprise_assessment.py
 | Decision Studio UI (React/Vite/Tailwind, Swiss Style) | Production-ready |
 | Supabase-backed registries (6 registries) | Production-ready |
 | DuckDB + BigQuery + SQL Server + Snowflake + PostgreSQL data sources | Production-ready |
-| Production deployment (Railway + Vercel + Supabase Cloud) | Live (deployed Mar 2026) |
+| Production deployment (Railway + Cloudflare Pages + Supabase Cloud) | Live (Cloudflare Pages since Apr 2026, replaces Vercel) |
 | SF fast debate mode (2 calls dev / 4 calls production) | Production-ready |
+| Opportunity framing — SF Council Debate + VA lifecycle (positive KPI) | Production-ready |
+| KPI Accountability Registry — dimensional ownership, Supabase-backed, REST API, Registry Explorer tab | Partial (Phase 11A) — PIB filtering + unit tests not yet written |
+| Unified situation stream — direction field replaces problem/opportunity binary; single grid | Production-ready (Phase 11C) |
+| Infra A4 — per-request registry refresh, client_id enforcement on all list endpoints, /admin/registry/reload, connection health dashboard | Production-ready |
+| Infra B — connection profiles backend storage + credential encryption (AES-256 at rest) | Production-ready |
+| Infra B — Supabase Auth dual-mode login (demo selector + email/password), backend JWT middleware | Production-ready |
 
 ### What's not built yet
 
 | Capability | Planned phase |
 |-----------|--------------|
-| DGA mandatory wiring — test suite (happy path, init failure, view resolution) | Phase 10B-DGA tests |
+| ~~DGA mandatory wiring — test suite (happy path, init failure, view resolution)~~ | ✅ Phase 10B-DGA tests — complete (5 tests, May 2026) |
 | KPI trend chart (monthly_values populated for all backends) | Phase 10D |
-| KPI accountability registry (dimensional ownership) | Phase 11A |
+| ~~KPI accountability registry~~| ✅ Phase 11A — complete (registry, API, PIB filter, SA filter, 5 unit tests) |
 | LLM-assisted accountability import from HCM documents | Phase 11B |
-| Unified situation stream (merge problem + opportunity) | Phase 11C |
+| ~~Unified situation stream (merge problem + opportunity)~~ | ✅ Phase 11C — complete |
 | Adaptive calibration loop (KPI Assistant → monitoring profiles) | Phase 11D |
 | Audio briefings (TTS flash briefing) | Phase 11E |
 | DA market signal conflict detection (outperforming / confirming / missing tailwinds) | Phase 11F |
+| DA Mixed Analysis Mode — single IS/IS NOT view with both problem segments (red) and opportunity segments (green); mixed SCQA narrative; DA determines framing from segment variance, not SA | Phase 11G |
+| DA Statistical Enrichment — effect size relative to segment weight, seasonal decomposition (structural vs cyclical), confidence scoring on IS/IS NOT items; replaces heuristic replication_potential with evidence-based scores (Analytical Intelligence Layer 1) | Phase 11H |
+| KPI Causal Intelligence — KPI interdependency map in DGA; cross-KPI conflict detection before solution approval; strategic alignment scoring against declared corporate priorities (Analytical Intelligence Layer 2) | Phase 2 (2027) |
+| Business Optimization Agent — portfolio-level optimization across coupled KPIs; cross-intervention conflict detection; execution sequencing; strategic alignment (Analytical Intelligence Layer 3) | Phase 3 (2028) |
 | Business Optimization workflow (top-down strategic) | Phase 12 |
 | KPI Assistant UI | Phase 12 |
 | Slack notifications | Phase 12 |
 | Platform Admin & Client Onboarding (4-step guided flow) | Infra A2 |
 | Usage monitoring (events, quotas, alerts) | Infra A3 |
-| Registry client-isolation enforcement (🔴 CRITICAL — Context Explorer + all `/api/v1/registry/*` endpoints leaking cross-tenant data) | Infra A4 |
-| Connection Profiles backend storage + per-client tenancy + credential encryption (🔴 SECURITY — currently browser localStorage with no tenant scope) | Infra B |
-| Authentication (Supabase Auth) | Infra B |
+| Admin Console — Workflow history, error log, token cost, registry editor, LLM config | Infra A5 |
+| ~~Registry client-isolation enforcement~~ | ✅ Infra A4 — complete (per-request refresh, strict client_id filter, reload endpoint, health dashboard) |
+| ~~Connection Profiles backend storage + credential encryption~~ | ✅ Infra B — complete |
+| ~~Authentication (Supabase Auth)~~ | ✅ Infra B — complete (dual-mode login + JWT middleware) |
 | Azure OpenAI provider + LLM audit export | Infra B2 |
-| Multi-tenant isolation | Infra B |
+| Multi-tenant isolation — DGA `validate_data_access()` stub (always-true); full enforcement deferred | Infra B (DGA-B) |
 
 ### Known tech debt (remaining)
 
 | Item | Notes |
 |------|-------|
-| `situations` table partially redundant with `kpi_assessments` | Deprecation deferred — used by VA pipeline. Consolidate in Phase 11A. |
-| `kpisScanned={14}` hardcoded in `DecisionStudio.tsx` | Wire real count from assessment API in Phase 11C |
-| Separate `OpportunitySignal` / `Situation` models | Unify in Phase 11C |
+| `situations` table partially redundant with `kpi_assessments` | Deprecation deferred — used by VA pipeline. Consolidate in Phase 11A. (11A shipped; consolidation still pending.) |
+| ~~`kpisScanned={14}` hardcoded in `DecisionStudio.tsx`~~ | ✅ Wired in Phase 11C |
+| ~~Separate `OpportunitySignal` / `Situation` models~~ | ✅ Unified in Phase 11C |
 | `run_enterprise_assessment.py` has no scheduler | CLI only — scheduler deferred |
 | ~~SA/PCA/DPA agents cache registry data at startup~~ | ✅ **Resolved May 2026 (Infra A4-a Approach A)** — per-request refresh added to `detect_situations`, `process_nl_query`, `get_kpi_definitions`, `get_principal_context_by_id`, `get_principal_context`, `get_data_product`, `generate_sql_for_kpi`. Regression test: `tests/unit/test_a9_registry_live_reload.py` (7 tests). Optional Approach B refactor (true per-request locals) deferred. |
 
@@ -87,7 +98,8 @@ run_enterprise_assessment.py
 ## Architecture decisions (non-negotiable)
 
 - **SA = sensor** — detects KPI movements, no problem/opportunity labeling
-- **DA = analyst** — determines framing (problem vs opportunity) from IS/IS NOT
+- **DA = analyst + framer** — determines analysis_mode from segment variance structure, not SA. Mixed mode (both problem and opportunity segments present) is the normal enterprise state; pure problem / pure opportunity are edge cases.
+- **Unit of decision is the segment, not the KPI headline** — DA's IS/IS NOT produces dimensional coordinates; SF targets solutions at those coordinates; VA validates recovery at segment level before aggregating to KPI
 - **Assessment runs are client-scoped** — one enterprise scan per client, all principals read from it
 - **KPI accountability is dimensional** — principals own KPIs at their scope of control (enterprise, region, LOB); same KPI can belong to multiple principals at different scopes
 - **No snooze/hide preference layer** — correct signal routing eliminates noise at source
@@ -276,13 +288,13 @@ Agent9 connects to customer data warehouses at three progressive levels of integ
 
 **DGA-B: DEFERRED** — `validate_data_access()` stays always-true stub. No real tenants → no cross-client risk. Revisit with Infra B (multi-tenant isolation, pre-Sep 2026).
 
-**Remaining (Step 3 — tests):**
-No DGA-specific test file exists. Three tests needed:
-1. Mandatory DGA path happy path (SA `process_nl_query` with DGA wired → succeeds)
-2. DGA init failure → clean `RuntimeError` (not `AttributeError`)
-3. View name resolution through DGA in DPA `_get_view_name_from_kpi`
-
-**Test file to create:** `tests/unit/test_a9_data_governance_wiring.py`
+**Step 3 — tests: ✅ COMPLETE (May 2026)**
+`tests/unit/test_a9_data_governance_wiring.py` — 5 tests, all passing:
+1. SA `process_nl_query` raises `RuntimeError` (not `AttributeError`) when DGA not wired
+2. SA `process_nl_query` calls `translate_business_terms` when DGA wired
+3. DPA `_get_view_name_from_kpi` raises `RuntimeError` when DGA not wired
+4. DPA `_get_view_name_from_kpi` resolves view name through DGA when wired
+5. DA `plan_deep_analysis` returns `status="error"` with DGA message when not wired
 
 ---
 
@@ -331,21 +343,38 @@ No DGA-specific test file exists. Three tests needed:
 
 **Goal:** Complete the architectural model that makes signal routing correct by construction. Five independent sub-phases — build in any order.
 
-#### 11A: KPI Accountability Registry ← NEXT
+#### 11A: KPI Accountability Registry ✅ COMPLETE (May 2026)
 
 **Goal:** Principals own KPIs at the scope of their control. The registry expresses this dimensionally — routing is correct by construction, not patched with filters.
 
-**Why now:** Phase 11A tech debt is already cleaned (assessment runs client-scoped, snooze removed, `get_latest_run` fixed). The next step is the accountability registry that makes per-principal PIB filtering accurate.
+**Delivered:**
+- `kpi_accountability` Supabase table + migration; singleton-accountable-per-scope constraint
+- `KPIAccountability` Pydantic model + `AccountabilityRole` enum
+- `KPIAccountabilityProvider`: asyncpg-backed, strict `client_id` scoping
+- REST API: `GET/POST/DELETE /api/v1/accountability/` (list, by-principal, by-KPI)
+- Seed data: 19 assignments mapping 15 lubricants KPIs to 4 principals
+- `onboard_client.py` step 7 upserts ACCOUNTABILITY when module exports it
+- Registry Explorer: read-only Accountability tab (scope badges, role badges)
 
 | Deliverable | Description |
 |------------|-------------|
-| `KPIAccountability` Pydantic model | `kpi_id`, `principal_id`, `scope_dimension` (optional), `scope_value` (optional), `role` (accountable/responsible) |
-| Supabase migration | `kpi_accountability` table; max 1 accountable per KPI per scope |
-| Seed lubricants data | Map 15 lubricants KPIs to 4 principals with correct enterprise/LOB scopes |
-| PIB uses accountability registry | `_populate_situations` filters `kpi_assessments` by principal's accountability assignments rather than all situations |
-| Admin UI — accountability view | Read-only list in Registry Explorer to start; editable later |
+| `KPIAccountability` Pydantic model | ✅ `kpi_id`, `principal_id`, `scope_dimension` (optional), `scope_value` (optional), `role` (accountable/responsible) |
+| Supabase migration | ✅ `kpi_accountability` table; max 1 accountable per KPI per scope |
+| Seed lubricants data | ✅ 19 assignments mapping 15 lubricants KPIs to 4 principals |
+| PIB uses accountability registry | ✅ `_populate_situations` filters assessments to accountable KPIs; fallback to all when no assignments exist |
+| SA uses accountability registry | ✅ `detect_situations` loads assignments; `_get_relevant_kpis` restricts KPI scan scope — fewer SQL queries + LLM calls per interactive scan |
+| Admin UI — accountability view | ✅ Read-only Accountability tab in Registry Explorer (scope + role badges) |
+| Unit tests | ✅ `tests/unit/test_kpi_accountability_wiring.py` — 5 tests (PIB filter, PIB fallback, PIB resilience, SA restrict, SA no-filter) |
 
-#### 11B: LLM-Assisted Accountability Import
+#### 11A-ext: Opportunity Framing — SF + VA Agents ✅ COMPLETE (May 2026)
+
+Complementary to Phase 11C unified stream. SF Council Debate and VA lifecycle now handle positive KPI direction (opportunity cards) with appropriate framing — debate personas frame options as "capture and replicate" rather than "fix and recover"; VA trajectory chart and phase lifecycle apply to opportunity solutions with inverted direction logic.
+
+- DA POA: corrected IS/IS NOT framing and SCQA narrative for opportunity cards (positive KPI outperformance)
+- SF: opportunity context propagated through council debate; option generation framed for capture/expansion
+- VA: opportunity solutions register with baseline, projections, and trajectory tracking — same 5-phase lifecycle
+
+#### 11B: LLM-Assisted Accountability Import ← NEXT
 
 **Goal:** Solve the enterprise cold-start problem — extract KPI accountability from HCM documents rather than requiring manual entry.
 
@@ -357,16 +386,16 @@ No DGA-specific test file exists. Three tests needed:
 | Admin confirmation UI | Present extracted assignments; accept / adjust / reject before writing to registry |
 | Conflict detection | Flag KPI assigned to >3 principals without dimensional scoping |
 
-#### 11C: Unified Situation Stream
+#### 11C: Unified Situation Stream ✅ COMPLETE (May 2026)
 
 **Goal:** Remove the artificial problem/opportunity split. One stream, direction determines framing.
 
 | Deliverable | Description |
 |------------|-------------|
-| Single situation grid | Remove separate opportunity section; one grid sorted by `abs(percent_change)` |
-| Direction-agnostic SA | Unified `situations[]`; deprecate `OpportunitySignal` model |
-| `card_type` → `direction` | Replace binary problem/opportunity with `up`/`down` direction field |
-| Wire `kpi_evaluated_count` | Replace hardcoded `kpisScanned={14}` with real count from assessment API |
+| Single situation grid | ✅ Separate opportunity section removed; one grid sorted by `abs(percent_change)` |
+| Direction-agnostic SA | ✅ Unified `situations[]`; `OpportunitySignal` model deprecated |
+| `card_type` → `direction` | ✅ Binary problem/opportunity replaced with `up`/`down` direction field |
+| Wire `kpi_evaluated_count` | ✅ Hardcoded `kpisScanned={14}` replaced with real count from assessment API |
 
 #### 11D: Adaptive Calibration Loop
 
@@ -408,6 +437,43 @@ No DGA-specific test file exists. Three tests needed:
 | Conflict badge in UI | Optional — small badge in DA view: "Outperforming market" / "Underperforming tailwind" / "Confirming market" |
 
 **Prerequisite:** Phase 11C (unified situation stream) — direction is cleanly expressed as `percent_change` + `inverse_logic` by then, making conflict detection straightforward.
+
+---
+
+#### 11G: DA Mixed Analysis Mode
+
+**Goal:** Remove the artificial binary problem/opportunity framing. A single DA run surfaces both lagging segments (problem coordinates) and leading segments (opportunity coordinates) in one unified IS/IS NOT exhibit. SA's `direction` field is input signal only — DA determines framing from the segment variance structure it observes.
+
+**Why this matters:** Mixed-signal KPIs — where the aggregate is slightly off-target but contains both outperforming and underperforming segments simultaneously — are the dominant enterprise case, not the edge case. The current binary model forces an artificial choice.
+
+| Deliverable | Description |
+|------------|-------------|
+| DA `analysis_mode='mixed'` detection | After IS/IS NOT query: if both significant positive and negative segment deltas exist, auto-set `analysis_mode='mixed'`. Thresholds: ≥1 segment with delta > +threshold AND ≥1 segment with delta < -threshold. |
+| Mixed IS/IS NOT response model | `KTIsIsNot` extended: `problem_segments` (red, negative delta), `opportunity_segments` (green, positive delta), `mixed_framing: bool` flag on `DeepAnalysisResponse` |
+| Mixed SCQA prompt | Narrative frame: "Despite [KPI] being [X% off target], [leading segments] are outperforming — indicating a deployment gap rather than a market constraint. The question is how to replicate the proven mechanics while correcting the lagging segments." |
+| `IsIsNotExhibit` mixed render | Single exhibit: problem segments rendered red (existing), opportunity segments rendered green (existing) — no mode switch needed. Header badge: "Mixed Signal — problem + opportunity detected" |
+| SF mixed context | SF receives `mixed_framing=True` in DA output; debate personas frame options as "fix-and-replicate" combinations spanning the trade-off space |
+| VA mixed tracking | Track aggregate KPI recovery; segment-level breakdown shows problem segment improvement AND opportunity segment maintenance in portfolio view |
+
+**Reference design:** `docs/architecture/da_mixed_analysis_mode.md`
+
+---
+
+#### 11H: DA Statistical Enrichment (Analytical Intelligence Layer 1)
+
+**Goal:** Ground IS/IS NOT findings in statistical evidence. Confidence scores on segment variance replace heuristic `replication_potential` scores. SA threshold breach is flagged as statistically significant or noise before DA runs.
+
+**Why this matters:** A data scientist would ask: is National Auto Parts Chain A's +90bps variance statistically significant, or is it one contract distorting the mean? Is Service Centers' outperformance structural (12-month trend) or seasonal? DA currently reports what the numbers say; it should also say how much to trust them.
+
+| Deliverable | Description |
+|------------|-------------|
+| Segment effect size | Compute each IS/IS NOT delta as % of total KPI variance (weight-adjusted), not raw delta — surfaces which segments actually drive the headline number |
+| Seasonal decomposition | For segments with ≥12 periods of data: decompose into trend + seasonal + residual. Flag if current delta is seasonal (low replication confidence) vs structural (high confidence) |
+| Variance significance scoring | Replace heuristic `replication_potential` (0–1) with evidence-based score: `effect_size_pct × trend_stability × data_completeness`. Display as confidence band in UI |
+| Outlier detection | Flag segments where delta is >2σ from peer distribution — "This segment is a statistical outlier; interpret with caution" |
+| DA context enrichment | Statistical scores injected into SF context: "Service Centers Division: structural trend, 0.92 replication confidence" vs "National Auto Parts Chain A: potential outlier, 0.41 confidence" |
+
+**Prerequisite:** ≥12 months of segment-level data for decomposition. Short-history KPIs get effect size and significance only.
 
 ---
 
@@ -1314,6 +1380,52 @@ RUN apt-get update && apt-get install -y curl gnupg \
 6. Deploy updated Dockerfile → verify hess SA scan returns situations in production
 
 **Priority:** After Infra A4 registry live-reload. Before first SQL Server pilot customer.
+
+---
+
+### Infra A5: Admin Console — Operational Intelligence
+
+**Goal:** Give a platform admin or IT admin visibility into what the system is doing, what it's costing, and where it's failing — without requiring Railway log access or running scripts. Sequenced after the UI Refinement Track; not a pilot blocker but needed before commercial scale.
+
+**When:** Post-pilot (Q1 2027). Prerequisite: Infra A3 `usage_events` table must exist first.
+
+**Implementation note:** All functions here are simple FastAPI routes + Supabase reads/writes. No agent protocol, no Pydantic A2A models. Data already exists in `_workflow_store`, LLM response `usage` dicts, and the DPA's SQL execution path — this phase is about surfacing it.
+
+---
+
+#### Tier 1 — Operational Confidence (build first)
+
+| Deliverable | Data source | Description |
+|------------|-------------|-------------|
+| **Workflow Run History** | `_workflow_store` (in-memory, `workflows.py`) | Table of every SA/DA/SF/VA run: status, duration, principal, timestamp, situation ID. Filter by client, date range, workflow type. Click-through shows full result payload. Requires persisting `_workflow_store` to Supabase (currently in-memory only). |
+| **Error Log** | `_workflow_store.error` + new `workflow_errors` Supabase table | Agent errors, LLM failures, workflow exceptions with context: which agent, which workflow, which KPI. Shows the last 100 errors; filter by severity. Currently visible only in Railway logs. |
+| **Token Usage & Cost Monitor** | `A9_LLM_Response.usage` dict (already present on every LLM call) | Per-client, per-model, per-task-type token breakdown. Running cost estimate using published token pricing. Daily trend sparkline. Requires a fire-and-forget write to `llm_usage_log` Supabase table in `A9_LLM_Service_Agent.generate()` — one line change. Extends Infra A3 `usage_events`. |
+
+#### Tier 2 — Configuration (reduces operational burden)
+
+| Deliverable | Data source | Description |
+|------------|-------------|-------------|
+| **Registry Editor** | Existing `/api/v1/registry/` endpoints | Full CRUD UI for KPIs, data products, business processes, principals. Currently a placeholder "coming soon" in Admin Console. Routes exist; this is a UI-only build against existing API surface. |
+| **LLM Configuration** | New `llm_config` Supabase table per client | Model selection per task type (Stage 1, Synthesis, Narrative); consistency slider mapped to temperature presets (Consistent 0.1 / Balanced 0.3 / Exploratory 0.7). BYOM API key entry field. Reads from `DEFAULT_CLAUDE_TASK_MODELS` and `create_claude_service_for_task()` in `src/llm_services/claude_service.py` — those per-task defaults already exist but are not wired to a UI or env-var override path. |
+| **Client/Tenant Management** | Supabase `business_context` + all registry tables | Add/remove clients, view per-client KPI/principal/data product counts, trigger a dry-run SA scan to validate pipeline. Currently requires running seed scripts manually. Extends Infra A2 Platform Admin flow. |
+
+#### Tier 3 — Diagnostic Tools (post-scale)
+
+| Deliverable | Data source | Description |
+|------------|-------------|-------------|
+| **SQL Monitor** | New `sql_execution_log` Supabase table | Every `execute_sql()` call in DPA logged: data product, query (truncated), execution time, row count, error if any. Useful for debugging KPI data issues without BigQuery/DuckDB console access. |
+| **Agent Health** | Orchestrator `list_agents()` + last-activity timestamps | Connected agents, dependency graph status, last successful call per agent. More useful for debugging than for customers; include in platform admin view only. |
+| **Assessment Scheduler** | New `assessment_schedules` Supabase table | Configure automated SA runs (daily/weekly/threshold-triggered) per client. Currently only `run_enterprise_assessment.py` CLI. Scheduler calls the existing `/api/v1/assessments/` route on a cron. |
+| **Audit Log** | New `audit_events` Supabase table | Who ran what, approved what solution, delegated what briefing, and when. Append-only. Enterprise compliance requirement; collect now, surface later. |
+
+#### Implementation sequencing
+
+1. **Persist `_workflow_store` to Supabase** — prerequisite for Workflow Run History. The in-memory store is lost on every Railway restart; this is the single biggest operational gap.
+2. **Add `llm_usage_log` write in `generate()`** — one-line change; unlocks Token Usage Monitor.
+3. **Build Registry Editor UI** — highest visible impact; the placeholder is prominent in the demo.
+4. **Workflow Run History + Error Log panels** — operational confidence for the first paying customer.
+5. **LLM Configuration screen** — needed once BYOM is a selling point.
+6. **Tier 3 tools** — build as customer demand surfaces the need.
 
 ---
 

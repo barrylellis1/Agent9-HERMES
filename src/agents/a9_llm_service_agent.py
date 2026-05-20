@@ -650,9 +650,16 @@ class A9_LLM_Service_Agent:
                     confidence=0.0
                 )
             
-            # Parse JSON response
+            # Parse JSON response — strip markdown fences first (Haiku sometimes wraps ```json...```)
             try:
-                analysis_data = json.loads(response.content)
+                _raw = response.content.strip()
+                if _raw.startswith("```"):
+                    _lines = _raw.split("\n")
+                    _end = len(_lines) - 1
+                    while _end > 1 and not _lines[_end].strip().startswith("```"):
+                        _end -= 1
+                    _raw = "\n".join(_lines[1:_end])
+                analysis_data = json.loads(_raw)
                 confidence = analysis_data.get("confidence", 0.85)  # Default if not provided
             except json.JSONDecodeError:
                 # Fallback if response is not valid JSON

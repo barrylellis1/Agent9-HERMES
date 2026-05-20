@@ -176,6 +176,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
         <IsIsNotExhibit
           data={currentAnalysis.kt_is_is_not}
           kpiName={situation.kpi_name}
+          isOpportunity={situation.direction === 'up' || situation.card_type === 'opportunity'}
         />
       </div>
     );
@@ -310,17 +311,23 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
 
                 {/* Replication Targets — separate accordion section */}
                 {currentAnalysis?.kt_is_is_not?.benchmark_segments && currentAnalysis.kt_is_is_not.benchmark_segments.length > 0 && (() => {
+                  const isOpportunity = situation.direction === 'up' || situation.card_type === 'opportunity';
                   const benchmarks = currentAnalysis.kt_is_is_not.benchmark_segments.filter((s: any) => s.benchmark_type === 'internal_benchmark');
                   const controls = currentAnalysis.kt_is_is_not.benchmark_segments.filter((s: any) => s.benchmark_type === 'control_group');
                   return benchmarks.length > 0 || controls.length > 0 ? (
                     <AccordionSection
                         id="replication-targets"
-                        title="Replication Targets"
+                        title={isOpportunity ? "Success Blueprints" : "Replication Targets"}
                         icon={<TrendingUp className="w-4 h-4 text-green-400" />}
-                        summary={`${benchmarks.length} internal benchmark${benchmarks.length === 1 ? '' : 's'}`}
+                        summary={`${benchmarks.length} ${isOpportunity ? 'leading segment' : 'internal benchmark'}${benchmarks.length === 1 ? '' : 's'}`}
                     >
                       <div className="bg-slate-900/50 border border-green-500/20 rounded-xl p-6">
-                        <p className="text-xs text-slate-500 mb-4">These segments are outperforming the KPI target — internal proof that the gap is closeable.</p>
+                        <p className="text-xs text-slate-500 mb-4">
+                          {isOpportunity
+                            ? "These leading segments have proven the margin-expansion playbook — replicate their approach across the portfolio."
+                            : "These segments are outperforming the KPI target — internal proof that the gap is closeable."
+                          }
+                        </p>
                         {benchmarks.length > 0 && (
                           <div className="space-y-2 mb-4">
                             {benchmarks.map((seg: any, i: number) => (

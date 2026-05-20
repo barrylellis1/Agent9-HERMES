@@ -413,7 +413,8 @@ export async function runDeepAnalysis(
   kpiName: string,
   principalId: string = 'cfo_001',
   timeframe?: string,
-  analysisMode?: 'problem' | 'opportunity'
+  analysisMode?: 'problem' | 'opportunity',
+  clientId?: string
 ) {
     // 1. Trigger the workflow
     const body: Record<string, any> = {
@@ -423,6 +424,7 @@ export async function runDeepAnalysis(
       include_supporting_evidence: true,
     };
     if (analysisMode) body.analysis_mode = analysisMode;
+    if (clientId) body.client_id = clientId;
     const runResponse = await fetch(`${API_BASE}/workflows/deep-analysis/run`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
