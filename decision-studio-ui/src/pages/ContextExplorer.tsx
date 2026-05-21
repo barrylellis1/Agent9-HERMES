@@ -13,6 +13,7 @@ import {
   listBusinessProcesses,
   listKpis,
   listDataProducts,
+  listAccountabilities,
 } from '../api/client'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -173,6 +174,8 @@ export function ContextExplorer() {
   const [businessProcesses, setBusinessProcesses] = useState<any[]>([])
   const [kpis, setKpis] = useState<any[]>([])
   const [dataProducts, setDataProducts] = useState<any[]>([])
+  // accountability: Map<principal_id, Set<kpi_id>>
+  const [accountabilityMap, setAccountabilityMap] = useState<Map<string, Set<string>>>(new Map())
 
   // Selections
   const [selectedPrincipal, setSelectedPrincipal] = useState<string | null>(null)
@@ -193,12 +196,20 @@ export function ContextExplorer() {
       listBusinessProcesses(activeClientId),
       listKpis(activeClientId),
       listDataProducts(activeClientId),
+      activeClientId ? listAccountabilities(activeClientId) : Promise.resolve([]),
     ])
-      .then(([p, bp, k, dp]) => {
+      .then(([p, bp, k, dp, acc]) => {
         setPrincipals(p)
         setBusinessProcesses(bp)
         setKpis(k)
         setDataProducts(dp)
+        // Build Map<principal_id, Set<kpi_id>> from accountability records
+        const map = new Map<string, Set<string>>()
+        for (const record of acc as any[]) {
+          if (!map.has(record.principal_id)) map.set(record.principal_id, new Set())
+          map.get(record.principal_id)!.add(record.kpi_id)
+        }
+        setAccountabilityMap(map)
       })
       .catch((err) => setError(err.message ?? 'Failed to load registry data'))
       .finally(() => setLoading(false))
@@ -215,10 +226,7 @@ export function ContextExplorer() {
   const filteredKPIs = selectedBP
     ? kpis.filter((k) => k.business_process_ids?.includes(selectedBP))
     : selectedPrincipal
-    ? kpis.filter((k) => {
-        const principal = principals.find((p) => p.id === selectedPrincipal)
-        return principal?.kpis?.includes(k.id)
-      })
+    ? kpis.filter((k) => accountabilityMap.get(selectedPrincipal)?.has(k.id))
     : kpis
 
   const filteredDPs = selectedKPI
