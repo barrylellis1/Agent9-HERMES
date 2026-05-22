@@ -70,6 +70,7 @@ export interface IsIsNotItem {
   previous: number;
   delta: number;
   text?: string;
+  segment_type?: 'problem' | 'opportunity';
 }
 
 export interface BenchmarkSegment {
@@ -100,6 +101,7 @@ export interface DeepAnalysisExecution {
   when_started?: string;
   plan?: any;
   kpi_name?: string;
+  analysis_mode?: 'problem' | 'opportunity' | 'mixed';
 }
 
 export interface DeepAnalysisResult {

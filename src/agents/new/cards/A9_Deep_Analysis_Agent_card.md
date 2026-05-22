@@ -155,6 +155,50 @@ via `_merge_refinements()` before calling `_generate_refinement_question()`. Thi
 refinement LLM sees real external market signals in its system prompt for the `external_context`
 topic, generating targeted follow-up questions rather than generic open-ended ones.
 
+## Phase 11G — Mixed Analysis Mode (May 2026)
+
+DA now self-determines its `analysis_mode` after the dimension loop, rather than blindly propagating the caller's hint.
+
+### Three-value enum
+| Value | Meaning |
+|---|---|
+| `"problem"` | ≥80% of top-5 items are problem-direction (underperformers) |
+| `"opportunity"` | ≥80% of top-5 items are healthy-direction (outperformers) |
+| `"mixed"` | Neither direction dominates; both problems and opportunities present |
+
+### Tunable constant
+`_MIXED_MODE_PURITY_THRESHOLD = 0.80` — module-level constant. Adjust to change how pure a result set must be before DA declares a single mode.
+
+### `_infer_analysis_mode()` method
+- Called after the dimension loop; receives raw `_all_problem_items` and `_all_healthy_items` accumulators
+- `n_prob = min(len(problem_items), top_n)`, `n_heal = min(len(healthy_items), top_n)`
+- `n_prob / total ≥ 0.80` → "problem"; `n_heal / total ≥ 0.80` → "opportunity"; else "mixed"
+- Falls back to `caller_hint` when `total == 0`
+- Caller hint (`DeepAnalysisRequest.analysis_mode`) is still accepted and used as tiebreaker on empty data
+
+### Mixed IS/IS NOT layout
+In mixed mode, `where_is` is merged (problem + opportunity items) and sorted by `abs(delta)`. `where_is_not` is emptied — no neutral middle in MVP. Every item carries `segment_type` ("problem" or "opportunity") set at collection time, before the reshuffling step.
+
+### Benchmark classification in mixed mode
+`_classify_benchmark_segments()` receives only the opportunity-tagged items from `where_is` (filtered by `segment_type == "opportunity"`), so benchmarks represent replication candidates even when the IS list contains a mix.
+
+### Mixed SCQA
+- **Fallback**: Bifurcated complication naming both lag segments and outperformers; dual question (fix + replicate); dual answer.
+- **LLM prompt**: FRAMING RULES instruct the model to name both drag and opportunity, ask how to fix AND replicate, answer with both a recovery and a replication action.
+- **Framing guard**: In mixed mode the LLM-response problem-framing rejection is skipped (both languages are acceptable).
+
+### Framing table (updated)
+| Mode | IS | IS NOT | SCQA answer |
+|---|---|---|---|
+| Problem (PA) | Where IS the breach? | Control group (within threshold) | Root cause to eliminate |
+| Opportunity (POA) | Where IS the outperformance? | Replication targets | Leading segment to replicate |
+| Mixed | Both problem and opportunity segments (tagged) | Empty (no neutral middle in MVP) | Recover laggards + replicate leaders |
+
+### Flow
+1. Dimension loop collects raw `(key, current, previous, delta)` tuples into `_all_problem_items` / `_all_healthy_items`
+2. All `_format_where_entry()` calls tag items with `segment_type="problem"` or `"opportunity"` at collection time
+3. After the loop: `_infer_analysis_mode()` → sets `plan.analysis_mode` → reshuffling applied → `analysis_mode` written to `DeepAnalysisResponse`
+
 ## Phase 10B-DGA: Data Governance Wiring (Apr 2026)
 - Removed broken DGA acquisition from `connect()` — method was failing silently without propagating errors
 - `data_governance_agent` initialized to `None` in `__init__`, wired post-bootstrap by A9_Orchestrator via `runtime._wire_governance_dependencies()`

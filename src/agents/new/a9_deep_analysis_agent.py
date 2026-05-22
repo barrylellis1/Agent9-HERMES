@@ -36,6 +36,8 @@ from src.agents.utils.data_quality_filter import DataQualityFilter, filter_anoma
 
 logger = logging.getLogger(__name__)
 
+_MIXED_MODE_PURITY_THRESHOLD = 0.80  # fraction of top-N items that must be one direction to be "pure"
+
 
 def _classify_benchmark_segments(is_not_items):
     """Classify IS NOT items into control_group vs internal_benchmark (top quartile by absolute delta)."""
@@ -305,6 +307,32 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         # Fallback to name-based heuristic
         s = (kpi_name or "").lower()
         return not any(w in s for w in ("expense", "cost", "deduction", "cogs"))
+
+    def _infer_analysis_mode(
+        self,
+        problem_items: list,
+        healthy_items: list,
+        caller_hint: str = "problem",
+        top_n: int = 5,
+    ) -> str:
+        """Determine effective analysis mode from segment variance distribution.
+
+        Returns "problem", "opportunity", or "mixed".
+        - If ≥80% of top-N items are problem-direction  → "problem"
+        - If ≥80% of top-N items are healthy-direction  → "opportunity"
+        - Otherwise                                      → "mixed"
+        - Falls back to caller_hint when there are no items.
+        """
+        n_prob = min(len(problem_items), top_n)
+        n_heal = min(len(healthy_items), top_n)
+        total = n_prob + n_heal
+        if total == 0:
+            return caller_hint
+        if n_prob / total >= _MIXED_MODE_PURITY_THRESHOLD:
+            return "problem"
+        if n_heal / total >= _MIXED_MODE_PURITY_THRESHOLD:
+            return "opportunity"
+        return "mixed"
 
     def _select_variance_items(
         self,
@@ -879,7 +907,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 within.append(g)
                         return breaches, within
 
-                    def _format_where_entry(dimension: Any, key: Any, delta: Any, current: Any, previous: Any, note: Optional[str] = None) -> Dict[str, Any]:
+                    def _format_where_entry(dimension: Any, key: Any, delta: Any, current: Any, previous: Any, note: Optional[str] = None, segment_type: Optional[str] = None) -> Dict[str, Any]:
                         try:
                             delta_val = float(delta if delta is not None else 0.0)
                         except Exception:
@@ -899,6 +927,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         }
                         if note is not None:
                             entry["note"] = note
+                        if segment_type is not None:
+                            entry["segment_type"] = segment_type
                         return entry
 
                     def _format_when_entry(bucket: Any, delta: Any, current: Any, previous: Any, note: Optional[str] = None) -> Dict[str, Any]:
@@ -990,6 +1020,10 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             }
                         except Exception:
                             return None
+
+                    # Accumulators for post-loop mode inference (populated by both hierarchical and flat paths)
+                    _all_problem_items: list = []
+                    _all_healthy_items: list = []
 
                     # Primary path: hierarchical drill per vector if hierarchies present
                     hmap = _hierarchies_from_contract()
@@ -1160,21 +1194,17 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                         max_items=10,
                                         trend_positive=kpi_trend_positive
                                     )
-                                    
-                                    # POA swap: for opportunity mode, IS = outperformers (what drives the win),
-                                    # IS NOT = laggards (replication targets). Inverted vs problem mode.
-                                    _is_opp = getattr(plan, "analysis_mode", "problem") == "opportunity"
-                                    kt_is_items = where_is_not_items if _is_opp else where_is_items
-                                    kt_is_not_items = where_is_items if _is_opp else where_is_not_items
-                                    kt_is_note = "Leading segment" if _is_opp else None
-                                    kt_is_not_note = "Replication target" if _is_opp else "Outperforming"
+
+                                    # Extend accumulators for post-loop mode inference
+                                    _all_problem_items.extend(where_is_items)
+                                    _all_healthy_items.extend(where_is_not_items)
 
                                     added_keys_topn = set()
-                                    self.logger.info(f"[DEDUP] Dim={dim}: {len(kt_is_items)} IS items, {len(kt_is_not_items)} IS-NOT items, existing keys={len(added_where_is_keys)}")
-                                    for key, c, p, d in kt_is_items:
+                                    self.logger.info(f"[DEDUP] Dim={dim}: {len(where_is_items)} problem items, {len(where_is_not_items)} healthy items, existing keys={len(added_where_is_keys)}")
+                                    for key, c, p, d in where_is_items:
                                         dedup_key = (dim, key)
                                         if dedup_key not in added_where_is_keys:
-                                            entry_top = _format_where_entry(dim, key, d, c, p, note=kt_is_note)
+                                            entry_top = _format_where_entry(dim, key, d, c, p, segment_type="problem")
                                             kt.where_is.append(entry_top)
                                             change_points.append(ChangePoint(dimension=dim, key=key, current_value=c, previous_value=p, delta=d))
                                             added_keys_topn.add(key)
@@ -1182,10 +1212,10 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                         else:
                                             self.logger.warning(f"[DEDUP] Skipping duplicate: {dedup_key}")
 
-                                    for key, c, p, d in kt_is_not_items:
+                                    for key, c, p, d in where_is_not_items:
                                         dedup_key = (dim, key)
                                         if key not in added_keys_topn and dedup_key not in added_where_is_not_keys:
-                                            entry_bot = _format_where_entry(dim, key, d, c, p, note=kt_is_not_note)
+                                            entry_bot = _format_where_entry(dim, key, d, c, p, note="Outperforming", segment_type="opportunity")
                                             kt.where_is_not.append(entry_bot)
                                             added_where_is_not_keys.add(dedup_key)
                                 
@@ -1225,28 +1255,25 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                             max_items=10,
                                             trend_positive=kpi_trend_positive
                                         )
-                                        
-                                        # POA swap (same logic as primary path above)
-                                        _is_opp_fb = getattr(plan, "analysis_mode", "problem") == "opportunity"
-                                        fb_is_items = where_is_not_items if _is_opp_fb else where_is_items
-                                        fb_is_not_items = where_is_items if _is_opp_fb else where_is_not_items
-                                        fb_is_note = "Leading segment" if _is_opp_fb else None
-                                        fb_is_not_note = "Replication target" if _is_opp_fb else "Outperforming"
+
+                                        # Extend accumulators for post-loop mode inference
+                                        _all_problem_items.extend(where_is_items)
+                                        _all_healthy_items.extend(where_is_not_items)
 
                                         added_keys_fallback = set()
-                                        for k, c, p, d in fb_is_items:
+                                        for k, c, p, d in where_is_items:
                                             dedup_key = (dim, k)
                                             if dedup_key not in added_where_is_keys:
-                                                entry_diff = _format_where_entry(dim, k, d, c, p, note=fb_is_note)
+                                                entry_diff = _format_where_entry(dim, k, d, c, p, segment_type="problem")
                                                 kt.where_is.append(entry_diff)
                                                 change_points.append(ChangePoint(dimension=dim, key=k, current_value=c, previous_value=p, delta=d))
                                                 added_keys_fallback.add(k)
                                                 added_where_is_keys.add(dedup_key)
 
-                                        for k, c, p, d in fb_is_not_items:
+                                        for k, c, p, d in where_is_not_items:
                                             dedup_key = (dim, k)
                                             if k not in added_keys_fallback and dedup_key not in added_where_is_not_keys:
-                                                entry_low = _format_where_entry(dim, k, d, c, p, note=fb_is_not_note)
+                                                entry_low = _format_where_entry(dim, k, d, c, p, note="Outperforming", segment_type="opportunity")
                                                 kt.where_is_not.append(entry_low)
                                                 added_where_is_not_keys.add(dedup_key)
                                 # Always compute and attach distribution summary for this dimension
@@ -1351,6 +1378,34 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                     pass
                             except Exception as de:
                                 self.logger.debug(f"where-is computation failed for {dim}: {de}")
+
+                    # --- Post-loop: self-determine effective analysis mode from segment variance ---
+                    _caller_hint = getattr(plan, "analysis_mode", "problem")
+                    _effective_mode = self._infer_analysis_mode(
+                        _all_problem_items,
+                        _all_healthy_items,
+                        caller_hint=_caller_hint,
+                        top_n=5,
+                    )
+                    plan.analysis_mode = _effective_mode
+                    self.logger.info(
+                        "[DA] Effective analysis_mode=%s (caller hint=%s, problem_items=%d, healthy_items=%d)",
+                        _effective_mode,
+                        _caller_hint,
+                        len(_all_problem_items),
+                        len(_all_healthy_items),
+                    )
+
+                    # Post-loop IS/IS NOT reshuffling based on effective mode
+                    if _effective_mode == "opportunity":
+                        kt.where_is, kt.where_is_not = kt.where_is_not, kt.where_is
+                    elif _effective_mode == "mixed":
+                        # Merge both problem and opportunity into where_is; IS NOT = empty
+                        kt.where_is = kt.where_is + kt.where_is_not
+                        kt.where_is_not = []
+                        kt.where_is.sort(key=lambda item: abs(item.get("delta") or 0), reverse=True)
+                    # "problem" mode: no reshuffling needed
+                    # --- End post-loop mode inference ---
 
                     # WHEN (time buckets with greatest variance)
                     # Resolve time dimension column from data product contract — no hardcoding
@@ -1678,17 +1733,25 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             self.logger.info(f"[POST-FILTER] where_is has {len(kt.where_is)} items, dq_issues_is has {len(dq_issues_is)} items")
 
             # Classify benchmark segments.
-            # In problem mode: IS NOT = healthy/outperforming → use as benchmarks.
-            # In opportunity mode: IS = leading/outperforming → use as blueprints to replicate FROM;
-            #   IS NOT = lagging segments (replication targets) → shown separately, not as benchmarks.
-            _is_opportunity = getattr(plan, "analysis_mode", "problem") == "opportunity"
-            _benchmark_source = kt.where_is if _is_opportunity else kt.where_is_not
+            # Source depends on effective mode:
+            #   problem    → IS NOT = healthy/outperforming
+            #   opportunity → IS = leading/outperforming (already reshuffled above)
+            #   mixed       → IS items tagged segment_type="opportunity" are the blueprints
+            _effective_mode_final = getattr(plan, "analysis_mode", "problem")
+            if _effective_mode_final == "opportunity":
+                _benchmark_source = kt.where_is
+            elif _effective_mode_final == "mixed":
+                _benchmark_source = [item for item in kt.where_is if isinstance(item, dict) and item.get("segment_type") == "opportunity"]
+            else:
+                _benchmark_source = kt.where_is_not
             if _benchmark_source:
                 kt.benchmark_segments = _classify_benchmark_segments(_benchmark_source)
                 self.logger.info(
-                    f"[BENCHMARK] Classified {len(kt.benchmark_segments)} {'IS (opportunity)' if _is_opportunity else 'IS NOT (problem)'} items: "
-                    f"{sum(1 for s in kt.benchmark_segments if s.benchmark_type == 'internal_benchmark')} internal_benchmark, "
-                    f"{sum(1 for s in kt.benchmark_segments if s.benchmark_type == 'control_group')} control_group"
+                    "[BENCHMARK] Classified %d items (mode=%s): %d internal_benchmark, %d control_group",
+                    len(kt.benchmark_segments),
+                    _effective_mode_final,
+                    sum(1 for s in kt.benchmark_segments if s.benchmark_type == "internal_benchmark"),
+                    sum(1 for s in kt.benchmark_segments if s.benchmark_type == "control_group"),
                 )
             
             # Create data quality alert if anomalies found
@@ -1709,7 +1772,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 percent_growth_enabled=False,
                 timeframe_mapping=tf_mapping,
                 when_started=when_started,
-                dimensions_suggested=getattr(plan, "dimensions", [])
+                dimensions_suggested=getattr(plan, "dimensions", []),
+                analysis_mode=getattr(plan, "analysis_mode", "problem"),
             )
         except Exception as e:
             import traceback as _tb
@@ -2181,6 +2245,20 @@ If nothing relevant is found for a category, use an empty list."""
                     f"Key drivers: {cp_str}. "
                     f"Question: How do we scale the {is_str} performance across {is_not_str}?"
                 )
+            if analysis_mode == "mixed":
+                problem_segs = [r.get("key", "") for r in (getattr(kt, "where_is", []) or [])
+                                if isinstance(r, dict) and r.get("segment_type") == "problem"][:3]
+                opp_segs = [r.get("key", "") for r in (getattr(kt, "where_is", []) or [])
+                            if isinstance(r, dict) and r.get("segment_type") == "opportunity"][:3]
+                prob_str = ", ".join(problem_segs) if problem_segs else "underperforming segments"
+                opp_str = ", ".join(opp_segs) if opp_segs else "outperforming segments"
+                return (
+                    f"Situation: {plan.kpi_name} shows mixed performance vs. the comparison period. "
+                    f"Complication: Performance is bifurcated — {prob_str} are dragging results while "
+                    f"{opp_str} are outperforming. "
+                    f"Question: How do we address the laggards while scaling the leaders simultaneously? "
+                    f"Answer: Prioritise recovery in {prob_str} and replicate the {opp_str} playbook across similar segments."
+                )
             return (
                 f"Situation: {plan.kpi_name} is {direction}-performing vs. {comparator}. "
                 f"Complication: The variance is concentrated in {is_str}, while {is_not_str} are within range. "
@@ -2209,6 +2287,24 @@ If nothing relevant is found for a category, use an empty list."""
                     f"Output exactly 4 labelled sentences with no preamble: "
                     f"'Situation:', 'Complication:', 'Question:', 'Answer:'. "
                     f"Be specific and quantitative. No bullet points. No headers."
+                )
+            elif analysis_mode == "mixed":
+                problem_segs = [r.get("key", "") for r in (getattr(kt, "where_is", []) or [])
+                                if isinstance(r, dict) and r.get("segment_type") == "problem"][:3]
+                opp_segs = [r.get("key", "") for r in (getattr(kt, "where_is", []) or [])
+                            if isinstance(r, dict) and r.get("segment_type") == "opportunity"][:3]
+                prompt = (
+                    f"Write a concise SCQA narrative for a CFO reviewing MIXED performance in "
+                    f"'{plan.kpi_name}' ({plan.timeframe or 'current period'}).\n\n"
+                    f"Underperforming segments (need recovery): {', '.join(problem_segs) or 'see change points'}\n"
+                    f"Outperforming segments (replication blueprints): {', '.join(opp_segs) or 'see change points'}\n"
+                    f"Largest change-points: {'; '.join(top_cps) or 'none'}\n\n"
+                    f"FRAMING RULES:\n"
+                    f"- This is a MIXED situation. Both problems and opportunities exist simultaneously.\n"
+                    f"- Complication must name BOTH the drag from laggards AND the opportunity from leaders.\n"
+                    f"- Question must ask how to fix AND replicate simultaneously.\n"
+                    f"- Answer must name a specific recovery action AND a replication action.\n\n"
+                    f"Output exactly 4 labelled sentences: 'Situation:', 'Complication:', 'Question:', 'Answer:'. No bullet points."
                 )
             else:
                 prompt = (
@@ -2258,6 +2354,7 @@ If nothing relevant is found for a category, use an empty list."""
                 if analysis_mode == "opportunity" and problem_framing:
                     self.logger.info("[DA] SCQA LLM returned problem framing for opportunity mode — using deterministic fallback")
                 else:
+                    # mixed mode accepts both problem and opportunity language; problem mode has no framing restriction
                     return content
             self.logger.info("[DA] SCQA LLM returned placeholder/incomplete — using deterministic fallback")
         except Exception as _e:

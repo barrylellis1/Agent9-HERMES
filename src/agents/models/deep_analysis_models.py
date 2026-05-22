@@ -25,9 +25,9 @@ class DeepAnalysisRequest(A9AgentBaseRequest):
         default=None,
         description="Optional threshold spec to guide breach detection (e.g., metric: budget|mom, inverse_logic: bool, yellow_threshold: float, budget_version: 'Budget')."
     )
-    analysis_mode: Literal["problem", "opportunity"] = Field(
+    analysis_mode: Literal["problem", "opportunity", "mixed"] = Field(
         default="problem",
-        description="Analysis framing: 'problem' (variance investigation) or 'opportunity' (growth/outperformance investigation)"
+        description="Caller hint — DA overrides this by inspecting segment variance."
     )
 
 
@@ -40,7 +40,7 @@ class DeepAnalysisPlan(A9AgentBaseModel):
     dimensions: List[str] = Field(default_factory=list, description="Candidate dimensions to analyze (MECE-guided)")
     steps: List[Dict[str, Any]] = Field(default_factory=list, description="Ordered execution steps for DPA (grouped/timeframe comparisons)")
     notes: Optional[str] = None
-    analysis_mode: Literal["problem", "opportunity"] = Field(
+    analysis_mode: Literal["problem", "opportunity", "mixed"] = Field(
         default="problem",
         description="Propagated from DeepAnalysisRequest — controls IS/IS NOT framing and SCQA narrative direction."
     )
@@ -106,6 +106,12 @@ class DeepAnalysisResponse(A9AgentBaseResponse):
     timeframe_mapping: Optional[Dict[str, str]] = Field(default=None, description="{'current': 'X', 'previous': 'Y'}")
     when_started: Optional[str] = Field(default=None, description="Earliest time bucket when the issue began (e.g., '2025-08')")
     percent_growth_enabled: bool = Field(False)
+
+    # Effective analysis mode as determined by DA
+    analysis_mode: Literal["problem", "opportunity", "mixed"] = Field(
+        default="problem",
+        description="Effective analysis mode as determined by DA."
+    )
 
     # Raw data excerpts (optional)
     samples: Optional[Dict[str, Any]] = None

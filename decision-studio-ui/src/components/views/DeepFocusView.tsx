@@ -127,6 +127,11 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   const navigate = useNavigate();
   const currentAnalysis = analysisResults;
 
+  // Effective analysis mode: use DA result when available, fall back to situation framing
+  const situationIsOpportunity = situation.direction === 'up' || situation.card_type === 'opportunity';
+  const analysisMode: 'problem' | 'opportunity' | 'mixed' =
+    currentAnalysis?.analysis_mode ?? (situationIsOpportunity ? 'opportunity' : 'problem');
+
   // Accordion state — Situation Summary and Root Cause expanded by default
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['situation-summary', 'root-cause']));
 
@@ -176,7 +181,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
         <IsIsNotExhibit
           data={currentAnalysis.kt_is_is_not}
           kpiName={situation.kpi_name}
-          isOpportunity={situation.direction === 'up' || situation.card_type === 'opportunity'}
+          analysisMode={analysisMode}
         />
       </div>
     );
@@ -195,14 +200,22 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
           </button>
           <div>
             <div className="flex items-center gap-2 mb-1">
-               <span className={`px-2 py-0.5 text-xs font-bold rounded uppercase ${(situation.direction === 'up' || situation.card_type === 'opportunity') ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                 {(situation.direction === 'up' || situation.card_type === 'opportunity') ? 'Opportunity' : situation.severity}
+               <span className={`px-2 py-0.5 text-xs font-bold rounded uppercase ${
+                 analysisMode === 'opportunity' ? 'bg-green-500/20 text-green-400' :
+                 analysisMode === 'mixed' ? 'bg-amber-500/20 text-amber-400' :
+                 'bg-red-500/20 text-red-400'
+               }`}>
+                 {analysisMode === 'opportunity' ? 'Opportunity' : analysisMode === 'mixed' ? 'Mixed' : situation.severity}
                </span>
                <span className="text-slate-500 text-xs uppercase tracking-wider">
                  ID: {situation.situation_id?.substring(0, 8)}
                </span>
             </div>
-            <h1 className="text-xl font-bold text-white">{situation.kpi_name} {(situation.direction === 'up' || situation.card_type === 'opportunity') ? 'Opportunity' : 'Variance'}</h1>
+            <h1 className="text-xl font-bold text-white">{situation.kpi_name} {
+              analysisMode === 'opportunity' ? 'Opportunity' :
+              analysisMode === 'mixed' ? 'Mixed Analysis' :
+              'Variance'
+            }</h1>
           </div>
         </div>
         
@@ -311,22 +324,24 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
 
                 {/* Replication Targets — separate accordion section */}
                 {currentAnalysis?.kt_is_is_not?.benchmark_segments && currentAnalysis.kt_is_is_not.benchmark_segments.length > 0 && (() => {
-                  const isOpportunity = situation.direction === 'up' || situation.card_type === 'opportunity';
                   const benchmarks = currentAnalysis.kt_is_is_not.benchmark_segments.filter((s: any) => s.benchmark_type === 'internal_benchmark');
                   const controls = currentAnalysis.kt_is_is_not.benchmark_segments.filter((s: any) => s.benchmark_type === 'control_group');
+                  const sectionTitle = analysisMode === 'opportunity' ? "Success Blueprints" : analysisMode === 'mixed' ? "Replication Targets & Blueprints" : "Replication Targets";
+                  const sectionDesc = analysisMode === 'opportunity'
+                    ? "These leading segments have proven the margin-expansion playbook — replicate their approach across the portfolio."
+                    : analysisMode === 'mixed'
+                    ? "These outperforming segments are internal proof that the gap is closeable — replicate their playbook across lagging segments."
+                    : "These segments are outperforming the KPI target — internal proof that the gap is closeable.";
                   return benchmarks.length > 0 || controls.length > 0 ? (
                     <AccordionSection
                         id="replication-targets"
-                        title={isOpportunity ? "Success Blueprints" : "Replication Targets"}
+                        title={sectionTitle}
                         icon={<TrendingUp className="w-4 h-4 text-green-400" />}
-                        summary={`${benchmarks.length} ${isOpportunity ? 'leading segment' : 'internal benchmark'}${benchmarks.length === 1 ? '' : 's'}`}
+                        summary={`${benchmarks.length} ${analysisMode === 'opportunity' ? 'leading segment' : 'internal benchmark'}${benchmarks.length === 1 ? '' : 's'}`}
                     >
                       <div className="bg-slate-900/50 border border-green-500/20 rounded-xl p-6">
                         <p className="text-xs text-slate-500 mb-4">
-                          {isOpportunity
-                            ? "These leading segments have proven the margin-expansion playbook — replicate their approach across the portfolio."
-                            : "These segments are outperforming the KPI target — internal proof that the gap is closeable."
-                          }
+                          {sectionDesc}
                         </p>
                         {benchmarks.length > 0 && (
                           <div className="space-y-2 mb-4">
