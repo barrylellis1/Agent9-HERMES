@@ -666,10 +666,10 @@ export function RegistryExplorer() {
     setError(null)
 
     try {
-      if (registryKey === 'kpis') await deleteKpi(selectedId)
-      else if (registryKey === 'principals') await deletePrincipal(selectedId)
-      else if (registryKey === 'data-products') await deleteDataProduct(selectedId)
-      else if (registryKey === 'business-processes') await deleteBusinessProcess(selectedId)
+      if (registryKey === 'kpis') await deleteKpi(selectedId, activeClientId)
+      else if (registryKey === 'principals') await deletePrincipal(selectedId, activeClientId)
+      else if (registryKey === 'data-products') await deleteDataProduct(selectedId, activeClientId)
+      else if (registryKey === 'business-processes') await deleteBusinessProcess(selectedId, activeClientId)
 
       await reload()
       setSelectedId(null)

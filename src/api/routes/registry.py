@@ -286,9 +286,25 @@ async def update_principal(principal_id: str, payload: Dict[str, Any], factory: 
 
 
 @router.delete("/principals/{principal_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_principal(principal_id: str, factory: RegistryFactory = Depends(get_registry_factory)):
+async def delete_principal(
+    principal_id: str,
+    client_id: Optional[str] = Query(None),
+    factory: RegistryFactory = Depends(get_registry_factory),
+):
     provider = factory.get_principal_profile_provider()
-    if provider is None or not provider.delete(principal_id):
+    if provider is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Principal '{principal_id}' not found"))
+
+    profile = provider.get(principal_id)
+    if profile is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Principal '{principal_id}' not found"))
+
+    if client_id:
+        profile_client = getattr(profile, "client_id", None)
+        if profile_client != client_id:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, error_response("forbidden", f"Principal belongs to client '{profile_client}', not '{client_id}'"))
+
+    if not provider.delete(principal_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Principal '{principal_id}' not found"))
 
 

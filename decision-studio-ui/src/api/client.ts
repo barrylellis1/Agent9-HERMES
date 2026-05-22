@@ -34,6 +34,9 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     const errorText = await response.text();
     throw new Error(errorText || `Request failed: ${response.status}`);
   }
+  if (response.status === 204 || response.headers.get('content-length') === '0') {
+    return undefined as unknown as T;
+  }
   return response.json() as Promise<T>;
 }
 
@@ -122,8 +125,9 @@ export async function replaceKpi(id: string, payload: any): Promise<any> {
   return envelope.data;
 }
 
-export async function deleteKpi(id: string): Promise<void> {
-  await requestJson<void>(`/registry/kpis/${encodeURIComponent(id)}`, {
+export async function deleteKpi(id: string, clientId?: string): Promise<void> {
+  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
+  await requestJson<void>(`/registry/kpis/${encodeURIComponent(id)}${qs}`, {
     method: 'DELETE',
   });
 }
@@ -176,8 +180,9 @@ export async function replacePrincipal(principalId: string, payload: any): Promi
   return envelope.data;
 }
 
-export async function deletePrincipal(id: string): Promise<void> {
-  await requestJson<void>(`/registry/principals/${encodeURIComponent(id)}`, {
+export async function deletePrincipal(id: string, clientId?: string): Promise<void> {
+  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
+  await requestJson<void>(`/registry/principals/${encodeURIComponent(id)}${qs}`, {
     method: 'DELETE',
   });
 }
@@ -224,8 +229,9 @@ export async function replaceDataProduct(id: string, payload: any): Promise<any>
   return envelope.data;
 }
 
-export async function deleteDataProduct(id: string): Promise<void> {
-  await requestJson<void>(`/registry/data-products/${encodeURIComponent(id)}`, {
+export async function deleteDataProduct(id: string, clientId?: string): Promise<void> {
+  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
+  await requestJson<void>(`/registry/data-products/${encodeURIComponent(id)}${qs}`, {
     method: 'DELETE',
   });
 }
@@ -272,8 +278,9 @@ export async function replaceBusinessProcess(id: string, payload: any): Promise<
   return envelope.data;
 }
 
-export async function deleteBusinessProcess(id: string): Promise<void> {
-  await requestJson<void>(`/registry/business-processes/${encodeURIComponent(id)}`, {
+export async function deleteBusinessProcess(id: string, clientId?: string): Promise<void> {
+  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
+  await requestJson<void>(`/registry/business-processes/${encodeURIComponent(id)}${qs}`, {
     method: 'DELETE',
   });
 }
