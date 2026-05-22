@@ -997,6 +997,14 @@ class A9_Value_Assurance_Agent:
 
         all_solutions = list(self._solutions_store.values())
 
+        # Tenant + principal isolation — in-memory store may contain rows from multiple clients
+        _req_client = getattr(request, "client_id", None)
+        _req_principal = getattr(request, "principal_id", None)
+        if _req_client:
+            all_solutions = [s for s in all_solutions if getattr(s, "client_id", None) == _req_client]
+        if _req_principal:
+            all_solutions = [s for s in all_solutions if getattr(s, "principal_id", None) == _req_principal]
+
         total = validated = partial = failed = measuring = 0
         total_attributable = 0.0
         roi_eligible = 0

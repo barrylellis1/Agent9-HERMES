@@ -1124,10 +1124,31 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 "schema": overrides.get("schema") or _os.getenv("SF_SCHEMA", "LUBRICANTS"),
                 "role": overrides.get("role") or _os.getenv("SF_ROLE", "ACCOUNTADMIN"),
             }
-            settings["connection_params"] = {
+            _sf_conn_params: Dict[str, Any] = {
                 "user": overrides.get("username") or _os.getenv("SF_USERNAME", ""),
-                "password": overrides.get("password") or _os.getenv("SF_PASSWORD", ""),
             }
+            _pk_path2 = _os.getenv("SF_PRIVATE_KEY_PATH", "")
+            _pk_content2 = _os.getenv("SF_PRIVATE_KEY", "")
+            if _pk_path2 or _pk_content2:
+                try:
+                    from cryptography.hazmat.primitives import serialization as _ser2
+                    _pp2 = _os.getenv("SF_PRIVATE_KEY_PASSPHRASE", "")
+                    if _pk_path2:
+                        with open(_pk_path2, "rb") as _f2:
+                            _key_data2 = _f2.read()
+                    else:
+                        _key_data2 = _pk_content2.encode() if isinstance(_pk_content2, str) else _pk_content2
+                    _p2 = _ser2.load_pem_private_key(_key_data2, password=_pp2.encode() if _pp2 else None)
+                    _sf_conn_params["private_key"] = _p2.private_bytes(
+                        encoding=_ser2.Encoding.DER,
+                        format=_ser2.PrivateFormat.PKCS8,
+                        encryption_algorithm=_ser2.NoEncryption(),
+                    )
+                except Exception:
+                    _sf_conn_params["password"] = overrides.get("password") or _os.getenv("SF_PASSWORD", "")
+            else:
+                _sf_conn_params["password"] = overrides.get("password") or _os.getenv("SF_PASSWORD", "")
+            settings["connection_params"] = _sf_conn_params
             settings["schema"] = settings["connection_config"]["schema"]
 
         # Set defaults for inspection
@@ -3686,8 +3707,33 @@ class A9_Data_Product_Agent(DataProductProtocol):
             }
             conn_params: Dict[str, Any] = {
                 "user": os.getenv("SF_USERNAME", ""),
-                "password": os.getenv("SF_PASSWORD", ""),
             }
+            _pk_path = os.getenv("SF_PRIVATE_KEY_PATH", "")
+            _pk_content = os.getenv("SF_PRIVATE_KEY", "")  # Production: PEM text via env var
+            if _pk_path or _pk_content:
+                try:
+                    from cryptography.hazmat.primitives import serialization as _ser
+                    _passphrase = os.getenv("SF_PRIVATE_KEY_PASSPHRASE", "")
+                    if _pk_path:
+                        with open(_pk_path, "rb") as _f:
+                            _key_data = _f.read()
+                    else:
+                        _key_data = _pk_content.encode() if isinstance(_pk_content, str) else _pk_content
+                    _p_key = _ser.load_pem_private_key(
+                        _key_data,
+                        password=_passphrase.encode() if _passphrase else None,
+                    )
+                    conn_params["private_key"] = _p_key.private_bytes(
+                        encoding=_ser.Encoding.DER,
+                        format=_ser.PrivateFormat.PKCS8,
+                        encryption_algorithm=_ser.NoEncryption(),
+                    )
+                    self.logger.info("[SF] Using key-pair authentication (%s)", "file" if _pk_path else "env var")
+                except Exception as _pk_err:
+                    self.logger.warning("[SF] Key-pair load failed, falling back to password: %s", _pk_err)
+                    conn_params["password"] = os.getenv("SF_PASSWORD", "")
+            else:
+                conn_params["password"] = os.getenv("SF_PASSWORD", "")
 
             # Override from data product registry metadata when available
             if data_product_id and hasattr(self, "registry_factory") and self.registry_factory:
@@ -4207,8 +4253,20 @@ class A9_Data_Product_Agent(DataProductProtocol):
 
             dim = override_group_by[0]
 
+            # If dim is a SQL expression (contains a function call) alias it so CTE outer
+            # queries can reference it by name rather than repeating the expression.
+            _is_expr = '(' in dim
+            if _is_expr:
+                dim_sel = f"{dim} AS _td_period"   # SELECT / CTE inner: expr aliased
+                dim_grp = dim                       # GROUP BY: bare expression
+                dim_col = "_td_period"              # outer CTE column reference
+            else:
+                dim_sel = f"`{dim}`"
+                dim_grp = f"`{dim}`"
+                dim_col = f"`{dim}`"
+
             # Parse raw_sql: "SELECT {agg_expr} AS value FROM ..."
-            # Rebuild as:    "SELECT `dim`, {agg_expr} AS value FROM ... AND date BETWEEN ... GROUP BY `dim`"
+            # Rebuild as:    "SELECT dim, {agg_expr} AS value FROM ... AND date BETWEEN ... GROUP BY dim"
             pat = _re.compile(r'^SELECT\s+(.+?)\s+AS\s+value\s+(FROM\s+.+)', _re.IGNORECASE | _re.DOTALL)
             m = pat.match(raw_sql.strip())
             if not m:
@@ -4216,7 +4274,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
             agg_expr = m.group(1).strip()
             from_clause = m.group(2)  # "FROM `table` WHERE ..."
 
-            base = f"SELECT `{dim}`, {agg_expr} AS value {from_clause}"
+            base = f"SELECT {dim_sel}, {agg_expr} AS value {from_clause}"
 
             if topn and isinstance(topn, dict):
                 n = topn.get("n", 50)
@@ -4225,23 +4283,23 @@ class A9_Data_Product_Agent(DataProductProtocol):
 
                 def _period_subquery(start, end):
                     sql = _append_date(base, start, end)
-                    return sql + f" GROUP BY `{dim}`"
+                    return sql + f" GROUP BY {dim_grp}"
 
                 curr_sql = _period_subquery(s_cur, e_cur)
                 prev_sql = _period_subquery(s_prev, e_prev)
                 return (
                     f"WITH curr AS ({curr_sql}), "
                     f"prev AS ({prev_sql}) "
-                    f"SELECT curr.`{dim}`, curr.value AS current_value, "
+                    f"SELECT curr.{dim_col}, curr.value AS current_value, "
                     f"COALESCE(prev.value, 0) AS previous_value, "
                     f"(curr.value - COALESCE(prev.value, 0)) AS delta_prev "
-                    f"FROM curr LEFT JOIN prev ON curr.`{dim}` = prev.`{dim}` "
+                    f"FROM curr LEFT JOIN prev ON curr.{dim_col} = prev.{dim_col} "
                     f"ORDER BY delta_prev DESC LIMIT {n}"
                 )
             else:
                 s, e = _prev_period_dates(timeframe) if comparison_period else _period_dates(timeframe)
                 sql = _append_date(base, s, e)
-                return sql + f" GROUP BY `{dim}`"
+                return sql + f" GROUP BY {dim_grp}"
 
         except Exception as ex:
             self.logger.warning(f"_build_bq_dimensional_sql error: {ex}")
@@ -4334,12 +4392,20 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 return _append_date(raw_sql, s, e)
 
             dim = override_group_by[0]
-            # Snowflake stores unquoted identifiers as uppercase (case-insensitive match).
-            # Only double-quote identifiers that contain special characters (spaces, hyphens,
-            # dots, etc.) — quoting a plain snake_case name forces case-sensitive lookup and
-            # will fail because the view columns were created as UPPERCASE.
-            _needs_quote = bool(_re.search(r'[^a-zA-Z0-9_]', dim))
-            dim_quoted = f'"{dim}"' if _needs_quote else dim
+            # If dim is a SQL expression (contains a function call) alias it for clean CTE
+            # references. Plain column names get double-quoted only when they contain special
+            # chars (Snowflake is case-insensitive so snake_case names need no quoting).
+            _is_expr = '(' in dim
+            if _is_expr:
+                dim_sel = f"{dim} AS _td_period"
+                dim_grp = dim
+                dim_col = "_td_period"
+            else:
+                _needs_quote = bool(_re.search(r'[^a-zA-Z0-9_]', dim))
+                dim_quoted = f'"{dim}"' if _needs_quote else dim
+                dim_sel = dim_quoted
+                dim_grp = dim_quoted
+                dim_col = dim_quoted
 
             # Parse raw_sql: "SELECT {agg_expr} AS value FROM ..."
             pat = _re.compile(r'^SELECT\s+(.+?)\s+AS\s+value\s+(FROM\s+.+)', _re.IGNORECASE | _re.DOTALL)
@@ -4349,7 +4415,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
             agg_expr = m.group(1).strip()
             from_clause = m.group(2)
 
-            base = f"SELECT {dim_quoted}, {agg_expr} AS value {from_clause}"
+            base = f"SELECT {dim_sel}, {agg_expr} AS value {from_clause}"
 
             if topn and isinstance(topn, dict):
                 n = topn.get("n", 50)
@@ -4358,23 +4424,23 @@ class A9_Data_Product_Agent(DataProductProtocol):
 
                 def _period_subquery(start, end):
                     sql = _append_date(base, start, end)
-                    return sql + f" GROUP BY {dim_quoted}"
+                    return sql + f" GROUP BY {dim_grp}"
 
                 curr_sql = _period_subquery(s_cur, e_cur)
                 prev_sql = _period_subquery(s_prev, e_prev)
                 return (
                     f"WITH curr AS ({curr_sql}), "
                     f"prev AS ({prev_sql}) "
-                    f"SELECT curr.{dim_quoted}, curr.value AS current_value, "
+                    f"SELECT curr.{dim_col}, curr.value AS current_value, "
                     f"COALESCE(prev.value, 0) AS previous_value, "
                     f"(curr.value - COALESCE(prev.value, 0)) AS delta_prev "
-                    f"FROM curr LEFT JOIN prev ON curr.{dim_quoted} = prev.{dim_quoted} "
+                    f"FROM curr LEFT JOIN prev ON curr.{dim_col} = prev.{dim_col} "
                     f"ORDER BY delta_prev DESC LIMIT {n}"
                 )
             else:
                 s, e = _prev_period_dates(timeframe) if comparison_period else _period_dates(timeframe)
                 sql = _append_date(base, s, e)
-                return sql + f" GROUP BY {dim_quoted}"
+                return sql + f" GROUP BY {dim_grp}"
 
         except Exception as ex:
             self.logger.warning(f"_build_sf_dimensional_sql error: {ex}")

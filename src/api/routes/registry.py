@@ -235,13 +235,20 @@ async def list_principals(
 
 
 @router.get("/principals/{principal_id}", response_model=Envelope)
-async def get_principal(principal_id: str, factory: RegistryFactory = Depends(get_registry_factory)):
+async def get_principal(
+    principal_id: str,
+    client_id: Optional[str] = Query(None, description="Tenant client ID for ownership verification"),
+    factory: RegistryFactory = Depends(get_registry_factory),
+):
     provider = factory.get_principal_profile_provider()
     profile = provider.get(principal_id) if provider else None
     # Fallback: query Supabase directly if not in the in-memory provider
     if profile is None:
         profile = await _fetch_principal_from_supabase(principal_id)
     if profile is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Principal '{principal_id}' not found"))
+    # Enforce tenant isolation when caller supplies client_id
+    if client_id and getattr(profile, "client_id", None) != client_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Principal '{principal_id}' not found"))
     return wrap(profile)
 

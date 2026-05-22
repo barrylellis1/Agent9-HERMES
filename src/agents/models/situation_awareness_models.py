@@ -128,7 +128,8 @@ class PrincipalContextResponse(BaseResponse):
 # KPI Models
 class KPIDefinition(BaseModel):
     """KPI definition from the contract."""
-    name: str = Field(description="Name of the KPI")
+    id: Optional[str] = Field(None, description="Registry machine ID matching kpi_accountability.kpi_id (e.g. 'net_revenue')")
+    name: str = Field(description="Display name of the KPI (e.g. 'Net Revenue')")
     description: str = Field(description="Description of the KPI")
     unit: Optional[str] = Field(None, description="Unit of measurement (%, $, #, etc.)")
     client_id: Optional[str] = Field(None, description="Client/tenant this KPI belongs to")

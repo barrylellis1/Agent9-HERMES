@@ -178,7 +178,7 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
       {measuringCount > 0 && (
         <div className="flex items-center gap-2 text-xs text-blue-400 bg-blue-900/15 border border-blue-500/20 rounded-lg px-4 py-2.5">
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          <span>{measuringCount} solution{measuringCount > 1 ? 's' : ''} currently in measurement window — results pending.</span>
+          <span>{measuringCount} of {solutions.length} solution{solutions.length !== 1 ? 's' : ''} currently in measurement window — results pending.</span>
         </div>
       )}
 

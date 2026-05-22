@@ -296,7 +296,18 @@ def onboard_client(
         raw_dp_rows = [mod.DATA_PRODUCT]
         if isinstance(getattr(mod, "DATA_PRODUCTS", None), list):
             raw_dp_rows = mod.DATA_PRODUCTS  # some clients may have multiple DPs
-        dp_rows = [{k: v for k, v in row.items() if k in _DP_COLS} for row in raw_dp_rows]
+
+        def _prep_dp_row(row: dict) -> dict:
+            out = {k: v for k, v in row.items() if k in _DP_COLS}
+            # time_dimensions has no dedicated column — persist inside metadata JSONB
+            # so the DA agent can retrieve it without a schema migration.
+            if row.get("time_dimensions"):
+                meta = dict(out.get("metadata") or {})
+                meta["time_dimensions"] = row["time_dimensions"]
+                out["metadata"] = meta
+            return out
+
+        dp_rows = [_prep_dp_row(row) for row in raw_dp_rows]
         n = _upsert(http, base_url, service_key, "data_products", dp_rows, dry_run)
         print(f"  OK  {n} row(s) upserted\n")
 

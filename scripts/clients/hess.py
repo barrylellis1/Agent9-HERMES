@@ -67,6 +67,9 @@ DATA_PRODUCT = {
             ]
         }
     },
+    "time_dimensions": [
+        {"column": "fiscal_period", "label": "Fiscal Period", "granularity": "month", "primary": True},
+    ],
     "reviewed": True,
     "staging": False,
     "language": "EN",

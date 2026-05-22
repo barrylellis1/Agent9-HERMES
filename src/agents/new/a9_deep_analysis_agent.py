@@ -144,7 +144,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         abs_canonical = os.path.join(proj_root, canonical)
         return abs_canonical if os.path.exists(abs_canonical) else canonical
 
-    def _contract_path_for_kpi(self, kpi_name: str = None) -> str:
+    def _contract_path_for_kpi(self, kpi_name: str = None, client_id: str = None) -> str:
         """
         Resolve the data product contract path for a given KPI name.
         Looks up the KPI's data_product_id in the Supabase registry (via the shared
@@ -162,9 +162,14 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 if kpi_provider:
                     kpi_name_lower = kpi_name.lower().strip()
                     for k in kpi_provider.get_all():
-                        if (getattr(k, "name", "") or "").lower().strip() == kpi_name_lower:
-                            data_product_id = getattr(k, "data_product_id", None)
-                            break
+                        if (getattr(k, "name", "") or "").lower().strip() != kpi_name_lower:
+                            continue
+                        # Enforce tenant isolation when client_id is known
+                        _k_client = getattr(k, "client_id", None)
+                        if client_id and _k_client and _k_client != client_id:
+                            continue
+                        data_product_id = getattr(k, "data_product_id", None)
+                        break
             except Exception as e:
                 self.logger.debug(f"_contract_path_for_kpi: registry lookup failed: {e}")
 
@@ -190,10 +195,10 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             self.logger.debug(f"_contract_path_for_kpi error: {e}")
         return self._contract_path()
 
-    def _dims_from_contract(self, limit: int, kpi_name: str = None) -> List[str]:
+    def _dims_from_contract(self, limit: int, kpi_name: str = None, client_id: str = None) -> List[str]:
         dims: List[str] = []
         try:
-            cpath = self._contract_path_for_kpi(kpi_name)
+            cpath = self._contract_path_for_kpi(kpi_name, client_id=client_id)
             if not os.path.exists(cpath):
                 return []
             with open(cpath, "r", encoding="utf-8") as f:
@@ -331,17 +336,17 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         # Separate by variance direction
         problem_items = []  # Underperforming
         healthy_items = []  # Outperforming
-        
+
         for item in diffs:
             key, current, previous, delta = item
+            # Skip items with no comparison baseline — previous=0/None means no prior-period data.
+            # Keeping them would surface artifacts (e.g. Gross Margin 100% for products with no COGS
+            # in the prior period) rather than genuine variance signals.
+            if not previous:
+                continue
             # Calculate percent variance (handle division by zero)
-            if previous != 0:
-                pct_variance = abs(delta / previous)
-            elif current != 0:
-                pct_variance = 1.0  # 100% variance if previous was 0 but current isn't
-            else:
-                pct_variance = 0.0  # Both are 0
-            
+            pct_variance = abs(delta / previous)
+
             item_with_pct = (key, current, previous, delta, pct_variance)
             
             # Determine if this is a problem or healthy item based on delta direction
@@ -432,12 +437,41 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 target_count = max(cfg_limit, 15)
             except Exception:
                 target_count = 15
-            dimensions: List[str] = self._dims_from_contract(limit=target_count, kpi_name=request.kpi_name)
+            dimensions: List[str] = self._dims_from_contract(limit=target_count, kpi_name=request.kpi_name, client_id=getattr(request, "client_id", None))
             try:
                 self.logger.info(f"plan_deep_analysis: kpi={request.kpi_name} timeframe={request.timeframe} dims_from_contract={len(dimensions)}")
             except Exception:
                 pass
-            # Supplement from DGA registry metadata if contract yielded no dimensions
+            # Priority 2: KPI registry — registered _DIMS are more authoritative than DGA-inferred view columns
+            if not dimensions and request.kpi_name:
+                try:
+                    from src.registry.factory import RegistryFactory
+                    kpi_provider = RegistryFactory().get_provider("kpi")
+                    if kpi_provider:
+                        kpi_name_lower = request.kpi_name.lower().strip()
+                        _req_client = getattr(request, "client_id", None)
+                        for k in kpi_provider.get_all():
+                            if (getattr(k, "name", "") or "").lower().strip() != kpi_name_lower:
+                                continue
+                            # Enforce tenant isolation: skip KPIs from other clients
+                            _k_client = getattr(k, "client_id", None)
+                            if _req_client and _k_client and _k_client != _req_client:
+                                continue
+                            kpi_dims = getattr(k, "dimensions", None) or []
+                            dimensions = [
+                                (d.get("field") or d.get("name") if isinstance(d, dict) else
+                                 getattr(d, "field", None) or getattr(d, "name", None) or str(d))
+                                for d in kpi_dims
+                                if d
+                            ]
+                            dimensions = [d for d in dimensions if d]
+                            if dimensions:
+                                self.logger.info(f"plan_deep_analysis: using {len(dimensions)} dims from KPI registry for '{request.kpi_name}' (client={_req_client})")
+                            break
+                except Exception as e:
+                    self.logger.debug(f"plan_deep_analysis: KPI registry dim fallback failed: {e}")
+
+            # Priority 3: DGA registry metadata — view-level columns, last resort
             if not dimensions and request.kpi_name:
                 if self.data_governance_agent is None:
                     raise RuntimeError(
@@ -467,29 +501,6 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                         dim_name = str(d)
                                     extracted_dims.append(dim_name)
                             dimensions = extracted_dims
-
-            # Fallback: use KPI dimensions from registry when neither contract nor DGA yielded dims
-            if not dimensions and request.kpi_name:
-                try:
-                    from src.registry.factory import RegistryFactory
-                    kpi_provider = RegistryFactory().get_provider("kpi")
-                    if kpi_provider:
-                        kpi_name_lower = request.kpi_name.lower().strip()
-                        for k in kpi_provider.get_all():
-                            if (getattr(k, "name", "") or "").lower().strip() == kpi_name_lower:
-                                kpi_dims = getattr(k, "dimensions", None) or []
-                                dimensions = [
-                                    (d.get("field") or d.get("name") if isinstance(d, dict) else
-                                     getattr(d, "field", None) or getattr(d, "name", None) or str(d))
-                                    for d in kpi_dims
-                                    if d
-                                ]
-                                dimensions = [d for d in dimensions if d]
-                                if dimensions:
-                                    self.logger.info(f"plan_deep_analysis: using {len(dimensions)} dims from KPI registry for '{request.kpi_name}'")
-                                break
-                except Exception as e:
-                    self.logger.debug(f"plan_deep_analysis: KPI registry dim fallback failed: {e}")
 
             # Create skeleton steps for grouped/timeframe comparisons (executed by DPA later)
             steps: List[Dict[str, Any]] = self._build_group_compare_steps(dimensions, request.timeframe, request.filters)
@@ -574,7 +585,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
 
                     # Fallback: populate dimensions and steps from contract if missing
                     if not dims:
-                        dims = self._dims_from_contract(limit=self.config.max_dimensions, kpi_name=getattr(plan, "kpi_name", None))
+                        dims = self._dims_from_contract(limit=self.config.max_dimensions, kpi_name=getattr(plan, "kpi_name", None), client_id=getattr(plan, "client_id", None))
                         try:
                             # Update the incoming plan so UI shows correct counts
                             if hasattr(plan, "dimensions"):
@@ -623,7 +634,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     # Helper: read dimension hierarchies from contract (if provided)
                     def _hierarchies_from_contract() -> Dict[str, List[str]]:
                         try:
-                            cpath = self._contract_path_for_kpi(getattr(plan, "kpi_name", None))
+                            cpath = self._contract_path_for_kpi(getattr(plan, "kpi_name", None), client_id=getattr(plan, "client_id", None))
                             if not os.path.exists(cpath):
                                 return {}
                             with open(cpath, "r", encoding="utf-8") as f:
@@ -1342,103 +1353,122 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 self.logger.debug(f"where-is computation failed for {dim}: {de}")
 
                     # WHEN (time buckets with greatest variance)
-                    time_bucket = "Fiscal Year-Month"
-                    try:
-                        # Prefer Top/Bottom N with delta_prev for time buckets
-                        t_top = await self.data_product_agent.generate_sql_for_kpi(
-                            kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket], topn={"type": "top", "n": 3, "metric": "delta_prev"}
-                        )
-                        if t_top.get("success"):
-                            t_top_exec = await self.data_product_agent.execute_sql(t_top.get("sql"), data_product_id=dp_id)
-                            queries_executed += 1
-                            rows_t = t_top_exec.get("rows") or []
-                            cols_t = [str(c) for c in (t_top_exec.get("columns") or [])]
-                            b_col = cols_t[0] if cols_t else None
-                            c_col = "current_value" if "current_value" in cols_t else (cols_t[1] if len(cols_t) > 1 else None)
-                            p_col = "previous_value" if "previous_value" in cols_t else (cols_t[2] if len(cols_t) > 2 else None)
-                            d_col = "delta_prev" if "delta_prev" in cols_t else (cols_t[3] if len(cols_t) > 3 else None)
-                            for r in rows_t:
-                                try:
-                                    if isinstance(r, dict):
-                                        b = str(r.get(b_col)) if b_col else None
-                                        c_raw = r.get(c_col) if isinstance(c_col, str) else (None if c_col is None else list(r.values())[1])
-                                        p_raw = r.get(p_col) if isinstance(p_col, str) else (None if p_col is None else list(r.values())[2])
-                                        d_raw = r.get(d_col) if isinstance(d_col, str) else (None if d_col is None else list(r.values())[3])
-                                        c = float(c_raw) if c_raw is not None else 0.0
-                                        p = float(p_raw) if p_raw is not None else 0.0
-                                        d = float(d_raw) if d_raw is not None else (c - p)
-                                    else:
-                                        b = str(r[0]); c = float(r[1] or 0.0); p = float(r[2] or 0.0); d = float((r[3] if r[3] is not None else c - p))
-                                    kt.when_is.append(_format_when_entry(b, d, c, p))
-                                except Exception:
-                                    continue
-                        t_bot = await self.data_product_agent.generate_sql_for_kpi(
-                            kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket], topn={"type": "bottom", "n": 3, "metric": "delta_prev"}
-                        )
-                        if t_bot.get("success"):
-                            t_bot_exec = await self.data_product_agent.execute_sql(t_bot.get("sql"), data_product_id=dp_id)
-                            queries_executed += 1
-                            rows_tb = t_bot_exec.get("rows") or []
-                            cols_tb = [str(c) for c in (t_bot_exec.get("columns") or [])]
-                            b_col_b = cols_tb[0] if cols_tb else None
-                            c_col_b = "current_value" if "current_value" in cols_tb else (cols_tb[1] if len(cols_tb) > 1 else None)
-                            p_col_b = "previous_value" if "previous_value" in cols_tb else (cols_tb[2] if len(cols_tb) > 2 else None)
-                            d_col_b = "delta_prev" if "delta_prev" in cols_tb else (cols_tb[3] if len(cols_tb) > 3 else None)
-                            for r in rows_tb:
-                                try:
-                                    if isinstance(r, dict):
-                                        b = str(r.get(b_col_b)) if b_col_b else None
-                                        c_raw = r.get(c_col_b) if isinstance(c_col_b, str) else (None if c_col_b is None else list(r.values())[1])
-                                        p_raw = r.get(p_col_b) if isinstance(p_col_b, str) else (None if p_col_b is None else list(r.values())[2])
-                                        d_raw = r.get(d_col_b) if isinstance(d_col_b, str) else (None if d_col_b is None else list(r.values())[3])
-                                        c = float(c_raw) if c_raw is not None else 0.0
-                                        p = float(p_raw) if p_raw is not None else 0.0
-                                        d = float(d_raw) if d_raw is not None else (c - p)
-                                    else:
-                                        b = str(r[0]); c = float(r[1] or 0.0); p = float(r[2] or 0.0); d = float((r[3] if r[3] is not None else c - p))
-                                    kt.when_is_not.append(_format_when_entry(b, d, c, p, note="Within threshold"))
-                                except Exception:
-                                    continue
-                        # Fallback if needed (dual-query path)
-                        if not kt.when_is:
-                            gen_cur_t = await self.data_product_agent.generate_sql_for_kpi(
-                                kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket]
-                            )
-                            if gen_cur_t.get("success"):
-                                cur_exec_t = await self.data_product_agent.execute_sql(gen_cur_t.get("sql"), data_product_id=dp_id)
-                                queries_executed += 1
-                                m_cur_t = _as_map(cur_exec_t)
-                            else:
-                                m_cur_t = {}
-                            m_prev_t: Dict[str, float] = {}
-                            if prev_tf:
-                                gen_prev_t = await self.data_product_agent.generate_sql_for_kpi(
-                                    kpi_def, timeframe=prev_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket], comparison_period=True
+                    # Resolve time dimension column from data product contract — no hardcoding
+                    time_bucket: Optional[str] = None
+                    time_bucket_label: str = ""
+                    if dp_id:
+                        try:
+                            from src.registry.factory import RegistryFactory
+                            _dp_provider = RegistryFactory().get_provider("data_product")
+                            _dp_obj = _dp_provider.get(dp_id) if _dp_provider else None
+                            if _dp_obj and getattr(_dp_obj, "time_dimensions", None):
+                                _primary_td = next(
+                                    (td for td in _dp_obj.time_dimensions if getattr(td, "primary", True)),
+                                    _dp_obj.time_dimensions[0],
                                 )
-                                if gen_prev_t.get("success"):
-                                    prev_exec_t = await self.data_product_agent.execute_sql(gen_prev_t.get("sql"), data_product_id=dp_id)
+                                time_bucket = _primary_td.display_expr or _primary_td.column
+                                time_bucket_label = getattr(_primary_td, "label", None) or time_bucket
+                        except Exception as _td_err:
+                            self.logger.debug("[DA] time_dimension lookup failed for dp_id=%s: %s", dp_id, _td_err)
+                    if not time_bucket:
+                        self.logger.info("[DA] No time_dimension configured for dp_id=%s — skipping WHEN analysis", dp_id)
+                    if time_bucket:
+                        try:
+                            # Prefer Top/Bottom N with delta_prev for time buckets
+                            t_top = await self.data_product_agent.generate_sql_for_kpi(
+                                kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket], topn={"type": "top", "n": 3, "metric": "delta_prev"}
+                            )
+                            if t_top.get("success"):
+                                t_top_exec = await self.data_product_agent.execute_sql(t_top.get("sql"), data_product_id=dp_id)
+                                queries_executed += 1
+                                rows_t = t_top_exec.get("rows") or []
+                                cols_t = [str(c) for c in (t_top_exec.get("columns") or [])]
+                                b_col = cols_t[0] if cols_t else None
+                                c_col = "current_value" if "current_value" in cols_t else (cols_t[1] if len(cols_t) > 1 else None)
+                                p_col = "previous_value" if "previous_value" in cols_t else (cols_t[2] if len(cols_t) > 2 else None)
+                                d_col = "delta_prev" if "delta_prev" in cols_t else (cols_t[3] if len(cols_t) > 3 else None)
+                                for r in rows_t:
+                                    try:
+                                        if isinstance(r, dict):
+                                            b = str(r.get(b_col)) if b_col else None
+                                            c_raw = r.get(c_col) if isinstance(c_col, str) else (None if c_col is None else list(r.values())[1])
+                                            p_raw = r.get(p_col) if isinstance(p_col, str) else (None if p_col is None else list(r.values())[2])
+                                            d_raw = r.get(d_col) if isinstance(d_col, str) else (None if d_col is None else list(r.values())[3])
+                                            c = float(c_raw) if c_raw is not None else 0.0
+                                            p = float(p_raw) if p_raw is not None else 0.0
+                                            d = float(d_raw) if d_raw is not None else (c - p)
+                                        else:
+                                            b = str(r[0]); c = float(r[1] or 0.0); p = float(r[2] or 0.0); d = float((r[3] if r[3] is not None else c - p))
+                                        kt.when_is.append(_format_when_entry(b, d, c, p))
+                                    except Exception:
+                                        continue
+                            t_bot = await self.data_product_agent.generate_sql_for_kpi(
+                                kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket], topn={"type": "bottom", "n": 3, "metric": "delta_prev"}
+                            )
+                            if t_bot.get("success"):
+                                t_bot_exec = await self.data_product_agent.execute_sql(t_bot.get("sql"), data_product_id=dp_id)
+                                queries_executed += 1
+                                rows_tb = t_bot_exec.get("rows") or []
+                                cols_tb = [str(c) for c in (t_bot_exec.get("columns") or [])]
+                                b_col_b = cols_tb[0] if cols_tb else None
+                                c_col_b = "current_value" if "current_value" in cols_tb else (cols_tb[1] if len(cols_tb) > 1 else None)
+                                p_col_b = "previous_value" if "previous_value" in cols_tb else (cols_tb[2] if len(cols_tb) > 2 else None)
+                                d_col_b = "delta_prev" if "delta_prev" in cols_tb else (cols_tb[3] if len(cols_tb) > 3 else None)
+                                for r in rows_tb:
+                                    try:
+                                        if isinstance(r, dict):
+                                            b = str(r.get(b_col_b)) if b_col_b else None
+                                            c_raw = r.get(c_col_b) if isinstance(c_col_b, str) else (None if c_col_b is None else list(r.values())[1])
+                                            p_raw = r.get(p_col_b) if isinstance(p_col_b, str) else (None if p_col_b is None else list(r.values())[2])
+                                            d_raw = r.get(d_col_b) if isinstance(d_col_b, str) else (None if d_col_b is None else list(r.values())[3])
+                                            c = float(c_raw) if c_raw is not None else 0.0
+                                            p = float(p_raw) if p_raw is not None else 0.0
+                                            d = float(d_raw) if d_raw is not None else (c - p)
+                                        else:
+                                            b = str(r[0]); c = float(r[1] or 0.0); p = float(r[2] or 0.0); d = float((r[3] if r[3] is not None else c - p))
+                                        kt.when_is_not.append(_format_when_entry(b, d, c, p, note="Within threshold"))
+                                    except Exception:
+                                        continue
+                            # Fallback if needed (dual-query path)
+                            if not kt.when_is:
+                                gen_cur_t = await self.data_product_agent.generate_sql_for_kpi(
+                                    kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket]
+                                )
+                                if gen_cur_t.get("success"):
+                                    cur_exec_t = await self.data_product_agent.execute_sql(gen_cur_t.get("sql"), data_product_id=dp_id)
                                     queries_executed += 1
-                                    m_prev_t = _as_map(prev_exec_t)
-                            keys_t = set(m_cur_t.keys()) | set(m_prev_t.keys())
-                            diffs_t = []
-                            for k in keys_t:
-                                c = m_cur_t.get(k, 0.0)
-                                p = m_prev_t.get(k, 0.0)
-                                d = c - p
-                                diffs_t.append((k, c, p, d))
-                            diffs_t.sort(key=lambda t: abs(t[3]), reverse=True)
-                            for k, c, p, d in diffs_t[:3]:
-                                kt.when_is.append(_format_when_entry(k, d, c, p))
-                            diffs_t_low = sorted(diffs_t, key=lambda t: abs(t[3]))
-                            for k, c, p, d in diffs_t_low[:3]:
-                                kt.when_is_not.append(_format_when_entry(k, d, c, p, note="Within threshold"))
-                    except Exception as te:
-                        self.logger.debug(f"when-is computation failed: {te}")
+                                    m_cur_t = _as_map(cur_exec_t)
+                                else:
+                                    m_cur_t = {}
+                                m_prev_t: Dict[str, float] = {}
+                                if prev_tf:
+                                    gen_prev_t = await self.data_product_agent.generate_sql_for_kpi(
+                                        kpi_def, timeframe=prev_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket], comparison_period=True
+                                    )
+                                    if gen_prev_t.get("success"):
+                                        prev_exec_t = await self.data_product_agent.execute_sql(gen_prev_t.get("sql"), data_product_id=dp_id)
+                                        queries_executed += 1
+                                        m_prev_t = _as_map(prev_exec_t)
+                                keys_t = set(m_cur_t.keys()) | set(m_prev_t.keys())
+                                diffs_t = []
+                                for k in keys_t:
+                                    c = m_cur_t.get(k, 0.0)
+                                    p = m_prev_t.get(k, 0.0)
+                                    d = c - p
+                                    diffs_t.append((k, c, p, d))
+                                diffs_t.sort(key=lambda t: abs(t[3]), reverse=True)
+                                for k, c, p, d in diffs_t[:3]:
+                                    kt.when_is.append(_format_when_entry(k, d, c, p))
+                                diffs_t_low = sorted(diffs_t, key=lambda t: abs(t[3]))
+                                for k, c, p, d in diffs_t_low[:3]:
+                                    kt.when_is_not.append(_format_when_entry(k, d, c, p, note="Within threshold"))
+                        except Exception as te:
+                            self.logger.debug(f"when-is computation failed: {te}")
 
                     # Fallback: populate dimensions and steps from contract if missing
                     if not getattr(plan, "dimensions", None):
                         # Use contract dims; if still empty and hierarchies exist, seed from top-level hierarchy labels
-                        dims_from_contract = self._dims_from_contract(limit=self.config.max_dimensions, kpi_name=getattr(plan, "kpi_name", None))
+                        dims_from_contract = self._dims_from_contract(limit=self.config.max_dimensions, kpi_name=getattr(plan, "kpi_name", None), client_id=getattr(plan, "client_id", None))
                         if dims_from_contract:
                             plan.dimensions = dims_from_contract
                         elif hmap:
@@ -1618,7 +1648,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             # Ensure plan has non-empty counters for UI summary even if DP path didn't run
             try:
                 if not getattr(plan, "dimensions", None):
-                    plan.dimensions = self._dims_from_contract(limit=self.config.max_dimensions, kpi_name=getattr(plan, "kpi_name", None))
+                    plan.dimensions = self._dims_from_contract(limit=self.config.max_dimensions, kpi_name=getattr(plan, "kpi_name", None), client_id=getattr(plan, "client_id", None))
                 if not getattr(plan, "steps", None):
                     plan.steps = self._build_group_compare_steps(
                         getattr(plan, "dimensions", []) or [],

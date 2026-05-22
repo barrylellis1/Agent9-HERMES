@@ -163,3 +163,5 @@ When the upstream DA output carries `plan.analysis_mode = "opportunity"`, SF swi
 - Opportunity: "situation MUST describe outperformance; complication = replication gap; all 3 options must address scaling, not fixing"
 
 **`da_compact_s1`** now includes `"analysis_mode"` key so Stage 1 personas see it in KEY ANALYSIS SIGNALS.
+
+- May 2026: Business context client_id resolution — `_enrich_with_business_context` now resolves `client_id` from `da_summary["client_id"]` or `request.client_id` before falling back to KPI name scan, preventing cross-tenant context loading when two clients share a KPI name.

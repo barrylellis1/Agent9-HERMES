@@ -143,8 +143,9 @@ export async function listClients(): Promise<any[]> {
   return envelope.data || [];
 }
 
-export async function getPrincipal(id: string): Promise<any> {
-  const envelope = await requestJson<Envelope<any>>(`/registry/principals/${encodeURIComponent(id)}`);
+export async function getPrincipal(id: string, clientId?: string): Promise<any> {
+  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
+  const envelope = await requestJson<Envelope<any>>(`/registry/principals/${encodeURIComponent(id)}${qs}`);
   return envelope.data;
 }
 
@@ -569,8 +570,9 @@ export async function getVASolution(solutionId: string): Promise<VAAcceptedSolut
   return requestJson<VAAcceptedSolution>(`/value-assurance/solutions/${solutionId}`);
 }
 
-export async function getVAPortfolio(principalId: string): Promise<StrategyAwarePortfolio> {
-  return requestJson<StrategyAwarePortfolio>(`/value-assurance/portfolio/${principalId}`);
+export async function getVAPortfolio(principalId: string, clientId?: string): Promise<StrategyAwarePortfolio> {
+  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
+  return requestJson<StrategyAwarePortfolio>(`/value-assurance/portfolio/${principalId}${qs}`);
 }
 
 export async function projectInactionCost(
@@ -691,10 +693,10 @@ export interface KPIAccountability {
 }
 
 export async function listAccountabilities(clientId: string): Promise<KPIAccountability[]> {
-  const envelope = await requestJson<Envelope<KPIAccountability[]>>(
+  const result = await requestJson<KPIAccountability[]>(
     `/accountability/?client_id=${encodeURIComponent(clientId)}`
   );
-  return envelope.data || [];
+  return result || [];
 }
 
 // ---------------------------------------------------------------------------

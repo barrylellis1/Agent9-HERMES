@@ -74,6 +74,8 @@ run_enterprise_assessment.py
 | Business Optimization workflow (top-down strategic) | Phase 12 |
 | KPI Assistant UI | Phase 12 |
 | Slack notifications | Phase 12 |
+| **Time Dimension Mapping Wizard** — during onboarding schema inspection (step 2), auto-detect date columns and fragments (year, period, timestamp, etc.) per dialect; propose `display_expr` / `sort_expr` for `TimeDimensionSpec`; user confirms or edits; no developer seed changes required for new clients | Phase 12 |
+| **Data Product Schema Sync / Drift Detection** — store `schema_snapshot` + `last_synced_at` on `DataProduct`; "Re-sync" button in Admin Console re-inspects live source, diffs against snapshot, flags affected KPIs, surfaces reconciliation UI; triggers: manual + pre-assessment auto-detect; impacted KPI SQL flagged before next assessment runs | Infra A5 |
 | Platform Admin & Client Onboarding (4-step guided flow) | Infra A2 |
 | Usage monitoring (events, quotas, alerts) | Infra A3 |
 | Admin Console — Workflow history, error log, token cost, registry editor, LLM config | Infra A5 |
@@ -81,7 +83,7 @@ run_enterprise_assessment.py
 | ~~Connection Profiles backend storage + credential encryption~~ | ✅ Infra B — complete |
 | ~~Authentication (Supabase Auth)~~ | ✅ Infra B — complete (dual-mode login + JWT middleware) |
 | Azure OpenAI provider + LLM audit export | Infra B2 |
-| Multi-tenant isolation — DGA `validate_data_access()` stub (always-true); full enforcement deferred | Infra B (DGA-B) |
+| **Database-level multi-tenant isolation** — Supabase RLS policies on all registry tables; `get_by_client(client_id)` on all providers; DGA `validate_data_access()` real enforcement (replaces always-true stub) | **Infra B3** (pre-first paying customer) |
 
 ### Known tech debt (remaining)
 
@@ -1503,3 +1505,71 @@ RUN apt-get update && apt-get install -y curl gnupg \
 **Trigger:** Build when a prospect is blocked specifically by data residency concerns. Do not build speculatively — Anthropic API covers 80% of enterprise buyers without this.
 
 **Reference:** `docs/strategy/enterprise_security_faq.md`
+
+---
+
+### Infra B3: Database-Level Multi-Tenant Isolation ← BLOCKER for first paying customer
+
+**When:** Before first signed paying customer. Not required for demos — required before a customer's financial data (KPI results, situation assessments, solution decisions) lives in production alongside another customer's data.
+
+**Why this and not container-per-customer:** Decision Studio does not store customer business data — their EBITDA and revenue figures live in their own Snowflake/BigQuery. Agent9 stores only metadata: KPI definitions, principal profiles, situation cards, approved solutions. RLS on the Supabase registry tables is the correct isolation boundary for this data class. Container isolation is reserved for customers who contractually require on-premise or VPC deployment (Infra C, future).
+
+**Current state:** Application-layer `client_id` filtering is applied per-call in agents and API routes (Infra A4). This is correct but fragile — a bug in any code path can bypass the filter and return another tenant's records. Several such bugs were found and fixed in May 2026. The fix must be architectural, not patch-by-patch.
+
+**The three-layer fix:**
+
+| Layer | What | Why |
+|---|---|---|
+| **1 — Database RLS** | Supabase Row-Level Security policies on all registry tables | A database bug cannot leak rows to the wrong tenant even if application code omits the filter |
+| **2 — Provider isolation** | `get_by_client(client_id)` method on all registry providers | Callers get a single correct-by-construction method instead of `get_all()` + manual filter |
+| **3 — DGA enforcement** | `validate_data_access()` real implementation (replaces always-true stub) | DGA becomes the authoritative cross-agent access-control checkpoint |
+
+**Layer 1 — Supabase RLS (highest priority):**
+
+```sql
+-- Applied to: kpis, principal_profiles, data_products, business_processes,
+--             situations, value_assurance_solutions, kpi_accountability
+ALTER TABLE kpis ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "client_isolation" ON kpis
+  USING (client_id = current_setting('app.client_id', true));
+-- Repeat for each table
+```
+
+FastAPI middleware sets `app.client_id` at the start of every authenticated request:
+```python
+await conn.execute(f"SET LOCAL app.client_id = '{client_id}'")
+```
+
+This makes application-layer filter bugs non-exploitable — the database returns zero rows rather than another tenant's data.
+
+**Layer 2 — Provider `get_by_client()` method:**
+
+Add to each registry provider (`KPIProvider`, `PrincipalProfileProvider`, `DataProductProvider`, `BusinessProcessProvider`):
+```python
+def get_by_client(self, client_id: str) -> List[T]:
+    return [item for item in self.get_all() if getattr(item, 'client_id', None) == client_id]
+```
+
+All agent code that currently does `provider.get_all()` + manual filter loop is migrated to `provider.get_by_client(client_id)`. Reduces per-call filter surface from N call sites to 1 provider method.
+
+**Layer 3 — DGA `validate_data_access()` real enforcement:**
+
+Replace the always-true stub with a real check:
+```python
+async def validate_data_access(self, principal_id: str, data_product_id: str, client_id: str) -> bool:
+    dp = self.data_product_provider.get_by_client(client_id)
+    return any(d.id == data_product_id for d in dp)
+```
+
+| Deliverable | Description | Effort |
+|------------|-------------|--------|
+| Supabase migration — RLS on 7 tables | SQL migration file; one policy per table; middleware to set `app.client_id` per request | M (1–2 days) |
+| FastAPI middleware — `SET LOCAL app.client_id` | Inject at the start of every authenticated request; verify in integration test | S |
+| Provider `get_by_client()` method | Add to 4 providers; update all call sites from `get_all()` + manual filter | M (1 day) |
+| DGA `validate_data_access()` — real implementation | Replace always-true stub; wire into DPA before SQL execution | S |
+| Regression test suite | `tests/unit/test_client_isolation.py` — verify that a request with `client_id=apex_lubricants` cannot read `client_id=lubricants` KPIs, situations, or data products | M |
+| Security one-pager update | Update `docs/strategy/enterprise_security_faq.md` to reflect RLS enforcement as an architectural guarantee | S |
+
+**Trigger:** Build before signing first paying customer. Demo system can run without it. Production system with two real customers cannot.
+
+**Note — what this does NOT solve:** Separate data residency requirements (e.g., EU data must not leave EU) and on-premise deployment mandates. Those are addressed by separate Supabase projects per region (data residency) or a dedicated deployment model (on-premise). Both are future work, not required for the first customer cohort.

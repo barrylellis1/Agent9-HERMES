@@ -359,3 +359,4 @@ KPIs with SQL-level negation (`SUM(-amount)`) return positive values — skip th
 
 - May 2026: Bug fixes — NaN normalization, multi-tenant kpi_registry collision fix, comparison value extraction
 - May 2026 (Infra A4-a): Per-request KPI registry refresh — `detect_situations`, `process_nl_query`, and `get_kpi_definitions` now call `_load_kpi_registry()` on every invocation so new clients/KPIs seeded post-startup are visible without a service restart.
+- May 2026: `_convert_to_kpi_definition` propagates `id` (machine key) from raw KPI so accountability filtering in `_get_relevant_kpis` can match `kpi_accountability.kpi_id`.

@@ -54,7 +54,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   useEffect(() => {
     if (!selectedPrincipal) return;
-    getVAPortfolio(selectedPrincipal)
+    const activeClientId = localStorage.getItem('a9_active_client_id') ?? undefined;
+    getVAPortfolio(selectedPrincipal, activeClientId)
       .then(setPortfolio)
       .catch(() => setPortfolio(null));
   }, [selectedPrincipal]);

@@ -50,14 +50,42 @@ class ViewDefinition(BaseModel):
     depends_on: List[str] = Field(default_factory=list, description="Tables or views this view depends on")
 
 
+class TimeDimensionSpec(BaseModel):
+    """Specification for a time dimension available in this data product.
+
+    Simple case (single pre-composed column): set ``column`` only.
+    Composite case (year + period as separate columns): set ``source_columns``,
+    ``display_expr`` (SQL expression for SELECT/GROUP BY), and optionally
+    ``sort_expr`` (for ORDER BY — defaults to display_expr).
+    """
+
+    column: str = Field("", description="Single column name when the time label is already composed (e.g. 'Fiscal Year-Month'). Leave empty when using display_expr.")
+    source_columns: List[str] = Field(default_factory=list, description="Constituent columns that compose this dimension (e.g. ['fiscal_year', 'fiscal_period']). Documentation only.")
+    display_expr: str = Field("", description="SQL expression for SELECT / GROUP BY. Overrides column when set (e.g. \"CONCAT(CAST(fiscal_year AS VARCHAR), '-', fiscal_period)\").")
+    sort_expr: str = Field("", description="SQL expression for ORDER BY to ensure chronological ordering. Defaults to display_expr or column if empty.")
+    label: str = Field("", description="Display label for this dimension; defaults to display_expr or column if empty")
+    granularity: str = Field("month", description="Time granularity: year | quarter | month | week | day")
+    primary: bool = Field(True, description="If True, this is the preferred time dimension for SA/DA temporal analysis")
+
+    @property
+    def select_expr(self) -> str:
+        """SQL expression to use in SELECT / GROUP BY."""
+        return self.display_expr or self.column
+
+    @property
+    def order_expr(self) -> str:
+        """SQL expression to use in ORDER BY."""
+        return self.sort_expr or self.display_expr or self.column
+
+
 class DataProduct(BaseModel):
     """
     Represents a data product in the registry.
-    
+
     A data product is a collection of related tables and views that serve
     a specific business purpose, along with metadata about the product.
     """
-    
+
     id: str = Field(..., description="Unique identifier for the data product")
     client_id: str = Field(default_factory=lambda: os.getenv("ACTIVE_CLIENT_ID", "lubricants"), description="Client/tenant this data product belongs to")
     name: str = Field(..., description="Human-readable name of the data product")
@@ -67,7 +95,7 @@ class DataProduct(BaseModel):
     version: str = Field("1.0.0", description="Version of the data product")
     tables: Dict[str, TableDefinition] = Field(default_factory=dict, description="Tables in this data product")
     views: Dict[str, ViewDefinition] = Field(default_factory=dict, description="Views in this data product")
-    related_business_processes: List[str] = Field(default_factory=list, 
+    related_business_processes: List[str] = Field(default_factory=list,
                                                description="Business processes related to this data product")
     tags: List[str] = Field(default_factory=list, description="Tags for categorization")
     source_system: str = Field(
@@ -76,19 +104,32 @@ class DataProduct(BaseModel):
     )
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata for extensions")
     kpis: List[Dict[str, Any]] = Field(default_factory=list, description="KPIs defined for this data product")
+    time_dimensions: List[TimeDimensionSpec] = Field(
+        default_factory=list,
+        description="Time dimension columns available for SA/DA temporal analysis. The primary=True entry is used by the DA agent for WHEN analysis.",
+    )
     
     @model_validator(mode="after")
-    def _backfill_view_names(self) -> "DataProduct":
-        """Backfill ViewDefinition.name from the dict key when the stored payload omits it.
+    def _backfill_fields(self) -> "DataProduct":
+        """Backfill derived fields from stored data.
 
-        Views are stored as Dict[str, ViewDefinition] where the key is the view name.
-        Seeds and legacy records may not include 'name' inside the nested dict, causing
-        Pydantic to see name=None. This validator fills it from the key so that code
-        reading dp.views[k].name always gets a usable value.
+        1. ViewDefinition.name — filled from the dict key when the stored payload omits it.
+        2. time_dimensions — extracted from metadata['time_dimensions'] when the top-level
+           list is empty. This allows the field to survive the Supabase round-trip without
+           requiring a dedicated column (it is piggy-backed into the metadata JSONB).
         """
         for key, view in (self.views or {}).items():
             if isinstance(view, ViewDefinition) and not view.name:
                 view.name = key
+
+        if not self.time_dimensions and isinstance(self.metadata, dict):
+            raw_td = self.metadata.get("time_dimensions")
+            if isinstance(raw_td, list) and raw_td:
+                self.time_dimensions = [
+                    TimeDimensionSpec(**td) if isinstance(td, dict) else td
+                    for td in raw_td
+                ]
+
         return self
 
     @classmethod

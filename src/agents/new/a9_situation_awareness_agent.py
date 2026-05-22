@@ -1438,6 +1438,7 @@ class A9_Situation_Awareness_Agent:
                 kpi_metadata = {}
 
             kpi_def = KPIDefinition(
+                id=getattr(kpi, 'id', None),
                 name=kpi_name,
                 description=kpi_desc,
                 unit=kpi_unit,
@@ -1725,7 +1726,7 @@ class A9_Situation_Awareness_Agent:
         ordered_kpis = self._apply_principal_kpi_preferences(principal_context, relevant_kpis)
 
         # Restrict to accountable KPIs when assignments were loaded for this principal.
-        # Uses kpi_def.id (the canonical registry key matching kpi_accountability.kpi_id).
+        # kpi.id is the registry machine ID (e.g. "net_revenue") matching kpi_accountability.kpi_id.
         if accountable_kpi_ids:
             before = len(ordered_kpis)
             ordered_kpis = {

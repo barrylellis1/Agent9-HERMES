@@ -70,6 +70,17 @@ DATA_PRODUCT = {
             ]
         }
     },
+    "time_dimensions": [
+        {
+            "column": "",
+            "source_columns": ["fiscal_year", "fiscal_period"],
+            "display_expr": "CONCAT(CAST(fiscal_year AS VARCHAR), '-', fiscal_period)",
+            "sort_expr": "fiscal_year * 100 + CAST(fiscal_period AS INTEGER)",
+            "label": "Fiscal Period",
+            "granularity": "month",
+            "primary": True,
+        },
+    ],
     "reviewed": True,
     "staging": False,
     "language": "EN",
@@ -752,3 +763,187 @@ EXTRA_BUSINESS_PROCESSES: List[Dict[str, Any]] = [
 ]
 
 EXTRA_GLOSSARY_TERMS: List[Dict[str, Any]] = []
+
+# ─── KPI Accountability ───────────────────────────────────────────────────────
+# Maps KPIs to the principal who is accountable for them.
+# IDs follow the pattern acc_apx_<principal>_<kpi>.
+
+ACCOUNTABILITY: List[Dict[str, Any]] = [
+    # ------------------------------------------------------------------
+    # CFO (James Whitfield) — P&L and margin KPIs
+    # ------------------------------------------------------------------
+    {
+        "id": "acc_apx_cfo_net_revenue",
+        "client_id": CLIENT_ID,
+        "kpi_id": "net_revenue",
+        "principal_id": "cfo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "CFO owns top-line revenue performance enterprise-wide.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_apx_cfo_product_sales_revenue",
+        "client_id": CLIENT_ID,
+        "kpi_id": "product_sales_revenue",
+        "principal_id": "cfo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "CFO accountable for product sales revenue.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_apx_cfo_gross_profit",
+        "client_id": CLIENT_ID,
+        "kpi_id": "gross_profit",
+        "principal_id": "cfo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "CFO owns gross profit — primary margin control point.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_apx_cfo_gross_margin_pct",
+        "client_id": CLIENT_ID,
+        "kpi_id": "gross_margin_pct",
+        "principal_id": "cfo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "CFO accountable for overall gross margin percentage.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_apx_cfo_operating_income",
+        "client_id": CLIENT_ID,
+        "kpi_id": "operating_income",
+        "principal_id": "cfo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "CFO accountable for EBIT / operating income.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_apx_cfo_ebitda",
+        "client_id": CLIENT_ID,
+        "kpi_id": "ebitda",
+        "principal_id": "cfo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "CFO accountable for enterprise EBITDA.",
+        "created_by": "seed",
+    },
+    # ------------------------------------------------------------------
+    # CEO (Patricia Navarro) — strategic growth KPIs
+    # ------------------------------------------------------------------
+    {
+        "id": "acc_apx_ceo_premium_mix_pct",
+        "client_id": CLIENT_ID,
+        "kpi_id": "premium_mix_pct",
+        "principal_id": "ceo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "CEO accountable for premium product mix strategy.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_apx_ceo_ecommerce_revenue",
+        "client_id": CLIENT_ID,
+        "kpi_id": "ecommerce_revenue",
+        "principal_id": "ceo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "CEO owns e-commerce channel growth strategy.",
+        "created_by": "seed",
+    },
+    # ------------------------------------------------------------------
+    # COO (coo_001) — operational and cost KPIs
+    # ------------------------------------------------------------------
+    {
+        "id": "acc_apx_coo_service_revenue",
+        "client_id": CLIENT_ID,
+        "kpi_id": "service_revenue",
+        "principal_id": "coo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "COO owns service center revenue performance.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_apx_coo_cogs",
+        "client_id": CLIENT_ID,
+        "kpi_id": "cogs",
+        "principal_id": "coo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "COO accountable for total COGS including blending and packaging.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_apx_coo_base_oil_cost",
+        "client_id": CLIENT_ID,
+        "kpi_id": "base_oil_cost",
+        "principal_id": "coo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "COO owns base oil and additives procurement cost.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_apx_coo_distribution_cost",
+        "client_id": CLIENT_ID,
+        "kpi_id": "distribution_cost",
+        "principal_id": "coo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "COO accountable for logistics and distribution cost.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_apx_coo_avg_transaction_value",
+        "client_id": CLIENT_ID,
+        "kpi_id": "avg_transaction_value",
+        "principal_id": "coo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "COO owns average transaction value across service channels.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_apx_coo_b2b_revenue",
+        "client_id": CLIENT_ID,
+        "kpi_id": "b2b_revenue",
+        "principal_id": "coo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "COO accountable for B2B direct sales channel revenue.",
+        "created_by": "seed",
+    },
+    # ------------------------------------------------------------------
+    # Finance Manager (Linda Cheng) — expense governance KPIs
+    # ------------------------------------------------------------------
+    {
+        "id": "acc_apx_fm_sga_expense",
+        "client_id": CLIENT_ID,
+        "kpi_id": "sga_expense",
+        "principal_id": "finance_manager_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "Finance Manager owns SG&A budget governance and variance analysis.",
+        "created_by": "seed",
+    },
+]

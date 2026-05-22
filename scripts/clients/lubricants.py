@@ -45,6 +45,17 @@ DATA_PRODUCT = {
         "bigquery_project": "agent9-465818",
         "bigquery_dataset": "LubricantsBusiness",
     },
+    "time_dimensions": [
+        {
+            "column": "",
+            "source_columns": ["fiscal_year", "fiscal_period"],
+            "display_expr": "CONCAT(CAST(fiscal_year AS STRING), '-', fiscal_period)",
+            "sort_expr": "fiscal_year * 100 + CAST(fiscal_period AS INT64)",
+            "label": "Fiscal Period",
+            "granularity": "month",
+            "primary": True,
+        },
+    ],
 }
 
 _VIEW = "LubricantsStarSchemaView"

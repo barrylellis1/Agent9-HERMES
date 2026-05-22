@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ArrowLeft, RefreshCw, TrendingUp, AlertCircle, BarChart2, ArrowUpRight, ShieldCheck, Target, FileText, Play, Rocket } from 'lucide-react';
-import { getVAPortfolio, recordKPIMeasurement, updateSolutionPhase, getPrincipal } from '../api/client';
+import { getVAPortfolio, recordKPIMeasurement, updateSolutionPhase, listPrincipals } from '../api/client';
 import { BrandLogo } from '../components/BrandLogo';
 import type { StrategyAwarePortfolio, AcceptedSolution, SolutionVerdict, SolutionPhase } from '../types/valueAssurance';
 import { PortfolioDashboard } from '../components/PortfolioDashboard';
@@ -390,6 +390,7 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
 export function Portfolio() {
   const [searchParams] = useSearchParams();
   const principalId = searchParams.get('principal') ?? '';
+  const activeClientId = localStorage.getItem('a9_active_client_id') ?? undefined;
 
   const [portfolio, setPortfolio] = useState<StrategyAwarePortfolio | null>(null);
   const [selectedSolution, setSelectedSolution] = useState<AcceptedSolution | null>(null);
@@ -406,14 +407,15 @@ export function Portfolio() {
     setLoading(true);
     setError(null);
     try {
-      const [data, principal] = await Promise.allSettled([
-        getVAPortfolio(principalId),
-        getPrincipal(principalId),
+      const [data, principals] = await Promise.allSettled([
+        getVAPortfolio(principalId, activeClientId),
+        listPrincipals(activeClientId),
       ]);
       if (data.status === 'fulfilled') setPortfolio(data.value);
       else throw data.reason;
-      if (principal.status === 'fulfilled' && principal.value?.name) {
-        setPrincipalName(principal.value.name);
+      if (principals.status === 'fulfilled') {
+        const match = principals.value.find((p: any) => p.id === principalId);
+        if (match?.name) setPrincipalName(match.name);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load portfolio.');

@@ -994,18 +994,22 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             from src.registry.factory import RegistryFactory as _RF
                             from src.registry.business_context.business_context_provider import SupabaseBusinessContextProvider
 
-                            # Resolve client_id from the KPI name
-                            _client_id = None
-                            try:
-                                _kpi_provider = _RF().get_provider("kpi")
-                                if _kpi_provider:
-                                    _kpi_nm = (da_summary.get("kpi_name") or "").lower().strip()
-                                    for _k in _kpi_provider.get_all():
-                                        if (getattr(_k, "name", "") or "").lower().strip() == _kpi_nm:
-                                            _client_id = getattr(_k, "client_id", None)
-                                            break
-                            except Exception:
-                                pass
+                            # Resolve client_id: prefer da_summary or request, fall back to KPI name scan
+                            _client_id = (
+                                (da_summary.get("client_id") if da_summary else None)
+                                or getattr(request, "client_id", None)
+                            )
+                            if not _client_id:
+                                try:
+                                    _kpi_provider = _RF().get_provider("kpi")
+                                    if _kpi_provider:
+                                        _kpi_nm = (da_summary.get("kpi_name") or "").lower().strip()
+                                        for _k in _kpi_provider.get_all():
+                                            if (getattr(_k, "name", "") or "").lower().strip() == _kpi_nm:
+                                                _client_id = getattr(_k, "client_id", None)
+                                                break
+                                except Exception:
+                                    pass
 
                             if _client_id:
                                 _bc_provider = SupabaseBusinessContextProvider()

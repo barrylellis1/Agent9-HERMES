@@ -226,3 +226,5 @@ SA (detect) → DA (Is/Is Not) → MA (market signals) → SF (solutions + HITL)
                                                   → composite verdict
                                                   → LLM narrative
 ```
+
+- May 2026: `get_portfolio_summary` — added client_id + principal_id isolation filter on in-memory store so cross-tenant solutions never appear in a client-scoped portfolio summary.

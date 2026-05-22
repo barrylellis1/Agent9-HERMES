@@ -78,8 +78,14 @@ async def _get_sa_agent():
         "A9_Situation_Awareness_Agent",
         {"orchestrator": orchestrator, "registry_factory": rf},
     )
-    # Inject the mixed-client KPI registry directly
-    sa_agent.kpi_registry = dict(ALL_KPIS)
+    # Inject the mixed-client KPI registry using the same dual-key format the SA agent
+    # uses when loading from Supabase: plain name key + client-qualified key per KPI.
+    registry = {}
+    for name, kpi in ALL_KPIS.items():
+        registry[name] = kpi
+        if kpi.client_id:
+            registry[f"{kpi.client_id}:{name}"] = kpi
+    sa_agent.kpi_registry = registry
     return sa_agent
 
 

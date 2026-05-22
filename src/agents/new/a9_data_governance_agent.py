@@ -401,6 +401,8 @@ class A9_Data_Governance_Agent:
                 all_kpis = self.kpi_provider.get_by_client(client_id) or []
             else:
                 all_kpis = self.kpi_provider.get_all() or []
+                if client_id:
+                    all_kpis = [k for k in all_kpis if not getattr(k, 'client_id', None) or getattr(k, 'client_id', None) == client_id]
             kpi_dict = {kpi.name: kpi for kpi in all_kpis if hasattr(kpi, 'name')}
             
             for kpi_name in request.kpi_names:
@@ -627,14 +629,19 @@ class A9_Data_Governance_Agent:
             # 3) Fallback: scan all KPIs and match by display name (case-insensitive)
             if not kpi:
                 try:
+                    _req_client = getattr(request, 'client_id', None) or (request.context or {}).get('client_id') if request else None
                     all_kpis = kpi_provider.get_all() if hasattr(kpi_provider, "get_all") else []
                     target = str(kpi_name or "").strip().lower()
                     for candidate in (all_kpis or []):
                         try:
                             cand_name = getattr(candidate, "name", None)
-                            if isinstance(cand_name, str) and cand_name.strip().lower() == target:
-                                kpi = candidate
-                                break
+                            if not (isinstance(cand_name, str) and cand_name.strip().lower() == target):
+                                continue
+                            _cand_client = getattr(candidate, 'client_id', None)
+                            if _req_client and _cand_client and _cand_client != _req_client:
+                                continue
+                            kpi = candidate
+                            break
                         except Exception:
                             continue
                 except Exception:
