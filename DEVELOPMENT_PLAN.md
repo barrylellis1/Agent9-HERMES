@@ -74,6 +74,7 @@ run_enterprise_assessment.py
 | Business Optimization workflow (top-down strategic) | Phase 12 |
 | KPI Assistant UI | Phase 12 |
 | Slack notifications | Phase 12 |
+| **Uniform Time Dimension Layer** — `TimeDimensionSpec` typed contract on every data product (`type: date \| fiscal_year_period \| fiscal_year`); single `TimeFilter` utility replaces 4 fragmented DPA mechanisms; DA dimensional comparison works correctly for all backends; fiscal year + period is the primary type (dominant enterprise pattern) | **Phase 10F** |
 | **Time Dimension Mapping Wizard** — during onboarding schema inspection (step 2), auto-detect date columns and fragments (year, period, timestamp, etc.) per dialect; propose `display_expr` / `sort_expr` for `TimeDimensionSpec`; user confirms or edits; no developer seed changes required for new clients | Phase 12 |
 | **Data Product Schema Sync / Drift Detection** — store `schema_snapshot` + `last_synced_at` on `DataProduct`; "Re-sync" button in Admin Console re-inspects live source, diffs against snapshot, flags affected KPIs, surfaces reconciliation UI; triggers: manual + pre-assessment auto-detect; impacted KPI SQL flagged before next assessment runs | Infra A5 |
 | Platform Admin & Client Onboarding (4-step guided flow) | Infra A2 |
@@ -340,6 +341,68 @@ Agent9 connects to customer data warehouses at three progressive levels of integ
 **Design principle:** Customer-controlled enhancements. Customers enrich their curated views with Cortex/Mosaic calls at their discretion. Decision Studio executes enriched views without modification.
 
 **Future (Phase 11+):** In-SQL explanation generation ("why is this KPI down?"), semantic drill-down suggestions, anomaly context discovery — all powered by Cortex/Mosaic, all staying within customer's warehouse.
+
+---
+
+### Phase 10F: Uniform Time Dimension Layer
+
+**Goal:** Replace four fragmented, incompatible time-filtering mechanisms in the DPA with a single typed `TimeFilter` utility. DA dimensional comparison (IS/IS NOT) works correctly for all data sources, including the dominant enterprise pattern of integer fiscal year + period columns.
+
+**Why this is blocking:** DA comparison queries fail silently for any data product that does not use a standard DATE column. This includes every ERP-sourced financial data product (SAP: GJAHR + MONAT, Oracle: accounting periods, Workday: fiscal periods, BigQuery/Snowflake pre-aggregated fact tables). The `transaction_date` default in `_build_bq_dimensional_sql` is backwards — fiscal year + period is the rule for financial KPIs, not the exception.
+
+**Root cause (diagnosed May 2026):** Four mechanisms each assume different things about time columns:
+
+| Mechanism | File | Problem |
+|---|---|---|
+| `_get_timeframe_condition` | DPA | Generates `t.fiscal_year = {y}` — requires table alias `t`, not present in raw KPI SQL |
+| `_build_bq_dimensional_sql._append_date` | DPA | Defaults `date_col = "transaction_date"` — column doesn't exist in ERP-sourced views |
+| `_build_sf_dimensional_sql._append_date` | DPA | Same default |
+| `_prev_timeframe` | DA | String map returns `None` for unknown timeframes (e.g. "yoy") → no comparison period |
+
+**Design — `TimeDimensionSpec` (extend existing `time_dimensions` contract field):**
+
+```python
+# Type A: date — standard DATE/TIMESTAMP column (DuckDB bicycle, NetSuite, transactional tables)
+{"type": "date", "column": "posting_date", "primary": True}
+
+# Type B: fiscal_year_period — integer year + period (SAP, Oracle, Workday, BigQuery/Snowflake financial marts)
+{"type": "fiscal_year_period", "year_column": "fiscal_year",
+ "period_column": "fiscal_period", "period_type": "month", "primary": True}
+
+# Type C: fiscal_year — annual granularity only (KPIs with no sub-year breakdown needed)
+{"type": "fiscal_year", "year_column": "fiscal_year", "primary": True}
+```
+
+**Design — `TimeFilter` utility (`src/database/time_filter.py`):**
+
+```python
+class TimeFilter:
+    @staticmethod
+    def current_condition(spec: dict, timeframe: str, dialect: str = "bigquery") -> str:
+        # Returns SQL WHERE fragment e.g. "fiscal_year = 2026 AND fiscal_period <= 5"
+        ...
+    @staticmethod
+    def previous_condition(spec: dict, timeframe: str, dialect: str = "bigquery") -> str:
+        # Returns prior-period equivalent e.g. "fiscal_year = 2025 AND fiscal_period <= 5"
+        ...
+```
+
+Backend-agnostic for `fiscal_year_period` and `fiscal_year` types (integer comparison, no dialect-specific date arithmetic). Dialect-aware only for `date` type (BigQuery uses backtick quoting, Snowflake/DuckDB use standard quoting).
+
+| Deliverable | Description |
+|---|---|
+| `TimeDimensionSpec` | Extend `time_dimensions` list in data product contracts with `type` field |
+| `TimeFilter` utility | `src/database/time_filter.py` — pure logic, no I/O, backend-agnostic for fiscal types |
+| DPA refactor | Replace `_get_timeframe_condition`, `_get_previous_timeframe_condition`, and both `_append_date` functions with `TimeFilter` calls |
+| DA refactor | Replace `_prev_timeframe` string map with `TimeFilter.previous_condition` |
+| Seed updates | Add `type` field to `time_dimensions` in `scripts/clients/lubricants.py`, `apex_lubricants.py`, `hess.py`, `bicycle.py` |
+| Unit tests | `tests/unit/test_time_filter.py` — current/previous conditions for all 3 types × all timeframes × all dialects |
+
+**Prerequisite:** None — independent of Phase 10D (MCP) and 10E (native AI).
+
+**Impact when shipped:** DA IS/IS NOT dimensional comparison works for all clients. SG&A and all other lubricants financial KPIs get real YoY segment breakdowns, not zero-delta artifacts.
+
+---
 
 ### Phase 11: Platform Correctness
 

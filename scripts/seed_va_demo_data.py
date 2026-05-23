@@ -32,8 +32,9 @@ SOLUTIONS = [
     # 1. APPROVED — just approved, no work started
     {
         "id": "a0000001-0001-0001-0001-000000000001",
+        "client_id": "lubricants",
         "situation_id": "sit-gm-001",
-        "kpi_id": "lub_gross_margin_pct",
+        "kpi_id": "gross_margin_pct",
         "principal_id": "cfo_001",
         "approved_at": "2026-04-10T14:00:00Z",
         "solution_description": "Renegotiate base oil supply contracts with top 3 vendors to lock in Q2 pricing before the seasonal spike. Consolidate orders across divisions for volume leverage.",
@@ -54,8 +55,9 @@ SOLUTIONS = [
     # 2. IMPLEMENTING — approved a week ago, being deployed
     {
         "id": "a0000001-0001-0001-0001-000000000002",
+        "client_id": "lubricants",
         "situation_id": "sit-rev-001",
-        "kpi_id": "lub_net_revenue",
+        "kpi_id": "net_revenue",
         "principal_id": "cfo_001",
         "approved_at": "2026-04-03T09:30:00Z",
         "solution_description": "Launch premium synthetic product bundle for B2B direct accounts. Pilot with top 20 accounts offering 12-month contracts with volume-tiered pricing.",
@@ -76,8 +78,9 @@ SOLUTIONS = [
     # 3. LIVE — deployed 2 weeks ago, 2 measurements in
     {
         "id": "a0000001-0001-0001-0001-000000000003",
+        "client_id": "lubricants",
         "situation_id": "sit-pmix-001",
-        "kpi_id": "lub_premium_mix_pct",
+        "kpi_id": "premium_mix_pct",
         "principal_id": "cfo_001",
         "approved_at": "2026-03-15T11:00:00Z",
         "go_live_at": "2026-03-28T08:00:00Z",
@@ -99,8 +102,9 @@ SOLUTIONS = [
     # 4. MEASURING — full measurement window, 4 data points
     {
         "id": "a0000001-0001-0001-0001-000000000004",
+        "client_id": "lubricants",
         "situation_id": "sit-cogs-001",
-        "kpi_id": "lub_cogs",
+        "kpi_id": "cogs",
         "principal_id": "cfo_001",
         "approved_at": "2026-02-10T10:00:00Z",
         "go_live_at": "2026-02-20T08:00:00Z",
@@ -122,8 +126,9 @@ SOLUTIONS = [
     # 5. COMPLETE — VALIDATED (success)
     {
         "id": "a0000001-0001-0001-0001-000000000005",
+        "client_id": "lubricants",
         "situation_id": "sit-ecom-001",
-        "kpi_id": "lub_ecommerce_revenue",
+        "kpi_id": "ecommerce_revenue",
         "principal_id": "cfo_001",
         "approved_at": "2026-01-15T09:00:00Z",
         "go_live_at": "2026-01-25T08:00:00Z",
@@ -146,8 +151,9 @@ SOLUTIONS = [
     # 6. COMPLETE — PARTIAL
     {
         "id": "a0000001-0001-0001-0001-000000000006",
+        "client_id": "lubricants",
         "situation_id": "sit-sga-001",
-        "kpi_id": "lub_sga_expense",
+        "kpi_id": "sga_expense",
         "principal_id": "cfo_001",
         "approved_at": "2026-01-20T10:00:00Z",
         "go_live_at": "2026-02-01T08:00:00Z",
@@ -170,8 +176,9 @@ SOLUTIONS = [
     # 7. COMPLETE — FAILED
     {
         "id": "a0000001-0001-0001-0001-000000000007",
+        "client_id": "lubricants",
         "situation_id": "sit-b2b-001",
-        "kpi_id": "lub_b2b_revenue",
+        "kpi_id": "b2b_revenue",
         "principal_id": "cfo_001",
         "approved_at": "2026-01-10T08:00:00Z",
         "go_live_at": "2026-01-20T08:00:00Z",

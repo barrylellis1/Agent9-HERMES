@@ -10,6 +10,13 @@ export default {
         sans: ['Satoshi', 'system-ui', '-apple-system', 'sans-serif'],
       },
       colors: {
+        severity: {
+          critical:    "rgb(var(--color-severity-critical) / <alpha-value>)",
+          warning:     "rgb(var(--color-severity-warning) / <alpha-value>)",
+          opportunity: "rgb(var(--color-severity-opportunity) / <alpha-value>)",
+          healthy:     "rgb(var(--color-severity-healthy) / <alpha-value>)",
+          info:        "rgb(var(--color-severity-info) / <alpha-value>)",
+        },
         background: "var(--background)",
         foreground: "var(--foreground)",
         card: "var(--card)",

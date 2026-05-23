@@ -21,14 +21,23 @@ function toBenefit(rawDelta: number, kpiId?: string): number {
 }
 
 function formatImpact(value: number, kpiId?: string): string {
-  const sign = value >= 0 ? '+' : '';
-  if (kpiId && kpiId.endsWith('_pct')) {
-    return `${sign}${value.toFixed(1)}%`;
-  }
+  const isNeg = value < 0;
+  const sign = isNeg ? '-' : '+';
   const abs = Math.abs(value);
-  if (abs >= 1_000_000) return `${sign}$${(value / 1_000_000).toFixed(1)}M`;
-  if (abs >= 1_000) return `${sign}$${(value / 1_000).toFixed(0)}K`;
-  return `${sign}$${value.toFixed(0)}`;
+  if (kpiId && kpiId.endsWith('_pct')) {
+    return `${isNeg ? '' : '+'}${value.toFixed(1)}%`;
+  }
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K`;
+  return `${sign}$${abs.toFixed(0)}`;
+}
+
+function humanizeKpiId(raw: string): string {
+  const withoutPrefix = raw.replace(/^[a-z]{2,5}_/, '');
+  return withoutPrefix
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }
 
 function formatDate(iso: string): string {
@@ -159,7 +168,7 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
           <h2 className="text-lg font-semibold text-white leading-snug">
             {solution.solution_description}
           </h2>
-          <p className="text-xs text-slate-500 font-mono mt-1">{solution.kpi_id}</p>
+          <p className="text-xs text-slate-500 mt-1">{humanizeKpiId(solution.kpi_id)}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <PhaseBadge phase={currentPhase} />
@@ -216,8 +225,12 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
         </div>
         <div>
           <span className="text-slate-600 block uppercase tracking-wider text-[10px] mb-0.5">Expected impact</span>
-          {formatImpact(toBenefit(solution.expected_impact_lower, solution.kpi_id), solution.kpi_id)} to{' '}
-          {formatImpact(toBenefit(solution.expected_impact_upper, solution.kpi_id), solution.kpi_id)}
+          {(() => {
+            const lv = toBenefit(solution.expected_impact_lower, solution.kpi_id);
+            const uv = toBenefit(solution.expected_impact_upper, solution.kpi_id);
+            const [mn, mx] = lv <= uv ? [lv, uv] : [uv, lv];
+            return `${formatImpact(mn, solution.kpi_id)} to ${formatImpact(mx, solution.kpi_id)}`;
+          })()}
         </div>
       </div>
 

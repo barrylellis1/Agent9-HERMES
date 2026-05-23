@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { formatExecutive } from '../../utils/formatExecutive'
 
 // --- Types ---
 export interface IsIsNotItem {
@@ -112,14 +113,16 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
         })
       })
 
-      // Sort: dimensions with problem areas first
-      result.sort((a, b) => a.netIsVariance - b.netIsVariance)
+      // Sort: opportunity mode → most positive first; problem/mixed → most negative first
+      result.sort((a, b) => isOpportunity
+        ? b.netIsVariance - a.netIsVariance
+        : a.netIsVariance - b.netIsVariance)
       return result
     } catch (e) {
       console.error('IsIsNotExhibit: Error processing data', e)
       return []
     }
-  }, [data])
+  }, [data, isOpportunity])
 
   // Global max delta for bar scaling within expanded sections
   const maxDelta = useMemo(() => {
@@ -278,7 +281,7 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                           />
                         </div>
                         <span className={`w-20 flex-shrink-0 text-right font-mono text-xs ${isOppItem ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {item.delta?.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          {formatExecutive(item.delta || 0)}
                         </span>
                       </div>
                     )
@@ -292,10 +295,8 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                       ? Math.max(4, Math.abs(item.current) / maxDelta * 100)
                       : Math.max(4, absDelta / maxDelta * 100)
                     const displayVal = showCurrent
-                      ? item.current?.toLocaleString(undefined, { maximumFractionDigits: 1 })
-                      : (item.delta >= 0
-                          ? `+${item.delta?.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-                          : item.delta?.toLocaleString(undefined, { maximumFractionDigits: 0 }))
+                      ? formatExecutive(item.current || 0, '$', false)
+                      : formatExecutive(item.delta || 0)
 
                     return (
                       <div key={`isnot-${item.key}-${i}`} className="flex items-center gap-3">

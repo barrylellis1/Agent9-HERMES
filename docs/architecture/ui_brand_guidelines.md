@@ -1,7 +1,9 @@
 # Agent9 / Decision Studio: Brand & UI Guidelines
 
-**Created:** 2026-04-04
+**Created:** 2026-04-04  
 **Scope:** Unified design system governing both the marketing landing page (`decision-studios.com`) and the core application (`trydecisionstudio.com`).
+
+**Implementation reference:** [`decision-studio-ui/DESIGN_SYSTEM.md`](../../decision-studio-ui/DESIGN_SYSTEM.md) — severity tokens, component index, utility functions, common patterns (the code-level complement to this doc)
 
 ---
 

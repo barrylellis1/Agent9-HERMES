@@ -328,6 +328,12 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         total = n_prob + n_heal
         if total == 0:
             return caller_hint
+        # When caller signals an opportunity but no healthy segments are found, this is
+        # typically caused by missing per-dimension comparison data (delta = current − 0
+        # for all segments). Trust the caller hint rather than silently override with
+        # "problem" on incomplete dimensional evidence.
+        if caller_hint == "opportunity" and n_heal == 0:
+            return "opportunity"
         if n_prob / total >= _MIXED_MODE_PURITY_THRESHOLD:
             return "problem"
         if n_heal / total >= _MIXED_MODE_PURITY_THRESHOLD:
@@ -1397,7 +1403,10 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     )
 
                     # Post-loop IS/IS NOT reshuffling based on effective mode
-                    if _effective_mode == "opportunity":
+                    if _effective_mode == "opportunity" and kt.where_is_not:
+                        # Only swap when IS NOT has items to promote; if IS NOT is empty
+                        # (no comparison data per dimension), items already sit in where_is
+                        # and are rendered as "leading segments" by the opportunity-mode UI.
                         kt.where_is, kt.where_is_not = kt.where_is_not, kt.where_is
                     elif _effective_mode == "mixed":
                         # Merge both problem and opportunity into where_is; IS NOT = empty

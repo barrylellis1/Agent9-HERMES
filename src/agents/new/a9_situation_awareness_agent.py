@@ -2533,7 +2533,11 @@ class A9_Situation_Awareness_Agent:
         # ── recovery and trend-reversal checks (comparison-based) ────────────
         comparison = kpi_value.comparison_value
         if comparison is not None:
-            pct = _pct_change(current, comparison)
+            # Use the sign-normalized percent_change from KPIValue so that cost KPIs
+            # stored as negative debits (e.g. SG&A, COGS) are evaluated correctly.
+            # Raw _pct_change(current, comparison) would have the wrong sign for those KPIs,
+            # causing cost decreases to appear as worsening and triggering an early return.
+            pct = kpi_value.percent_change if kpi_value.percent_change is not None else _pct_change(current, comparison)
             if pct is None:
                 return signals
 
@@ -2587,8 +2591,16 @@ class A9_Situation_Awareness_Agent:
                         return signals  # recovery already captured; skip trend_reversal
 
             # Trend reversal: no absolute threshold but strong % improvement.
+            # Skip for Supabase KPIs that have variance_thresholds — the Format-B check
+            # below will evaluate them at confidence 0.75 (above the 0.7 Situation threshold).
+            # trend_reversal fires at 0.65 which is below the threshold, and its presence
+            # in `signals` blocks the Format-B check via the `not signals` guard.
+            _has_vt = (
+                isinstance(getattr(kpi_definition, 'metadata', None), dict)
+                and bool(kpi_definition.metadata.get('variance_thresholds'))
+            )
             reversal_bar = self._opportunity_threshold_multiplier * 10.0  # e.g. 1.5 * 10 = 15 %
-            if improvement_pct >= reversal_bar:
+            if improvement_pct >= reversal_bar and not _has_vt:
                 # Do not emit if we already have a signal for this KPI
                 if not signals:
                     signals.append(_make_signal(
@@ -2730,8 +2742,14 @@ class A9_Situation_Awareness_Agent:
         
         # Check for significant changes if comparison value exists
         if kpi_value.value is not None and kpi_value.comparison_value is not None and kpi_value.comparison_value != 0:
-            # Calculate percent change
-            percent_change = (kpi_value.value - kpi_value.comparison_value) / abs(kpi_value.comparison_value) * 100
+            # Use the sign-normalized percent_change from KPIValue — it has the inverse_logic
+            # sign flip already applied for cost KPIs with negatively stored values (e.g. SUM(amount)
+            # returns negative for expenses). Recomputing here would use raw values and produce the
+            # wrong sign, causing cost decreases to appear as increases and trigger false CRITICAL flags.
+            if kpi_value.percent_change is not None:
+                percent_change = kpi_value.percent_change
+            else:
+                percent_change = (kpi_value.value - kpi_value.comparison_value) / abs(kpi_value.comparison_value) * 100
 
             # Prefer registry-defined variance thresholds when available
             vt_cfg = None
@@ -2791,19 +2809,11 @@ class A9_Situation_Awareness_Agent:
                         kpi_definition,
                         kpi_value,
                         severity,
-                        f"{kpi_definition.name} {change_direction} by {abs(percent_change):.1f}% vs baseline (threshold={evaluation})",
+                        f"{kpi_definition.name} {change_direction} by {abs(percent_change):.1f}% vs prior year",
                         principal_context
                     ))
-                else:
-                    # Optionally record informational improvement within green band
-                    change_direction = "increased" if percent_change > 0 else "decreased"
-                    situations.append(self._create_threshold_situation(
-                        kpi_definition,
-                        kpi_value,
-                        SituationSeverity.INFORMATION,
-                        f"{kpi_definition.name} {change_direction} by {abs(percent_change):.1f}% (within green threshold)",
-                        principal_context
-                    ))
+                # Green-band: KPI is performing within or better than threshold — not a problem.
+                # Significant improvements are handled by the opportunity detection path below.
             else:
                 # Fallback: heuristic severity based on magnitude and trend direction
                 is_positive_change = percent_change > 0
@@ -2925,6 +2935,7 @@ class A9_Situation_Awareness_Agent:
         return Situation(
             situation_id=str(uuid.uuid4()),
             kpi_name=kpi_definition.name,
+            kpi_id=kpi_definition.id,
             kpi_value=kpi_value,
             severity=severity,
             direction='down',

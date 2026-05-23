@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
+  ChevronRight,
   Microscope,
   Lightbulb,
   Loader2,
@@ -13,50 +14,104 @@ import {
   Sparkles,
   CircleDot,
   TrendingUp,
-  SplitSquareHorizontal
+  SplitSquareHorizontal,
+  ExternalLink
 } from 'lucide-react';
 import { Situation, ProblemRefinementResult, MarketSignal } from '../../api/types';
+import { formatExecutive } from '../../utils/formatExecutive';
 import { ProblemRefinementChat } from '../ProblemRefinementChat';
 import { IsIsNotExhibit } from '../visualizations/DivergingBarChart';
 import { BrandLogo } from '../BrandLogo';
 
+// ─── SCQA parser — extracts Answer/Situation/Complication/Question from flat text ───
+function parseScqa(raw: string): Record<string, string> {
+  const labels = ['Situation', 'Complication', 'Question', 'Answer'];
+  const result: Record<string, string> = {};
+  for (let i = 0; i < labels.length; i++) {
+    const label = labels[i];
+    const marker = `${label}:`;
+    const start = raw.indexOf(marker);
+    if (start === -1) continue;
+    const contentStart = start + marker.length;
+    const nextIdx = labels.slice(i + 1).reduce((min, next) => {
+      const idx = raw.indexOf(`${next}:`, contentStart);
+      return idx !== -1 && idx < min ? idx : min;
+    }, raw.length);
+    result[label.toLowerCase()] = raw.slice(contentStart, nextIdx).trim();
+  }
+  return result;
+}
+
+// ─── Market signal source formatter — rec #4 ───
+function formatSignalSource(source: string, url?: string): React.ReactNode {
+  const lower = source?.toLowerCase() ?? '';
+  if (!source || lower === 'llm_knowledge' || lower.includes('llm') || lower.includes('claude')) {
+    return <span>Analyst synthesis (Claude Sonnet 4.6) · No live citation</span>;
+  }
+  if (url) {
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 hover:underline">
+        {source} <ExternalLink className="w-2.5 h-2.5" />
+      </a>
+    );
+  }
+  return <span>{source}</span>;
+}
+
 // ─── Solution Proposal Panel moved to Executive Briefing page ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-// ─── DeepFocusView ─────────────────────────────────────────────────────────────
+// ─── ScqaBlock — answer-first SCQA display ─────────────────────────────────────
+function ScqaBlock({ scqa, raw, hasStructure }: { scqa: Record<string, string>; raw: string; hasStructure: boolean }) {
+  const [showReasoning, setShowReasoning] = useState(false);
 
-interface DeepFocusViewProps {
-  situation: Situation;
-  onBack: () => void;
-  // Analysis State
-  analyzing: boolean;
-  analysisResults: any;
-  analysisError: string | null;
-  // Variance/Deep Analysis View
-  daViewMode: 'list' | 'snowflake';
-  setDaViewMode: (mode: 'list' | 'snowflake') => void;
-  // Refinement Chat
-  showRefinementChat: boolean;
-  refinementResult: ProblemRefinementResult | null;
-  onRefinementComplete: (result: ProblemRefinementResult) => void;
-  onRefinementCancel: () => void;
-  onStartRefinement: () => void;
-  // Council Config
-  useHybridCouncil: boolean;
-  setUseHybridCouncil: (val: boolean) => void;
-  councilType: 'preset' | 'custom';
-  setCouncilType: (val: 'preset' | 'custom') => void;
-  selectedPreset: string;
-  setSelectedPreset: (val: string) => void;
-  selectedPersonas: string[];
-  setSelectedPersonas: (val: string[]) => void;
-  showPersonaSelector: boolean;
-  setShowPersonaSelector: (val: boolean) => void;
-  // Context
-  availableCouncils: any[];
-  availablePersonas: any[];
-  principalContext: any;
-  principalId: string;
-  initialMarketSignals?: MarketSignal[];
+  if (!hasStructure) {
+    return (
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+        <div className="whitespace-pre-wrap font-sans text-slate-300 text-sm leading-relaxed">{raw}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Answer — BLUF, shown first */}
+      {scqa.answer && (
+        <div className="bg-slate-900/80 border border-indigo-500/20 rounded-xl p-6">
+          <p className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wider mb-2">Recommendation</p>
+          <p className="text-lg font-medium text-white leading-relaxed">{scqa.answer}</p>
+        </div>
+      )}
+
+      {/* S / C / Q — collapsed by default */}
+      <button
+        onClick={() => setShowReasoning(v => !v)}
+        className="flex items-center gap-2 text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
+      >
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${showReasoning ? 'rotate-180' : ''}`} />
+        {showReasoning ? 'Hide reasoning' : 'Show reasoning'}
+      </button>
+
+      {showReasoning && (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3 text-sm animate-in fade-in slide-in-from-top-2 duration-150">
+          {scqa.situation && (
+            <div>
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Situation</span>
+              <p className="text-slate-300 mt-1 leading-relaxed">{scqa.situation}</p>
+            </div>
+          )}
+          {scqa.complication && (
+            <div>
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Complication</span>
+              <p className="text-slate-300 mt-1 leading-relaxed">{scqa.complication}</p>
+              {scqa.question && (
+                <p className="text-slate-500 italic text-xs mt-1.5">→ {scqa.question}</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── DeepFocusView ─────────────────────────────────────────────────────────────
@@ -132,6 +187,12 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   const situationIsOpportunity = situation.direction === 'up' || situation.card_type === 'opportunity';
   const analysisMode: 'problem' | 'opportunity' | 'mixed' =
     currentAnalysis?.analysis_mode ?? (situationIsOpportunity ? 'opportunity' : 'problem');
+
+  // Action Center collapse state — auto-opens when analysis arrives
+  const [actionCenterOpen, setActionCenterOpen] = useState(false);
+  useEffect(() => {
+    if (analysisResults) setActionCenterOpen(true);
+  }, [analysisResults]);
 
   // Mixed-mode HITL resolution state
   const [resolvedAnalysisMode, setResolvedAnalysisMode] = useState<'problem' | 'opportunity' | null>(null);
@@ -245,7 +306,10 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
         <div className="flex items-center gap-6">
             <div className="text-right">
                 <div className="text-xs text-slate-500 uppercase">Detected</div>
-                <div className="text-sm font-medium">{new Date().toLocaleTimeString()}</div>
+                <div className="text-sm font-medium">{new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · {new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</div>
+                {currentAnalysis && (
+                  <div className="text-[10px] text-slate-600 mt-0.5">YTD 2026 vs YTD 2025</div>
+                )}
             </div>
             <BrandLogo size={28} />
         </div>
@@ -260,7 +324,13 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                 <AccordionSection
                     id="situation-summary"
                     title="Situation Summary"
-                    icon={<AlertTriangle className="w-5 h-5 text-amber-500" />}
+                    icon={
+                      analysisMode === 'opportunity'
+                        ? <TrendingUp className="w-5 h-5 text-green-400" />
+                        : analysisMode === 'mixed'
+                        ? <AlertTriangle className="w-5 h-5 text-amber-500" />
+                        : <AlertTriangle className="w-5 h-5 text-red-400" />
+                    }
                     summary={situation.description?.substring(0, 80) + (situation.description && situation.description.length > 80 ? '...' : '') || "Significant variance detected"}
                 >
                     <p className="text-lg text-slate-200 mb-4 leading-relaxed">
@@ -309,14 +379,14 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                         summary={`${currentAnalysis.change_points?.length || 0} dimensions analyzed`}
                     >
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                            {/* SCQA Summary */}
-                            {currentAnalysis.scqa_summary && (
-                                <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-                                     <div className="prose prose-invert prose-sm max-w-none">
-                                        <div className="whitespace-pre-wrap font-sans text-slate-300">{currentAnalysis.scqa_summary}</div>
-                                     </div>
-                                </div>
-                            )}
+                            {/* SCQA — answer-first */}
+                            {currentAnalysis.scqa_summary && (() => {
+                                const scqa = parseScqa(currentAnalysis.scqa_summary);
+                                const hasStructure = !!(scqa.answer || scqa.situation);
+                                return (
+                                  <ScqaBlock scqa={scqa} raw={currentAnalysis.scqa_summary} hasStructure={hasStructure} />
+                                );
+                            })()}
 
                             {/* Embedded Variance Analysis (Is/Is Not) */}
                             {renderVarianceAnalysis()}
@@ -333,7 +403,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                                  <span className="text-sm font-medium text-white">{cp.key}</span>
                                              </div>
                                              <span className={`text-sm font-mono ${cp.delta < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                                                 {cp.delta > 0 ? '+' : ''}{cp.delta?.toLocaleString()}
+                                                 {formatExecutive(cp.delta || 0)}
                                              </span>
                                          </div>
                                      ))}
@@ -374,9 +444,12 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                   <div className="text-sm font-medium text-white">{seg.key}</div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                  <span className="text-sm font-mono text-green-400">{seg.delta > 0 ? '+' : ''}{seg.delta?.toLocaleString()}</span>
+                                  <span className="text-sm font-mono text-green-400">{formatExecutive(seg.delta || 0)}</span>
                                   {seg.replication_potential != null && (
-                                    <span className="text-[10px] px-2 py-0.5 bg-green-900/40 text-green-300 rounded-full font-medium">
+                                    <span
+                                      className="text-[10px] px-2 py-0.5 bg-green-900/40 text-green-300 rounded-full font-medium cursor-help"
+                                      title={seg.replication_potential >= 1 ? "This segment is performing at 100% of its own target — a proven playbook to replicate" : `Estimated ${Math.round(seg.replication_potential * 100)}% of the gap could be closed by replicating this segment's approach`}
+                                    >
                                       {Math.round(seg.replication_potential * 100)}% potential
                                     </span>
                                   )}
@@ -388,11 +461,12 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                         {controls.length > 0 && (
                           <details className="group">
                             <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-400 select-none">Control Group ({controls.length} segments)</summary>
-                            <div className="mt-2 space-y-1">
+                            <p className="text-[10px] text-slate-600 mt-1 mb-2 pl-1">Segments performing at or near target — used to isolate factors driving the variance.</p>
+                            <div className="mt-1 space-y-1">
                               {controls.map((seg: any, i: number) => (
                                 <div key={i} className="flex items-center justify-between bg-slate-950/50 rounded px-3 py-2 text-xs text-slate-400">
                                   <span>{seg.dimension}: {seg.key}</span>
-                                  <span className="font-mono">{seg.delta > 0 ? '+' : ''}{seg.delta?.toLocaleString()}</span>
+                                  <span className="font-mono">{formatExecutive(seg.delta || 0)}</span>
                                 </div>
                               ))}
                             </div>
@@ -427,9 +501,9 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                         )}
                                     </div>
                                     <p className="text-xs text-slate-400 leading-relaxed">{signal.summary}</p>
-                                    {signal.source && (
-                                        <span className="text-[10px] text-slate-600 mt-2 block">Source: {signal.source}</span>
-                                    )}
+                                    <span className="text-[10px] text-slate-600 mt-2 block">
+                                      Source: {formatSignalSource(signal.source, signal.url)}
+                                    </span>
                                 </div>
                             ))}
                         </div>
@@ -438,15 +512,37 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
             </div>
         </div>
 
-        {/* RIGHT COLUMN: Action Center (Chat & Debate) */}
+        {/* RIGHT COLUMN: Action Center — collapsible */}
+        {!actionCenterOpen ? (
+          <div className="w-12 min-h-0 bg-slate-900 border-l border-slate-800 flex flex-col items-center py-4 gap-3 cursor-pointer hover:bg-slate-800/50 transition-colors"
+            onClick={() => setActionCenterOpen(true)}
+            role="button"
+            aria-label="Open Action Center"
+          >
+            <ChevronRight className="w-5 h-5 text-slate-500" />
+            <span className="text-[9px] font-semibold uppercase tracking-widest text-slate-600 whitespace-nowrap"
+              style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', marginTop: '8px' }}>
+              Action Center
+            </span>
+          </div>
+        ) : (
         <div className="w-[450px] min-h-0 bg-slate-900 border-l border-slate-800 flex flex-col">
-             
-             {/* Mode Switcher / Header */}
-             <div className="p-4 border-b border-slate-800 bg-slate-900 z-10">
+
+             {/* Header */}
+             <div className="p-4 border-b border-slate-800 bg-slate-900 z-10 flex items-center justify-between">
+               <div>
                  <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-1">
                      Action Center
                  </h2>
                  <p className="text-xs text-slate-500">Refine context and generate solutions</p>
+               </div>
+               <button
+                 onClick={() => setActionCenterOpen(false)}
+                 className="p-1.5 hover:bg-slate-800 rounded text-slate-500 hover:text-white transition-colors"
+                 aria-label="Collapse Action Center"
+               >
+                 <ChevronRight className="w-4 h-4" />
+               </button>
              </div>
 
              <div className={`flex-1 min-h-0 ${showRefinementChat ? 'overflow-hidden flex flex-col p-2' : 'overflow-y-auto p-4 space-y-4'}`}>
@@ -521,11 +617,11 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                        <div className="space-y-2 mb-4 text-xs">
                          <div className="flex items-center justify-between bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2">
                            <span className="text-red-300 font-medium">Problem exposure</span>
-                           <span className="font-mono text-red-400">{netProblemDelta.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                           <span className="font-mono text-red-400">{formatExecutive(netProblemDelta, '$', false)}</span>
                          </div>
                          <div className="flex items-center justify-between bg-emerald-900/20 border border-emerald-800/40 rounded-lg px-3 py-2">
                            <span className="text-emerald-300 font-medium">Opportunity upside</span>
-                           <span className="font-mono text-emerald-400">{netOppDelta.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                           <span className="font-mono text-emerald-400">{formatExecutive(netOppDelta, '$', false)}</span>
                          </div>
                        </div>
 
@@ -548,8 +644,8 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                              setResolvedAnalysisMode(decided);
                              setAgentDecisionMessage(
                                decided === 'opportunity'
-                                 ? `Agent9 chose Opportunity — the upside delta (${netOppDelta.toLocaleString(undefined, { maximumFractionDigits: 0 })}) outweighs the problem exposure (${netProblemDelta.toLocaleString(undefined, { maximumFractionDigits: 0 })}).`
-                                 : `Agent9 chose Recovery — the problem exposure (${netProblemDelta.toLocaleString(undefined, { maximumFractionDigits: 0 })}) outweighs the opportunity upside (${netOppDelta.toLocaleString(undefined, { maximumFractionDigits: 0 })}).`
+                                 ? `Agent9 chose Opportunity — the upside delta (${formatExecutive(netOppDelta, '$', false)}) outweighs the problem exposure (${formatExecutive(netProblemDelta, '$', false)}).`
+                                 : `Agent9 chose Recovery — the problem exposure (${formatExecutive(netProblemDelta, '$', false)}) outweighs the opportunity upside (${formatExecutive(netOppDelta, '$', false)}).`
                              );
                            }}
                            className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
@@ -597,34 +693,11 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                          {/* Recommended Council */}
                          {refinementResult?.recommended_council_members && refinementResult.recommended_council_members.length > 0 && (
                             <div className="bg-indigo-900/15 rounded-lg p-4 border border-purple-500/30">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2 text-purple-300">
-                                        <Sparkles className="w-4 h-4" />
-                                        <h4 className="text-xs font-bold uppercase tracking-wider">AI Recommendation</h4>
-                                    </div>
-                                    <button
-                                        onClick={() => {
-                                          const debateConfig = {
-                                            selectedPersonas: refinementResult?.recommended_council_members?.map(m => m.persona_id) ?? ['mckinsey', 'bcg', 'bain'],
-                                            councilType: 'preset',
-                                            selectedPreset: 'recommended',
-                                            useHybridCouncil: false,
-                                            resolvedAnalysisMode: effectiveDebateMode,
-                                          };
-                                          try {
-                                            localStorage.setItem(`situation_${situation.situation_id}`, JSON.stringify(situation));
-                                            localStorage.setItem(`analysis_${situation.situation_id}`, JSON.stringify(currentAnalysis));
-                                            localStorage.setItem(`market_signals_${situation.situation_id}`, JSON.stringify(initialMarketSignals || []));
-                                            localStorage.setItem(`principal_context_${situation.situation_id}`, JSON.stringify(principalContext || {}));
-                                            localStorage.setItem(`debate_config_${situation.situation_id}`, JSON.stringify(debateConfig));
-                                          } catch (_) { /* quota exceeded */ }
-                                          navigate(`/debate/${situation.situation_id}`, { state: { situation, analysis: currentAnalysis, marketSignals: initialMarketSignals || [], principalContext: principalContext || {}, debateConfig } });
-                                        }}
-                                        className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wide bg-purple-600 hover:bg-purple-500 text-white rounded flex items-center gap-2"
-                                    >
-                                        <CircleDot className="w-3 h-3" />
-                                        Generate Solutions
-                                    </button>
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-purple-300">
+                                      AI Recommends — {refinementResult.recommended_council_members.map(m => m.persona_name).join(' · ')}
+                                    </h4>
                                 </div>
                                 <div className="space-y-3 mb-4">
                                     {refinementResult.recommended_council_members.map((m, i) => (
@@ -641,6 +714,29 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                         </div>
                                     ))}
                                 </div>
+                                <button
+                                    onClick={() => {
+                                      const debateConfig = {
+                                        selectedPersonas: refinementResult?.recommended_council_members?.map(m => m.persona_id) ?? ['mckinsey', 'bcg', 'bain'],
+                                        councilType: 'preset',
+                                        selectedPreset: 'recommended',
+                                        useHybridCouncil: false,
+                                        resolvedAnalysisMode: effectiveDebateMode,
+                                      };
+                                      try {
+                                        localStorage.setItem(`situation_${situation.situation_id}`, JSON.stringify(situation));
+                                        localStorage.setItem(`analysis_${situation.situation_id}`, JSON.stringify(currentAnalysis));
+                                        localStorage.setItem(`market_signals_${situation.situation_id}`, JSON.stringify(initialMarketSignals || []));
+                                        localStorage.setItem(`principal_context_${situation.situation_id}`, JSON.stringify(principalContext || {}));
+                                        localStorage.setItem(`debate_config_${situation.situation_id}`, JSON.stringify(debateConfig));
+                                      } catch (_) { /* quota exceeded */ }
+                                      navigate(`/debate/${situation.situation_id}`, { state: { situation, analysis: currentAnalysis, marketSignals: initialMarketSignals || [], principalContext: principalContext || {}, debateConfig } });
+                                    }}
+                                    className="w-full py-2 bg-purple-700 hover:bg-purple-600 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
+                                >
+                                    <CircleDot className="w-3 h-3" />
+                                    Use this recommendation →
+                                </button>
                             </div>
                          )}
 
@@ -752,6 +848,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
 
              </div>
         </div>
+        )}
       </div>
     </div>
   );

@@ -15,13 +15,13 @@ interface OpportunityCardProps {
 export function OpportunityCard({ signal, onClick }: OpportunityCardProps) {
   return (
     <div
-      className="border-l-2 border-l-green-500 bg-slate-900 hover:bg-slate-800 rounded-xl p-4 cursor-pointer transition-colors"
+      className="border-l-2 border-l-severity-opportunity bg-slate-900 hover:bg-slate-800 rounded-xl p-4 cursor-pointer transition-colors"
       onClick={onClick}
     >
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-green-400 flex-shrink-0" />
-          <span className="text-xs font-semibold text-green-400 uppercase tracking-wider">
+          <TrendingUp className="w-4 h-4 text-severity-opportunity flex-shrink-0" />
+          <span className="text-xs font-semibold text-severity-opportunity uppercase tracking-wider">
             {OPPORTUNITY_TYPE_LABELS[signal.opportunity_type] ?? signal.opportunity_type}
           </span>
         </div>

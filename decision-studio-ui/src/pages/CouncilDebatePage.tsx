@@ -94,6 +94,8 @@ export const CouncilDebatePage: React.FC = () => {
   const [synthesis, setSynthesis] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [debateStartTime] = useState<number>(Date.now());
+  const [debateDuration, setDebateDuration] = useState<string | null>(null);
 
   const [situation, setSituation] = useState<any>(null);
   const [debateConfig, setDebateConfig] = useState<any>(null);
@@ -102,6 +104,14 @@ export const CouncilDebatePage: React.FC = () => {
   const [principalContext, setPrincipalContext] = useState<any>(null);
 
   const debateStarted = useRef(false);
+
+  // Set browser tab title
+  useEffect(() => {
+    if (situation?.kpi_name) {
+      document.title = `Council Debate — ${situation.kpi_name}`;
+      return () => { document.title = 'Decision Studio'; };
+    }
+  }, [situation?.kpi_name]);
 
   // Load data on mount — prefer router state (client-side nav), fall back to localStorage (page refresh)
   useEffect(() => {
@@ -282,6 +292,10 @@ export const CouncilDebatePage: React.FC = () => {
         if (lastRequestId) localStorage.setItem(`solution_request_${situationId}`, lastRequestId);
       }
 
+      const elapsed = Math.round((Date.now() - debateStartTime) / 1000);
+      const mins = Math.floor(elapsed / 60);
+      const secs = elapsed % 60;
+      setDebateDuration(mins > 0 ? `${mins}m ${secs}s` : `${secs}s`);
       setPhase(4);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Debate failed');
@@ -334,24 +348,34 @@ export const CouncilDebatePage: React.FC = () => {
   });
 
   // Single option bar chart
+  // Semantic colour: low values good for cost/risk, high values good for impact
+  const metricBarColor = (key: string, value: number): string => {
+    if (key === 'impact') {
+      return value >= 6 ? '#34d399' : value >= 3 ? '#f59e0b' : '#f87171';
+    }
+    // cost and risk: lower is better
+    return value <= 3 ? '#34d399' : value <= 6 ? '#f59e0b' : '#f87171';
+  };
+
   const OptionBarChart: React.FC<{ option: any }> = ({ option }) => {
     const metrics = getMetrics(option);
     const metricList = [
-      { key: 'impact', label: 'Impact', color: '#3b82f6' },
-      { key: 'cost', label: 'Cost', color: '#10b981' },
-      { key: 'risk', label: 'Risk', color: '#f59e0b' },
+      { key: 'impact', label: 'Impact' },
+      { key: 'cost', label: 'Cost' },
+      { key: 'risk', label: 'Risk' },
     ];
 
     return (
       <div className="space-y-2 pt-3 border-t border-slate-800">
-        {metricList.map(({ key, label, color }) => {
+        {metricList.map(({ key, label }) => {
           const value = metrics[key as keyof typeof metrics];
           const pct = (value / 10) * 100;
+          const color = metricBarColor(key, value);
           return (
             <div key={key}>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-medium text-slate-300">{label}</span>
-                <span className="text-xs text-slate-400 font-mono">{value.toFixed(1)}</span>
+                <span className="text-xs text-slate-400 font-mono">{value.toFixed(1)}/10</span>
               </div>
               <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
                 <div
@@ -401,7 +425,10 @@ export const CouncilDebatePage: React.FC = () => {
           </button>
           <div>
             <h1 className="text-xl font-semibold text-white">{situation?.kpi_name || 'KPI Analysis'}</h1>
-            <p className="text-xs text-slate-500 uppercase tracking-wider mt-0.5">Council Debate</p>
+            <p className="text-xs text-slate-500 uppercase tracking-wider mt-0.5">
+              Council Debate
+              {debateDuration && <span className="text-slate-600 ml-2 normal-case">· Completed in {debateDuration}</span>}
+            </p>
           </div>
         </div>
         <BrandLogo size={28} />
@@ -441,8 +468,8 @@ export const CouncilDebatePage: React.FC = () => {
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Stage 1 — Hypothesis</span>
                   </div>
                   <div className="p-4">
-                    {!hyp && phase < 2 ? (
-                      <FirmThinking label={c.label} accent={c.accent} stageLabel="forming hypothesis" />
+                    {!hyp && phase < 4 ? (
+                      <FirmThinking label={c.label} accent={c.accent} stageLabel={phase === 1 ? "forming hypothesis" : "synthesizing"} />
                     ) : hyp ? (
                       <div className="space-y-3 animate-in fade-in">
                         <div>
@@ -459,7 +486,7 @@ export const CouncilDebatePage: React.FC = () => {
                         </div>
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-600 italic">No hypothesis data</p>
+                      <p className="text-xs text-slate-600 italic">Hypothesis not captured for this run</p>
                     )}
                   </div>
                 </div>
@@ -472,10 +499,10 @@ export const CouncilDebatePage: React.FC = () => {
                   <div className="p-4">
                     {phase < 2 && !crossReview ? (
                       <p className="text-xs text-slate-700 italic">Awaiting Stage 1…</p>
-                    ) : phase === 2 && !crossReview ? (
-                      <FirmThinking label="Council" accent="text-slate-400" stageLabel="cross-reviewing" />
-                    ) : reviews.length === 0 && phase >= 2 ? (
-                      <p className="text-xs text-slate-600 italic">No peer review data</p>
+                    ) : phase < 4 && !crossReview ? (
+                      <FirmThinking label="Council" accent="text-slate-400" stageLabel="synthesizing peer review" />
+                    ) : reviews.length === 0 ? (
+                      <p className="text-xs text-slate-600 italic">Peer review not captured for this run</p>
                     ) : (
                       <div className="space-y-4 animate-in fade-in">
                         {reviews.map(({ reviewer, critiques, endorsements }) => {
@@ -534,35 +561,56 @@ export const CouncilDebatePage: React.FC = () => {
             </div>
 
             {/* Option cards with individual bar charts */}
-            <div className="grid grid-cols-3 gap-6">
-              {synthesis.options_ranked.map((option: any, idx: number) => {
-                const isRec = option.option_id === recommendedId;
+            {(() => {
+              // Build title → advocating firmId map from Stage 1 hypotheses
+              const advocateMap = new Map<string, string>();
+              if (stageOneHypotheses) {
+                firms.forEach(firmId => {
+                  const title = stageOneHypotheses[firmId]?.proposed_option?.title;
+                  if (title) advocateMap.set(title, firmId);
+                });
+              }
+              return (
+                <div className="grid grid-cols-3 gap-6">
+                  {synthesis.options_ranked.map((option: any, idx: number) => {
+                    const isRec = option.option_id === recommendedId;
+                    const advocateFirmId = option.title ? advocateMap.get(option.title) : undefined;
+                    const advocate = advocateFirmId ? getFirmColor(advocateFirmId) : null;
 
-                return (
-                  <div
-                    key={idx}
-                    className={`rounded-xl border p-4 transition-all ${
-                      isRec
-                        ? 'border-emerald-500/50 bg-emerald-950/20'
-                        : 'border-slate-700 bg-slate-900'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <h3 className="text-sm font-semibold text-white leading-snug">{option.title || `Option ${idx + 1}`}</h3>
-                      {isRec && (
-                        <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 whitespace-nowrap flex-shrink-0">
-                          Recommended
-                        </span>
-                      )}
-                    </div>
-                    {option.summary && (
-                      <p className="text-xs text-slate-400 leading-relaxed mb-3">{option.summary}</p>
-                    )}
-                    <OptionBarChart option={option} />
-                  </div>
-                );
-              })}
-            </div>
+                    return (
+                      <div
+                        key={idx}
+                        className={`rounded-xl border p-4 transition-all ${
+                          isRec
+                            ? 'border-emerald-500/50 bg-emerald-950/20'
+                            : 'border-slate-700 bg-slate-900'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <h3 className="text-sm font-semibold text-white leading-snug">{option.title || `Option ${idx + 1}`}</h3>
+                          {isRec && (
+                            <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 whitespace-nowrap flex-shrink-0">
+                              Recommended
+                            </span>
+                          )}
+                        </div>
+                        {advocate && (
+                          <div className="mb-3">
+                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${advocate.badge} ${advocate.border}`}>
+                              Advocated by {advocate.label}
+                            </span>
+                          </div>
+                        )}
+                        {option.summary && (
+                          <p className="text-xs text-slate-400 leading-relaxed mb-3">{option.summary}</p>
+                        )}
+                        <OptionBarChart option={option} />
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
 

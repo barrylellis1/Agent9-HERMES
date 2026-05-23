@@ -5,6 +5,7 @@ import { curveMonotoneX } from '@visx/curve';
 import { ParentSize } from '@visx/responsive';
 import { motion } from 'framer-motion';
 import type { SolutionPhase } from '../../types/valueAssurance';
+import { formatCompact } from '../../utils/formatExecutive';
 
 export interface TrajectoryChartProps {
   inactionTrend: number[];
@@ -221,7 +222,7 @@ const InnerChart: React.FC<InnerChartProps> = ({
                 fill="#64748b"
                 fontSize={9}
               >
-                {val.toFixed(1)}
+                {formatCompact(val)}
               </text>
             </g>
           ))}

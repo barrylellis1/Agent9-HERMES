@@ -415,6 +415,15 @@ export function ExecutiveBriefing() {
 
   const principalId = briefing?.principalId || briefing?.principal_id || 'cfo_001'
 
+  const canonicalTitle = briefing?.kpiData?.kpi_name
+    ? `${briefing.kpiData.kpi_name} — Executive Briefing`
+    : briefing?.title || 'Executive Briefing'
+
+  useEffect(() => {
+    document.title = canonicalTitle
+    return () => { document.title = 'Decision Studio' }
+  }, [canonicalTitle])
+
   if (loading) {
     return (
       <div className="h-screen bg-slate-950 flex items-center justify-center">
@@ -473,7 +482,7 @@ export function ExecutiveBriefing() {
           <BrandLogo size={24} />
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-white truncate max-w-xs mr-3">{data.title}</span>
+          <span className="text-sm font-semibold text-white truncate max-w-xs mr-3">{canonicalTitle}</span>
           <button
             onClick={() => {
               const allIds = ['situation', 'market', 'stage1', 'crossreview', 'options', 'roadmap', 'risks', 'blindspots', 'inaction', 'recommendation']
@@ -642,6 +651,31 @@ export function ExecutiveBriefing() {
                 </div>
               </div>
             )}
+
+            {/* Cost of Inaction — shown pre-approval when KPI data is available */}
+            {approveState !== 'approved' && data.kpiData?.current_value != null && (() => {
+              const kd = data.kpiData
+              const slope = kd.comparison_value != null
+                ? kd.current_value - kd.comparison_value
+                : 0
+              const projected30d = kd.current_value + slope * 1
+              const projected90d = kd.current_value + slope * 3
+              const trendDir: 'deteriorating' | 'stable' | 'recovering' =
+                slope < -0.001 ? 'deteriorating' : slope > 0.001 ? 'recovering' : 'stable'
+              return (
+                <div className="mb-4">
+                  <CostOfInactionBanner
+                    kpiName={kd.kpi_name}
+                    currentValue={kd.current_value}
+                    projected30d={projected30d}
+                    projected90d={projected90d}
+                    trendDirection={trendDir}
+                    trendConfidence="LOW"
+                    kpiUnit={kd.unit}
+                  />
+                </div>
+              )
+            })()}
 
             {/* Hero Recommendation Card */}
             {(() => {
@@ -1308,34 +1342,6 @@ export function ExecutiveBriefing() {
               </AccordionSection>
             )}
 
-            {/* [O] Cost of Inaction — shown pre-approval when KPI data is available */}
-            {approveState !== 'approved' && data.kpiData?.current_value != null && (() => {
-              const kd = data.kpiData
-              const slope = kd.comparison_value != null
-                ? kd.current_value - kd.comparison_value
-                : 0
-              const projected30d = kd.current_value + slope * 1
-              const projected90d = kd.current_value + slope * 3
-              const trendDir: 'deteriorating' | 'stable' | 'recovering' =
-                slope < -0.001 ? 'deteriorating' : slope > 0.001 ? 'recovering' : 'stable'
-              return (
-                <AccordionSection id="inaction" title="Cost of Inaction" openSections={openSections} onToggle={toggleSection}
-                  icon={<AlertTriangle className="w-4 h-4 text-amber-400" />}>
-                  <div className="p-5">
-                    <CostOfInactionBanner
-                      kpiName={kd.kpi_name}
-                      currentValue={kd.current_value}
-                      projected30d={projected30d}
-                      projected90d={projected90d}
-                      trendDirection={trendDir}
-                      trendConfidence="LOW"
-                      kpiUnit={kd.unit}
-                    />
-                  </div>
-                </AccordionSection>
-              )
-            })()}
-
             {/* Print-only: Appendix — Blind Spots & Unresolved Tensions */}
             {((data.blind_spots?.length > 0) || (data.unresolved_tensions?.length > 0)) && (
               <div className="hidden print:block mb-6">
@@ -1374,6 +1380,14 @@ export function ExecutiveBriefing() {
               <p className="mt-1 print:text-slate-500">
                 Provided as decision support. Human judgment is required for final decisions.
               </p>
+              <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[10px] text-slate-700 font-mono">
+                {data.kpiData?.kpi_name && <span>KPI: {data.kpiData.kpi_name}</span>}
+                {data.stage_1_hypotheses && (
+                  <span>Council: {Object.keys(data.stage_1_hypotheses).map(f => f.charAt(0).toUpperCase() + f.slice(1)).join(' · ')}</span>
+                )}
+                <span>Model: Claude (Anthropic)</span>
+                <span>{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+              </div>
             </footer>
           </div>
         </div>

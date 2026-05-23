@@ -14,6 +14,7 @@ export interface TopDriver {
 export interface Situation {
   situation_id: string;
   kpi_name: string;
+  kpi_id?: string;
   kpi_value?: {
     value: number;
     unit: string;

@@ -208,6 +208,7 @@ class Situation(BaseModel):
     situation_id: str = Field(description="Unique ID for the situation")
     parent_id: Optional[str] = Field(None, description="Parent situation ID if this is a child")
     kpi_name: str = Field(description="Name of the KPI")
+    kpi_id: Optional[str] = Field(None, description="Registry KPI identifier — used to match against VA solution records")
     kpi_value: KPIValue = Field(description="Value of the KPI")
     severity: SituationSeverity = Field(description="Severity of the situation")
     card_type: str = Field(default="problem", description="Card type: 'problem' (red) or 'opportunity' (green)")
@@ -250,6 +251,35 @@ class Situation(BaseModel):
             "recovery": SituationSeverity.MEDIUM,
             "trend_reversal": SituationSeverity.LOW,
         }
+        delta = abs(signal.delta_pct or 0)
+        # kpi_value.percent_change is sign-normalised: negative = costs fell (inverse_logic KPI)
+        pct = kpi_value.percent_change if kpi_value.percent_change is not None else 0.0
+        is_cost_reduction = pct < 0
+
+        if signal.opportunity_type == "outperformance":
+            if is_cost_reduction:
+                business_impact = (
+                    f"{signal.kpi_name} costs fell {delta:.1f}% year-over-year — a significant "
+                    f"reduction in overhead spend. Deep analysis can identify what drove this "
+                    f"and whether it can be sustained or replicated across other cost centres."
+                )
+            else:
+                business_impact = (
+                    f"{signal.kpi_name} is outperforming prior year by {delta:.1f}%, tracking "
+                    f"ahead of targets. Deep analysis can identify the key drivers and determine "
+                    f"where to accelerate."
+                )
+        elif signal.opportunity_type == "recovery":
+            business_impact = (
+                f"{signal.kpi_name} has recovered {delta:.1f}% from a prior-period low, returning "
+                f"within target range. Understanding the recovery drivers can help prevent future dips."
+            )
+        else:
+            business_impact = (
+                f"{signal.kpi_name} reversed a declining trend with a {delta:.1f}% improvement. "
+                f"Identifying what triggered the turnaround can inform forward strategy."
+            )
+
         return cls(
             situation_id=f"opp_{signal.kpi_name}_{signal.opportunity_type}_{int(abs(signal.delta_pct or 0))}",
             kpi_name=signal.kpi_name,
@@ -258,7 +288,7 @@ class Situation(BaseModel):
             card_type="opportunity",
             direction='up',
             description=signal.headline,
-            business_impact=f"{signal.opportunity_type.replace('_', ' ').title()} of {abs(signal.delta_pct or 0):.1f}%",
+            business_impact=business_impact,
             hitl_required=False,
             tags=["opportunity", signal.opportunity_type],
         )
