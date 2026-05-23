@@ -165,3 +165,17 @@ When the upstream DA output carries `plan.analysis_mode = "opportunity"`, SF swi
 **`da_compact_s1`** now includes `"analysis_mode"` key so Stage 1 personas see it in KEY ANALYSIS SIGNALS.
 
 - May 2026: Business context client_id resolution — `_enrich_with_business_context` now resolves `client_id` from `da_summary["client_id"]` or `request.client_id` before falling back to KPI name scan, preventing cross-tenant context loading when two clients share a KPI name.
+
+## Phase 11G — Mixed-Mode Input Resolution (May 2026)
+
+When upstream DA executes in `analysis_mode="mixed"`, the frontend HITL resolution layer intercepts before SF is invoked. The HITL panel presents both sides (problem + opportunity segments) and offers three choices:
+- **"Focus on Recovery"** → passes `analysis_mode="problem"` to SF
+- **"Focus on Opportunity"** → passes `analysis_mode="opportunity"` to SF  
+- **"Let Agent9 Decide"** → auto-selects the side with larger absolute net delta and shows reasoning
+
+SF does **not** need to handle mixed mode directly. By the time SF receives a request, `analysis_mode` is always `"problem"` or `"opportunity"` (a HITL-resolved binary mode). If SF receives a mixed value, it should treat it as a protocol error and default to `"problem"`.
+
+This design ensures:
+- SF operates on binary modes only (no dual-tracking of options)
+- VA receives consistent control group semantics (no ambiguous DiD setup)
+- Principal engagement is focused (binary choice at a single HITL gate, not throughout SF)

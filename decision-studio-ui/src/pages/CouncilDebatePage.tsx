@@ -186,10 +186,13 @@ export const CouncilDebatePage: React.FC = () => {
         kpi_name: situation.kpi_name,
       };
 
-      const preferencesBase = {
+      const preferencesBase: Record<string, any> = {
         consulting_personas: debateConfig.selectedPersonas || ['mckinsey', 'bcg', 'bain'],
         council_preset: debateConfig.selectedPreset || 'recommended',
       };
+      if (debateConfig.resolvedAnalysisMode) {
+        preferencesBase.analysis_mode = debateConfig.resolvedAnalysisMode;
+      }
 
       const stageResults: any[] = [];
       let hyps: any = null;

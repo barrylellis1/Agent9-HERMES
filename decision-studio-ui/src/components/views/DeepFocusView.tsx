@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -12,7 +12,8 @@ import {
   X,
   Sparkles,
   CircleDot,
-  TrendingUp
+  TrendingUp,
+  SplitSquareHorizontal
 } from 'lucide-react';
 import { Situation, ProblemRefinementResult, MarketSignal } from '../../api/types';
 import { ProblemRefinementChat } from '../ProblemRefinementChat';
@@ -131,6 +132,27 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   const situationIsOpportunity = situation.direction === 'up' || situation.card_type === 'opportunity';
   const analysisMode: 'problem' | 'opportunity' | 'mixed' =
     currentAnalysis?.analysis_mode ?? (situationIsOpportunity ? 'opportunity' : 'problem');
+
+  // Mixed-mode HITL resolution state
+  const [resolvedAnalysisMode, setResolvedAnalysisMode] = useState<'problem' | 'opportunity' | null>(null);
+  const [agentDecisionMessage, setAgentDecisionMessage] = useState<string | null>(null);
+
+  // Net absolute delta per segment type — drives the "Let Agent9 Decide" logic
+  const { netProblemDelta, netOppDelta } = useMemo(() => {
+    if (!currentAnalysis?.kt_is_is_not?.where_is) return { netProblemDelta: 0, netOppDelta: 0 };
+    const items: any[] = currentAnalysis.kt_is_is_not.where_is;
+    const netProblemDelta = items
+      .filter((i: any) => i.segment_type !== 'opportunity')
+      .reduce((s: number, i: any) => s + Math.abs(i.delta || 0), 0);
+    const netOppDelta = items
+      .filter((i: any) => i.segment_type === 'opportunity')
+      .reduce((s: number, i: any) => s + Math.abs(i.delta || 0), 0);
+    return { netProblemDelta, netOppDelta };
+  }, [currentAnalysis]);
+
+  // The mode that will be handed to the debate — resolvedAnalysisMode when mixed, else analysisMode
+  const effectiveDebateMode: 'problem' | 'opportunity' =
+    resolvedAnalysisMode ?? (analysisMode !== 'mixed' ? analysisMode : 'problem');
 
   // Accordion state — Situation Summary and Root Cause expanded by default
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['situation-summary', 'root-cause']));
@@ -437,8 +459,14 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                  )}
 
                  {/* State B: Analysis Done, Start Refinement or Generate Solutions */}
-                 {currentAnalysis && !showRefinementChat && !showPersonaSelector && (
+                 {currentAnalysis && !showRefinementChat && !showPersonaSelector && (analysisMode !== 'mixed' || resolvedAnalysisMode !== null) && (
                      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                         {agentDecisionMessage && (
+                           <div className="bg-amber-900/15 border border-amber-500/30 rounded-lg px-4 py-3 text-xs text-amber-300 flex items-start gap-2">
+                             <Sparkles className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                             <span>{agentDecisionMessage}</span>
+                           </div>
+                         )}
                          <div className="bg-indigo-900/10 border border-indigo-500/20 rounded-xl p-6 text-center">
                              <Lightbulb className="w-10 h-10 text-indigo-400 mx-auto mb-3" />
                              <h3 className="text-white font-medium mb-2">Refine Problem Statement</h3>
@@ -457,7 +485,8 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                      selectedPersonas: ['mckinsey', 'bcg', 'bain'],
                                      councilType: 'preset',
                                      selectedPreset: 'recommended',
-                                     useHybridCouncil: false
+                                     useHybridCouncil: false,
+                                     resolvedAnalysisMode: effectiveDebateMode,
                                    };
                                    try {
                                      localStorage.setItem(`situation_${situation.situation_id}`, JSON.stringify(situation));
@@ -475,6 +504,62 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                              </button>
                          </div>
                      </div>
+                 )}
+
+                 {/* State E: Mixed-mode HITL resolution panel */}
+                 {currentAnalysis && !showRefinementChat && !showPersonaSelector && analysisMode === 'mixed' && resolvedAnalysisMode === null && (
+                   <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                     <div className="bg-amber-900/10 border border-amber-500/30 rounded-xl p-5">
+                       <div className="flex items-center gap-2 mb-2">
+                         <SplitSquareHorizontal className="w-4 h-4 text-amber-400" />
+                         <h3 className="text-sm font-semibold text-amber-300">Mixed Signals Detected</h3>
+                       </div>
+                       <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+                         This KPI shows both underperforming and outperforming segments. To generate focused solutions, choose which direction Agent9 should prioritise.
+                       </p>
+
+                       <div className="space-y-2 mb-4 text-xs">
+                         <div className="flex items-center justify-between bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2">
+                           <span className="text-red-300 font-medium">Problem exposure</span>
+                           <span className="font-mono text-red-400">{netProblemDelta.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                         </div>
+                         <div className="flex items-center justify-between bg-emerald-900/20 border border-emerald-800/40 rounded-lg px-3 py-2">
+                           <span className="text-emerald-300 font-medium">Opportunity upside</span>
+                           <span className="font-mono text-emerald-400">{netOppDelta.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                         </div>
+                       </div>
+
+                       <div className="space-y-2">
+                         <button
+                           onClick={() => setResolvedAnalysisMode('problem')}
+                           className="w-full py-2.5 bg-red-900/40 hover:bg-red-900/60 border border-red-700/50 text-red-300 rounded-lg text-sm font-medium transition-colors"
+                         >
+                           Focus on Recovery
+                         </button>
+                         <button
+                           onClick={() => setResolvedAnalysisMode('opportunity')}
+                           className="w-full py-2.5 bg-emerald-900/40 hover:bg-emerald-900/60 border border-emerald-700/50 text-emerald-300 rounded-lg text-sm font-medium transition-colors"
+                         >
+                           Focus on Opportunity
+                         </button>
+                         <button
+                           onClick={() => {
+                             const decided = netOppDelta > netProblemDelta ? 'opportunity' : 'problem';
+                             setResolvedAnalysisMode(decided);
+                             setAgentDecisionMessage(
+                               decided === 'opportunity'
+                                 ? `Agent9 chose Opportunity — the upside delta (${netOppDelta.toLocaleString(undefined, { maximumFractionDigits: 0 })}) outweighs the problem exposure (${netProblemDelta.toLocaleString(undefined, { maximumFractionDigits: 0 })}).`
+                                 : `Agent9 chose Recovery — the problem exposure (${netProblemDelta.toLocaleString(undefined, { maximumFractionDigits: 0 })}) outweighs the opportunity upside (${netOppDelta.toLocaleString(undefined, { maximumFractionDigits: 0 })}).`
+                             );
+                           }}
+                           className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                         >
+                           <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                           Let Agent9 Decide
+                         </button>
+                       </div>
+                     </div>
+                   </div>
                  )}
 
                  {/* State C: Refinement Chat Active */}
@@ -523,7 +608,8 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                             selectedPersonas: refinementResult?.recommended_council_members?.map(m => m.persona_id) ?? ['mckinsey', 'bcg', 'bain'],
                                             councilType: 'preset',
                                             selectedPreset: 'recommended',
-                                            useHybridCouncil: false
+                                            useHybridCouncil: false,
+                                            resolvedAnalysisMode: effectiveDebateMode,
                                           };
                                           try {
                                             localStorage.setItem(`situation_${situation.situation_id}`, JSON.stringify(situation));
@@ -642,7 +728,8 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                      selectedPersonas: useHybridCouncil ? selectedPersonas : (refinementResult?.recommended_council_members?.map(m => m.persona_id) ?? ['mckinsey', 'bcg', 'bain']),
                                      councilType: councilType,
                                      selectedPreset: selectedPreset,
-                                     useHybridCouncil: useHybridCouncil
+                                     useHybridCouncil: useHybridCouncil,
+                                     resolvedAnalysisMode: effectiveDebateMode,
                                    };
                                    try {
                                      localStorage.setItem(`situation_${situation.situation_id}`, JSON.stringify(situation));

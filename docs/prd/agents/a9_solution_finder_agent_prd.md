@@ -567,6 +567,31 @@ _DP_CONTEXT_MAP: Dict[str, str] = {
 - User-customizable evaluation criteria and workflows
 - Agent learning from solution outcomes and user feedback
 
+## Phase 11G — Mixed-Mode HITL Resolution Design (May 2026)
+
+When upstream Deep Analysis executes in `analysis_mode="mixed"`, the frontend intercepts before Solution Finder is invoked. A HITL resolution panel in `DeepFocusView` is displayed:
+
+### Flow
+1. **DA returns `analysis_mode="mixed"`**: Both problem and opportunity segments present in the IS/IS NOT exhibit.
+2. **Frontend HITL resolution panel** (before SF invocation) shows:
+   - Problem segments: quantified net |delta| of underperformers
+   - Opportunity segments: quantified net |delta| of outperformers
+   - Three choices: "Focus on Recovery" | "Focus on Opportunity" | "Let Agent9 Decide"
+3. **Auto-decide logic**: If principal selects "Let Agent9 Decide", system picks the side with larger absolute net delta and shows reasoning.
+4. **Resolved mode passed to SF**: The chosen mode (`"problem"` or `"opportunity"`) flows to Solution Finder as `analysis_mode`.
+5. **SF execution**: Operates on binary mode only. Generates Stage 1 hypotheses and synthesis for the resolved direction.
+
+### Design Rationale
+- **Mixed mode is DA analytical concept**: Valuable for surfacing both laggards and leaders in the IS/IS NOT exhibit. SCQA narrative reflects both drivers.
+- **SF and VA require binary modes**: Dual-track solutioning creates complexity (two problem statements, two trade-off matrices, two DiD control groups in VA). Single resolved mode is cleaner.
+- **Single HITL gate**: Principal makes one binary choice at DA→SF boundary, not throughout the solution workflow. Reduces cognitive overhead and decision fatigue.
+- **Consistent control group semantics**: VA's DiD attribution is unambiguous—no mixed-mode control group confusion.
+
+### Input/Output Contract
+- **SF input**: `analysis_mode` is always `"problem"` or `"opportunity"` (never `"mixed"` after HITL resolution)
+- **SF behavior**: If SF receives `analysis_mode="mixed"` (protocol error), default to `"problem"` and log a warning
+- **SF output**: Continues to carry `analysis_mode` in its response for audit and downstream consumption
+
 ## Change Log
 - **2026-03-11 (Mar 2026):** Market Analysis integration flow refactored. MA Agent now runs at the end of Deep Analysis workflow (not during Problem Refinement or Solution Finding). Market signals are attached to DA output as `market_signals` field. Problem Refinement receives signals from DA output, and Solution Finder receives them via `external_context` in preferences. Post-synthesis MA enrichment call in SF has been removed. `market_intelligence` field on `SolutionFinderResponse` is now always None (deprecated, kept for backward compatibility). `pending_market_signals` field reserved for future principal signal confirmation workflow.
 - **2026-02-28 (Phase 10):** Multi-call LLM architecture. Replaced single monolithic LLM call with 3 parallel Stage 1 persona calls + 1 synthesis call. Added `stage_1_hypotheses` to `SolutionFinderResponse`. Added `impact_estimate` to `SolutionOption`. Enriched `data_payload` with `situation_metadata`, `decision_maker`, multi-tenant `business_context`. Added IS-NOT data extraction from DA output. Added `debate_stage` check to skip Stage 1 for `cross_review`/`synthesis` frontend calls. Expanded opt_2/opt_3 to full schemas (token budget freed). UI: Stage 1 rich consulting cards in `ExecutiveBriefing.tsx`.

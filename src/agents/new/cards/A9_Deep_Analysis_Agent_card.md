@@ -199,6 +199,15 @@ In mixed mode, `where_is` is merged (problem + opportunity items) and sorted by 
 2. All `_format_where_entry()` calls tag items with `segment_type="problem"` or `"opportunity"` at collection time
 3. After the loop: `_infer_analysis_mode()` → sets `plan.analysis_mode` → reshuffling applied → `analysis_mode` written to `DeepAnalysisResponse`
 
+### Mixed Mode Handoff to HITL Resolution (Frontend Decision)
+When DA returns `analysis_mode="mixed"`, the frontend intercepts before calling Solution Finder. A HITL resolution panel in `DeepFocusView` presents both sides:
+- **Quantified both sides**: net |delta| of problem segments vs opportunity segments
+- **Three choices**: "Focus on Recovery" (→ problem mode), "Focus on Opportunity" (→ opportunity mode), "Let Agent9 Decide" (auto-picks larger absolute delta side with reasoning)
+- **Resolved binary mode**: After resolution, the chosen mode (`"problem"` or `"opportunity"`) is passed to Solution Finder as `analysis_mode`
+- **SF and VA execution**: Both agents then run in the resolved binary mode — no dual-tracking, no mixed-mode complexity downstream
+
+**Design rationale**: Mixed mode is valuable for DA's IS/IS NOT exhibit and SCQA narrative. At the DA→SF boundary it must collapse to a single resolved mode via HITL, avoiding dual-track solutioning, ambiguous DiD control groups in VA, and cognitive overhead.
+
 ## Phase 10B-DGA: Data Governance Wiring (Apr 2026)
 - Removed broken DGA acquisition from `connect()` — method was failing silently without propagating errors
 - `data_governance_agent` initialized to `None` in `__init__`, wired post-bootstrap by A9_Orchestrator via `runtime._wire_governance_dependencies()`

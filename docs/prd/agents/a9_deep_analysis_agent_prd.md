@@ -730,6 +730,15 @@ The Decision Studio UI should provide:
 }
 ```
 
+### Phase 11G — Mixed Analysis Mode (May 2026)
+- **Self-determined `analysis_mode`**: DA now infers its `analysis_mode` after the dimension loop, rather than propagating the caller's hint unchanged.
+- **Three-value enum**: `"problem"` (≥80% underperformers), `"opportunity"` (≥80% outperformers), `"mixed"` (neither dominates).
+- **Tunable purity threshold**: `_MIXED_MODE_PURITY_THRESHOLD = 0.80` — module-level constant controls the decision boundary.
+- **Segment type tagging**: All IS/IS NOT items tagged with `segment_type="problem"` or `"opportunity"` at collection time.
+- **Mixed IS/IS NOT layout**: In mixed mode, `where_is` merges both types sorted by |delta|; `where_is_not` is empty. Benchmarks filtered to opportunity-tagged items only.
+- **Mixed SCQA**: Fallback uses bifurcated complication and dual question (fix + replicate); LLM framing rules instruct both drag and opportunity naming.
+- **Downstream HITL handoff**: Mixed mode outputs flow to frontend for HITL resolution before Solution Finder is invoked. Frontend HITL panel quantifies both sides and offers three choices (Focus Recovery / Focus Opportunity / Auto-decide). Resolved mode is passed to SF as binary `analysis_mode`. Design rationale: mixed mode is DA analytical concept; SF/VA require binary modes.
+
 ## Modification History
 
 ### 2026-03-18
