@@ -47,6 +47,10 @@ DATA_PRODUCT = {
     },
     "time_dimensions": [
         {
+            "type": "fiscal_year_period",
+            "year_column": "fiscal_year",
+            "period_column": "fiscal_period",
+            "period_type": "month",
             "column": "",
             "source_columns": ["fiscal_year", "fiscal_period"],
             "display_expr": "CONCAT(CAST(fiscal_year AS STRING), '-', fiscal_period)",

@@ -53,13 +53,24 @@ class ViewDefinition(BaseModel):
 class TimeDimensionSpec(BaseModel):
     """Specification for a time dimension available in this data product.
 
-    Simple case (single pre-composed column): set ``column`` only.
-    Composite case (year + period as separate columns): set ``source_columns``,
-    ``display_expr`` (SQL expression for SELECT/GROUP BY), and optionally
-    ``sort_expr`` (for ORDER BY — defaults to display_expr).
+    Three filter types (set ``type`` to select):
+    - ``date``               — single DATE/TIMESTAMP column; TimeFilter generates BETWEEN ranges.
+    - ``fiscal_year_period`` — separate integer year + period columns (SAP GJAHR+MONAT, etc.);
+                               TimeFilter generates ``fiscal_year = Y AND fiscal_period = P``
+                               fragments. No date arithmetic in the database.
+    - ``fiscal_year``        — annual granularity only; generates ``fiscal_year = Y``.
+
+    Simple date case: set ``column`` only.
+    Fiscal year+period case: set ``type="fiscal_year_period"``, ``year_column``, ``period_column``.
+    Composite display (SELECT/GROUP BY): set ``display_expr`` (e.g. CONCAT expression).
     """
 
+    type: str = Field("date", description="Filter type: 'date' | 'fiscal_year_period' | 'fiscal_year'")
     column: str = Field("", description="Single column name when the time label is already composed (e.g. 'Fiscal Year-Month'). Leave empty when using display_expr.")
+    year_column: str = Field("fiscal_year", description="Integer year column name for fiscal_year_period and fiscal_year types.")
+    period_column: str = Field("fiscal_period", description="Integer period column name for fiscal_year_period type.")
+    period_type: str = Field("month", description="Period granularity within a year: 'month' (1-12) or 'quarter' (1-4).")
+    fiscal_year_start_month: int = Field(1, description="Calendar month (1-12) when the fiscal year begins. 1=January (default/SAP standard). 4=April (UK/Indian FY). Changes fiscal period and quarter mapping in TimeFilter.")
     source_columns: List[str] = Field(default_factory=list, description="Constituent columns that compose this dimension (e.g. ['fiscal_year', 'fiscal_period']). Documentation only.")
     display_expr: str = Field("", description="SQL expression for SELECT / GROUP BY. Overrides column when set (e.g. \"CONCAT(CAST(fiscal_year AS VARCHAR), '-', fiscal_period)\").")
     sort_expr: str = Field("", description="SQL expression for ORDER BY to ensure chronological ordering. Defaults to display_expr or column if empty.")

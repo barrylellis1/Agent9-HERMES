@@ -110,6 +110,9 @@ DA produces both problem segments AND opportunity segments from the same IS/IS N
 - `_generate_scqa_summary`: direction string and fallback text are both mode-aware
 - `_classify_benchmark_segments()`: classifies IS NOT items into `internal_benchmark` (top quartile) or `control_group`
 
+## Phase 10F — Uniform Time Dimension Layer (May 2026)
+- `_prev_timeframe()` replaced: now delegates to `TimeFilter.previous_period_name(timeframe)` — consistent mapping for all timeframe strings including `year_to_date`.
+
 ## Recent Updates (Dec 2025)
 - Contract path consolidated to single source of truth in `registry_references`
 - Added default timeframe (`current_quarter`) when none specified

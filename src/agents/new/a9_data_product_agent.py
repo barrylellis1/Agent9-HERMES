@@ -35,6 +35,7 @@ from src.agents.protocols.data_product_protocol import DataProductProtocol
 from src.agents.shared.a9_agent_base_model import A9AgentBaseModel
 from src.database.backends.duckdb_manager import DuckDBManager
 from src.database.manager_factory import DatabaseManagerFactory
+from src.database.time_filter import TimeFilter
 from src.registry.factory import RegistryFactory
 from src.registry.providers.data_product_provider import DataProductProvider
 from src.registry.providers.kpi_provider import KPIProvider
@@ -3862,6 +3863,26 @@ class A9_Data_Product_Agent(DataProductProtocol):
             pass
         return None
 
+    def _resolve_time_spec(self, data_product_id: Optional[str]) -> dict:
+        """Return the primary TimeDimensionSpec as a plain dict for TimeFilter calls.
+
+        Falls back to a generic date spec so callers never receive None.
+        """
+        _DEFAULT = {"type": "date", "column": "transaction_date"}
+        if not data_product_id or not hasattr(self, "registry_factory") or not self.registry_factory:
+            return _DEFAULT
+        try:
+            dp_provider = self.registry_factory.get_provider("data_product")
+            dp = dp_provider.get(data_product_id) if dp_provider else None
+            if dp:
+                tds = getattr(dp, "time_dimensions", None) or []
+                primary = next((t for t in tds if getattr(t, "primary", False)), tds[0] if tds else None)
+                if primary:
+                    return primary.model_dump() if hasattr(primary, "model_dump") else dict(primary)
+        except Exception:
+            pass
+        return _DEFAULT
+
     async def execute_sql(self, sql_query: Union[str, 'SQLExecutionRequest'], parameters: Optional[Dict[str, Any]] = None, principal_context=None, data_product_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Execute a SQL query using the embedded DuckDBManager (or BigQueryManager when the SQL
@@ -4163,130 +4184,56 @@ class A9_Data_Product_Agent(DataProductProtocol):
         breakdown: bool,
         override_group_by: Optional[List[str]],
         comparison_period: bool = False,
+        time_spec: Optional[dict] = None,
     ) -> Optional[str]:
         """
-        Build a BigQuery-compatible SQL query for dimensional analysis, preserving the
-        fully-qualified backtick table reference so execute_sql routes to BigQuery.
-        Uses the KPI's pre-built sql_query as the base (metric expression + existing WHERE filters).
+        Build a BigQuery-compatible SQL query for dimensional analysis.
+        Uses TimeFilter with the data product's TimeDimensionSpec so fiscal
+        year+period columns are handled correctly (no transaction_date assumption).
         """
         try:
             import re as _re
-            import calendar as _cal
-            from datetime import date
 
-            # Date column: read from KPI metadata, default to transaction_date
-            date_col = "transaction_date"
-            md = getattr(kpi_definition, "metadata", None)
-            if isinstance(md, dict):
-                date_col = md.get("date_column", "transaction_date")
+            _spec = time_spec or {"type": "date", "column": "transaction_date"}
 
-            # Compute date range for a given timeframe string
-            def _period_dates(tf_str):
-                today = date.today()
-                y, m = today.year, today.month
-                def qd(yr, qtr):
-                    sm = (qtr - 1) * 3 + 1
-                    em = qtr * 3
-                    return date(yr, sm, 1), date(yr, em, _cal.monthrange(yr, em)[1])
-                tf = str(tf_str or "last_quarter").strip().lower()
-                cur_q = (m - 1) // 3 + 1
-                if tf == "last_quarter":
-                    bq = cur_q - 1 or 4
-                    by = y if cur_q > 1 else y - 1
-                    s, e = qd(by, bq)
-                elif tf in ("current_quarter", "quarter_to_date"):
-                    s, e = qd(y, cur_q)
-                    e = min(e, today)
-                elif tf in ("year_to_date", "current_year"):
-                    s, e = date(y, 1, 1), today
-                elif tf == "last_year":
-                    s, e = date(y - 1, 1, 1), date(y - 1, 12, 31)
-                else:
-                    bq = cur_q - 1 or 4
-                    by = y if cur_q > 1 else y - 1
-                    s, e = qd(by, bq)
-                return str(s), str(e)
-
-            # Derive "previous" period for TopN curr/prev comparison.
-            # Year-based timeframes compare same period one year earlier;
-            # quarter-based timeframes compare one quarter back.
-            def _prev_period_dates(tf_str):
-                tf = str(tf_str or "last_quarter").strip().lower()
-                today = date.today()
-                y, m = today.year, today.month
-                def qd(yr, qtr):
-                    sm = (qtr - 1) * 3 + 1
-                    em = qtr * 3
-                    return date(yr, sm, 1), date(yr, em, _cal.monthrange(yr, em)[1])
-                cur_q = (m - 1) // 3 + 1
-
-                # Year-based: same date range one year earlier
-                if tf in ("year_to_date", "current_year"):
-                    s = date(y - 1, 1, 1)
-                    e = date(y - 1, m, min(today.day, _cal.monthrange(y - 1, m)[1]))
-                    return str(s), str(e)
-                if tf == "last_year":
-                    return str(date(y - 2, 1, 1)), str(date(y - 2, 12, 31))
-
-                # Quarter-based: one quarter back
-                if tf in ("current_quarter", "quarter_to_date"):
-                    base_q = cur_q
-                    base_y = y
-                else:
-                    base_q = cur_q - 1 or 4
-                    base_y = y if cur_q > 1 else y - 1
-                pq = base_q - 1 or 4
-                py = base_y if base_q > 1 else base_y - 1
-                s, e = qd(py, pq)
-                return str(s), str(e)
-
-            def _append_date(sql, start, end):
-                cond = f"`{date_col}` BETWEEN '{start}' AND '{end}'"
-                if _re.search(r'\bWHERE\b', sql, _re.IGNORECASE):
-                    return sql + f" AND {cond}"
-                return sql + f" WHERE {cond}"
-
-            # Non-breakdown: just append the date filter to the raw sql
+            # Non-breakdown: append time filter to the raw KPI SQL
             if not breakdown or not override_group_by:
-                s, e = _period_dates(timeframe)
-                return _append_date(raw_sql, s, e)
+                cond = TimeFilter.current_condition(_spec, timeframe, dialect="bigquery")
+                return TimeFilter.append_condition(raw_sql, cond)
 
             dim = override_group_by[0]
 
-            # If dim is a SQL expression (contains a function call) alias it so CTE outer
-            # queries can reference it by name rather than repeating the expression.
+            # Alias SQL expressions so CTE outer queries can reference by name
             _is_expr = '(' in dim
             if _is_expr:
-                dim_sel = f"{dim} AS _td_period"   # SELECT / CTE inner: expr aliased
-                dim_grp = dim                       # GROUP BY: bare expression
-                dim_col = "_td_period"              # outer CTE column reference
+                dim_sel = f"{dim} AS _td_period"
+                dim_grp = dim
+                dim_col = "_td_period"
             else:
                 dim_sel = f"`{dim}`"
                 dim_grp = f"`{dim}`"
                 dim_col = f"`{dim}`"
 
             # Parse raw_sql: "SELECT {agg_expr} AS value FROM ..."
-            # Rebuild as:    "SELECT dim, {agg_expr} AS value FROM ... AND date BETWEEN ... GROUP BY dim"
             pat = _re.compile(r'^SELECT\s+(.+?)\s+AS\s+value\s+(FROM\s+.+)', _re.IGNORECASE | _re.DOTALL)
             m = pat.match(raw_sql.strip())
             if not m:
                 return None
             agg_expr = m.group(1).strip()
-            from_clause = m.group(2)  # "FROM `table` WHERE ..."
+            from_clause = m.group(2)
 
             base = f"SELECT {dim_sel}, {agg_expr} AS value {from_clause}"
 
             if topn and isinstance(topn, dict):
                 n = topn.get("n", 50)
-                s_cur, e_cur = _period_dates(timeframe)
-                s_prev, e_prev = _prev_period_dates(timeframe)
+                curr_cond = TimeFilter.current_condition(_spec, timeframe, dialect="bigquery")
+                prev_cond = TimeFilter.previous_condition(_spec, timeframe, dialect="bigquery")
 
-                def _period_subquery(start, end):
-                    sql = _append_date(base, start, end)
-                    return sql + f" GROUP BY {dim_grp}"
+                def _period_subquery(cond):
+                    return TimeFilter.append_condition(base, cond) + f" GROUP BY {dim_grp}"
 
-                curr_sql = _period_subquery(s_cur, e_cur)
-                prev_sql = _period_subquery(s_prev, e_prev)
+                curr_sql = _period_subquery(curr_cond)
+                prev_sql = _period_subquery(prev_cond)
                 return (
                     f"WITH curr AS ({curr_sql}), "
                     f"prev AS ({prev_sql}) "
@@ -4297,9 +4244,12 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     f"ORDER BY delta_prev DESC LIMIT {n}"
                 )
             else:
-                s, e = _prev_period_dates(timeframe) if comparison_period else _period_dates(timeframe)
-                sql = _append_date(base, s, e)
-                return sql + f" GROUP BY {dim_grp}"
+                cond = (
+                    TimeFilter.previous_condition(_spec, timeframe, dialect="bigquery")
+                    if comparison_period
+                    else TimeFilter.current_condition(_spec, timeframe, dialect="bigquery")
+                )
+                return TimeFilter.append_condition(base, cond) + f" GROUP BY {dim_grp}"
 
         except Exception as ex:
             self.logger.warning(f"_build_bq_dimensional_sql error: {ex}")
@@ -4314,87 +4264,22 @@ class A9_Data_Product_Agent(DataProductProtocol):
         breakdown: bool,
         override_group_by: Optional[List[str]],
         comparison_period: bool = False,
+        time_spec: Optional[dict] = None,
     ) -> Optional[str]:
         """
         Build a Snowflake-compatible SQL query for dimensional analysis.
-        Mirrors _build_bq_dimensional_sql but uses standard SQL identifiers (no backticks).
+        Uses TimeFilter with the data product's TimeDimensionSpec (no backticks).
         """
         try:
             import re as _re
-            import calendar as _cal
-            from datetime import date
 
-            date_col = "transaction_date"
-            md = getattr(kpi_definition, "metadata", None)
-            if isinstance(md, dict):
-                date_col = md.get("date_column", "transaction_date")
-
-            def _period_dates(tf_str):
-                today = date.today()
-                y, m = today.year, today.month
-                def qd(yr, qtr):
-                    sm = (qtr - 1) * 3 + 1
-                    em = qtr * 3
-                    return date(yr, sm, 1), date(yr, em, _cal.monthrange(yr, em)[1])
-                tf = str(tf_str or "last_quarter").strip().lower()
-                cur_q = (m - 1) // 3 + 1
-                if tf == "last_quarter":
-                    bq = cur_q - 1 or 4
-                    by = y if cur_q > 1 else y - 1
-                    s, e = qd(by, bq)
-                elif tf in ("current_quarter", "quarter_to_date"):
-                    s, e = qd(y, cur_q)
-                    e = min(e, today)
-                elif tf in ("year_to_date", "current_year"):
-                    s, e = date(y, 1, 1), today
-                elif tf == "last_year":
-                    s, e = date(y - 1, 1, 1), date(y - 1, 12, 31)
-                else:
-                    bq = cur_q - 1 or 4
-                    by = y if cur_q > 1 else y - 1
-                    s, e = qd(by, bq)
-                return str(s), str(e)
-
-            def _prev_period_dates(tf_str):
-                tf = str(tf_str or "last_quarter").strip().lower()
-                today = date.today()
-                y, m = today.year, today.month
-                def qd(yr, qtr):
-                    sm = (qtr - 1) * 3 + 1
-                    em = qtr * 3
-                    return date(yr, sm, 1), date(yr, em, _cal.monthrange(yr, em)[1])
-                cur_q = (m - 1) // 3 + 1
-                if tf in ("year_to_date", "current_year"):
-                    s = date(y - 1, 1, 1)
-                    e = date(y - 1, m, min(today.day, _cal.monthrange(y - 1, m)[1]))
-                    return str(s), str(e)
-                if tf == "last_year":
-                    return str(date(y - 2, 1, 1)), str(date(y - 2, 12, 31))
-                if tf in ("current_quarter", "quarter_to_date"):
-                    base_q = cur_q
-                    base_y = y
-                else:
-                    base_q = cur_q - 1 or 4
-                    base_y = y if cur_q > 1 else y - 1
-                pq = base_q - 1 or 4
-                py = base_y if base_q > 1 else base_y - 1
-                s, e = qd(py, pq)
-                return str(s), str(e)
-
-            def _append_date(sql, start, end):
-                cond = f"{date_col} BETWEEN '{start}' AND '{end}'"
-                if _re.search(r'\bWHERE\b', sql, _re.IGNORECASE):
-                    return sql + f" AND {cond}"
-                return sql + f" WHERE {cond}"
+            _spec = time_spec or {"type": "date", "column": "transaction_date"}
 
             if not breakdown or not override_group_by:
-                s, e = _period_dates(timeframe)
-                return _append_date(raw_sql, s, e)
+                cond = TimeFilter.current_condition(_spec, timeframe, dialect="snowflake")
+                return TimeFilter.append_condition(raw_sql, cond)
 
             dim = override_group_by[0]
-            # If dim is a SQL expression (contains a function call) alias it for clean CTE
-            # references. Plain column names get double-quoted only when they contain special
-            # chars (Snowflake is case-insensitive so snake_case names need no quoting).
             _is_expr = '(' in dim
             if _is_expr:
                 dim_sel = f"{dim} AS _td_period"
@@ -4407,7 +4292,6 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 dim_grp = dim_quoted
                 dim_col = dim_quoted
 
-            # Parse raw_sql: "SELECT {agg_expr} AS value FROM ..."
             pat = _re.compile(r'^SELECT\s+(.+?)\s+AS\s+value\s+(FROM\s+.+)', _re.IGNORECASE | _re.DOTALL)
             m = pat.match(raw_sql.strip())
             if not m:
@@ -4419,15 +4303,14 @@ class A9_Data_Product_Agent(DataProductProtocol):
 
             if topn and isinstance(topn, dict):
                 n = topn.get("n", 50)
-                s_cur, e_cur = _period_dates(timeframe)
-                s_prev, e_prev = _prev_period_dates(timeframe)
+                curr_cond = TimeFilter.current_condition(_spec, timeframe, dialect="snowflake")
+                prev_cond = TimeFilter.previous_condition(_spec, timeframe, dialect="snowflake")
 
-                def _period_subquery(start, end):
-                    sql = _append_date(base, start, end)
-                    return sql + f" GROUP BY {dim_grp}"
+                def _period_subquery(cond):
+                    return TimeFilter.append_condition(base, cond) + f" GROUP BY {dim_grp}"
 
-                curr_sql = _period_subquery(s_cur, e_cur)
-                prev_sql = _period_subquery(s_prev, e_prev)
+                curr_sql = _period_subquery(curr_cond)
+                prev_sql = _period_subquery(prev_cond)
                 return (
                     f"WITH curr AS ({curr_sql}), "
                     f"prev AS ({prev_sql}) "
@@ -4438,9 +4321,12 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     f"ORDER BY delta_prev DESC LIMIT {n}"
                 )
             else:
-                s, e = _prev_period_dates(timeframe) if comparison_period else _period_dates(timeframe)
-                sql = _append_date(base, s, e)
-                return sql + f" GROUP BY {dim_grp}"
+                cond = (
+                    TimeFilter.previous_condition(_spec, timeframe, dialect="snowflake")
+                    if comparison_period
+                    else TimeFilter.current_condition(_spec, timeframe, dialect="snowflake")
+                )
+                return TimeFilter.append_condition(base, cond) + f" GROUP BY {dim_grp}"
 
         except Exception as ex:
             self.logger.warning(f"_build_sf_dimensional_sql error: {ex}")
@@ -4455,88 +4341,24 @@ class A9_Data_Product_Agent(DataProductProtocol):
         breakdown: bool,
         override_group_by: Optional[List[str]],
         comparison_period: bool = False,
+        time_spec: Optional[dict] = None,
     ) -> Optional[str]:
         """
         Build a SQL Server T-SQL query for dimensional analysis.
-        Mirrors _build_sf_dimensional_sql but uses square-bracket identifiers
-        and SQL Server date syntax.
+        Uses TimeFilter with the data product's TimeDimensionSpec (square-bracket identifiers).
         """
         try:
             import re as _re
-            import calendar as _cal
-            from datetime import date
 
-            date_col = "transaction_date"
-            md = getattr(kpi_definition, "metadata", None)
-            if isinstance(md, dict):
-                date_col = md.get("date_column", "transaction_date")
-
-            def _period_dates(tf_str):
-                today = date.today()
-                y, m = today.year, today.month
-                def qd(yr, qtr):
-                    sm = (qtr - 1) * 3 + 1
-                    em = qtr * 3
-                    return date(yr, sm, 1), date(yr, em, _cal.monthrange(yr, em)[1])
-                tf = str(tf_str or "last_quarter").strip().lower()
-                cur_q = (m - 1) // 3 + 1
-                if tf == "last_quarter":
-                    bq = cur_q - 1 or 4
-                    by = y if cur_q > 1 else y - 1
-                    s, e = qd(by, bq)
-                elif tf in ("current_quarter", "quarter_to_date"):
-                    s, e = qd(y, cur_q)
-                    e = min(e, today)
-                elif tf in ("year_to_date", "current_year"):
-                    s, e = date(y, 1, 1), today
-                elif tf == "last_year":
-                    s, e = date(y - 1, 1, 1), date(y - 1, 12, 31)
-                else:
-                    bq = cur_q - 1 or 4
-                    by = y if cur_q > 1 else y - 1
-                    s, e = qd(by, bq)
-                return str(s), str(e)
-
-            def _prev_period_dates(tf_str):
-                tf = str(tf_str or "last_quarter").strip().lower()
-                today = date.today()
-                y, m = today.year, today.month
-                def qd(yr, qtr):
-                    sm = (qtr - 1) * 3 + 1
-                    em = qtr * 3
-                    return date(yr, sm, 1), date(yr, em, _cal.monthrange(yr, em)[1])
-                cur_q = (m - 1) // 3 + 1
-                if tf in ("year_to_date", "current_year"):
-                    s = date(y - 1, 1, 1)
-                    e = date(y - 1, m, min(today.day, _cal.monthrange(y - 1, m)[1]))
-                    return str(s), str(e)
-                if tf == "last_year":
-                    return str(date(y - 2, 1, 1)), str(date(y - 2, 12, 31))
-                if tf in ("current_quarter", "quarter_to_date"):
-                    base_q = cur_q
-                    base_y = y
-                else:
-                    base_q = cur_q - 1 or 4
-                    base_y = y if cur_q > 1 else y - 1
-                pq = base_q - 1 or 4
-                py = base_y if base_q > 1 else base_y - 1
-                s, e = qd(py, pq)
-                return str(s), str(e)
-
-            def _append_date(sql, start, end):
-                cond = f"[{date_col}] BETWEEN '{start}' AND '{end}'"
-                if _re.search(r'\bWHERE\b', sql, _re.IGNORECASE):
-                    return sql + f" AND {cond}"
-                return sql + f" WHERE {cond}"
+            _spec = time_spec or {"type": "date", "column": "transaction_date"}
 
             if not breakdown or not override_group_by:
-                s, e = _period_dates(timeframe)
-                return _append_date(raw_sql, s, e)
+                cond = TimeFilter.current_condition(_spec, timeframe, dialect="sqlserver")
+                return TimeFilter.append_condition(raw_sql, cond)
 
             dim = override_group_by[0]
             dim_quoted = f"[{dim}]"
 
-            # Parse raw_sql: "SELECT {agg_expr} AS value FROM ..."
             pat = _re.compile(r'^SELECT\s+(.+?)\s+AS\s+value\s+(FROM\s+.+)', _re.IGNORECASE | _re.DOTALL)
             m = pat.match(raw_sql.strip())
             if not m:
@@ -4545,12 +4367,114 @@ class A9_Data_Product_Agent(DataProductProtocol):
             from_clause = m.group(2)
 
             base = f"SELECT {dim_quoted}, {agg_expr} AS value {from_clause}"
-            s, e = _prev_period_dates(timeframe) if comparison_period else _period_dates(timeframe)
-            sql = _append_date(base, s, e)
-            return sql + f" GROUP BY {dim_quoted}"
+
+            if topn and isinstance(topn, dict):
+                n = topn.get("n", 50)
+                curr_cond = TimeFilter.current_condition(_spec, timeframe, dialect="sqlserver")
+                prev_cond = TimeFilter.previous_condition(_spec, timeframe, dialect="sqlserver")
+
+                def _period_subquery(cond):
+                    return TimeFilter.append_condition(base, cond) + f" GROUP BY {dim_quoted}"
+
+                curr_sql = _period_subquery(curr_cond)
+                prev_sql = _period_subquery(prev_cond)
+                return (
+                    f"WITH curr AS ({curr_sql}), "
+                    f"prev AS ({prev_sql}) "
+                    f"SELECT curr.{dim_quoted}, curr.value AS current_value, "
+                    f"COALESCE(prev.value, 0) AS previous_value, "
+                    f"(curr.value - COALESCE(prev.value, 0)) AS delta_prev "
+                    f"FROM curr LEFT JOIN prev ON curr.{dim_quoted} = prev.{dim_quoted} "
+                    f"ORDER BY delta_prev DESC OFFSET 0 ROWS FETCH NEXT {n} ROWS ONLY"
+                )
+            else:
+                cond = (
+                    TimeFilter.previous_condition(_spec, timeframe, dialect="sqlserver")
+                    if comparison_period
+                    else TimeFilter.current_condition(_spec, timeframe, dialect="sqlserver")
+                )
+                return TimeFilter.append_condition(base, cond) + f" GROUP BY {dim_quoted}"
 
         except Exception as ex:
             self.logger.warning(f"_build_ss_dimensional_sql error: {ex}")
+            return None
+
+    def _build_databricks_dimensional_sql(
+        self,
+        raw_sql: str,
+        kpi_definition: Any,
+        timeframe: Any,
+        topn: Any,
+        breakdown: bool,
+        override_group_by: Optional[List[str]],
+        comparison_period: bool = False,
+        time_spec: Optional[dict] = None,
+    ) -> Optional[str]:
+        """
+        Build a Databricks SQL Warehouse query for dimensional analysis.
+        Uses TimeFilter with the data product's TimeDimensionSpec.
+        Standard ANSI SQL — no backticks, no brackets; double-quote for special identifiers.
+        """
+        try:
+            import re as _re
+
+            _spec = time_spec or {"type": "date", "column": "transaction_date"}
+
+            if not breakdown or not override_group_by:
+                cond = TimeFilter.current_condition(_spec, timeframe, dialect="databricks")
+                return TimeFilter.append_condition(raw_sql, cond)
+
+            dim = override_group_by[0]
+            _is_expr = '(' in dim
+            if _is_expr:
+                dim_sel = f"{dim} AS _td_period"
+                dim_grp = dim
+                dim_col = "_td_period"
+            else:
+                _needs_quote = bool(_re.search(r'[^a-zA-Z0-9_]', dim))
+                dim_quoted = f'"{dim}"' if _needs_quote else dim
+                dim_sel = dim_quoted
+                dim_grp = dim_quoted
+                dim_col = dim_quoted
+
+            pat = _re.compile(r'^SELECT\s+(.+?)\s+AS\s+value\s+(FROM\s+.+)', _re.IGNORECASE | _re.DOTALL)
+            m = pat.match(raw_sql.strip())
+            if not m:
+                return None
+            agg_expr = m.group(1).strip()
+            from_clause = m.group(2)
+
+            base = f"SELECT {dim_sel}, {agg_expr} AS value {from_clause}"
+
+            if topn and isinstance(topn, dict):
+                n = topn.get("n", 50)
+                curr_cond = TimeFilter.current_condition(_spec, timeframe, dialect="databricks")
+                prev_cond = TimeFilter.previous_condition(_spec, timeframe, dialect="databricks")
+
+                def _period_subquery(cond):
+                    return TimeFilter.append_condition(base, cond) + f" GROUP BY {dim_grp}"
+
+                curr_sql = _period_subquery(curr_cond)
+                prev_sql = _period_subquery(prev_cond)
+                return (
+                    f"WITH curr AS ({curr_sql}), "
+                    f"prev AS ({prev_sql}) "
+                    f"SELECT curr.{dim_col}, curr.value AS current_value, "
+                    f"COALESCE(prev.value, 0) AS previous_value, "
+                    f"(curr.value - COALESCE(prev.value, 0)) AS delta_prev "
+                    f"FROM curr LEFT JOIN prev ON curr.{dim_col} = prev.{dim_col} "
+                    f"ORDER BY delta_prev DESC LIMIT {n}"
+                )
+            else:
+                cond = (
+                    TimeFilter.previous_condition(_spec, timeframe, dialect="databricks")
+                    if comparison_period
+                    else TimeFilter.current_condition(_spec, timeframe, dialect="databricks")
+                )
+                return TimeFilter.append_condition(base, cond) + f" GROUP BY {dim_grp}"
+
+        except Exception as ex:
+            self.logger.warning(f"_build_databricks_dimensional_sql error: {ex}")
             return None
 
     async def generate_sql_for_kpi(self, kpi_definition: Any, timeframe: Any = None, filters: Dict[str, Any] = None, topn: Any = None, breakdown: bool = False, override_group_by: Optional[List[str]] = None, comparison_period: bool = False) -> Dict[str, Any]:
@@ -4586,10 +4510,14 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 elif _SS_PAT.search(_raw_sql):
                     _source_system = 'sqlserver'
 
+            # Resolve the primary time dimension spec for this data product
+            _time_spec = self._resolve_time_spec(_dp_id)
+
             # Route by source_system
             if _source_system == 'bigquery':
                 bq_sql = self._build_bq_dimensional_sql(
-                    _raw_sql, kpi_definition, timeframe, topn, breakdown, override_group_by, comparison_period
+                    _raw_sql, kpi_definition, timeframe, topn, breakdown, override_group_by,
+                    comparison_period, time_spec=_time_spec,
                 )
                 if bq_sql:
                     self.logger.info(f"[TXN:{transaction_id}] [BQ path] SQL for '{kpi_name}': {bq_sql[:120]}")
@@ -4598,7 +4526,8 @@ class A9_Data_Product_Agent(DataProductProtocol):
             elif _source_system in ('sqlserver', 'sql_server', 'mssql'):
                 if breakdown and override_group_by:
                     ss_sql = self._build_ss_dimensional_sql(
-                        _raw_sql, kpi_definition, timeframe, topn, breakdown, override_group_by, comparison_period
+                        _raw_sql, kpi_definition, timeframe, topn, breakdown, override_group_by,
+                        comparison_period, time_spec=_time_spec,
                     )
                     if ss_sql:
                         self.logger.info(f"[TXN:{transaction_id}] [SS path] Dimensional SQL for '{kpi_name}': {ss_sql[:120]}")
@@ -4616,7 +4545,8 @@ class A9_Data_Product_Agent(DataProductProtocol):
 
             elif _source_system == 'snowflake':
                 sf_sql = self._build_sf_dimensional_sql(
-                    _raw_sql, kpi_definition, timeframe, topn, breakdown, override_group_by, comparison_period
+                    _raw_sql, kpi_definition, timeframe, topn, breakdown, override_group_by,
+                    comparison_period, time_spec=_time_spec,
                 )
                 if sf_sql:
                     self.logger.info(f"[TXN:{transaction_id}] [SF path] SQL for '{kpi_name}': {sf_sql[:120]}")
@@ -4638,6 +4568,33 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     "message": f"Snowflake SQL (stored) for {kpi_name}",
                     "data_product_id": _dp_id,
                     "source_system": "snowflake",
+                }
+
+            elif _source_system == 'databricks':
+                db_sql = self._build_databricks_dimensional_sql(
+                    _raw_sql, kpi_definition, timeframe, topn, breakdown, override_group_by,
+                    comparison_period, time_spec=_time_spec,
+                )
+                if db_sql:
+                    self.logger.info(f"[TXN:{transaction_id}] [Databricks path] SQL for '{kpi_name}': {db_sql[:120]}")
+                    return {
+                        "sql": db_sql,
+                        "kpi_name": kpi_name,
+                        "transaction_id": transaction_id,
+                        "success": True,
+                        "message": f"Databricks SQL generated for {kpi_name}",
+                        "data_product_id": _dp_id,
+                        "source_system": "databricks",
+                    }
+                self.logger.info(f"[TXN:{transaction_id}] [Databricks path] Using stored SQL for '{kpi_name}': {_raw_sql[:120]}")
+                return {
+                    "sql": _raw_sql,
+                    "kpi_name": kpi_name,
+                    "transaction_id": transaction_id,
+                    "success": True,
+                    "message": f"Databricks SQL (stored) for {kpi_name}",
+                    "data_product_id": _dp_id,
+                    "source_system": "databricks",
                 }
 
             sql = await self._generate_sql_for_kpi(

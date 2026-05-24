@@ -32,6 +32,7 @@ from src.agents.models.deep_analysis_models import (
 )
 from src.agents.models.data_governance_models import KPIDataProductMappingRequest
 from src.agents.utils.data_quality_filter import DataQualityFilter, filter_anomalies
+from src.database.time_filter import TimeFilter
 
 
 logger = logging.getLogger(__name__)
@@ -240,19 +241,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         return dims
 
     def _prev_timeframe(self, timeframe: Optional[str]) -> Optional[str]:
-        tf = (str(timeframe or "").strip().lower())
-        map_ = {
-            "current_quarter": "last_quarter",
-            "this_quarter": "last_quarter",
-            "current_month": "last_month",
-            "this_month": "last_month",
-            "current_year": "last_year",
-            "this_year": "last_year",
-            "quarter_to_date": "quarter_to_date",
-            "month_to_date": "month_to_date",
-            "year_to_date": "year_to_date",
-        }
-        return map_.get(tf)
+        return TimeFilter.previous_period_name(timeframe)
 
     def _build_group_compare_steps(self, dimensions: List[str], timeframe: Optional[str], filters: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """

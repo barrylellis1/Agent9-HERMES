@@ -84,7 +84,7 @@ DATA_PRODUCT: Dict[str, Any] = {
         }
     },
     "time_dimensions": [
-        {"column": "Fiscal Year-Month", "label": "Fiscal Year-Month", "granularity": "month", "primary": True},
+        {"type": "date", "column": "Fiscal Year-Month", "label": "Fiscal Year-Month", "granularity": "month", "primary": True},
     ],
     "reviewed": True,
     "staging": False,

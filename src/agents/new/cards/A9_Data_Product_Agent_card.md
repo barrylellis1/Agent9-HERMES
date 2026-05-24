@@ -77,3 +77,10 @@ Uses `_contract_path()` method to resolve contract files from registry:
 - May 2026 (Infra A4-a): Per-request data product registry refresh — new `_refresh_data_product_registry()` helper calls `data_product_provider.load()` inside `get_data_product` and `generate_sql_for_kpi`. Non-fatal; falls back to cached state on provider error.
 - May 2026 (Infra A4-d): New public `test_connection(data_product_id)` method — routes to the correct backend via `_resolve_source_system()` and runs `SELECT 1` (or equivalent). Returns `{"status", "source_system", "latency_ms", "error"}`. Called by `AgentRuntime.probe_connection_health()` for the Connection Health Dashboard admin endpoint.
 - May 2026: Time dimension SQL aliasing — `_build_bq_dimensional_sql` and `_build_sf_dimensional_sql` now alias SQL expressions (e.g. `CONCAT(...)`) as `_td_period` in CTE inner queries so outer CTE can reference the alias by name.
+
+## Phase 10F — Uniform Time Dimension Layer (May 2026)
+- `_build_bq_dimensional_sql`, `_build_sf_dimensional_sql`, `_build_ss_dimensional_sql` all replaced with `TimeFilter`-based implementations — no hardcoded `transaction_date` fallback.
+- New `_build_databricks_dimensional_sql`: standard ANSI SQL (no backticks/brackets), `LIMIT n` for TopN. Routed via `source_system='databricks'` in `generate_sql_for_kpi`.
+- `_resolve_time_spec(data_product_id)`: looks up primary `TimeDimensionSpec` from registry, returns plain dict for `TimeFilter`. Falls back to `{"type": "date", "column": "transaction_date"}`.
+- `generate_sql_for_kpi` routes by `_resolve_source_system()` (Tier 1), regex fallback (Tier 2): bigquery → BQ builder, sqlserver/mssql → SS builder, snowflake → SF builder, databricks → DB builder, else → DuckDB path.
+- `TimeDimensionSpec.fiscal_year_start_month` (int, default 1): non-January FY support — `TimeFilter` converts calendar month to fiscal period/year using this offset.
