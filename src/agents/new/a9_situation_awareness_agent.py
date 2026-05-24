@@ -1113,6 +1113,92 @@ class A9_Situation_Awareness_Agent:
         )
         return monthly_sql
 
+    def _ss_monthly_series_sql(
+        self,
+        base_sql: str,
+        year_col: str = "fiscal_year",
+        period_col: str = "fiscal_period",
+        num_months: int = 9,
+    ) -> str:
+        """T-SQL monthly series using fiscal_year + fiscal_period integer columns.
+
+        Uses TOP n subquery so no date-window filter is needed — the most recent
+        N periods are returned and then reordered ascending for the sparkline.
+        Non-date WHERE conditions (account_type, version, etc.) are preserved.
+        Returns period as 'YYYY-PP' (zero-padded, e.g. '2026-03').
+        """
+        import re as _re
+
+        match = _re.match(
+            r'SELECT\s+(.+?)\s+AS\s+\w+\s+FROM\s+'
+            r'((?:\[[^\]]+\]|\w+)(?:\.(?:\[[^\]]+\]|\w+))*)'
+            r'(.*)',
+            base_sql,
+            _re.IGNORECASE | _re.DOTALL,
+        )
+        if not match:
+            self.logger.warning(f"[Monthly-SS] Could not parse base SQL: {base_sql[:200]}")
+            return ""
+
+        agg_expr = match.group(1).strip()
+        table_ref = match.group(2).strip()
+        rest = match.group(3).strip()
+
+        where_match = _re.search(r'\bWHERE\b(.*)', rest, _re.IGNORECASE | _re.DOTALL)
+        non_date_where = ("WHERE " + where_match.group(1).strip()) if where_match else ""
+
+        y = f"[{year_col.strip('[]')}]"
+        p = f"[{period_col.strip('[]')}]"
+        period_expr = f"CAST({y} AS VARCHAR(4)) + '-' + RIGHT('0' + CAST({p} AS VARCHAR(2)), 2)"
+
+        return (
+            f"SELECT period, value FROM ("
+            f"SELECT TOP {num_months} "
+            f"{period_expr} AS period, "
+            f"{agg_expr} AS value "
+            f"FROM {table_ref} "
+            f"{non_date_where} "
+            f"GROUP BY {y}, {p} "
+            f"ORDER BY {y} DESC, {p} DESC"
+            f") t ORDER BY period ASC"
+        )
+
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def _resolve_time_spec_sa(self, data_product_id: Optional[str]) -> dict:
+        """Return the TimeDimensionSpec dict for a data product (SA-side lookup).
+
+        Returns a plain dict with at minimum {"type": ..., "column": ...}.
+        Falls back to a generic date-column spec on any error.
+        """
+        _fallback = {"type": "date", "column": "transaction_date"}
+        if not data_product_id:
+            return _fallback
+        try:
+            registry_factory = self.config.get("registry_factory")
+            if not registry_factory:
+                from src.registry.factory import RegistryFactory
+                registry_factory = RegistryFactory()
+            dp_provider = registry_factory.get_provider("data_product")
+            if not dp_provider:
+                return _fallback
+            dp = dp_provider.get(data_product_id)
+            if not dp:
+                return _fallback
+            time_dims = getattr(dp, "time_dimensions", None)
+            if not time_dims:
+                return _fallback
+            # time_dimensions may be a list of dicts or objects
+            first = time_dims[0] if isinstance(time_dims, list) else time_dims
+            if hasattr(first, "model_dump"):
+                return first.model_dump()
+            if isinstance(first, dict):
+                return first
+            return _fallback
+        except Exception as e:
+            self.logger.debug(f"[SA] Could not resolve time spec for {data_product_id}: {e}")
+            return _fallback
+
     # ──────────────────────────────────────────────────────────────────────────
 
     def _resolve_source_system(self, data_product_id: Optional[str]) -> Optional[str]:
@@ -2024,13 +2110,22 @@ class A9_Situation_Awareness_Agent:
                 self.logger.error(f"Error executing base SQL for {kpi_name}: {e}")
                 return None
             # ── Build monthly series SQL (sync, no I/O) ──
-            # BQ-native and Snowflake KPIs: use _raw_kpi_sql (backtick refs for BQ, native for SF)
-            # SS KPIs: monthly series not yet supported (T-SQL parsing differs) — skip
-            # DPA-path KPIs: use base_sql (double-quoted view, date filter stripped inside)
-            monthly_source = _raw_kpi_sql if (_is_bq_kpi or _is_sf_kpi) else (None if _is_ss_kpi else base_sql)
+            # BQ/SF: use _raw_kpi_sql; SS: T-SQL fiscal period builder; DPA-path: use base_sql
+            monthly_source = _raw_kpi_sql if (_is_bq_kpi or _is_sf_kpi or _is_ss_kpi) else base_sql
             monthly_sql = ""
             if monthly_source:
-                monthly_sql = self._bq_monthly_series_sql(monthly_source, date_col=_bq_date_col, num_months=9)
+                if _is_ss_kpi:
+                    _ts = self._resolve_time_spec_sa(_gen_dp_id)
+                    if _ts.get("type") == "fiscal_year_period":
+                        monthly_sql = self._ss_monthly_series_sql(
+                            monthly_source,
+                            year_col=_ts.get("year_column", "fiscal_year"),
+                            period_col=_ts.get("period_column", "fiscal_period"),
+                            num_months=9,
+                        )
+                    # else: non-fiscal SS KPI — monthly series not yet supported
+                else:
+                    monthly_sql = self._bq_monthly_series_sql(monthly_source, date_col=_bq_date_col, num_months=9)
 
             # ── Build comparison SQL (sync for BQ/SS-native, async for DPA-path) ──
             comp_sql = ""
