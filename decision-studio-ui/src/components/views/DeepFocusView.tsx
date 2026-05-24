@@ -576,23 +576,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                  Start Refinement Session
                              </button>
                              <button
-                                 onClick={() => {
-                                   const debateConfig = {
-                                     selectedPersonas: ['mckinsey', 'bcg', 'bain'],
-                                     councilType: 'preset',
-                                     selectedPreset: 'recommended',
-                                     useHybridCouncil: false,
-                                     resolvedAnalysisMode: effectiveDebateMode,
-                                   };
-                                   try {
-                                     localStorage.setItem(`situation_${situation.situation_id}`, JSON.stringify(situation));
-                                     localStorage.setItem(`analysis_${situation.situation_id}`, JSON.stringify(currentAnalysis));
-                                     localStorage.setItem(`market_signals_${situation.situation_id}`, JSON.stringify(initialMarketSignals || []));
-                                     localStorage.setItem(`principal_context_${situation.situation_id}`, JSON.stringify(principalContext || {}));
-                                     localStorage.setItem(`debate_config_${situation.situation_id}`, JSON.stringify(debateConfig));
-                                   } catch (_) { /* quota exceeded — router state is the primary channel */ }
-                                   navigate(`/debate/${situation.situation_id}`, { state: { situation, analysis: currentAnalysis, marketSignals: initialMarketSignals || [], principalContext: principalContext || {}, debateConfig } });
-                                 }}
+                                 onClick={() => setShowPersonaSelector(true)}
                                  className="w-full mt-2 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded font-medium flex items-center justify-center gap-2"
                              >
                                  <CircleDot className="w-3 h-3" />
