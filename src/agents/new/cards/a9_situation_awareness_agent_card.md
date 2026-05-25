@@ -242,6 +242,7 @@ class SituationDetectionResponse(BaseResponse):
 ## Monthly Series for Trend Visualization (Apr 2026)
 - `_bq_monthly_series_sql(base_sql, date_col, num_months=9)` — generates BigQuery/Snowflake/DuckDB SQL returning monthly aggregates for the last N months via `LEFT(date_col, 7)` + `LIMIT n`
 - `_ss_monthly_series_sql(base_sql, year_col, period_col, num_months=9)` — T-SQL equivalent: `TOP n` subquery grouping on fiscal_year + fiscal_period integer columns; period returned as `YYYY-PP`; used for SQL Server (Hess) KPIs when `TimeDimensionSpec.type == "fiscal_year_period"`
+- `_sf_monthly_series_sql(base_sql, year_col, period_col, num_months=9)` — Snowflake equivalent: `LIMIT n` subquery, `||` concatenation, bare column names; used for Snowflake (Apex Lubricants) KPIs when `TimeDimensionSpec.type == "fiscal_year_period"`
 - `_resolve_time_spec_sa(data_product_id)` — reads `TimeDimensionSpec` dict from the data product registry; used to determine year/period column names for the SS monthly builder
 - Monthly series query runs after current + comparison queries in `_get_kpi_value()` for BQ, SF, and SS KPIs
 - Results stored as `KPIValue.monthly_values: Optional[List[Dict[str, Any]]]` — each entry: `{period: str, value: float}`

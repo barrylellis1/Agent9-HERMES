@@ -435,6 +435,10 @@ class A9_Situation_Awareness_Agent:
                             request.principal_context
                         )
                         self.logger.info(f"Detected {len(detected_situations)} situations for {kpi_name}")
+                        # Enrich with LLM-generated observations and trend note
+                        for sit in detected_situations:
+                            sit.key_observations = await self._generate_key_observations(kpi_definition, kpi_value, sit)
+                            sit.trend_note = await self._generate_trend_note(kpi_definition, kpi_value, sit)
                         situations.extend(detected_situations)
 
                         # Detect positive opportunity signals
@@ -1163,12 +1167,62 @@ class A9_Situation_Awareness_Agent:
             f") t ORDER BY period ASC"
         )
 
+    def _sf_monthly_series_sql(
+        self,
+        base_sql: str,
+        year_col: str = "fiscal_year",
+        period_col: str = "fiscal_period",
+        num_months: int = 9,
+    ) -> str:
+        """Snowflake monthly series using fiscal_year + fiscal_period integer columns.
+
+        Uses LIMIT n subquery (Snowflake syntax). String concatenation via ||.
+        Returns period as 'YYYY-PP' (zero-padded, e.g. '2026-03').
+        """
+        import re as _re
+
+        match = _re.match(
+            r'SELECT\s+(.+?)\s+AS\s+\w+\s+FROM\s+'
+            r'((?:`[^`]+`|"[^"]+"|\w+)(?:\.(?:`[^`]+`|"[^"]+"|\w+))*)'
+            r'(.*)',
+            base_sql,
+            _re.IGNORECASE | _re.DOTALL,
+        )
+        if not match:
+            self.logger.warning(f"[Monthly-SF] Could not parse base SQL: {base_sql[:200]}")
+            return ""
+
+        agg_expr = match.group(1).strip()
+        table_ref = match.group(2).strip()
+        rest = match.group(3).strip()
+
+        where_match = _re.search(r'\bWHERE\b(.*)', rest, _re.IGNORECASE | _re.DOTALL)
+        non_date_where = ("WHERE " + where_match.group(1).strip()) if where_match else ""
+
+        period_expr = (
+            f"CAST({year_col} AS VARCHAR) || '-' || "
+            f"LPAD(CAST({period_col} AS VARCHAR), 2, '0')"
+        )
+
+        return (
+            f"SELECT period, value FROM ("
+            f"SELECT {period_expr} AS period, "
+            f"{agg_expr} AS value "
+            f"FROM {table_ref} "
+            f"{non_date_where} "
+            f"GROUP BY {year_col}, {period_col} "
+            f"ORDER BY {year_col} DESC, {period_col} DESC "
+            f"LIMIT {num_months}"
+            f") AS t ORDER BY period ASC"
+        )
+
     # ──────────────────────────────────────────────────────────────────────────
 
-    def _resolve_time_spec_sa(self, data_product_id: Optional[str]) -> dict:
+    async def _resolve_time_spec_sa(self, data_product_id: Optional[str]) -> dict:
         """Return the TimeDimensionSpec dict for a data product (SA-side lookup).
 
-        Returns a plain dict with at minimum {"type": ..., "column": ...}.
+        Always does a fresh load from Supabase so the in-memory provider cache
+        cannot return stale data (e.g. after a seed run without a server restart).
         Falls back to a generic date-column spec on any error.
         """
         _fallback = {"type": "date", "column": "transaction_date"}
@@ -1182,6 +1236,11 @@ class A9_Situation_Awareness_Agent:
             dp_provider = registry_factory.get_provider("data_product")
             if not dp_provider:
                 return _fallback
+            # Force a fresh Supabase fetch so we never read a stale startup cache
+            try:
+                await dp_provider.load()
+            except Exception as _le:
+                self.logger.debug(f"[SA] time_spec provider reload failed (using cache): {_le}")
             dp = dp_provider.get(data_product_id)
             if not dp:
                 return _fallback
@@ -2114,16 +2173,21 @@ class A9_Situation_Awareness_Agent:
             monthly_source = _raw_kpi_sql if (_is_bq_kpi or _is_sf_kpi or _is_ss_kpi) else base_sql
             monthly_sql = ""
             if monthly_source:
-                if _is_ss_kpi:
-                    _ts = self._resolve_time_spec_sa(_gen_dp_id)
+                if _is_ss_kpi or _is_sf_kpi:
+                    _ts = await self._resolve_time_spec_sa(_gen_dp_id)
                     if _ts.get("type") == "fiscal_year_period":
-                        monthly_sql = self._ss_monthly_series_sql(
-                            monthly_source,
-                            year_col=_ts.get("year_column", "fiscal_year"),
-                            period_col=_ts.get("period_column", "fiscal_period"),
-                            num_months=9,
-                        )
-                    # else: non-fiscal SS KPI — monthly series not yet supported
+                        _yr = _ts.get("year_column", "fiscal_year")
+                        _pr = _ts.get("period_column", "fiscal_period")
+                        if _is_ss_kpi:
+                            monthly_sql = self._ss_monthly_series_sql(
+                                monthly_source, year_col=_yr, period_col=_pr, num_months=9,
+                            )
+                        else:
+                            monthly_sql = self._sf_monthly_series_sql(
+                                monthly_source, year_col=_yr, period_col=_pr, num_months=9,
+                            )
+                    if not monthly_sql:
+                        monthly_sql = self._bq_monthly_series_sql(monthly_source, date_col=_bq_date_col, num_months=9)
                 else:
                     monthly_sql = self._bq_monthly_series_sql(monthly_source, date_col=_bq_date_col, num_months=9)
 
@@ -2196,6 +2260,8 @@ class A9_Situation_Awareness_Agent:
                     vals = []
                     for row in raw_rows:
                         if isinstance(row, dict):
+                            # Snowflake returns uppercase column names; normalize to lowercase
+                            row = {k.lower(): v for k, v in row.items()}
                             period = row.get("period", "")
                             val = row.get("value")
                         elif isinstance(row, (list, tuple)) and len(row) >= 2:
@@ -2223,10 +2289,16 @@ class A9_Situation_Awareness_Agent:
                     self.logger.warning(f"Comparison query failed for {kpi_name}: {_ce}")
                     return None
 
-            monthly_values, exec_comp_result = await _asyncio.gather(
-                _fetch_monthly(),
-                _fetch_comparison(),
-            )
+            # SQL Server ODBC cannot handle concurrent queries on the same connection;
+            # run monthly + comparison sequentially to avoid "Connection is busy" errors.
+            if _is_ss_kpi:
+                monthly_values = await _fetch_monthly()
+                exec_comp_result = await _fetch_comparison()
+            else:
+                monthly_values, exec_comp_result = await _asyncio.gather(
+                    _fetch_monthly(),
+                    _fetch_comparison(),
+                )
 
             # For testing/MVP when comparison not available, return basic KPI value
             if not comparison_type:
@@ -3127,6 +3199,85 @@ class A9_Situation_Awareness_Agent:
             self.logger.warning(f"_generate_key_observations failed for {kpi_definition.name}: {exc}")
             return []
 
+    async def _generate_trend_note(
+        self,
+        kpi_definition: "KPIDefinition",
+        kpi_value: "KPIValue",
+        situation: "Situation",
+    ) -> Optional[str]:
+        """
+        Generate a single-sentence trend note when the intra-period monthly trend
+        contradicts the headline YoY direction. Returns None if no contradiction,
+        data is insufficient, or LLM is unavailable. Never raises.
+        """
+        if self.llm_service_agent is None:
+            return None
+        try:
+            if not kpi_value.monthly_values or len(kpi_value.monthly_values) < 3:
+                return None
+
+            vals = [
+                m["value"] if isinstance(m, dict) else float(m)
+                for m in kpi_value.monthly_values
+            ]
+            recent = vals[-3:]
+            first, last = recent[0], recent[-1]
+            if first == 0:
+                return None
+            recent_pct = ((last - first) / abs(first)) * 100
+            if abs(recent_pct) < 2:
+                return None
+
+            inverse_logic = getattr(kpi_definition, "inverse_logic", False) or (kpi_value.inverse_logic or False)
+            pct_change = kpi_value.percent_change or 0
+            # headline_good: the YoY comparison is favourable
+            headline_good = (pct_change <= 0) if inverse_logic else (pct_change >= 0)
+            # recent_trend_good: the last 3 periods are moving in the favourable direction
+            recent_up = recent_pct > 0
+            recent_trend_good = (not recent_up) if inverse_logic else recent_up
+
+            # Only generate a note when the directions contradict
+            if headline_good == recent_trend_good:
+                return None
+
+            from src.agents.new.a9_llm_service_agent import A9_LLM_Request
+
+            direction_word = "rising" if recent_up else "falling"
+            kpi_type = "cost" if inverse_logic else "revenue/performance"
+            tension = (
+                f"Headline is {'favourable' if headline_good else 'unfavourable'} ({pct_change:+.1f}% YoY) "
+                f"but monthly values have been {direction_word} over the last 3 periods ({recent_pct:+.1f}%)"
+            )
+
+            prompt = "\n".join([
+                "You are a financial analyst briefing a CFO. A KPI has a tension between its headline performance and its recent monthly trajectory.",
+                "Write ONE sentence (max 18 words) in plain business language that names this tension. No markdown, no quotes, no bullet points.",
+                "",
+                f"KPI: {kpi_definition.name}",
+                f"KPI type: {kpi_type}",
+                f"Comparison: {kpi_value.comparison_type or 'year-over-year'}",
+                f"Tension: {tension}",
+                "",
+                "Return only the sentence.",
+            ])
+
+            request = A9_LLM_Request(
+                request_id=str(uuid.uuid4()),
+                principal_id="system",
+                prompt=prompt,
+                operation="generate",
+                temperature=0.2,
+                model="claude-haiku-4-5-20251001",
+            )
+
+            response = await self.llm_service_agent.generate(request)
+            content = (response.content if hasattr(response, "content") else str(response)).strip().strip('"').strip("'")
+            return content if content else None
+
+        except Exception as exc:
+            self.logger.warning(f"_generate_trend_note failed for {kpi_definition.name}: {exc}")
+            return None
+
     async def _detect_situations_from_kpi_values(
         self,
         kpi_values: List[KPIValue],
@@ -3168,9 +3319,10 @@ class A9_Situation_Awareness_Agent:
             
             self.logger.info(f"Detected {len(kpi_situations)} situations for KPI {kpi_value.kpi_name}")
 
-            # Enrich each situation with lightweight Haiku observations
+            # Enrich each situation with lightweight Haiku observations and trend note
             for sit in kpi_situations:
                 sit.key_observations = await self._generate_key_observations(kpi_definition, kpi_value, sit)
+                sit.trend_note = await self._generate_trend_note(kpi_definition, kpi_value, sit)
 
             # Add to all situations
             all_situations.extend(kpi_situations)

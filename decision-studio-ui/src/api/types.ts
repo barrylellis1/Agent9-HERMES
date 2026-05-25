@@ -35,6 +35,7 @@ export interface Situation {
   top_drivers?: TopDriver[];
   timestamp?: string;
   key_observations?: string[];
+  trend_note?: string | null;
 }
 
 export interface OpportunitySignal {

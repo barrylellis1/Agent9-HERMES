@@ -61,7 +61,7 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
 
   const deviationColor = (() => {
     if (percentChange == null) return 'text-slate-400';
-    if (isOpportunity) return percentChange >= 0 ? 'text-severity-opportunity' : 'text-slate-400';
+    if (isOpportunity) return 'text-severity-opportunity';
     if (inverseLogic) return percentChange > 0 ? 'text-severity-critical' : 'text-severity-opportunity';
     if (percentChange < 0) return 'text-severity-critical';
     // Positive % without inverse_logic: CRITICAL/HIGH problems should never show green.
@@ -91,15 +91,15 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
     return comparisonType.replace(/_/g, ' ');
   })();
 
-  // ── Sparkline (#6: taller, baseline reference line) ──
+  // ── Sparkline: taller with always-visible mean baseline ──
 
   const lineColor = isOpportunity ? '#34d399' : (isGoodTrend ? '#34d399' : '#f87171');
 
-  const VB_W    = 200;
-  const VB_H    = 52;   // #6: was 40
-  const PLOT_TOP = 4;
-  const PLOT_BOT = 44;  // #6: was 32
-  const PLOT_H  = PLOT_BOT - PLOT_TOP;
+  const VB_W     = 200;
+  const VB_H     = 80;
+  const PLOT_TOP = 6;
+  const PLOT_BOT = 72;
+  const PLOT_H   = PLOT_BOT - PLOT_TOP;
 
   const sparkline = (() => {
     const vals = monthlyValues.length > 0
@@ -131,9 +131,11 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
       y: PLOT_BOT - ((v - minV) / range) * PLOT_H,
     }));
 
-    // Baseline reference at the first data point's y level
-    const baselineY = points[0].y;
+    // Mean baseline — always visible, shows above/below-average months at a glance
+    const meanV = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const baselineY = PLOT_BOT - ((meanV - minV) / range) * PLOT_H;
 
+    const minPointY = Math.min(...points.map(p => p.y));
     const polyline = points.map(p => `${p.x},${p.y}`).join(' ');
     const areaPath =
       `M ${points[0].x},${points[0].y} ` +
@@ -143,22 +145,22 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
     const gradId = `sf-${situation.situation_id}`;
 
     return (
-      <svg width="100%" height="48" viewBox={`0 0 ${VB_W} ${VB_H}`} preserveAspectRatio="none">
+      <svg width="100%" height="72" viewBox={`0 0 ${VB_W} ${VB_H}`} preserveAspectRatio="none">
         <defs>
-          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"   stopColor={lineColor} stopOpacity="0.25" />
+          {/* gradientUnits=userSpaceOnUse anchors to sparkline peak → always visible fill */}
+          <linearGradient id={gradId} x1="0" y1={minPointY} x2="0" y2={VB_H} gradientUnits="userSpaceOnUse">
+            <stop offset="0%"   stopColor={lineColor} stopOpacity="0.35" />
             <stop offset="100%" stopColor={lineColor} stopOpacity="0.02" />
           </linearGradient>
         </defs>
-        {/* Baseline reference — only rendered for declining trends where the first
-            point is above the bottom, otherwise it overlaps the area fill invisibly */}
-        {!isGoodTrend && baselineY > PLOT_TOP + 2 && (
+        <path d={areaPath} fill={`url(#${gradId})`} />
+        {/* Mean baseline — drawn after fill so it's always visible */}
+        {baselineY > PLOT_TOP + 2 && baselineY < PLOT_BOT - 2 && (
           <line
             x1="0" y1={baselineY} x2={VB_W} y2={baselineY}
-            stroke={lineColor} strokeWidth="0.5" strokeDasharray="3 3" opacity="0.35"
+            stroke={lineColor} strokeWidth="0.75" strokeDasharray="4 4" opacity="0.45"
           />
         )}
-        <path d={areaPath} fill={`url(#${gradId})`} />
         <polyline
           points={polyline}
           fill="none"
@@ -224,20 +226,23 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
         )}
       </div>
 
-      {/* ── Insights OR sparkline (edge-to-edge at bottom) ── */}
-      {situation.key_observations && situation.key_observations.length > 0 ? (
-        <div className="mt-auto pt-2 pb-4 space-y-1">
-          {situation.key_observations.slice(0, 3).map((obs, i) => (
-            <p key={i} className="text-[11px] text-slate-400 leading-snug">
-              {obs}
-            </p>
-          ))}
-        </div>
-      ) : sparkline ? (
-        <div className="-mx-5 mt-auto">
-          {sparkline}
-        </div>
-      ) : null}
+      {/* ── Lead finding + sparkline (always together at bottom) ── */}
+      <div className="mt-auto">
+        {situation.trend_note ? (
+          <p className="text-[11px] text-amber-400/80 leading-snug px-0 pb-2 line-clamp-2">
+            {situation.trend_note}
+          </p>
+        ) : situation.key_observations && situation.key_observations.length > 0 ? (
+          <p className="text-[11px] text-slate-400 leading-snug px-0 pb-2 line-clamp-2">
+            {situation.key_observations[0]}
+          </p>
+        ) : null}
+        {sparkline && (
+          <div className="-mx-5">
+            {sparkline}
+          </div>
+        )}
+      </div>
 
       {/* ── Hover action overlay ── */}
       <div

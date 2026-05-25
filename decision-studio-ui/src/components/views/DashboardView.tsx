@@ -169,9 +169,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         {/* Post-scan situation grid */}
         {scanComplete && (() => {
-          const sorted = [...situations].sort(
-            (a, b) => Math.abs(b.kpi_value?.percent_change ?? 0) - Math.abs(a.kpi_value?.percent_change ?? 0)
-          );
+          const severityRank = (sit: Situation): number => {
+            if (sit.direction === 'up' || sit.card_type === 'opportunity') return 4;
+            return ({ critical: 0, high: 1, medium: 2, low: 3 } as Record<string, number>)[sit.severity] ?? 3;
+          };
+          const sorted = [...situations].sort((a, b) => {
+            const rankDiff = severityRank(a) - severityRank(b);
+            if (rankDiff !== 0) return rankDiff;
+            return Math.abs(b.kpi_value?.percent_change ?? 0) - Math.abs(a.kpi_value?.percent_change ?? 0);
+          });
           const [hero, ...rest] = sorted;
 
           if (sorted.length === 0) {
@@ -198,7 +204,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               {rest.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {rest.map((sit, idx) => (
-                    <div key={idx} className="h-44">
+                    <div key={idx}>
                       <KPITile
                         situation={sit}
                         onClick={() => onSelectSituation(sit)}

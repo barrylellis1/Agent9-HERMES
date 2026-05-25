@@ -32,6 +32,7 @@ export const HeroBriefing: React.FC<HeroBriefingProps> = ({
   const borderColor = isOpportunity ? 'border-l-severity-opportunity' : (severityBorder[situation.severity] ?? 'border-l-severity-warning');
   const dotColor    = isOpportunity ? 'bg-severity-opportunity'       : (severityDot[situation.severity]    ?? 'bg-severity-warning');
 
+  const monthlyValues = situation.kpi_value?.monthly_values ?? [];
   const percentChange  = situation.kpi_value?.percent_change;
   const inverseLogic   = situation.kpi_value?.inverse_logic ?? false;
 
@@ -88,6 +89,53 @@ export const HeroBriefing: React.FC<HeroBriefingProps> = ({
 
   const whyItMatters = situation.business_impact || situation.description;
 
+  const trendNote = situation.trend_note ?? null;
+
+  const lineColor = isOpportunity ? '#34d399' : (isGoodTrend ? '#34d399' : '#f87171');
+  const VB_W = 200; const VB_H = 80; const PLOT_TOP = 6; const PLOT_BOT = 72; const PLOT_H = PLOT_BOT - PLOT_TOP;
+
+  const sparkline = (() => {
+    const vals = monthlyValues.length > 0
+      ? monthlyValues.map(m => m.value)
+      : (() => {
+          if (percentChange == null) return null;
+          const pct = Math.min(Math.abs(percentChange), 80) / 100;
+          const base = 100;
+          const pts: number[] = [];
+          const trendUp = (percentChange ?? 0) >= 0;
+          for (let i = 0; i < 9; i++) {
+            const t = i / 8; const ease = t * t;
+            pts.push(trendUp ? base * (1 + ease * pct) : base * (1 - ease * pct));
+          }
+          return pts;
+        })();
+    if (!vals || vals.length < 2) return null;
+    const minV = Math.min(...vals); const maxV = Math.max(...vals);
+    const range = (maxV - minV) || 1; const n = vals.length;
+    const points = vals.map((v, i) => ({ x: (i / (n - 1)) * VB_W, y: PLOT_BOT - ((v - minV) / range) * PLOT_H }));
+    const meanV = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const baselineY = PLOT_BOT - ((meanV - minV) / range) * PLOT_H;
+    const minPointY = Math.min(...points.map(p => p.y));
+    const polyline = points.map(p => `${p.x},${p.y}`).join(' ');
+    const areaPath = `M ${points[0].x},${points[0].y} ` + points.slice(1).map(p => `L ${p.x},${p.y}`).join(' ') + ` L ${VB_W},${VB_H} L 0,${VB_H} Z`;
+    const gradId = `hero-${situation.situation_id}`;
+    return (
+      <svg width="100%" height="72" viewBox={`0 0 ${VB_W} ${VB_H}`} preserveAspectRatio="none">
+        <defs>
+          <linearGradient id={gradId} x1="0" y1={minPointY} x2="0" y2={VB_H} gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor={lineColor} stopOpacity="0.35" />
+            <stop offset="100%" stopColor={lineColor} stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill={`url(#${gradId})`} />
+        {baselineY > PLOT_TOP + 2 && baselineY < PLOT_BOT - 2 && (
+          <line x1="0" y1={baselineY} x2={VB_W} y2={baselineY} stroke={lineColor} strokeWidth="0.75" strokeDasharray="4 4" opacity="0.45" />
+        )}
+        <polyline points={polyline} fill="none" stroke={lineColor} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" opacity="0.85" />
+      </svg>
+    );
+  })();
+
   return (
     <div
       role="button"
@@ -139,12 +187,17 @@ export const HeroBriefing: React.FC<HeroBriefingProps> = ({
         </div>
 
         {/* Right — why it matters */}
-        {whyItMatters && (
+        {(whyItMatters || trendNote) && (
           <div className="flex-1 min-w-0 bg-slate-950/50 rounded-lg p-4 border border-slate-800/60">
             <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
               Why it matters
             </p>
-            <p className="text-sm text-slate-300 leading-relaxed">{whyItMatters}</p>
+            {whyItMatters && (
+              <p className="text-sm text-slate-300 leading-relaxed">{whyItMatters}</p>
+            )}
+            {trendNote && (
+              <p className="text-[11px] text-amber-400/80 leading-relaxed mt-2">{trendNote}</p>
+            )}
             {situation.key_observations && situation.key_observations.length > 0 && (
               <ul className="mt-3 space-y-1">
                 {situation.key_observations.slice(0, 2).map((obs, i) => (
@@ -167,6 +220,9 @@ export const HeroBriefing: React.FC<HeroBriefingProps> = ({
           Analyze <ArrowRight className="w-3 h-3" />
         </span>
       </div>
+
+      {/* Sparkline — full width at card bottom */}
+      {sparkline && <div>{sparkline}</div>}
     </div>
   );
 };
