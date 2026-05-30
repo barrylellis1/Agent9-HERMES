@@ -197,7 +197,7 @@ export const CouncilDebatePage: React.FC = () => {
       };
 
       const preferencesBase: Record<string, any> = {
-        consulting_personas: debateConfig.selectedPersonas || ['mckinsey', 'bcg', 'bain'],
+        consulting_personas: debateConfig.selectedPersonas?.length ? debateConfig.selectedPersonas : ['mckinsey', 'bcg', 'bain'],
         council_preset: debateConfig.selectedPreset || 'recommended',
       };
       if (debateConfig.resolvedAnalysisMode) {
@@ -304,7 +304,9 @@ export const CouncilDebatePage: React.FC = () => {
   };
 
   // ── Derived: firm list in a stable order ────────────────────────────────────
-  const firms: string[] = debateConfig?.selectedPersonas || ['mckinsey', 'bcg', 'bain'];
+  const firms: string[] = debateConfig?.selectedPersonas?.length
+    ? debateConfig.selectedPersonas
+    : ['mckinsey', 'bcg', 'bain'];
 
   // For cross-review: given a firm, return the other firms' reviews of it
   const getReviewsOf = (targetFirm: string): Array<{ reviewer: string; critiques: any[]; endorsements: any[] }> => {

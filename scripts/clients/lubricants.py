@@ -50,6 +50,7 @@ DATA_PRODUCT = {
             "type": "fiscal_year_period",
             "year_column": "fiscal_year",
             "period_column": "fiscal_period",
+            "period_column_type": "string",
             "period_type": "month",
             "column": "",
             "source_columns": ["fiscal_year", "fiscal_period"],

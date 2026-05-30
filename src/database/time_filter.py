@@ -74,6 +74,25 @@ class TimeFilter:
             return cal_year, cal_month - fy_start + 1
         return cal_year - 1, cal_month - fy_start + 1 + 12
 
+    @classmethod
+    def _cast_period_col(cls, col: str, dialect: str, period_column_type: str = "integer") -> str:
+        """Wrap a period column in a dialect-appropriate CAST to integer when needed.
+
+        Set period_column_type='string' in TimeDimensionSpec when the period column
+        is stored as VARCHAR/STRING (e.g. BigQuery views derived from SAP). Defaults
+        to 'integer' (no cast) so existing numeric columns are unaffected.
+        """
+        if period_column_type != "string":
+            return col
+        if dialect == "bigquery":
+            return f"CAST({col} AS INT64)"
+        if dialect in ("snowflake",):
+            return f"CAST({col} AS INTEGER)"
+        if dialect in ("sqlserver", "sql_server", "mssql"):
+            return f"CAST({col} AS INT)"
+        # duckdb / postgres / other: use standard CAST
+        return f"CAST({col} AS INTEGER)"
+
     # ── fiscal_year_period: current ─────────────────────────────────────────
 
     @classmethod
@@ -290,9 +309,14 @@ class TimeFilter:
             spec_type = "fiscal_year_period"
 
         if spec_type == "fiscal_year_period":
+            period_col = cls._cast_period_col(
+                spec.get("period_column", "fiscal_period"),
+                dialect,
+                spec.get("period_column_type", "integer"),
+            )
             return cls._fyp_current(
                 spec.get("year_column", "fiscal_year"),
-                spec.get("period_column", "fiscal_period"),
+                period_col,
                 tf, today,
                 fy_start=spec.get("fiscal_year_start_month", 1),
             )
@@ -314,9 +338,14 @@ class TimeFilter:
             spec_type = "fiscal_year_period"
 
         if spec_type == "fiscal_year_period":
+            period_col = cls._cast_period_col(
+                spec.get("period_column", "fiscal_period"),
+                dialect,
+                spec.get("period_column_type", "integer"),
+            )
             return cls._fyp_previous(
                 spec.get("year_column", "fiscal_year"),
-                spec.get("period_column", "fiscal_period"),
+                period_col,
                 tf, today,
                 fy_start=spec.get("fiscal_year_start_month", 1),
             )

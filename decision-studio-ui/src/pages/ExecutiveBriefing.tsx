@@ -655,13 +655,22 @@ export function ExecutiveBriefing() {
             {/* Cost of Inaction — shown pre-approval when KPI data is available */}
             {approveState !== 'approved' && data.kpiData?.current_value != null && (() => {
               const kd = data.kpiData
-              const slope = kd.comparison_value != null
-                ? kd.current_value - kd.comparison_value
-                : 0
-              const projected30d = kd.current_value + slope * 1
-              const projected90d = kd.current_value + slope * 3
+              // Derive a monthly fractional decay rate from percent_change (YoY).
+              // percent_change may be stored as fraction (e.g. -0.15) or percent points (-15).
+              // Normalise to fraction then convert to monthly rate (÷12).
+              let monthlyRate = 0
+              if (kd.percent_change != null && kd.percent_change !== 0) {
+                const frac = Math.abs(kd.percent_change) > 1
+                  ? kd.percent_change / 100   // percent-points → fraction
+                  : kd.percent_change         // already fraction
+                monthlyRate = frac / 12
+              } else if (kd.comparison_value != null && kd.comparison_value !== 0) {
+                monthlyRate = (kd.current_value - kd.comparison_value) / kd.comparison_value / 12
+              }
+              const projected30d = kd.current_value * (1 + monthlyRate)
+              const projected90d = kd.current_value * (1 + monthlyRate * 3)
               const trendDir: 'deteriorating' | 'stable' | 'recovering' =
-                slope < -0.001 ? 'deteriorating' : slope > 0.001 ? 'recovering' : 'stable'
+                monthlyRate < -0.001 ? 'deteriorating' : monthlyRate > 0.001 ? 'recovering' : 'stable'
               return (
                 <div className="mb-4">
                   <CostOfInactionBanner

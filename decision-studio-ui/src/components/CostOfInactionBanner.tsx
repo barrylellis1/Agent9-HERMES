@@ -17,11 +17,20 @@ interface CostOfInactionBannerProps {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/** True when a value is clearly a currency amount, not a percentage/ratio */
+function isCurrencyValue(value: number, unit: string): boolean {
+  return Math.abs(value) >= 1_000 && (unit === '' || unit === '%');
+}
+
 function formatValue(value: number, unit: string): string {
+  if (isCurrencyValue(value, unit)) return formatRevenue(value);
   return `${value.toFixed(1)}${unit}`;
 }
 
 function formatDelta(delta: number, unit: string): string {
+  if (isCurrencyValue(delta, unit)) {
+    return `${delta >= 0 ? '+' : ''}${formatRevenue(delta)}`;
+  }
   const sign = delta >= 0 ? '+' : '';
   return `${sign}${delta.toFixed(1)}${unit}`;
 }
@@ -150,7 +159,7 @@ export const CostOfInactionBanner: React.FC<CostOfInactionBannerProps> = ({
   trendConfidence,
   estimatedRevenueImpact30d,
   estimatedRevenueImpact90d,
-  kpiUnit = '%',
+  kpiUnit = '',
 }) => {
   const cfg = TREND_CONFIG[trendDirection];
   const { Icon } = cfg;
