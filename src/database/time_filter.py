@@ -284,6 +284,11 @@ class TimeFilter:
         today = cls._today()
         spec_type = (spec.get("type") or "date").lower()
 
+        # Defensive: if type defaults to "date" but column is empty and fiscal columns are
+        # present, treat as fiscal_year_period (handles records seeded before type was added).
+        if spec_type == "date" and not spec.get("column") and spec.get("year_column"):
+            spec_type = "fiscal_year_period"
+
         if spec_type == "fiscal_year_period":
             return cls._fyp_current(
                 spec.get("year_column", "fiscal_year"),
@@ -294,8 +299,9 @@ class TimeFilter:
         if spec_type == "fiscal_year":
             return cls._fy_current(spec.get("year_column", "fiscal_year"), tf, today)
 
-        # date type
-        return cls._date_current(spec.get("column", "transaction_date"), tf, today, dialect)
+        # date type — fall back to a safe column name if none configured
+        col = spec.get("column") or "transaction_date"
+        return cls._date_current(col, tf, today, dialect)
 
     @classmethod
     def previous_condition(cls, spec: dict, timeframe, dialect: str = "bigquery") -> Optional[str]:
@@ -303,6 +309,9 @@ class TimeFilter:
         tf = cls._normalize(timeframe)
         today = cls._today()
         spec_type = (spec.get("type") or "date").lower()
+
+        if spec_type == "date" and not spec.get("column") and spec.get("year_column"):
+            spec_type = "fiscal_year_period"
 
         if spec_type == "fiscal_year_period":
             return cls._fyp_previous(
@@ -314,7 +323,8 @@ class TimeFilter:
         if spec_type == "fiscal_year":
             return cls._fy_previous(spec.get("year_column", "fiscal_year"), tf, today)
 
-        return cls._date_previous(spec.get("column", "transaction_date"), tf, today, dialect)
+        col = spec.get("column") or "transaction_date"
+        return cls._date_previous(col, tf, today, dialect)
 
     @classmethod
     def date_range(
