@@ -308,13 +308,11 @@ export const CouncilDebatePage: React.FC = () => {
 
   // For cross-review: given a firm, return the other firms' reviews of it
   const getReviewsOf = (targetFirm: string): Array<{ reviewer: string; critiques: any[]; endorsements: any[] }> => {
-    if (!crossReview) return [];
+    if (!displayCrossReview) return [];
     return firms
       .filter(f => f !== targetFirm)
       .map(reviewer => {
-        const r = crossReview[reviewer] || {};
-        // Critiques/endorsements are all mixed — filter those targeting this firm's option
-        // Since targets are option IDs not firm names, show all from this reviewer
+        const r = displayCrossReview[reviewer] || {};
         return {
           reviewer,
           critiques: r.critiques || [],
@@ -325,6 +323,19 @@ export const CouncilDebatePage: React.FC = () => {
   };
 
   const recommendedId = synthesis?.recommendation?.option_id || synthesis?.recommendation?.id;
+
+  // Derived display state — fall back to synthesis payload when dedicated state vars are empty.
+  // The synthesis call always returns stage_1_hypotheses and cross_review; the dedicated state
+  // vars (set from the stage1_only call) may be null/empty if that call returned no data.
+  const displayHypotheses: Record<string, any> | null =
+    (stageOneHypotheses && Object.keys(stageOneHypotheses).length > 0)
+      ? stageOneHypotheses
+      : (synthesis?.stage_1_hypotheses && Object.keys(synthesis.stage_1_hypotheses as object).length > 0)
+        ? synthesis.stage_1_hypotheses as Record<string, any>
+        : null;
+
+  const displayCrossReview: Record<string, any> | null =
+    crossReview || (synthesis?.cross_review as Record<string, any> | null) || null;
 
   // Helper: normalize value to 1-10 scale for bar chart
   const normalizeScore = (value: any, defaultVal = 5): number => {
@@ -442,7 +453,7 @@ export const CouncilDebatePage: React.FC = () => {
         <div className="grid grid-cols-3 gap-6 mb-12">
           {firms.map(firmId => {
             const c = getFirmColor(firmId);
-            const hyp = stageOneHypotheses?.[firmId];
+            const hyp = displayHypotheses?.[firmId];
             const reviews = getReviewsOf(firmId);
 
             return (
@@ -451,7 +462,7 @@ export const CouncilDebatePage: React.FC = () => {
                 {/* ── Firm header ──────────────────────────────────────── */}
                 <div className={`px-4 py-3 rounded-lg border ${c.border} bg-slate-900/60 flex items-center justify-between`}>
                   <span className={`text-sm font-bold uppercase tracking-wider ${c.accent}`}>{c.label}</span>
-                  {phase >= 1 && hyp?.conviction && (
+                  {(phase >= 1 || phase === 4) && hyp?.conviction && (
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                       hyp.conviction === 'High' ? 'bg-emerald-900/40 text-emerald-300' :
                       hyp.conviction === 'Medium' ? 'bg-amber-900/40 text-amber-300' :
@@ -497,9 +508,9 @@ export const CouncilDebatePage: React.FC = () => {
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Stage 2 — Peer Review</span>
                   </div>
                   <div className="p-4">
-                    {phase < 2 && !crossReview ? (
+                    {phase < 2 && !displayCrossReview ? (
                       <p className="text-xs text-slate-700 italic">Awaiting Stage 1…</p>
-                    ) : phase < 4 && !crossReview ? (
+                    ) : phase < 4 && !displayCrossReview ? (
                       <FirmThinking label="Council" accent="text-slate-400" stageLabel="synthesizing peer review" />
                     ) : reviews.length === 0 ? (
                       <p className="text-xs text-slate-600 italic">Peer review not captured for this run</p>
