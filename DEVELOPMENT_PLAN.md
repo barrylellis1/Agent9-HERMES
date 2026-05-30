@@ -1,7 +1,7 @@
 # Agent9-HERMES Development Plan
 
 **Created:** 2026-03-14
-**Last updated:** 2026-05-20
+**Last updated:** 2026-05-30
 **Status:** Active
 
 ---
@@ -69,12 +69,17 @@ run_enterprise_assessment.py
 | DA market signal conflict detection (outperforming / confirming / missing tailwinds) | Phase 11F |
 | DA Mixed Analysis Mode — single IS/IS NOT view with both problem segments (red) and opportunity segments (green); mixed SCQA narrative; DA determines framing from segment variance, not SA | Phase 11G |
 | DA Statistical Enrichment — effect size relative to segment weight, seasonal decomposition (structural vs cyclical), confidence scoring on IS/IS NOT items; replaces heuristic replication_potential with evidence-based scores (Analytical Intelligence Layer 1) | Phase 11H |
+| **Advanced Alert Intelligence** — SA: budget/plan variance, projected breach, acceleration, concentration risk; DA: cross-KPI compound patterns (KPI relationship registry); VA: plan trajectory + covenant severity; PIB: alert-type-differentiated briefings | **Phase 11I** |
+| **Solution Validity Monitoring** — recurring health checks on active VA solutions: control group stability (V1), market condition drift + strategic alignment drift (V2); health score HEALTHY/WATCH/DEGRADED/INVALID; PIB "Solutions Requiring Attention" + "Pending Confirmations" sections; Portfolio health badge with action protocol | **Phase 11J** |
 | KPI Causal Intelligence — KPI interdependency map in DGA; cross-KPI conflict detection before solution approval; strategic alignment scoring against declared corporate priorities (Analytical Intelligence Layer 2) | Phase 2 (2027) |
 | Business Optimization Agent — portfolio-level optimization across coupled KPIs; cross-intervention conflict detection; execution sequencing; strategic alignment (Analytical Intelligence Layer 3) | Phase 3 (2028) |
+| Company Intelligence KPI Template Generator (org-first onboarding with benchmarks) | Phase 12A |
+| Org-First Accountability Onboarding (process template → KPI requirements → assign) | Phase 12B |
 | Business Optimization workflow (top-down strategic) | Phase 12 |
 | KPI Assistant UI | Phase 12 |
 | Slack notifications | Phase 12 |
-| **Uniform Time Dimension Layer** — `TimeDimensionSpec` typed contract on every data product (`type: date \| fiscal_year_period \| fiscal_year`); single `TimeFilter` utility replaces 4 fragmented DPA mechanisms; DA dimensional comparison works correctly for all backends; fiscal year + period is the primary type (dominant enterprise pattern) | **Phase 10F** |
+| Executive Briefing Quality + Principal-Adaptive Output | Phase 13 |
+| ~~**Uniform Time Dimension Layer**~~ — `TimeDimensionSpec` typed contract on every data product; single `TimeFilter` utility replaces 4 fragmented DPA mechanisms; 78 unit tests; all backends | ✅ Phase 10F — complete (May 2026) |
 | **Time Dimension Mapping Wizard** — during onboarding schema inspection (step 2), auto-detect date columns and fragments (year, period, timestamp, etc.) per dialect; propose `display_expr` / `sort_expr` for `TimeDimensionSpec`; user confirms or edits; no developer seed changes required for new clients | Phase 12 |
 | **Data Product Schema Sync / Drift Detection** — store `schema_snapshot` + `last_synced_at` on `DataProduct`; "Re-sync" button in Admin Console re-inspects live source, diffs against snapshot, flags affected KPIs, surfaces reconciliation UI; triggers: manual + pre-assessment auto-detect; impacted KPI SQL flagged before next assessment runs | Infra A5 |
 | Platform Admin & Client Onboarding (4-step guided flow) | Infra A2 |
@@ -85,6 +90,7 @@ run_enterprise_assessment.py
 | ~~Authentication (Supabase Auth)~~ | ✅ Infra B — complete (dual-mode login + JWT middleware) |
 | Azure OpenAI provider + LLM audit export | Infra B2 |
 | **Database-level multi-tenant isolation** — Supabase RLS policies on all registry tables; `get_by_client(client_id)` on all providers; DGA `validate_data_access()` real enforcement (replaces always-true stub) | **Infra B3** (pre-first paying customer) |
+| **SOC 2 Controls Foundation** — audit event log, sign-in audit, principal archive lifecycle, briefing provenance footer, Sentry availability monitoring | **Infra C** (Q4 2026 — before first security review) |
 
 ### Known tech debt (remaining)
 
@@ -344,11 +350,11 @@ Agent9 connects to customer data warehouses at three progressive levels of integ
 
 ---
 
-### Phase 10F: Uniform Time Dimension Layer
+### Phase 10F: Uniform Time Dimension Layer ✅ COMPLETE (May 2026)
 
 **Goal:** Replace four fragmented, incompatible time-filtering mechanisms in the DPA with a single typed `TimeFilter` utility. DA dimensional comparison (IS/IS NOT) works correctly for all data sources, including the dominant enterprise pattern of integer fiscal year + period columns.
 
-**Why this is blocking:** DA comparison queries fail silently for any data product that does not use a standard DATE column. This includes every ERP-sourced financial data product (SAP: GJAHR + MONAT, Oracle: accounting periods, Workday: fiscal periods, BigQuery/Snowflake pre-aggregated fact tables). The `transaction_date` default in `_build_bq_dimensional_sql` is backwards — fiscal year + period is the rule for financial KPIs, not the exception.
+**Why this was blocking:** DA comparison queries fail silently for any data product that does not use a standard DATE column. This includes every ERP-sourced financial data product (SAP: GJAHR + MONAT, Oracle: accounting periods, Workday: fiscal periods, BigQuery/Snowflake pre-aggregated fact tables). The `transaction_date` default in `_build_bq_dimensional_sql` is backwards — fiscal year + period is the rule for financial KPIs, not the exception.
 
 **Root cause (diagnosed May 2026):** Four mechanisms each assume different things about time columns:
 
@@ -439,17 +445,25 @@ Complementary to Phase 11C unified stream. SF Council Debate and VA lifecycle no
 - SF: opportunity context propagated through council debate; option generation framed for capture/expansion
 - VA: opportunity solutions register with baseline, projections, and trajectory tracking — same 5-phase lifecycle
 
-#### 11B: LLM-Assisted Accountability Import ← NEXT
+#### 11B: KPI Accountability Onboarding — LLM Interview ← NEXT
 
-**Goal:** Solve the enterprise cold-start problem — extract KPI accountability from HCM documents rather than requiring manual entry.
+**Goal:** Solve the enterprise cold-start problem — LLM-driven conversational interview populates KPI ownership for a new client using process inheritance as the primary mechanism, with direct assignment as a fallback for KPIs that have no process or span multiple processes.
 
-**Pattern:** Same as KPI Assistant — LLM suggests, human confirms, registry writes.
+**Full spec:** `docs/architecture/phase_11b_accountability_onboarding.md`
+
+**Design:** Assignments are always direct rows in `kpi_accountability` (Phase 11A — unchanged). Process ownership is onboarding scaffolding only — the interview uses it to batch-suggest KPIs, the admin confirms each one, and confirmed items write direct rows. No resolver, no inheritance chain, no new tables.
+
+**Scales with revenue model:** No cap on principals. Deeper org coverage is handled via dimensional scoping on direct assignments. Process knowledge accelerates onboarding for large registries without adding runtime complexity.
+
+**No schema migrations required** — `kpi_accountability` from Phase 11A is the only table needed.
 
 | Deliverable | Description |
 |------------|-------------|
-| `A9_Accountability_Import_Agent` | Accepts HCM document text (job descriptions, OKRs, RACI), extracts accountability statements, maps to KPI registry, returns proposals with confidence scores |
-| Admin confirmation UI | Present extracted assignments; accept / adjust / reject before writing to registry |
-| Conflict detection | Flag KPI assigned to >3 principals without dimensional scoping |
+| `A9_Accountability_Interview_Agent` | 3-phase conversational interview: process-guided suggestion → gap resolution → conflict review. Haiku for chat turns, Sonnet for coverage/conflict analysis. |
+| API endpoints | `start`, `chat`, `confirm`, `coverage` (4 endpoints) |
+| Admin UI panel | Two-column: chat left, live proposed assignments table right. Per-row confirm/modify/reject. Coverage %, conflict warnings. Bulk approve writes direct rows. |
+| `principal_type` field on Principal model | `"individual" \| "team" \| "committee"` — principals can represent teams |
+| Unit tests | 8 interview tests + 2 coverage tests — see spec |
 
 #### 11C: Unified Situation Stream ✅ COMPLETE (May 2026)
 
@@ -556,6 +570,337 @@ Complementary to Phase 11C unified stream. SF Council Debate and VA lifecycle no
 
 ---
 
+#### 11I: Advanced Alert Intelligence
+
+**Goal:** Enrich the SA→DA→VA→PIB pipeline with alert patterns that matter to enterprise FP&A but are missing today: budget/plan variance, projected threshold breach, rate-of-change acceleration, concentration risk, cross-KPI compound patterns, and compliance/covenant severity. These are the signals that distinguish a KPI monitoring tool from an early warning system.
+
+**Why this matters:** The four alert types SA handles today (absolute threshold, period-over-period deviation, change-point trend disruption, positive outlier) are all reactive — they fire after the problem is visible. The gaps identified are either forward-looking (projected breach), structural (concentration risk), relational (compound patterns across KPIs), or contextual (actual vs. plan). Adding these shifts Decision Studio from "tells you what happened" to "tells you what is going to happen and what it means in context."
+
+**Architecture principle:** These are additions to the SA detection layer, not rewrites. SA remains a sensor — each new pattern produces a situation card with a new `alert_type` field. DA, VA, and PIB consume that field to adjust framing, not to change pipeline mechanics.
+
+---
+
+##### 11I-A: SA Alert Enrichment — Four New Detection Patterns
+
+**Prerequisites:** Phase 10F (TimeDimensionSpec — uniform time layer) ✅ complete.
+
+###### Pattern 1: Budget / Plan Variance
+
+SA today monitors actuals only. FP&A teams' primary trigger is "are we on plan?" — a distinct question from "are we below threshold?"
+
+| Deliverable | Description |
+|---|---|
+| `plan_sql_query` field on `KPIDefinition` | Optional field alongside `sql_query`. Fetches the budget/plan value for the same period (e.g., `SELECT plan_value FROM lubricants_budget WHERE fiscal_year = {year} AND fiscal_period = {period} AND kpi_id = 'gross_profit'`). When null, SA skips plan-variance detection for that KPI. |
+| Supabase migration | Add `plan_sql_query TEXT` column to `kpis` table. |
+| SA `_compute_plan_variance()` | When `plan_sql_query` is present, execute it alongside the actuals query. Compute `actual_vs_plan_pct = (actual - plan) / abs(plan)`. Apply the KPI's threshold bands. |
+| New `alert_type = "plan_variance"` | Situation card carries `alert_type` distinguishing plan miss from threshold breach. `percent_change` = actual vs plan deviation. Narrative: "Gross Profit is 14% below plan for YTD 2026." |
+| Seed pattern | `scripts/clients/lubricants.py` — add `plan_sql_query` to 2-3 representative KPIs to exercise the pattern. |
+| Unit tests | 3 tests: plan variance fires when actual < plan × threshold; suppressed when plan_sql_query is None; direction correctly inverted for cost KPIs (actual > plan = bad). |
+
+###### Pattern 2: Projected Threshold Breach (Forward-Looking)
+
+SA fires when a breach happens. The higher-value signal is "at current trajectory, you will breach in N periods." Shifts the response window from days to weeks.
+
+| Deliverable | Description |
+|---|---|
+| `SA._project_trend()` | Linear regression over trailing `projection_lookback_periods` (default 6, configurable per KPI in `monitoring_profile`). Returns projected value at horizon `t+projection_horizon` (default 3 periods). |
+| Threshold crossing detection | If trend projection crosses the critical or warning threshold within the horizon, fire a `projected_breach` situation. Uses the same threshold bands as the existing breach logic. |
+| New `alert_type = "projected_breach"` | Situation card includes: `projected_breach_at_period` (the estimated period when breach occurs), `projection_confidence` (R² of the trend fit — low R² → "trajectory unstable"), `periods_until_breach`. `percent_change` = current gap between projected value and threshold. |
+| Suppression rule | Do NOT fire projected_breach if an actual_breach situation already exists for the same KPI in the same assessment run. One or the other, not both. |
+| Unit tests | 4 tests: projection fires when trend crosses threshold at t+2; suppressed when actual breach already present; suppressed when R² < 0.4 (noisy data); direction correct for cost KPIs. |
+
+###### Pattern 3: Rate of Change Acceleration
+
+SA's change-point detection identifies when a trend changed. Acceleration detection identifies when the deterioration is speeding up — a distinct and higher-urgency signal.
+
+| Deliverable | Description |
+|---|---|
+| `SA._compute_acceleration()` | Using the trailing `monthly_values` time series: compute velocity (period-over-period delta) for the last N periods, then compute the change in velocity (second derivative). If the second derivative exceeds `acceleration_threshold` (configurable, default: 2× the rolling std dev of velocity), flag acceleration. |
+| New `alert_type = "acceleration"` | Situation card signals that the rate of change is itself increasing. `acceleration_signal: float` = magnitude of second derivative relative to historical baseline. Narrative: "Gross Profit decline is accelerating — the monthly rate of deterioration doubled in the last 3 periods." |
+| Prerequisite | `monthly_values` populated from the time-series query. Already required for TrajectoryChart and change-point detection. |
+| Unit tests | 3 tests: acceleration fires when second derivative exceeds threshold; not fired on stable decline (first derivative constant); not fired on single-period spike. |
+
+###### Pattern 4: Concentration Risk
+
+Structural risk that builds slowly and never looks alarming in a single period. Boards and audit committees care about this; dashboards never surface it.
+
+| Deliverable | Description |
+|---|---|
+| `kpi_type` field on `KPIDefinition` | New controlled vocabulary field: `"operational"` (default) \| `"concentration"` \| `"covenant"` \| `"regulatory"`. Concentration KPIs are derived metrics — e.g., "top 3 customer % of revenue" — that measure structural fragility rather than absolute performance. |
+| Supabase migration | Add `kpi_type VARCHAR(32) DEFAULT 'operational'` to `kpis` table. |
+| SA concentration handling | Concentration KPIs are monitored identically to operational KPIs — the `kpi_type` field drives framing and PIB routing only, not detection logic. Direction is typically `inverse_logic = True` (higher concentration = worse). |
+| KPI Assistant pattern | New "Concentration KPI" template in KPI Assistant: suggests SQL pattern (`SUM(CASE WHEN ranked <= 3 THEN revenue END) / SUM(revenue)`) for common concentration metrics (customer, product, channel, region). Reduces cold-start friction for this pattern. |
+| Seed examples | Add 1-2 concentration KPIs to Lubricants seed (e.g., customer concentration in B2B segment). |
+| Unit tests | 2 tests: concentration KPI fires situation when threshold breached; `inverse_logic = True` is respected. |
+
+---
+
+##### 11I-B: DA Compound & Cross-KPI Patterns
+
+SA monitors KPIs independently. The most actionable enterprise signals often live in the relationship between KPIs — revenue growing while margin declining is more important than either metric alone.
+
+**Approach:** Lightweight KPI relationship registry. No full correlation engine. A declared relationship between two KPIs, with a defined "conflict direction." SA detects the compound pattern; DA deepens it.
+
+| Deliverable | Description |
+|---|---|
+| `KPIRelationship` Pydantic model | `kpi_id`, `related_kpi_id`, `relationship_type` (`volume_margin` \| `receivables_revenue` \| `cost_revenue` \| `custom`), `conflict_direction` (`diverging` = opposite movements signal a problem; `converging` = same-direction movements signal a problem). |
+| `kpi_relationships` Supabase table | Stores declared relationships. Composite PK: `(client_id, kpi_id, related_kpi_id)`. Max 1 relationship per pair per client. |
+| `KPIRelationshipProvider` | Supabase-backed, strict `client_id` scoping. Methods: `get_relationships_for_kpi(kpi_id, client_id)`. |
+| SA compound detection | After computing situation for `kpi_id`: look up `KPIRelationship`. If related KPI has a recent situation (or a current value in the same assessment run), evaluate whether the directions conflict. If conflict detected: set `compound_alert = True` on the situation card, add `related_kpi_id`, `compound_pattern` (human-readable: "Revenue UP / Margin DOWN — pricing or mix pressure"). |
+| DA compound enrichment | DA receives `compound_alert = True` in the situation payload. In `_generate_scqa_summary()`: when compound_alert present, the Complication leads with the compound tension ("Despite revenue growing 8%, gross margin declined 3pp — the divergence suggests a mix shift or pricing compression, not a volume problem"). IS/IS NOT analysis runs for the primary KPI as normal; compound context surfaces in the narrative. |
+| Seed patterns | Lubricants: `revenue ↔ gross_margin_pct` (volume_margin, diverging); `b2b_revenue ↔ accounts_receivable_days` (receivables_revenue, diverging). |
+| REST API | `GET/POST/DELETE /api/v1/registry/kpi-relationships/` — 3 endpoints. |
+| Unit tests | 5 tests: compound_alert fires when both KPIs in opposite directions; suppressed when only one KPI has a situation; DA narrative leads with compound tension when flag present; API returns relationships scoped to client_id; conflict_direction = converging fires when both move in same direction (for receivables + revenue). |
+
+---
+
+##### 11I-C: VA Plan/Budget Tracking + Compliance Severity
+
+VA currently tracks three trajectories: inaction, expected, actual. With plan/budget data from 11I-A, a fourth trajectory becomes available. With `kpi_type` from 11I-A, compliance severity can be surfaced distinctly.
+
+**Plan/Budget as Fourth Trajectory**
+
+| Deliverable | Description |
+|---|---|
+| Capture `plan_value_at_approval` | When a solution is approved via HITL Gate 2, VA captures the plan/budget value for the target KPI (using `plan_sql_query` if available). Stored in `value_assurance_solutions.plan_value_at_approval`. |
+| `plan` trajectory line | TrajectoryChart: optional 4th line (dashed amber) showing the budgeted baseline. Only rendered when `plan_value_at_approval` is present. Label: "Plan / Budget". |
+| Verdict dimension: `vs_plan` | New verdict field: `"ahead_of_plan"` \| `"on_plan"` \| `"behind_plan"` \| `"no_plan_data"`. Computed as `(actual - plan) / abs(plan)` at measurement point. Shown as a secondary badge on the Portfolio table (e.g., "Validated · Ahead of Plan"). |
+| PIB portfolio summary | Flash briefing: "3 solutions ahead of plan this month, 2 behind." Portfolio section of PIB email adds a plan-performance row. |
+| Supabase migration | Add `plan_value_at_approval NUMERIC` to `value_assurance_solutions`. |
+| Unit tests | 3 tests: plan trajectory captured at approval; vs_plan verdict computed correctly; portfolio summary counts by plan status. |
+
+**Compliance / Covenant Severity Tier**
+
+| Deliverable | Description |
+|---|---|
+| SA covenant handling | KPIs with `kpi_type = "covenant"` or `"regulatory"` fire situations at `severity = "critical"` regardless of threshold band — a covenant breach is always critical. Narrative framing changes: "Interest Coverage Ratio breached the debt covenant minimum of 3.0× (currently 2.8×)." |
+| `kpi_type` passed to VA | Covenant KPIs are excluded from normal ROI/value-delivery tracking in VA. They're compliance obligations, not value opportunities. VA `register_solution()` rejects `kpi_type = "covenant"` with a clear error message. |
+| Unit tests | 2 tests: covenant KPI fires severity=critical regardless of band; VA rejects covenant KPI registration. |
+
+---
+
+##### 11I-D: PIB Alert-Type Differentiation
+
+PIB email and flash briefing currently presents all situation cards with equivalent visual weight and narrative framing. With 6 distinct alert types, the briefing should prioritise, section, and frame them differently.
+
+| Deliverable | Description |
+|---|---|
+| Alert-type priority ordering | PIB section order within a briefing: (1) Compliance/Covenant breaches, (2) Compound alerts (cross-KPI divergence), (3) Projected breaches, (4) Plan variance misses, (5) Threshold breaches, (6) Acceleration signals, (7) Opportunities. Same KPI appearing in multiple categories: rendered once at highest priority. |
+| "Projected Risks" briefing section | New optional section between "New Situations" and "Urgency" for `projected_breach` alerts. Framing: "The following KPIs are not yet breached but are on trajectory to cross critical thresholds within 3 periods." |
+| Compound alert framing | Compound alerts render with a two-KPI summary: "Revenue UP 8% / Gross Margin DOWN 3pp — divergence requires analysis." Both KPIs linked in the deep link. |
+| Plan variance framing | Separate "Budget Performance" section in PIB: "Ahead of Plan (2): Net Revenue +6%, SG&A -4% vs budget. Behind Plan (3): Gross Profit -12%, COGS +8%, B2B Revenue -7% vs budget." |
+| Flash briefing enrichment | Flash Briefing text structured for TTS: reads alert type naturally — "Three projected risks warrant attention before month close: …" vs "Two threshold breaches detected: …" |
+| Jinja2 template updates | Update `pib_email_template.html` with conditional sections and alert-type-aware framing. |
+| Unit tests | 4 tests: covenant breaches appear in section 1 regardless of card order; projected_breach cards appear in Projected Risks section; plan-variance cards render in Budget Performance section; compound alert renders both KPI names. |
+
+---
+
+**Phase 11I dependency graph:**
+
+```
+11I-A Pattern 1 (plan_sql_query)  ─────────────────→ 11I-C (VA plan trajectory)
+11I-A Pattern 2 (projected_breach) ──────────────────→ 11I-D (PIB Projected Risks section)
+11I-A Pattern 3 (acceleration) ──────────────────────→ 11I-D (PIB priority ordering)
+11I-A Pattern 4 (kpi_type=concentration/covenant) ───→ 11I-C (covenant severity) + 11I-D
+11I-B (compound alert flag) ─────────────────────────→ DA SCQA enrichment + 11I-D
+```
+
+**Build order:** 11I-A (all 4 patterns) → 11I-B (compound) → 11I-C (VA) → 11I-D (PIB). Each sub-phase ships independently. 11I-D has the most value when 11I-A and 11I-B are complete, but can ship with partial alert type coverage.
+
+**Prerequisite:** Phase 11A (KPI accountability — so plan_sql_query and kpi_type scope correctly per principal) ✅ complete.
+
+---
+
+### Phase 11J: Solution Validity Monitoring
+
+**Goal:** Recurring automated health checks on active VA-tracked solutions — detecting when the diagnostic foundation, market context, or declared assumptions have shifted enough that the solution's basis is no longer valid. Gives the CFO confidence that ROI attribution is trustworthy months after approval, without requiring manual reassessment.
+
+**ICP case:** Mid-market CFOs approving operational changes based on AI recommendations are making board-defensible bets with 6–18 month measurement horizons. A control group that recovers on its own, or a market shift that reverses the original diagnosis, produces false attribution that surfaces at the worst possible time. This feature turns "we approved it six months ago" into "the system confirmed last week that the diagnostic basis is still intact."
+
+**Pre-mortem (2026-05-29):** Full pre-mortem conducted before implementation. Key findings:
+- F1 (control group not persisted) and F2 (no VA→DA linkage) **retracted** — Phase 7C already stores `control_group_segments` in `AcceptedSolution` and persists to Supabase via `va_solutions_store.py`. No `da_run_id` needed; segments are copied by value at HITL Gate 2 approval.
+- F3 (unstructured assumptions) **confirmed** — `key_assumptions: List[str]` has no typed structure or `validated_by` field. Must be fixed before building the feature.
+- **Cross-session vulnerability** confirmed — `_workflow_store` is in-memory only. A Railway restart between the DA run and HITL approval produces a VA record with `control_group_segments=None`. Requires a guard (P2 below). Permanent fix deferred to Infra A5 (persist `_workflow_store` to Supabase).
+- O1 (no action protocol on DEGRADED) **acknowledged** — resolved in 11J-C with "Re-run Analysis" CTA.
+
+---
+
+#### Prerequisites (build before 11J-A)
+
+##### P1: Structured Assumption Model on SF Output
+
+Replace `key_assumptions: List[str]` in `StrategySnapshot` with a typed model:
+
+```python
+class SolutionAssumption(BaseModel):
+    assumption: str
+    validated_by: Literal["sa_assessment", "ma_query", "human_confirmation"]
+    validated_at: Optional[str] = None  # ISO datetime; None = not yet confirmed
+    revalidation_days: Optional[int] = None  # for human_confirmation: days before re-confirmation needed
+```
+
+| Deliverable | Description |
+|---|---|
+| `SolutionAssumption` Pydantic model | New model in `value_assurance_models.py`. Strict validator: `validated_by` is required — rejects plain strings. |
+| `StrategySnapshot.key_assumptions` | Change type from `List[str]` to `List[SolutionAssumption]`. |
+| SF synthesis prompt update | Instruct LLM to classify each assumption: `sa_assessment` (verifiable from KPI data), `ma_query` (requires market intelligence), `human_confirmation` (requires a human decision). |
+| Legacy coercion on read | On deserialisation from Supabase JSONB: if an element is a plain string, coerce to `SolutionAssumption(assumption=str, validated_by="human_confirmation")`. No destructive migration needed. |
+| Unit tests | 3 — structured assumption round-trips through SF → VA; legacy string coerces correctly on read; validator rejects entry missing `validated_by`. |
+
+##### P2: Cross-Session Guard at VA Registration
+
+| Deliverable | Description |
+|---|---|
+| `validity_monitoring_available: bool` | New field on `AcceptedSolution` (default `False`). Set to `True` at registration only when `control_group_segments` is not `None`. |
+| Registration warning | When `control_group_segments=None`, log `WARNING` with `solution_id` + `kpi_id`. Registration proceeds normally — this is not an error. |
+| Supabase migration | `ADD COLUMN validity_monitoring_available BOOLEAN DEFAULT FALSE` on `value_assurance_solutions`. |
+| Gate in 11J-A | `assess_solution_health()` skips solutions where `validity_monitoring_available=False` and records `health_score="UNKNOWN"` with reason `"control_group_not_captured"`. |
+| Unit tests | 2 — `validity_monitoring_available=True` when segments present at registration; `validity_monitoring_available=False` + warning logged when segments absent. |
+
+**Note:** When Infra A5 ships "Persist `_workflow_store` to Supabase," the cross-session gap is eliminated. At that point, remove the `validity_monitoring_available` gate and always populate segments from the durable workflow store.
+
+---
+
+#### 11J-A: VA `assess_solution_health()` — V1 Control Group Stability
+
+**Trigger conditions:**
+- Called by `run_enterprise_assessment.py` after the SA scan for each client
+- Applies to all `AcceptedSolution` records where `validity_monitoring_available=True` AND `phase` IN (`APPROVED`, `IMPLEMENTING`, `LIVE`, `MEASURING`)
+- **Implementation window guard:** skip solutions where `(now - approved_at).days < validity_check_delay_days` (default 60). Prevents false DEGRADED signals before the solution has had time to act. Configurable on `monitoring_profile`.
+
+**V1 health checks:**
+
+*Check 1 — Basis check:* Is the primary KPI still in an adverse state?
+- Retrieve the KPI's most recent situation from the `situations` Supabase table (latest entry for `kpi_id` + `client_id`)
+- If the KPI has recovered above its warning threshold while the solution is still in APPROVED or IMPLEMENTING phase (not yet LIVE), the recovery occurred without the solution's intervention — the basis for the solution may be self-resolving
+- `basis_valid = True` if KPI is still below warning threshold (problem persists); `False` if it has recovered pre-LIVE
+
+*Check 2 — Control group drift check:* Are the IS NOT segments still distinguishable from the IS segments?
+- Read `control_group_segments` (stored `BenchmarkSegment` dicts) from `AcceptedSolution`
+- For each stored control segment: re-query DPA to get the current value for that dimension combination (DPA `execute_sql` with appropriate WHERE clause for the segment's dimension + value)
+- Compare `current_value` vs `segment_value_at_approval` (stored in the segment dict)
+- Drift threshold: segment has "drifted" when `|current - baseline| / |baseline| > 0.20` (20%, configurable)
+- `control_stable = True` if fewer than 50% of segments have drifted; `False` otherwise
+
+**Health score matrix:**
+
+| basis_valid | control_stable | health_score |
+|---|---|---|
+| True | True | HEALTHY |
+| True | False | WATCH |
+| False | True | WATCH |
+| False | False | DEGRADED |
+| DPA error / segments unavailable | — | UNKNOWN |
+
+`INVALID` reserved for when the data product is no longer accessible or the solution is in a terminal state.
+
+**Output and storage:**
+
+```python
+class SolutionHealthReport(BaseModel):
+    solution_id: str
+    kpi_id: str
+    client_id: str
+    assessed_at: str                    # ISO datetime
+    health_score: Literal["HEALTHY", "WATCH", "DEGRADED", "INVALID", "UNKNOWN"]
+    basis_check_valid: bool
+    control_group_stable: bool
+    segments_checked: int
+    segments_drifted: int
+    assumption_statuses: List[dict]     # per-assumption validated_by + validated_at
+    narrative: str                      # 1-2 sentence plain-English summary
+    recommended_action: Optional[str]   # "Re-run Analysis", "Confirm market assumptions", etc.
+```
+
+| Deliverable | Description |
+|---|---|
+| `solution_health_reports` Supabase table | Composite PK `(solution_id, assessed_at)`. Retain last 6 reports per solution (delete oldest on insert when count exceeds 6). |
+| `latest_health_score` on `AcceptedSolution` | Denormalised field updated on every health report write — avoids JOIN on Portfolio list query. Supabase migration: `ADD COLUMN latest_health_score VARCHAR(16)`. |
+| `VA.assess_solution_health(solution_id)` | New entrypoint. Returns `SolutionHealthReport`. |
+| Unit tests | 6 — HEALTHY (both checks pass); WATCH (basis valid, control drifted); DEGRADED (both fail); UNKNOWN (DPA query error); skipped when `validity_monitoring_available=False`; skipped when inside `validity_check_delay_days` window. |
+
+---
+
+#### 11J-B: Assessment Pipeline Integration + PIB Surfacing
+
+**`run_enterprise_assessment.py` integration:**
+
+After completing the SA → DA → SF scan for a client, add a validity monitoring pass:
+
+```python
+active_solutions = await va.list_solutions(
+    client_id=client_id,
+    phase=["APPROVED", "IMPLEMENTING", "LIVE", "MEASURING"]
+)
+health_reports = []
+for solution in active_solutions:
+    if solution.validity_monitoring_available:
+        report = await va.assess_solution_health(solution.solution_id)
+        health_reports.append(report)
+```
+
+Health reports included in the `AssessmentResult` payload alongside situation cards.
+
+**PIB sections added:**
+
+| Section | Trigger | Content |
+|---|---|---|
+| **"Solutions Requiring Attention"** | At least one solution with `health_score` DEGRADED or WATCH | One row per solution: title, KPI, health score badge, `narrative` sentence, `recommended_action` link. Ordered: DEGRADED first, then WATCH. |
+| **"Pending Confirmations"** | At least one `SolutionAssumption` with `validated_by="human_confirmation"` and `validated_at=None` or past `revalidation_days` | Bulleted list: assumption text + solution title + PIB single-use confirmation token. Framing: "The following assumptions on active solutions require your confirmation before the next assessment." |
+
+- Jinja2 template: new conditional `solutions_requiring_attention` and `pending_confirmations` sections in `pib_email_template.html`.
+- Unit tests: 3 — PIB includes DEGRADED solutions in attention section; section omitted when all HEALTHY; pending confirmations section renders with token links when unconfirmed assumptions exist.
+
+---
+
+#### 11J-C: VA Portfolio Health Badge + Action Protocol
+
+| Deliverable | Description |
+|---|---|
+| Health score badge | Small pill on each Portfolio row: green HEALTHY, amber WATCH, red DEGRADED, grey UNKNOWN. Rendered alongside the existing verdict badge. |
+| Tooltip | Hover: last assessed date + `narrative` from most recent report. |
+| "Needs Attention" filter | Portfolio filter dropdown: "All" \| "Needs Attention" (WATCH + DEGRADED). Useful when 10+ solutions tracked. |
+| Validity history tab | In solution detail drawer: new "Validity History" tab showing last 6 `SolutionHealthReport` entries as a timeline (date + health_score + narrative). |
+| "Re-run Analysis" CTA | On DEGRADED solutions: CTA button that pre-fills the DA workflow with the original `situation_id` and `kpi_id`. Resolves pre-mortem O1 (no action protocol on DEGRADED). |
+| Unit tests | 2 backend tests — `list_solutions` returns `latest_health_score`; detail endpoint returns last 6 health reports ordered by `assessed_at` desc. |
+
+---
+
+#### 11J-D: V2 Expansions (post-pilot validation only)
+
+Do not build until V1 has run through at least one full pilot cycle and health score distribution is observable. Two checks held back because their thresholds require real calibration data.
+
+| Check | What it validates | Data source | Notes |
+|---|---|---|---|
+| **Market Condition Drift** | Have MA signals that underpinned the solution shifted materially? | Re-query MA agent with original market query context; LLM compares response to `ma_market_signals` stored in `AcceptedSolution` at approval | Adds an MA agent call per solution — cost and latency implications |
+| **Strategic Alignment Drift** | Has the principal's priority set changed since approval? | Compare `StrategySnapshot.principal_priorities` vs current `PrincipalContext.business_processes` from registry | `assess_strategy_alignment()` already implemented in VA — wire into `assess_solution_health()` as an additional verdict contributor |
+
+---
+
+**Phase 11J dependency graph:**
+
+```
+P1 (SolutionAssumption typed model) ───────────────→ 11J-A (assumption_statuses in health report)
+                                                   → 11J-B (pending_confirmations PIB section)
+P2 (validity_monitoring_available guard) ──────────→ 11J-A (skip gate for solutions without segments)
+11I-B (kpi_relationships) ─────────────────────────→ optional: compound pattern in 11J-D
+11J-A (assess_solution_health + Supabase tables) ──→ 11J-B (assessment pipeline integration)
+                                                   → 11J-C (portfolio badge reads latest_health_score)
+11J-B (PIB sections) ──────────────────────────────→ 11J-C (portfolio action triggers DA re-run)
+Infra A5 (_workflow_store → Supabase) ─────────────→ removes P2 guard (permanent cross-session fix)
+```
+
+**Build order:** P1 → P2 → 11J-A → 11J-B → 11J-C → 11J-D (post-pilot only)
+
+**Files to read before implementing:**
+- `src/agents/models/value_assurance_models.py` — `StrategySnapshot`, `AcceptedSolution`, `RegisterSolutionRequest`
+- `src/agents/new/a9_value_assurance_agent.py` — `register_solution()`, `assess_strategy_alignment()` (already implemented — wire into 11J-D)
+- `src/database/va_solutions_store.py` — Supabase persistence layer for `AcceptedSolution`
+- `src/agents/new/a9_solution_finder_agent.py:797` — synthesis prompt `key_assumptions` output (P1 prompt update target)
+- `src/api/routes/workflows.py:715–757` — HITL Gate 2 approval block (P2 guard insertion point)
+
+---
+
 ### Phase 12: Business Optimization + Platform Completeness
 
 **Goal:** Top-down strategic workflow + close remaining gaps (KPI Assistant UI, Slack).
@@ -572,7 +917,122 @@ Complementary to Phase 11C unified stream. SF Council Debate and VA lifecycle no
 
 ---
 
-### Phase 13+: Future (not scheduled)
+### Phase 12A: Company Intelligence-Driven KPI Template Generator
+
+**Goal:** Given a company name, research its public footprint, generate a relevant KPI set with industry-calibrated benchmarks, and commit accepted KPIs to the registry ready for data connection. Org-first onboarding — the system tells clients what to measure before asking them to connect data.
+
+**Positioning:** Replaces the blank-slate KPI entry experience. Admin enters company name; system returns industry-calibrated KPIs with benchmarks anchored to company-reported data where available. CFO can't dispute benchmarks that came from their own annual report.
+
+**Pre-mortem mitigations (2026-05-30):**
+- M1 (benchmark trust): every benchmark shows source badge (`📄 Company filing` / `🏭 Industry peer` / `🤖 Inferred`) and a confidence level — no unattributed numbers.
+- M2 (dead KPI registry): introduce `status = template | active` on KPIs. SA evaluates only `active` KPIs. Template KPIs show as "Pending data connection" in Registry Explorer.
+- M3 (two onboarding paths): Phase 12A is additive — data-first wizard still works for existing clients. Template generator is a new entry point, not a replacement.
+- M4 (MA agent failure): graceful fallback to LLM-only with clear degradation notice; template still generated, all benchmarks marked `inferred`.
+- M5 (industry taxonomy): two-level sector → sub-sector picker plus one-line business description for context — no forced taxonomy fit.
+- M6 (legal/citation risk): cite source type only ("specialty chemicals analyst reports, 2024") — no specific competitor names or figures presented as fact.
+
+**User flow:**
+1. Admin enters company name + optional industry hint
+2. MA agent runs 4 targeted Perplexity searches in parallel (filings, business segments, peer benchmarks, strategic KPI mentions)
+3. LLM synthesises → structured `CompanyKPIProfile` grouped by domain
+4. Admin reviews table: name, definition, benchmark range, source badge, accept/reject toggle
+5. Commit → KPIs written to registry with `status = template`; link to "Connect your data sources"
+
+| Deliverable | Description |
+|------------|-------------|
+| `POST /api/v1/templates/research-company` | Takes `company_name`, `client_id`, `industry_hint` → returns `CompanyKPIProfile` |
+| `POST /api/v1/templates/commit` | Accepts KPIs with admin overrides → writes to KPI registry with `status=template` |
+| MA agent `research_company_kpi_profile()` | 4 parallel Perplexity searches + 1 Sonnet synthesis → `CompanyKPIProfile` |
+| `TemplateKPI` Pydantic model | `name, definition, unit, benchmark_low, benchmark_high, benchmark_source, confidence (filing/peer/inferred), domain, process_id` |
+| `CompanyKPIProfile` Pydantic model | `company_name, industry_inferred, is_public, domains, template_kpis, research_sources, generated_at` |
+| Supabase migration | Add `status TEXT DEFAULT 'active'`, `benchmark_range TEXT`, `benchmark_source TEXT` to `kpis` table |
+| KPI Intelligence tab in Admin Console | 4-state UI: input → research progress → review table → commit confirmation |
+| SA agent guard | Filter `status = 'active'` only; never evaluate `template` KPIs |
+| Unit tests | MA search → synthesis round-trip; fallback to LLM-only when Perplexity unavailable; SA guard confirmed; commit writes correct status |
+
+**Out of scope:** Accountability assignment during template review (Phase 12B). Automatic KPI → data source mapping. Template library persistence. Scheduled benchmark refresh.
+
+**Success criteria:** Given a publicly traded company name, generates ≥10 relevant KPIs with benchmarks traceable to company-reported data. Admin completes flow in under 10 minutes. SA unaffected.
+
+---
+
+### Phase 12B: Org-First Accountability Onboarding
+
+**Goal:** Complement Phase 12A — when business process templates define KPI requirements, capture accountability during template selection rather than as a post-KPI interview step.
+
+**Design:** Admin selects applicable business processes → templates show which principal is typically accountable for each → admin confirms or reassigns → accountability rows written to `kpi_accountability` directly. Phase 11B interview remains the tool for re-onboarding and gap resolution on existing registries.
+
+| Deliverable | Description |
+|------------|-------------|
+| Process template → principal suggestion | During template review, each KPI shows a suggested accountable principal based on process ownership (COO → operations KPIs, CFO → finance KPIs) |
+| One-step confirm | Admin confirms principal per KPI or reassigns; approved rows write directly to `kpi_accountability` |
+| Integration with Phase 11B | Interview agent used for gap resolution only when template accountability is incomplete |
+
+**Prerequisite:** Phase 12A (template KPIs in registry) + Phase 11A (kpi_accountability table).
+
+---
+
+### Phase 13: Executive Briefing Quality + Principal-Adaptive Output
+
+**Goal:** Elevate the Executive Briefing from "impressively close to MBB quality" to genuinely boardroom-ready: fix structural bugs, remove consultant jargon from display, restructure for a 2-minute CFO read, and adapt depth and tone by principal role.
+
+**Pre-mortem mitigations (2026-05-30) — built in by design:**
+
+- **M1 (multi-principal consistency):** All principals receive identical core facts and recommendation. Role adaptation controls entry point and depth only — never the conclusion. A full-view toggle is always available regardless of principal type. CFO and COO reading the same briefing independently must reach the same recommendation.
+- **M2 (decision ask reliability):** `ImmediateAction` and `DecisionAsk` are defined as Pydantic fields in the SF synthesis response model before any UI is built. LLM compliance tested on ≥20 synthetic briefings. Decision ask capped at 25 words; hedge words (`consider`, `potentially`, `might`) rejected at schema validation. Do not build the UI component until schema compliance is confirmed.
+- **M3 (firm name stripping):** Firm names (McKinsey, BCG, Bain) kept as internal reasoning anchors — they drive the debate structure. Stripped from top-level recommendation and options narrative only. Available in "View methodology" expand panel for transparency. Do not couple display fix to generation architecture.
+- **M4 (CoI qualitative fallback):** Cost of Inaction is always shown — never blank. When `confidence = low` or calculation is unreliable, replace with: *"30-day projection: insufficient data for a reliable estimate — monitor [metric] weekly."* Never suppress; never show percentages above 1000%.
+- **M5 (actions checklist schema first):** `ImmediateAction` Pydantic model (`action_text, owner, due_by, why_it_matters`) defined and schema-tested before the checklist UI component is written. If the LLM produces inconsistent action counts or missing owners, fix the prompt before touching the UI.
+- **M6 (ROI range provenance):** Every ROI range links to a visible Assumptions panel showing key drivers (e.g., "Assumes 40–60% recovery of $132.7M DIY channel gap; excludes C&I Division"). A number without assumptions is not shown. This also resolves the CFO challenge scenario from the premortem.
+- **M7 (data quality pressure):** Phase 13 is the forcing function for SA/DA data quality fixes. Better formatting makes weak underlying data more visible, not less. SA/DA fixes and Phase 13 UI changes should ship together.
+
+#### Category 1 — Known bugs (ship first, highest credibility impact)
+
+| Deliverable | File | Description |
+|------------|------|-------------|
+| Fix Cost of Inaction | `briefingUtils.ts` + CoI calculation | When `confidence = low` or value > 10000%, replace with qualitative fallback string. Never show raw model output percentages. |
+| Fix duplicate recommendation | `ExecutiveBriefingPage.tsx` | Council Recommendation paragraph rendered once only; "Proceed with:" section collapses to title + "see above" link |
+| Fix "Source: llm_knowledge" | `MarketIntelligence` component + `a9_market_analysis_agent.py` | When Perplexity ran: show real citations with URLs and pull date. When LLM-only fallback: `"Analyst synthesis (Claude Sonnet 4.6) · No live citation"` |
+
+#### Category 2 — SF agent prompt rules
+
+| Deliverable | File | Description |
+|------------|------|-------------|
+| Strip firm names from display narrative | `a9_solution_finder_agent.py` synthesis prompt | "BCG's Growth-Share Matrix" → "portfolio segmentation by volume and margin". Firm names retained as internal reasoning; available in "View methodology" panel |
+| Cap ROI precision | SF synthesis prompt | Round ranges in output: "+$45M–$78M" not "+$45.0M to +$78.0M" |
+| Cap paragraph length | SF synthesis prompt | Max 3 sentences per on-screen section; multi-clause sentences split |
+| `DecisionAsk` structured output | `a9_solution_finder_agent.py` + `SFResponse` model | New field: `decision_ask: DecisionAsk` with `{decision_text (≤25 words), decision_owner, deadline, approval_type}`. Validated before display. |
+| `ImmediateAction` structured output | `a9_solution_finder_agent.py` + `SFResponse` model | Replace prose action list with `List[ImmediateAction]`: `{action_text, owner, due_by_days, why_it_matters}`. Test LLM compliance on 20+ synthetic runs before building checklist UI. |
+| Assumptions panel per ROI range | SF synthesis prompt + `SFResponse` model | Each option includes `List[str] key_assumptions` — 3–5 bullet drivers. Rendered as expandable panel in UI. |
+
+#### Category 3 — Executive Briefing UI restructure
+
+| Deliverable | File | Description |
+|------------|------|-------------|
+| Top block above the fold | `ExecutiveBriefingPage.tsx` | Always-visible: Situation (3 bullets max) + Decision ask (1 line from `DecisionAsk`) + Recommended path + Impact range. Above all detail. |
+| CoI above recommendation | `ExecutiveBriefingPage.tsx` | Move Cost of Inaction block above the recommendation panel — it is the urgency anchor. "Doing nothing costs you $X by Q3." |
+| Options tight table + drill-down | Strategic Options component | 5-column summary table (name, time, impact, risk, role in sequence). Full narrative (arguments for/against, stakeholder questions) in a side drawer on click — not all expanded inline. |
+| Immediate Actions checklist | New `ImmediateActionsChecklist` component | Renders from `List[ImmediateAction]` schema. Owner chip + deadline badge + one-line "why it matters". Not built until schema compliance confirmed (M5). |
+| Risk block: top 3 + expand | Risk section | Top 3 risks in main view with `stop/go` condition each. Remainder in "See all risks" expand. |
+| Assumptions panel per option | New `AssumptionsPanel` component | Renders from `key_assumptions` field. Collapsed by default. Essential for CFO challenge scenario (M6). |
+| Status Quo column in options table | Strategic Options table | Option 0 (Cost of Inaction baseline) with negative ROI, $0 cost, trajectory risk — gives a reference column. |
+| Audit metadata footer | Briefing footer | `Model: Claude Sonnet 4.6 · Data: BigQuery YTD 2026 vs YTD 2025 · Council: McKinsey, Deloitte, Accenture, KPMG · Generated: [datetime] · Confidence: High` |
+
+#### Category 4 — Principal-adaptive output
+
+| Deliverable | File | Description |
+|------------|------|-------------|
+| Principal context in synthesis prompt | `a9_solution_finder_agent.py` synthesis prompt | Uses `principal_context.role`, `decision_authority`, `time_horizon` to vary evidence density and recommendation framing. C-level: decision-first, 5–8 bullets, business risk language. Director/manager: diagnostic depth, implementation tasks. |
+| Role-adaptive depth in UI | `ExecutiveBriefingPage.tsx` | Detail sections collapsed by default for C-level (`principal_type = "individual"` + senior title); expanded for analyst/manager. Full-view toggle always accessible (M1). |
+| Risk language by role | SF synthesis prompt | C-level: business risk + decision risk. Principal/manager: operational + analytical risk. Never hide uncertainty from any role. |
+
+**Build order:** Category 1 bugs → Category 2 SF prompt + schema definitions → Category 2 schema compliance testing → Category 3 UI → Category 4 principal adaptation.
+
+**Prerequisite:** `ImmediateAction` and `DecisionAsk` Pydantic models schema-tested before any Category 3 UI work begins.
+
+---
+
+### Phase 14+: Future (not scheduled)
 
 | Initiative | When |
 |-----------|------|
@@ -1636,3 +2096,149 @@ async def validate_data_access(self, principal_id: str, data_product_id: str, cl
 **Trigger:** Build before signing first paying customer. Demo system can run without it. Production system with two real customers cannot.
 
 **Note — what this does NOT solve:** Separate data residency requirements (e.g., EU data must not leave EU) and on-premise deployment mandates. Those are addressed by separate Supabase projects per region (data residency) or a dedicated deployment model (on-premise). Both are future work, not required for the first customer cohort.
+
+---
+
+### Infra C: SOC 2 Controls Foundation
+
+**When:** Before first paying customer conversation that includes a security review (target Q4 2026). Not required for pilot demos — required before procurement, legal, or CISO review.
+
+**Scope clarification:** This phase builds the *controls* that a SOC 2 Type II audit would assess — not the audit itself. The controls need to exist and be operational for several months before an audit firm can attest to them. Starting now means an audit is possible in H1 2027 if a customer requires it. Waiting until a customer asks means a 6-month delay at the worst possible moment in the sales cycle.
+
+**What is NOT in scope here:** Infra B3 (database-level RLS isolation) and Infra B (Connection Profiles encryption + auth) are already planned as paying-customer blockers with their own sections. Those are the access-control and data-isolation controls. This phase covers the audit trail, availability, and operational visibility controls that are currently scattered or deferred with no target date.
+
+---
+
+#### C1: Audit Trail — Core Event Log
+
+**Control category:** CC6 (Logical and Physical Access), CC7 (System Operations)
+
+The `audit_events` table is already identified as an "enterprise compliance requirement" in Infra A5 Tier 3 but deferred to post-scale with no date. Moving it here gives it a delivery target before it's urgently needed.
+
+| Deliverable | Description | Effort |
+|------------|-------------|--------|
+| `audit_events` Supabase table | Append-only. Columns: `id`, `client_id`, `principal_id` (nullable), `event_type`, `resource_type`, `resource_id`, `action`, `outcome` (success/failure), `ip_address` (nullable), `user_agent` (nullable), `metadata` (JSONB), `created_at`. No deletes — ever. | S |
+| Event types (Phase 1) | `auth.login`, `auth.logout`, `auth.login_failed`, `solution.approved`, `solution.delegated`, `briefing.accessed`, `briefing.token_used`, `registry.record_created`, `registry.record_updated`, `registry.record_deleted` | S |
+| `AuditService` utility | Single call site: `await AuditService.log(event_type, resource_type, resource_id, outcome, client_id, request)`. Fire-and-forget (non-blocking). One import replaces ad-hoc logging at each call site. | M |
+| Wire into auth hooks | Auth login/logout/failure events → `audit_events` on every Supabase Auth callback | S |
+| Wire into HITL approval | `solution.approved` → `audit_events` in `workflows.py` HITL Gate 2 block | S |
+| Wire into registry CRUD | `registry.record_*` events on all `/api/v1/registry/` write endpoints | M |
+| Wire into briefing token use | `briefing.token_used` + `briefing.accessed` in PIB token resolution | S |
+| Admin Console — Audit Log panel | Table in Admin Console: filterable by `client_id`, `event_type`, date range. Read-only. Shows last 500 events. Paginated. | M |
+| Retention policy | Supabase scheduled job: delete `audit_events` older than 2 years (SOC 2 standard retention). | S |
+| Unit tests | 3 — `AuditService.log()` writes correct fields; auth hook fires on login failure; registry DELETE endpoint writes `registry.record_deleted` with correct `resource_id`. | M |
+
+---
+
+#### C2: Sign-In Audit (currently Login view item #11 — promoted here)
+
+**Control category:** CC6.1 (Identification and Authentication)
+
+This was tagged as S effort in the Login view UI Refinement Track but never prioritised. Moving it into this phase gives it a clear home.
+
+| Deliverable | Description | Effort |
+|------------|-------------|--------|
+| Auth hook → `audit_events` | On every Supabase Auth `SIGNED_IN` / `SIGNED_OUT` / failed attempt callback: write `auth.login` / `auth.logout` / `auth.login_failed` to `audit_events`. Reuses `AuditService` from C1. | S |
+| Failed-login rate alert | Backend: if `auth.login_failed` for the same `email` exceeds 5 in 10 minutes, log a `WARNING` and optionally notify platform admin. No lockout yet — warn only for first customers. | S |
+| New device detection (future) | Flagged as Login view item #12. Deferred until MFA (below) is in place — they ship together. | — |
+
+---
+
+#### C3: Principal Lifecycle — Archive Instead of Delete
+
+**Control category:** CC6.2 (User Provisioning and De-provisioning)
+
+Currently identified in Settings → Principals tab item #7. Deleting a principal breaks the historical audit trail for every decision they approved or delegated. This is an SOC 2 control gap.
+
+| Deliverable | Description | Effort |
+|------------|-------------|--------|
+| `status` field on `PrincipalProfile` | `"active"` \| `"inactive"` \| `"archived"`. Default `"active"`. Supabase migration: `ADD COLUMN status VARCHAR(16) DEFAULT 'active'`. | S |
+| Archive instead of delete | `DELETE /api/v1/registry/principals/{id}` → sets `status = "archived"` instead of hard delete. Returns `200` with `{"archived": true}`. Hard delete removed from the API surface entirely. | S |
+| Routing guard | SA agent `_get_relevant_kpis()` and PCA `get_principal_context*()` filter to `status = "active"` principals only. Archived principals cannot receive new briefings or decisions. | S |
+| UI: collapsed Inactive section | Settings → Principals master table: active principals listed normally; `Inactive (N)` collapsed footer section showing archived records as read-only. | S |
+| Historical attribution preserved | All `situation_actions`, `value_assurance_solutions`, and `audit_events` retain `principal_id` references. No cascade on archive. Historical decisions remain attributed. | (by design — no code change) |
+| Unit tests | 2 — archived principal excluded from SA KPI scan; archived principal's historical `situation_actions` still queryable by `principal_id`. | S |
+
+---
+
+#### C4: Executive Briefing Audit Footer
+
+**Control category:** CC4 (Monitoring Activities)
+
+Currently Executive Briefing view item #16 in the UI Refinement Track. Promoted here because it's the CISO-facing artefact in a sales process — the briefing document that a CFO shows their security team needs provenance metadata.
+
+| Deliverable | Description | Effort |
+|------------|-------------|--------|
+| Audit metadata on briefing footer | `Model: Claude Sonnet 4.6 · Data: BigQuery YTD 2026 vs YTD 2025 · Council: McKinsey, Deloitte, Accenture, KPMG · Generated: 2026-05-16 14:30 PM · Confidence: High` rendered in a monospace footer bar. Fields sourced from the `SituationAssessment` + `StrategySnapshot` models already in the briefing payload. | S |
+| Same footer on printed PDF | CSS `@media print` ensures footer survives PDF export. | S |
+| LLM prompt audit export (from Infra B2) | Export button on CouncilDebatePage: downloads full prompt/response log as JSON. Separate from briefing footer — for deep CISO review, not executive reading. Cross-reference with Infra B2. | M |
+
+---
+
+#### C5: Availability Monitoring
+
+**Control category:** A1 (Availability)
+
+**Decision (May 2026):** Sentry ($29/month) dropped in favour of free-tier tools that cover the same availability controls without a recurring cost. Revisit Sentry when a paying customer's SLA justifies it.
+
+| Deliverable | Description | Effort |
+|------------|-------------|--------|
+| UptimeRobot monitor (config only) | Free account at uptimerobot.com. Add HTTP monitor pointing at `https://<railway-url>/health`. Check interval: 5 min. Alert channel: email to platform admin. No code required — the `/health` endpoint already exists. | S (config only) |
+| Railway deployment alerts (config only) | Railway dashboard → Service → Settings → Notifications. Enable deployment failure + crash restart emails. Already available — just needs to be switched on. | S (config only) |
+| Railway log viewer | All FastAPI unhandled exceptions already appear in Railway's built-in log viewer (searchable, filterable by severity). No code required at demo scale. | — (already available) |
+| `workflow_errors` Supabase table | Structured error log for agent failures, LLM errors, and workflow exceptions. Already planned in Infra A5 Tier 1 (Error Log panel) — building it there avoids duplication. Cross-reference: Infra A5 Tier 1. | — (covered by A5) |
+
+---
+
+#### C6: MFA (Future — post-pilot)
+
+**Control category:** CC6.1
+
+Not required for first pilot but required for any enterprise customer running a formal procurement. Supabase Auth supports TOTP natively. Deferred until a prospect asks for it.
+
+| Deliverable | Description | Effort |
+|------------|-------------|--------|
+| TOTP enrollment flow | Supabase Auth MFA API. Per-tenant `mfa_required` flag. Enrollment UI on first login after flag is set. | L |
+| MFA enforcement middleware | Backend JWT middleware checks `amr` claim for MFA factor. Rejects requests without MFA factor when tenant has `mfa_required = true`. | M |
+| Backup codes | Standard TOTP recovery codes. Stored hashed in Supabase. | M |
+
+---
+
+#### Sequencing and delivery
+
+**Build order within Infra C:**
+
+| Order | Item | Why this order |
+|---|---|---|
+| 1 | C1 (`AuditService` + `audit_events` table) | Everything else in this phase writes to it |
+| 2 | C2 (sign-in audit hook) | Smallest addition once C1 exists; immediately SOC 2 relevant |
+| 3 | C5 (Sentry + uptime) | Independent of C1; small effort; closes the availability gap now |
+| 4 | C3 (principal archive) | Backend-only change; no UI dependency; closes the de-provisioning gap |
+| 5 | C4 (briefing audit footer) | UI change; needs existing briefing payload fields confirmed |
+| 6 | C6 (MFA) | Only when a prospect requires it |
+
+**Relationship to other Infra phases:**
+
+```
+Infra B  (auth + JWT middleware)     ──→ C2 (auth hook fires on Supabase Auth events)
+Infra B3 (RLS + provider isolation)  ──→ C1 (audit_events also scoped by client_id)
+Infra A3 (usage_events table)        ──→ C1 (audit_events is a separate table — append-only immutable log vs. mutable usage counters)
+Infra A5 (Admin Console)             ──→ C1 (Audit Log panel is Tier 1 in Admin Console once audit_events exists)
+```
+
+**Controls inventory for a future auditor:**
+
+| SOC 2 Control Domain | Control | Delivered by |
+|---|---|---|
+| CC6.1 — Authentication | Email + password auth, JWT session | Infra B |
+| CC6.1 — Authentication | Sign-in audit log | **Infra C2** |
+| CC6.1 — MFA | TOTP per-tenant | **Infra C6** (future) |
+| CC6.2 — User provisioning | Archive-not-delete principal lifecycle | **Infra C3** |
+| CC6.3 — Access restrictions | RBAC (admin vs. non-admin) | Infra B (Connection Profiles role-gating) |
+| CC6.6 — Data isolation | RLS on all registry tables | Infra B3 |
+| CC6.6 — Credential encryption | AES-256 at rest for connection profiles | Infra B |
+| CC7.2 — System monitoring | Railway log viewer + workflow_errors table (Infra A5) | **Infra C5 / A5** |
+| CC4.1 — Monitoring activities | Briefing provenance metadata | **Infra C4** |
+| A1.2 — Availability monitoring | UptimeRobot (free) + Railway deployment alerts | **Infra C5** |
+| CC2.2 — Audit trail | Append-only event log | **Infra C1** |
+| CC2.2 — Audit trail | LLM prompt export | Infra B2 |
