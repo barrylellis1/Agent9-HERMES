@@ -707,6 +707,83 @@ export async function listAccountabilities(clientId: string): Promise<KPIAccount
 }
 
 // ---------------------------------------------------------------------------
+// KPI Accountability Interview — Phase 11B
+// ---------------------------------------------------------------------------
+
+export interface ProposedAssignment {
+  kpi_id: string;
+  kpi_name: string;
+  principal_id: string;
+  principal_name: string;
+  scope_dimension: string | null;
+  scope_value: string | null;
+  role: 'accountable' | 'responsible';
+  suggestion_source: string;
+  status: 'proposed' | 'confirmed' | 'modified' | 'rejected';
+}
+
+export interface AccountabilityInterviewResponse {
+  session_id: string;
+  agent_message: string;
+  suggested_responses: string[];
+  proposed_assignments: ProposedAssignment[];
+  unassigned_kpis: { id: string; name: string }[];
+  coverage_pct: number;
+  conflict_warnings: string[];
+  phase: 'process_suggestion' | 'gap_resolution' | 'review';
+  interview_complete: boolean;
+  conversation_history: { role: string; content: string }[];
+  turn_count: number;
+}
+
+export interface AccountabilityCoverage {
+  covered_kpis: number;
+  total_kpis: number;
+  coverage_pct: number;
+  unassigned_kpis: { id: string; name: string }[];
+  principals_without_assignments: { id: string; name: string }[];
+  conflicts: { kpi_id: string; kpi_name: string; principal_count: number }[];
+}
+
+export async function startAccountabilityInterview(
+  clientId: string,
+  principalId?: string,
+): Promise<AccountabilityInterviewResponse> {
+  return requestJson<AccountabilityInterviewResponse>('/accountability/interview/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ client_id: clientId, principal_id: principalId ?? null }),
+  });
+}
+
+export async function chatAccountabilityInterview(
+  sessionId: string,
+  clientId: string,
+  message: string,
+): Promise<AccountabilityInterviewResponse> {
+  return requestJson<AccountabilityInterviewResponse>('/accountability/interview/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sessionId, client_id: clientId, message }),
+  });
+}
+
+export async function confirmAccountabilityInterview(
+  clientId: string,
+  approved: ProposedAssignment[],
+): Promise<{ rows_written: number }> {
+  return requestJson<{ rows_written: number }>('/accountability/interview/confirm', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ client_id: clientId, approved }),
+  });
+}
+
+export async function getAccountabilityCoverage(clientId: string): Promise<AccountabilityCoverage> {
+  return requestJson<AccountabilityCoverage>(`/accountability/coverage/${encodeURIComponent(clientId)}`);
+}
+
+// ---------------------------------------------------------------------------
 // Admin — Connection Health (Infra A4-d)
 // ---------------------------------------------------------------------------
 

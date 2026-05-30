@@ -1,6 +1,7 @@
 """API routes for KPI Accountability.
 
-Provides CRUD operations for the kpi_accountability registry table.
+Provides CRUD operations for the kpi_accountability registry table, plus the
+LLM-driven accountability interview endpoints (start, chat, confirm, coverage).
 All endpoints are scoped by client_id — strict match, no cross-tenant leakage.
 
 Prefix: /api/v1/accountability/
@@ -19,6 +20,12 @@ from pydantic import BaseModel
 
 from src.registry.models.kpi_accountability import AccountabilityRole, KPIAccountability
 from src.registry.providers.accountability_provider import KPIAccountabilityProvider
+from src.agents.new.a9_accountability_interview_agent import (
+    A9_Accountability_Interview_Agent,
+    AccountabilityInterviewRequest,
+    AccountabilityInterviewResponse,
+    ProposedAssignment,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -196,6 +203,147 @@ async def create_accountability(
     )
     return _model_to_out(created)
 
+
+# ---------------------------------------------------------------------------
+# Interview — lazy singleton agent (sessions are in-memory)
+# ---------------------------------------------------------------------------
+
+_interview_agent: Optional[A9_Accountability_Interview_Agent] = None
+
+
+async def _get_interview_agent() -> A9_Accountability_Interview_Agent:
+    global _interview_agent
+    if _interview_agent is None:
+        _interview_agent = await A9_Accountability_Interview_Agent.create()
+    return _interview_agent
+
+
+# ---------------------------------------------------------------------------
+# Interview request/response wrappers
+# ---------------------------------------------------------------------------
+
+class InterviewStartRequest(BaseModel):
+    client_id: str
+    principal_id: Optional[str] = None
+
+
+class InterviewChatRequest(BaseModel):
+    session_id: str
+    client_id: str
+    message: str
+
+
+class InterviewConfirmRequest(BaseModel):
+    client_id: str
+    approved: List[ProposedAssignment]
+
+
+class InterviewConfirmResponse(BaseModel):
+    rows_written: int
+
+
+# ---------------------------------------------------------------------------
+# Interview routes
+# ---------------------------------------------------------------------------
+
+@router.post("/interview/start", response_model=AccountabilityInterviewResponse)
+async def start_interview(
+    request: InterviewStartRequest,
+    pool: asyncpg.Pool = Depends(_get_pool),  # noqa: ARG001
+):
+    """Start a new accountability interview session.
+
+    Returns an opening agent message and a session_id to use for subsequent /chat calls.
+    """
+    agent = await _get_interview_agent()
+    interview_request = AccountabilityInterviewRequest(
+        client_id=request.client_id,
+        principal_id=request.principal_id,
+    )
+    return await agent.interview(interview_request)
+
+
+@router.post("/interview/chat", response_model=AccountabilityInterviewResponse)
+async def chat_interview(
+    request: InterviewChatRequest,
+    pool: asyncpg.Pool = Depends(_get_pool),  # noqa: ARG001
+):
+    """Continue an accountability interview with the admin's response.
+
+    Returns the agent's next message plus updated proposed assignments.
+    """
+    agent = await _get_interview_agent()
+    interview_request = AccountabilityInterviewRequest(
+        session_id=request.session_id,
+        client_id=request.client_id,
+        user_message=request.message,
+    )
+    return await agent.interview(interview_request)
+
+
+@router.post("/interview/confirm", response_model=InterviewConfirmResponse)
+async def confirm_interview(
+    request: InterviewConfirmRequest,
+    pool: asyncpg.Pool = Depends(_get_pool),  # noqa: ARG001
+    provider: KPIAccountabilityProvider = Depends(_get_provider),
+):
+    """Write approved ProposedAssignment rows to kpi_accountability.
+
+    Only assignments with status='confirmed' or 'modified' are written.
+    Rejected assignments are silently discarded.
+    """
+    rows_written = 0
+    for assignment in request.approved:
+        if assignment.status not in ("confirmed", "modified"):
+            continue
+        record_id = f"acc_{uuid.uuid4().hex[:8]}"
+        item = KPIAccountability(
+            id=record_id,
+            client_id=request.client_id,
+            kpi_id=assignment.kpi_id,
+            principal_id=assignment.principal_id,
+            scope_dimension=assignment.scope_dimension,
+            scope_value=assignment.scope_value,
+            role=AccountabilityRole(assignment.role),
+            notes=f"Set via accountability interview — {assignment.suggestion_source}",
+            created_by="interview",
+        )
+        try:
+            await provider.upsert(item)
+            rows_written += 1
+        except Exception as exc:
+            logger.error(
+                "Failed to write accountability row kpi=%s principal=%s: %s",
+                assignment.kpi_id,
+                assignment.principal_id,
+                exc,
+            )
+
+    logger.info(
+        "Interview confirm: wrote %d rows for client '%s'",
+        rows_written,
+        request.client_id,
+    )
+    return InterviewConfirmResponse(rows_written=rows_written)
+
+
+@router.get("/coverage/{client_id}")
+async def get_coverage(
+    client_id: str,
+    pool: asyncpg.Pool = Depends(_get_pool),  # noqa: ARG001
+):
+    """Return KPI accountability coverage for a client.
+
+    Counts KPIs with at least one accountable principal, lists unassigned KPIs,
+    principals without assignments, and scope-level conflicts.
+    """
+    agent = await _get_interview_agent()
+    return await agent.get_coverage(client_id)
+
+
+# ---------------------------------------------------------------------------
+# Delete (existing route kept below)
+# ---------------------------------------------------------------------------
 
 @router.delete("/{record_id}", status_code=status.HTTP_200_OK)
 async def delete_accountability(

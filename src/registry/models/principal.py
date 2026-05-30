@@ -6,8 +6,15 @@ This replaces the hardcoded principal data with a flexible, data-driven model.
 """
 
 import os
+from enum import Enum
 from typing import Dict, List, Optional, Union
 from pydantic import BaseModel, Field, model_validator
+
+
+class PrincipalType(str, Enum):
+    INDIVIDUAL = "individual"
+    TEAM = "team"
+    COMMITTEE = "committee"
 
 
 class TimeFrame(BaseModel):
@@ -44,6 +51,7 @@ class PrincipalProfile(BaseModel):
     client_id: str = Field(default_factory=lambda: os.getenv("ACTIVE_CLIENT_ID", "lubricants"), description="Client/tenant this principal belongs to")
     name: str = Field(..., description="Human-readable name of the principal profile")
     title: str = Field(..., description="Title of the principal (e.g., CFO, CEO)")
+    principal_type: PrincipalType = Field(PrincipalType.INDIVIDUAL, description="Whether this principal is an individual, team, or committee")
     email: Optional[str] = Field(None, description="Contact email address for PIB delivery")
     description: Optional[str] = Field(None, description="Detailed description of the principal")
     business_processes: List[str] = Field(default_factory=list,

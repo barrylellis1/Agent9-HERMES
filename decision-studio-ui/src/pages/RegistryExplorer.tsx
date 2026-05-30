@@ -1,7 +1,8 @@
 import { type ComponentType, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Activity, ArrowLeft, BookOpen, Box, Briefcase, CheckCircle2, Code2, Database, KeyRound, Loader2, Save, Trash2, Plus, X, XCircle, Building2, Users } from 'lucide-react'
+import { Activity, ArrowLeft, BookOpen, Box, Briefcase, CheckCircle2, Code2, Database, KeyRound, Loader2, Save, Trash2, Plus, X, XCircle, Building2, Users, UserCheck } from 'lucide-react'
 import { BrandLogo } from '../components/BrandLogo'
+import { AccountabilityInterviewPanel } from '../components/AccountabilityInterviewPanel'
 import {
   type BusinessTerm,
   type ConnectionHealthResult,
@@ -379,6 +380,7 @@ export function RegistryExplorer() {
   const [registryKey, setRegistryKey] = useState<RegistryKey>('glossary')
   const [showConnectionHealth, setShowConnectionHealth] = useState(false)
   const [showAccountability, setShowAccountability] = useState(false)
+  const [showInterview, setShowInterview] = useState(false)
   const active = useMemo(() => REGISTRIES.find((r) => r.key === registryKey)!, [registryKey])
   const workspaceId = localStorage.getItem('a9_client_id') ?? 'unknown'
   // Active client is set at login — use it to scope all registry list calls
@@ -1036,11 +1038,11 @@ export function RegistryExplorer() {
           </Link>
           {REGISTRIES.map((r) => {
             const Icon = r.icon
-            const isActive = r.key === registryKey && !showConnectionHealth && !showAccountability
+            const isActive = r.key === registryKey && !showConnectionHealth && !showAccountability && !showInterview
             return (
               <button
                 key={r.key}
-                onClick={() => { setRegistryKey(r.key); setShowConnectionHealth(false); setShowAccountability(false) }}
+                onClick={() => { setRegistryKey(r.key); setShowConnectionHealth(false); setShowAccountability(false); setShowInterview(false) }}
                 className={
                   'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ' +
                   (isActive
@@ -1054,7 +1056,7 @@ export function RegistryExplorer() {
             )
           })}
           <button
-            onClick={() => { setShowConnectionHealth(true); setShowAccountability(false) }}
+            onClick={() => { setShowConnectionHealth(true); setShowAccountability(false); setShowInterview(false) }}
             className={
               'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ' +
               (showConnectionHealth
@@ -1066,7 +1068,7 @@ export function RegistryExplorer() {
             Connection Health
           </button>
           <button
-            onClick={() => { setShowAccountability(true); setShowConnectionHealth(false) }}
+            onClick={() => { setShowAccountability(true); setShowConnectionHealth(false); setShowInterview(false) }}
             className={
               'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ' +
               (showAccountability
@@ -1076,6 +1078,18 @@ export function RegistryExplorer() {
           >
             <Users className="w-4 h-4" />
             Accountability
+          </button>
+          <button
+            onClick={() => { setShowInterview(true); setShowAccountability(false); setShowConnectionHealth(false) }}
+            className={
+              'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ' +
+              (showInterview
+                ? 'border-indigo-400 text-white'
+                : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600')
+            }
+          >
+            <UserCheck className="w-4 h-4" />
+            Assign Ownership
           </button>
         </div>
 
@@ -1092,7 +1106,23 @@ export function RegistryExplorer() {
             </div>
           ) : null}
 
-          <div className={showConnectionHealth || showAccountability ? 'hidden' : ''}>
+          {showInterview && activeClientId ? (
+            <div className="bg-card border border-border rounded-xl p-6">
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold text-white">Assign KPI Ownership</h2>
+                <p className="text-sm text-slate-400">
+                  AI-guided interview to assign accountable principals to each KPI.
+                </p>
+              </div>
+              <AccountabilityInterviewPanel clientId={activeClientId} />
+            </div>
+          ) : showInterview ? (
+            <div className="bg-card border border-border rounded-xl p-6">
+              <p className="text-sm text-slate-500 italic">Select a client to start the interview.</p>
+            </div>
+          ) : null}
+
+          <div className={showConnectionHealth || showAccountability || showInterview ? 'hidden' : ''}>
           <div className="bg-card border border-border rounded-xl p-6">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
