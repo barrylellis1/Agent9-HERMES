@@ -252,23 +252,6 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   };
 
   // Render Variance Analysis Section (Embedded)
-  const renderVarianceAnalysis = () => {
-    if (!currentAnalysis?.kt_is_is_not) return null;
-
-    return (
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-6">
-        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-           <Microscope className="w-3.5 h-3.5" />
-           Is / Is Not Analysis
-        </h3>
-        <IsIsNotExhibit
-          data={currentAnalysis.kt_is_is_not}
-          kpiName={situation.kpi_name}
-          analysisMode={analysisMode}
-        />
-      </div>
-    );
-  };
 
   return (
     <div className="h-screen bg-slate-950 text-white font-sans flex flex-col overflow-hidden">
@@ -315,7 +298,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 min-h-0 flex overflow-hidden">
         {/* LEFT COLUMN: Analysis & Data (Scrollable) */}
         <div className="flex-1 overflow-y-auto p-8 border-r border-slate-800 scrollbar-hide">
             <div className="max-w-4xl mx-auto space-y-8">
@@ -388,9 +371,6 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                 );
                             })()}
 
-                            {/* Embedded Variance Analysis (Is/Is Not) */}
-                            {renderVarianceAnalysis()}
-
                             {/* Change Points list — compact fallback when no Is/Is Not data */}
                             {!currentAnalysis.kt_is_is_not && currentAnalysis.change_points && currentAnalysis.change_points.length > 0 && (
                             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
@@ -411,6 +391,22 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                             </div>
                             )}
                         </div>
+                    </AccordionSection>
+                )}
+
+                {/* Is / Is Not Analysis — separate accordion, collapsed by default */}
+                {currentAnalysis?.kt_is_is_not && (
+                    <AccordionSection
+                        id="is-is-not"
+                        title={analysisMode === 'opportunity' ? 'Opportunity Breakdown' : 'Variance Breakdown'}
+                        icon={<Microscope className="w-5 h-5 text-blue-400" />}
+                        summary={`${currentAnalysis.kt_is_is_not.where_is?.length ?? 0} segments`}
+                    >
+                        <IsIsNotExhibit
+                            data={currentAnalysis.kt_is_is_not}
+                            kpiName={situation.kpi_name}
+                            analysisMode={analysisMode}
+                        />
                     </AccordionSection>
                 )}
 
@@ -529,7 +525,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
         <div className="w-[450px] min-h-0 bg-slate-900 border-l border-slate-800 flex flex-col">
 
              {/* Header */}
-             <div className="p-4 border-b border-slate-800 bg-slate-900 z-10 flex items-center justify-between">
+             <div className="flex-shrink-0 p-4 border-b border-slate-800 bg-slate-900 z-10 flex items-center justify-between">
                <div>
                  <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-1">
                      Action Center
@@ -644,7 +640,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
 
                  {/* State C: Refinement Chat Active */}
                  {showRefinementChat && (
-                     <div className="flex-1 min-h-0 flex flex-col animate-in fade-in">
+                     <div className="flex-1 min-h-0 flex flex-col overflow-hidden animate-in fade-in">
                          <ProblemRefinementChat
                              deepAnalysisOutput={{
                                  plan: currentAnalysis.plan || {},
