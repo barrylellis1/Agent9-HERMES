@@ -1,6 +1,6 @@
 # A9_Market_Analysis_Agent Card
 
-**Last Updated:** 2026-05-30  
+**Last Updated:** 2026-05-31  
 **Status:** MVP Active
 
 ## Overview
@@ -28,11 +28,17 @@ class A9_Market_Analysis_Agent_Config(BaseModel):
 ```
 
 ## Pipeline
-1. Build a search query from `(kpi_name, industry)` only — **no DA context** at this stage to avoid confirmation bias
+1. Build a search query from `(kpi_name, industry, da_structural_context)` — structural segment names included for specificity; **no DA conclusion** at this stage to avoid confirmation bias
 2. Call `PerplexityService` to fetch web-search results (signals + citations)
 3. Convert Perplexity citations into `MarketSignal` objects
-4. Send signals + `kpi_context` + `analysis_mode` to `A9_LLM_Service_Agent` (claude-sonnet-4-6) for synthesis and conflict assessment — DA context enters here, not at signal fetch
+4. Send signals + `kpi_context` + `analysis_mode` to `A9_LLM_Service_Agent` (claude-sonnet-4-6) for synthesis and conflict assessment — DA conclusion (analysis_mode/scqa) enters here, not at signal fetch
 5. Return `MarketAnalysisResponse` with signals, synthesis narrative, conflict dict, and confidence score
+
+## Context Enrichment Strategy (May 2026)
+Signal generation uses a two-tier enrichment to produce business-specific signals without confirmation bias:
+- **Tier 1 — Registry context** (`business_context`): enterprise industry, subindustry, products/services from `SupabaseBusinessContextProvider`. Loaded in `workflows.py` using `client_id`. Covers high-level search scope.
+- **Tier 2 — DA structural context** (`da_structural_context`): dimension names analyzed, IS segment values (product lines, channels, regions), change-point segment keys extracted from the DA response. These are structural facts (what exists in the data), NOT the conclusion (problem/opportunity).
+- **Conclusion firewall**: `analysis_mode` and `kpi_context` (SCQA) are passed to `_synthesize()` only — never to `_llm_generate_signals()` or `_build_search_query()`. This ensures conflict detection is semantically meaningful (signals generated independently, then compared to conclusion).
 
 ## Graceful Degradation
 - If `PERPLEXITY_API_KEY` is not set: skips steps 2–3 and synthesises from `kpi_context` alone (LLM-only mode)
@@ -69,10 +75,13 @@ amber panel renders and `external_context` is seeded even without a Perplexity s
 session_id: str                     # Caller-supplied session ID
 kpi_name: str                       # Name of KPI under investigation
 kpi_context: str                    # Anomaly description (e.g., "Gross Margin dropped 2.3pp")
-industry: Optional[str]             # Industry segment (e.g., "lubricants")
+industry: Optional[str]             # Industry segment — loaded from business context registry, not principal profile
 principal_id: Optional[str]         # Principal making the request
 max_signals: int = 5                # Max signals to return (1–20)
-analysis_mode: Optional[str]        # DA-determined mode ("problem"|"opportunity"|"mixed") — triggers conflict assessment
+analysis_mode: Optional[str]        # DA-determined mode ("problem"|"opportunity"|"mixed") — synthesis/conflict only, NOT signal fetch
+business_context: Optional[Dict]    # Full enterprise context from SupabaseBusinessContextProvider (industry, subindustry, products_services, regions, etc.)
+da_structural_context: Optional[Dict]  # Conclusion-neutral DA facts: dimensions analyzed, active IS segment values, change-point segment keys
+                                    #   → used in signal generation to produce business-specific signals without revealing DA conclusion
 ```
 
 ### MarketSignal

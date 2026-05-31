@@ -50,6 +50,18 @@ class MarketAnalysisRequest(BaseModel):
         None,
         description="DA-determined analysis mode ('problem'|'opportunity'|'mixed') — used to detect signal conflicts"
     )
+    business_context: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Full enterprise business context (industry, subindustry, products_services, regions, etc.) to focus signal generation"
+    )
+    da_structural_context: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "Structural facts from Deep Analysis — dimension names analyzed, key segment values, "
+            "change-point segments. Passed to signal generation to make signals business-specific "
+            "WITHOUT revealing the DA conclusion (no analysis_mode or scqa here)."
+        )
+    )
 
 
 class MarketAnalysisResponse(BaseModel):

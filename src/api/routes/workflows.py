@@ -908,8 +908,40 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
             _kpi_name = request.scope.kpi_id or "KPI"
             _scqa = getattr(response, "scqa_summary", None) or str(_kpi_name)
             _industry = None
+            _business_context_dict = None
             if principal_context and isinstance(principal_context, dict):
                 _industry = principal_context.get("industry")
+            # Principal profiles don't carry industry — load full business context from registry
+            if request.client_id:
+                try:
+                    from src.registry.business_context.business_context_provider import SupabaseBusinessContextProvider as _SBCP
+                    _bc_model = await _SBCP().get_context(request.client_id)
+                    if _bc_model:
+                        _business_context_dict = _bc_model.model_dump(exclude_none=True)
+                        if not _industry:
+                            _industry = getattr(_bc_model, "industry", None)
+                except Exception:
+                    pass
+            # Extract structural context from DA output (dimension names + segment values only —
+            # NO analysis_mode/scqa here so signal generation stays blind to the DA conclusion)
+            _da_structural: dict = {}
+            if getattr(response, "plan", None) and response.plan:
+                _da_structural["dimensions"] = getattr(response.plan, "dimensions", [])
+            _kt = getattr(response, "kt_is_is_not", None)
+            if _kt:
+                _active_segs: list[str] = []
+                for _rows in [getattr(_kt, "what_is", []), getattr(_kt, "where_is", [])]:
+                    for _r in (_rows or [])[:4]:
+                        _k = _r.get("key") if isinstance(_r, dict) else None
+                        if _k and _k not in _active_segs:
+                            _active_segs.append(_k)
+                if _active_segs:
+                    _da_structural["active_segments"] = _active_segs
+            _cps = getattr(response, "change_points", []) or []
+            _cp_keys = [cp.key for cp in _cps[:4] if getattr(cp, "key", None)]
+            if _cp_keys:
+                _da_structural["change_point_segments"] = _cp_keys
+
             _analysis_mode = getattr(response, "analysis_mode", None) or request.analysis_mode or "problem"
             _ma_req = MarketAnalysisRequest(
                 session_id=f"da-{request_id}",
@@ -919,6 +951,8 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
                 principal_id=request.principal_id,
                 max_signals=4,
                 analysis_mode=_analysis_mode,
+                business_context=_business_context_dict,
+                da_structural_context=_da_structural if _da_structural else None,
             )
             _ma_resp = await orchestrator.execute_agent_method(
                 "A9_Market_Analysis_Agent",

@@ -234,9 +234,19 @@ class A9_Market_Analysis_Agent:
 
     def _build_search_query(self, request: MarketAnalysisRequest) -> str:
         """Compose a search query that scans market conditions independently of the DA conclusion."""
+        bc = request.business_context or {}
+        da = request.da_structural_context or {}
         industry_part = f" {request.industry}" if request.industry else ""
+        subindustry = bc.get("subindustry") or ""
+        products = bc.get("products_services") or []
+        product_terms = " ".join(products[:2]) if products else ""
+        # Include top change-point segment names for specificity (neutral structural fact)
+        cp_terms = " ".join((da.get("change_point_segments") or [])[:2])
+        specificity = f" {subindustry}" if subindustry else ""
+        specificity += f" {product_terms}" if product_terms else ""
+        specificity += f" {cp_terms}" if cp_terms else ""
         return (
-            f"{request.kpi_name}{industry_part} market conditions headwinds tailwinds "
+            f"{request.kpi_name}{industry_part}{specificity} market conditions headwinds tailwinds "
             f"2025 2026 commodity prices competitive dynamics supply chain"
         )
 
@@ -306,19 +316,46 @@ class A9_Market_Analysis_Agent:
         import json as _json
         import re as _re
 
-        industry_label = request.industry or "the relevant industry"
+        bc = request.business_context or {}
+        da = request.da_structural_context or {}
+        industry_label = request.industry or bc.get("industry") or "the relevant industry"
+        subindustry = bc.get("subindustry") or ""
+        products = bc.get("products_services") or []
+        regions = bc.get("regions") or []
+
+        # Build enriched context block from registry + DA structural facts
+        ctx_lines: list[str] = []
+        if subindustry:
+            ctx_lines.append(f"Sub-sector: {subindustry}")
+        if products:
+            ctx_lines.append(f"Core products/services: {', '.join(products[:4])}")
+        if regions:
+            ctx_lines.append(f"Operating regions: {', '.join(regions[:3])}")
+        if da.get("dimensions"):
+            ctx_lines.append(f"Business dimensions analyzed: {', '.join(da['dimensions'][:5])}")
+        if da.get("active_segments"):
+            ctx_lines.append(f"Active market segments: {', '.join(da['active_segments'][:5])}")
+        if da.get("change_point_segments"):
+            ctx_lines.append(f"Segments with notable activity: {', '.join(da['change_point_segments'][:3])}")
+        ctx_block = (
+            "\nBusiness context:\n" + "\n".join(f"  - {l}" for l in ctx_lines) + "\n"
+            if ctx_lines else ""
+        )
+
         prompt = (
-            f"You are a market intelligence analyst with deep knowledge of {industry_label}.\n\n"
+            f"You are a market intelligence analyst with deep expertise in {industry_label}.\n"
+            f"{ctx_block}\n"
             f"Produce {request.max_signals} distinct external market signals covering current "
-            f"conditions affecting '{request.kpi_name}' in the {industry_label} industry.\n\n"
+            f"conditions specifically affecting '{request.kpi_name}' in this business.\n\n"
             f"IMPORTANT: Generate an INDEPENDENT, BALANCED scan — do NOT bias signals toward "
             f"confirming any particular internal finding. Include BOTH:\n"
             f"- Headwinds: factors that create cost pressure, demand weakness, margin compression, "
             f"supply disruption, or pricing difficulty\n"
             f"- Tailwinds: factors enabling cost reduction, demand growth, margin expansion, or "
             f"competitive advantage\n\n"
-            f"Cover a mix of: commodity/input prices, competitive dynamics, demand trends, "
-            f"regulatory/macro factors, and supply chain conditions relevant to {industry_label}.\n\n"
+            f"Focus signals on commodity/input prices, competitive dynamics, demand trends, "
+            f"regulatory/macro factors, and supply chain conditions specifically relevant to "
+            f"the business context above. Be specific to the actual segments and dimensions listed.\n\n"
             f"Return ONLY valid JSON with this exact structure (no other text):\n"
             f'{{"signals": [\n'
             f'  {{"title": "Brief headline", "summary": "1-2 sentence explanation of the signal and its relevance", '
@@ -398,7 +435,21 @@ class A9_Market_Analysis_Agent:
         Falls back to a formatted plain-text summary when the LLM service is
         unavailable, so the caller always receives a usable string.
         """
-        industry_label = request.industry or "the relevant"
+        bc = request.business_context or {}
+        da = request.da_structural_context or {}
+        industry_label = request.industry or bc.get("industry") or "the relevant"
+        subindustry = bc.get("subindustry") or ""
+        products = bc.get("products_services") or []
+        bc_detail = ""
+        detail_parts = []
+        if subindustry:
+            detail_parts.append(subindustry)
+        if products:
+            detail_parts.append(f"products: {', '.join(products[:3])}")
+        if da.get("active_segments"):
+            detail_parts.append(f"segments: {', '.join(da['active_segments'][:3])}")
+        if detail_parts:
+            bc_detail = f" ({'; '.join(detail_parts)})"
         formatted_signals = self._format_signals_for_prompt(signals, raw_answer)
 
         # Build conflict-detection clause when the caller supplied analysis_mode
@@ -431,7 +482,7 @@ class A9_Market_Analysis_Agent:
 
         prompt = (
             f"You are a market intelligence analyst. Analyse these external market signals about "
-            f"'{request.kpi_name}' in the {industry_label} industry.\n\n"
+            f"'{request.kpi_name}' in the {industry_label}{bc_detail} industry.\n\n"
             f"Internal business context: {request.kpi_context}"
             f"{conflict_clause}\n\n"
             f"Market Signals:\n{formatted_signals}\n\n"
