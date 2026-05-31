@@ -233,11 +233,11 @@ class A9_Market_Analysis_Agent:
     # ------------------------------------------------------------------
 
     def _build_search_query(self, request: MarketAnalysisRequest) -> str:
-        """Compose a targeted search query from the request fields."""
-        industry_part = f" {request.industry} industry" if request.industry else ""
+        """Compose a search query that scans market conditions independently of the DA conclusion."""
+        industry_part = f" {request.industry}" if request.industry else ""
         return (
-            f"market trends{industry_part} {request.kpi_name} 2025 2026 competitors "
-            f"external factors: {request.kpi_context}"
+            f"{request.kpi_name}{industry_part} market conditions headwinds tailwinds "
+            f"2025 2026 commodity prices competitive dynamics supply chain"
         )
 
     def _parse_citations(
@@ -309,12 +309,16 @@ class A9_Market_Analysis_Agent:
         industry_label = request.industry or "the relevant industry"
         prompt = (
             f"You are a market intelligence analyst with deep knowledge of {industry_label}.\n\n"
-            f"A business is investigating why '{request.kpi_name}' has changed significantly.\n"
-            f"Business context: {request.kpi_context}\n\n"
-            f"Generate {request.max_signals} distinct external market signals that could explain "
-            f"or provide context for this KPI movement. Draw on your knowledge of recent market "
-            f"trends, commodity prices, competitive dynamics, and macroeconomic factors relevant "
-            f"to {industry_label}.\n\n"
+            f"Produce {request.max_signals} distinct external market signals covering current "
+            f"conditions affecting '{request.kpi_name}' in the {industry_label} industry.\n\n"
+            f"IMPORTANT: Generate an INDEPENDENT, BALANCED scan — do NOT bias signals toward "
+            f"confirming any particular internal finding. Include BOTH:\n"
+            f"- Headwinds: factors that create cost pressure, demand weakness, margin compression, "
+            f"supply disruption, or pricing difficulty\n"
+            f"- Tailwinds: factors enabling cost reduction, demand growth, margin expansion, or "
+            f"competitive advantage\n\n"
+            f"Cover a mix of: commodity/input prices, competitive dynamics, demand trends, "
+            f"regulatory/macro factors, and supply chain conditions relevant to {industry_label}.\n\n"
             f"Return ONLY valid JSON with this exact structure (no other text):\n"
             f'{{"signals": [\n'
             f'  {{"title": "Brief headline", "summary": "1-2 sentence explanation of the signal and its relevance", '

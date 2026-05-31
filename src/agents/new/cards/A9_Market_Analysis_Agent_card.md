@@ -28,10 +28,10 @@ class A9_Market_Analysis_Agent_Config(BaseModel):
 ```
 
 ## Pipeline
-1. Build a targeted search query from `(kpi_name, industry, kpi_context)`
+1. Build a search query from `(kpi_name, industry)` only — **no DA context** at this stage to avoid confirmation bias
 2. Call `PerplexityService` to fetch web-search results (signals + citations)
 3. Convert Perplexity citations into `MarketSignal` objects
-4. Send signals + `kpi_context` + `analysis_mode` to `A9_LLM_Service_Agent` (claude-sonnet-4-6) for synthesis and conflict assessment
+4. Send signals + `kpi_context` + `analysis_mode` to `A9_LLM_Service_Agent` (claude-sonnet-4-6) for synthesis and conflict assessment — DA context enters here, not at signal fetch
 5. Return `MarketAnalysisResponse` with signals, synthesis narrative, conflict dict, and confidence score
 
 ## Graceful Degradation
