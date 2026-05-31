@@ -64,6 +64,16 @@ class BenchmarkSegment(A9AgentBaseModel):
         le=1.0,
         description="Estimated replication potential (0.0–1.0); set for internal_benchmark segments only"
     )
+    effect_size_pct: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="This segment's |delta| as a fraction of total absolute variance across all peer segments (0–1)"
+    )
+    is_outlier: bool = Field(
+        False,
+        description="True when this segment's |delta| exceeds mean + 2σ of peer segment deltas"
+    )
 
 
 class KTIsIsNot(A9AgentBaseModel):

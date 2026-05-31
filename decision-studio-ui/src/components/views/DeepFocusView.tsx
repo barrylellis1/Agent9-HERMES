@@ -17,7 +17,7 @@ import {
   SplitSquareHorizontal,
   ExternalLink
 } from 'lucide-react';
-import { Situation, ProblemRefinementResult, MarketSignal } from '../../api/types';
+import { Situation, ProblemRefinementResult, MarketSignal, MarketConflict } from '../../api/types';
 import { formatExecutive } from '../../utils/formatExecutive';
 import { ProblemRefinementChat } from '../ProblemRefinementChat';
 import { IsIsNotExhibit } from '../visualizations/DivergingBarChart';
@@ -149,6 +149,7 @@ interface DeepFocusViewProps {
   principalContext: any;
   principalId: string;
   initialMarketSignals?: MarketSignal[];
+  initialMarketConflict?: MarketConflict | null;
 }
 
 export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
@@ -178,7 +179,8 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   availablePersonas,
   principalContext,
   principalId,
-  initialMarketSignals
+  initialMarketSignals,
+  initialMarketConflict,
 }) => {
   const navigate = useNavigate();
   const currentAnalysis = analysisResults;
@@ -371,6 +373,24 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                 );
                             })()}
 
+                            {/* Market conflict alert — shown when MA sentiment contradicts DA conclusion */}
+                            {initialMarketConflict?.detected && initialMarketConflict.summary && (
+                              <div className="flex gap-3 bg-amber-950/40 border border-amber-600/30 rounded-lg px-4 py-3">
+                                <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                                <div>
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 block mb-0.5">
+                                    Market Signal Conflict
+                                    {initialMarketConflict.confidence != null && (
+                                      <span className="ml-2 font-normal normal-case text-amber-500">
+                                        ({Math.round(initialMarketConflict.confidence * 100)}% confidence)
+                                      </span>
+                                    )}
+                                  </span>
+                                  <p className="text-xs text-amber-200/80">{initialMarketConflict.summary}</p>
+                                </div>
+                              </div>
+                            )}
+
                             {/* Change Points list — compact fallback when no Is/Is Not data */}
                             {!currentAnalysis.kt_is_is_not && currentAnalysis.change_points && currentAnalysis.change_points.length > 0 && (
                             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
@@ -441,6 +461,22 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                 </div>
                                 <div className="flex items-center gap-3">
                                   <span className="text-sm font-mono text-green-400">{formatExecutive(seg.delta || 0)}</span>
+                                  {seg.is_outlier && (
+                                    <span
+                                      className="text-[10px] px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded font-medium cursor-help"
+                                      title="This segment's variance is a statistical outlier — it accounts for a disproportionate share of the gap"
+                                    >
+                                      Outlier
+                                    </span>
+                                  )}
+                                  {seg.effect_size_pct != null && (
+                                    <span
+                                      className="text-[10px] px-2 py-0.5 bg-slate-800 text-slate-400 rounded font-mono cursor-help"
+                                      title={`This segment accounts for ${Math.round(seg.effect_size_pct * 100)}% of total variance across all segments`}
+                                    >
+                                      {Math.round(seg.effect_size_pct * 100)}% of gap
+                                    </span>
+                                  )}
                                   {seg.replication_potential != null && (
                                     <span
                                       className="text-[10px] px-2 py-0.5 bg-green-900/40 text-green-300 rounded-full font-medium cursor-help"

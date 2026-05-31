@@ -17,7 +17,7 @@ import {
   AVAILABLE_COUNCILS,
   AVAILABLE_PERSONAS
 } from '../config/uiConstants';
-import { Client, Principal, MarketSignal } from '../api/types';
+import { Client, Principal, MarketSignal, MarketConflict } from '../api/types';
 import { buildExecutiveBriefing } from '../utils/briefingUtils';
 
 // ── Principal mapping helpers ─────────────────────────────────────────────────
@@ -85,6 +85,7 @@ export function useDecisionStudio() {
   const [showRefinementChat, setShowRefinementChat] = useState(false);
   const [refinementResult, setRefinementResult] = useState<ProblemRefinementResult | null>(null);
   const [marketSignals, setMarketSignals] = useState<MarketSignal[]>([]);
+  const [marketConflict, setMarketConflict] = useState<MarketConflict | null>(null);
   
   // Solution Finder / Council
   const [findingSolutions, setFindingSolutions] = useState(false);
@@ -300,9 +301,10 @@ export function useDecisionStudio() {
             [sitId]: result.execution
         }));
 
-        // Extract market signals from DA result (MA agent runs at end of DA)
+        // Extract market signals and conflict from DA result (MA agent runs at end of DA)
         const signals: MarketSignal[] = result.market_signals || [];
         setMarketSignals(signals);
+        setMarketConflict(result.market_conflict?.detected ? result.market_conflict : null);
 
     } catch (err) {
         console.error("Analysis Failed", err);
@@ -546,6 +548,7 @@ export function useDecisionStudio() {
     showRefinementChat,
     refinementResult,
     marketSignals,
+    marketConflict,
     findingSolutions,
     solutions,
     solutionRequestId,

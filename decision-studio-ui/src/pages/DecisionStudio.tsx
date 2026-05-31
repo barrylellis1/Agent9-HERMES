@@ -21,6 +21,7 @@ export function DecisionStudio() {
     showRefinementChat,
     refinementResult,
     marketSignals,
+    marketConflict,
     showPersonaSelector,
     useHybridCouncil,
     councilType,
@@ -97,6 +98,7 @@ export function DecisionStudio() {
         availablePersonas={AVAILABLE_PERSONAS}
         principalId={selectedPrincipal}
         initialMarketSignals={marketSignals}
+        initialMarketConflict={marketConflict}
         principalContext={{
             principal_id: selectedPrincipal,
             role: currentPrincipal.title,

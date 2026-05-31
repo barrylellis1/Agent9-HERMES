@@ -53,6 +53,82 @@ def wrap(data: Any) -> Envelope:
     return Envelope(data=serialize(data))
 
 
+_TAILWIND_TERMS = {
+    "growth", "growing", "expansion", "expanding", "recovery", "recovering",
+    "improvement", "improving", "upturn", "rebound", "surge", "acceleration",
+    "positive outlook", "bullish", "opportunity", "upside",
+}
+_HEADWIND_TERMS = {
+    "decline", "declining", "contraction", "contracting", "slowdown", "slowing",
+    "downturn", "recession", "risk", "headwind", "pressure", "challenge",
+    "deterioration", "weakness", "bearish", "negative outlook",
+}
+
+
+def _detect_market_conflict(
+    analysis_mode: str,
+    market_signals: Optional[List[Dict[str, Any]]],
+    ma_synthesis: Optional[str],
+) -> Optional[Dict[str, Any]]:
+    """Detect when external market sentiment contradicts the internal DA conclusion."""
+    if not market_signals:
+        return None
+
+    tailwind_count = 0
+    headwind_count = 0
+    for sig in market_signals:
+        text = f"{sig.get('title', '')} {sig.get('summary', '')}".lower()
+        t = sum(1 for kw in _TAILWIND_TERMS if kw in text)
+        h = sum(1 for kw in _HEADWIND_TERMS if kw in text)
+        if t > h:
+            tailwind_count += 1
+        elif h > t:
+            headwind_count += 1
+
+    # Also scan synthesis narrative
+    if ma_synthesis:
+        synth = ma_synthesis.lower()
+        t = sum(1 for kw in _TAILWIND_TERMS if kw in synth)
+        h = sum(1 for kw in _HEADWIND_TERMS if kw in synth)
+        if t > h:
+            tailwind_count += 1
+        elif h > t:
+            headwind_count += 1
+
+    total = tailwind_count + headwind_count
+    if total == 0:
+        return None
+
+    # Conflict: problem framing but market is mostly positive
+    if analysis_mode == "problem" and tailwind_count > headwind_count:
+        confidence = round(tailwind_count / total, 2)
+        return {
+            "detected": True,
+            "type": "tailwind_vs_problem",
+            "confidence": confidence,
+            "summary": (
+                "External market signals show positive conditions, but internal KPI data indicates "
+                "a problem. Consider whether internal execution or structural factors — not macro "
+                "conditions — are the primary driver."
+            ),
+        }
+
+    # Conflict: opportunity framing but market shows headwinds
+    if analysis_mode == "opportunity" and headwind_count > tailwind_count:
+        confidence = round(headwind_count / total, 2)
+        return {
+            "detected": True,
+            "type": "headwind_vs_opportunity",
+            "confidence": confidence,
+            "summary": (
+                "External market signals indicate headwinds, while internal data suggests an "
+                "opportunity. Validate whether the opportunity is durable given external conditions."
+            ),
+        }
+
+    return {"detected": False}
+
+
 @dataclass
 class WorkflowRecord:
     request_id: str
@@ -927,6 +1003,16 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
             import traceback as _tb
             _lg.getLogger("workflows.deep_analysis").warning("[DA] MA enrichment skipped: %s\n%s", _mae, _tb.format_exc())
 
+        # Detect conflicts between market sentiment and DA conclusion
+        _analysis_mode = getattr(response, "analysis_mode", None) or request.analysis_mode or "problem"
+        _ma_synthesis = None
+        try:
+            if _ma_resp and hasattr(_ma_resp, "synthesis"):
+                _ma_synthesis = _ma_resp.synthesis
+        except Exception:
+            pass
+        market_conflict = _detect_market_conflict(_analysis_mode, market_signals, _ma_synthesis)
+
         # Maintain backward compatibility with UI result structure
         # UI expects { "plan": ..., "execution": ... }
         # The orchestrator response (DeepAnalysisResponse) contains the plan
@@ -937,6 +1023,7 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
             "plan": plan_serialized,
             "execution": execution_serialized,
             "market_signals": market_signals,
+            "market_conflict": market_conflict,
         }
         
         status = "failed" if response.status == "error" else "completed"

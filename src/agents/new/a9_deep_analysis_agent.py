@@ -47,6 +47,13 @@ def _classify_benchmark_segments(is_not_items):
     deltas = [abs(item.get("delta", 0)) for item in is_not_items]
     threshold = sorted(deltas, reverse=True)[max(0, len(deltas) // 4 - 1)] if deltas else 0
 
+    total_variance = sum(deltas) or 1.0  # avoid division by zero
+
+    import statistics
+    mean_delta = statistics.mean(deltas) if deltas else 0.0
+    std_delta = statistics.stdev(deltas) if len(deltas) >= 2 else 0.0
+    outlier_cutoff = mean_delta + 2 * std_delta
+
     segments = []
     for item in is_not_items:
         abs_delta = abs(item.get("delta", 0))
@@ -55,7 +62,9 @@ def _classify_benchmark_segments(is_not_items):
         current = float(item.get("current", 0) or 0.0)
         previous = float(item.get("previous", 0) or 0.0)
         delta_pct = ((current - previous) / previous * 100) if previous else None
-        rep_potential = min(1.0, abs_delta / threshold) if is_bmark and threshold > 0 else None
+        effect_size = abs_delta / total_variance
+        is_outlier = abs_delta > outlier_cutoff and std_delta > 0
+        rep_potential = round(min(1.0, effect_size * 2), 3) if is_bmark else None
         segments.append(BenchmarkSegment(
             dimension=item.get("dimension", ""),
             key=str(item.get("key", "")),
@@ -65,6 +74,8 @@ def _classify_benchmark_segments(is_not_items):
             delta_pct=delta_pct,
             benchmark_type="internal_benchmark" if is_bmark else "control_group",
             replication_potential=rep_potential,
+            effect_size_pct=round(effect_size, 4),
+            is_outlier=is_outlier,
         ))
     return segments
 

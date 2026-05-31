@@ -254,6 +254,13 @@ export interface MarketSignal {
   url?: string
 }
 
+export interface MarketConflict {
+  detected: boolean;
+  type?: 'tailwind_vs_problem' | 'headwind_vs_opportunity';
+  confidence?: number;
+  summary?: string;
+}
+
 export interface ProblemRefinementResult {
   agent_message: string;
   suggested_responses: string[];
