@@ -5,7 +5,7 @@ Defines request/response contracts for market signal retrieval and synthesis.
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -46,6 +46,10 @@ class MarketAnalysisRequest(BaseModel):
     max_signals: int = Field(
         default=5, ge=1, le=20, description="Maximum number of market signals to return"
     )
+    analysis_mode: Optional[str] = Field(
+        None,
+        description="DA-determined analysis mode ('problem'|'opportunity'|'mixed') — used to detect signal conflicts"
+    )
 
 
 class MarketAnalysisResponse(BaseModel):
@@ -75,6 +79,13 @@ class MarketAnalysisResponse(BaseModel):
     sources_queried: List[str] = Field(
         default_factory=list,
         description="List of source identifiers that were queried",
+    )
+    conflict: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "Conflict assessment produced by the LLM: detected (bool), type "
+            "('headwind_vs_opportunity'|'tailwind_vs_problem'|null), confidence (0–1), summary (str)"
+        )
     )
     error: Optional[str] = Field(None, description="Error message if the agent encountered a failure")
     timestamp: str = Field(

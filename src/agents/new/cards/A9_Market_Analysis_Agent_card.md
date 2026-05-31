@@ -1,6 +1,6 @@
 # A9_Market_Analysis_Agent Card
 
-**Last Updated:** 2026-05-08  
+**Last Updated:** 2026-05-30  
 **Status:** MVP Active
 
 ## Overview
@@ -31,8 +31,8 @@ class A9_Market_Analysis_Agent_Config(BaseModel):
 1. Build a targeted search query from `(kpi_name, industry, kpi_context)`
 2. Call `PerplexityService` to fetch web-search results (signals + citations)
 3. Convert Perplexity citations into `MarketSignal` objects
-4. Send signals + `kpi_context` to `A9_LLM_Service_Agent` (claude-sonnet-4-6) for synthesis
-5. Return `MarketAnalysisResponse` with signals, synthesis narrative, and confidence score
+4. Send signals + `kpi_context` + `analysis_mode` to `A9_LLM_Service_Agent` (claude-sonnet-4-6) for synthesis and conflict assessment
+5. Return `MarketAnalysisResponse` with signals, synthesis narrative, conflict dict, and confidence score
 
 ## Graceful Degradation
 - If `PERPLEXITY_API_KEY` is not set: skips steps 2–3 and synthesises from `kpi_context` alone (LLM-only mode)
@@ -72,6 +72,7 @@ kpi_context: str                    # Anomaly description (e.g., "Gross Margin d
 industry: Optional[str]             # Industry segment (e.g., "lubricants")
 principal_id: Optional[str]         # Principal making the request
 max_signals: int = 5                # Max signals to return (1–20)
+analysis_mode: Optional[str]        # DA-determined mode ("problem"|"opportunity"|"mixed") — triggers conflict assessment
 ```
 
 ### MarketSignal
@@ -90,12 +91,25 @@ session_id: str                     # Echoed session ID
 kpi_name: str                       # Echoed KPI name
 signals: List[MarketSignal]         # Retrieved market signals (empty list if no sources found)
 synthesis: str                      # LLM-synthesized executive narrative
+conflict: Optional[Dict]            # LLM conflict assessment — see below
 competitor_context: Optional[str]   # Reserved for future enrichment
 confidence: float                   # Agent confidence (0.0–1.0)
 sources_queried: List[str]          # ["perplexity"] or ["llm_knowledge"] (or both as fallback)
 error: Optional[str]                # Error message if search/synthesis failed
 timestamp: str                      # ISO timestamp of response generation
 ```
+
+### Conflict Assessment (returned inside synthesis call when analysis_mode supplied)
+```python
+# conflict dict shape:
+{
+  "detected": bool,                          # True when signals contradict DA conclusion
+  "type": str | None,                        # "headwind_vs_opportunity" | "tailwind_vs_problem"
+  "confidence": float,                       # LLM confidence in the conflict assessment (0–1)
+  "summary": str | None                      # One-sentence executive explanation
+}
+```
+The LLM determines conflict semantically — no keyword lists. Conflict is `None` when `analysis_mode` is not supplied.
 
 ## Error Behaviour
 

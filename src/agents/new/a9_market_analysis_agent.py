@@ -22,7 +22,8 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+import json
+from typing import Any, Dict, List, Optional, Tuple
 
 from src.agents.agent_config_models import A9_Market_Analysis_Agent_Config
 from src.agents.models.market_analysis_models import (
@@ -205,9 +206,9 @@ class A9_Market_Analysis_Agent:
                 logger.info("%s: LLM fallback generated %d signal(s)", self.name, len(signals))
 
         # ------------------------------------------------------------------
-        # Step 2 — LLM synthesis
+        # Step 2 — LLM synthesis (also produces conflict assessment)
         # ------------------------------------------------------------------
-        synthesis = await self._synthesize(request, signals, raw_answer)
+        synthesis, conflict = await self._synthesize(request, signals, raw_answer)
 
         # ------------------------------------------------------------------
         # Step 3 — Confidence score heuristic
@@ -219,6 +220,7 @@ class A9_Market_Analysis_Agent:
             kpi_name=request.kpi_name,
             signals=signals,
             synthesis=synthesis,
+            conflict=conflict,
             competitor_context=None,  # Reserved for future enrichment
             confidence=confidence,
             sources_queried=sources_queried,
@@ -381,9 +383,13 @@ class A9_Market_Analysis_Agent:
         request: MarketAnalysisRequest,
         signals: List[MarketSignal],
         raw_answer: str,
-    ) -> str:
+    ) -> Tuple[str, Optional[Dict[str, Any]]]:
         """
         Build the synthesis narrative via A9_LLM_Service_Agent.
+
+        Also performs conflict detection: if analysis_mode is supplied, the LLM
+        is asked whether the external signals confirm or contradict the internal
+        DA conclusion. Returns (synthesis_text, conflict_dict).
 
         Falls back to a formatted plain-text summary when the LLM service is
         unavailable, so the caller always receives a usable string.
@@ -391,24 +397,55 @@ class A9_Market_Analysis_Agent:
         industry_label = request.industry or "the relevant"
         formatted_signals = self._format_signals_for_prompt(signals, raw_answer)
 
+        # Build conflict-detection clause when the caller supplied analysis_mode
+        analysis_mode = request.analysis_mode
+        if analysis_mode:
+            mode_label = {
+                "opportunity": "an OPPORTUNITY (internal data shows positive trajectory)",
+                "problem": "a PROBLEM (internal data shows negative trajectory)",
+                "mixed": "a MIXED situation (some segments improving, others declining)",
+            }.get(analysis_mode, analysis_mode)
+            conflict_clause = (
+                f"\n\nCONFLICT DETECTION:\n"
+                f"The internal data analysis has classified this as {mode_label}.\n"
+                f"Assess whether the external market signals CONFIRM or CONTRADICT that conclusion.\n"
+                f"A contradiction means:\n"
+                f"  - Internal = opportunity, but signals show headwinds (cost pressure, demand softness, margin compression)\n"
+                f"  - Internal = problem, but signals show tailwinds (market growth, demand recovery, pricing power)\n"
+            )
+            conflict_json_schema = (
+                '"conflict": {\n'
+                '    "detected": true or false,\n'
+                '    "type": "headwind_vs_opportunity" | "tailwind_vs_problem" | null,\n'
+                '    "confidence": 0.0 to 1.0,\n'
+                '    "summary": "One sentence explaining the conflict, or null if none"\n'
+                '  }'
+            )
+        else:
+            conflict_clause = ""
+            conflict_json_schema = '"conflict": null'
+
         prompt = (
-            f"You are a market intelligence analyst. Given these external market signals about "
-            f"{request.kpi_name} in the {industry_label} industry, synthesise a 2-3 paragraph "
-            f"executive briefing on what these signals mean for business performance.\n\n"
-            f"KPI Context: {request.kpi_context}\n\n"
+            f"You are a market intelligence analyst. Analyse these external market signals about "
+            f"'{request.kpi_name}' in the {industry_label} industry.\n\n"
+            f"Internal business context: {request.kpi_context}"
+            f"{conflict_clause}\n\n"
             f"Market Signals:\n{formatted_signals}\n\n"
-            f"Provide:\n"
-            f"1. Key external factors driving this KPI movement\n"
-            f"2. Competitive context and industry benchmarks\n"
-            f"3. Implications for the business\n\n"
-            f"Be specific and quantitative where possible. Do not be vague."
+            f"Return a JSON object with exactly this structure:\n"
+            f"{{\n"
+            f'  "synthesis": "2-3 paragraph executive briefing covering: (1) key external factors '
+            f'driving this KPI movement, (2) competitive context and industry benchmarks, '
+            f'(3) implications for the business. Be specific and quantitative.",\n'
+            f"  {conflict_json_schema}\n"
+            f"}}\n\n"
+            f"Return only valid JSON. No markdown, no preamble."
         )
 
         if self._llm_service is None and self.orchestrator is None:
             logger.warning(
                 "%s: LLM service unavailable — returning plain-text synthesis fallback", self.name
             )
-            return self._plain_text_fallback(request, signals, raw_answer)
+            return self._plain_text_fallback(request, signals, raw_answer), None
 
         try:
             analysis_req = A9_LLM_AnalysisRequest(
@@ -430,31 +467,43 @@ class A9_Market_Analysis_Agent:
 
             if getattr(llm_resp, "status", "error") == "success":
                 analysis = getattr(llm_resp, "analysis", {})
-                # The LLM service returns analysis as a dict; the raw text lives under various keys.
+                raw_text = ""
                 if isinstance(analysis, dict):
-                    text = (
+                    raw_text = (
                         analysis.get("text")
-                        or analysis.get("synthesis")
                         or analysis.get("content")
                         or analysis.get("response")
                         or ""
                     )
-                    if text:
-                        return str(text)
-                    # Flatten the entire dict to a string when no known key is present
-                    return str(analysis)
-                return str(analysis)
+                    # If analysis dict itself has "synthesis" key, it may already be parsed
+                    if "synthesis" in analysis:
+                        return str(analysis["synthesis"]), analysis.get("conflict")
+                else:
+                    raw_text = str(analysis)
+
+                # Parse the JSON response
+                if raw_text:
+                    try:
+                        parsed = json.loads(raw_text)
+                        synthesis_text = parsed.get("synthesis") or raw_text
+                        conflict_data = parsed.get("conflict")
+                        return str(synthesis_text), conflict_data
+                    except (json.JSONDecodeError, ValueError):
+                        # LLM returned plain text despite instructions — use as-is
+                        return raw_text, None
+
+                return str(analysis), None
 
             logger.warning(
                 "%s: LLM synthesis returned non-success status: %s",
                 self.name,
                 getattr(llm_resp, "status", "unknown"),
             )
-            return self._plain_text_fallback(request, signals, raw_answer)
+            return self._plain_text_fallback(request, signals, raw_answer), None
 
         except Exception as exc:
             logger.error("%s: LLM synthesis error: %s", self.name, exc)
-            return self._plain_text_fallback(request, signals, raw_answer)
+            return self._plain_text_fallback(request, signals, raw_answer), None
 
     def _format_signals_for_prompt(
         self, signals: List[MarketSignal], raw_answer: str
