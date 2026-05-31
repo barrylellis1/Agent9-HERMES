@@ -122,6 +122,10 @@ class DeepAnalysisResponse(A9AgentBaseResponse):
         default="problem",
         description="Effective analysis mode as determined by DA."
     )
+    mixed_framing: bool = Field(
+        False,
+        description="True when DA determined analysis_mode='mixed' from segment variance — signals the frontend to show the HITL mode-resolution gate before invoking SF."
+    )
 
     # Raw data excerpts (optional)
     samples: Optional[Dict[str, Any]] = None

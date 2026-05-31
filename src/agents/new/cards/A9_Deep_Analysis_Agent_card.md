@@ -203,11 +203,15 @@ In mixed mode, `where_is` is merged (problem + opportunity items) and sorted by 
 3. After the loop: `_infer_analysis_mode()` → sets `plan.analysis_mode` → reshuffling applied → `analysis_mode` written to `DeepAnalysisResponse`
 
 ### Mixed Mode Handoff to HITL Resolution (Frontend Decision)
-When DA returns `analysis_mode="mixed"`, the frontend intercepts before calling Solution Finder. A HITL resolution panel in `DeepFocusView` presents both sides:
+When DA returns `analysis_mode="mixed"` (and `mixed_framing=True`), the frontend intercepts before calling Solution Finder. A HITL resolution panel in `DeepFocusView` presents both sides:
 - **Quantified both sides**: net |delta| of problem segments vs opportunity segments
 - **Three choices**: "Focus on Recovery" (→ problem mode), "Focus on Opportunity" (→ opportunity mode), "Let Agent9 Decide" (auto-picks larger absolute delta side with reasoning)
 - **Resolved binary mode**: After resolution, the chosen mode (`"problem"` or `"opportunity"`) is passed to Solution Finder as `analysis_mode`
 - **SF and VA execution**: Both agents then run in the resolved binary mode — no dual-tracking, no mixed-mode complexity downstream
+- **Reset on new result**: The resolution state resets whenever a new `analysis_mode="mixed"` DA result arrives, preventing stale resolution from a prior KPI flowing through
+- **Disabled state**: Refinement and Generate Solutions buttons are rendered greyed-out (`opacity-40 pointer-events-none`) until the mixed-mode resolution is made
+
+**`mixed_framing` field** (on `DeepAnalysisResponse`): `bool`, default `False`. Set to `True` by `execute_deep_analysis` when `_effective_mode_final == "mixed"`. Signals the frontend to show the HITL mode-resolution gate.
 
 **Design rationale**: Mixed mode is valuable for DA's IS/IS NOT exhibit and SCQA narrative. At the DA→SF boundary it must collapse to a single resolved mode via HITL, avoiding dual-track solutioning, ambiguous DiD control groups in VA, and cognitive overhead.
 

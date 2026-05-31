@@ -106,6 +106,7 @@ export interface DeepAnalysisExecution {
   plan?: any;
   kpi_name?: string;
   analysis_mode?: 'problem' | 'opportunity' | 'mixed';
+  mixed_framing?: boolean;
 }
 
 export interface DeepAnalysisResult {

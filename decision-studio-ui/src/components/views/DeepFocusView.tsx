@@ -200,6 +200,14 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   const [resolvedAnalysisMode, setResolvedAnalysisMode] = useState<'problem' | 'opportunity' | null>(null);
   const [agentDecisionMessage, setAgentDecisionMessage] = useState<string | null>(null);
 
+  // Reset resolution gate whenever a new mixed-mode analysis result arrives
+  useEffect(() => {
+    if (analysisResults?.analysis_mode === 'mixed') {
+      setResolvedAnalysisMode(null);
+      setAgentDecisionMessage(null);
+    }
+  }, [analysisResults]);
+
   // Net absolute delta per segment type — drives the "Let Agent9 Decide" logic
   const { netProblemDelta, netOppDelta } = useMemo(() => {
     if (!currentAnalysis?.kt_is_is_not?.where_is) return { netProblemDelta: 0, netOppDelta: 0 };
@@ -603,91 +611,152 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                      </div>
                  )}
 
-                 {/* State B: Analysis Done, Start Refinement or Generate Solutions */}
-                 {currentAnalysis && !showRefinementChat && !showPersonaSelector && (analysisMode !== 'mixed' || resolvedAnalysisMode !== null) && (
-                     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                         {agentDecisionMessage && (
-                           <div className="bg-amber-900/15 border border-amber-500/30 rounded-lg px-4 py-3 text-xs text-amber-300 flex items-start gap-2">
-                             <Sparkles className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                             <span>{agentDecisionMessage}</span>
-                           </div>
-                         )}
-                         <div className="bg-indigo-900/10 border border-indigo-500/20 rounded-xl p-6 text-center">
-                             <Lightbulb className="w-10 h-10 text-indigo-400 mx-auto mb-3" />
-                             <h3 className="text-white font-medium mb-2">Refine Problem Statement</h3>
-                             <p className="text-sm text-slate-400 mb-4">
-                                 Collaborate with the AI to validate hypotheses and set constraints before solving.
-                             </p>
-                             <button
-                                 onClick={onStartRefinement}
-                                 className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors"
-                             >
-                                 Start Refinement Session
-                             </button>
-                             <button
-                                 onClick={() => setShowPersonaSelector(true)}
-                                 className="w-full mt-2 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded font-medium flex items-center justify-center gap-2"
-                             >
-                                 <CircleDot className="w-3 h-3" />
-                                 Generate Solutions →
-                             </button>
-                         </div>
-                     </div>
-                 )}
-
-                 {/* State E: Mixed-mode HITL resolution panel */}
-                 {currentAnalysis && !showRefinementChat && !showPersonaSelector && analysisMode === 'mixed' && resolvedAnalysisMode === null && (
+                 {/* State B + E: Analysis done — mixed resolution panel (if needed) + refinement/solutions */}
+                 {currentAnalysis && !showRefinementChat && !showPersonaSelector && (
                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                     <div className="bg-amber-900/10 border border-amber-500/30 rounded-xl p-5">
-                       <div className="flex items-center gap-2 mb-2">
-                         <SplitSquareHorizontal className="w-4 h-4 text-amber-400" />
-                         <h3 className="text-sm font-semibold text-amber-300">Mixed Signals Detected</h3>
-                       </div>
-                       <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-                         This KPI shows both underperforming and outperforming segments. To generate focused solutions, choose which direction Agent9 should prioritise.
-                       </p>
 
-                       <div className="space-y-2 mb-4 text-xs">
-                         <div className="flex items-center justify-between bg-red-900/20 border border-red-800/40 rounded-lg px-3 py-2">
-                           <span className="text-red-300 font-medium">Problem exposure</span>
-                           <span className="font-mono text-red-400">{formatExecutive(netProblemDelta, '$', false)}</span>
-                         </div>
-                         <div className="flex items-center justify-between bg-emerald-900/20 border border-emerald-800/40 rounded-lg px-3 py-2">
-                           <span className="text-emerald-300 font-medium">Opportunity upside</span>
-                           <span className="font-mono text-emerald-400">{formatExecutive(netOppDelta, '$', false)}</span>
-                         </div>
-                       </div>
+                     {/* ── Mixed Signal Resolution Panel (only when mode=mixed) ── */}
+                     {analysisMode === 'mixed' && (
+                       <div className="bg-slate-900/50 border border-amber-500/30 rounded-xl p-5">
 
-                       <div className="space-y-2">
-                         <button
-                           onClick={() => setResolvedAnalysisMode('problem')}
-                           className="w-full py-2.5 bg-red-900/40 hover:bg-red-900/60 border border-red-700/50 text-red-300 rounded-lg text-sm font-medium transition-colors"
-                         >
-                           Focus on Recovery
-                         </button>
-                         <button
-                           onClick={() => setResolvedAnalysisMode('opportunity')}
-                           className="w-full py-2.5 bg-emerald-900/40 hover:bg-emerald-900/60 border border-emerald-700/50 text-emerald-300 rounded-lg text-sm font-medium transition-colors"
-                         >
-                           Focus on Opportunity
-                         </button>
-                         <button
-                           onClick={() => {
-                             const decided = netOppDelta > netProblemDelta ? 'opportunity' : 'problem';
-                             setResolvedAnalysisMode(decided);
-                             setAgentDecisionMessage(
-                               decided === 'opportunity'
-                                 ? `Agent9 chose Opportunity — the upside delta (${formatExecutive(netOppDelta, '$', false)}) outweighs the problem exposure (${formatExecutive(netProblemDelta, '$', false)}).`
-                                 : `Agent9 chose Recovery — the problem exposure (${formatExecutive(netProblemDelta, '$', false)}) outweighs the opportunity upside (${formatExecutive(netOppDelta, '$', false)}).`
-                             );
-                           }}
-                           className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-                         >
-                           <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                           Let Agent9 Decide
-                         </button>
+                         {/* Collapsed confirmation chip — shown after resolution */}
+                         {resolvedAnalysisMode !== null ? (
+                           <div className="flex items-center justify-between">
+                             <div className="flex items-center gap-2">
+                               <CheckCircle2 className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                               <span className="text-xs font-semibold text-amber-300">
+                                 {resolvedAnalysisMode === 'problem' ? 'Recovery mode selected' : 'Opportunity mode selected'}
+                               </span>
+                               {agentDecisionMessage && (
+                                 <span className="hidden sm:inline text-xs text-slate-500 truncate max-w-[160px]" title={agentDecisionMessage}>
+                                   · {agentDecisionMessage.split('—')[1]?.trim().replace(/\.$/, '') ?? ''}
+                                 </span>
+                               )}
+                             </div>
+                             <button
+                               onClick={() => { setResolvedAnalysisMode(null); setAgentDecisionMessage(null); }}
+                               className="ml-2 flex-shrink-0 px-2 py-0.5 text-[10px] font-medium rounded-full border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 transition-colors"
+                             >
+                               Change
+                             </button>
+                           </div>
+                         ) : (
+                           /* Expanded panel — resolution not yet made */
+                           <>
+                             <div className="flex items-center gap-2 mb-2">
+                               <SplitSquareHorizontal className="w-4 h-4 text-amber-400" />
+                               <h3 className="text-sm font-semibold text-amber-300">Mixed Signal Detected</h3>
+                             </div>
+                             <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+                               This KPI shows both underperforming and outperforming segments simultaneously. Choose which side Agent9 should focus on before generating solutions.
+                             </p>
+
+                             {/* Problem vs opportunity summary */}
+                             <div className="grid grid-cols-2 gap-2 mb-4 text-xs">
+                               <div className="bg-red-950/40 border border-red-800/40 rounded-lg px-3 py-2">
+                                 <div className="text-red-400 font-medium mb-0.5">Problem exposure</div>
+                                 <div className="font-mono text-red-300 text-sm">{formatExecutive(netProblemDelta, '$', false)}</div>
+                               </div>
+                               <div className="bg-emerald-950/40 border border-emerald-800/40 rounded-lg px-3 py-2">
+                                 <div className="text-emerald-400 font-medium mb-0.5">Opportunity upside</div>
+                                 <div className="font-mono text-emerald-300 text-sm">{formatExecutive(netOppDelta, '$', false)}</div>
+                               </div>
+                             </div>
+
+                             {/* Three choice cards */}
+                             <div className="space-y-2">
+                               <button
+                                 onClick={() => { setResolvedAnalysisMode('problem'); setAgentDecisionMessage(null); }}
+                                 className="w-full text-left bg-slate-950 border border-slate-700 hover:border-amber-500/50 rounded-lg p-3 transition-colors group"
+                               >
+                                 <div className="flex items-center gap-2 mb-1">
+                                   <span className="text-xs font-bold text-red-400 uppercase tracking-wide">Focus on Recovery</span>
+                                 </div>
+                                 <p className="text-[11px] text-slate-500 group-hover:text-slate-400 transition-colors leading-snug">
+                                   Generate solutions to close the performance gap in underperforming segments.
+                                 </p>
+                               </button>
+
+                               <button
+                                 onClick={() => { setResolvedAnalysisMode('opportunity'); setAgentDecisionMessage(null); }}
+                                 className="w-full text-left bg-slate-950 border border-slate-700 hover:border-amber-500/50 rounded-lg p-3 transition-colors group"
+                               >
+                                 <div className="flex items-center gap-2 mb-1">
+                                   <span className="text-xs font-bold text-emerald-400 uppercase tracking-wide">Focus on Opportunity</span>
+                                 </div>
+                                 <p className="text-[11px] text-slate-500 group-hover:text-slate-400 transition-colors leading-snug">
+                                   Generate solutions to scale and replicate what's already working well.
+                                 </p>
+                               </button>
+
+                               <button
+                                 onClick={() => {
+                                   const decided = netOppDelta > netProblemDelta ? 'opportunity' : 'problem';
+                                   setResolvedAnalysisMode(decided);
+                                   setAgentDecisionMessage(
+                                     decided === 'opportunity'
+                                       ? `Agent9 chose Opportunity — upside (${formatExecutive(netOppDelta, '$', false)}) outweighs problem exposure (${formatExecutive(netProblemDelta, '$', false)}).`
+                                       : `Agent9 chose Recovery — problem exposure (${formatExecutive(netProblemDelta, '$', false)}) outweighs upside (${formatExecutive(netOppDelta, '$', false)}).`
+                                   );
+                                 }}
+                                 className="w-full text-left bg-slate-950 border border-slate-700 hover:border-amber-500/50 rounded-lg p-3 transition-colors group"
+                               >
+                                 <div className="flex items-center gap-2 mb-1">
+                                   <Sparkles className="w-3 h-3 text-amber-400" />
+                                   <span className="text-xs font-bold text-slate-300 uppercase tracking-wide">Let Agent9 Decide</span>
+                                 </div>
+                                 <p className="text-[11px] text-slate-500 group-hover:text-slate-400 transition-colors leading-snug">
+                                   Auto-selects the side with the larger absolute net delta.
+                                 </p>
+                               </button>
+                             </div>
+                           </>
+                         )}
                        </div>
-                     </div>
+                     )}
+
+                     {/* ── Refinement + Generate Solutions — enabled only when mode is resolved ── */}
+                     {(analysisMode !== 'mixed' || resolvedAnalysisMode !== null) && (
+                       <div className="bg-indigo-900/10 border border-indigo-500/20 rounded-xl p-6 text-center">
+                           <Lightbulb className="w-10 h-10 text-indigo-400 mx-auto mb-3" />
+                           <h3 className="text-white font-medium mb-2">Refine Problem Statement</h3>
+                           <p className="text-sm text-slate-400 mb-4">
+                               Collaborate with the AI to validate hypotheses and set constraints before solving.
+                           </p>
+                           <button
+                               onClick={onStartRefinement}
+                               className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors"
+                           >
+                               Start Refinement Session
+                           </button>
+                           <button
+                               onClick={() => setShowPersonaSelector(true)}
+                               className="w-full mt-2 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded font-medium flex items-center justify-center gap-2"
+                           >
+                               <CircleDot className="w-3 h-3" />
+                               Generate Solutions →
+                           </button>
+                       </div>
+                     )}
+
+                     {/* Generate Solutions disabled state — visible but blocked until mode resolved */}
+                     {analysisMode === 'mixed' && resolvedAnalysisMode === null && (
+                       <div className="bg-slate-900/30 border border-slate-800 rounded-xl p-6 text-center opacity-40 pointer-events-none select-none">
+                           <Lightbulb className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+                           <h3 className="text-slate-500 font-medium mb-2">Refine Problem Statement</h3>
+                           <p className="text-sm text-slate-600 mb-4">
+                               Resolve the mixed signal above to unlock this step.
+                           </p>
+                           <div className="w-full py-2 bg-slate-800 text-slate-600 rounded-lg font-medium">
+                               Start Refinement Session
+                           </div>
+                           <div className="w-full mt-2 py-2 bg-slate-800 text-slate-600 rounded font-medium flex items-center justify-center gap-2">
+                               <CircleDot className="w-3 h-3" />
+                               Generate Solutions →
+                           </div>
+                       </div>
+                     )}
+
                    </div>
                  )}
 

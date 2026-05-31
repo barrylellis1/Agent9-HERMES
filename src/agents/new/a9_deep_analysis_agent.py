@@ -1784,6 +1784,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 when_started=when_started,
                 dimensions_suggested=getattr(plan, "dimensions", []),
                 analysis_mode=getattr(plan, "analysis_mode", "problem"),
+                mixed_framing=(_effective_mode_final == "mixed"),
             )
         except Exception as e:
             import traceback as _tb
