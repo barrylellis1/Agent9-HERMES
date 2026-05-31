@@ -480,7 +480,25 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                               {controls.map((seg: any, i: number) => (
                                 <div key={i} className="flex items-center justify-between bg-slate-950/50 rounded px-3 py-2 text-xs text-slate-400">
                                   <span>{seg.dimension}: {seg.key}</span>
-                                  <span className="font-mono">{formatExecutive(seg.delta || 0)}</span>
+                                  <div className="flex items-center gap-2">
+                                    {seg.is_outlier && (
+                                      <span
+                                        className="text-[10px] px-1.5 py-0.5 bg-amber-900/30 text-amber-400 rounded font-medium cursor-help"
+                                        title="Statistical outlier — delta exceeds mean + 2σ of peer segments. Excluded from replication candidates; interpret with caution."
+                                      >
+                                        Outlier
+                                      </span>
+                                    )}
+                                    {seg.effect_size_pct != null && (
+                                      <span
+                                        className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-500 rounded font-mono cursor-help"
+                                        title={`Accounts for ${Math.round(seg.effect_size_pct * 100)}% of total variance across all segments`}
+                                      >
+                                        {Math.round(seg.effect_size_pct * 100)}% of gap
+                                      </span>
+                                    )}
+                                    <span className="font-mono">{formatExecutive(seg.delta || 0)}</span>
+                                  </div>
                                 </div>
                               ))}
                             </div>

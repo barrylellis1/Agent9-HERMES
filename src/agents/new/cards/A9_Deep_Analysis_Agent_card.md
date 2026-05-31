@@ -108,7 +108,7 @@ DA produces both problem segments AND opportunity segments from the same IS/IS N
 - `analysis_mode` is now propagated from `DeepAnalysisRequest` → `DeepAnalysisPlan` → `execute_deep_analysis`
 - `execute_deep_analysis`: when `analysis_mode="opportunity"`, swaps which list goes to `kt.where_is` vs `kt.where_is_not`
 - `_generate_scqa_summary`: direction string and fallback text are both mode-aware
-- `_classify_benchmark_segments()`: classifies IS NOT items into `internal_benchmark` (top quartile) or `control_group`; also computes `effect_size_pct` (segment |delta| / total variance) and `is_outlier` (|delta| > mean + 2σ) on every `BenchmarkSegment`
+- `_classify_benchmark_segments()`: classifies IS NOT items into `internal_benchmark` (top quartile) or `control_group`; computes `effect_size_pct` (segment |delta| / total variance) and `is_outlier` (|delta| > mean + 2σ) on every `BenchmarkSegment`. Outlier segments are forced to `control_group` with `replication_potential=None` regardless of quartile rank — a statistical outlier cannot be a reliable replication target.
 
 ## Phase 10F — Uniform Time Dimension Layer (May 2026)
 - `_prev_timeframe()` replaced: now delegates to `TimeFilter.previous_period_name(timeframe)` — consistent mapping for all timeframe strings including `year_to_date`.

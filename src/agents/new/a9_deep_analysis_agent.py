@@ -57,13 +57,14 @@ def _classify_benchmark_segments(is_not_items):
     segments = []
     for item in is_not_items:
         abs_delta = abs(item.get("delta", 0))
-        is_bmark = abs_delta >= threshold and threshold > 0
         delta = item.get("delta", 0)
         current = float(item.get("current", 0) or 0.0)
         previous = float(item.get("previous", 0) or 0.0)
         delta_pct = ((current - previous) / previous * 100) if previous else None
         effect_size = abs_delta / total_variance
         is_outlier = abs_delta > outlier_cutoff and std_delta > 0
+        # Outliers cannot be reliable replication targets — downgrade to control_group
+        is_bmark = abs_delta >= threshold and threshold > 0 and not is_outlier
         rep_potential = round(min(1.0, effect_size * 2), 3) if is_bmark else None
         segments.append(BenchmarkSegment(
             dimension=item.get("dimension", ""),

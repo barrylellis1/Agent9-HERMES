@@ -84,6 +84,8 @@ export interface BenchmarkSegment {
   delta_pct?: number;
   benchmark_type: 'control_group' | 'internal_benchmark';
   replication_potential?: number;
+  effect_size_pct?: number;
+  is_outlier?: boolean;
 }
 
 export interface KTIsIsNotData {
