@@ -89,7 +89,7 @@ export const ApprovalScene: React.FC = () => {
               CRITICAL
             </div>
             <div className="text-right">
-              <p className="text-sm" style={{ color: COLORS.muted }}>Prepared by Agent9 Decision Studio</p>
+              <p className="text-sm" style={{ color: COLORS.muted }}>Prepared by Decision Studio</p>
               <p className="text-sm" style={{ color: COLORS.muted }}>March 17, 2026</p>
             </div>
           </div>
@@ -249,16 +249,16 @@ export const ApprovalScene: React.FC = () => {
 
         {/* PAGE 5: Stage 1 — Independent Firm Proposals */}
         <div className="absolute inset-0" style={{ opacity: pageOpacity(15, 18) }}>
-          <SectionHeader number="1" title="Stage 1: Independent Firm Proposals" />
+          <SectionHeader number="1" title="Stage 1: Strategy Council — Independent Perspectives" />
           <p className="text-sm mt-1 mb-4" style={{ color: COLORS.muted }}>
-            Each consulting firm independently analyzed the problem and proposed an intervention using their signature framework.
+            Four independent advisors analyzed the problem in parallel, each applying their specialist lens before synthesis.
           </p>
           <div className="grid grid-cols-2 gap-4 max-w-5xl">
             {[
-              { firm: 'Bain & Company', framework: 'Net Promoter System + Full Potential Transformation', subtitle: 'Hedging & SKU Mix Optimization' },
-              { firm: 'Deloitte', framework: 'Digital Maturity Model + Procurement Operations Optimization', subtitle: 'Procurement visibility & controls' },
-              { firm: 'Accenture', framework: 'Industry X.0 Supply Chain Exposure & Hedging Maturity', subtitle: 'Dynamic hedging triggers' },
-              { firm: 'KPMG', framework: 'Connected Enterprise Risk & Controls Assessment', subtitle: 'Audit-ready governance' },
+              { firm: 'Operations Strategist', framework: 'SKU-level cost decomposition + internal benchmark analysis', subtitle: 'Spot-to-contract conversion pathway' },
+              { firm: 'Procurement Analyst', framework: 'Supplier concentration risk + contract structure review', subtitle: 'Procurement visibility & controls' },
+              { firm: 'Supply Chain Specialist', framework: 'Commodity exposure mapping + hedging maturity model', subtitle: 'Dynamic price-trigger hedging' },
+              { firm: 'Risk & Governance Advisor', framework: 'Cost overrun attribution + control gap assessment', subtitle: 'Audit-ready governance framework' },
             ].map((f) => (
               <div key={f.firm} className="rounded-xl border p-4" style={{ backgroundColor: COLORS.surface, borderColor: COLORS.border }}>
                 <div className="flex items-center justify-between mb-2">

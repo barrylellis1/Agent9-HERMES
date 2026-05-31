@@ -89,7 +89,7 @@ Defined in `src/api/routes/kpi_accountability.py`:
 | `POST /accountability/interview/start` | Initialises a new session; returns opening message |
 | `POST /accountability/interview/chat` | Continues an existing session |
 | `POST /accountability/interview/confirm` | Writes confirmed `ProposedAssignment` rows to `kpi_accountability` |
-| `GET /accountability/coverage/{client_id}` | Returns live coverage stats via `get_coverage()` |
+| `GET /accountability/coverage/{client_id}` | Returns live coverage stats via `get_coverage()`. Conflicts list uses `kpi_name` (display name), not `kpi_id`. |
 
 ## What This Agent Must NOT Do
 

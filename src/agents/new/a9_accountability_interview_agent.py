@@ -723,8 +723,9 @@ MANDATORY OUTPUT RULES — follow these on EVERY turn:
             for r in all_records:
                 if r.role.value == "accountable":
                     scope_map[(r.kpi_id, r.scope_dimension, r.scope_value)] += 1
+            kpi_name_map = {getattr(k, "id", ""): getattr(k, "name", "") for k in all_kpis_raw}
             conflicts = [
-                {"kpi_id": kpi_id, "kpi_name": kpi_id, "principal_count": count}
+                {"kpi_id": kpi_id, "kpi_name": kpi_name_map.get(kpi_id, kpi_id), "principal_count": count}
                 for (kpi_id, _, _), count in scope_map.items()
                 if count > 1
             ]

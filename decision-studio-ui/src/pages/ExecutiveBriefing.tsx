@@ -667,6 +667,10 @@ export function ExecutiveBriefing() {
               } else if (kd.comparison_value != null && kd.comparison_value !== 0) {
                 monthlyRate = (kd.current_value - kd.comparison_value) / kd.comparison_value / 12
               }
+              // percent_change is sometimes a raw dollar delta rather than a true percentage.
+              // Cap at ±100%/year to prevent astronomical projections when input data is unreliable.
+              const MAX_MONTHLY_RATE = 1.0 / 12
+              monthlyRate = Math.sign(monthlyRate) * Math.min(Math.abs(monthlyRate), MAX_MONTHLY_RATE)
               const projected30d = kd.current_value * (1 + monthlyRate)
               const projected90d = kd.current_value * (1 + monthlyRate * 3)
               const trendDir: 'deteriorating' | 'stable' | 'recovering' =
@@ -718,10 +722,6 @@ export function ExecutiveBriefing() {
                         </div>
                       )}
                     </div>
-                    {/* Rationale */}
-                    {data.recommendation?.rationale && (
-                      <p className="text-sm text-slate-300 leading-relaxed mb-5">{data.recommendation.rationale}</p>
-                    )}
                     {/* 4-metric grid */}
                     <div className="grid grid-cols-4 gap-3 mb-5">
                       <div className="bg-slate-800/60 rounded-lg p-3">
@@ -1137,7 +1137,14 @@ export function ExecutiveBriefing() {
                           )}
                         </div>
                         <p className="text-sm text-slate-400 leading-relaxed mb-2 print:text-slate-700">{signal.summary}</p>
-                        {signal.source && <p className="text-xs text-slate-500">Source: {signal.source}</p>}
+                        {signal.source && (
+                          <p className="text-xs text-slate-500">
+                            Source:{' '}
+                            {signal.source === 'llm_knowledge' ? 'AI Knowledge Base'
+                              : signal.source === 'perplexity' ? 'Real-time Web Search'
+                              : signal.source}
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>
