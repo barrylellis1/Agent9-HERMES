@@ -366,6 +366,7 @@ export function useDecisionStudio() {
             plan: currentAnalysis.plan || {},
             execution: currentAnalysis,
             market_signals: marketSignals.length > 0 ? marketSignals : undefined,
+            market_conflict: marketConflict ?? undefined,
             situation_context: selectedSituation ? {
                 kpi_name: selectedSituation.kpi_name,
                 description: selectedSituation.description,

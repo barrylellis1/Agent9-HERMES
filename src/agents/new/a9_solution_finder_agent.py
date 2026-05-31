@@ -960,6 +960,11 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         if formatted_cps:
                             dataset_recap_lines.append("Change points: " + "; ".join(formatted_cps))
                     
+                    # Add market conflict warning when external signals contradict DA conclusion
+                    _s2_conflict = da_ctx.get("market_conflict") if isinstance(da_ctx, dict) else None
+                    if _s2_conflict and _s2_conflict.get("detected") and _s2_conflict.get("summary"):
+                        dataset_recap_lines.append(f"MARKET SIGNAL CONFLICT: {_s2_conflict['summary']}")
+
                     # Add Problem Refinement context from MBB-style chat
                     if refinement_result:
                         if refinement_result.get("external_context"):
@@ -1117,6 +1122,10 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         }
                         if da_summary.get("benchmark_segments"):
                             da_compact_s1["internal_benchmarks"] = da_summary["benchmark_segments"]
+                        # Inject market conflict so personas factor in external headwinds/tailwinds
+                        _s1_conflict = da_ctx.get("market_conflict") if isinstance(da_ctx, dict) else None
+                        if _s1_conflict and _s1_conflict.get("detected") and _s1_conflict.get("summary"):
+                            da_compact_s1["market_signal_conflict"] = _s1_conflict["summary"]
                         bc_compact_s1: Dict[str, Any] = {}
                         if isinstance(bc, dict):
                             bc_compact_s1 = {k: v for k, v in {

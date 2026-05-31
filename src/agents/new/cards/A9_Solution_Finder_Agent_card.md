@@ -164,6 +164,10 @@ When the upstream DA output carries `plan.analysis_mode = "opportunity"`, SF swi
 
 **`da_compact_s1`** now includes `"analysis_mode"` key so Stage 1 personas see it in KEY ANALYSIS SIGNALS.
 
+**Market Conflict Propagation (May 2026):** When `deep_analysis_output.market_conflict.detected` is true, the conflict summary is injected at both prompt stages:
+- Stage 1: added to `da_compact_s1["market_signal_conflict"]` — each persona's hypothesis must account for the external contradiction
+- Stage 2: added to `dataset_recap_lines` as `MARKET SIGNAL CONFLICT:` alongside principal context and refinement constraints
+
 - May 2026: Business context client_id resolution — `_enrich_with_business_context` now resolves `client_id` from `da_summary["client_id"]` or `request.client_id` before falling back to KPI name scan, preventing cross-tenant context loading when two clients share a KPI name.
 
 ## Phase 11G — Mixed-Mode Input Resolution (May 2026)

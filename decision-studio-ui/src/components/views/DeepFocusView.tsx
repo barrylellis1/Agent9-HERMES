@@ -373,24 +373,6 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                 );
                             })()}
 
-                            {/* Market conflict alert — shown when MA sentiment contradicts DA conclusion */}
-                            {initialMarketConflict?.detected && initialMarketConflict.summary && (
-                              <div className="flex gap-3 bg-amber-950/40 border border-amber-600/30 rounded-lg px-4 py-3">
-                                <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-                                <div>
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 block mb-0.5">
-                                    Market Signal Conflict
-                                    {initialMarketConflict.confidence != null && (
-                                      <span className="ml-2 font-normal normal-case text-amber-500">
-                                        ({Math.round(initialMarketConflict.confidence * 100)}% confidence)
-                                      </span>
-                                    )}
-                                  </span>
-                                  <p className="text-xs text-amber-200/80">{initialMarketConflict.summary}</p>
-                                </div>
-                              </div>
-                            )}
-
                             {/* Change Points list — compact fallback when no Is/Is Not data */}
                             {!currentAnalysis.kt_is_is_not && currentAnalysis.change_points && currentAnalysis.change_points.length > 0 && (
                             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
@@ -510,15 +492,32 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                 })()}
 
                 {/* Market Intelligence — separate accordion section */}
-                {initialMarketSignals && initialMarketSignals.length > 0 && (
+                {(initialMarketSignals && initialMarketSignals.length > 0 || initialMarketConflict?.detected) && (
                     <AccordionSection
                         id="market-intelligence"
                         title="Market Intelligence"
-                        icon={<Sparkles className="w-4 h-4 text-amber-400" />}
-                        summary={`${initialMarketSignals.length} signal${initialMarketSignals.length === 1 ? '' : 's'}`}
+                        icon={<Sparkles className={`w-4 h-4 ${initialMarketConflict?.detected ? 'text-amber-400' : 'text-amber-400'}`} />}
+                        summary={initialMarketSignals && initialMarketSignals.length > 0 ? `${initialMarketSignals.length} signal${initialMarketSignals.length === 1 ? '' : 's'}` : 'conflict detected'}
                     >
                         <div className="space-y-3">
-                            {initialMarketSignals.map((signal, i) => (
+                            {/* Conflict banner — shown at top when MA signals contradict DA conclusion */}
+                            {initialMarketConflict?.detected && initialMarketConflict.summary && (
+                              <div className="flex gap-3 bg-amber-950/40 border border-amber-600/30 rounded-lg px-4 py-3">
+                                <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                                <div>
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 block mb-0.5">
+                                    Signal Conflict
+                                    {initialMarketConflict.confidence != null && (
+                                      <span className="ml-2 font-normal normal-case text-amber-500">
+                                        ({Math.round(initialMarketConflict.confidence * 100)}% confidence)
+                                      </span>
+                                    )}
+                                  </span>
+                                  <p className="text-xs text-amber-200/80">{initialMarketConflict.summary}</p>
+                                </div>
+                              </div>
+                            )}
+                            {initialMarketSignals && initialMarketSignals.map((signal, i) => (
                                 <div key={i} className="bg-slate-950 border border-slate-800 rounded-lg p-4">
                                     <div className="flex items-start justify-between mb-1">
                                         <h4 className="text-sm font-semibold text-white">{signal.title}</h4>
@@ -682,6 +681,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                  plan: currentAnalysis.plan || {},
                                  execution: currentAnalysis,
                                  market_signals: initialMarketSignals && initialMarketSignals.length > 0 ? initialMarketSignals : undefined,
+                                 market_conflict: initialMarketConflict ?? undefined,
                                  situation_context: {
                                      kpi_name: situation.kpi_name,
                                      description: situation.description,
