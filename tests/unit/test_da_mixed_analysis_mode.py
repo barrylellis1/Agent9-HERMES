@@ -222,3 +222,25 @@ class TestDeepAnalysisResponseAnalysisMode:
         )
         assert resp.analysis_mode == "mixed"
         assert resp.status == "success"
+
+    def test_mixed_framing_true_when_mode_is_mixed(self):
+        resp = DeepAnalysisResponse.success(
+            request_id=_REQ_ID,
+            data={"scqa_summary": "test"},
+            analysis_mode="mixed",
+            mixed_framing=True,
+        )
+        assert resp.mixed_framing is True
+
+    def test_mixed_framing_false_when_mode_is_problem(self):
+        resp = DeepAnalysisResponse.success(
+            request_id=_REQ_ID,
+            data={"scqa_summary": "test"},
+            analysis_mode="problem",
+            mixed_framing=False,
+        )
+        assert resp.mixed_framing is False
+
+    def test_mixed_framing_defaults_false(self):
+        resp = DeepAnalysisResponse(request_id=_REQ_ID, status="ok", message="ok", analysis_mode="mixed")
+        assert resp.mixed_framing is False
