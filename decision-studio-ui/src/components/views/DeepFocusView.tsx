@@ -200,13 +200,12 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   const [resolvedAnalysisMode, setResolvedAnalysisMode] = useState<'problem' | 'opportunity' | null>(null);
   const [agentDecisionMessage, setAgentDecisionMessage] = useState<string | null>(null);
 
-  // Reset resolution gate whenever a new mixed-mode analysis result arrives
+  // Reset resolution gate when the KPI or analysis mode changes — depends on primitives,
+  // not the object reference, so parent re-renders with the same data don't clear a resolved choice.
   useEffect(() => {
-    if (analysisResults?.analysis_mode === 'mixed') {
-      setResolvedAnalysisMode(null);
-      setAgentDecisionMessage(null);
-    }
-  }, [analysisResults]);
+    setResolvedAnalysisMode(null);
+    setAgentDecisionMessage(null);
+  }, [analysisResults?.kpi_name, analysisResults?.analysis_mode]);
 
   // Net absolute delta per segment type — drives the "Let Agent9 Decide" logic
   const { netProblemDelta, netOppDelta } = useMemo(() => {
@@ -652,16 +651,26 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                              </p>
 
                              {/* Problem vs opportunity summary */}
-                             <div className="grid grid-cols-2 gap-2 mb-4 text-xs">
-                               <div className="bg-red-950/40 border border-red-800/40 rounded-lg px-3 py-2">
-                                 <div className="text-red-400 font-medium mb-0.5">Problem exposure</div>
-                                 <div className="font-mono text-red-300 text-sm">{formatExecutive(netProblemDelta, '$', false)}</div>
+                             {netProblemDelta === 0 && netOppDelta === 0 ? (
+                               <p className="text-xs text-slate-500 italic mb-4">
+                                 Segment deltas unavailable — choose a direction manually or let Agent9 decide.
+                               </p>
+                             ) : (
+                               <div className="grid grid-cols-2 gap-2 mb-4 text-xs">
+                                 <div className="bg-red-950/40 border border-red-800/40 rounded-lg px-3 py-2">
+                                   <div className="text-red-400 font-medium mb-0.5">Problem exposure</div>
+                                   <div className="font-mono text-red-300 text-sm">
+                                     {netProblemDelta > 0 ? formatExecutive(netProblemDelta, '$', false) : '—'}
+                                   </div>
+                                 </div>
+                                 <div className="bg-emerald-950/40 border border-emerald-800/40 rounded-lg px-3 py-2">
+                                   <div className="text-emerald-400 font-medium mb-0.5">Opportunity upside</div>
+                                   <div className="font-mono text-emerald-300 text-sm">
+                                     {netOppDelta > 0 ? formatExecutive(netOppDelta, '$', false) : '—'}
+                                   </div>
+                                 </div>
                                </div>
-                               <div className="bg-emerald-950/40 border border-emerald-800/40 rounded-lg px-3 py-2">
-                                 <div className="text-emerald-400 font-medium mb-0.5">Opportunity upside</div>
-                                 <div className="font-mono text-emerald-300 text-sm">{formatExecutive(netOppDelta, '$', false)}</div>
-                               </div>
-                             </div>
+                             )}
 
                              {/* Three choice cards */}
                              <div className="space-y-2">
