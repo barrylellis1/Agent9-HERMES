@@ -423,16 +423,23 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     da_ctx = request.deep_analysis_output or {}
                     da_summary = _extract_deep_analysis_summary(da_ctx)
 
-                    # Detect analysis_mode from DA plan (propagated from DeepAnalysisRequest)
+                    # Detect analysis_mode — HITL-resolved mode in prefs wins over DA plan's
+                    # "mixed" auto-detection. prefs carries the principal's explicit choice
+                    # ("problem" or "opportunity") after the mixed-mode resolution gate.
                     _da_plan_dict = None
                     try:
                         _raw_plan = da_ctx.get("plan") if isinstance(da_ctx, dict) else None
                         _da_plan_dict = _model_to_dict(_raw_plan)
                     except Exception:
                         pass
+                    _prefs_mode = prefs.get("analysis_mode") if isinstance(prefs, dict) else None
+                    _plan_mode = _da_plan_dict.get("analysis_mode") if isinstance(_da_plan_dict, dict) else None
+                    # Resolved binary modes ("problem"/"opportunity") from the principal override
+                    # the DA plan's "mixed" classification. Only fall through to the plan when
+                    # prefs carries no resolved mode.
                     analysis_mode: str = (
-                        (_da_plan_dict.get("analysis_mode") if isinstance(_da_plan_dict, dict) else None)
-                        or (prefs.get("analysis_mode") if isinstance(prefs, dict) else None)
+                        (_prefs_mode if _prefs_mode in ("problem", "opportunity") else None)
+                        or _plan_mode
                         or "problem"
                     )
                     is_opportunity = analysis_mode == "opportunity"
@@ -1112,12 +1119,31 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             self.logger.info(f"[SF] Restored {len(stage_1_hyps_dict)} Stage 1 hypotheses from prior call")
                     _skip_synthesis_llm = False  # Set True for stage1_only after Stage 1 completes
                     if consulting_personas and not _skip_stage1:
+                        # In mixed mode the IS list carries both problem and opportunity items.
+                        # Filter where_signals and where_is_not by segment_type so Stage 1
+                        # personas see only the segments relevant to the resolved mode — preventing
+                        # the LLM from oscillating between "scale winners" and "fix losers" framing
+                        # across runs on identical data.
+                        _raw_where_signals = da_summary.get("where_signals", [])
+                        _raw_where_is_not  = da_summary.get("where_is_not", [])
+                        if is_opportunity and _raw_where_signals:
+                            _opp_signals  = [s for s in _raw_where_signals
+                                             if not isinstance(s, dict) or s.get("segment_type") != "problem"]
+                            _prob_signals  = [s for s in _raw_where_signals
+                                             if isinstance(s, dict) and s.get("segment_type") == "problem"]
+                            # Opportunity mode: IS = leaders, IS NOT = laggards (replication targets)
+                            _where_signals_s1  = (_opp_signals  or _raw_where_signals)[:3]
+                            _where_is_not_s1   = (_prob_signals or _raw_where_is_not)[:3]
+                        else:
+                            _where_signals_s1 = _raw_where_signals[:3]
+                            _where_is_not_s1  = _raw_where_is_not[:3]
+
                         da_compact_s1 = {
                             "kpi_name": da_summary.get("kpi_name"),
                             "analysis_mode": analysis_mode,
                             "top_change_points": da_summary.get("top_change_points", [])[:3],
-                            "where_signals": da_summary.get("where_signals", [])[:3],
-                            "where_is_not": da_summary.get("where_is_not", [])[:3],
+                            "where_signals": _where_signals_s1,
+                            "where_is_not": _where_is_not_s1,
                             "what_is_not": da_summary.get("what_is_not", [])[:3],
                         }
                         if da_summary.get("benchmark_segments"):
@@ -1245,6 +1271,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                     context="",
                                     # Light model for focused single-persona call (overridable via CLAUDE_MODEL_STAGE1)
                                     model=get_claude_model_for_task(ClaudeTaskType.STAGE1_PERSONA),
+                                    # temperature=0 ensures identical inputs always produce the same
+                                    # hypothesis — prevents mode drift across repeated runs on the same DA data
+                                    temperature=0.0,
                                 )
                                 if self.orchestrator is not None:
                                     s1_resp = await self.orchestrator.execute_agent_method(

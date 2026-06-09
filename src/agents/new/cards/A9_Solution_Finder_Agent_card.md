@@ -143,10 +143,12 @@ Environment variable override: `OPENAI_MODEL_SOLUTION`
 
 When the upstream DA output carries `plan.analysis_mode = "opportunity"`, SF switches its framing from problem-solving to replication/scaling:
 
-**`analysis_mode` detection:**
-- Primary: `da_ctx["plan"]["analysis_mode"]` (propagated by DA into its plan object)
-- Secondary: `request.preferences["analysis_mode"]`
+**`analysis_mode` detection (priority order):**
+- Primary: `request.preferences["analysis_mode"]` when it is a resolved binary mode (`"problem"` or `"opportunity"`) — this carries the HITL-resolved principal choice and overrides DA plan
+- Secondary: `da_ctx["plan"]["analysis_mode"]` (DA plan's auto-detected mode; may be `"mixed"`)
 - Default: `"problem"`
+
+The HITL-resolved mode wins over `"mixed"` in the DA plan — a `"mixed"` plan value must never suppress a principal's explicit `"opportunity"` resolution.
 
 **Stage 1 task (per-persona Haiku calls):**
 | Mode | Task | hypothesis field | recommended_focus |
@@ -163,6 +165,13 @@ When the upstream DA output carries `plan.analysis_mode = "opportunity"`, SF swi
 - Opportunity: "situation MUST describe outperformance; complication = replication gap; all 3 options must address scaling, not fixing"
 
 **`da_compact_s1`** now includes `"analysis_mode"` key so Stage 1 personas see it in KEY ANALYSIS SIGNALS.
+
+**`where_signals` mode-filtering (May 2026):** In mixed mode the IS list carries both `segment_type="problem"` and `segment_type="opportunity"` items. Before Stage 1, `da_compact_s1["where_signals"]` is filtered by the resolved mode:
+- `opportunity`: only opportunity-tagged IS items → `where_is_not` receives problem-tagged items as replication targets
+- `problem`: no filtering — all IS items passed as-is
+This eliminates LLM oscillation between "scale winners" and "fix losers" framings across repeated runs on identical data.
+
+**Stage 1 temperature:** Fixed at `0.0` — ensures identical inputs always produce identical hypotheses, making recommendation output deterministic across repeated runs on the same DA result.
 
 **Market Conflict Propagation (May 2026):** When `deep_analysis_output.market_conflict.detected` is true, the conflict summary is injected at both prompt stages:
 - Stage 1: added to `da_compact_s1["market_signal_conflict"]` — each persona's hypothesis must account for the external contradiction
