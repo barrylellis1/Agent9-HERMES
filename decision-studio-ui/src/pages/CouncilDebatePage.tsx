@@ -189,6 +189,13 @@ export const CouncilDebatePage: React.FC = () => {
     if (!situation || !debateConfig) return;
 
     try {
+      // Clear stale solution data before starting a new debate run
+      try {
+        Object.keys(localStorage)
+          .filter(k => k.startsWith('solutions_') || k.startsWith('briefing_') || k.startsWith('solution_request_'))
+          .forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
+      } catch (_) {}
+
       setPhase(1);
 
       const deepAnalysisPayload = deepAnalysisResults || {
@@ -284,12 +291,18 @@ export const CouncilDebatePage: React.FC = () => {
       }
       setSynthesis(enriched || null);
 
-      // Persist
+      // Persist — clear stale solution keys first to avoid localStorage quota errors
       if (enriched && situationId) {
-        localStorage.setItem(`solutions_${situationId}`, JSON.stringify(enriched));
-        const bp = buildExecutiveBriefing(situation, deepAnalysisResults, enriched, marketSignals || []);
-        localStorage.setItem(`briefing_${situationId}`, JSON.stringify(bp));
-        if (lastRequestId) localStorage.setItem(`solution_request_${situationId}`, lastRequestId);
+        try {
+          // Evict any prior solution/briefing entries before writing new ones
+          Object.keys(localStorage)
+            .filter(k => k.startsWith('solutions_') || k.startsWith('briefing_') || k.startsWith('solution_request_'))
+            .forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
+          localStorage.setItem(`solutions_${situationId}`, JSON.stringify(enriched));
+          const bp = buildExecutiveBriefing(situation, deepAnalysisResults, enriched, marketSignals || []);
+          localStorage.setItem(`briefing_${situationId}`, JSON.stringify(bp));
+          if (lastRequestId) localStorage.setItem(`solution_request_${situationId}`, lastRequestId);
+        } catch (_) { /* quota still exceeded — skip persistence, state held in memory */ }
       }
 
       const elapsed = Math.round((Date.now() - debateStartTime) / 1000);

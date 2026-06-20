@@ -104,7 +104,7 @@ export function useDecisionStudio() {
   
   // Context / Principal — seed from router state so there's only one SA scan on mount
   const [selectedPrincipal, setSelectedPrincipal] = useState(location.state?.principalId || "cfo_001");
-  const [timeframe, setTimeframe] = useState("year_to_date"); // 'year_to_date' | 'current_month'
+  const [timeframe, setTimeframe] = useState("year_to_date");
   const [principalInput, setPrincipalInput] = useState<{current_priorities: string[], known_constraints: string[]}>({
       current_priorities: [],
       known_constraints: []
