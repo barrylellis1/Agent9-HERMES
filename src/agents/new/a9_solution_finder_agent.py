@@ -168,6 +168,9 @@ def _extract_deep_analysis_summary(da_ctx: Any) -> Dict[str, Any]:
     kpi_name = None
     if isinstance(plan, dict):
         kpi_name = plan.get("kpi_name")
+        _plan_client_id = plan.get("client_id")
+        if _plan_client_id:
+            summary["client_id"] = str(_plan_client_id)
     if not kpi_name:
         kpi_name = data_ctx.get("kpi_name")
     if kpi_name:
@@ -451,10 +454,12 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     # FORCE KPI from summary if available, even if ps_raw is missing
                     target_kpi = da_summary.get("kpi_name") or "Business Metric"
 
+                    # Hoist change_points — used both inside and outside `if not ps:` block
+                    change_points = da_summary.get("top_change_points", [])
+
                     if not ps:
                         # Construct robust problem statement from DA summary
                         kpi = da_summary.get("kpi_name")
-                        change_points = da_summary.get("top_change_points", [])
                         
                         ps_parts = []
                         
@@ -1012,16 +1017,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                 or getattr(request, "client_id", None)
                             )
                             if not _client_id:
-                                try:
-                                    _kpi_provider = _RF().get_provider("kpi")
-                                    if _kpi_provider:
-                                        _kpi_nm = (da_summary.get("kpi_name") or "").lower().strip()
-                                        for _k in _kpi_provider.get_all():
-                                            if (getattr(_k, "name", "") or "").lower().strip() == _kpi_nm:
-                                                _client_id = getattr(_k, "client_id", None)
-                                                break
-                                except Exception:
-                                    pass
+                                self.logger.warning("[SF] client_id not resolved — skipping business context load to prevent cross-tenant contamination")
 
                             if _client_id:
                                 _bc_provider = SupabaseBusinessContextProvider()

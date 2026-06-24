@@ -221,7 +221,8 @@ export const CouncilDebatePage: React.FC = () => {
         deepAnalysisPayload, [], null,
         situation.principal_id || 'default',
         { ...preferencesBase, debate_stage: 'stage1_only' },
-        principalContext || {}, situation.situation_id
+        principalContext || {}, situation.situation_id,
+        principalContext?.client_id
       );
       lastRequestId = s1Result.request_id;
       stageResults.push(s1Result.result);
@@ -242,7 +243,8 @@ export const CouncilDebatePage: React.FC = () => {
             prior_transcript: stageResults[stageResults.length - 1]?.solutions?.debate_transcript,
             prior_stage1_hypotheses: hyps,
           },
-          principalContext || {}, situation.situation_id
+          principalContext || {}, situation.situation_id,
+          principalContext?.client_id
         );
         lastRequestId = s2Result.request_id;
         stageResults.push(s2Result.result);
@@ -258,7 +260,8 @@ export const CouncilDebatePage: React.FC = () => {
             prior_transcript: stageResults[stageResults.length - 1]?.solutions?.debate_transcript,
             prior_stage1_hypotheses: hyps,
           },
-          principalContext || {}, situation.situation_id
+          principalContext || {}, situation.situation_id,
+          principalContext?.client_id
         );
         lastRequestId = s3Result.request_id;
         stageResults.push(s3Result.result);
@@ -277,7 +280,8 @@ export const CouncilDebatePage: React.FC = () => {
           prior_transcript: stageResults[stageResults.length - 1]?.solutions?.debate_transcript,
           prior_stage1_hypotheses: hyps,
         },
-        principalContext || {}, situation.situation_id
+        principalContext || {}, situation.situation_id,
+        principalContext?.client_id
       );
       lastRequestId = s4Result.request_id;
       const finalSol = s4Result.result?.solutions || stageResults[stageResults.length - 1]?.solutions;

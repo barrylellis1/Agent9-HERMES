@@ -138,6 +138,7 @@ Environment variable override: `OPENAI_MODEL_SOLUTION`
 - Phase 10D fast debate mode and DA context trimming shipped
 
 - May 2026: Bug fixes — NaN normalization, multi-tenant kpi_registry collision fix, comparison value extraction
+- Jun 2026: Cross-tenant business context fix — `_extract_deep_analysis_summary` now extracts `client_id` from `DeepAnalysisPlan`; unsafe unscoped KPI name scan removed from business context resolution; `client_id` threaded through `SolutionWorkflowRequest` → `SolutionFinderRequest` and all `runSolutionFinder` call sites. `change_points` NameError fixed (hoisted above `if not ps:` block).
 
 ## Opportunity Mode Framing (May 2026)
 

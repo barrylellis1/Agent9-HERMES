@@ -441,7 +441,8 @@ export function useDecisionStudio() {
                 selectedPrincipal,
                 stagePreferences,
                 principalContext,
-                selectedSituation?.situation_id  // NEW: pass situation_id
+                selectedSituation?.situation_id,
+                selectedClientId
             );
             const response = sfResult.result;  // unwrap
             lastSolutionRequestId = sfResult.request_id;

@@ -147,6 +147,19 @@ export async function listClients(): Promise<any[]> {
   return envelope.data || [];
 }
 
+export async function createClient(payload: {
+  id: string;
+  name: string;
+  industry?: string;
+}): Promise<any> {
+  const envelope = await requestJson<Envelope<any>>(`/registry/clients`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return envelope.data;
+}
+
 export async function getPrincipal(id: string, clientId?: string): Promise<any> {
   const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
   const envelope = await requestJson<Envelope<any>>(`/registry/principals/${encodeURIComponent(id)}${qs}`);
@@ -471,8 +484,9 @@ export async function runSolutionFinder(
   principalInput: any = null,
   principalId: string = 'cfo_001',
   preferencesOverride: any = null,
-  principalContext: any = null,  // NEW: Principal context with decision_style
-  situationId?: string
+  principalContext: any = null,
+  situationId?: string,
+  clientId?: string
 ) {
     // 1. Trigger the workflow - pass full Deep Analysis result for agent-to-agent data exchange
     const body: any = {
@@ -491,6 +505,11 @@ export async function runSolutionFinder(
 
     if (situationId) {
         body.situation_id = situationId;
+    }
+
+    // Scope business context load to the correct tenant
+    if (clientId) {
+        body.client_id = clientId;
     }
 
     const runResponse = await fetch(`${API_BASE}/workflows/solutions/run`, {
@@ -906,5 +925,94 @@ export async function deleteConnectionProfile(id: string, clientId: string): Pro
   const params = new URLSearchParams({ client_id: clientId });
   await requestJson<void>(`/connection-profiles/${encodeURIComponent(id)}?${params.toString()}`, {
     method: 'DELETE',
+  });
+}
+
+// ---------------------------------------------------------------------------
+// KPI Template Generator — Phase 12A (Company Intelligence-Driven)
+// ---------------------------------------------------------------------------
+
+export type BenchmarkSource = 'filing' | 'peer' | 'inferred';
+
+export interface TemplateKPI {
+  name: string;
+  definition: string;
+  unit: string;
+  benchmark_low: number | null;
+  benchmark_high: number | null;
+  benchmark_range: string | null;
+  benchmark_source: BenchmarkSource | null;
+  confidence: number;
+  domain: string;
+  business_process_id: string | null;
+}
+
+export interface CompanyKPIProfile {
+  company_name: string;
+  industry_inferred: string | null;
+  is_public: boolean;
+  domains: string[];
+  template_kpis: TemplateKPI[];
+  research_sources: string[];
+  generated_at: string;
+  degraded: boolean;
+}
+
+export interface CompanyResearchRequest {
+  company_name: string;
+  client_id: string;
+  industry_hint?: string;
+  sub_sector?: string;
+  business_description?: string;
+  max_kpis?: number;
+}
+
+export interface CompanyResearchResponse {
+  status: 'success' | 'degraded' | 'error';
+  profile: CompanyKPIProfile | null;
+  error: string | null;
+}
+
+export interface AcceptedTemplateKPI extends TemplateKPI {
+  kpi_id?: string | null;
+}
+
+export interface CommitTemplatesRequest {
+  client_id: string;
+  accepted_kpis: AcceptedTemplateKPI[];
+  created_by?: string;
+}
+
+export interface CommittedKPISummary {
+  kpi_id: string;
+  name: string;
+  status: 'written' | 'skipped_duplicate' | 'error';
+  error: string | null;
+}
+
+export interface CommitTemplatesResponse {
+  rows_written: number;
+  rows_skipped: number;
+  rows_failed: number;
+  results: CommittedKPISummary[];
+}
+
+export async function researchCompanyKpiProfile(
+  payload: CompanyResearchRequest,
+): Promise<CompanyResearchResponse> {
+  return requestJson<CompanyResearchResponse>(`/templates/research-company`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function commitKpiTemplates(
+  payload: CommitTemplatesRequest,
+): Promise<CommitTemplatesResponse> {
+  return requestJson<CommitTemplatesResponse>(`/templates/commit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
 }

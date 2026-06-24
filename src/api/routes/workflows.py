@@ -156,6 +156,7 @@ class SolutionWorkflowRequest(BaseModel):
     preferences: Optional[Dict[str, Any]] = Field(None, description="Additional preferences for recommendations")
     principal_context: Optional[Dict[str, Any]] = Field(None, description="Principal context with decision_style for Principal-driven approach")
     refinement_result: Optional[Dict[str, Any]] = Field(None, description="Problem refinement chat result with exclusions, constraints, and council routing")
+    client_id: Optional[str] = Field(None, description="Client/tenant ID — scopes business context and registry lookups to this client only")
 
 
 class ProblemRefinementRequest(BaseModel):
@@ -1034,6 +1035,9 @@ async def _run_solution_workflow(request_id: str, runtime: AgentRuntime, request
         # Add principal_context if provided (for Principal-driven approach with decision_style)
         if request.principal_context:
             solution_request_payload["principal_context"] = request.principal_context
+        # client_id scopes business context load — prevents cross-tenant contamination
+        if request.client_id:
+            solution_request_payload["client_id"] = request.client_id
         solution_request = SolutionFinderRequest(**solution_request_payload)
 
         # Use Orchestrator to run the Solution Finding workflow
