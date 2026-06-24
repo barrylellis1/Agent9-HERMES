@@ -103,6 +103,19 @@ class KPI(BaseModel):
         None,
         description="Per-KPI monitoring calibration. None = use engine defaults. Set by KPI Assistant after volatility analysis."
     )
+    # Phase 12A — template lifecycle
+    status: str = Field(
+        "active",
+        description="KPI lifecycle: 'template' = research artifact pending data connection (SA skips); 'active' = monitored"
+    )
+    benchmark_range: Optional[str] = Field(
+        None,
+        description="Display-friendly industry benchmark range (e.g. '12-18%'). Populated by Phase 12A template generator."
+    )
+    benchmark_source: Optional[str] = Field(
+        None,
+        description="Provenance of benchmark_range: 'filing' | 'peer' | 'inferred'."
+    )
 
     @classmethod
     def from_enum_value(cls, enum_value: str, domain: str = "Finance") -> "KPI":

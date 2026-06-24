@@ -271,7 +271,16 @@ class A9_Situation_Awareness_Agent:
             target_domains = self.config.get("target_domains", ["Finance"])
             logger.info(f"Filtering KPIs for domains: {target_domains}")
             self.kpi_registry = {}
+            templates_skipped = 0
             for kpi in kpis:
+                # Phase 12A guard: never evaluate template KPIs.
+                # Template rows are research artifacts pending data connection — they have
+                # no data_product_id mapping and would either error or return zero values.
+                kpi_status = getattr(kpi, "status", "active") or "active"
+                if kpi_status != "active":
+                    templates_skipped += 1
+                    continue
+
                 if self._kpi_matches_domains(kpi, target_domains):
                     kpi_def = self._convert_to_kpi_definition(kpi)
                     if kpi_def:
@@ -282,7 +291,10 @@ class A9_Situation_Awareness_Agent:
                         if kpi_def.client_id:
                             self.kpi_registry[f"{kpi_def.client_id}:{kpi_def.name}"] = kpi_def
             unique_names = len([k for k in self.kpi_registry if ':' not in k])
-            logger.info(f"Added {unique_names} unique KPI names to registry for domains: {target_domains}")
+            logger.info(
+                f"Added {unique_names} unique KPI names to registry for domains: {target_domains} "
+                f"(skipped {templates_skipped} template KPIs)"
+            )
             if not self.kpi_registry:
                 logger.warning("No matching KPIs found in registry for target domains")
         except Exception as e:

@@ -1,16 +1,19 @@
 # A9_Market_Analysis_Agent Card
 
-**Last Updated:** 2026-05-31  
-**Status:** MVP Active
+**Last Updated:** 2026-06-02  
+**Status:** Active (Phase 12A — Company Intelligence KPI Template Generator)
 
 ## Overview
 The `A9_Market_Analysis_Agent` retrieves external market signals relevant to a KPI anomaly and synthesises them into an executive-ready narrative using A9_LLM_Service_Agent. It is called optionally from the Solution Finder synthesis stage to enrich recommendations with external context.
+
+**Phase 12A extension:** the agent also researches a company's public footprint (filings, segments, peer benchmarks, strategic priorities) and produces a benchmark-anchored `CompanyKPIProfile` for org-first onboarding via `research_company_kpi_profile()`.
 
 ## Protocol Entrypoints
 
 | Method | Signature | Returns |
 |--------|-----------|---------|
 | `analyze_market` | `async def analyze_market(request: MarketAnalysisRequest) -> MarketAnalysisResponse` | Market signals + synthesis + confidence |
+| `research_company_kpi_profile` | `async def research_company_kpi_profile(request: CompanyResearchRequest) -> CompanyKPIProfile` | Benchmark-anchored template KPIs grouped by domain |
 
 Models defined in `src/agents/models/market_analysis_models.py`.
 
@@ -138,3 +141,31 @@ The LLM determines conflict semantically — no keyword lists. Conflict is `None
 - Non-blocking — all failures are caught and logged; never breaks the SF pipeline
 - Registry lookups via orchestrator when available; direct AgentRegistry fallback when not
 - LLM calls routed through A9_LLM_Service_Agent (acquired at connect time)
+
+## Phase 12A — Company Intelligence KPI Template Generator (June 2026)
+
+### `research_company_kpi_profile(request) -> CompanyKPIProfile`
+
+Researches a company's public footprint to generate benchmark-anchored KPI templates for org-first onboarding. The admin enters a company name; the agent returns 5–30 candidate KPIs grouped by domain (Finance, Operations, etc.) with industry-relevant benchmark ranges and source attribution.
+
+**Pipeline:**
+1. Build 4 targeted Perplexity queries: filings, business segments, peer benchmarks, strategic priorities
+2. Run all 4 in parallel via `asyncio.gather`
+3. Synthesise via Sonnet into structured `CompanyKPIProfile` with M1 source attribution + M6 source-type-only citations
+4. Graceful fallback (M4): when Perplexity is unavailable, single LLM-only call with `degraded=True` and all `benchmark_source='inferred'`
+
+**Pre-mortem mitigations enforced in code:**
+- **M1** — every benchmark carries a `benchmark_source` from {filing, peer, inferred}
+- **M4** — Perplexity failure or empty results triggers LLM-only fallback; never raises
+- **M6** — synthesis prompt forbids specific competitor names and figures-as-fact; cites source TYPES only
+
+**Models** (defined in `src/agents/models/kpi_template_models.py`):
+- `TemplateKPI` — name, definition, unit, benchmark_low/high, benchmark_range, benchmark_source, confidence, domain, business_process_id
+- `CompanyKPIProfile` — company_name, industry_inferred, is_public, domains, template_kpis, research_sources, generated_at, degraded
+- `CompanyResearchRequest` / `CompanyResearchResponse` — API I/O wrappers
+
+**API surface:** `POST /api/v1/templates/research-company` → returns `CompanyResearchResponse`; `POST /api/v1/templates/commit` writes accepted KPIs to the registry with `status='template'`.
+
+**Downstream impact:**
+- SA agent skips `status='template'` KPIs during `_load_kpi_registry` — template rows never reach detection until the admin connects data sources and promotes them to `status='active'`
+- Template KPIs use `data_product_id='pending'` as a sentinel until data is connected

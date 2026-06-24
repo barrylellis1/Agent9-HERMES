@@ -19,6 +19,7 @@ Graceful degradation:
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime
@@ -26,6 +27,12 @@ import json
 from typing import Any, Dict, List, Optional, Tuple
 
 from src.agents.agent_config_models import A9_Market_Analysis_Agent_Config
+from src.agents.models.kpi_template_models import (
+    BenchmarkSource,
+    CompanyKPIProfile,
+    CompanyResearchRequest,
+    TemplateKPI,
+)
 from src.agents.models.market_analysis_models import (
     MarketAnalysisRequest,
     MarketAnalysisResponse,
@@ -227,6 +234,78 @@ class A9_Market_Analysis_Agent:
             error=error_msg,
             timestamp=datetime.utcnow().isoformat(),
         )
+
+    # ------------------------------------------------------------------
+    # Phase 12A — Company Intelligence KPI Template Generator
+    # ------------------------------------------------------------------
+
+    async def research_company_kpi_profile(
+        self, request: CompanyResearchRequest
+    ) -> CompanyKPIProfile:
+        """
+        Phase 12A entrypoint — research a company's public footprint and produce
+        a benchmark-anchored KPI template profile.
+
+        Pipeline:
+            1. Build 4 targeted Perplexity queries (filings, segments, peer
+               benchmarks, strategic priorities)
+            2. Run all 4 in parallel via asyncio.gather
+            3. Synthesise via Sonnet into a structured CompanyKPIProfile
+            4. M4 fallback: when Perplexity is unavailable, run LLM-only mode
+               and mark `degraded=True`; all benchmark_source values become
+               'inferred'
+
+        Returns:
+            CompanyKPIProfile — never raises; failures degrade gracefully.
+        """
+        if self.config.log_all_requests:
+            logger.info(
+                "%s: research_company_kpi_profile — company=%s industry_hint=%s client=%s",
+                self.name,
+                request.company_name,
+                request.industry_hint,
+                request.client_id,
+            )
+
+        use_perplexity = (
+            self.config.enable_perplexity
+            and self._perplexity is not None
+            and bool(getattr(self._perplexity, "api_key", ""))
+        )
+
+        if not use_perplexity:
+            logger.info(
+                "%s: Perplexity unavailable — running LLM-only company profile (degraded mode)",
+                self.name,
+            )
+            return await self._llm_only_company_profile(request)
+
+        # Run 4 parallel web searches; collect raw answers + citations
+        queries = self._build_company_search_queries(request)
+        try:
+            raw_results = await asyncio.gather(
+                *[self._perplexity.search(q, max_results=5) for q in queries],
+                return_exceptions=True,
+            )
+        except Exception as exc:
+            logger.warning("%s: parallel Perplexity searches failed: %s", self.name, exc)
+            raw_results = []
+
+        # Filter out exceptions / errored payloads
+        clean_results: List[Dict[str, Any]] = [
+            r for r in raw_results
+            if isinstance(r, dict) and not r.get("error") and r.get("answer")
+        ]
+
+        if not clean_results:
+            logger.warning(
+                "%s: all 4 Perplexity searches returned empty/error — falling back to LLM-only",
+                self.name,
+            )
+            return await self._llm_only_company_profile(request)
+
+        profile = await self._synthesize_company_profile(request, clean_results, queries)
+        return profile
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -612,3 +691,335 @@ class A9_Market_Analysis_Agent:
         signal_contribution = min(len(signals) * 0.1, 0.5)
         synthesis_contribution = 0.2 if synthesis and len(synthesis) > 50 else 0.0
         return round(min(0.3 + signal_contribution + synthesis_contribution, 1.0), 2)
+
+    # ------------------------------------------------------------------
+    # Phase 12A helpers
+    # ------------------------------------------------------------------
+
+    def _build_company_search_queries(
+        self, request: CompanyResearchRequest
+    ) -> List[str]:
+        """Return the 4 parallel Perplexity queries for Phase 12A research."""
+        name = request.company_name
+        industry_part = ""
+        if request.industry_hint:
+            industry_part = f" {request.industry_hint}"
+        if request.sub_sector:
+            industry_part += f" {request.sub_sector}"
+
+        return [
+            # 1. Public filings & company-reported KPIs (filing tier)
+            f"{name} 10-K annual report key performance indicators metrics 2024 2025",
+            # 2. Business segments / operating metrics (filing tier)
+            f"{name} business segments operating metrics{industry_part}",
+            # 3. Industry peer benchmarks (peer tier — source types only)
+            f"{industry_part or name} industry benchmark KPI ranges analyst reports 2024 2025",
+            # 4. Strategic priorities from investor communications (filing tier)
+            f"{name} CEO investor day strategic priorities financial targets",
+        ]
+
+    async def _synthesize_company_profile(
+        self,
+        request: CompanyResearchRequest,
+        search_results: List[Dict[str, Any]],
+        queries: List[str],
+    ) -> CompanyKPIProfile:
+        """
+        Synthesise 4 web-search payloads into a structured CompanyKPIProfile via Sonnet.
+
+        Enforces M1 (benchmark_source on every benchmark) and M6 (source TYPES only,
+        never specific competitor names or figures presented as fact).
+        """
+        biz_desc = request.business_description or ""
+        sub = request.sub_sector or ""
+        industry = request.industry_hint or "the relevant industry"
+
+        # Compact context block — give the LLM each search's answer text
+        context_blocks: List[str] = []
+        for i, (q, r) in enumerate(zip(queries, search_results), start=1):
+            answer = (r.get("answer") or "").strip()
+            if not answer:
+                continue
+            # Trim to keep token budget reasonable
+            context_blocks.append(f"SEARCH {i}: {q}\nFINDINGS:\n{answer[:1800]}")
+        context_str = "\n\n".join(context_blocks) if context_blocks else "(no web findings)"
+
+        biz_block = ""
+        if biz_desc or sub:
+            biz_block = f"\nADMIN-PROVIDED CONTEXT:\n"
+            if biz_desc:
+                biz_block += f"  Description: {biz_desc}\n"
+            if sub:
+                biz_block += f"  Sub-sector: {sub}\n"
+
+        prompt = (
+            f"You are an industry KPI analyst. Research target: {request.company_name}.\n"
+            f"Industry hint: {industry}.\n"
+            f"{biz_block}\n"
+            f"WEB FINDINGS FROM 4 PARALLEL SEARCHES:\n{context_str}\n\n"
+            f"TASK: Produce {request.max_kpis} benchmark-anchored KPI templates "
+            f"organised across functional domains (Finance, Operations, Sales, "
+            f"Supply Chain, etc.). Each KPI must include an industry-relevant "
+            f"benchmark range when available.\n\n"
+            f"RULES:\n"
+            f"1. Every benchmark MUST carry a `benchmark_source` from this set: "
+            f"'filing' (company-reported in their own annual report or investor "
+            f"materials), 'peer' (range from an industry analyst report covering "
+            f"the sector), or 'inferred' (your training knowledge only). When "
+            f"unsure, use 'inferred'.\n"
+            f"2. NEVER name specific competitor companies or quote specific figures "
+            f"as fact. Cite source TYPES only (e.g. 'specialty chemicals analyst "
+            f"reports, 2024'). This is a legal/citation guardrail.\n"
+            f"3. Prefer concrete KPIs over generic ones (e.g. 'Order-to-Delivery "
+            f"Lead Time' beats 'Operational Efficiency').\n"
+            f"4. `confidence` reflects how relevant the KPI is to this specific "
+            f"company given the findings — not how confident you are it exists.\n\n"
+            f"Return ONLY valid JSON matching this exact schema:\n"
+            f"{{\n"
+            f'  "industry_inferred": "string",\n'
+            f'  "is_public": true | false,\n'
+            f'  "research_sources": ["Source TYPE 1", "Source TYPE 2", ...],\n'
+            f'  "template_kpis": [\n'
+            f'    {{\n'
+            f'      "name": "Gross Margin",\n'
+            f'      "definition": "Revenue minus COGS, as a % of revenue",\n'
+            f'      "unit": "%",\n'
+            f'      "benchmark_low": 12.0,\n'
+            f'      "benchmark_high": 18.0,\n'
+            f'      "benchmark_range": "12-18%",\n'
+            f'      "benchmark_source": "filing",\n'
+            f'      "confidence": 0.85,\n'
+            f'      "domain": "Finance",\n'
+            f'      "business_process_id": null\n'
+            f'    }}\n'
+            f'  ]\n'
+            f"}}\n"
+            f"No markdown, no preamble. Pure JSON."
+        )
+
+        parsed = await self._llm_json_call(
+            prompt=prompt,
+            principal_id=None,
+            temperature=0.2,
+        )
+
+        if not parsed:
+            logger.warning("%s: synthesis returned no parseable JSON — degrading to LLM-only", self.name)
+            return await self._llm_only_company_profile(request)
+
+        return self._profile_from_parsed(request, parsed, degraded=False)
+
+    async def _llm_only_company_profile(
+        self, request: CompanyResearchRequest
+    ) -> CompanyKPIProfile:
+        """
+        M4 fallback — produce a CompanyKPIProfile from LLM knowledge alone.
+
+        All benchmarks are forced to `benchmark_source='inferred'`. Marks
+        `degraded=True` so the UI can surface the degradation notice.
+        """
+        biz_desc = request.business_description or ""
+        sub = request.sub_sector or ""
+        industry = request.industry_hint or "the relevant industry"
+
+        biz_block = ""
+        if biz_desc or sub:
+            biz_block = "\nADMIN-PROVIDED CONTEXT:\n"
+            if biz_desc:
+                biz_block += f"  Description: {biz_desc}\n"
+            if sub:
+                biz_block += f"  Sub-sector: {sub}\n"
+
+        prompt = (
+            f"You are an industry KPI analyst. Research target: {request.company_name}.\n"
+            f"Industry hint: {industry}.\n"
+            f"{biz_block}\n"
+            f"WEB SEARCH IS UNAVAILABLE — rely on your training knowledge only.\n\n"
+            f"TASK: Produce {request.max_kpis} benchmark-anchored KPI templates "
+            f"organised across functional domains. Every benchmark_source MUST be "
+            f"'inferred' since you have no live source data.\n\n"
+            f"RULES:\n"
+            f"1. Every benchmark_source MUST be 'inferred'.\n"
+            f"2. NEVER name specific competitor companies. Cite source TYPES only.\n"
+            f"3. Prefer concrete KPIs over generic ones.\n"
+            f"4. confidence should be lower (typically 0.3-0.6) to reflect the "
+            f"degraded research mode.\n\n"
+            f"Return ONLY valid JSON in this schema:\n"
+            f"{{\n"
+            f'  "industry_inferred": "string",\n'
+            f'  "is_public": false,\n'
+            f'  "research_sources": ["LLM training knowledge"],\n'
+            f'  "template_kpis": [\n'
+            f'    {{\n'
+            f'      "name": "Gross Margin",\n'
+            f'      "definition": "Revenue minus COGS, as a % of revenue",\n'
+            f'      "unit": "%",\n'
+            f'      "benchmark_low": 40.0,\n'
+            f'      "benchmark_high": 60.0,\n'
+            f'      "benchmark_range": "40-60%",\n'
+            f'      "benchmark_source": "inferred",\n'
+            f'      "confidence": 0.5,\n'
+            f'      "domain": "Finance",\n'
+            f'      "business_process_id": null\n'
+            f'    }}\n'
+            f'  ]\n'
+            f"}}\n"
+            f"No markdown, no preamble."
+        )
+
+        parsed = await self._llm_json_call(
+            prompt=prompt,
+            principal_id=None,
+            temperature=0.3,
+        )
+
+        if not parsed:
+            # Worst case: return an empty-but-valid profile so the UI degrades cleanly
+            logger.error(
+                "%s: LLM-only profile generation failed — returning empty profile",
+                self.name,
+            )
+            return CompanyKPIProfile(
+                company_name=request.company_name,
+                industry_inferred=request.industry_hint,
+                is_public=False,
+                domains=[],
+                template_kpis=[],
+                research_sources=["LLM training knowledge"],
+                degraded=True,
+            )
+
+        return self._profile_from_parsed(request, parsed, degraded=True)
+
+    async def _llm_json_call(
+        self,
+        prompt: str,
+        principal_id: Optional[str],
+        temperature: float,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Shared helper: send a prompt to the LLM service, parse JSON response.
+
+        Returns None on any failure (no LLM, non-success status, unparseable JSON).
+        """
+        if self._llm_service is None and self.orchestrator is None:
+            logger.warning("%s: no LLM service available for JSON call", self.name)
+            return None
+
+        try:
+            from src.agents.new.a9_llm_service_agent import A9_LLM_Request
+
+            req = A9_LLM_Request(
+                request_id=str(uuid.uuid4()),
+                principal_id=principal_id or "system",
+                prompt=prompt,
+                system_prompt="Return only valid JSON. No markdown. No preamble.",
+                model=_SYNTHESIS_MODEL,
+                operation="generate",
+                temperature=temperature,
+                max_tokens=8192,
+            )
+
+            if self.orchestrator is not None:
+                resp = await self.orchestrator.execute_agent_method(
+                    "A9_LLM_Service_Agent", "generate", {"request": req}
+                )
+            else:
+                resp = await self._llm_service.generate(req)
+
+            if getattr(resp, "status", "error") != "success":
+                logger.warning(
+                    "%s: LLM call returned non-success: %s",
+                    self.name,
+                    getattr(resp, "status", "?"),
+                )
+                return None
+
+            raw = (getattr(resp, "content", "") or "").strip()
+            # Strip markdown fences if the model used them anyway
+            if raw.startswith("```"):
+                raw = raw[raw.index("\n") + 1:] if "\n" in raw else raw[3:]
+                if raw.endswith("```"):
+                    raw = raw[: raw.rfind("```")].rstrip()
+
+            return json.loads(raw)
+        except json.JSONDecodeError as exc:
+            logger.warning("%s: JSON parse failed: %s", self.name, exc)
+            return None
+        except Exception as exc:
+            logger.error("%s: LLM JSON call failed: %s", self.name, exc)
+            return None
+
+    def _profile_from_parsed(
+        self,
+        request: CompanyResearchRequest,
+        parsed: Dict[str, Any],
+        degraded: bool,
+    ) -> CompanyKPIProfile:
+        """
+        Convert a parsed LLM JSON dict into a typed CompanyKPIProfile.
+
+        Tolerant of missing or malformed fields — drops invalid KPIs rather than
+        raising. In degraded mode, forces every benchmark_source to 'inferred'.
+        """
+        raw_kpis = parsed.get("template_kpis", [])
+        if not isinstance(raw_kpis, list):
+            raw_kpis = []
+
+        valid_sources = {"filing", "peer", "inferred"}
+        template_kpis: List[TemplateKPI] = []
+
+        for item in raw_kpis:
+            if not isinstance(item, dict):
+                continue
+            try:
+                # Normalize benchmark_source
+                src = item.get("benchmark_source")
+                if degraded:
+                    src = "inferred"
+                elif src not in valid_sources:
+                    src = "inferred" if item.get("benchmark_range") else None
+
+                # Derive a display range when only numeric bounds were returned
+                low = item.get("benchmark_low")
+                high = item.get("benchmark_high")
+                rng = item.get("benchmark_range")
+                if rng is None and low is not None and high is not None:
+                    unit = (item.get("unit") or "").strip()
+                    suffix = unit if unit in {"%", "pp"} else ""
+                    rng = f"{low}-{high}{suffix}"
+
+                template_kpis.append(
+                    TemplateKPI(
+                        name=str(item.get("name", "")).strip(),
+                        definition=str(item.get("definition", "")).strip(),
+                        unit=str(item.get("unit", "")).strip(),
+                        benchmark_low=float(low) if low is not None else None,
+                        benchmark_high=float(high) if high is not None else None,
+                        benchmark_range=rng,
+                        benchmark_source=src,  # type: ignore[arg-type]
+                        confidence=float(item.get("confidence", 0.5)),
+                        domain=str(item.get("domain", "")).strip() or "General",
+                        business_process_id=item.get("business_process_id") or None,
+                    )
+                )
+            except (ValueError, TypeError) as exc:
+                logger.warning("%s: dropped malformed KPI item: %s (%s)", self.name, exc, item)
+                continue
+
+        domains = sorted({k.domain for k in template_kpis if k.domain})
+
+        sources = parsed.get("research_sources", [])
+        if not isinstance(sources, list):
+            sources = []
+        sources = [str(s) for s in sources if s]
+
+        return CompanyKPIProfile(
+            company_name=request.company_name,
+            industry_inferred=str(parsed.get("industry_inferred") or request.industry_hint or "") or None,
+            is_public=bool(parsed.get("is_public", False)),
+            domains=domains,
+            template_kpis=template_kpis,
+            research_sources=sources or (["LLM training knowledge"] if degraded else []),
+            degraded=degraded,
+        )
