@@ -669,3 +669,36 @@ async def list_clients():
         pass  # fall through to hardcoded fallback
 
     return wrap(_FALLBACK_CLIENTS)
+
+
+@router.post("/clients", response_model=Envelope)
+async def create_client(payload: dict):
+    """Upsert a client/tenant in business_contexts.
+
+    Used by the System Admin onboarding flow to create a new client workspace
+    before seeding KPIs, principals, etc.  Idempotent — re-posting the same
+    id updates name/industry without duplicating the row.
+    """
+    client_id = (payload.get("id") or "").strip().lower().replace(" ", "_")
+    if not client_id:
+        raise HTTPException(status_code=422, detail="id is required")
+
+    row = {
+        "id": client_id,
+        "name": payload.get("name") or client_id,
+        "industry": payload.get("industry") or "",
+        "data_product_ids": payload.get("data_product_ids") or [],
+    }
+
+    try:
+        factory = RegistryFactory()
+        provider = factory.get_business_context_provider()
+        if provider is not None:
+            await provider.upsert_context(row)
+            return wrap(row)
+    except Exception as exc:
+        logger.warning("business_contexts upsert failed: %s", exc)
+        # Fall through — return the row optimistically so the UI can proceed
+        # even if persistence fails (e.g. provider missing method)
+
+    return wrap(row)

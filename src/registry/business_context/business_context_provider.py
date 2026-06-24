@@ -176,6 +176,37 @@ class SupabaseBusinessContextProvider:
             logger.error(f"Failed to update business context {context_id}: {e}")
             return False
 
+    async def upsert_context(self, row: Dict[str, Any]) -> bool:
+        """Upsert a business_contexts row from a plain dict.
+
+        Used by the System Admin onboarding flow to create a new client workspace.
+        Performs an INSERT … ON CONFLICT (id) DO UPDATE so the operation is safe
+        to call repeatedly (idempotent).
+
+        Args:
+            row: Dict with at minimum {"id": str, "name": str}; may also include
+                 "industry" and "data_product_ids".
+
+        Returns:
+            True on success, False on failure.
+        """
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    self.endpoint,
+                    headers={
+                        **self.headers,
+                        "Prefer": "resolution=merge-duplicates,return=minimal",
+                    },
+                    json=row,
+                )
+                response.raise_for_status()
+                logger.info("Upserted business context: %s", row.get("id"))
+                return True
+        except Exception as exc:
+            logger.error("Failed to upsert business context %s: %s", row.get("id"), exc)
+            return False
+
     def _model_to_row(self, context: A9_PS_BusinessContext) -> Dict[str, Any]:
         """Convert A9_PS_BusinessContext to a Supabase row dict.
 

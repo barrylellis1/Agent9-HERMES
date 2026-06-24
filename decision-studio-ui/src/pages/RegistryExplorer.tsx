@@ -1,7 +1,7 @@
 import { type ComponentType, useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Activity, ArrowLeft, BookOpen, Box, Briefcase, CheckCircle2, Code2, Database, KeyRound, Loader2, Save, Trash2, Plus, X, XCircle, Building2, Users, UserCheck } from 'lucide-react'
-import { BrandLogo } from '../components/BrandLogo'
+import { Link, useSearchParams, useParams, useLocation } from 'react-router-dom'
+import { Activity, BookOpen, Box, Briefcase, CheckCircle2, Code2, Database, KeyRound, Loader2, Save, Trash2, Plus, X, XCircle } from 'lucide-react'
+import { SettingsLayout } from '../components/SettingsLayout'
 import { AccountabilityInterviewPanel } from '../components/AccountabilityInterviewPanel'
 import {
   type BusinessTerm,
@@ -16,6 +16,8 @@ import {
   listDataProducts,
   listKpis,
   listPrincipals,
+  listClients,
+  createClient,
   createKpi, replaceKpi, deleteKpi,
   createPrincipal, replacePrincipal, deletePrincipal,
   createDataProduct, replaceDataProduct, deleteDataProduct,
@@ -374,17 +376,103 @@ function AccountabilityPanel({ clientId }: { clientId?: string }) {
   )
 }
 
+// ── Admin client selector ────────────────────────────────────────────────────
+
+function AdminClientSelector({
+  currentClientId,
+  onChange,
+}: {
+  currentClientId: string
+  onChange: (id: string) => void
+}) {
+  const [clients, setClients] = useState<{ id: string; name: string }[]>([])
+
+  useEffect(() => {
+    listClients()
+      .then((data) => setClients(data || []))
+      .catch(() => {})
+  }, [])
+
+  if (clients.length === 0) {
+    return (
+      <input
+        value={currentClientId}
+        onChange={(e) => onChange(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
+        placeholder="Enter client id…"
+        className="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500 w-48"
+      />
+    )
+  }
+
+  return (
+    <select
+      value={currentClientId}
+      onChange={(e) => onChange(e.target.value)}
+      className="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500 appearance-none pr-8 w-56"
+    >
+      <option value="">— select client —</option>
+      {clients.map((c) => (
+        <option key={c.id} value={c.id}>
+          {c.name} ({c.id})
+        </option>
+      ))}
+    </select>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function RegistryExplorer() {
-  const [registryKey, setRegistryKey] = useState<RegistryKey>('glossary')
-  const [showConnectionHealth, setShowConnectionHealth] = useState(false)
-  const [showAccountability, setShowAccountability] = useState(false)
-  const [showInterview, setShowInterview] = useState(false)
+  // Derive section from URL: /settings/registry/kpis → section=kpis
+  // or ?section=kpis, or /settings/accountability, /settings/connection-health, etc.
+  const { section: routeSection } = useParams<{ section?: string }>()
+  const { pathname } = useLocation()
+  const [searchParams] = useSearchParams()
+
+  const sectionParam: string = (() => {
+    if (routeSection) return routeSection
+    const sp = searchParams.get('section')
+    if (sp) return sp
+    if (pathname === '/settings/accountability') return 'accountability'
+    if (pathname === '/settings/ownership-interview') return 'ownership-interview'
+    if (pathname === '/settings/connection-health') return 'connection-health'
+    return 'glossary'
+  })()
+
+  // Map URL section names → internal state
+  const showConnectionHealth = sectionParam === 'connection-health'
+  const showAccountability   = sectionParam === 'accountability'
+  const showInterview        = sectionParam === 'ownership-interview'
+  const registryKey: RegistryKey = (
+    ['glossary','kpis','principals','data-products','business-processes'].includes(sectionParam)
+      ? sectionParam
+      : 'glossary'
+  ) as RegistryKey
+
+  // Section is now driven purely by URL params — no programmatic setters needed.
+  // Left-nav links use <Link to="..."> to change sections.
+
   const active = useMemo(() => REGISTRIES.find((r) => r.key === registryKey)!, [registryKey])
-  const workspaceId = localStorage.getItem('a9_client_id') ?? 'unknown'
-  // Active client is set at login — use it to scope all registry list calls
-  const activeClientId = localStorage.getItem('a9_active_client_id') ?? undefined
+  // workspaceId removed — Settings header now lives in SettingsLayout sidebar
+
+  // Admin mode state
+  const [adminMode] = useState(() => localStorage.getItem('a9_admin_mode') === 'true')
+  const [adminTargetClient, setAdminTargetClientState] = useState(
+    () => localStorage.getItem('a9_admin_target_client') ?? ''
+  )
+  const [newClientId, setNewClientId] = useState('')
+  const [newClientName, setNewClientName] = useState('')
+  const [newClientIndustry, setNewClientIndustry] = useState('')
+  const [showNewClientForm, setShowNewClientForm] = useState(false)
+  const [creatingClient, setCreatingClient] = useState(false)
+  const [clientCreateError, setClientCreateError] = useState<string | null>(null)
+
+  // Active client is:
+  //   - in admin mode: the explicitly-selected target client
+  //   - in normal mode: the session client from login
+  const activeClientId = adminMode
+    ? (adminTargetClient || undefined)
+    : (localStorage.getItem('a9_active_client_id') ?? undefined)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -1000,98 +1088,98 @@ export function RegistryExplorer() {
     )
   }
 
-  return (
-    <div className="min-h-screen bg-background text-foreground p-8 font-sans">
-      <header className="mb-6 flex justify-between items-center max-w-6xl mx-auto">
-        <div className="flex items-center gap-4">
-          <Link to="/dashboard" className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">Settings</h1>
-            <p className="text-sm text-slate-400">Registry management &amp; data product onboarding</p>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/60">
-            <Building2 className="w-3.5 h-3.5 text-slate-500" />
-            <span className="text-xs text-slate-400">Workspace</span>
-            <span className="text-xs font-semibold text-white font-mono">{workspaceId}</span>
-          </div>
-          {activeClientId && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-indigo-700/50 bg-indigo-950/40">
-              <span className="text-xs text-indigo-400">Client</span>
-              <span className="text-xs font-semibold text-indigo-300 font-mono">{activeClientId}</span>
-            </div>
-          )}
-        </div>
-        <BrandLogo size={32} />
-      </header>
+  // ── Render ─────────────────────────────────────────────────────────────────
+  // Admin client management handlers
+  async function handleCreateClient() {
+    const id = newClientId.trim().toLowerCase().replace(/\s+/g, '_')
+    if (!id) return
+    setCreatingClient(true)
+    setClientCreateError(null)
+    try {
+      await createClient({ id, name: newClientName.trim() || id, industry: newClientIndustry.trim() })
+      localStorage.setItem('a9_admin_target_client', id)
+      setAdminTargetClientState(id)
+      setShowNewClientForm(false)
+      setNewClientId('')
+      setNewClientName('')
+      setNewClientIndustry('')
+    } catch (err) {
+      setClientCreateError(err instanceof Error ? err.message : 'Failed to create client')
+    } finally {
+      setCreatingClient(false)
+    }
+  }
 
-      <main className="max-w-6xl mx-auto">
-        {/* Horizontal registry tabs */}
-        <div className="flex items-center gap-1 mb-6 border-b border-slate-800 pb-0">
-          <Link
-            to="/settings/company-profile"
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600 mr-2"
-          >
-            <Building2 className="w-4 h-4" />
-            Company Profile
-          </Link>
-          {REGISTRIES.map((r) => {
-            const Icon = r.icon
-            const isActive = r.key === registryKey && !showConnectionHealth && !showAccountability && !showInterview
-            return (
+  // handleExitAdmin moved to SettingsLayout OnboardingNav
+
+  return (
+    <SettingsLayout>
+      <div className="p-8 font-sans min-h-full">
+
+        {/* Admin client selector — shown in onboarding mode inside content area */}
+        {adminMode && (
+          <div className="mb-6 p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Working on client</p>
+            <div className="flex items-start gap-3 flex-wrap">
+              <AdminClientSelector
+                currentClientId={adminTargetClient}
+                onChange={(id) => {
+                  localStorage.setItem('a9_admin_target_client', id)
+                  setAdminTargetClientState(id)
+                  setShowNewClientForm(false)
+                }}
+              />
               <button
-                key={r.key}
-                onClick={() => { setRegistryKey(r.key); setShowConnectionHealth(false); setShowAccountability(false); setShowInterview(false) }}
-                className={
-                  'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ' +
-                  (isActive
-                    ? 'border-indigo-400 text-white'
-                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600')
-                }
+                onClick={() => setShowNewClientForm((v) => !v)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-dashed border-slate-600 text-slate-400 hover:text-white hover:border-slate-500 text-xs transition-colors"
               >
-                <Icon className="w-4 h-4" />
-                {r.label}
+                <Plus className="w-3.5 h-3.5" />
+                New client
               </button>
-            )
-          })}
-          <button
-            onClick={() => { setShowConnectionHealth(true); setShowAccountability(false); setShowInterview(false) }}
-            className={
-              'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ' +
-              (showConnectionHealth
-                ? 'border-emerald-400 text-white'
-                : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600')
-            }
-          >
-            <Activity className="w-4 h-4" />
-            Connection Health
-          </button>
-          <button
-            onClick={() => { setShowAccountability(true); setShowConnectionHealth(false); setShowInterview(false) }}
-            className={
-              'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ' +
-              (showAccountability
-                ? 'border-indigo-400 text-white'
-                : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600')
-            }
-          >
-            <Users className="w-4 h-4" />
-            Accountability
-          </button>
-          <button
-            onClick={() => { setShowInterview(true); setShowAccountability(false); setShowConnectionHealth(false) }}
-            className={
-              'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ' +
-              (showInterview
-                ? 'border-indigo-400 text-white'
-                : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600')
-            }
-          >
-            <UserCheck className="w-4 h-4" />
-            Assign Ownership
-          </button>
+            </div>
+            {showNewClientForm && (
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Client ID <span className="text-slate-600">(snake_case)</span></label>
+                  <input value={newClientId} onChange={(e) => setNewClientId(e.target.value)} placeholder="valvoline"
+                    className="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Display name</label>
+                  <input value={newClientName} onChange={(e) => setNewClientName(e.target.value)} placeholder="Valvoline Inc."
+                    className="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Industry <span className="text-slate-600">(optional)</span></label>
+                  <input value={newClientIndustry} onChange={(e) => setNewClientIndustry(e.target.value)} placeholder="Specialty Chemicals"
+                    className="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500" />
+                </div>
+                <div className="sm:col-span-3 flex items-center gap-3">
+                  <button onClick={handleCreateClient} disabled={!newClientId.trim() || creatingClient}
+                    className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-sm font-medium">
+                    {creatingClient ? 'Creating…' : 'Create and select'}
+                  </button>
+                  {clientCreateError && <p className="text-xs text-red-400">{clientCreateError}</p>}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Section header */}
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-white">{active?.label ?? 'Registry'}</h1>
+            {activeClientId && (
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="text-xs text-slate-500">Client:</span>
+                <span className="text-xs font-mono text-slate-300">{activeClientId}</span>
+              </div>
+            )}
+          </div>
         </div>
+
+        <div>{/* content start */}
 
         <div>
           {showConnectionHealth ? (
@@ -1317,7 +1405,8 @@ export function RegistryExplorer() {
           </div>
           </div>{/* end registry panel wrapper */}
         </div>
-      </main>
-    </div>
+      </div>{/* content start */}
+      </div>{/* p-8 */}
+    </SettingsLayout>
   )
 }

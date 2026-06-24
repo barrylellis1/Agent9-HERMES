@@ -539,7 +539,7 @@ PRINCIPALS: List[Dict[str, Any]] = [
         "default_filters": {"Fiscal Year": ["2024", "2025", "2026"]},
         "typical_timeframes": ["Monthly"],
         "persona_profile": {"decision_style": "analytical", "risk_tolerance": "low", "communication_style": "detailed"},
-        "metadata": {"kpi_line_preference": "balanced", "kpi_altitude_preference": "operational_first"},
+        "metadata": {"kpi_line_preference": "balanced", "kpi_altitude_preference": "operational_first", "settings_admin": "true"},
     },
 ]
 

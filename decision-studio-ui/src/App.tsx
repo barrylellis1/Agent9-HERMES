@@ -17,10 +17,20 @@ import { DataOnboarding } from './pages/DataOnboarding'
 import ActionHandler from './pages/ActionHandler'
 import DelegatePage from './pages/DelegatePage'
 import CompanyProfile from './pages/CompanyProfile'
+import { KPIIntelligence } from './pages/KPIIntelligence'
+import { GovernanceView } from './pages/GovernanceView'
+import { OnboardingDayView } from './pages/OnboardingDayView'
 // PrincipalManagement merged into Settings (RegistryExplorer)
 
 // Hostname routing: decision-studios.com → corporate site, everything else → app
 const isCorporateDomain = window.location.hostname.includes('decision-studios.com')
+
+// Admin mode guard — redirect to /settings if system admin tries to access the pipeline
+function AdminGuard({ children }: { children: React.ReactNode }) {
+  const isAdmin = localStorage.getItem('a9_admin_mode') === 'true'
+  if (isAdmin) return <Navigate to="/settings" replace />
+  return <>{children}</>
+}
 
 function App() {
   return (
@@ -28,15 +38,30 @@ function App() {
       <Routes>
         <Route path="/" element={isCorporateDomain ? <LandingPage /> : <Login />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/dashboard" element={<DecisionStudio />} />
+        <Route path="/dashboard" element={<AdminGuard><DecisionStudio /></AdminGuard>} />
         <Route path="/debate/:situationId" element={<CouncilDebatePage />} />
         <Route path="/briefing/:situationId" element={<ExecutiveBriefing />} />
         <Route path="/report/:situationId" element={<WhitePaperReport />} />
         <Route path="/context" element={<ContextExplorer />} />
+        {/* Settings — main registry explorer (section via ?section= param) */}
         <Route path="/settings" element={<RegistryExplorer />} />
+        <Route path="/settings/registry/:section" element={<RegistryExplorer />} />
+        <Route path="/settings/accountability" element={<RegistryExplorer />} />
+        <Route path="/settings/ownership-interview" element={<RegistryExplorer />} />
+        <Route path="/settings/connection-health" element={<RegistryExplorer />} />
+
+        {/* Settings — standalone pages wrapped in SettingsLayout */}
+        <Route path="/settings/company-profile" element={<CompanyProfile />} />
+        <Route path="/settings/kpi-intelligence" element={<KPIIntelligence />} />
         <Route path="/settings/onboarding" element={<DataProductOnboardingNew />} />
         <Route path="/settings/onboarding-legacy" element={<DataProductOnboarding />} />
-        <Route path="/settings/company-profile" element={<CompanyProfile />} />
+
+        {/* Settings — Admin onboarding day pages (Mode 1) */}
+        <Route path="/settings/onboarding/day-:day" element={<OnboardingDayView />} />
+
+        {/* Settings — Executive governance pages (Mode 3) */}
+        <Route path="/settings/governance/:subsection" element={<GovernanceView />} />
+        <Route path="/settings/governance" element={<GovernanceView />} />
         <Route path="/portfolio" element={<Portfolio />} />
         {/* Corporate landing page accessible directly on any domain */}
         <Route path="/landing" element={<LandingPage />} />

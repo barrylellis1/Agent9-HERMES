@@ -17,9 +17,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { listClients, listPrincipals } from '../api/client';
 import { Client, Principal } from '../api/types';
 import { AVAILABLE_PRINCIPALS } from '../config/uiConstants';
-import { ArrowRight, ChevronRight, Mail, Lock, AlertCircle } from 'lucide-react';
+import { ArrowRight, ChevronRight, Mail, Lock, AlertCircle, Settings } from 'lucide-react';
 import { BrandLogo } from '../components/BrandLogo';
 import { supabase, inferClientIdFromEmail } from '../lib/supabase';
+import { enterAdminMode, exitAdminMode } from '../utils/adminMode';
+import { setSettingsMode } from '../utils/settingsMode';
 
 // ── Principal mapping helpers ──────────────────────────────────────────────
 
@@ -141,11 +143,26 @@ export function Login() {
   function handleDemoLogin() {
     if (!selectedId) return;
     setDemoLoading(true);
+    exitAdminMode(); // clear any stale admin session
     localStorage.setItem('a9_active_client_id', selectedClientId);
     localStorage.removeItem('a9_auth_email');
+
+    // Determine settings mode based on selected principal's metadata
+    const selectedPrincipal = principals.find((p) => p.id === selectedId);
+    const rawPrincipal = selectedPrincipal as any;
+    const isSettingsAdmin = rawPrincipal?.metadata?.settings_admin === 'true'
+      || rawPrincipal?.metadata?.settings_admin === true;
+    setSettingsMode(isSettingsAdmin ? 'maintenance' : 'governance');
+
     setTimeout(() => {
       navigate('/dashboard', { state: { principalId: selectedId, clientId: selectedClientId } });
     }, 600);
+  }
+
+  function handleAdminLogin() {
+    enterAdminMode();
+    localStorage.removeItem('a9_active_client_id');
+    navigate('/settings');
   }
 
   const selectedClient = availableClients.find(c => c.id === selectedClientId);
@@ -259,6 +276,20 @@ export function Login() {
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </>
                 )}
+              </button>
+
+              <div className="relative flex items-center gap-3 py-1">
+                <div className="flex-1 h-px bg-slate-800" />
+                <span className="text-xs text-slate-600">or</span>
+                <div className="flex-1 h-px bg-slate-800" />
+              </div>
+
+              <button
+                onClick={handleAdminLogin}
+                className="w-full py-2.5 flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800/50 hover:bg-slate-800 text-slate-300 hover:text-white text-sm font-medium transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                System Admin — Client Onboarding
               </button>
 
               <div className="text-center">
