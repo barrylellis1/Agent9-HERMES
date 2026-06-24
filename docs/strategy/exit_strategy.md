@@ -1,8 +1,14 @@
 # Decision Studio Exit Strategy Analysis
 **Created:** March 27, 2026
-**Last Updated:** May 2026 | Version 1.1
-**Basis:** Incremental pricing model projections from Agent9_Business_Plan.md v1.6 (May 2026)
+**Last Updated:** June 1, 2026 | Version 1.2
+**Basis:** Incremental pricing model projections from Agent9_Business_Plan.md v1.6 (May 2026); three-layer vision from `strategic_horizon.md` (Jun 2026)
 **Status:** Strategic planning — not actionable until first paying customers
+
+---
+
+> 🧭 **Scope note (v1.2).** Scenarios A–D below price Decision Studio as **AI-native vertical SaaS** (the *current vision* — mid-market FP&A automation on the inner loop). They remain correct for that positioning. The **extended vision** — the three-layer Continuous Strategic Intelligence Platform (Inner Loop + BO Agent outer loop + Innovation discovery layer) — produces a different valuation category, captured in **Scenarios E and F** (§2.5–2.6). See `strategic_horizon.md` for the full architecture and the two-vision bet.
+>
+> ⚠️ **Correction to v1.1's core assumption.** §5 below states "the actions that maximize Scenario A also maximize Scenarios B and C." That holds *within* mid-market positioning. It does **not** hold when choosing between mid-market positioning (Scenarios A–D) and platform positioning (Scenarios E–F) — those require genuinely different operational priorities, capital structures, and product investments. The decision point is real; do not let "all paths are aligned" mask the fork. See `strategic_horizon.md` §2.
 
 ---
 
@@ -93,6 +99,36 @@ Even in the downside, the registry architecture, analytical methodology pipeline
 
 ---
 
+### Scenario E: Strategic Enterprise Platform (Month 48-84) — EXTENDED VISION
+**Trigger:** Three-layer platform (Inner Loop + BO Agent + Innovation layer) live; PE platform and/or enterprise transformation customers
+
+| Metric | Value |
+|--------|-------|
+| ARR at exit | $50M-$150M, NRR 160-180% |
+| Likely multiple | 15-25× (high NRR + platform positioning) |
+| **Valuation range** | **$1B-$5B** (three-layer platform at scale could reach $10-15B) |
+| Acquirer type | Microsoft, Salesforce, ServiceNow, Palantir, large PE |
+
+This is the extended-vision outcome. It requires the BO Agent outer loop live and ideally the Innovation discovery layer in market. The buyer pool here does not exist for Scenarios A-D: Microsoft/Salesforce/ServiceNow do not acquire mid-market FP&A point tools — they acquire platform-scale strategic-intelligence layers.
+
+**The NRR-cubed expansion vector:** a client lands on the inner loop (~$150K), adds the BO layer (~$350K), adds the Innovation layer (~$600K), then a PE parent rolls it platform-wide (~$2M). Each layer is a *new* expansion vector — the compounding land-and-expand story single-product SaaS cannot tell. This is why three layers structurally produce the highest NRR, and NRR is the dominant multiplier (§3).
+
+### Scenario F: Consulting Firm Defensive Acquisition (Month 48-84) — EXTENDED VISION
+**Trigger:** Extended vision demonstrably software-displacing strategy/innovation consulting discovery-and-diagnosis revenue
+
+| Metric | Value |
+|--------|-------|
+| ARR at exit | $40M-$120M |
+| Likely multiple | 12-20× (strategic/defensive premium) |
+| **Valuation range** | **$1B-$2B** |
+| Acquirer type | McKinsey, BCG, Bain, Accenture, Deloitte (defensive) |
+
+**Thesis:** The extended vision eats the discovery-and-diagnosis phase of strategy and innovation consulting. Those firms face structural AI pressure on billable-hour margins. A category-defining displacement platform becomes a **defensive acquisition** — productise the methodology or neutralise the threat.
+
+**Why this buyer does not exist for the current vision:** a consulting firm has no reason to acquire a mid-market FP&A tool (in Scenario A they appear only as low-end IP/acqui-hire buyers). It has every reason to acquire the thing eating its high-margin discovery revenue. Adding this buyer category materially raises the probability-weighted expected value of the extended vision.
+
+---
+
 ## 3. The NRR Multiplier Effect
 
 The single biggest factor in valuation multiple isn't ARR — it's **net revenue retention (NRR)**. This is where incremental pricing transforms the exit story:
@@ -126,12 +162,16 @@ The incremental pricing model doesn't just increase revenue — it fundamentally
 
 ## 4. Exit Summary Table
 
-| Scenario | ARR Trigger | Timeline | Valuation | Acquirer Profile |
-|----------|------------|----------|-----------|-----------------|
-| **A: Bootstrapped** | $600K-$1.4M | Month 24-36 | $5M-$21M | PE roll-up, ERP vendor, consulting tech arm |
-| **B: Funded growth** | $3M-$10M | Month 30-48 | $45M-$250M | Salesforce, ServiceNow, Workday, SAP |
-| **C: PE portfolio** | $5M-$15M | Month 36-60 | $60M-$300M | PE firm itself, or strategic at premium |
-| **D: Downside** | $180K-$360K | Month 24-30 | $1M-$5M | AI startup, consulting firm (IP + acqui-hire) |
+| Scenario | Vision | ARR Trigger | Timeline | Valuation | Acquirer Profile |
+|----------|--------|------------|----------|-----------|-----------------|
+| **A: Bootstrapped** | Current | $600K-$1.4M | Month 24-36 | $5M-$21M | PE roll-up, ERP vendor, consulting tech arm |
+| **B: Funded growth** | Current | $3M-$10M | Month 30-48 | $45M-$250M | Salesforce, ServiceNow, Workday, SAP |
+| **C: PE portfolio** | Current | $5M-$15M | Month 36-60 | $60M-$300M | PE firm itself, or strategic at premium |
+| **D: Downside** | Current | $180K-$360K | Month 24-30 | $1M-$5M | AI startup, consulting firm (IP + acqui-hire) |
+| **E: Strategic platform** | Extended | $50M-$150M | Month 48-84 | $1B-$5B | Microsoft, Salesforce, ServiceNow, Palantir, large PE |
+| **F: Consulting defensive** | Extended | $40M-$120M | Month 48-84 | $1B-$2B | McKinsey, BCG, Bain, Accenture, Deloitte |
+
+Scenarios A–D are the *current vision* (mid-market vertical SaaS). Scenarios E–F are the *extended vision* (three-layer platform) and require the BO Agent outer loop and Innovation layer — see `strategic_horizon.md` §2, §4.
 
 ---
 
@@ -189,3 +229,5 @@ The incremental pricing model doesn't just increase revenue — it fundamentally
 ---
 
 *This document is strategic planning, not a commitment. Exit strategy will be revisited after first 3 paying customers provide actual NRR and expansion data. Next review: Q4 2026.*
+
+*v1.2 (Jun 1, 2026): Added Scenarios E (Strategic Enterprise Platform, $1B-$5B) and F (Consulting Firm Defensive Acquisition, $1B-$2B) for the extended three-layer vision; flagged the positioning-fork correction to the v1.1 "all paths aligned" assumption. See `strategic_horizon.md`.*

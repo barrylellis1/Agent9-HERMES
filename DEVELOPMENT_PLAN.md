@@ -1,12 +1,12 @@
 # Agent9-HERMES Development Plan
 
 **Created:** 2026-03-14
-**Last updated:** 2026-05-30
+**Last updated:** 2026-06-08
 **Status:** Active
 
 ---
 
-## Where We Are — May 2026
+## Where We Are — June 2026
 
 ### Pipeline status: fully operational end-to-end
 
@@ -49,8 +49,12 @@ run_enterprise_assessment.py
 | Production deployment (Railway + Cloudflare Pages + Supabase Cloud) | Live (Cloudflare Pages since Apr 2026, replaces Vercel) |
 | SF fast debate mode (2 calls dev / 4 calls production) | Production-ready |
 | Opportunity framing — SF Council Debate + VA lifecycle (positive KPI) | Production-ready |
-| KPI Accountability Registry — dimensional ownership, Supabase-backed, REST API, Registry Explorer tab | Partial (Phase 11A) — PIB filtering + unit tests not yet written |
+| KPI Accountability Registry — dimensional ownership, Supabase-backed, REST API, Registry Explorer tab, PIB filtering, SA filter | Production-ready (Phase 11A complete) |
 | Unified situation stream — direction field replaces problem/opportunity binary; single grid | Production-ready (Phase 11C) |
+| KPI Accountability Interview Agent (Phase 11B) — LLM-driven conversational interview; domain selection; live coverage tracker; Haiku per turn, Sonnet for coverage analysis; `ProposedAssignment` JSON output | Production-ready (Phase 11B complete) |
+| DA market signal conflict detection (Phase 11F) — keyword scan of MA signals vs. DA `analysis_mode`; amber conflict badge + confidence % in Root Cause Analysis accordion | Production-ready (Phase 11F complete) |
+| DA Mixed Analysis Mode (Phase 11G) — single IS/IS NOT view with problem (red) + opportunity (green) segments; mixed SCQA narrative; HITL resolution panel; SF `analysis_mode` propagation; 22 unit tests | Production-ready (Phase 11G complete) |
+| DA Statistical Enrichment — partial (Phase 11H) — `effect_size_pct` (segment share of total gap), `is_outlier` flag (>mean+2σ), outlier segments forced to `control_group`; `replication_potential` now evidence-based; effect-size chips + Outlier badge in UI | Partial — effect size + outlier classification shipped; seasonal decomposition deferred |
 | Infra A4 — per-request registry refresh, client_id enforcement on all list endpoints, /admin/registry/reload, connection health dashboard | Production-ready |
 | Infra B — connection profiles backend storage + credential encryption (AES-256 at rest) | Production-ready |
 | Infra B — Supabase Auth dual-mode login (demo selector + email/password), backend JWT middleware | Production-ready |
@@ -62,18 +66,26 @@ run_enterprise_assessment.py
 | ~~DGA mandatory wiring — test suite (happy path, init failure, view resolution)~~ | ✅ Phase 10B-DGA tests — complete (5 tests, May 2026) |
 | KPI trend chart (monthly_values populated for all backends) | Phase 10D |
 | ~~KPI accountability registry~~| ✅ Phase 11A — complete (registry, API, PIB filter, SA filter, 5 unit tests) |
-| LLM-assisted accountability import from HCM documents | Phase 11B |
+| ~~LLM-assisted accountability import from HCM documents~~ | ✅ Phase 11B — complete (Jun 2026) |
 | ~~Unified situation stream (merge problem + opportunity)~~ | ✅ Phase 11C — complete |
 | Adaptive calibration loop (KPI Assistant → monitoring profiles) | Phase 11D |
 | Audio briefings (TTS flash briefing) | Phase 11E |
-| DA market signal conflict detection (outperforming / confirming / missing tailwinds) | Phase 11F |
-| DA Mixed Analysis Mode — single IS/IS NOT view with both problem segments (red) and opportunity segments (green); mixed SCQA narrative; DA determines framing from segment variance, not SA | Phase 11G |
-| DA Statistical Enrichment — effect size relative to segment weight, seasonal decomposition (structural vs cyclical), confidence scoring on IS/IS NOT items; replaces heuristic replication_potential with evidence-based scores (Analytical Intelligence Layer 1) | Phase 11H |
+| ~~DA market signal conflict detection (outperforming / confirming / missing tailwinds)~~ | ✅ Phase 11F — complete (Jun 2026) |
+| ~~DA Mixed Analysis Mode — single IS/IS NOT view with both problem segments (red) and opportunity segments (green); mixed SCQA narrative; DA determines framing from segment variance, not SA~~ | ✅ Phase 11G — complete (Jun 2026) |
+| DA Statistical Enrichment — effect size relative to segment weight, seasonal decomposition (structural vs cyclical), confidence scoring on IS/IS NOT items; replaces heuristic replication_potential with evidence-based scores (Analytical Intelligence Layer 1) | ⚠️ Phase 11H — partial (Jun 2026): effect size + outlier classification shipped; seasonal decomposition deferred |
 | **Advanced Alert Intelligence** — SA: budget/plan variance, projected breach, acceleration, concentration risk; DA: cross-KPI compound patterns (KPI relationship registry); VA: plan trajectory + covenant severity; PIB: alert-type-differentiated briefings | **Phase 11I** |
 | **Solution Validity Monitoring** — recurring health checks on active VA solutions: control group stability (V1), market condition drift + strategic alignment drift (V2); health score HEALTHY/WATCH/DEGRADED/INVALID; PIB "Solutions Requiring Attention" + "Pending Confirmations" sections; Portfolio health badge with action protocol | **Phase 11J** |
+| **Meridian Flow Systems synthetic dataset** — 79,200-row SAP CO-PA BigQuery dataset; 21 dimensions (including `order_type` at rank #1); FY2024+2025+2026 all 12 months; 4 drift scenarios for 11K–11N unit tests; `scripts/clients/meridian.py` seed script | **Pre-11K** |
+| **Data Product Observability** — DGA auto-classifies each data product's refresh cadence (`real_time \| micro_batch \| daily_batch \| weekly_batch \| monthly_close`); continuously confirms cadence; detects pipeline stalls; `pipeline_status` on data product contract | **Phase 11K** |
+| **EDA Dimensional Importance Profiling** — DGA runs variance decomposition + concentration ratio + cardinality across all dimensions at onboarding; writes `dimension_importance_profile` JSONB to Supabase; replaces arbitrary 5-dimension cap in background DA; refreshed on schedule matching data product cadence | **Phase 11L** |
+| **Change Detection Agent + DA Background Execution Mode** — lightweight statistical agent detects dimensional drift against EDA baseline; triggers background DA on drift or SA breach; DA gains `execution_context: interactive \| scheduled`; scheduled mode removes dimension cap, parallelises all dimensions via `asyncio.gather`; results persisted to `da_background_runs` Supabase table; DA response gains `summary_view` (top 5 dims × 3 rows) for SF and PIB consumption | **Phase 11M** |
+| **Event-Driven PIB + SA Card DA State** — PIB fires on DA completion when results are materially different from last run (no cron schedule anywhere); situation cards gain `da_state: not_run \| running \| precomputed \| stale` badge; DeepFocusView gains accordion + importance badges for many-dimension results; on-demand DA always available from SA card regardless of pre-computed state | **Phase 11N** |
+| **Business Objectives Registry** — first-class registry entity for declared strategic objectives; objective → KPI driver mapping with weights; `objective_id` on situation cards; SA severity weighting | **Phase 12C** |
+| **Strategic Performance Summary** — objective health score (CRITICAL/AT_RISK/ON_TRACK/AHEAD) per assessment run; PIB "Strategic Objectives" section; Portfolio Objectives tab in UI | **Phase 12D** |
 | KPI Causal Intelligence — KPI interdependency map in DGA; cross-KPI conflict detection before solution approval; strategic alignment scoring against declared corporate priorities (Analytical Intelligence Layer 2) | Phase 2 (2027) |
-| Business Optimization Agent — portfolio-level optimization across coupled KPIs; cross-intervention conflict detection; execution sequencing; strategic alignment (Analytical Intelligence Layer 3) | Phase 3 (2028) |
-| Company Intelligence KPI Template Generator (org-first onboarding with benchmarks) | Phase 12A |
+| Business Optimization Agent — Phase B: portfolio conflict detection, sequencing, strategic alignment scoring; Phase C: fully autonomous objective pursuit, KPI trajectory forecasting, living Business Plan generation (Analytical Intelligence Layer 3) | Phase 3 (2028) |
+| ~~Company Intelligence KPI Template Generator (org-first onboarding with benchmarks)~~ | ✅ Phase 12A — complete (June 2026) |
+| **Company Intelligence Principal Templates** — MA agent researches a company's leadership team; admin reviews + commits as `status='template'` principals; email optional at commit; no decision-style inference (admin chooses after seeing SF in action) | **Phase 12E** |
 | Org-First Accountability Onboarding (process template → KPI requirements → assign) | Phase 12B |
 | Business Optimization workflow (top-down strategic) | Phase 12 |
 | KPI Assistant UI | Phase 12 |
@@ -99,8 +111,9 @@ run_enterprise_assessment.py
 | `situations` table partially redundant with `kpi_assessments` | Deprecation deferred — used by VA pipeline. Consolidate in Phase 11A. (11A shipped; consolidation still pending.) |
 | ~~`kpisScanned={14}` hardcoded in `DecisionStudio.tsx`~~ | ✅ Wired in Phase 11C |
 | ~~Separate `OpportunitySignal` / `Situation` models~~ | ✅ Unified in Phase 11C |
-| `run_enterprise_assessment.py` has no scheduler | CLI only — scheduler deferred |
+| `run_enterprise_assessment.py` has no scheduler | CLI only — event-driven scheduling designed in Phases 11K–11N; replaces cron with data-change detection |
 | ~~SA/PCA/DPA agents cache registry data at startup~~ | ✅ **Resolved May 2026 (Infra A4-a Approach A)** — per-request refresh added to `detect_situations`, `process_nl_query`, `get_kpi_definitions`, `get_principal_context_by_id`, `get_principal_context`, `get_data_product`, `generate_sql_for_kpi`. Regression test: `tests/unit/test_a9_registry_live_reload.py` (7 tests). Optional Approach B refactor (true per-request locals) deferred. |
+| Settings tab bar horizontal density | After Phase 12A, the Settings header has 10 horizontal tabs (Company Profile, KPI Intelligence, KPIs, Principals, Data Products, Business Processes, Glossary, Connection Health, Accountability, Assign Ownership). Trigger for left-hand hierarchical nav refactor: section count > 7 (already crossed). Deferred as a standalone PR — owners decide when to schedule. Suggested 5-group taxonomy: Workspace / Data / Decision Registry / People / Governance. |
 
 ---
 
@@ -901,23 +914,362 @@ Infra A5 (_workflow_store → Supabase) ─────────────�
 
 ---
 
-### Phase 12: Business Optimization + Platform Completeness
+---
 
-**Goal:** Top-down strategic workflow + close remaining gaps (KPI Assistant UI, Slack).
+### Pre-11K: Meridian Synthetic Test Dataset
+
+**Goal:** Build and seed the Meridian Flow Systems BigQuery dataset before implementing Phases 11K–11N. All four phases are designed around this dataset — cadence views, EDA profiles, drift signals, and pre-computed DA results are parameterised to its specific dimension structure. Unit tests for 11K–11N assert against its cardinalities and rankings.
+
+**Why this must precede 11K:** The EDA ranking tests assert `order_type` at rank #1 with a 23pp CM I spread. The cadence sensing tests assert against the three BigQuery views (`copa_fresh`, `copa_nightly`, `copa_stale`). The change detection tests assert against `copa_baseline` and `copa_drifted` with four controlled perturbations. None of these can be unit-tested without the dataset.
+
+**Spec:** `docs/testing/copa_synthetic_data_spec.md` — full schema, dimension profiles, row volume, scenario designs, seed script requirements, and validation queries.
+
+**Client:** `meridian` — Meridian Flow Systems, industrial pump and flow control equipment manufacturer, $165M revenue, SAP S/4HANA CO-PA → BigQuery.
+
+**Key design decisions:**
+- `order_type` added as 21st analytical dimension — catalog standard / engineered-to-order / aftermarket parts / service contract
+- `order_type` ranks #1 in EDA importance (23pp CM I spread: 32% catalog → 55% aftermarket parts)
+- 79,200 rows: FY2024 + FY2025 + FY2026 all 12 months — full FY2026 ensures demo stability year-round
+- FY2026 H1 story: ETO project slippage → catalog order mix shift drives CM I −2.6pp (three situation cards fire)
+- FY2026 H2 story: ETO backlog converts, partial recovery — powers the VA trajectory chart
+- Four drift scenarios in `copa_baseline`/`copa_drifted`: new_member (DIGITAL_NATIVE_OEM), distribution_shift (industry), volume_anomaly (P12 ×2.4), variance_spike (payment_terms CoV doubles)
 
 | Deliverable | Description |
-|------------|-------------|
-| Business Optimization workflow | Board/executive-initiated strategic directives flowing through SF and VA |
-| `A9_Risk_Analysis_Agent` | Weighted risk scoring (PRD exists, dead code — rewrite) |
-| `A9_Stakeholder_Analysis_Agent` | Identify stakeholders, estimate support/resistance |
-| KPI Assistant UI | React panel for the existing API-only KPI suggestion workflow |
-| Slack notifications | PIB summary to Slack channel alongside email |
+|---|---|
+| `scripts/clients/meridian.py` | Seed script: creates BQ dataset, loads 79,200 rows with fixed `random.seed(42)`, creates cadence views and scenario tables, registers Supabase records (data product, 5 KPIs, 4 BPs, 2 principals) |
+| BQ dataset `agent9-465818.meridian_copa` | Table `copa_line_items` (34 cols, 79,200 rows), views `copa_fresh/nightly/stale`, tables `copa_baseline/copa_drifted` |
+| Supabase registry records | Data product `meridian_copa`, KPIs `net_revenue / cm_i_pct / cm_ii_pct / sales_deduction_rate / freight_cost_pct`, principals `meridian_cfo / meridian_coo` |
+| `tests/fixtures/da_background_runs_seed.json` | Pre-computed DA result for Scenario D — Scenario D UI path tests (11N) depend on this |
+| Validation queries | All pass: 79,200 row count, order_type=4 / customer_group=5 / industry=7 / customer_id≈820, CM waterfall consistency, concentration ratios |
+
+**Test file scaffolding (create empty files for 11K–11N):**
+```
+tests/unit/test_phase_11k_cadence_sensing.py
+tests/unit/test_phase_11l_eda_profiling.py
+tests/unit/test_phase_11m_change_detection.py
+tests/unit/test_phase_11n_da_state.py
+```
+
+**Scope:** M (seed script ~400 lines; schema is specified, no design work required)
+
+---
+
+### Phase 11K: DGA Data Product Observability
+
+**Goal:** DGA automatically classifies each data product's refresh cadence and detects pipeline stalls — eliminating manual schedule configuration and enabling the change detection agent in Phase 11M.
+
+**Why this matters:** The enterprise assessment pipeline cannot self-pace without knowing how often each data product refreshes. A daily_batch dataset sampled every 15 minutes wastes compute and produces false drift signals. A real-time feed sampled once daily misses intraday crises. Cadence must be learned from the data, not declared by configuration — and it must be continuously re-confirmed because ETL processes change.
+
+| Deliverable | Description |
+|---|---|
+| `classify_refresh_cadence(data_product_id, client_id)` on DGA | Probes `MAX(time_col)` twice at a configurable interval via DPA execution; classifies pattern as `real_time \| micro_batch \| daily_batch \| weekly_batch \| monthly_close` from delta magnitude and time-of-day clustering. DGA generates the probe specification; DPA executes — boundary preserved. |
+| `check_pipeline_health(data_product_id, client_id)` on DGA | Compares `NOW() - MAX(time_col)` against expected cadence interval × 1.5 tolerance. Returns `healthy \| stale \| unknown`. |
+| `DataProductObservabilityRequest / Response` Pydantic models | New models in `src/agents/models/data_governance_models.py`. |
+| Supabase migration | `20260610_data_product_observability.sql` — add `refresh_cadence`, `cadence_confirmed_at`, `last_refresh_detected_at`, `pipeline_status` to `data_products` table. |
+| `DataProduct` model update | Add the four observability fields; all optional (null = not yet profiled). |
+| `pipeline_failure` situation card | When `check_pipeline_health` returns `stale`, SA emits a structural alert card with `alert_type = "pipeline_failure"`. Highest priority in PIB section ordering (above covenant breaches). |
+| `run_enterprise_assessment.py` integration | Call `DGA.check_pipeline_health()` per unique `data_product_id` before the KPI scan loop. Skip KPI assessment for stale data products and include the pipeline alert in the assessment results. |
+| Manual override | `PATCH /api/v1/registry/data-products/{id}` accepts `refresh_cadence` field for explicit admin override. Overridden cadence is not auto-reclassified unless admin resets it. |
+| Unit tests | 4 — health = stale when `NOW() - MAX > cadence × 1.5`; health = healthy within tolerance; pipeline_failure card emitted on stale; KPI assessment skipped when data product stale. |
+
+**Key implementation decision — DGA boundary:** The DGA card prohibits DGA from querying data directly. `classify_refresh_cadence` and `check_pipeline_health` must generate a probe specification (table name, time column, threshold) and delegate execution to DPA via the orchestrator. DGA evaluates the result; DPA runs the SQL.
+
+**Dependencies:** None — independent of other 11x phases. Produces `pipeline_status` and `refresh_cadence` consumed by Phase 11M.
+
+**Scope:** M
+
+---
+
+### Phase 11L: EDA Dimensional Importance Profiling
+
+**Goal:** During data product onboarding, DGA runs statistical EDA across all dimensions and writes a ranked `dimension_importance_profile` to Supabase — replacing the arbitrary 5-dimension config cap with data-driven dimension selection.
+
+**Why this matters:** The current `max_dimensions = 5` config was set for interactive latency reasons, not analytical ones. A logistics data product may have 30+ meaningful dimensions; a financial model may have 6. The EDA profile lets DA process as many dimensions as carry signal — no more, no fewer — and does so in ranked order so background runs always lead with the strongest drivers.
+
+**Note — critical filesystem bug fixed here:** The existing `compute_and_persist_top_dimensions()` on DGA writes to a local YAML file (`kpi_enrichment.yaml`). This file does not survive Railway redeploys. Phase 11L redirects all output to Supabase JSONB as the authoritative store.
+
+```python
+class DimensionImportanceEntry(BaseModel):
+    dimension: str
+    concentration_ratio: float   # top-3 group share / total
+    cardinality: int             # unique member count
+    variance_score: float        # coefficient of variation across groups
+    importance_rank: int
+
+class DimensionImportanceProfile(BaseModel):
+    data_product_id: str
+    client_id: str
+    computed_at: str
+    dimensions: List[DimensionImportanceEntry]
+    total_variance_explained: float
+```
+
+| Deliverable | Description |
+|---|---|
+| `DimensionImportanceProfile` Pydantic model | New model in `src/agents/models/data_governance_models.py`. |
+| `compute_and_persist_top_dimensions()` refactored | Extends existing method: adds `variance_score` (std dev of group KPI values / mean) and `cardinality` (`COUNT(DISTINCT dim_col)`) alongside existing concentration ratio. Writes `DimensionImportanceProfile` to Supabase `data_products.dimension_importance_profile` JSONB. Local YAML write retained as dev convenience only. |
+| Supabase migration | `20260611_dimension_importance_profile.sql` — add `dimension_importance_profile JSONB` to `data_products` table; add `dimension_importance_profile JSONB` to `kpis` table (per-KPI override wins over data product default). |
+| Onboarding step 9 | Data product onboarding 8-step workflow gains a step 9: "Compute EDA dimension profile." Triggered automatically after schema inspection completes. |
+| `POST /api/v1/registry/data-products/{id}/compute-dimension-profile` | Triggers an async EDA run. Can be called manually to refresh a stale profile. |
+| `GET /api/v1/registry/data-products/{id}/dimension-profile` | Returns the stored profile with `computed_at` timestamp. |
+| DA `_dims_from_contract()` Priority 0 lookup | Before the existing contract YAML fallback chain, check for `dimension_importance_profile` on the data product registry record. When present, use its ranked `dimensions` list — no count cap applied in scheduled execution mode (see Phase 11M). In interactive mode, the `max_dimensions` config still caps the list. |
+| Profile refresh schedule | `run_enterprise_assessment.py` calls `POST /compute-dimension-profile` for each data product whose profile is older than `refresh_cadence × 7` (weekly refresh for daily_batch, monthly for monthly_close). |
+| Unit tests | 5 — profile written to Supabase not filesystem; DA Priority 0 lookup uses profile when present; DA falls back to contract YAML when profile absent; per-KPI profile overrides data product profile; onboarding step 9 fires after step 2. |
+
+**Dependencies:** Phase 11K helpful (cadence drives profile refresh schedule) but not blocking. Phase 11L can ship independently.
+
+**Scope:** M
+
+---
+
+### Phase 11M: Change Detection Agent + DA Background Execution Mode
+
+**Goal:** A lightweight statistical agent detects significant dimensional drift against the EDA baseline and triggers background DA; DA gains uncapped parallel async execution in scheduled mode; the 5-dimension interactive cap is preserved; DA response gains a `summary_view` sized for SF and PIB consumption.
+
+**Why this matters:** This is the core of the event-driven pipeline. The system stops polling on a fixed schedule and starts responding to actual data changes. DA stops being limited to 5 dimensions in background mode — it processes all dimensions in parallel, produces a full result, and a sized summary for downstream consumers. SF receives only the ranked diagnostic signal it needs, not the full dimensional table.
+
+#### 11M-A: Dimensional Limit Removal
+
+The `max_dimensions = 5` config is the interactive latency constraint. It is explicitly preserved for interactive mode and removed for scheduled mode:
+
+| Mode | Dimension handling |
+|---|---|
+| `execution_context = "interactive"` | `max_dimensions` config applies (default 5). Current behaviour unchanged. |
+| `execution_context = "scheduled"` | `max_dimensions` is overridden to `len(profile.dimensions)` from the EDA importance profile. If no profile exists, all dimensions from the contract schema are used with no cap. |
+
+**Fallback when no EDA profile exists in scheduled mode:** Use `_dims_from_contract()` with no limit against the raw contract `dimension_semantics` list. Log a warning recommending onboarding step 9 be run. Do not silently fall back to the 5-dimension default — that would defeat the purpose of background mode.
+
+#### 11M-B: DA `summary_view` — Tiered Output for Downstream Consumers
+
+Each DA run produces two outputs. Both are stored in `da_background_runs.da_result`:
+
+```python
+class DeepAnalysisResponse(BaseModel):
+    # ... existing fields ...
+    summary_view: Optional[DASummaryView] = None   # NEW — always populated when execution_context="scheduled"
+
+class DASummaryView(BaseModel):
+    top_dimensions: List[str]           # top 5 by EDA importance rank
+    is_items: List[dict]                # top 3 problem rows across all dimensions
+    is_not_items: List[dict]            # top 3 healthy/benchmark rows
+    mixed_framing: bool
+    generated_at: str
+```
+
+**Consumer sizing:**
+
+| Consumer | Receives | Why |
+|---|---|---|
+| SF Stage 1 + Synthesis | `summary_view` (top 5 dims × top 3 rows = ~15 cells) | LLM quality degrades with excess context; SF needs the strongest diagnostic signal, not the full table |
+| PIB email | `summary_view.is_items[:3]` | Existing 10B spec: top 3 IS driver rows per situation block |
+| Council Debate UI (pre-computed path) | Full `kt_is_is_not` | Interactive exploration — user chooses what to expand |
+| SA card badge | `summary_view.top_dimensions[:2]` | KPI tile subtitle spec: top 2 dimension drivers |
+
+**SF prompt update:** SF synthesis and Stage 1 prompts currently accept the full `deep_analysis_context`. When `summary_view` is present, pass `summary_view` as the DA context instead of the full `kt_is_is_not`. The existing `da_summary` field already provides a trimmed context for synthesis (Phase 10D) — `summary_view` replaces and formalises that pattern.
+
+#### 11M-C: Change Detection Agent
+
+**New agent:** `A9_Change_Detection_Agent` — a lightweight peer of SA, not embedded within it. Separate agent card required per protocol.
+
+**Detection signals:**
+
+| Signal | Detection method | Trigger threshold |
+|---|---|---|
+| New dimension members | `SET(current_members) - SET(baseline_members)` for top-N dimensions | Any new member in a top-5 dimension |
+| Distribution shift | `\|concentration_ratio_current - concentration_ratio_baseline\| / baseline > 0.20` | 20% shift in top-3 group share |
+| Volume anomaly | Total KPI value vs rolling mean | > 2σ from rolling 6-period mean |
+| Variance spike | Any dimension's `variance_score` doubles from baseline | 2× baseline coefficient of variation |
+
+```python
+class ChangeSignal(BaseModel):
+    dimension: str
+    signal_type: Literal["new_member", "distribution_shift", "volume_anomaly", "variance_spike"]
+    magnitude: float
+    details: str
+
+class ChangeDetectionResult(BaseModel):
+    data_product_id: str
+    client_id: str
+    assessed_at: str
+    signals: List[ChangeSignal]
+    trigger_da: bool
+    trigger_reason: Optional[str]
+    affected_kpi_ids: List[str]
+```
+
+**Cadence matching:** CDA only runs for data products where `pipeline_status == "healthy"` (Phase 11K). Sampling frequency matches `refresh_cadence` — no point running CDA on a monthly_close dataset at daily cadence.
+
+#### 11M-D: DA Async Parallel Execution
+
+The sequential for-loop at line 1143 of `a9_deep_analysis_agent.py` processes dimensions one at a time. At 20 dimensions × ~200ms SQL round-trip = 8–16 seconds minimum in scheduled mode. This is not acceptable for a background pipeline that is supposed to run unnoticed.
+
+**Fix:** Extract the per-dimension processing block into a `_process_dimension(dim)` coroutine. In scheduled mode, replace the sequential loop with `asyncio.gather(*[_process_dimension(dim) for dim in all_dims])`. Dimensions have no cross-dependencies — they are structurally independent GROUP BY queries.
+
+#### 11M-E: `da_background_runs` Supabase Table
+
+```sql
+CREATE TABLE da_background_runs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    kpi_id TEXT NOT NULL,
+    client_id TEXT NOT NULL,
+    trigger_type TEXT NOT NULL,  -- "change_detection" | "sa_breach" | "manual"
+    trigger_signal JSONB,
+    execution_context TEXT NOT NULL DEFAULT 'scheduled',
+    status TEXT NOT NULL DEFAULT 'queued',  -- queued | running | complete | failed
+    da_result JSONB,             -- full DeepAnalysisResponse
+    queued_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    error_message TEXT
+);
+```
+
+Note: `da_background_runs` stores `(kpi_id, client_id)` as the primary coordination keys — not a foreign key to `kpi_assessments` — because background DA runs are triggered independently of assessment cycles.
+
+| Additional deliverable | Description |
+|---|---|
+| `DeepAnalysisRequest` update | Add `execution_context: Literal["interactive", "scheduled"] = "interactive"` and `da_run_id: Optional[str]` |
+| `run_enterprise_assessment.py` integration | After SA loop: invoke CDA per data product. If `trigger_da=True`, enqueue background DA to `da_background_runs` via `asyncio.create_task()`. |
+| Unit tests | 8 — dim limit removed in scheduled mode; dim limit preserved in interactive mode; `asyncio.gather` used in scheduled mode (mock verify); summary_view top-5 × top-3 correct; SF receives summary_view not full kt; CDA triggers DA on distribution_shift signal; CDA suppresses trigger when `pipeline_status = stale`; no-profile fallback logs warning and uses full contract dimension list. |
+
+**Dependencies:** Phase 11L (EDA profiles) must precede — CDA needs the baseline. Phase 11K (cadence) strongly recommended.
+
+**Scope:** XL
+
+---
+
+### Phase 11N: Event-Driven PIB + SA Card DA State + UI Dimensional Accordion
+
+**Goal:** PIB fires on DA completion events (not cron); situation cards show DA pre-computation state with an as-of timestamp; DeepFocusView renders many-dimension results with an accordion pattern; principals can always re-trigger on-demand DA from the SA card.
+
+**Why this matters:** This phase closes the loop on the agentic pipeline. No fixed schedule exists anywhere. PIB only fires when analysis is materially new. The UI handles the full dimensional depth that scheduled DA now produces. The interactive path remains first-class — not as the default, but as the always-available override.
+
+#### 11N-A: DA State on Situation Cards
+
+```python
+da_state: Literal["not_run", "running", "precomputed", "stale"] = "not_run"
+# precomputed: background DA result available and fresh (within 1× cadence window)
+# stale: result exists but older than 1× cadence window
+# not_run: no background DA triggered for this situation
+da_completed_at: Optional[str] = None
+```
+
+Supabase migration `20260612_da_state_on_assessments.sql`:
+```sql
+ALTER TABLE kpi_assessments
+  ADD COLUMN IF NOT EXISTS da_state TEXT DEFAULT 'not_run'
+      CHECK (da_state IN ('not_run', 'running', 'precomputed', 'stale')),
+  ADD COLUMN IF NOT EXISTS da_completed_at TIMESTAMPTZ;
+```
+
+When a `da_background_runs` row transitions to `status = "complete"`, the assessment engine updates `kpi_assessments.da_state = "precomputed"` and `da_completed_at = NOW()` for the matching `(kpi_id, client_id)`.
+
+#### 11N-B: Event-Driven PIB Trigger
+
+PIB currently fires unconditionally after the SA loop in `run_enterprise_assessment.py`. Replace with a materiality-gated trigger:
+
+```python
+def _da_results_materially_differ(prev: dict, curr: dict) -> bool:
+    # Compare top-3 (dimension, key) pairs in where_is
+    # If 2+ have changed → material; trigger PIB
+    prev_keys = {(e["dimension"], e["key"]) for e in
+                 (prev.get("kt_is_is_not") or {}).get("where_is", [])[:3]}
+    curr_keys = {(e["dimension"], e["key"]) for e in
+                 (curr.get("kt_is_is_not") or {}).get("where_is", [])[:3]}
+    return len(prev_keys.symmetric_difference(curr_keys)) >= 2
+```
+
+When a background DA run completes, `_maybe_trigger_pib(client_id, kpi_id)` is called. It compares the new `da_result` against the previous entry in `da_background_runs` for the same `(kpi_id, client_id)`. If materially different → PIB fires for all principals accountable for the KPI. If not → no briefing (avoids noise).
+
+**PIB compose path for DA-completion events:** PIB's existing `_compose()` loads `get_latest_run()` from `assessment_runs`. A DA-completion-triggered PIB uses a new `trigger_type = "da_completion"` path that reads the DA result directly from `da_background_runs` rather than re-loading the full assessment run. All downstream PIB machinery (token generation, Jinja2 rendering, SMTP) is reused unchanged.
+
+#### 11N-C: New API Endpoint — Pre-Computed DA Result
+
+```
+GET /api/v1/deep-analysis/background/{kpi_id}?client_id=X
+```
+
+Returns the latest `da_background_runs` entry for a KPI where `status = "complete"`. The frontend calls this endpoint when `da_state = "precomputed"` to load the Council Debate view without triggering a new DA run.
+
+#### 11N-D: DeepFocusView — Accordion for Many-Dimension Results
+
+The Council Debate Is/Is Not exhibit is designed around 5 dimensions. At 20–50 dimensions it becomes unworkable as a flat table.
+
+| Deliverable | Description |
+|---|---|
+| Headline view | Top 3–5 dimensions by EDA importance rank always expanded. Dimension header shows importance rank badge (e.g., "#1 Driver") and variance contribution percentage. |
+| Accordion — remaining dimensions | Dimensions ranked 6+ collapsed by default. "Show all N dimensions" expand control. |
+| Importance rank badge | Small tag on each dimension header: `#1 · 34% variance` — sourced from `summary_view.top_dimensions` and the EDA profile. |
+| Filter / search | Text input to filter visible dimensions by name — essential for logistics models with 30+ dimensions. |
+| Pre-computed state loading | When `da_state = "precomputed"`, the "Run Analysis" button becomes "View Analysis". Clicking it calls `GET /deep-analysis/background/{kpi_id}` and populates the exhibit directly without triggering a new DA run. |
+| Re-trigger CTA | "Refresh Analysis" always available regardless of `da_state`. Triggers on-demand interactive DA via existing `/deep-analysis/run` endpoint. Used when the principal suspects the pre-computed result is stale relative to recent events. |
+| SA card badge | Situation card shows `da_state` badge: "Analysis ready · 2 hours ago" (precomputed), "Analysis running…" (running), "Analysis outdated · 14 hours" (stale), no badge (not_run). |
+
+| Additional deliverables | Description |
+|---|---|
+| `GET /assessments/{run_id}/situations` update | Include `da_state` and `da_completed_at` per situation in response. |
+| PIB email update | When composing from a DA-completion event: show `da_completed_at` timestamp in the briefing footer ("Analysis completed: 06:14 UTC"). Principals can see how fresh the analysis is relative to the situation timestamp. |
+| Unit tests | 6 — `da_state = precomputed` after background DA completes; `da_state = stale` when `da_completed_at < NOW() - cadence`; PIB fires when DA results material; PIB suppressed when DA results unchanged; `GET /deep-analysis/background/{kpi_id}` returns latest complete run; PIB skips brief when `pipeline_status = stale`. |
+
+**Phase 11N dependency graph:**
+```
+Phase 11M (da_background_runs + execution_context) ──→ 11N-A (da_state transitions)
+                                                      → 11N-B (materiality check reads da_background_runs)
+                                                      → 11N-C (new endpoint reads da_background_runs)
+Phase 11K (pipeline_status) ─────────────────────────→ 11N-B (PIB suppressed when pipeline stale)
+Phase 11L (EDA profile) ─────────────────────────────→ 11N-D (importance rank badges in accordion)
+```
+
+**Dependencies:** Phase 11M must precede. Phase 11K strongly recommended. Phase 11L needed for importance badges in the UI.
+
+**Scope:** L
+
+---
+
+**Phase 11K–11N dependency chain:**
+
+```
+11K (cadence sensing + pipeline health)
+  └── 11L (EDA profiling — can also ship independently)
+        └── 11M (change detection + background DA + dimensional limit removal + summary_view)
+              └── 11N (event-driven PIB + SA card state + accordion UI)
+```
+
+**Architectural decisions recorded:**
+- Interactive DA always uses `max_dimensions` cap — latency constraint is real
+- Scheduled DA has no dimension cap — EDA profile provides the ranked list; contract schema is the fallback when no profile
+- SF receives `summary_view` (top 5 dims × top 3 rows), not full `kt_is_is_not`
+- No fixed PIB cron schedule — PIB fires on DA completion events gated by materiality check
+- Interactive DA path from SA card is first-class and always available — not a fallback
+- Pipeline failure (`stale` data product) suppresses both DA and PIB — analysis on stale data is not delivered
+
+---
+
+### Phase 12: Platform Completeness + Business Objectives Foundation
+
+**Goal:** Close remaining platform gaps (KPI Assistant UI, Slack, onboarding) and lay the data model foundation for the Business Optimization Agent outer loop. Sub-phases 12A–12E are the sequenced delivery plan.
+
+| Sub-phase | Deliverable | Description |
+|----------|------------|-------------|
+| **12A** ✅ | Company Intelligence KPI Template Generator | Org-first onboarding: MA agent researches company → generates benchmark-anchored KPI templates (June 2026) |
+| **12E** | Company Intelligence Principal Templates | MA agent researches a company's leadership team → admin commits as `status='template'` principals; email optional at commit; promotion to active gated on email entry |
+| **12B** | Org-First Accountability Onboarding | Process template → principal suggestion → one-step accountability confirm |
+| **12C** | Business Objectives Registry | `business_objectives` + `objective_kpi_drivers` tables; CRUD API + UI; `objective_id` on situation cards; SA severity enrichment |
+| **12D** | Objective Health Score + Strategic Performance Summary | Composite objective health per assessment run; PIB "Strategic Objectives" section; Portfolio Objectives tab |
+| — | KPI Assistant UI | React panel for the existing API-only KPI suggestion workflow |
+| — | Slack notifications | PIB summary to Slack channel alongside email |
+
+**Business Optimization Agent — full PRD:** `docs/prd/agents/a9_business_optimization_agent_prd.md`
+
+**Phase B/C (2027–2028):** Portfolio conflict detection, strategic alignment scoring, sequencing, KPI trajectory forecasting, and fully autonomous objective pursuit are Phase B/C work — dependent on Phase A trust being established with pilot clients. See PRD for phasing rationale and trust curve.
 
 **Reference:** `workflow_definitions/business_optimization.yaml`, `workflow_definitions/innovation_driver.yaml`
 
 ---
 
-### Phase 12A: Company Intelligence-Driven KPI Template Generator
+### Phase 12A: Company Intelligence-Driven KPI Template Generator ✅ COMPLETE (June 2026)
+
+**Status:** Shipped 2026-06-02. Backend (MA extension + API routes + SA guard + migration), Admin Console UI, and unit tests all in place. Manual end-to-end validation pending with a real company name.
 
 **Goal:** Given a company name, research its public footprint, generate a relevant KPI set with industry-calibrated benchmarks, and commit accepted KPIs to the registry ready for data connection. Org-first onboarding — the system tells clients what to measure before asking them to connect data.
 
@@ -956,6 +1308,86 @@ Infra A5 (_workflow_store → Supabase) ─────────────�
 
 ---
 
+### Phase 12E: Company Intelligence-Driven Principal Templates
+
+**Status:** Scoped 2026-06-04. Ready to build immediately after Phase 12A end-to-end validation passes. Estimated effort: ~9 hours focused work.
+
+**Goal:** Given a company name, research its leadership team from public sources (10-K, proxy statements, investor relations, board pages) and generate template principal profiles ready for admin review. Admin confirms identities, enters emails (which are never inferred), and promotes individuals to active. Closes the "every principal is pre-loaded before first scan" gap in the registry-first onboarding flow — the sister phase to 12A.
+
+**Positioning:** Replaces the blank-slate principal entry experience. Today, adding a CFO means typing their name, role, decision style, and assignments by hand for every client. Phase 12E pulls verifiable public information automatically and asks the admin to **confirm rather than create**. Stronger demo moment than KPI research alone because the demo audience IS the C-level exec — they see themselves in the system before they finish their coffee.
+
+**Scope decisions adopted 2026-06-04:**
+- **Decision 1 (no style inference):** MA agent does NOT infer `decision_style` or `communication_style`. Admin enters these fields manually after the principal has used Solution Finder and seen the different style outputs. Rationale: decision style hasn't been proven to meaningfully differentiate output for users; let them discover preference through SF rather than pre-commit based on LLM hypothesis.
+- **Decision 2 (email optional at commit):** `email` column allows NULL on `principal_profiles`. PIB silently skips template principals or any principal with NULL email. Promotion to `status='active'` is gated on email entry.
+- **Decision 3 (sequence):** Build immediately after Phase 12A end-to-end validation. Practice a complete 5-day onboarding run with a realistic company once 12E ships, to confirm the full registry-first onboarding flow is doable in 5 days.
+
+**Pre-mortem mitigations (P1–P4):**
+
+| ID | Risk | Mitigation |
+|---|---|---|
+| **P1** | Wrong CFO name presented to a prospect — embarrassing in front of named individuals | Per-principal source URL displayed in UI; confidence threshold ≥0.8 required for auto-accept (vs 0.6 for KPIs) |
+| **P2** | Person left the company 6 months ago | "As of [source publication date]" stamp on every research record; admin can flag stale records for re-research |
+| **P4** | GDPR/CCPA — even public info has consent dimensions | Store only public information; one-click delete from registry; never enrich beyond commercially-available sources; no photo/avatar enrichment |
+| **P6** | Email pattern guessing — hard-blocked at every layer | `email` column allows NULL; UI does not offer guess buttons; PIB hard-skips NULL-email principals; LLM prompt explicitly forbids email generation |
+| **P7** | Org chart inference from indirect signals | `reports_to` only populated when explicitly stated in a public source; otherwise NULL |
+
+(P3 and P5 from initial draft removed — they covered decision-style inference risks, which Decision 1 eliminates.)
+
+**User flow:**
+1. Admin enters company name + role filter (default: CEO, CFO, COO, CTO, CHRO, CMO, CIO, CRO)
+2. MA agent runs 4 targeted Perplexity searches in parallel:
+   - Leadership listing — `{company} executive officers 10-K 2024 2025`
+   - Proxy detail — `{company} DEF 14A proxy statement compensation`
+   - IR / board page — `{company} board of directors investor relations leadership`
+   - Strategic priorities by exec — `{company} CFO COO priorities investor day 2024 2025`
+3. Sonnet synthesises into structured `CompanyPrincipalProfile` (name, role, tenure, source URLs, confidence — no inferred styles)
+4. Admin reviews table:
+   - Per row: accept/reject toggle
+   - Email field is optional at commit; required at "Mark Active"
+   - Decision style + communication style fields are NOT populated by research
+5. Commit → writes to `principal_profiles` with `status='template'`
+6. Promotion to `status='active'` requires explicit admin action AFTER email is entered
+
+| Deliverable | Description |
+|---|---|
+| Supabase migration | Add `status TEXT DEFAULT 'active'`, `research_sources TEXT[]`, `confidence FLOAT`, and source URL column to `principal_profiles`; allow `email IS NULL` for templates |
+| `TemplatePrincipal` Pydantic model | name, role, role_category, tenure_years, source_urls, confidence (no inferred style fields) |
+| `CompanyPrincipalProfile` Pydantic model | company_name, template_principals, research_sources, generated_at, degraded |
+| MA agent `research_company_principals()` | 4 parallel Perplexity searches + Sonnet synthesis → CompanyPrincipalProfile; mirrors 12A pattern |
+| `POST /api/v1/templates/research-principals` | Takes `company_name`, `client_id`, optional `roles_filter` → returns `CompanyPrincipalProfile` |
+| `POST /api/v1/templates/commit-principals` | Accepts principals with admin overrides → writes to `principal_profiles` with `status='template'` |
+| `PATCH /api/v1/registry/principals/{id}/promote` | Promotes template to active after email is entered; rejects if email is NULL |
+| Principal Intelligence tab in Admin Console | 4-state UI (input → researching → review → committed) mirroring KPI Intelligence; no style dropdowns; email field marked optional at commit, required at promote |
+| PIB guard | Skip principals where `status='template' OR email IS NULL` — no briefings to non-active or contact-less principals |
+| Login guard | Filter principal selector by `status='active' AND email IS NOT NULL`; templates only appear in Settings |
+| SA / PCA guards | `get_principal_context` excludes `status='template'`; returns clean 404 if a template is referenced by id |
+| Unit tests | MA round-trip; Perplexity-disabled degraded fallback; commit writes correct status; promote endpoint rejects on NULL email; PIB skips templates; login filter excludes templates |
+
+**Out of scope:**
+- HCM integration (Workday, BambooHR, ADP, etc.) — deferred to Phase 12F (concept)
+- Email pattern guessing — NEVER, even with admin override
+- Automatic `business_processes` assignment — Phase 12B's process templates feed this
+- `kpi_line_preference` / `altitude` inference — admin sets manually based on principal preference
+- Photo / avatar enrichment — privacy, out of scope
+- Real-time leadership change monitoring — deferred to Phase 12J (concept)
+- Decision style / communication style inference — explicitly rejected per Decision 1
+
+**Success criteria:**
+- Given a publicly traded company name, the system generates ≥4 C-level template principals with verified name, role, and tenure traceable to a public source URL.
+- Admin completes the flow (review + commit) in under 5 minutes.
+- PIB, login, and SA all correctly exclude template principals.
+- Promotion to active is hard-gated on email entry (manually verified by attempting promote without email and confirming the 400 response).
+- Multi-tenant isolation: client A's templates are never visible to client B.
+
+**Prerequisite:** Phase 12A shipped (June 2026 — provides MA agent extension pattern, UI pattern, and `status='template'` precedent in code).
+
+**Specific risks vs Phase 12A:**
+- **Reputational** — Wrong CFO name in a demo damages trust more than a wrong KPI benchmark. The confidence threshold for auto-accept is tuned higher (0.8 vs 0.6).
+- **Legal** — Public info ≠ unrestricted use. Consult counsel before shipping with paying customers; the M6-equivalent citation guardrail is stricter for individuals.
+- **Currency** — Leadership changes faster than KPI definitions. The "as of date" stamp on every record is critical to manage user expectations.
+
+---
+
 ### Phase 12B: Org-First Accountability Onboarding
 
 **Goal:** Complement Phase 12A — when business process templates define KPI requirements, capture accountability during template selection rather than as a post-KPI interview step.
@@ -969,6 +1401,114 @@ Infra A5 (_workflow_store → Supabase) ─────────────�
 | Integration with Phase 11B | Interview agent used for gap resolution only when template accountability is incomplete |
 
 **Prerequisite:** Phase 12A (template KPIs in registry) + Phase 11A (kpi_accountability table).
+
+---
+
+### Phase 12C: Business Objectives Registry
+
+**Goal:** Add Business Objectives as a first-class registry entity — the data foundation for the Business Optimization Agent's outer loop. Principals declare strategic objectives linked to KPI drivers. The system begins tracking progress without requiring any autonomous agent behaviour yet. This is the data model layer that all subsequent BO Agent phases depend on.
+
+**Strategic context:** See `docs/prd/agents/a9_business_optimization_agent_prd.md` Phase A capabilities. This phase is the prerequisite for Phase 12D (objective health score) and the longer-term Phase B/C portfolio optimisation work. Without `business_objectives` as a first-class entity, the system has no way to steer the inner loop toward declared goals.
+
+**Trust curve:** Phase 12C delivers visible value to principals immediately (objectives visible in the dashboard, situation cards annotated with which objective they affect) without requiring any autonomous AI decision-making.
+
+##### Data Models
+
+```python
+class BusinessObjective(BaseModel):
+    id: str                          # Natural semantic ID: "ebitda_margin_improvement"
+    client_id: str                   # Strict tenant isolation
+    name: str                        # "Improve EBITDA Margin to 15% by Q4 2026"
+    description: Optional[str]
+    target_value: float              # 15.0
+    target_unit: str                 # "%" | "$M" | "days" etc.
+    target_date: str                 # ISO date: "2026-12-31"
+    owner_principal_id: str          # Who is accountable for this objective
+    status: Literal["active", "paused", "achieved", "cancelled"] = "active"
+    created_at: str
+
+class ObjectiveKPIDriver(BaseModel):
+    objective_id: str
+    kpi_id: str
+    client_id: str
+    weight: float                    # 0.0–1.0; weights across all drivers for one objective must sum to 1.0
+    contribution_direction: Literal["higher_is_better", "lower_is_better"]
+```
+
+| Deliverable | Description |
+|---|---|
+| `business_objectives` Supabase table | Composite PK `(client_id, id)`. Standard columns per model above. |
+| `objective_kpi_drivers` Supabase table | Composite PK `(client_id, objective_id, kpi_id)`. FK to `business_objectives` and `kpis`. |
+| `BusinessObjectivesProvider` | Supabase-backed, strict `client_id` scoping. Methods: `get_all(client_id)`, `get_by_id(objective_id, client_id)`, `get_drivers(objective_id, client_id)`, `upsert`, `delete`. |
+| REST API — Objectives | `GET/POST/PUT/DELETE /api/v1/registry/business-objectives/` — standard CRUD with `client_id` query param. |
+| REST API — Drivers | `GET/POST/DELETE /api/v1/registry/business-objectives/{id}/drivers/` — manage KPI driver mappings per objective. Driver weight validation: server-side check that `sum(weights) == 1.0` per objective before accepting. |
+| Registry Explorer UI | New "Objectives" tab: list view with name, target, target date, owner, status, and driver count. Edit form with driver mapping table (KPI selector + weight slider + direction toggle). |
+| `objective_id` on `SituationCard` | Add nullable `objective_id: Optional[str]` to `SituationCard`. SA assessment: after computing all situations, join each KPI against `objective_kpi_drivers` to populate `objective_id`. If a KPI drives multiple objectives, use the highest-weight objective. |
+| SA severity enrichment | When `objective_id` is populated on a situation card, multiply the situation's computed severity score by `(1 + driver_weight)` — a KPI breach that is a high-weight driver of an active objective surfaces higher in the assessment results. Does not change threshold logic; only affects sort order and PIB priority. |
+| Unit tests | 6 — CRUD round-trip; `client_id` isolation (Lubricants cannot see Hess objectives); driver weights rejected when sum ≠ 1.0; `objective_id` populated on situation card when KPI is a driver; `objective_id` is null when KPI has no declared objective; SA severity boost applied when `objective_id` present. |
+
+**Prerequisite:** Phase 11A (`kpi_accountability` table already exists — same schema pattern). No dependency on Phase 12A or 12B.
+
+---
+
+### Phase 12D: Objective Health Score + Strategic Performance Summary
+
+**Goal:** Compute a composite health score per objective at each enterprise assessment run, surface objective progress in the PIB, and add a Portfolio Objectives view to the dashboard. This completes the Phase A outer loop: principals can now see, in every briefing and in the main dashboard, whether the company is on track to hit its declared strategic goals — not just whether individual KPIs are breaching.
+
+**Positioning:** This is the "Strategic Performance Summary" that differentiates Decision Studio from EPM tools (Anaplan, Workday Adaptive) which show plan vs. actuals but cannot autonomously diagnose why objectives are off-track or what to do about them. The objective health score connects individual KPI situations to strategic intent.
+
+##### Objective Health Score Computation
+
+| Concept | Detail |
+|---|---|
+| **Driver KPI status → score** | KPI in critical breach: `0.0`; warning breach: `0.5`; on-track: `1.0`; ahead of target: `1.25` (capped). Status read from SA assessment results for the current run. |
+| **Composite score** | `composite = sum(driver.weight × kpi_score for driver in objective.drivers)`. Range: 0.0–1.25. |
+| **Health thresholds** | CRITICAL (< 0.3), AT_RISK (0.3–0.6), ON_TRACK (0.6–0.9), AHEAD (≥ 0.9). |
+| **Days to target** | For CRITICAL/AT_RISK: linear projection from current composite trend. If slope is positive: `days = (target_composite - current_composite) / slope`; if slope ≤ 0: `"Not on current trajectory"`. |
+| **Trajectory direction** | Compare current composite to prior assessment: improving / stable / deteriorating. |
+| **LLM narrative** | One-sentence Haiku-generated narrative per objective: "EBITDA Margin — primary driver (Gross Profit Margin) is in warning; two solutions active and on track." |
+
+```python
+class ObjectiveHealthScore(BaseModel):
+    objective_id: str
+    client_id: str
+    assessed_at: str                      # ISO datetime
+    health_score: Literal["CRITICAL", "AT_RISK", "ON_TRACK", "AHEAD"]
+    composite_kpi_score: float            # 0.0–1.25
+    driver_scores: Dict[str, float]       # kpi_id → individual score
+    days_to_target: Optional[int]         # None when not on trajectory
+    trajectory_direction: Literal["improving", "stable", "deteriorating"]
+    active_solutions_count: int           # VA solutions contributing to this objective's KPIs
+    narrative: str                        # LLM-generated 1-sentence summary
+```
+
+| Deliverable | Description |
+|---|---|
+| `VA.compute_objective_health(objective_id, client_id, assessment_results)` | New method. Takes the SA assessment results dict (already computed) + objective drivers from registry → returns `ObjectiveHealthScore`. No additional SQL queries — uses in-memory SA results. |
+| `objective_health_scores` Supabase table | Persists one row per `(objective_id, assessed_at)`. Retain last 12 scores per objective for trend computation. |
+| `latest_objective_health` on `business_objectives` | Denormalised `health_score VARCHAR(16)` updated on each assessment write — avoids JOIN on Portfolio Objectives list query. |
+| `run_enterprise_assessment.py` integration | After SA scan and before PIB generation: compute `ObjectiveHealthScore` for all `status="active"` objectives of the client. Pass scores into PIB payload. |
+| PIB — "Strategic Objectives" section | New optional PIB section. Trigger: at least one active objective exists. Content: card per objective showing name, target, health badge (CRITICAL/AT_RISK/ON_TRACK/AHEAD), composite score, days to target, active solutions count, narrative. Ordered: CRITICAL first, then AT_RISK, then ON_TRACK, then AHEAD. |
+| Portfolio Objectives tab in UI | New tab in the main Decision Studio dashboard. Card grid: one card per active objective. Each card: name, owner, target + deadline, health badge, composite score sparkline (last 6 assessments), KPI driver pills (colour-coded by status), active solutions count. Click → objective detail drawer: full driver breakdown, health history, linked situations, linked VA solutions. |
+| VA solution → objective contribution | `AcceptedSolution` gets optional `objective_ids: List[str]` — populated at registration when the solution's `kpi_id` is a driver of active objectives. Objective health score counts only solutions where `objective_ids` includes the objective being scored. |
+| Unit tests | 7 — AHEAD when all drivers on-track; CRITICAL when primary driver in breach; composite weighted correctly across mixed driver statuses; days_to_target computed from positive trajectory; days_to_target returns null when trajectory is flat; PIB section renders when active objectives exist; PIB section omitted when no active objectives. |
+
+**Phase 12D dependency graph:**
+
+```
+Phase 12C (business_objectives + objective_kpi_drivers) ──→ 12D (health score + PIB section)
+Phase 11J (solution_health_reports) ───────────────────────→ 12D (active_solutions_count per objective)
+SA assessment results (already computed per run) ──────────→ 12D (driver kpi scores — no extra queries)
+```
+
+**Build order:** Phase 12C must ship first. Phase 12D builds entirely on the objectives registry and the already-computed SA assessment results — no new data queries at health score time.
+
+**Files to read before implementing:**
+- `docs/prd/agents/a9_business_optimization_agent_prd.md` — full Phase A capability spec
+- `src/agents/models/situation_awareness_models.py` — `SituationCard` model (add `objective_id`)
+- `src/agents/new/a9_situation_awareness_agent.py` — `detect_situations()` return path (inject `objective_id`)
+- `src/agents/new/a9_value_assurance_agent.py` — `register_solution()` (inject `objective_ids`)
+- `scripts/run_enterprise_assessment.py` — insertion point for objective health computation
 
 ---
 
@@ -986,13 +1526,13 @@ Infra A5 (_workflow_store → Supabase) ─────────────�
 - **M6 (ROI range provenance):** Every ROI range links to a visible Assumptions panel showing key drivers (e.g., "Assumes 40–60% recovery of $132.7M DIY channel gap; excludes C&I Division"). A number without assumptions is not shown. This also resolves the CFO challenge scenario from the premortem.
 - **M7 (data quality pressure):** Phase 13 is the forcing function for SA/DA data quality fixes. Better formatting makes weak underlying data more visible, not less. SA/DA fixes and Phase 13 UI changes should ship together.
 
-#### Category 1 — Known bugs (ship first, highest credibility impact)
+#### Category 1 — Known bugs ✅ Complete (Jun 2026)
 
-| Deliverable | File | Description |
-|------------|------|-------------|
-| Fix Cost of Inaction | `briefingUtils.ts` + CoI calculation | When `confidence = low` or value > 10000%, replace with qualitative fallback string. Never show raw model output percentages. |
-| Fix duplicate recommendation | `ExecutiveBriefingPage.tsx` | Council Recommendation paragraph rendered once only; "Proceed with:" section collapses to title + "see above" link |
-| Fix "Source: llm_knowledge" | `MarketIntelligence` component + `a9_market_analysis_agent.py` | When Perplexity ran: show real citations with URLs and pull date. When LLM-only fallback: `"Analyst synthesis (Claude Sonnet 4.6) · No live citation"` |
+| Deliverable | File | Status |
+|------------|------|--------|
+| ~~Fix Cost of Inaction~~ | `ExecutiveBriefing.tsx` | ✅ `monthlyRate` capped at ±100%/yr; prevents astronomical projections from raw-dollar `percent_change` |
+| ~~Fix duplicate recommendation~~ | `ExecutiveBriefing.tsx` | ✅ Duplicate rationale removed from Hero Card; shown once in Next Steps accordion |
+| ~~Fix "Source: llm_knowledge"~~ | `ExecutiveBriefing.tsx` | ✅ `llm_knowledge` → "AI Knowledge Base"; `perplexity` → "Real-time Web Search" |
 
 #### Category 2 — SF agent prompt rules
 

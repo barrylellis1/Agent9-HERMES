@@ -4,6 +4,12 @@
 
 ---
 
+> 🧭 **This is the execution layer.** For the long-horizon strategic logic — the three-layer architecture (Inner Loop / BO Agent outer loop / Innovation discovery layer), the two-vision strategic bet, the updated exit scenarios, and the Horizon 2/3 bets (cross-client data moat, execution gap, simulation sandbox) — see **[`strategic_horizon.md`](strategic_horizon.md)**.
+>
+> ⚠️ **Known conflict pending reconciliation (2026-06-01):** The Phase 3 descriptions of **A9_Business_Optimization_Agent** (lines ~202–205) and **A9_Innovation_Driver_Agent** (lines ~207–210) below use the *older* "process-improvement / innovation-pipeline" framing. These agents have since been re-scoped as the **outer loop** and **discovery layer** of the three-layer architecture — see their rewritten PRDs (`docs/prd/agents/a9_business_optimization_agent_prd.md`, `docs/prd/agents/a9_innovation_driver_agent_prd.md`) and `strategic_horizon.md` §1. The BO Agent foundation now begins earlier as Phase 12C/12D (Business Objectives registry). Treat the rewritten PRDs and `strategic_horizon.md` as authoritative where they differ from the agent descriptions below.
+
+---
+
 ## Guiding Principles
 
 1. **Every agent built must map to a customer conversation.** If we can't explain why a mid-market executive (CFO, COO, VP Ops, or FP&A team) cares, it doesn't get prioritised.

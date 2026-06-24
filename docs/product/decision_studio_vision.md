@@ -1,11 +1,15 @@
-# Decision Studio: Vision and Hierarchical Situation Management
+# Decision Studio: Hierarchical Situation Model & SA↔UI API Contract
 
-This document defines the product vision for Decision Studio, the hierarchical situation model, and the API contract between the UI and the Situation Awareness (SA) Agent, aligned with Agent9 architecture standards and the refactoring plan.
+> ⚠️ **This is an architectural / API-contract document, not the strategic vision.** Despite its original filename (`decision_studio_vision.md`), its content is the hierarchical Situation data model and the UI↔SA API contract. For the **product and strategic vision** — the three-layer architecture, the two-vision bet, market positioning, and exit strategy — see **[`../strategy/strategic_horizon.md`](../strategy/strategic_horizon.md)**. *(Rename to `situation_model_api_contract.md` pending — kept for now to avoid breaking inbound links.)*
+>
+> 🕸️ **Staleness flags (2026-06-01, verify before relying):** This doc predates several architectural decisions and may contradict current code. Known drift: (1) references a Streamlit `decision_studio.py` UI — the production UI is React/Vite in `decision-studio-ui/`; (2) references `business_context.yaml` fallback for ownership/assignment — **violates the current Supabase-only / no-YAML-fallback rule** (see root `CLAUDE.md` §6); (3) uses role-based `ceo_001`/`cfo_001` lookup — migration to ID-based lookup is tracked tech debt. Treat the Situation *model shape* as broadly indicative, not the column-level source of truth.
+
+This document defines the hierarchical situation model and the API contract between the UI and the Situation Awareness (SA) Agent, aligned with Agent9 architecture standards.
 
 - Source agents: `src/agents/new/`
 - Config models: `src/agents/agent_config_models.py`
 - Agent cards: `src/agents/new/cards/`
-- UI: `decision_studio.py`
+- UI: `decision-studio-ui/` (React/Vite — the historical `decision_studio.py` Streamlit UI is retired)
 
 ## Vision and Positioning
 
