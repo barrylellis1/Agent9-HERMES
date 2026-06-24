@@ -12,38 +12,38 @@ import { COLORS } from '../shared/constants';
 const ROWS: { area: string; before: string; after: string }[] = [
   {
     area: 'Product',
-    before: 'Spots problems and recommends fixes — live in production',
-    after: 'Now also tracks whether approved fixes actually worked — full loop closed',
+    before: 'Full loop closed — detects problems, recommends fixes, tracks outcomes',
+    after: 'Three new capabilities: KPI ownership interview, market conflict detection, mixed HITL resolution',
+  },
+  {
+    area: 'Demo Video',
+    before: 'Not complete',
+    after: '9-scene demo video shipped — ready to share with prospects',
   },
   {
     area: 'Client Data',
-    before: 'One demo dataset (bicycle retailer)',
-    after: 'Second industry added (industrial lubricants) — shows it works across domains',
+    before: 'Two industry datasets — bicycle + lubricants — both in production',
+    after: 'Unchanged — focus was on capabilities, not new data sources',
   },
   {
     area: 'Briefings',
-    before: 'Results visible in the app only',
-    after: 'Automated email summaries delivered to executives on demand',
+    before: 'Automated email summaries delivered to executives on demand',
+    after: 'Unchanged — working in production',
   },
   {
     area: 'Website',
     before: 'decision-studios.com live, brand + 4 pages',
-    after: 'Same — no new pages; focus was on product, not marketing',
+    after: 'Same — no new pages; focus was on product and demo',
   },
   {
     area: 'Pricing',
     before: '$15K–$25K pilot projects being evaluated',
-    after: 'Unchanged — waiting for first demo to validate',
-  },
-  {
-    area: 'Target Customer',
-    before: 'Mid-size companies ($50M–$500M) with no big consulting firm on retainer',
-    after: 'Unchanged — still the right profile',
+    after: 'Unchanged — waiting for demo conversations to validate',
   },
   {
     area: 'Biggest Risk',
-    before: 'Can we build a product that actually works?',
-    after: 'Can we get two paying pilots? Product risk is resolved.',
+    before: 'Can we close the first two paying pilots?',
+    after: 'Can the demo conversation convert to a paid pilot? Product risk is resolved.',
   },
 ];
 
@@ -78,7 +78,7 @@ export const WhatChangedScene: React.FC = () => {
           subtitle="One month of focused building. Here is what moved."
           delay={titleDelay}
         >
-          March to April — What Changed
+          April to May — What Changed
         </SectionTitle>
 
         {/* Comparison table */}
@@ -98,7 +98,7 @@ export const WhatChangedScene: React.FC = () => {
                 className="text-base font-semibold uppercase tracking-wider"
                 style={{ color: COLORS.muted }}
               >
-                March 2026
+                April 2026
               </span>
             </div>
             <div className="w-[44%] shrink-0 pl-4">
@@ -106,7 +106,7 @@ export const WhatChangedScene: React.FC = () => {
                 className="text-base font-semibold uppercase tracking-wider"
                 style={{ color: COLORS.muted }}
               >
-                April 2026
+                May 2026
               </span>
             </div>
           </div>
@@ -139,7 +139,7 @@ export const WhatChangedScene: React.FC = () => {
             }}
           >
             <p className="text-2xl font-bold" style={{ color: COLORS.text }}>
-              The product works end-to-end. The next question is: can we close the first two clients?
+              The product is feature-complete. The demo is ready. The only question left is: can we close the first conversation?
             </p>
           </div>
         </div>

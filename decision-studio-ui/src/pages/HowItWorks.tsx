@@ -12,6 +12,7 @@ import {
   Layers,
   LineChart,
   Search,
+  Shield,
   UserCircle,
   Users,
 } from 'lucide-react'
@@ -104,6 +105,29 @@ const pipelineNodes: PipelineNode[] = [
     sublabel: 'Value Assurance',
     icon: <LineChart className="w-4 h-4" />,
     color: 'emerald',
+  },
+]
+
+const trustArchitecturePoints = [
+  {
+    title: 'The AI does not decide',
+    copy: 'Agents analyze, frame, debate, and synthesize. The principal approves, rejects, or refines the action.',
+    icon: <Shield className="w-4 h-4" />,
+  },
+  {
+    title: 'The numbers come from governed data',
+    copy: 'Root-cause analysis runs against registered data products and deterministic calculations before narrative is generated.',
+    icon: <Database className="w-4 h-4" />,
+  },
+  {
+    title: 'Disagreement stays visible',
+    copy: 'Solution Finder preserves competing perspectives and trade-offs instead of hiding uncertainty behind one smooth answer.',
+    icon: <Users className="w-4 h-4" />,
+  },
+  {
+    title: 'Outcome proof is built in',
+    copy: 'Value Assurance tracks inaction, expected recovery, and actual results after approval so the decision can be evaluated.',
+    icon: <LineChart className="w-4 h-4" />,
   },
 ]
 
@@ -379,8 +403,9 @@ export function HowItWorks() {
             variants={fadeUp}
             className="text-lg text-slate-300 max-w-2xl leading-relaxed"
           >
-            Six specialized AI agents, two proven methodologies, and a human in the loop
-            at every decision point.
+            A governed pipeline from KPI breach to verified outcome: specialized agents
+            structure the evidence, executives keep decision authority, and Value Assurance
+            measures whether the approved action worked.
           </motion.p>
         </motion.div>
       </section>
@@ -435,6 +460,89 @@ export function HowItWorks() {
                 Each agent is purpose-built for one job. No single monolithic model attempting
                 to do everything. Structured inputs, structured outputs, full audit trail at
                 every step.
+              </p>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Executive trust model */}
+      <section className="py-20 px-6 border-t border-slate-800/40">
+        <div className="max-w-5xl mx-auto">
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-60px' }}
+          >
+            <motion.div variants={fadeUp} className="mb-10 max-w-3xl">
+              <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-3">
+                Executive trust model
+              </p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
+                Built for decision support, not autonomous decision-making.
+              </h2>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                The architecture is deliberately conservative: data-backed analysis first,
+                visible trade-offs next, human approval before action, and measurement after
+                execution. Trust comes from the chain, not from asking anyone to believe a
+                black-box answer.
+              </p>
+            </motion.div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {trustArchitecturePoints.map((point) => (
+                <motion.div
+                  key={point.title}
+                  variants={fadeUp}
+                  className="rounded-xl border border-slate-800/60 bg-slate-900/60 p-5"
+                >
+                  <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-950/40 text-emerald-300">
+                    {point.icon}
+                  </div>
+                  <h3 className="mb-2 text-base font-bold text-white">{point.title}</h3>
+                  <p className="text-sm leading-relaxed text-slate-400">{point.copy}</p>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Setup - accountability before action */}
+      <section className="py-20 px-6">
+        <div className="max-w-4xl mx-auto">
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-60px' }}
+          >
+            <motion.div variants={fadeUp} className="mb-8">
+              <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-3">
+                Setup — Before the pipeline runs
+              </p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
+                Every KPI gets an owner
+              </h2>
+              <p className="text-slate-400 max-w-2xl text-sm leading-relaxed">
+                Before any KPI is monitored, an AI-led accountability interview assigns each KPI
+                to a named owner across the leadership team. The system uses process-to-KPI
+                inference and gap-resolution dialogue to build a complete ownership graph — so
+                when a situation surfaces later, the owner is already named.
+              </p>
+            </motion.div>
+
+            <motion.div
+              variants={fadeUp}
+              className="rounded-xl border border-emerald-600/20 bg-emerald-950/20 px-6 py-5"
+            >
+              <p className="text-emerald-200 text-sm leading-relaxed">
+                The most common reason data-driven recommendations stall isn't analytical — it's
+                that nobody owns the KPI in the first place. The accountability interview happens
+                once at setup and produces a registry that flows into every downstream agent.
+                Delegation tokens in the executive briefing layer reuse this graph for one-click
+                routing.
               </p>
             </motion.div>
           </motion.div>
@@ -627,6 +735,17 @@ export function HowItWorks() {
                   <span className="text-white font-medium">actual</span> (what the data shows really
                   happened). The gap between inaction and actual — adjusted for market movement via
                   the control group — is the attributed impact.
+                  <br /><br />
+                  At approval, a{' '}
+                  <span className="text-white font-medium">strategy snapshot</span>{' '}
+                  captures principal priorities, KPI threshold, business process, and key
+                  assumptions. At evaluation, that snapshot is diffed against the live registry
+                  to produce a strategy-alignment verdict: ALIGNED, DRIFTED, or SUPERSEDED. The
+                  final composite is{' '}
+                  <span className="text-white font-medium">KPI outcome × strategy alignment</span>
+                  {' '}in a 9-cell matrix that produces honest labels: <em>Full success</em>,{' '}
+                  <em>Misdirected win</em>, <em>Strategic waste</em>. This is what catches
+                  recommendations that worked tactically but no longer matter strategically.
                 </span>
               }
               whatItProduces="Composite verdict (Validated / Partial / Failed / Measuring), attribution breakdown separating your impact from external factors, strategy alignment assessment comparing actual outcomes to original intent, and a portfolio-level ROI view across all tracked decisions."

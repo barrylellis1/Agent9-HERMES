@@ -299,7 +299,7 @@ export const PremisesScene: React.FC = () => {
               }}
             >
               <span className="text-2xl font-bold text-white tracking-wide">
-                New Premises — April 2026
+                New Premises — May 2026
               </span>
             </div>
 

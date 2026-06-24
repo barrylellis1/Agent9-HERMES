@@ -379,6 +379,29 @@ export function InsightsBIModernization() {
               </div>
             </motion.div>
 
+            <motion.div
+              variants={fadeUp}
+              className="mt-6 rounded-xl bg-slate-900/60 border border-indigo-600/30 px-7 py-6"
+            >
+              <div className="flex items-start gap-4">
+                <BarChart2 className="w-5 h-5 text-indigo-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-white font-semibold text-sm mb-1.5">
+                    A dashboard is testimony. The data behind it is evidence.
+                  </p>
+                  <p className="text-slate-300 text-sm leading-relaxed">
+                    Most "upload your report to AI" workflows fail for the same reason. Dashboards
+                    are pre-aggregated outputs of choices an analyst already made — which dimensions
+                    to show, what to filter, how to roll up. The high-dimensional reality that
+                    root-cause analysis requires is hidden by the time the chart is rendered.
+                    Feeding a summary back into AI produces a smooth, plausible recommendation —
+                    not a diagnosis. The IS/IS NOT method needs raw segment-level granularity
+                    across all dimensions, including the ones the dashboard didn't show.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+
             <Attribution text="AI hallucination enterprise impact: Gartner AI Trust research; $67.4B figure: AI errors cost analysis, 2024; 47% figure: enterprise AI adoption survey" />
 
           </motion.div>

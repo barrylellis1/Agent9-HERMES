@@ -11,7 +11,6 @@ import { RefinementScene } from './scenes/RefinementScene';
 import { SolutionsScene } from './scenes/SolutionsScene';
 import { ApprovalScene } from './scenes/ApprovalScene';
 import { TrackingScene } from './scenes/TrackingScene';
-import { OnboardingScene } from './scenes/OnboardingScene';
 import { ClosingScene } from './scenes/ClosingScene';
 
 /**
@@ -29,7 +28,6 @@ const DemoVideo: React.FC = () => {
     { Component: SolutionsScene, duration: SCENE_DURATIONS.solutions },
     { Component: ApprovalScene, duration: SCENE_DURATIONS.approval },
     { Component: TrackingScene, duration: SCENE_DURATIONS.tracking },
-    { Component: OnboardingScene, duration: SCENE_DURATIONS.onboarding },
     { Component: ClosingScene, duration: SCENE_DURATIONS.closing },
   ];
 
@@ -73,7 +71,6 @@ export const RemotionRoot: React.FC = () => {
       <Composition id="Solutions" component={SolutionsScene} durationInFrames={toFrames(SCENE_DURATIONS.solutions)} fps={VIDEO_FPS} width={VIDEO_WIDTH} height={VIDEO_HEIGHT} />
       <Composition id="Approval" component={ApprovalScene} durationInFrames={toFrames(SCENE_DURATIONS.approval)} fps={VIDEO_FPS} width={VIDEO_WIDTH} height={VIDEO_HEIGHT} />
       <Composition id="Tracking" component={TrackingScene} durationInFrames={toFrames(SCENE_DURATIONS.tracking)} fps={VIDEO_FPS} width={VIDEO_WIDTH} height={VIDEO_HEIGHT} />
-      <Composition id="Onboarding" component={OnboardingScene} durationInFrames={toFrames(SCENE_DURATIONS.onboarding)} fps={VIDEO_FPS} width={VIDEO_WIDTH} height={VIDEO_HEIGHT} />
       <Composition id="Closing" component={ClosingScene} durationInFrames={toFrames(SCENE_DURATIONS.closing)} fps={VIDEO_FPS} width={VIDEO_WIDTH} height={VIDEO_HEIGHT} />
     </>
   );

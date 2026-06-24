@@ -3,8 +3,8 @@ export const VIDEO_WIDTH = 1920;
 export const VIDEO_HEIGHT = 1080;
 export const VIDEO_FPS = 30;
 
-// Total duration in frames (~4:00 = 240 seconds)
-export const TOTAL_DURATION_FRAMES = 240 * VIDEO_FPS; // 7200 frames
+// Total duration in frames (~3:40 = 220 seconds)
+export const TOTAL_DURATION_FRAMES = 220 * VIDEO_FPS; // 6600 frames
 
 // Scene durations in seconds
 export const SCENE_DURATIONS = {
@@ -16,8 +16,7 @@ export const SCENE_DURATIONS = {
   solutions: 30,         // SF multi-perspective debate + market context
   approval: 35,          // Executive briefing walkthrough + HITL approval
   tracking: 25,          // VA trajectory tracking
-  onboarding: 18,        // 5-Day Fast Start
-  closing: 10,           // CTA + contact
+  closing: 28,           // CTA + contact (extended)
 } as const;
 
 // Convert seconds to frames

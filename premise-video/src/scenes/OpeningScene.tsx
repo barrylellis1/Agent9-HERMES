@@ -101,7 +101,7 @@ export const OpeningScene: React.FC = () => {
 
           <div style={{ opacity: subtitleOpacity }}>
             <p className="text-2xl text-center" style={{ color: COLORS.muted }}>
-              April 2026 — Where We Stand
+              May 2026 — Where We Stand
             </p>
           </div>
 

@@ -73,6 +73,33 @@ function AnimatedStat({ value, suffix, label }: { value: string; suffix?: string
   )
 }
 
+const closedLoopProofPoints = [
+  {
+    label: 'BI shows the number',
+    title: 'Decision Studio explains why it moved.',
+    copy: 'Dimensional IS/IS NOT analysis isolates where, when, and what changed against the underlying data.',
+    icon: <Search className="w-5 h-5 text-indigo-400" />,
+  },
+  {
+    label: 'Generic AI writes answers',
+    title: 'Decision Studio preserves the evidence.',
+    copy: 'Structured inputs, traceable outputs, visible disagreement, and human approval keep recommendations defensible.',
+    icon: <Shield className="w-5 h-5 text-indigo-400" />,
+  },
+  {
+    label: 'Consultants recommend action',
+    title: 'Decision Studio tracks whether it worked.',
+    copy: 'Value Assurance compares inaction, expected recovery, and actual results so impact is measured after approval.',
+    icon: <LineChart className="w-5 h-5 text-emerald-400" />,
+  },
+  {
+    label: 'Dashboards leave ownership vague',
+    title: 'Decision Studio names the accountable owner.',
+    copy: 'KPI ownership is captured before monitoring begins, so surfaced situations route to the right principal.',
+    icon: <Users className="w-5 h-5 text-emerald-400" />,
+  },
+]
+
 // LANDING PAGE ALTERNATE (Redesign)
 // ═══════════════════════════════════════════════════
 export function LandingPageAlternate() {
@@ -165,18 +192,33 @@ export function LandingPageAlternate() {
             variants={fadeUp}
             className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight text-white mb-6"
           >
-            The data is there. The pressure is on.{' '}
-            <span className="text-indigo-400">So why are decisions still made the same way?</span>
+            From KPI breach to verified outcome.{' '}
+            <span className="text-indigo-400">Not another dashboard.</span>
           </motion.h1>
 
           <motion.p
             variants={fadeUp}
-            className="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto mb-12 leading-relaxed"
+            className="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto mb-8 leading-relaxed"
           >
-            Regardless of your data maturity, executives must act now. Decision Studio is the 
-            only platform focused on end-to-end decision making — delivering regimented analysis, 
-            market context, and provable outcomes that reinforce your strategy over time.
+            Decision Studio helps mid-market leadership teams close the gap between dashboards
+            and action: continuous KPI monitoring, structured root-cause diagnosis, competing
+            action options, human approval, and Value Assurance that proves whether the action
+            actually moved the metric.
           </motion.p>
+
+          <motion.div
+            variants={fadeUp}
+            className="mb-10 flex flex-wrap items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400"
+          >
+            {['Detect', 'Diagnose', 'Debate', 'Approve', 'Prove'].map((step, index) => (
+              <div key={step} className="flex items-center gap-2">
+                <span className="rounded-full border border-slate-700/70 bg-slate-900/80 px-3 py-1.5 text-slate-300">
+                  {step}
+                </span>
+                {index < 4 && <ChevronRight className="h-3.5 w-3.5 text-slate-600" />}
+              </div>
+            ))}
+          </motion.div>
 
           <motion.div
             variants={fadeUp}
@@ -317,9 +359,58 @@ export function LandingPageAlternate() {
         </motion.div>
       </section>
 
-      {/* ═══════════════════════════════════════════
-          3. PRODUCT WALKTHROUGH ("See It In Action")
-      ═══════════════════════════════════════════ */}
+      {/* Closed loop differentiation */}
+      <section className="py-24 px-6 bg-slate-900/30 border-t border-slate-800/40">
+        <div className="max-w-6xl mx-auto">
+          <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-60px' }}>
+            <motion.div variants={fadeUp} className="mb-14 max-w-3xl">
+              <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-4">
+                The closed loop
+              </p>
+              <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+                The integration is the product.
+              </h2>
+              <p className="text-slate-300 leading-relaxed">
+                Decision Studio is not trying to replace executive judgment. It makes the
+                evidence, decision, and outcome visible in one accountable workflow: the issue
+                is detected, the cause is isolated, options are debated, the human decision is
+                recorded, and the result is measured.
+              </p>
+            </motion.div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {closedLoopProofPoints.map((point) => (
+                <motion.div
+                  key={point.label}
+                  variants={fadeUp}
+                  className="rounded-xl border border-slate-800/60 bg-slate-950 p-6"
+                >
+                  <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 bg-slate-900">
+                    {point.icon}
+                  </div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
+                    {point.label}
+                  </p>
+                  <h3 className="mb-3 text-xl font-bold text-white">{point.title}</h3>
+                  <p className="text-sm leading-relaxed text-slate-400">{point.copy}</p>
+                </motion.div>
+              ))}
+            </div>
+
+            <motion.div
+              variants={fadeUp}
+              className="mt-8 rounded-xl border border-emerald-600/20 bg-emerald-950/20 px-6 py-5"
+            >
+              <p className="text-sm leading-relaxed text-emerald-100">
+                Trust posture: AI performs analysis and synthesis. Executives approve, reject,
+                or refine. Every approved action enters outcome tracking with an audit trail.
+              </p>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Product walkthrough */}
       <section id="walkthrough" className="py-28 px-6 bg-slate-900/30 border-t border-slate-800/40">
         <div className="max-w-5xl mx-auto">
           <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-60px' }}>
@@ -329,6 +420,28 @@ export function LandingPageAlternate() {
               <p className="text-slate-400 max-w-xl mx-auto">
                 Six AI-driven steps from detection to proof — with you in the loop at every decision point.
               </p>
+            </motion.div>
+
+            {/* Setup beat — accountability before action */}
+            <motion.div variants={fadeUp} className="mb-20 max-w-3xl mx-auto">
+              <div className="rounded-2xl border border-emerald-600/30 bg-emerald-950/30 p-6 sm:p-7">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center">
+                    <Users className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">
+                    Setup — Before Step 01
+                  </span>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">
+                  Every KPI gets an owner — before the first scan.
+                </h3>
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  An AI-led accountability interview walks an administrator through assigning every
+                  KPI to a named owner across the leadership team. No dashboard goes unwatched.
+                  No insight ends in "well, nobody is really responsible."
+                </p>
+              </div>
             </motion.div>
 
             {/* Step 1 */}
