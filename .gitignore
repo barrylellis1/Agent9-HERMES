@@ -40,6 +40,7 @@ logs/
 # Databases (DuckDB)
 data/*.duckdb
 data/*.duckdb.wal
+decision-studio-ui/data/
 
 # Node.js
 node_modules/

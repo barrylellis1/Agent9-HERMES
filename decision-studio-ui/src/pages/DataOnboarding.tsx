@@ -202,8 +202,8 @@ function PlatformBadge({
     local: 'text-slate-400 bg-slate-800/60 border-slate-700/40',
   }
   const statusLabel = {
-    production: 'Production ready',
-    supported: 'Supported',
+    production: 'Pilot ready',
+    supported: 'Available',
     local: 'Local dev',
   }
   return (
@@ -320,7 +320,7 @@ export function DataOnboarding() {
               variants={fadeUp}
               className="text-4xl sm:text-5xl lg:text-[3.25rem] font-bold leading-[1.1] tracking-tight text-white mb-6"
             >
-              Your data, ready in hours — not quarters
+              Your data, scoped for analysis in days — not quarters
             </motion.h1>
 
             <motion.p
@@ -328,9 +328,9 @@ export function DataOnboarding() {
               className="text-lg sm:text-xl text-slate-300 max-w-2xl leading-relaxed"
             >
               Decision Studio connects to your governed data layer — views, tables, and KPIs
-              you've already defined at the database level. No migration. No ETL. No
-              reverse-engineering your BI reports. Your data stays where it is. Analysis starts
-              the same week.
+              you've already defined at the database level. For a scoped pilot, there is no
+              required data migration and no need to reverse-engineer BI reports. Your data stays
+              where it is while the first decision loop is configured.
             </motion.p>
           </motion.div>
         </div>
@@ -375,8 +375,8 @@ export function DataOnboarding() {
             <motion.div variants={stagger} className="space-y-10">
               <ProblemBlock
                 icon={<Clock className="w-4 h-4 text-amber-400" />}
-                heading="6-12 month implementation timelines"
-                body="Enterprise data integration projects routinely take two to four quarters before anything useful comes out the other end. The vendor demo showed a live connection in minutes. The actual deployment involved data contracts, security reviews, schema mapping sessions, and a project plan that nobody has time to manage."
+                heading="Implementation timelines that outlast the decision"
+                body="Enterprise data integration projects can take long enough that the business decision moves on before anything useful comes out the other end. The vendor demo showed a live connection in minutes. The actual deployment involved data contracts, security reviews, schema mapping sessions, and a project plan that nobody has time to manage."
               />
 
               <ProblemBlock
@@ -447,13 +447,13 @@ export function DataOnboarding() {
                 number="1"
                 icon={<Database className="w-4 h-4" />}
                 title="Connect"
-                body="Point Decision Studio at your existing data warehouse — BigQuery, SQL Server / Azure SQL, Snowflake, Databricks, PostgreSQL, or SAP Business Data Cloud. No data migration. No ETL. Your data stays where it is. The system stores a connection profile, not a copy."
+                body="Point Decision Studio at your existing data warehouse — BigQuery, SQL Server / Azure SQL, Snowflake, Databricks, PostgreSQL, or SAP Business Data Cloud. For pilot-scoped use cases, your data stays where it is and the system stores a connection profile, not a copy."
               />
               <WorkflowStep
                 number="2"
                 icon={<Search className="w-4 h-4" />}
                 title="Discover"
-                body="The system automatically inspects your schema: tables, columns, data types, row counts, foreign key relationships. What used to require a data catalog team and several weeks of interviews happens in seconds. You see your warehouse's structure laid out before you've made a single decision."
+                body="The system inspects your selected schema: tables, columns, data types, row counts, and inferred relationships. What often becomes a long discovery exercise becomes a guided review of the data products relevant to the pilot."
               />
               <WorkflowStep
                 number="3"
@@ -494,8 +494,8 @@ export function DataOnboarding() {
                   <h3 className="text-white font-semibold text-base mb-2 leading-snug">Register</h3>
                   <p className="text-slate-400 text-sm leading-relaxed">
                     One action registers the data product, its KPIs, and all associated metadata
-                    into the Decision Studio registry. The system immediately begins monitoring.
-                    Threshold breaches surface as situation cards. The same metadata that defined
+                    into the Decision Studio registry. Once enabled, the system begins monitoring
+                    the scoped KPI set. Threshold breaches surface as situation cards. The same metadata that defined
                     the KPI now powers root-cause analysis and executive briefings.
                   </p>
                 </div>
@@ -554,7 +554,7 @@ export function DataOnboarding() {
               <DifferentiatorCard
                 icon={<Database className="w-4 h-4" />}
                 title="No data movement"
-                body="Your data stays in your warehouse. Decision Studio queries it in place. No copying, no syncing, no drift between your warehouse and a secondary store. The analysis always runs against the current state of your data — not a snapshot from last Tuesday."
+                body="Your data stays in your warehouse for supported connection modes. Decision Studio queries it in place for the scoped analysis, avoiding unnecessary copies and reducing drift between the warehouse and the decision workflow."
               />
               <DifferentiatorCard
                 icon={<Bot className="w-4 h-4" />}
@@ -665,7 +665,7 @@ export function DataOnboarding() {
               className="text-slate-400 leading-relaxed mb-10"
             >
               Once a data product is registered, Decision Studio's Situation Awareness agent
-              begins monitoring those KPIs immediately. The metadata you defined during onboarding —
+              can begin monitoring those KPIs. The metadata you defined during onboarding —
               thresholds, comparison periods, business process mappings — drives every subsequent
               analysis. There's no separate configuration step for monitoring. The onboarding
               workflow produces everything the system needs.
@@ -675,7 +675,7 @@ export function DataOnboarding() {
               {[
                 {
                   label: 'Threshold breaches',
-                  desc: 'Surface automatically as situation cards — no manual alert setup required.',
+                  desc: 'Surface as situation cards for the enabled KPI set — without building a separate alerting project.',
                 },
                 {
                   label: 'Root-cause analysis',

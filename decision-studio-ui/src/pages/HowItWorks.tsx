@@ -603,7 +603,7 @@ export function HowItWorks() {
               color="indigo"
               title="Continuous, automatic monitoring"
               animation={<KPIGridAnimation />}
-              whatItDoes="Monitors KPIs against thresholds and historical patterns — and surfaces situation cards automatically, without anyone asking."
+              whatItDoes="Monitors enabled KPIs against thresholds and historical patterns, then surfaces situation cards when a meaningful change needs attention."
               methodology={
                 <span>
                   Threshold monitoring with contextual filtering — not just a simple "value &lt;
@@ -613,7 +613,7 @@ export function HowItWorks() {
                 </span>
               }
               whatItProduces="Situation cards — each with severity level, affected KPIs, business process context, and enough initial framing to kick off deep analysis without starting from zero."
-              note="This runs automatically. No one needs to ask a question. When something meaningful changes, a situation is surfaced."
+              note="The goal is to reduce manual KPI watching: when something meaningful changes in the monitored KPI set, a situation is surfaced for review."
             />
 
             {/* DA */}
@@ -639,8 +639,8 @@ export function HowItWorks() {
                   McKinsey uses for executive communication because it leads with impact rather
                   than background.
                   <br /><br />
-                  This analysis is <span className="text-white font-medium">deterministic</span>,
-                  not generative. The same data always produces the same diagnosis.
+                  The numerical analysis is <span className="text-white font-medium">deterministic</span>.
+                  Generative AI is used for framing and synthesis after the structured facts are computed.
                 </span>
               }
               whatItProduces="Diverging bar charts showing which dimensions are affected vs. unaffected, change-point detection pinpointing when the shift began, and a structured diagnostic narrative ready for executive review."
@@ -832,10 +832,10 @@ export function HowItWorks() {
               className="mt-6 rounded-lg border border-slate-700/40 bg-slate-900/60 px-5 py-4"
             >
               <p className="text-sm text-slate-400 leading-relaxed">
-                When an AI component generates a narrative or recommendation, there is always
-                structured data underneath it that can be audited. You can challenge the diagnosis
+                When an AI component generates a narrative or recommendation, it should be
+                anchored to structured data that can be audited. You can challenge the diagnosis
                 by looking at the dimensional table. You can verify the attribution by examining
-                the trajectory math. Nothing is a black box.
+                the trajectory math. The architecture is designed to keep the reasoning inspectable.
               </p>
             </motion.div>
           </motion.div>
@@ -986,7 +986,7 @@ export function HowItWorks() {
               </h2>
               <p className="text-slate-400 max-w-2xl text-sm leading-relaxed">
                 Decision Studio connects to where your data already lives.
-                No migration, no shadow copies, no rebuilding what you've already built.
+                For scoped pilots, no broad migration or warehouse rebuild is required.
               </p>
             </motion.div>
 
@@ -1034,7 +1034,7 @@ export function HowItWorks() {
                 These three modes are not mutually exclusive. A single deployment can use direct
                 SDK connections for transactional data, route through Cortex Analyst for curated
                 metrics, and fall back to Decision Studio's own contracts for KPIs that don't yet
-                live in a semantic layer. The routing is automatic.
+                live in a semantic layer. Routing is configured around the customer's data products.
               </p>
             </motion.div>
           </motion.div>

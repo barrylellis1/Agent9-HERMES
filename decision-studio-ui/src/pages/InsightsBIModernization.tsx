@@ -51,11 +51,17 @@ function SectionDivider() {
 // ─────────────────────────────────────────────────
 // Attribution note
 // ─────────────────────────────────────────────────
-function Attribution({ text }: { text: string }) {
+function Attribution({ text, href }: { text: string; href?: string }) {
   return (
     <p className="mt-4 text-xs text-slate-600 flex items-center gap-1.5">
       <span className="inline-block w-1 h-1 rounded-full bg-slate-700 flex-shrink-0" />
-      {text}
+      {href ? (
+        <a href={href} target="_blank" rel="noreferrer" className="hover:text-slate-400 transition-colors">
+          {text}
+        </a>
+      ) : (
+        text
+      )}
     </p>
   )
 }
@@ -189,7 +195,7 @@ export function InsightsBIModernization() {
               variants={fadeUp}
               className="text-4xl sm:text-5xl lg:text-[3.25rem] font-bold leading-[1.1] tracking-tight text-white mb-6"
             >
-              The BI modernization trap
+              After the KPI moves, can you prove what worked?
             </motion.h1>
 
             <motion.p
@@ -197,7 +203,8 @@ export function InsightsBIModernization() {
               className="text-lg sm:text-xl text-slate-300 max-w-2xl leading-relaxed"
             >
               You've invested in dashboards, hired analysts, and built a "data culture."
-              So why does every decision still feel like a guess?
+              So why does every KPI breach still turn into meetings, analysis queues, and
+              uncertainty about whether the action worked?
             </motion.p>
           </motion.div>
         </div>
@@ -268,9 +275,9 @@ export function InsightsBIModernization() {
               variants={fadeUp}
               className="text-slate-200 text-lg leading-relaxed mb-4"
             >
-              87% of organizations still have low BI/analytics maturity. 70–80% of BI
-              initiatives fail to deliver expected business value. Only 30% of employees
-              actively use the analytics tools their company paid for.
+              Many organizations reach the same uncomfortable plateau: dashboards exist,
+              reporting is cleaner, and the data team is busier than ever — yet leaders still
+              struggle to turn KPI movement into timely action.
             </motion.p>
 
             <motion.p
@@ -282,7 +289,17 @@ export function InsightsBIModernization() {
               which amounts to the same thing.
             </motion.p>
 
-            <Attribution text="Gartner BI and Analytics Maturity Survey; Gartner BI failure rate research; Dresner Advisory Services" />
+            <motion.p
+              variants={fadeUp}
+              className="text-slate-300 leading-relaxed mb-12"
+            >
+              Seeing the metric is only half the job. The harder question comes after approval:
+              did the action actually change the outcome, or did the metric move for some other
+              reason? Decision Studio is built for the full loop: diagnosis, human-approved
+              action, and Value Assurance.
+            </motion.p>
+
+            <Attribution text="Pattern observed across BI modernization, analytics adoption, and executive decision-support programs." />
 
             {/* Three sub-problems */}
             <motion.div variants={fadeUp} className="mt-16 space-y-12">
@@ -296,18 +313,18 @@ export function InsightsBIModernization() {
               <ProblemBlock
                 icon={<Clock className="w-4 h-4 text-amber-400" />}
                 heading="The analyst bottleneck"
-                body="Every insight requires a human analyst to pull data, build context, and tell the story. With 3 analysts serving 50 stakeholders, the queue is weeks long. By the time the analysis lands, the moment has passed — the quarter has closed, the competitor has moved, the window to act has narrowed. The bottleneck isn't laziness or lack of skill. It's structural: there are not enough hours in the day."
+                body="Every insight requires a human analyst to pull data, build context, and tell the story. With a small analytics team serving many business stakeholders, the queue can stretch for weeks. By the time the analysis lands, the moment has passed — the quarter has closed, the competitor has moved, the window to act has narrowed. The bottleneck isn't laziness or lack of skill. It's structural: there are not enough hours in the day."
               />
 
               <ProblemBlock
                 icon={<BellOff className="w-4 h-4 text-amber-400" />}
                 heading="Alert fatigue killed monitoring"
-                body="You set up threshold alerts. Now you get 200 a week. Research suggests 62% get ignored — not because people are careless, but because alerts without context are indistinguishable from noise. Is this a blip or a trend? Is it one product line or systemic? Is it seasonal or structural? The alert doesn't know. Neither do you, without an analyst."
+                body="You set up threshold alerts. Now the team gets too many of them. Many get ignored — not because people are careless, but because alerts without context are indistinguishable from noise. Is this a blip or a trend? Is it one product line or systemic? Is it seasonal or structural? The alert doesn't know. Neither do you, without an analyst."
               />
 
             </motion.div>
 
-            <Attribution text="Alert fatigue statistic: Gartner IT Operations research; analyst-to-stakeholder ratios: industry surveys across enterprise analytics teams" />
+            <Attribution text="The practical problem is not alert volume alone; it is the lack of diagnosis attached to each alert." />
 
           </motion.div>
         </div>
@@ -347,10 +364,10 @@ export function InsightsBIModernization() {
               variants={fadeUp}
               className="text-slate-400 leading-relaxed mb-5"
             >
-              47% of enterprises have made major decisions based on hallucinated AI content.
-              The industry lost $67.4 billion to AI errors in 2024. These aren't edge cases —
-              they're the predictable consequence of deploying a pattern-matching system to do
-              causal reasoning without guardrails or structured methodology.
+              The failure mode is predictable: a general-purpose model can produce a confident
+              explanation without proving that explanation against the underlying data. That is
+              useful for brainstorming, but dangerous when executives need causal reasoning,
+              financial accountability, and a decision they can defend.
             </motion.p>
 
             <motion.p
@@ -402,7 +419,7 @@ export function InsightsBIModernization() {
               </div>
             </motion.div>
 
-            <Attribution text="AI hallucination enterprise impact: Gartner AI Trust research; $67.4B figure: AI errors cost analysis, 2024; 47% figure: enterprise AI adoption survey" />
+            <Attribution text="Decision-support workflows need structured evidence first, then narrative synthesis." />
 
           </motion.div>
         </div>
@@ -543,8 +560,10 @@ export function InsightsBIModernization() {
               variants={fadeUp}
               className="text-slate-200 text-lg leading-relaxed mb-5"
             >
-              Only 15% of AI decision-makers reported EBITDA uplift in the past 12 months.
-              25% of AI spend has been delayed into 2027 as CFOs demand proof.
+              McKinsey's 2025 State of AI survey shows the gap clearly: 88% of respondents
+              report regular AI use in at least one business function, but only 39% report
+              enterprise-level EBIT impact. McKinsey identifies AI high performers as about
+              6% of respondents.
             </motion.p>
 
             <motion.p
@@ -572,18 +591,21 @@ export function InsightsBIModernization() {
               <div className="flex items-start gap-4">
                 <TrendingUp className="w-5 h-5 text-indigo-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-white text-sm font-semibold mb-1">The 15% problem</p>
+                  <p className="text-white text-sm font-semibold mb-1">The proof problem</p>
                   <p className="text-slate-400 text-sm leading-relaxed">
-                    When only 15% of AI decision-makers can demonstrate P&amp;L impact, the
-                    other 85% are operating on faith. That was acceptable during a bull market
-                    for technology investment. It is no longer acceptable when CFOs are delaying
-                    renewals and demanding ROI evidence before 2027 budget commitments.
+                    When AI impact cannot be traced to a business outcome, leaders are operating
+                    on faith. That was tolerated while experimentation was the objective. It is
+                    much harder to defend when the finance team asks which actions improved the
+                    metric and which ones merely sounded plausible.
                   </p>
                 </div>
               </div>
             </motion.div>
 
-            <Attribution text="Forrester AI Decision Intelligence Pulse Survey, 2026; Gartner CFO AI spending survey, Q1 2026" />
+            <Attribution
+              text="Source: McKinsey, The state of AI in 2025"
+              href="https://www.mckinsey.com/capabilities/quantumblack/our-insights/the-state-of-ai"
+            />
 
           </motion.div>
         </div>

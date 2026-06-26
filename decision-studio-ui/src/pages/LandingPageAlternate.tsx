@@ -75,7 +75,7 @@ function AnimatedStat({ value, suffix, label }: { value: string; suffix?: string
 
 const closedLoopProofPoints = [
   {
-    label: 'BI shows the number',
+    label: 'A KPI moves',
     title: 'Decision Studio explains why it moved.',
     copy: 'Dimensional IS/IS NOT analysis isolates where, when, and what changed against the underlying data.',
     icon: <Search className="w-5 h-5 text-indigo-400" />,
@@ -93,7 +93,7 @@ const closedLoopProofPoints = [
     icon: <LineChart className="w-5 h-5 text-emerald-400" />,
   },
   {
-    label: 'Dashboards leave ownership vague',
+    label: 'Decision ownership drifts',
     title: 'Decision Studio names the accountable owner.',
     copy: 'KPI ownership is captured before monitoring begins, so surfaced situations route to the right principal.',
     icon: <Users className="w-5 h-5 text-emerald-400" />,
@@ -111,6 +111,12 @@ export function LandingPageAlternate() {
     const onScroll = () => setNavSolid(window.scrollY > 60)
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  useEffect(() => {
+    const targetId = window.location.hash.replace('#', '')
+    if (!targetId) return
+    window.setTimeout(() => scrollTo(targetId), 0)
   }, [])
 
   // Parallax for hero gradient
@@ -193,17 +199,17 @@ export function LandingPageAlternate() {
             className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight text-white mb-6"
           >
             From KPI breach to verified outcome.{' '}
-            <span className="text-indigo-400">Not another dashboard.</span>
+            <span className="text-indigo-400">With proof built in.</span>
           </motion.h1>
 
           <motion.p
             variants={fadeUp}
             className="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto mb-8 leading-relaxed"
           >
-            Decision Studio helps mid-market leadership teams close the gap between dashboards
-            and action: continuous KPI monitoring, structured root-cause diagnosis, competing
-            action options, human approval, and Value Assurance that proves whether the action
-            actually moved the metric.
+            Decision Studio helps mid-market leadership teams close the loop from KPI breach
+            to verified outcome: continuous monitoring, structured root-cause diagnosis,
+            competing action options, human approval, and Value Assurance that proves whether
+            the action actually moved the metric.
           </motion.p>
 
           <motion.div
@@ -259,6 +265,16 @@ export function LandingPageAlternate() {
                 output to a financial outcome. Decision Studio is different. It delivers an unbroken 
                 chain of accountability from anomaly detection to root-cause diagnosis to proven ROI.
               </motion.p>
+              <motion.a
+                variants={fadeUp}
+                href="https://www.mckinsey.com/capabilities/quantumblack/our-insights/the-state-of-ai"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-start gap-2 text-xs leading-relaxed text-slate-500 hover:text-slate-300 transition-colors"
+              >
+                <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-slate-600" />
+                McKinsey 2025: 88% report regular AI use, but only 39% report enterprise-level EBIT impact.
+              </motion.a>
             </motion.div>
 
             <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-60px' }}>
@@ -300,11 +316,11 @@ export function LandingPageAlternate() {
                 </div>
                 <h3 className="text-xl font-bold text-white mb-3">The monitoring gap</h3>
                 <p className="text-slate-300 text-sm leading-relaxed mb-6">
-                  You're always reacting, never anticipating. Your KPIs get reviewed monthly. Dashboards show you what happened, but nobody is proactively watching them. By the time someone spots a margin drop, it's already expensive.
+                  You're always reacting, never anticipating. Your KPIs get reviewed monthly. Periodic reporting shows what happened, but nobody is proactively watching for the moment that needs action. By the time someone spots a margin drop, it's already expensive.
                 </p>
                 <div className="mt-auto pt-5 border-t border-slate-800/50 flex items-center gap-2 text-xs text-slate-500">
                   <span className="w-1 h-1 rounded-full bg-slate-600" />
-                  87% of organizations have low BI maturity
+                  Monitoring without ownership leaves issues late
                 </div>
               </motion.div>
 
@@ -315,7 +331,7 @@ export function LandingPageAlternate() {
                 </div>
                 <h3 className="text-xl font-bold text-white mb-3">The analysis gap</h3>
                 <p className="text-slate-300 text-sm leading-relaxed mb-6">
-                  Deep analysis requires resources you don't have. It traditionally requires an army of analysts or a $500K consulting engagement. You're forced to choose between expensive rigor and cheap guessing.
+                  Deep analysis requires resources lean teams often don't have. It traditionally requires analyst bandwidth or an outside advisory engagement. You're forced to choose between expensive rigor and cheap guessing.
                 </p>
                 <div className="mt-auto pt-5 border-t border-slate-800/50 flex items-center gap-2 text-xs text-slate-500">
                   <span className="w-1 h-1 rounded-full bg-slate-600" />
@@ -334,7 +350,7 @@ export function LandingPageAlternate() {
                 </p>
                 <div className="mt-auto pt-5 border-t border-slate-800/50 flex items-center gap-2 text-xs text-slate-500">
                   <span className="w-1 h-1 rounded-full bg-emerald-600" />
-                  Only 15% can tie AI to P&L changes
+                  Outcome proof is the missing layer
                 </div>
               </motion.div>
             </div>
@@ -405,6 +421,15 @@ export function LandingPageAlternate() {
                 Trust posture: AI performs analysis and synthesis. Executives approve, reject,
                 or refine. Every approved action enters outcome tracking with an audit trail.
               </p>
+              <a
+                href="https://www.gartner.com/en/newsroom/press-releases/2025-06-25-gartner-predicts-over-40-percent-of-agentic-ai-projects-will-be-canceled-by-end-of-2027"
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-emerald-200/70 hover:text-emerald-100 transition-colors"
+              >
+                <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-emerald-500/70" />
+                Gartner predicts over 40% of agentic AI projects will be canceled by the end of 2027 due to cost, unclear value, or inadequate risk controls.
+              </a>
             </motion.div>
           </motion.div>
         </div>
@@ -438,8 +463,8 @@ export function LandingPageAlternate() {
                 </h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
                   An AI-led accountability interview walks an administrator through assigning every
-                  KPI to a named owner across the leadership team. No dashboard goes unwatched.
-                  No insight ends in "well, nobody is really responsible."
+                  KPI to a named owner across the leadership team. Every surfaced situation has
+                  a responsible principal before analysis begins.
                 </p>
               </div>
             </motion.div>
@@ -649,6 +674,45 @@ export function LandingPageAlternate() {
       {/* ═══════════════════════════════════════════
           5. BUILT BY — Enterprise Pedigree section
       ═══════════════════════════════════════════ */}
+      {/* Pilot shape */}
+      <section className="py-24 px-6 border-b border-slate-800/40">
+        <div className="max-w-5xl mx-auto">
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-60px' }}
+          >
+            <motion.div variants={fadeUp} className="mb-12 max-w-3xl">
+              <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-4">
+                Pilot shape
+              </p>
+              <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+                Start with one decision loop.
+              </h2>
+              <p className="text-slate-300 leading-relaxed">
+                The first engagement should be deliberately narrow: prove the workflow on a
+                small set of executive KPIs before expanding scope.
+              </p>
+            </motion.div>
+
+            <motion.div variants={fadeUp} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {[
+                ['3-5 KPIs', 'Priority metrics tied to one executive sponsor.'],
+                ['1 data source', 'A governed view, table, or scoped extract.'],
+                ['90 days', 'Enough time to diagnose, approve, and begin measuring.'],
+                ['1 proof artifact', 'A clear outcome-tracking brief for leadership.'],
+              ].map(([title, body]) => (
+                <div key={title} className="rounded-xl border border-slate-800/60 bg-slate-900/50 p-5">
+                  <p className="text-white font-semibold mb-2">{title}</p>
+                  <p className="text-sm text-slate-400 leading-relaxed">{body}</p>
+                </div>
+              ))}
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
       <section className="py-24 px-6 border-b border-slate-800/40">
         <motion.div
           className="max-w-4xl mx-auto text-center"
