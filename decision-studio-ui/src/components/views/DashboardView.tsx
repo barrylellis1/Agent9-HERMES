@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { RefreshCw, Scan, Activity, Clock, CheckCircle, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { RefreshCw, Scan, Activity, Clock, CheckCircle, ChevronDown, Settings2 } from 'lucide-react';
 import { KPITile } from '../dashboard/KPITile';
 import { HeroBriefing } from '../dashboard/HeroBriefing';
 import { AppHeader } from '../shared/AppHeader';
 import { SummaryStrip } from '../shared/SummaryStrip';
 import { SolutionsProgressBar } from '../shared/SolutionsProgressBar';
+import { ThresholdEditorModal } from '../ThresholdEditorModal';
 import { Situation, OpportunitySignal, Principal } from '../../api/types';
-import { getVAPortfolio } from '../../api/client';
+import { getVAPortfolio, listKpis } from '../../api/client';
 import type { StrategyAwarePortfolio } from '../../types/valueAssurance';
 
 interface DashboardViewProps {
@@ -54,6 +55,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [portfolio, setPortfolio] = useState<StrategyAwarePortfolio | null>(null);
   const [lastScannedAt, setLastScannedAt] = useState<Date | null>(null);
   const [healthyExpanded, setHealthyExpanded] = useState(false);
+  const [kpiDefs, setKpiDefs] = useState<any[]>([]);
+  const [configuringKpi, setConfiguringKpi] = useState<any | null>(null);
   const prevLoadingRef = useRef(loading);
 
   useEffect(() => {
@@ -76,6 +79,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       .then(setPortfolio)
       .catch(() => setPortfolio(null));
   }, [selectedPrincipal]);
+
+  // Fetch KPI definitions after a scan completes so we can look up owner_role
+  useEffect(() => {
+    if (!scanComplete) return;
+    const clientId = localStorage.getItem('a9_active_client_id') ?? undefined;
+    listKpis(clientId).then(setKpiDefs).catch(() => {});
+  }, [scanComplete]);
+
+  // Lookup maps: by kpi.id and by kpi.name (lowercased) for flexible matching
+  const kpiDefMap = useMemo(
+    () => Object.fromEntries(kpiDefs.map(k => [k.id, k])),
+    [kpiDefs]
+  );
+  const kpiDefByName = useMemo(
+    () => Object.fromEntries(kpiDefs.map(k => [k.name?.toLowerCase(), k])),
+    [kpiDefs]
+  );
 
   return (
     <div className="min-h-screen bg-background text-foreground p-8 font-sans relative overflow-x-hidden">
@@ -203,16 +223,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
               {rest.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {rest.map((sit, idx) => (
-                    <div key={idx}>
-                      <KPITile
-                        situation={sit}
-                        onClick={() => onSelectSituation(sit)}
-                        isDelegated={delegatedKpiNames.has(sit.kpi_name)}
-                        hasActiveSolution={sit.kpi_id ? activeKpiIds.has(sit.kpi_id) : false}
-                      />
-                    </div>
-                  ))}
+                  {rest.map((sit, idx) => {
+                    const kpiDef = kpiDefMap[sit.kpi_id ?? ''] || kpiDefByName[sit.kpi_name?.toLowerCase() ?? ''];
+                    const isOwner = kpiDef && currentPrincipal?.title && kpiDef.owner_role === currentPrincipal.title;
+                    return (
+                      <div key={idx} className="relative group">
+                        <KPITile
+                          situation={sit}
+                          onClick={() => onSelectSituation(sit)}
+                          isDelegated={delegatedKpiNames.has(sit.kpi_name)}
+                          hasActiveSolution={sit.kpi_id ? activeKpiIds.has(sit.kpi_id) : false}
+                        />
+                        {isOwner && kpiDef && (
+                          <button
+                            onClick={e => { e.stopPropagation(); setConfiguringKpi(kpiDef); }}
+                            title="Configure thresholds"
+                            className="absolute top-2 right-2 p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-slate-500 hover:text-white hover:bg-slate-700 transition-colors opacity-0 group-hover:opacity-100 z-10"
+                            style={{ backdropFilter: 'blur(4px)' }}
+                          >
+                            <Settings2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -239,6 +273,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         })()}
 
       </main>
+
+      {configuringKpi && (
+        <ThresholdEditorModal
+          kpi={configuringKpi}
+          clientId={localStorage.getItem('a9_active_client_id') ?? undefined}
+          onClose={() => setConfiguringKpi(null)}
+          onSaved={() => {
+            // Refresh kpiDefs so the in-memory def reflects the saved thresholds
+            const clientId = localStorage.getItem('a9_active_client_id') ?? undefined;
+            listKpis(clientId).then(setKpiDefs).catch(() => {});
+          }}
+        />
+      )}
     </div>
   );
 };

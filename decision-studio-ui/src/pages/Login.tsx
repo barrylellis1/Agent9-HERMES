@@ -76,6 +76,7 @@ export function Login() {
   const [selectedClientId, setSelectedClientId] = useState('lubricants');
   const [availableClients, setAvailableClients] = useState<Client[]>([]);
   const [principals, setPrincipals] = useState<Principal[]>(AVAILABLE_PRINCIPALS);
+  const [rawPrincipals, setRawPrincipals] = useState<any[]>([]);
   const [principalsLoading, setPrincipalsLoading] = useState(false);
 
   // On mount: check if a Supabase session already exists (magic-link callback)
@@ -102,9 +103,15 @@ export function Login() {
     setSelectedId(null);
     listPrincipals(selectedClientId)
       .then(data => {
-        setPrincipals(data && data.length > 0 ? data.map(mapApiPrincipal) : AVAILABLE_PRINCIPALS);
+        if (data && data.length > 0) {
+          setRawPrincipals(data);
+          setPrincipals(data.map(mapApiPrincipal));
+        } else {
+          setRawPrincipals([]);
+          setPrincipals(AVAILABLE_PRINCIPALS);
+        }
       })
-      .catch(() => setPrincipals(AVAILABLE_PRINCIPALS))
+      .catch(() => { setRawPrincipals([]); setPrincipals(AVAILABLE_PRINCIPALS); })
       .finally(() => setPrincipalsLoading(false));
   }, [isDemoMode, selectedClientId]);
 
@@ -147,11 +154,10 @@ export function Login() {
     localStorage.setItem('a9_active_client_id', selectedClientId);
     localStorage.removeItem('a9_auth_email');
 
-    // Determine settings mode based on selected principal's metadata
-    const selectedPrincipal = principals.find((p) => p.id === selectedId);
-    const rawPrincipal = selectedPrincipal as any;
-    const isSettingsAdmin = rawPrincipal?.metadata?.settings_admin === 'true'
-      || rawPrincipal?.metadata?.settings_admin === true;
+    // Determine settings mode based on selected principal's raw metadata
+    const rawRecord = rawPrincipals.find((p: any) => p.id === selectedId);
+    const isSettingsAdmin = rawRecord?.metadata?.settings_admin === 'true'
+      || rawRecord?.metadata?.settings_admin === true;
     setSettingsMode(isSettingsAdmin ? 'maintenance' : 'governance');
 
     setTimeout(() => {

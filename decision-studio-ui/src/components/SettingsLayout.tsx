@@ -11,7 +11,7 @@
 
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
-  BookOpen, Box, Briefcase, Building2, CheckCircle2, ChevronRight,
+  Box, Briefcase, Building2, CheckCircle2, ChevronRight,
   Database, Eye, LineChart, LogOut, Sparkles, Users,
   UserCheck, Activity, Shield, BarChart2, Target,
 } from 'lucide-react'
@@ -65,8 +65,7 @@ const MAINTENANCE_NAV: NavGroup[] = [
       { label: 'KPIs',               to: '/settings/registry/kpis',           icon: <BarChart2 className="w-4 h-4" /> },
       { label: 'Principals',         to: '/settings/registry/principals',      icon: <Users className="w-4 h-4" /> },
       { label: 'Data Products',      to: '/settings/registry/data-products',   icon: <Database className="w-4 h-4" /> },
-      { label: 'Business Processes', to: '/settings/registry/processes',       icon: <Briefcase className="w-4 h-4" /> },
-      { label: 'Glossary',           to: '/settings/registry/glossary',        icon: <BookOpen className="w-4 h-4" /> },
+      { label: 'Business Processes', to: '/settings/registry/business-processes', icon: <Briefcase className="w-4 h-4" /> },
     ],
   },
   {
