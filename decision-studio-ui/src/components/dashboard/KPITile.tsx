@@ -91,6 +91,19 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
     return comparisonType.replace(/_/g, ' ');
   })();
 
+  // ── Phase 11I: Alert type badge label ──
+  const alertTypeLabel = (() => {
+    if (!situation.alert_type || situation.alert_type === 'threshold_breach') return null;
+    const labels: Record<string, string> = {
+      plan_variance: 'Plan Variance',
+      projected_breach: 'Projected Breach',
+      acceleration: 'Accelerating',
+      concentration: 'Concentration',
+      covenant: 'Covenant',
+    };
+    return labels[situation.alert_type] ?? situation.alert_type;
+  })();
+
   // ── Sparkline: taller with always-visible mean baseline ──
 
   const lineColor = isOpportunity ? '#34d399' : (isGoodTrend ? '#34d399' : '#f87171');
@@ -178,6 +191,7 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
   return (
     <button
       onClick={onClick}
+      data-testid={`kpi-tile-${situation.kpi_id ?? situation.situation_id}`}
       className={`group relative flex flex-col justify-between p-5 pb-0 rounded-xl border-l-[3px] ${borderColor} bg-slate-900/80 hover:bg-slate-800/90 transition-all duration-200 w-full text-left overflow-hidden`}
     >
       {/* ── Severity + KPI name (#13: tighter rhythm) ── */}
@@ -197,6 +211,22 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
               Solution Active
             </span>
           )}
+          {alertTypeLabel && (
+            <span
+              data-testid="alert-type-badge"
+              className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-950/80 text-indigo-300 border border-indigo-800/50"
+            >
+              {alertTypeLabel}
+            </span>
+          )}
+          {situation.compound_alert && (
+            <span
+              data-testid="compound-alert-badge"
+              className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-800/50"
+            >
+              Compound
+            </span>
+          )}
         </div>
         <h3 className="text-base font-semibold text-white leading-snug">
           {situation.kpi_name}
@@ -207,7 +237,7 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
       <div className="mb-3">
         {deviationDisplay ? (
           <div className="flex items-baseline gap-3">
-            <span className={`text-3xl font-mono font-bold tracking-tight leading-none ${deviationColor}`}>
+            <span data-testid="kpi-deviation" className={`text-3xl font-mono font-bold tracking-tight leading-none ${deviationColor}`}>
               {deviationDisplay}
             </span>
             {absoluteDisplay && (

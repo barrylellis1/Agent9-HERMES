@@ -36,6 +36,17 @@ export interface Situation {
   timestamp?: string;
   key_observations?: string[];
   trend_note?: string | null;
+  // Phase 11I — Advanced Alert Intelligence
+  alert_type?: 'threshold_breach' | 'plan_variance' | 'projected_breach' | 'acceleration' | 'concentration' | 'covenant';
+  plan_value?: number | null;
+  projected_breach_at_period?: string | null;
+  projection_confidence?: number | null;
+  periods_until_breach?: number | null;
+  acceleration_signal?: number | null;
+  // Phase 11I-B — Compound cross-KPI alerts
+  compound_alert?: boolean;
+  related_kpi_id?: string | null;
+  compound_pattern?: string | null;
 }
 
 export interface OpportunitySignal {
