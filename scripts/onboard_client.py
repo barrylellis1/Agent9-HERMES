@@ -86,15 +86,29 @@ def _headers(service_key: str) -> Dict[str, str]:
     }
 
 
+# Columns with a NOT NULL DEFAULT in the DB. When a row omits one of these, the
+# batch-normaliser must fill the DEFAULT VALUE — an explicit JSON null defeats the
+# column default and raises 23502 (e.g. a batch where only some KPIs set kpi_type).
+_COLUMN_DEFAULTS: Dict[str, Any] = {
+    "kpi_type": "operational",
+    "status": "active",
+}
+
+
 def _normalize_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Ensure all rows in a batch have the same key set (PostgREST requirement).
 
-    Missing keys are filled with None so every dict is structurally identical.
+    A key that is truly MISSING from a row is filled with its column default
+    (``_COLUMN_DEFAULTS``) or None. An explicit value already present on the row —
+    including an intentional None — is preserved as-is.
     """
     if len(rows) <= 1:
         return rows
     all_keys = set().union(*(r.keys() for r in rows))
-    return [{k: r.get(k) for k in sorted(all_keys)} for r in rows]
+    return [
+        {k: (r[k] if k in r else _COLUMN_DEFAULTS.get(k)) for k in sorted(all_keys)}
+        for r in rows
+    ]
 
 
 def _upsert(
