@@ -29,6 +29,13 @@ class DeepAnalysisRequest(A9AgentBaseRequest):
         default="problem",
         description="Caller hint — DA overrides this by inspecting segment variance."
     )
+    # Phase 11I-B: alert-type-aware SCQA framing
+    alert_type: Optional[str] = Field(
+        None,
+        description="Alert pattern that triggered this analysis: 'threshold_breach' | 'plan_variance' | 'projected_breach' | 'acceleration' | 'compound'"
+    )
+    compound_alert: bool = Field(False, description="True when a cross-KPI compound conflict triggered this analysis")
+    compound_pattern: Optional[str] = Field(None, description="Human-readable compound tension, e.g. 'Revenue UP / Gross Margin DOWN'")
 
 
 class DeepAnalysisPlan(A9AgentBaseModel):
@@ -44,6 +51,13 @@ class DeepAnalysisPlan(A9AgentBaseModel):
         default="problem",
         description="Propagated from DeepAnalysisRequest — controls IS/IS NOT framing and SCQA narrative direction."
     )
+    # Phase 11I-B: alert-type-aware SCQA framing
+    alert_type: Optional[str] = Field(
+        None,
+        description="Alert pattern that triggered this analysis: 'threshold_breach' | 'plan_variance' | 'projected_breach' | 'acceleration' | 'compound'"
+    )
+    compound_alert: bool = Field(False, description="True when a cross-KPI compound conflict triggered this analysis")
+    compound_pattern: Optional[str] = Field(None, description="Human-readable compound tension, e.g. 'Revenue UP / Gross Margin DOWN'")
 
 
 class BenchmarkSegment(A9AgentBaseModel):

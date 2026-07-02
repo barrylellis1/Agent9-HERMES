@@ -447,11 +447,192 @@ class A9_Situation_Awareness_Agent:
                             request.principal_context
                         )
                         self.logger.info(f"Detected {len(detected_situations)} situations for {kpi_name}")
+
+                        # ── 11I-A: tag existing threshold situations ──────────────────────
+                        for s in detected_situations:
+                            if s.alert_type is None:
+                                s.alert_type = "threshold_breach"
+
+                        # ── 11I-A Pattern 4: covenant/regulatory → always critical ────────
+                        _kpi_type = getattr(kpi_definition, 'kpi_type', 'operational')
+                        if _kpi_type in ('covenant', 'regulatory'):
+                            for s in detected_situations:
+                                s.severity = SituationSeverity.CRITICAL
+                                s.alert_type = _kpi_type  # 'covenant' or 'regulatory'
+
+                        # ── 11I-A Pattern 1: plan variance ────────────────────────────────
+                        _budget_val = None  # hoisted for reuse by projected_breach (budget-derived floor)
+                        _plan_version = getattr(kpi_definition, 'plan_version_value', None)
+                        if _plan_version:
+                            try:
+                                plan_val = await self._fetch_plan_value(
+                                    kpi_definition, request.timeframe, request.filters, request.principal_context
+                                )
+                                _budget_val = plan_val
+                                if plan_val is not None and abs(plan_val) > 0:
+                                    variance_pct = (kpi_value.value - plan_val) / abs(plan_val)
+                                    # variance_pct < 0 always means actual < plan (numerically).
+                                    # For revenue KPIs: actual < plan is bad.
+                                    # For cost KPIs stored as negative values: actual < plan numerically
+                                    # means higher absolute costs (more negative) — also bad.
+                                    # inverse_logic is NOT applied here; the sign already encodes direction.
+                                    bad_direction = variance_pct < 0
+
+                                    # Read per-KPI plan_variance tolerance bands from registry thresholds.
+                                    # KPIThreshold entries with comparison_type='plan_variance' store the
+                                    # severity cutoffs as percentage magnitudes: green=min, yellow=medium, red=critical.
+                                    # Fall back to hardcoded 2%/8%/15% bands if not configured.
+                                    _pv_meta = (getattr(kpi_definition, 'metadata', None) or {}).get('variance_thresholds', {})
+                                    _pv_bands = _pv_meta.get('plan_variance', {})
+                                    _pv_min = abs(float(_pv_bands.get('green', 2.0))) / 100.0  # MEDIUM trigger
+                                    _pv_high = abs(float(_pv_bands.get('yellow', 8.0))) / 100.0  # HIGH trigger
+                                    _pv_crit = abs(float(_pv_bands.get('red', 15.0))) / 100.0  # CRITICAL trigger
+
+                                    if abs(variance_pct) >= _pv_min:
+                                        severity = (
+                                            SituationSeverity.CRITICAL if abs(variance_pct) >= _pv_crit else (
+                                                SituationSeverity.HIGH if abs(variance_pct) >= _pv_high
+                                                else SituationSeverity.MEDIUM
+                                            )
+                                        )
+                                        # Wording must reflect the KPI's polarity. For a cost KPI
+                                        # (inverse / negative-stored), bad_direction means spending is
+                                        # OVER budget → "above plan"; an opportunity means UNDER budget →
+                                        # "below plan". For revenue/profit KPIs the mapping is reversed.
+                                        _is_cost = bool(getattr(kpi_value, 'inverse_logic', False))
+                                        if _is_cost:
+                                            direction_word = "above" if bad_direction else "below"
+                                        else:
+                                            direction_word = "below" if bad_direction else "ahead of"
+                                        plan_sit = Situation(
+                                            situation_id=f"plan_{getattr(kpi_definition, 'id', None) or kpi_name}_{int(abs(variance_pct)*100)}",
+                                            kpi_name=kpi_name,
+                                            kpi_id=getattr(kpi_definition, 'id', None),
+                                            kpi_value=kpi_value,
+                                            severity=severity,
+                                            card_type="problem" if bad_direction else "opportunity",
+                                            direction='down' if bad_direction else 'up',
+                                            alert_type="plan_variance",
+                                            plan_value=plan_val,
+                                            description=f"{kpi_name} is {abs(variance_pct)*100:.1f}% {direction_word} plan",
+                                            business_impact=(
+                                                f"{kpi_name} is tracking {abs(variance_pct)*100:.1f}% "
+                                                f"{direction_word} the {_plan_version} baseline."
+                                            ),
+                                            hitl_required=bad_direction and severity == SituationSeverity.CRITICAL,
+                                        )
+                                        detected_situations.append(plan_sit)
+                            except Exception as _pv_err:
+                                self.logger.warning(f"Plan variance detection failed for {kpi_name}: {_pv_err}")
+
+                        # ── 11I-A Patterns 2 & 3: projection and acceleration ─────────────
+                        # Threshold-presence gating (Option A): each pattern runs ONLY if the
+                        # KPI carries a registry threshold row for that comparison_type.
+                        #   projected_breach → variance_thresholds['projected_breach'] (percent-of-budget tolerance)
+                        #   acceleration     → variance_thresholds['acceleration']     (volatility-normalised sensitivity ×)
+                        _monthly = getattr(kpi_value, 'monthly_values', None) or []
+                        _inverse = getattr(kpi_value, 'inverse_logic', False)
+                        _thresholds_meta = (getattr(kpi_definition, 'metadata', None) or {}).get('variance_thresholds', {})
+                        _pb_cfg = _thresholds_meta.get('projected_breach')
+                        _accel_cfg = _thresholds_meta.get('acceleration')
+
+                        # Pattern 2: projected breach (suppress if actual breach already exists).
+                        # Budget-anchored (dominant FP&A practice): the projection floor is derived
+                        # from the plan/budget run-rate, not a static dollar level. _pb_cfg['red'] is a
+                        # percent tolerance (magnitude) against the monthly budget run-rate.
+                        #   monthly_budget = budget / months-in-timeframe
+                        #   floor          = monthly_budget − |monthly_budget| × (tol%/100)
+                        # Breach fires when the projected monthly trend falls below `floor`. This holds for
+                        # BOTH positive-stored KPIs (revenue below budget) and negative-stored costs (more
+                        # negative = over budget) — the sign is already encoded, so inverse_logic is not applied
+                        # (same reasoning as the plan-variance block above).
+                        _has_threshold_breach = any(s.alert_type == "threshold_breach" for s in detected_situations)
+                        if (
+                            not _has_threshold_breach and _monthly and isinstance(_pb_cfg, dict)
+                            and _budget_val is not None and abs(_budget_val) > 0
+                            and _pb_cfg.get('red') is not None
+                        ):
+                            try:
+                                # Additive/flow KPIs ($ revenue, cost, income) accumulate across the
+                                # timeframe → convert the aggregate budget to a monthly run-rate.
+                                # Rate/ratio KPIs (%, e.g. margin, ROCE) do NOT accumulate → the budget
+                                # value is already the monthly-comparable level; do not divide.
+                                _unit = getattr(kpi_definition, 'unit', '') or ''
+                                _is_ratio = ('%' in _unit) or ('ratio' in _unit.lower())
+                                if _is_ratio:
+                                    _monthly_budget = _budget_val
+                                else:
+                                    _n_months = self._timeframe_month_count(request.timeframe)
+                                    _monthly_budget = _budget_val / max(1, _n_months)
+                                _pb_tol = abs(float(_pb_cfg['red'])) / 100.0
+                                _pb_floor = _monthly_budget - abs(_monthly_budget) * _pb_tol
+                                proj = self._project_trend(_monthly, {'red': _pb_floor}, inverse_logic=False)
+                                if proj:
+                                    pb_sit = Situation(
+                                        situation_id=f"proj_{getattr(kpi_definition, 'id', None) or kpi_name}_{proj['periods_until_breach']}",
+                                        kpi_name=kpi_name,
+                                        kpi_id=getattr(kpi_definition, 'id', None),
+                                        kpi_value=kpi_value,
+                                        severity=SituationSeverity.HIGH,
+                                        card_type="problem",
+                                        direction='down',
+                                        alert_type="projected_breach",
+                                        plan_value=_budget_val,
+                                        projected_breach_at_period=proj['projected_breach_at_period'],
+                                        projection_confidence=proj['projection_confidence'],
+                                        periods_until_breach=proj['periods_until_breach'],
+                                        description=f"{kpi_name} on trajectory to breach the {_plan_version} baseline in {proj['periods_until_breach']} period(s)",
+                                        business_impact=(
+                                            f"At current run-rate ({proj['slope']:+.2f}/period), "
+                                            f"{kpi_name} is projected to fall more than {abs(float(_pb_cfg['red'])):.0f}% "
+                                            f"below the {_plan_version} baseline within {proj['periods_until_breach']} period(s). "
+                                            f"Trend confidence: {proj['projection_confidence']:.0%}."
+                                        ),
+                                        hitl_required=proj['periods_until_breach'] <= 2,
+                                    )
+                                    detected_situations.append(pb_sit)
+                            except Exception as _proj_err:
+                                self.logger.warning(f"Projection detection failed for {kpi_name}: {_proj_err}")
+
+                        # Pattern 3: acceleration — gated on presence of an 'acceleration' threshold row.
+                        # yellow = fire floor (× rolling velocity std to trigger); red = HIGH-severity cutoff.
+                        if _monthly and isinstance(_accel_cfg, dict):
+                            try:
+                                _fire_mult = float(_accel_cfg.get('yellow') if _accel_cfg.get('yellow') is not None else 2.0)
+                                _high_mult = float(_accel_cfg.get('red') if _accel_cfg.get('red') is not None else 3.0)
+                                accel_signal = self._compute_acceleration(_monthly, fire_multiplier=_fire_mult)
+                                if accel_signal is not None and accel_signal > 0:
+                                    accel_sit = Situation(
+                                        situation_id=f"accel_{getattr(kpi_definition, 'id', None) or kpi_name}_{int(accel_signal*10)}",
+                                        kpi_name=kpi_name,
+                                        kpi_id=getattr(kpi_definition, 'id', None),
+                                        kpi_value=kpi_value,
+                                        severity=SituationSeverity.HIGH if accel_signal >= _high_mult else SituationSeverity.MEDIUM,
+                                        card_type="problem",
+                                        direction='down',
+                                        alert_type="acceleration",
+                                        acceleration_signal=accel_signal,
+                                        description=f"{kpi_name} deterioration is accelerating ({accel_signal:.1f}× baseline volatility)",
+                                        business_impact=(
+                                            f"The rate of change in {kpi_name} is itself increasing — "
+                                            f"the period-over-period decline is accelerating at {accel_signal:.1f}× the historical pace."
+                                        ),
+                                        hitl_required=False,
+                                    )
+                                    detected_situations.append(accel_sit)
+                            except Exception as _acc_err:
+                                self.logger.warning(f"Acceleration detection failed for {kpi_name}: {_acc_err}")
+
+                        # Commit detected situations before enrichment so detection
+                        # failures in LLM calls can never silently discard situations.
+                        situations.extend(detected_situations)
                         # Enrich with LLM-generated observations and trend note
                         for sit in detected_situations:
-                            sit.key_observations = await self._generate_key_observations(kpi_definition, kpi_value, sit)
-                            sit.trend_note = await self._generate_trend_note(kpi_definition, kpi_value, sit)
-                        situations.extend(detected_situations)
+                            try:
+                                sit.key_observations = await self._generate_key_observations(kpi_definition, kpi_value, sit)
+                                sit.trend_note = await self._generate_trend_note(kpi_definition, kpi_value, sit)
+                            except Exception as _enrich_err:
+                                self.logger.warning(f"Enrichment failed for {kpi_name}/{sit.alert_type}: {_enrich_err}")
 
                         # Detect positive opportunity signals
                         try:
@@ -486,11 +667,14 @@ class A9_Situation_Awareness_Agent:
                     self.logger.warning(f"Error processing KPI {kpi_name}: {str(kpi_error)}")
                     # Continue with other KPIs
 
-            # Deduplicate situations by kpi_name — keep the highest-severity entry per KPI
+            # ── 11I-B: compound cross-KPI alert detection ─────────────────
+            situations = await self._detect_compound_alerts(situations, client_id)
+
+            # Deduplicate by (kpi_name, alert_type) — keep highest severity per pair
             _seen_kpi: dict = {}
             _severity_order = {s: i for i, s in enumerate(SituationSeverity)}
             for sit in situations:
-                _key = sit.kpi_name
+                _key = (sit.kpi_name, sit.alert_type or "threshold_breach")
                 if _key not in _seen_kpi:
                     _seen_kpi[_key] = sit
                 else:
@@ -996,7 +1180,8 @@ class A9_Situation_Awareness_Agent:
             em = qtr * 3
             return date(yr, sm, 1), date(yr, em, _cal.monthrange(yr, em)[1])
 
-        tf = str(timeframe).strip().lower() if timeframe else "last_quarter"
+        # Use .value for Enum members (Python 3.11 changed str(StrEnum) to include class name).
+        tf = (getattr(timeframe, 'value', None) or str(timeframe) or "").strip().lower() if timeframe else "last_quarter"
 
         # Determine current quarter
         cur_q = (m - 1) // 3 + 1
@@ -1432,7 +1617,9 @@ class A9_Situation_Awareness_Agent:
                 dimensions=dimensions,
                 business_processes=business_processes,
                 data_product_id=dp_id,
-                positive_trend_is_good=True
+                positive_trend_is_good=True,
+                plan_version_value=kpi.get('plan_version_value'),
+                kpi_type=kpi.get('kpi_type', 'operational'),
             )
 
         try:
@@ -1610,6 +1797,8 @@ class A9_Situation_Awareness_Agent:
                 positive_trend_is_good=positive_trend,
                 diagnostic_questions=diagnostic_questions,
                 metadata=kpi_metadata or None,
+                plan_version_value=getattr(kpi, 'plan_version_value', None),
+                kpi_type=getattr(kpi, 'kpi_type', 'operational'),
             )
             # Map registry KPIThreshold (comparison-based) into variance thresholds metadata for downstream evaluation
             try:
@@ -2028,7 +2217,161 @@ class A9_Situation_Awareness_Agent:
         except Exception:
             pass
         return ordered
-    
+
+    # ─── Phase 11I-A: Advanced Alert Intelligence helpers ────────────────────
+
+    def _derive_plan_sql(self, sql_query: str, plan_version_value: str):
+        """Substitute the version filter in the actuals SQL to produce a plan/budget SQL.
+
+        Handles double-quoted ("Version"), bracket-quoted ([version]), and unquoted (version)
+        column name styles. Returns None when no version filter is found in the query.
+        """
+        import re as _re
+        if not sql_query or not plan_version_value:
+            return None
+        # Matches: "version", [version], `version`, or bare version — all case-insensitive
+        pattern = r'((?:"version"|\[version\]|`version`|version))\s*=\s*\'Actual\''
+        # Build replacement without backslash-escaped quotes — re.sub passes \' through as
+        # literal backslash+quote which SQL Server rejects as invalid T-SQL.
+        replacement = r'\1' + f" = '{plan_version_value}'"
+        result, count = _re.subn(pattern, replacement, sql_query, flags=_re.IGNORECASE)
+        if count == 0:
+            self.logger.debug(
+                "_derive_plan_sql: no version filter found in SQL — cannot derive plan SQL"
+            )
+            return None
+        return result
+
+    async def _fetch_plan_value(self, kpi_def, timeframe, filters, principal_context):
+        """Execute plan SQL and return the scalar plan value, or None on any error."""
+        plan_version = getattr(kpi_def, 'plan_version_value', None)
+        original_sql = getattr(kpi_def, 'calculation', None) or ''
+        if not plan_version or not original_sql:
+            return None
+        plan_sql = self._derive_plan_sql(original_sql, plan_version)
+        if not plan_sql:
+            return None
+        try:
+            plan_def = kpi_def.model_copy(update={'calculation': plan_sql})
+            plan_kpi_value = await self._get_kpi_value(plan_def, timeframe, None, filters, principal_context)
+            if plan_kpi_value is not None:
+                return plan_kpi_value.value
+        except Exception as e:
+            self.logger.warning(f"_fetch_plan_value failed for {kpi_def.name}: {e}")
+        return None
+
+    def _project_trend(self, monthly_values, thresholds, inverse_logic, lookback=6, horizon=3):
+        """Return projection dict if trend will breach a threshold within `horizon` periods, else None.
+
+        Uses linear regression over the trailing `lookback` periods. Requires R² >= 0.4.
+        """
+        if not monthly_values or len(monthly_values) < 3:
+            return None
+        try:
+            series = [float(m['value']) for m in monthly_values if m.get('value') is not None]
+            if len(series) < 3:
+                return None
+            tail = series[-lookback:] if len(series) >= lookback else series
+            n = len(tail)
+            x = list(range(n))
+            x_mean = sum(x) / n
+            y_mean = sum(tail) / n
+            ss_xy = sum((xi - x_mean) * (yi - y_mean) for xi, yi in zip(x, tail))
+            ss_xx = sum((xi - x_mean) ** 2 for xi in x)
+            if ss_xx == 0:
+                return None
+            slope = ss_xy / ss_xx
+            intercept = y_mean - slope * x_mean
+            # R²
+            ss_tot = sum((yi - y_mean) ** 2 for yi in tail)
+            if ss_tot == 0:
+                return None
+            ss_res = sum((yi - (slope * xi + intercept)) ** 2 for xi, yi in zip(x, tail))
+            r2 = 1 - ss_res / ss_tot
+            if r2 < 0.4:
+                return None  # noisy data — projection unreliable
+            # Project values at t+1 … t+horizon
+            projections = [slope * (n - 1 + h) + intercept for h in range(1, horizon + 1)]
+            # Find the most restrictive threshold (red > yellow)
+            threshold_value = None
+            for key in ('red', 'yellow', 'critical', 'warning'):
+                v = thresholds.get(key) if isinstance(thresholds, dict) else None
+                if v is not None:
+                    threshold_value = float(v)
+                    break
+            if threshold_value is None:
+                return None
+            # Check if any projected value crosses the threshold
+            for h, proj in enumerate(projections, start=1):
+                crossed = (proj < threshold_value) if not inverse_logic else (proj > threshold_value)
+                if crossed:
+                    return {
+                        'projected_breach_at_period': f"t+{h}",
+                        'projection_confidence': round(r2, 3),
+                        'periods_until_breach': h,
+                        'projected_value': round(proj, 2),
+                        'threshold_value': threshold_value,
+                        'slope': round(slope, 4),
+                    }
+            return None
+        except Exception as e:
+            self.logger.debug(f"_project_trend error: {e}")
+            return None
+
+    def _compute_acceleration(self, monthly_values, fire_multiplier=2.0):
+        """Return acceleration signal if second derivative exceeds `fire_multiplier`× rolling std of velocity, else None.
+
+        The returned value is the normalised signal magnitude (|acceleration| / velocity_std).
+        `fire_multiplier` is sourced from the KPI's registry 'acceleration' threshold (yellow band);
+        defaults to 2.0 when unset.
+        """
+        if not monthly_values or len(monthly_values) < 4:
+            return None
+        try:
+            series = [float(m['value']) for m in monthly_values if m.get('value') is not None]
+            if len(series) < 4:
+                return None
+            # First derivative (velocity): period-over-period delta
+            velocity = [series[i] - series[i - 1] for i in range(1, len(series))]
+            # Second derivative (acceleration): change in velocity
+            acceleration = [velocity[i] - velocity[i - 1] for i in range(1, len(velocity))]
+            if not acceleration:
+                return None
+            latest_accel = acceleration[-1]
+            # Rolling std of velocity
+            v_mean = sum(velocity) / len(velocity)
+            v_variance = sum((v - v_mean) ** 2 for v in velocity) / len(velocity)
+            v_std = v_variance ** 0.5
+            if v_std == 0:
+                return None
+            # Only signal if |acceleration| > fire_multiplier × std dev of velocity
+            threshold = fire_multiplier * v_std
+            if abs(latest_accel) > threshold:
+                return round(abs(latest_accel) / v_std, 3)  # normalised signal
+            return None
+        except Exception as e:
+            self.logger.debug(f"_compute_acceleration error: {e}")
+            return None
+
+    @staticmethod
+    def _timeframe_month_count(timeframe) -> int:
+        """Number of whole months spanned by a timeframe — used to convert an aggregate
+        budget into a monthly run-rate for budget-anchored projected_breach detection.
+
+        Falls back to 12 if the timeframe can't be resolved (annual assumption).
+        """
+        try:
+            start, end = A9_Situation_Awareness_Agent._bq_get_period_dates(timeframe)
+            from datetime import date as _date
+            sy, sm, sd = (int(x) for x in str(start).split("-")[:3])
+            ey, em, ed = (int(x) for x in str(end).split("-")[:3])
+            months = (ey - sy) * 12 + (em - sm) + 1
+            return months if months >= 1 else 1
+        except Exception:
+            return 12
+
+    # ─── End Phase 11I-A helpers ─────────────────────────────────────────────
+
     async def _get_kpi_value(
         self,
         kpi_definition: KPIDefinition,
@@ -2399,7 +2742,7 @@ class A9_Situation_Awareness_Agent:
                 inverse_logic=_inverse_logic,
             )
         except Exception as e:
-            logger.error(f"Error getting KPI value for {kpi_name}: {str(e)}")
+            logger.error(f"Error getting KPI value for {kpi_name}: {e}")
             return None
 
     async def _get_sql_for_kpi(
@@ -2843,6 +3186,95 @@ class A9_Situation_Awareness_Agent:
                         break
 
         return signals
+
+    async def _detect_compound_alerts(
+        self,
+        situations: List[Situation],
+        client_id: Optional[str],
+    ) -> List[Situation]:
+        """Post-processing: flag compound cross-KPI patterns using declared KPI relationships.
+
+        Mutates situations in-place (sets compound_alert, related_kpi_id, compound_pattern).
+        Returns the same list.
+        """
+        if not situations or not client_id:
+            return situations
+        try:
+            from src.registry.providers.kpi_relationship_provider import KPIRelationshipProvider
+            provider = KPIRelationshipProvider()
+
+            # Build a quick lookup: kpi_id → (situation, normalised_direction)
+            # normalised_direction: +1 = KPI moving in good direction, -1 = bad direction
+            kpi_sit_map: Dict[str, Situation] = {}
+            kpi_dir_map: Dict[str, int] = {}
+            for sit in situations:
+                kid = sit.kpi_id
+                if not kid:
+                    continue
+                kpi_sit_map[kid] = sit
+                pct = (sit.kpi_value.percent_change or 0) if sit.kpi_value else 0
+                inverse = (sit.kpi_value.inverse_logic if sit.kpi_value else False)
+                # +1 = value moving UP (good for revenue, bad for costs)
+                raw_dir = 1 if pct >= 0 else -1
+                # For inverse KPIs (costs), flip: up is bad
+                kpi_dir_map[kid] = raw_dir if not inverse else -raw_dir
+
+            # Check each KPI's declared relationships
+            checked_pairs: set = set()
+            for kpi_id, sit in kpi_sit_map.items():
+                if kpi_id in checked_pairs:
+                    continue
+                try:
+                    relationships = await provider.get_relationships_for_kpi(kpi_id, client_id)
+                except Exception as _e:
+                    self.logger.debug(f"[Compound] Relationship lookup failed for {kpi_id}: {_e}")
+                    continue
+                for rel in relationships:
+                    # Ensure we always use the canonical pair order
+                    primary_id = rel.kpi_id
+                    related_id = rel.related_kpi_id
+                    pair = tuple(sorted([primary_id, related_id]))
+                    if pair in checked_pairs:
+                        continue
+                    checked_pairs.add(pair)
+
+                    if primary_id not in kpi_dir_map or related_id not in kpi_dir_map:
+                        continue  # one or both KPIs have no situation this run
+
+                    dir_primary = kpi_dir_map[primary_id]
+                    dir_related = kpi_dir_map[related_id]
+
+                    conflict = (
+                        (rel.conflict_direction == "diverging" and dir_primary != dir_related) or
+                        (rel.conflict_direction == "converging" and dir_primary == dir_related)
+                    )
+                    if not conflict:
+                        continue
+
+                    # Build a human-readable compound_pattern
+                    def _dir_word(kpi_id_: str) -> str:
+                        d = kpi_dir_map.get(kpi_id_, 0)
+                        sit_ = kpi_sit_map.get(kpi_id_)
+                        name = (sit_.kpi_name if sit_ else kpi_id_)
+                        return f"{name} {'UP' if d > 0 else 'DOWN'}"
+
+                    pattern = f"{_dir_word(primary_id)} / {_dir_word(related_id)}"
+                    if rel.description:
+                        pattern += f" — {rel.description}"
+
+                    # Flag BOTH situations as compound
+                    for kid in (primary_id, related_id):
+                        other_id = related_id if kid == primary_id else primary_id
+                        if kid in kpi_sit_map:
+                            kpi_sit_map[kid].compound_alert = True
+                            kpi_sit_map[kid].related_kpi_id = other_id
+                            kpi_sit_map[kid].compound_pattern = pattern
+                            self.logger.info(
+                                f"[Compound] Flagged {kid} ↔ {other_id}: {rel.conflict_direction} / {pattern}"
+                            )
+        except Exception as e:
+            self.logger.warning(f"[Compound] Compound alert detection failed: {e}")
+        return situations
 
     def _detect_kpi_situations(
         self,

@@ -97,7 +97,7 @@ _DIMS = [
 
 KPIS: List[Dict[str, Any]] = [
     # -----------------------------------------------------------------------
-    # Revenue KPIs
+    # Revenue KPIs  (Budget data confirmed in HessStarSchemaView)
     # -----------------------------------------------------------------------
     {
         "id": "upstream_revenue",
@@ -114,8 +114,10 @@ KPIS: List[Dict[str, Any]] = [
             f"WHERE [account_type] = 'Revenue' AND [version] = 'Actual'"
         ),
         "filters": {"account_type": "Revenue", "version": "Actual"},
+        "plan_version_value": "Budget",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "plan_variance", "green_threshold": 5.0, "yellow_threshold": 10.0, "red_threshold": 15.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "revenue", "upstream", "hess"],
@@ -138,8 +140,10 @@ KPIS: List[Dict[str, Any]] = [
             f"WHERE [segment_name] = 'E&P' AND [account_type] = 'Revenue' AND [version] = 'Actual'"
         ),
         "filters": {"segment_name": "E&P", "account_type": "Revenue", "version": "Actual"},
+        "plan_version_value": "Budget",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "plan_variance", "green_threshold": 5.0, "yellow_threshold": 10.0, "red_threshold": 15.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "revenue", "production", "ep", "hess"],
@@ -162,8 +166,10 @@ KPIS: List[Dict[str, Any]] = [
             f"WHERE [segment_name] = 'Midstream' AND [account_type] = 'Revenue' AND [version] = 'Actual'"
         ),
         "filters": {"segment_name": "Midstream", "account_type": "Revenue", "version": "Actual"},
+        "plan_version_value": "Budget",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "plan_variance", "green_threshold": 5.0, "yellow_threshold": 10.0, "red_threshold": 15.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "revenue", "midstream", "hess"],
@@ -186,8 +192,10 @@ KPIS: List[Dict[str, Any]] = [
             f"WHERE [account_type] = 'Revenue' AND [version] = 'Actual'"
         ),
         "filters": {"account_type": "Revenue", "version": "Actual"},
+        "plan_version_value": "Budget",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "plan_variance", "green_threshold": 5.0, "yellow_threshold": 10.0, "red_threshold": 15.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "revenue", "total", "consolidated", "hess"],
@@ -196,7 +204,7 @@ KPIS: List[Dict[str, Any]] = [
         "metadata": {"line": "top", "altitude": "strategic", "positive_trend_is_good": "true"},
     },
     # -----------------------------------------------------------------------
-    # Profitability / Margin KPIs
+    # Profitability / Margin KPIs  (Revenue + COGS + SGA all have Budget data)
     # -----------------------------------------------------------------------
     {
         "id": "gross_profit",
@@ -205,7 +213,8 @@ KPIS: List[Dict[str, Any]] = [
         "domain": "Finance",
         "description": (
             "Total revenue minus cost of goods sold. "
-            "Cost amounts are stored as positive values and subtracted to derive gross profit."
+            "COGS amounts in the view are stored as negative values; the CASE expression "
+            "negates them again to subtract from revenue."
         ),
         "unit": "$",
         "data_product_id": "dp_hess_financials",
@@ -217,8 +226,10 @@ KPIS: List[Dict[str, Any]] = [
             f"FROM {_SS_PREFIX} WHERE [version] = 'Actual'"
         ),
         "filters": {"version": "Actual"},
+        "plan_version_value": "Budget",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "plan_variance", "green_threshold": 3.0, "yellow_threshold": 8.0, "red_threshold": 12.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "profitability", "gross-profit", "hess"],
@@ -243,8 +254,10 @@ KPIS: List[Dict[str, Any]] = [
             f"FROM {_SS_PREFIX} WHERE [version] = 'Actual'"
         ),
         "filters": {"version": "Actual"},
+        "plan_version_value": "Budget",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 1.0, "yellow_threshold": 0.0, "red_threshold": -1.5, "inverse_logic": False},
+            {"comparison_type": "plan_variance", "green_threshold": 2.0, "yellow_threshold": 5.0, "red_threshold": 8.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "margin", "gross-margin", "hess"],
@@ -268,8 +281,10 @@ KPIS: List[Dict[str, Any]] = [
             f"WHERE [account_type] IN ('Revenue', 'COGS', 'SGA') AND [version] = 'Actual'"
         ),
         "filters": {"version": "Actual"},
+        "plan_version_value": "Budget",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "plan_variance", "green_threshold": 3.0, "yellow_threshold": 8.0, "red_threshold": 12.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "profitability", "operating-income", "ebit", "hess"],
@@ -284,7 +299,8 @@ KPIS: List[Dict[str, Any]] = [
         "domain": "Finance",
         "description": (
             "Earnings before interest, taxes, depreciation, and amortisation. "
-            "Operating income plus depreciation and amortisation charges."
+            "Operating income plus D&A charges. D&A is stored as account_type='Other' "
+            "with account_category='D&A' in HessStarSchemaView."
         ),
         "unit": "$",
         "data_product_id": "dp_hess_financials",
@@ -293,11 +309,15 @@ KPIS: List[Dict[str, Any]] = [
         "sql_query": (
             f"SELECT SUM(CASE WHEN [account_type] = 'Revenue' THEN [amount] ELSE -[amount] END) AS value "
             f"FROM {_SS_PREFIX} "
-            f"WHERE [account_type] IN ('Revenue', 'COGS', 'SGA', 'DA') AND [version] = 'Actual'"
+            f"WHERE ([account_type] IN ('Revenue', 'COGS', 'SGA') "
+            f"OR ([account_type] = 'Other' AND [account_category] = 'D&A')) "
+            f"AND [version] = 'Actual'"
         ),
         "filters": {"version": "Actual"},
+        "plan_version_value": "Budget",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "plan_variance", "green_threshold": 3.0, "yellow_threshold": 8.0, "red_threshold": 12.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "profitability", "ebitda", "hess"],
@@ -307,6 +327,66 @@ KPIS: List[Dict[str, Any]] = [
     },
     # -----------------------------------------------------------------------
     # Cost / Expense KPIs
+    # -----------------------------------------------------------------------
+    {
+        "id": "production_costs",
+        "client_id": CLIENT_ID,
+        "name": "Production Costs",
+        "domain": "Finance",
+        "description": (
+            "Total cost of goods sold across all production cost categories "
+            "(Raw Materials, Manufacturing, Packaging, Distribution). Lower is better. "
+            "Replaces 'Lifting Cost' — HessStarSchemaView uses COGS account_type, "
+            "not a 'Lifting Costs' account_category."
+        ),
+        "unit": "$",
+        "data_product_id": "dp_hess_financials",
+        "view_name": _VIEW,
+        "business_process_ids": ["finance_expense_management", "operations_production_cost_management"],
+        "sql_query": (
+            f"SELECT SUM([amount]) AS value FROM {_SS_PREFIX} "
+            f"WHERE [account_type] = 'COGS' AND [version] = 'Actual'"
+        ),
+        "filters": {"account_type": "COGS", "version": "Actual"},
+        "plan_version_value": "Budget",
+        "thresholds": [
+            {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 5.0, "red_threshold": 10.0, "inverse_logic": True},
+            {"comparison_type": "plan_variance", "green_threshold": 5.0, "yellow_threshold": 15.0, "red_threshold": 25.0, "inverse_logic": True},
+        ],
+        "dimensions": _DIMS,
+        "tags": ["finance", "cost", "cogs", "production-costs", "hess"],
+        "owner_role": "COO",
+        "stakeholder_roles": ["CFO", "Finance Manager"],
+        "metadata": {"line": "bottom", "altitude": "operational", "positive_trend_is_good": "false"},
+    },
+    {
+        "id": "sga_expense",
+        "client_id": CLIENT_ID,
+        "name": "SG&A Expense",
+        "domain": "Finance",
+        "description": "Selling, general and administrative expenses. Lower is better.",
+        "unit": "$",
+        "data_product_id": "dp_hess_financials",
+        "view_name": _VIEW,
+        "business_process_ids": ["finance_expense_management"],
+        "sql_query": (
+            f"SELECT SUM([amount]) AS value FROM {_SS_PREFIX} "
+            f"WHERE [account_type] = 'SGA' AND [version] = 'Actual'"
+        ),
+        "filters": {"account_type": "SGA", "version": "Actual"},
+        "plan_version_value": "Budget",
+        "thresholds": [
+            {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 5.0, "red_threshold": 10.0, "inverse_logic": True},
+            {"comparison_type": "plan_variance", "green_threshold": 5.0, "yellow_threshold": 15.0, "red_threshold": 25.0, "inverse_logic": True},
+        ],
+        "dimensions": _DIMS,
+        "tags": ["finance", "expense", "sga", "opex", "hess"],
+        "owner_role": "Finance Manager",
+        "stakeholder_roles": ["CFO"],
+        "metadata": {"line": "bottom", "altitude": "operational", "positive_trend_is_good": "false"},
+    },
+    # -----------------------------------------------------------------------
+    # Cost / operating-efficiency KPIs (restored 2026-07 - no Budget data, yoy only)
     # -----------------------------------------------------------------------
     {
         "id": "lifting_cost",
@@ -389,32 +469,8 @@ KPIS: List[Dict[str, Any]] = [
         "stakeholder_roles": ["CEO", "COO", "Finance Manager"],
         "metadata": {"line": "bottom", "altitude": "strategic", "positive_trend_is_good": "false"},
     },
-    {
-        "id": "sga_expense",
-        "client_id": CLIENT_ID,
-        "name": "SG&A Expense",
-        "domain": "Finance",
-        "description": "Selling, general and administrative expenses. Lower is better.",
-        "unit": "$",
-        "data_product_id": "dp_hess_financials",
-        "view_name": _VIEW,
-        "business_process_ids": ["finance_expense_management"],
-        "sql_query": (
-            f"SELECT SUM([amount]) AS value FROM {_SS_PREFIX} "
-            f"WHERE [account_type] = 'SGA' AND [version] = 'Actual'"
-        ),
-        "filters": {"account_type": "SGA", "version": "Actual"},
-        "thresholds": [
-            {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 5.0, "red_threshold": 10.0, "inverse_logic": True},
-        ],
-        "dimensions": _DIMS,
-        "tags": ["finance", "expense", "sga", "opex", "hess"],
-        "owner_role": "Finance Manager",
-        "stakeholder_roles": ["CFO"],
-        "metadata": {"line": "bottom", "altitude": "operational", "positive_trend_is_good": "false"},
-    },
     # -----------------------------------------------------------------------
-    # Cash Flow KPIs
+    # Cash flow KPIs (restored 2026-07)
     # -----------------------------------------------------------------------
     {
         "id": "operating_cash_flow",
@@ -490,14 +546,73 @@ KPIS: List[Dict[str, Any]] = [
             f"WHERE [account_type] IN ('Revenue', 'COGS', 'SGA') AND [version] = 'Actual'"
         ),
         "filters": {"version": "Actual"},
+        "plan_version_value": "Budget",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
+            {"comparison_type": "plan_variance", "green_threshold": 2.0, "yellow_threshold": 5.0, "red_threshold": 10.0, "inverse_logic": False},
         ],
         "dimensions": _DIMS,
         "tags": ["finance", "roce", "return-on-capital", "efficiency", "hess"],
         "owner_role": "CFO",
         "stakeholder_roles": ["CEO", "Board"],
         "metadata": {"line": "bottom", "altitude": "strategic", "positive_trend_is_good": "true"},
+    },
+]
+
+# ── 11I-A: derive projected_breach + acceleration threshold rows ──────────────
+# Threshold-presence gating (Option A): a KPI runs a statistical pattern ONLY if it
+# carries a threshold row for that comparison_type. Rather than hand-duplicate rows
+# across every KPI, derive them here so they stay in sync with each KPI's variance bands.
+#
+#   projected_breach — budget-anchored (dominant FP&A practice). The row stores a
+#     percent-of-budget tolerance; SA derives the absolute floor at scan time from the
+#     Budget run-rate. We mirror each KPI's plan_variance red band so the "on trajectory
+#     to breach" alert uses the same tolerance as the actual-breach alert.
+#   acceleration — self-calibrating against the KPI's own volatility, so a single uniform
+#     sensitivity row applies to every KPI (yellow = fire floor ×, red = HIGH-severity ×).
+#
+# Both patterns need ≥3–4 months of monthly history to fire; they remain inert (but
+# correctly configured) until the Hess dataset accumulates enough monthly periods.
+_ACCEL_ROW: Dict[str, Any] = {
+    "comparison_type": "acceleration",
+    "green_threshold": None,
+    "yellow_threshold": 2.0,   # fire floor: |acceleration| > 2× rolling velocity std
+    "red_threshold": 3.0,      # HIGH severity at ≥ 3× (else MEDIUM)
+    "inverse_logic": False,
+}
+for _kpi in KPIS:
+    _ths = _kpi.setdefault("thresholds", [])
+    _pv = next((t for t in _ths if t.get("comparison_type") == "plan_variance"), None)
+    if _pv is not None and not any(t.get("comparison_type") == "projected_breach" for t in _ths):
+        _ths.append({
+            "comparison_type": "projected_breach",
+            "green_threshold": _pv.get("green_threshold"),
+            "yellow_threshold": _pv.get("yellow_threshold"),
+            "red_threshold": _pv.get("red_threshold"),
+            "inverse_logic": _pv.get("inverse_logic", False),
+        })
+    if not any(t.get("comparison_type") == "acceleration" for t in _ths):
+        _ths.append(dict(_ACCEL_ROW))
+
+# Compound cross-KPI relationships for 11I-B detection.
+# Revenue growing while margin compresses → volume/margin divergence (pricing or mix issue).
+# SG&A growing faster than production revenue → overhead inefficiency signal.
+KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
+    {
+        "kpi_id": "upstream_revenue",
+        "related_kpi_id": "gross_margin_pct",
+        "client_id": CLIENT_ID,
+        "relationship_type": "volume_margin",
+        "conflict_direction": "diverging",
+        "description": "Rising upstream revenue with falling gross margin signals mix shift or commodity pricing pressure",
+    },
+    {
+        "kpi_id": "production_revenue",
+        "related_kpi_id": "sga_expense",
+        "client_id": CLIENT_ID,
+        "relationship_type": "cost_revenue",
+        "conflict_direction": "diverging",
+        "description": "SG&A growing faster than production revenue indicates overhead cost is outpacing growth",
     },
 ]
 

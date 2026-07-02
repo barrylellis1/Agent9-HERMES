@@ -550,6 +550,10 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 steps=steps,
                 notes="KT core with SCQA/MECE framing (auto-derived dimensions from data product contract).",
                 analysis_mode=getattr(request, "analysis_mode", "problem"),
+                # 11I-B: propagate alert-type context for SCQA framing
+                alert_type=getattr(request, "alert_type", None),
+                compound_alert=getattr(request, "compound_alert", False),
+                compound_pattern=getattr(request, "compound_pattern", None),
             )
             try:
                 self.logger.info(f"plan_deep_analysis: selected_dims={len(dimensions)} steps={len(steps)}")
@@ -1706,6 +1710,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     spec=spec_main,
                     principal_id=getattr(plan, "principal_id", "system"),
                     analysis_mode=getattr(plan, "analysis_mode", "problem"),
+                    alert_type=getattr(plan, "alert_type", None),
+                    compound_pattern=getattr(plan, "compound_pattern", None),
                 )
             except Exception as _scqa_err:
                 self.logger.warning("[DA] SCQA generation failed: %s", _scqa_err)
@@ -2219,6 +2225,8 @@ If nothing relevant is found for a category, use an empty list."""
         spec: Optional[Dict[str, Any]],
         principal_id: str,
         analysis_mode: str = "problem",
+        alert_type: Optional[str] = None,
+        compound_pattern: Optional[str] = None,
     ) -> str:
         """Generate a Situation-Complication-Question-Answer narrative via LLM.
 
@@ -2270,9 +2278,42 @@ If nothing relevant is found for a category, use an empty list."""
                     f"Question: How do we address the laggards while scaling the leaders simultaneously? "
                     f"Answer: Prioritise recovery in {prob_str} and replicate the {opp_str} playbook across similar segments."
                 )
+            # Problem mode — apply alert-type-aware framing
+            if compound_pattern:
+                complication = (
+                    f"Complication: {compound_pattern} — "
+                    f"the cross-KPI divergence suggests a structural issue beyond a single segment. "
+                    f"Dimensional breakdown: {is_str}."
+                )
+            elif alert_type == "projected_breach":
+                complication = (
+                    f"Complication: The trend is on trajectory to breach the threshold in the next period(s) — "
+                    f"deterioration is concentrated in {is_str}."
+                )
+            elif alert_type == "plan_variance":
+                complication = (
+                    f"Complication: Performance is tracking below plan, with the budget gap driven by {is_str}, "
+                    f"while {is_not_str} are on target."
+                )
+            elif alert_type == "acceleration":
+                complication = (
+                    f"Complication: The rate of decline is accelerating — the variance in {is_str} "
+                    f"is widening period-over-period, not just persisting."
+                )
+            else:
+                complication = (
+                    f"Complication: The variance is concentrated in {is_str}, while {is_not_str} are within range."
+                )
+            # Build situation prefix based on alert_type
+            if alert_type == "projected_breach":
+                situation_prefix = f"Situation: {plan.kpi_name} is trending toward a threshold breach vs. {comparator}."
+            elif alert_type == "plan_variance":
+                situation_prefix = f"Situation: {plan.kpi_name} is tracking below plan vs. {comparator}."
+            else:
+                situation_prefix = f"Situation: {plan.kpi_name} is {direction}-performing vs. {comparator}."
             return (
-                f"Situation: {plan.kpi_name} is {direction}-performing vs. {comparator}. "
-                f"Complication: The variance is concentrated in {is_str}, while {is_not_str} are within range. "
+                f"{situation_prefix} "
+                f"{complication} "
                 f"Key drivers: {cp_str}. "
                 f"Question: What actions can address the identified contributors?"
             )
@@ -2318,13 +2359,42 @@ If nothing relevant is found for a category, use an empty list."""
                     f"Output exactly 4 labelled sentences: 'Situation:', 'Complication:', 'Question:', 'Answer:'. No bullet points."
                 )
             else:
+                # Build alert-type context for the prompt
+                _alert_context = ""
+                if compound_pattern:
+                    _alert_context = (
+                        f"\n\nCRITICAL FRAMING — COMPOUND ALERT: This situation involves a cross-KPI conflict: {compound_pattern}. "
+                        f"The Complication MUST lead with this cross-KPI tension before naming dimensional segments. "
+                        f"Example Complication: 'Despite revenue growing 8%, gross margin declined 3pp — "
+                        f"the divergence suggests a mix shift or pricing compression, not a volume problem.'"
+                    )
+                elif alert_type == "projected_breach":
+                    _alert_context = (
+                        f"\n\nCRITICAL FRAMING — PROJECTED BREACH: This KPI has not yet breached its threshold "
+                        f"but is on trajectory to do so. The Situation must say 'is trending toward breach' "
+                        f"rather than 'has breached'. The Complication must name which dimensional segments are "
+                        f"driving the projected deterioration."
+                    )
+                elif alert_type == "plan_variance":
+                    _alert_context = (
+                        f"\n\nCRITICAL FRAMING — PLAN VARIANCE: The trigger is a miss vs. the budget/plan baseline, "
+                        f"not a threshold breach. The Situation must reference the plan miss (e.g. 'is tracking "
+                        f"below plan'). The Complication must identify which segments are responsible for the "
+                        f"budget gap."
+                    )
+                elif alert_type == "acceleration":
+                    _alert_context = (
+                        f"\n\nCRITICAL FRAMING — ACCELERATION: The rate of deterioration is increasing, not just "
+                        f"the level. The Complication must note that the decline is accelerating, not just present."
+                    )
                 prompt = (
                     f"Write a concise SCQA (Situation-Complication-Question-Answer) narrative for a CFO "
                     f"investigating the KPI '{plan.kpi_name}' ({plan.timeframe or 'current period'}).\n\n"
                     f"Comparator: {comparator} | Direction: {direction}-performing vs target\n"
                     f"Top problem segments (IS): {', '.join(is_items) or 'see change points'}\n"
                     f"Healthy segments (IS NOT): {', '.join(is_not_items) or 'none identified'}\n"
-                    f"Largest change-points: {'; '.join(top_cps) or 'none'}\n\n"
+                    f"Largest change-points: {'; '.join(top_cps) or 'none'}"
+                    f"{_alert_context}\n\n"
                     f"Output exactly 4 labelled sentences: 'Situation: ...', 'Complication: ...', "
                     f"'Question: ...', 'Answer: ...'. Be specific and quantitative. No bullet points."
                 )

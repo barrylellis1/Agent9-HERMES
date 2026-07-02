@@ -13,6 +13,8 @@ The `A9_Deep_Analysis_Agent` plans and executes transparent, auditable deep anal
 
 Models defined in `src/agents/models/deep_analysis_models.py`.
 
+**Alert-type context fields** (added Phase 11I-B): `DeepAnalysisRequest` and `DeepAnalysisPlan` both carry `alert_type: Optional[str]`, `compound_alert: bool = False`, and `compound_pattern: Optional[str]`. These flow from SA through the workflow to `_generate_scqa_summary()` to adjust narrative framing.
+
 ## Problem Refinement Chat (Dec 2025)
 The `refine_analysis` method implements MBB-style principal engagement:
 - Validates Deep Analysis findings with principal's business knowledge
@@ -228,3 +230,27 @@ When DA returns `analysis_mode="mixed"` (and `mixed_framing=True`), the frontend
 - May 2026 (Phase 10B-DGA final): Added mandatory `is None → raise RuntimeError` guard before DGA call in `plan_deep_analysis()` dimension-supplement branch (line ~441). Previously the call was unguarded — a missing DGA would produce an opaque `AttributeError`. Guard now matches the pattern established in SA and DPA: clean `RuntimeError("Data Governance Agent not initialized…")` surfaces through the outer try/except as `DeepAnalysisResponse(status="error")`.
 - May 2026: `_infer_analysis_mode()` — added caller-hint preservation rule: when `caller_hint="opportunity"` and `n_heal == 0`, return "opportunity" rather than falling through to the purity-threshold logic. Zero healthy segments is typically caused by missing per-dimension comparison data (delta = current − 0), not a genuine absence of outperformers. Trusting the caller hint prevents a silent override to "problem" on incomplete dimensional evidence.
 - May 2026: IS/IS NOT swap guard — opportunity-mode `where_is` / `where_is_not` swap is now conditional on `kt.where_is_not` being non-empty. If IS NOT is empty (no comparison data per dimension), items already sit in `where_is` and are rendered as leading segments by the opportunity-mode UI; swapping would produce an empty exhibit.
+
+## Phase 11I-B — Alert-Type-Aware SCQA Framing (Jun 2026)
+
+`_generate_scqa_summary()` now accepts `alert_type: Optional[str]` and `compound_pattern: Optional[str]`. Both the LLM prompt and the deterministic fallback produce distinct Situation/Complication framing per alert type:
+
+| `alert_type` | Situation framing | Complication framing |
+|---|---|---|
+| `"threshold_breach"` (default) | `"is under-performing vs. {comparator}"` | Dimensional concentration (existing behaviour) |
+| `"plan_variance"` | `"is tracking below plan"` | Which segments are responsible for the budget gap |
+| `"projected_breach"` | `"is trending toward breach"` (not "has breached") | Which segments are driving the projected deterioration |
+| `"acceleration"` | standard | Decline is accelerating, not just present |
+| Compound (`compound_pattern` set) | standard | Leads with cross-KPI tension before dimensional segments |
+
+### `DeepAnalysisRequest` / `DeepAnalysisPlan` new fields
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `alert_type` | `Optional[str]` | `None` | Alert pattern that triggered this analysis |
+| `compound_alert` | `bool` | `False` | Cross-KPI compound conflict triggered this analysis |
+| `compound_pattern` | `Optional[str]` | `None` | Human-readable compound tension string |
+
+Compound framing example:
+> **Complication:** "Despite revenue growing 8%, gross margin declined 3pp — the divergence suggests a mix shift or pricing compression, not a volume problem."
+
+When `alert_type` is `None` (caller did not set it), the SCQA narrative is unchanged from pre-11I behaviour.

@@ -29,6 +29,7 @@ Seeding order (all idempotent upserts):
     5. kpis
     6. principal_profiles
     7. kpi_accountability     (optional — only if ACCOUNTABILITY is exported)
+    8. kpi_relationships      (optional — only if KPI_RELATIONSHIPS is exported)
 """
 
 import argparse
@@ -357,6 +358,22 @@ def onboard_client(
                 print(f"  ERROR: {len(bad_a)} accountability record(s) have wrong or missing client_id: {bad_a}")
                 sys.exit(1)
             n = _upsert(http, base_url, service_key, "kpi_accountability", accountability, dry_run)
+            print(f"  OK  {n} row(s) upserted\n")
+
+        # ------------------------------------------------------------------
+        # 8. kpi_relationships  (optional — only if client exports KPI_RELATIONSHIPS)
+        # ------------------------------------------------------------------
+        kpi_relationships: List[Dict[str, Any]] = getattr(mod, "KPI_RELATIONSHIPS", [])
+        if kpi_relationships:
+            print("[8/8] kpi_relationships")
+            bad_r = [r["kpi_id"] for r in kpi_relationships if r.get("client_id") != client_id]
+            if bad_r:
+                print(f"  ERROR: {len(bad_r)} relationship(s) have wrong or missing client_id: {bad_r}")
+                sys.exit(1)
+            # Delete-first: kpi_relationships has a composite PK (client_id, kpi_id, related_kpi_id)
+            # and PostgREST merge-duplicates doesn't reliably resolve conflicts on composite keys.
+            _delete_by_client(http, base_url, service_key, "kpi_relationships", client_id, dry_run)
+            n = _upsert(http, base_url, service_key, "kpi_relationships", kpi_relationships, dry_run)
             print(f"  OK  {n} row(s) upserted\n")
 
     print(f"{'='*60}")

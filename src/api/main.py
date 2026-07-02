@@ -110,6 +110,14 @@ async def agents_state() -> List[Dict[str, str]]:
 # from src.api.mcp_service import router as mcp_router
 # app.include_router(mcp_router, prefix="/mcp")
 
+# Test fixture routes — only mounted in test environments (never in production)
+if os.getenv("APP_ENV") == "test":
+    from src.api.routes.test_fixtures import router as test_fixtures_router
+    app.include_router(test_fixtures_router, prefix="/api/v1")
+    logging.getLogger(__name__).warning(
+        "TEST FIXTURES ROUTER MOUNTED — do not run with APP_ENV=test in production"
+    )
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("src.api.main:app", host="0.0.0.0", port=8000, reload=True)

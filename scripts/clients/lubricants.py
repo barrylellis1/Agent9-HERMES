@@ -90,6 +90,7 @@ KPIS: List[Dict[str, Any]] = [
         "business_process_ids": ["finance_revenue_growth_analysis", "finance_profitability_analysis"],
         "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_type = 'Revenue' AND version = 'Actual'",
         "filters": {"account_type": "Revenue", "version": "Actual"},
+        "plan_version_value": "Budget",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
             {"comparison_type": "qoq", "green_threshold": 3.0, "yellow_threshold": -2.0, "red_threshold": -8.0, "inverse_logic": False},
@@ -241,6 +242,7 @@ KPIS: List[Dict[str, Any]] = [
         "business_process_ids": ["finance_profitability_analysis"],
         "sql_query": f"SELECT SUM(CASE WHEN account_type = 'Revenue' THEN amount WHEN account_type = 'COGS' THEN -amount ELSE 0 END) AS value FROM {_BQ_PREFIX} WHERE version = 'Actual'",
         "filters": {"version": "Actual"},
+        "plan_version_value": "Budget",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
@@ -328,6 +330,7 @@ KPIS: List[Dict[str, Any]] = [
         "business_process_ids": ["finance_expense_management", "finance_profitability_analysis"],
         "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_type = 'COGS' AND version = 'Actual'",
         "filters": {"account_type": "COGS", "version": "Actual"},
+        "plan_version_value": "Budget",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
         ],
@@ -399,6 +402,26 @@ KPIS: List[Dict[str, Any]] = [
         "owner_role": "Finance Manager",
         "stakeholder_roles": ["CFO"],
         "metadata": {"line": "bottom", "altitude": "operational", "positive_trend_is_good": "false"},
+    },
+]
+
+
+KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
+    {
+        "kpi_id": "net_revenue",
+        "related_kpi_id": "gross_margin_pct",
+        "client_id": CLIENT_ID,
+        "relationship_type": "volume_margin",
+        "conflict_direction": "diverging",
+        "description": "Rising revenue with falling margin signals mix shift or pricing pressure",
+    },
+    {
+        "kpi_id": "product_sales_revenue",
+        "related_kpi_id": "cogs",
+        "client_id": CLIENT_ID,
+        "relationship_type": "cost_revenue",
+        "conflict_direction": "diverging",
+        "description": "Revenue growing slower than COGS indicates eroding unit economics",
     },
 ]
 

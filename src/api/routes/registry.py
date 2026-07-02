@@ -613,6 +613,60 @@ async def delete_term(term_name: str, factory: RegistryFactory = Depends(get_reg
 
 
 # ---------------------------------------------------------------------------
+# KPI Relationships (Phase 11I-B)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/kpi-relationships", response_model=Envelope)
+async def list_kpi_relationships(
+    client_id: Optional[str] = Query(None),
+    kpi_id: Optional[str] = Query(None),
+):
+    """List KPI relationships. Optionally filter by client_id and/or kpi_id."""
+    from src.registry.providers.kpi_relationship_provider import KPIRelationshipProvider
+    provider = KPIRelationshipProvider()
+    try:
+        if kpi_id and client_id:
+            items = await provider.get_relationships_for_kpi(kpi_id, client_id)
+        elif client_id:
+            items = await provider.get_all(client_id)
+        else:
+            return Envelope(status="error", data=error_response("missing_param", "client_id is required"))
+        return Envelope(data=[i.model_dump() for i in items])
+    except Exception as e:
+        return Envelope(status="error", data=error_response("server_error", str(e)))
+
+
+@router.post("/kpi-relationships", response_model=Envelope, status_code=status.HTTP_201_CREATED)
+async def create_kpi_relationship(body: Dict[str, Any]):
+    """Create or update a KPI relationship."""
+    from src.registry.providers.kpi_relationship_provider import KPIRelationshipProvider
+    from src.registry.models.kpi_relationship import KPIRelationship
+    provider = KPIRelationshipProvider()
+    try:
+        item = KPIRelationship(**body)
+        result = await provider.upsert(item)
+        return Envelope(data=result.model_dump())
+    except Exception as e:
+        return Envelope(status="error", data=error_response("server_error", str(e)))
+
+
+@router.delete("/kpi-relationships/{kpi_id}/{related_kpi_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_kpi_relationship(
+    kpi_id: str,
+    related_kpi_id: str,
+    client_id: str = Query(...),
+):
+    """Delete a KPI relationship by composite key."""
+    from src.registry.providers.kpi_relationship_provider import KPIRelationshipProvider
+    provider = KPIRelationshipProvider()
+    try:
+        await provider.delete(kpi_id, related_kpi_id, client_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
 # Clients (multi-tenant)
 # ---------------------------------------------------------------------------
 

@@ -18,6 +18,9 @@ class ComparisonType(str, Enum):
     MOM = "mom"  # Month over Month
     TARGET = "target"  # Against Target
     BUDGET = "budget"  # Against Budget
+    PLAN_VARIANCE = "plan_variance"  # Actual vs Budget/Plan — tolerance bands for 11I-A detection
+    PROJECTED_BREACH = "projected_breach"  # Absolute native-unit floor/ceiling for trend-projection breach (11I-A)
+    ACCELERATION = "acceleration"  # Volatility-normalised sensitivity for deterioration-acceleration (11I-A)
     GREATER_THAN = "greater_than"  # Simple threshold check >
     LESS_THAN = "less_than"  # Simple threshold check <
 
@@ -115,6 +118,18 @@ class KPI(BaseModel):
     benchmark_source: Optional[str] = Field(
         None,
         description="Provenance of benchmark_range: 'filing' | 'peer' | 'inferred'."
+    )
+    plan_version_value: Optional[str] = Field(
+        None,
+        description=(
+            "Version filter value for plan/budget data (e.g. 'Budget', 'Plan', 'Forecast'). "
+            "When set, SA derives the plan SQL by substituting this value for 'Actual' in sql_query. "
+            "None = skip plan variance detection for this KPI."
+        )
+    )
+    kpi_type: str = Field(
+        "operational",
+        description="KPI classification: 'operational' | 'concentration' | 'covenant' | 'regulatory'"
     )
 
     @classmethod

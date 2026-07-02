@@ -16,6 +16,9 @@ To provide personalized situation awareness for Finance KPIs, enabling principal
 - Human-in-the-loop feedback handling
 - Recommended diagnostic questions
 - Contract-driven KPI enrichment with defensive registry fallbacks (normalized KPI IDs, view/date column resolution, filter injection)
+- Per-KPI multi-horizon alert detection: threshold breach (existing), plan variance vs budget, forward-looking projected breach (linear regression), and rate-of-change acceleration (second derivative) — each produces a distinct situation card with its own `alert_type`
+- KPI type classification: `kpi_type` field (`operational` | `concentration` | `covenant` | `regulatory`) — covenant/regulatory KPIs always fire at `severity = CRITICAL` regardless of threshold band
+- Compound cross-KPI alert detection: post-processing step after all situations are computed; flags KPI pairs in declared `KPIRelationship` registry when their directions conflict per the relationship's `conflict_direction` (`diverging` | `converging`); sets `compound_alert = True`, `related_kpi_id`, and `compound_pattern` on both situation cards
 
 ## Configuration Model
 ```python
@@ -280,7 +283,7 @@ includes `escalate_to_da: bool` for direct routing to DA by the assessment engin
 - Supports Phase 10B-DGA architecture where DGA routes correct Data Products per client
 
 ### Situation Deduplication
-- When multiple KPI thresholds trigger for the same KPI, keeps highest-severity entry only
+- Deduplicates by `(kpi_name, alert_type)` — each distinct alert pattern (threshold_breach, plan_variance, projected_breach, acceleration) produces its own card. Within the same `(kpi_name, alert_type)` pair, keeps highest-severity entry only.
 - Prevents duplicate situation cards in the UI when a KPI crosses multiple severity lines
 - Preserves sort order (critical → high → medium → low)
 
@@ -352,6 +355,80 @@ KPIs with SQL-level negation (`SUM(-amount)`) return positive values — skip th
 - Workflow-level client isolation now enforced at KPI retrieval, not post-hoc filtering
 - Assessment engine can safely run parallel per-KPI scans across multiple principals without cross-client data leakage
 - DGA is now a primary dependency (failures are visible), not an optional optimization
+
+## Phase 11I-A — Advanced Alert Intelligence (Jun 2026)
+
+### Four New Detection Patterns
+
+All patterns run in the per-KPI loop after `_detect_kpi_situations()`. Each sets `Situation.alert_type` to distinguish it from a standard threshold breach.
+
+#### Threshold-presence gating (Option A)
+Each statistical pattern runs **only if the KPI carries a registry `KPIThreshold` row for the matching `comparison_type`** — presence of the row is the per-KPI on/off switch. A KPI's "nature" is expressed by which threshold rows its seed carries (a covenant flag might carry only `yoy`; a smooth revenue KPI carries all four). Registry `KPIThreshold` rows are mapped into `kpi_def.metadata['variance_thresholds'][<key>]` by `_convert_to_kpi_definition()`. Relevant `ComparisonType` keys: `yoy`/`qoq`/`mom` (threshold_breach), `plan_variance`, `projected_breach`, `acceleration`.
+
+#### Pattern 1: Plan / Budget Variance (`alert_type = "plan_variance"`)
+- Requires `KPI.plan_version_value` set (e.g. `"Budget"`). SA derives the plan SQL at runtime by substituting the version filter in `sql_query` via `_derive_plan_sql()` — no separate SQL field stored.
+- `_fetch_plan_value()` executes the plan SQL via DPA using a `model_copy`-substituted KPI definition.
+- Severity bands read per-KPI from `variance_thresholds['plan_variance']` (green→MEDIUM trigger, yellow→HIGH, red→CRITICAL, as percent magnitudes); falls back to 2% / 8% / 15% when unconfigured.
+- `bad_direction = variance_pct < 0` (sign already encodes direction for both positive-stored revenue and negative-stored costs — `inverse_logic` is NOT re-applied). Wording is **polarity-aware**: a cost over budget reads "above plan", a cost under budget "below plan"; revenue reversed.
+- `Situation.plan_value` stores the budget reference value.
+
+#### Pattern 2: Projected Threshold Breach (`alert_type = "projected_breach"`)
+- Gated on `variance_thresholds['projected_breach']` **and** `plan_version_value` (needs the budget value).
+- **Budget-anchored (dominant FP&A practice):** the registry row stores a percent-of-budget tolerance (`red`), NOT a static dollar floor. At scan time SA derives the absolute floor: `monthly_budget = budget / months-in-timeframe` (additive `$` KPIs) or `= budget` (rate `%` KPIs — no division), then `floor = monthly_budget − |monthly_budget| × (red%/100)`. `_timeframe_month_count()` supplies the run-rate divisor.
+- `_project_trend()` fits a linear regression over `KPIValue.monthly_values` (trailing `lookback=6`), projects `horizon=3` forward, and fires when the projected value falls below `floor` (always `inverse_logic=False` — negative-stored costs already encode direction).
+- Suppressed if R² < 0.4 (noisy data) or if a `threshold_breach` already fired for the same KPI in the same run.
+- Fields set: `plan_value` (budget), `projected_breach_at_period`, `projection_confidence` (R²), `periods_until_breach`.
+
+#### Pattern 3: Rate-of-Change Acceleration (`alert_type = "acceleration"`)
+- Gated on `variance_thresholds['acceleration']`. `_compute_acceleration()` computes the second derivative of `monthly_values`; fires when `|second_derivative| > fire_multiplier × rolling std dev of velocity`.
+- Sensitivity is per-KPI: `yellow` = fire floor multiplier (default 2.0), `red` = HIGH-severity cutoff on the normalised signal (default 3.0, else MEDIUM).
+- `Situation.acceleration_signal` = normalised second-derivative magnitude (signal / velocity_std).
+- Requires ≥4 periods of monthly history. Does not suppress for threshold breaches — a KPI can be in-threshold but accelerating toward it.
+
+#### Pattern 4: KPI Type Classification (`kpi_type` field)
+- New field on `KPI` registry model and `KPIDefinition`: `"operational"` (default) | `"concentration"` | `"covenant"` | `"regulatory"`.
+- Covenant/regulatory KPIs: severity overridden to `CRITICAL`; `alert_type` set to `"covenant"` or `"regulatory"`.
+- Concentration KPIs: monitored identically; `kpi_type` flows to DA and PIB for framing only.
+
+### New Situation Fields (11I-A)
+| Field | Type | Description |
+|---|---|---|
+| `alert_type` | `Optional[str]` | `"threshold_breach"` \| `"plan_variance"` \| `"projected_breach"` \| `"acceleration"` \| `"concentration"` \| `"covenant"` |
+| `plan_value` | `Optional[float]` | Budget/plan reference value (plan_variance alerts) |
+| `projected_breach_at_period` | `Optional[str]` | Estimated period string e.g. `"t+2"` |
+| `projection_confidence` | `Optional[float]` | R² of linear trend fit |
+| `periods_until_breach` | `Optional[int]` | Estimated periods until threshold crossing |
+| `acceleration_signal` | `Optional[float]` | Second-derivative magnitude / velocity std |
+
+### New KPI Registry Fields (11I-A)
+| Field | Type | Description |
+|---|---|---|
+| `plan_version_value` | `Optional[str]` | Version filter for plan SQL (e.g. `"Budget"`). `None` = skip plan variance. |
+| `kpi_type` | `str` | `"operational"` \| `"concentration"` \| `"covenant"` \| `"regulatory"` |
+
+### New `ComparisonType` values (11I-A)
+`ComparisonType` (`src/registry/models/kpi.py`) gains `PLAN_VARIANCE`, `PROJECTED_BREACH`, and `ACCELERATION`. Seed a `KPIThreshold` row with the matching `comparison_type` to enable that pattern per-KPI (threshold-presence gating). Conventions: `plan_variance`/`projected_breach` store percent-of-budget tolerances in green/yellow/red; `acceleration` stores `yellow` (fire ×) and `red` (HIGH ×) multipliers (green unused).
+
+## Phase 11I-B — Compound Cross-KPI Alert Detection (Jun 2026)
+
+### KPI Relationship Registry
+- New `KPIRelationship` model (`src/registry/models/kpi_relationship.py`): `kpi_id`, `related_kpi_id`, `client_id`, `relationship_type` (`volume_margin` | `receivables_revenue` | `cost_revenue` | `custom`), `conflict_direction` (`diverging` | `converging`), `description`.
+- Backed by `kpi_relationships` Supabase table with composite PK `(client_id, kpi_id, related_kpi_id)`.
+- `KPIRelationshipProvider` follows the direct-instantiation asyncpg pattern (not registered in `RegistryFactory`).
+- REST API: `GET/POST/DELETE /api/v1/registry/kpi-relationships/`.
+
+### Compound Detection (`_detect_compound_alerts()`)
+Post-processing step called in `detect_situations()` after the main KPI loop, before deduplication.
+1. Builds a `{kpi_id: normalised_direction}` map from all current-run situations (+1 = good, -1 = bad, accounting for `inverse_logic`).
+2. For each KPI with a situation, loads its declared relationships via `KPIRelationshipProvider`.
+3. If both KPIs in a pair have situations and the conflict condition is met (`diverging` = opposite directions, `converging` = same direction), sets `compound_alert = True`, `related_kpi_id`, and `compound_pattern` on both situations.
+
+### New Situation Fields (11I-B)
+| Field | Type | Description |
+|---|---|---|
+| `compound_alert` | `bool` | `True` when part of a declared cross-KPI conflict |
+| `related_kpi_id` | `Optional[str]` | The other KPI in the compound pair |
+| `compound_pattern` | `Optional[str]` | Human-readable tension e.g. `"Revenue UP / Gross Margin DOWN — pricing or mix pressure"` |
 
 ## Future Enhancements
 - Integration with A9_NLP_Interface_Agent for advanced query parsing

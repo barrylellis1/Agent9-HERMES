@@ -153,6 +153,8 @@ class KPIDefinition(BaseModel):
     group_by: Optional[List[Any]] = Field(None, description="Group by columns or expressions for aggregation")
     order_by: Optional[List[Any]] = Field(None, description="Order by columns or expressions")
     limit: Optional[int] = Field(None, description="Optional LIMIT for result set")
+    plan_version_value: Optional[str] = Field(None, description="Version filter value for plan/budget SQL substitution")
+    kpi_type: str = Field("operational", description="KPI classification: 'operational' | 'concentration' | 'covenant' | 'regulatory'")
 
 class KPIValue(BaseModel):
     """KPI value with context."""
@@ -246,6 +248,23 @@ class Situation(BaseModel):
     tags: Optional[List[str]] = Field(None, description="Free-form tags for filtering")
     provenance: Optional[Dict[str, Any]] = Field(None, description="Upstream txns and references")
     lineage: Optional[List[Dict[str, Any]]] = Field(None, description="Data lineage references")
+    # Phase 11I-A: Advanced Alert Intelligence fields
+    alert_type: Optional[str] = Field(
+        None,
+        description=(
+            "Alert pattern: 'threshold_breach' | 'plan_variance' | 'projected_breach' | "
+            "'acceleration' | 'concentration' | 'covenant'"
+        )
+    )
+    plan_value: Optional[float] = Field(None, description="Budget/plan value at time of detection (plan_variance alerts)")
+    projected_breach_at_period: Optional[str] = Field(None, description="Estimated period of threshold breach (projected_breach alerts)")
+    projection_confidence: Optional[float] = Field(None, description="R² of trend fit — low confidence means unstable trajectory")
+    periods_until_breach: Optional[int] = Field(None, description="Estimated periods until threshold breach")
+    acceleration_signal: Optional[float] = Field(None, description="Magnitude of second derivative relative to historical baseline")
+    # Phase 11I-B: compound cross-KPI alert fields
+    compound_alert: bool = Field(False, description="True when this situation is part of a cross-KPI conflict pattern")
+    related_kpi_id: Optional[str] = Field(None, description="The other KPI involved in the compound alert")
+    compound_pattern: Optional[str] = Field(None, description="Human-readable description of the compound tension, e.g. 'Revenue UP / Gross Margin DOWN — pricing or mix pressure'")
 
     @classmethod
     def from_opportunity_signal(cls, signal: "OpportunitySignal", kpi_value: "KPIValue") -> "Situation":

@@ -141,6 +141,7 @@ KPIS: List[Dict[str, Any]] = [
         "business_process_ids": ["finance_revenue_growth_analysis", "finance_profitability_analysis"],
         "sql_query": f"SELECT SUM(amount) AS value FROM {_VIEW} WHERE account_type = 'Revenue' AND version = 'Actual'",
         "filters": {"account_type": "Revenue", "version": "Actual"},
+        "plan_version_value": "Budget",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
             {"comparison_type": "qoq", "green_threshold": 3.0, "yellow_threshold": -2.0, "red_threshold": -8.0, "inverse_logic": False},
@@ -209,6 +210,7 @@ KPIS: List[Dict[str, Any]] = [
         "business_process_ids": ["finance_profitability_analysis"],
         "sql_query": f"SELECT SUM(CASE WHEN account_type = 'Revenue' THEN amount WHEN account_type = 'COGS' THEN amount ELSE 0 END) AS value FROM {_VIEW} WHERE version = 'Actual'",
         "filters": {"version": "Actual"},
+        "plan_version_value": "Budget",
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
             {"comparison_type": "qoq", "green_threshold": 2.0, "yellow_threshold": -3.0, "red_threshold": -10.0, "inverse_logic": False},
@@ -303,6 +305,7 @@ KPIS: List[Dict[str, Any]] = [
         "business_process_ids": ["finance_expense_management", "finance_profitability_analysis"],
         "sql_query": f"SELECT SUM(-amount) AS value FROM {_VIEW} WHERE account_type = 'COGS' AND version = 'Actual'",
         "filters": {"account_type": "COGS", "version": "Actual"},
+        "plan_version_value": "Budget",
         "thresholds": [
             {"comparison_type": "qoq", "green_threshold": -2.0, "yellow_threshold": 5.0, "red_threshold": 10.0, "inverse_logic": True},
             {"comparison_type": "yoy", "green_threshold": 0.0, "yellow_threshold": 5.0, "red_threshold": 10.0, "inverse_logic": True},
@@ -465,6 +468,36 @@ KPIS: List[Dict[str, Any]] = [
         "owner_role": "COO",
         "stakeholder_roles": ["CFO", "CEO"],
         "metadata": {"line": "top", "altitude": "operational", "positive_trend_is_good": "true"},
+    },
+    # -----------------------------------------------------------------------
+    # Concentration Risk KPIs (Phase 11I-A)
+    # -----------------------------------------------------------------------
+    {
+        "id": "top3_customer_revenue_share",
+        "client_id": CLIENT_ID,
+        "name": "Top 3 Customer Revenue Share",
+        "domain": "Finance",
+        "description": "Percentage of total B2B revenue from the top 3 customers by volume — measures customer concentration risk.",
+        "unit": "%",
+        "data_product_id": _DP_ID,
+        "view_name": _VIEW,
+        "business_process_ids": ["finance_revenue_growth_analysis"],
+        "kpi_type": "concentration",
+        "sql_query": (
+            f"SELECT (SUM(CASE WHEN customer_rank <= 3 THEN amount ELSE 0 END) "
+            f"/ NULLIF(SUM(amount), 0)) * 100 AS value FROM {_VIEW} "
+            f"WHERE account_type = 'Revenue' AND version = 'Actual'"
+        ),
+        "filters": {"account_type": "Revenue", "version": "Actual"},
+        "thresholds": [
+            {"comparison_type": "qoq", "green_threshold": 30.0, "yellow_threshold": 40.0, "red_threshold": 50.0, "inverse_logic": True},
+            {"comparison_type": "yoy", "green_threshold": 30.0, "yellow_threshold": 40.0, "red_threshold": 50.0, "inverse_logic": True},
+        ],
+        "dimensions": _DIMS,
+        "tags": ["finance", "concentration-risk", "customer", "b2b", "lubricants", "snowflake"],
+        "owner_role": "CFO",
+        "stakeholder_roles": ["CEO", "COO"],
+        "metadata": {"line": "top", "altitude": "strategic", "positive_trend_is_good": "false"},
     },
 ]
 
@@ -949,5 +982,27 @@ ACCOUNTABILITY: List[Dict[str, Any]] = [
         "role": "accountable",
         "notes": "Finance Manager owns SG&A budget governance and variance analysis.",
         "created_by": "seed",
+    },
+]
+
+# ─── KPI Relationships (Phase 11I-B) ─────────────────────────────────────────
+# Declared cross-KPI relationships for compound alert detection.
+
+KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
+    {
+        "kpi_id": "net_revenue",
+        "related_kpi_id": "gross_margin_pct",
+        "client_id": CLIENT_ID,
+        "relationship_type": "volume_margin",
+        "conflict_direction": "diverging",
+        "description": "Revenue growing while margin declining signals mix shift or pricing pressure",
+    },
+    {
+        "kpi_id": "product_sales_revenue",
+        "related_kpi_id": "cogs",
+        "client_id": CLIENT_ID,
+        "relationship_type": "cost_revenue",
+        "conflict_direction": "diverging",
+        "description": "Product revenue UP with COGS UP faster indicates margin compression from input costs",
     },
 ]
