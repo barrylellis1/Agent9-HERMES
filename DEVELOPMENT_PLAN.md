@@ -603,12 +603,13 @@ SA today monitors actuals only. FP&A teams' primary trigger is "are we on plan?"
 
 | Deliverable | Description |
 |---|---|
-| `plan_sql_query` field on `KPIDefinition` | Optional field alongside `sql_query`. Fetches the budget/plan value for the same period (e.g., `SELECT plan_value FROM lubricants_budget WHERE fiscal_year = {year} AND fiscal_period = {period} AND kpi_id = 'gross_profit'`). When null, SA skips plan-variance detection for that KPI. |
-| Supabase migration | Add `plan_sql_query TEXT` column to `kpis` table. |
-| SA `_compute_plan_variance()` | When `plan_sql_query` is present, execute it alongside the actuals query. Compute `actual_vs_plan_pct = (actual - plan) / abs(plan)`. Apply the KPI's threshold bands. |
-| New `alert_type = "plan_variance"` | Situation card carries `alert_type` distinguishing plan miss from threshold breach. `percent_change` = actual vs plan deviation. Narrative: "Gross Profit is 14% below plan for YTD 2026." |
-| Seed pattern | `scripts/clients/lubricants.py` — add `plan_sql_query` to 2-3 representative KPIs to exercise the pattern. |
-| Unit tests | 3 tests: plan variance fires when actual < plan × threshold; suppressed when plan_sql_query is None; direction correctly inverted for cost KPIs (actual > plan = bad). |
+| `plan_version_value` field on `KPI` registry model and `KPIDefinition` | Optional string — e.g. `"Budget"`, `"Plan"`, `"Forecast"`. When set, SA derives the plan SQL at runtime by substituting the version filter in the existing `sql_query` (`version = 'Actual'` → `version = 'Budget'`). When null, SA skips plan-variance detection for that KPI. No separate SQL field — the FI star schema carries plan data in the same view under a `Version` dimension; DPA already uses this pattern for DA budget vs. actuals comparisons. |
+| Supabase migration | Add `plan_version_value TEXT` column to `kpis` table. No `plan_sql_query` column needed. |
+| SA `_derive_plan_sql()` | Substitutes the version filter in `sql_query` using the data product schema's `column_aliases.version` and the KPI's `plan_version_value`. Reuses the DPA regex pattern already established at `a9_data_product_agent.py:3384`. |
+| SA `_compute_plan_variance()` | When `plan_version_value` is present, derive plan SQL via `_derive_plan_sql()`, execute alongside actuals, compute `actual_vs_plan_pct = (actual - plan) / abs(plan)`. Apply KPI threshold bands. |
+| New `alert_type = "plan_variance"` | Situation card carries `alert_type` distinguishing plan miss from threshold breach. `percent_change` = actual vs plan deviation. `plan_value` field on Situation stores the budget reference value. Narrative: "Gross Profit is 14% below plan for YTD 2026." |
+| Seed pattern | `scripts/clients/apex_lubricants.py` — add `plan_version_value = "Budget"` to 2–3 representative KPIs (net_revenue, gross_profit, cogs). |
+| Unit tests | 3 tests: plan variance fires when actual < plan × threshold; suppressed when plan_version_value is None; direction correctly inverted for cost KPIs (actual > plan = bad). |
 
 ###### Pattern 2: Projected Threshold Breach (Forward-Looking)
 
@@ -711,7 +712,7 @@ PIB email and flash briefing currently presents all situation cards with equival
 **Phase 11I dependency graph:**
 
 ```
-11I-A Pattern 1 (plan_sql_query)  ─────────────────→ 11I-C (VA plan trajectory)
+11I-A Pattern 1 (plan_version_value) ───────────────→ 11I-C (VA plan trajectory)
 11I-A Pattern 2 (projected_breach) ──────────────────→ 11I-D (PIB Projected Risks section)
 11I-A Pattern 3 (acceleration) ──────────────────────→ 11I-D (PIB priority ordering)
 11I-A Pattern 4 (kpi_type=concentration/covenant) ───→ 11I-C (covenant severity) + 11I-D
