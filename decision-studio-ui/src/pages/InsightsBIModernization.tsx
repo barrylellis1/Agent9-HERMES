@@ -284,9 +284,9 @@ export function InsightsBIModernization() {
               variants={fadeUp}
               className="text-slate-400 leading-relaxed mb-12"
             >
-              The dashboards exist. Nobody trusts them enough to make a real decision based
-              on what they show. Or if they do, they can't explain why they trusted them —
-              which amounts to the same thing.
+              The dashboards exist, but the decision process still sits outside the system:
+              interpretation, root-cause work, approval, and proof that the action changed
+              the result.
             </motion.p>
 
             <motion.p
@@ -306,8 +306,8 @@ export function InsightsBIModernization() {
 
               <ProblemBlock
                 icon={<BarChart2 className="w-4 h-4 text-amber-400" />}
-                heading="Dashboards answer the wrong question"
-                body="They show what happened. Executives need to know why it happened and what to do about it. The gap between a chart and a decision is still filled by meetings, gut feel, and whoever argues loudest. A beautiful visualization of a margin decline doesn't tell you whether it's a pricing problem, a mix problem, or a regional anomaly — and it certainly doesn't tell you what to do Monday morning."
+                heading="Reporting stops before the decision is proven"
+                body="Reporting shows what happened. Executives need to know why it happened, what to do about it, and whether the action worked. The gap between a chart and a decision is still filled by meetings, gut feel, and whoever argues loudest. A beautiful visualization of a margin decline doesn't tell you whether it's a pricing problem, a mix problem, or a regional anomaly — and it certainly doesn't tell you what to do Monday morning."
               />
 
               <ProblemBlock
@@ -349,14 +349,14 @@ export function InsightsBIModernization() {
               variants={fadeUp}
               className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-5"
             >
-              Why AI copilots haven't fixed it
+              Why copilots haven't fixed it
             </motion.p>
 
             <motion.p
               variants={fadeUp}
               className="text-slate-200 text-lg leading-relaxed mb-5"
             >
-              AI chatbots arrived promising to democratize analysis. But asking a language model
+              Copilots arrived promising to democratize analysis. But asking a language model
               "why did margin decline?" gets you a plausible-sounding story — not a diagnosis.
             </motion.p>
 
@@ -404,16 +404,16 @@ export function InsightsBIModernization() {
                 <BarChart2 className="w-5 h-5 text-indigo-400 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-white font-semibold text-sm mb-1.5">
-                    A dashboard is testimony. The data behind it is evidence.
+                    A chart is testimony. The data behind it is evidence.
                   </p>
                   <p className="text-slate-300 text-sm leading-relaxed">
-                    Most "upload your report to AI" workflows fail for the same reason. Dashboards
+                    Most "upload your report" workflows fail for the same reason. Charts
                     are pre-aggregated outputs of choices an analyst already made — which dimensions
                     to show, what to filter, how to roll up. The high-dimensional reality that
                     root-cause analysis requires is hidden by the time the chart is rendered.
-                    Feeding a summary back into AI produces a smooth, plausible recommendation —
+                    Feeding a summary back into a model produces a smooth, plausible recommendation —
                     not a diagnosis. The IS/IS NOT method needs raw segment-level granularity
-                    across all dimensions, including the ones the dashboard didn't show.
+                    across all dimensions, including the ones the report didn't show.
                   </p>
                 </div>
               </div>
@@ -509,7 +509,7 @@ export function InsightsBIModernization() {
                   </h3>
                   <p className="text-slate-400 text-sm leading-relaxed">
                     Trajectory tracking and causal attribution that closes the accountability
-                    loop. Not a lagging dashboard — a forward-looking comparison of what
+                    loop. Not a lagging report — a forward-looking comparison of what
                     actually happened versus what would have happened without action.
                     The discipline to ask "did it work?" forces better decisions at the
                     start, because the team knows they'll be measured.
@@ -571,9 +571,9 @@ export function InsightsBIModernization() {
               className="text-slate-400 leading-relaxed mb-5"
             >
               The honeymoon period for enterprise AI is ending. Boards that approved
-              AI transformation budgets in 2023 and 2024 are now asking for the evidence.
+              transformation budgets in 2023 and 2024 are now asking for the evidence.
               The tools that survive this reckoning won't be the most capable ones —
-              they'll be the ones that can show a direct line from AI output to business outcome.
+              they'll be the ones that can show a direct line from analysis output to business outcome.
             </motion.p>
 
             <motion.p
@@ -581,7 +581,7 @@ export function InsightsBIModernization() {
               className="text-slate-400 leading-relaxed"
             >
               The companies that survive this reckoning won't be the ones with the best
-              dashboards. They'll be the ones that can prove their decisions worked.
+              reporting packs. They'll be the ones that can prove their decisions worked.
             </motion.p>
 
             <motion.div
@@ -593,7 +593,7 @@ export function InsightsBIModernization() {
                 <div>
                   <p className="text-white text-sm font-semibold mb-1">The proof problem</p>
                   <p className="text-slate-400 text-sm leading-relaxed">
-                    When AI impact cannot be traced to a business outcome, leaders are operating
+                    When technology impact cannot be traced to a business outcome, leaders are operating
                     on faith. That was tolerated while experimentation was the objective. It is
                     much harder to defend when the finance team asks which actions improved the
                     metric and which ones merely sounded plausible.

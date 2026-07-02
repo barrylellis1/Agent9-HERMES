@@ -202,6 +202,7 @@ export function Login() {
                   </label>
                   <div className="relative">
                     <select
+                      data-testid="client-selector"
                       value={selectedClientId}
                       onChange={(e) => setSelectedClientId(e.target.value)}
                       className="w-full appearance-none bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 pr-8 text-sm text-white cursor-pointer hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
@@ -235,6 +236,7 @@ export function Login() {
                     principals.map((principal) => (
                       <button
                         key={principal.id}
+                        data-testid={`principal-card-${principal.id}`}
                         onClick={() => setSelectedId(principal.id)}
                         className={`w-full flex items-center p-3 rounded-xl border transition-all duration-200 group ${
                           selectedId === principal.id
@@ -267,6 +269,7 @@ export function Login() {
               </div>
 
               <button
+                data-testid="demo-enter-btn"
                 onClick={handleDemoLogin}
                 disabled={!selectedId || demoLoading}
                 className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all flex items-center justify-center gap-2 group"

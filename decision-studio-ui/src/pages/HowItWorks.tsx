@@ -110,8 +110,8 @@ const pipelineNodes: PipelineNode[] = [
 
 const trustArchitecturePoints = [
   {
-    title: 'The AI does not decide',
-    copy: 'Agents analyze, frame, debate, and synthesize. The principal approves, rejects, or refines the action.',
+    title: 'Decision authority stays human',
+    copy: 'Decision Studio analyzes, frames, challenges, and synthesizes. The principal approves, rejects, or refines the action.',
     icon: <Shield className="w-4 h-4" />,
   },
   {
@@ -422,9 +422,9 @@ export function HowItWorks() {
             viewport={{ once: true, margin: '-60px' }}
           >
             <motion.div variants={fadeUp} className="mb-10">
-              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">The pipeline</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">The decision operating model</h2>
               <p className="text-slate-400 max-w-2xl text-sm leading-relaxed">
-                From detection to proof — six purpose-built agents in sequence.
+                From KPI movement to outcome receipt, with a named control point at every step.
               </p>
             </motion.div>
 
@@ -439,8 +439,8 @@ export function HowItWorks() {
               <div className="flex items-start gap-3 rounded-lg bg-indigo-950/40 border border-indigo-600/20 px-5 py-4">
                 <div className="w-3 h-3 rounded-sm bg-indigo-600/60 mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-slate-300 leading-relaxed">
-                  <span className="text-indigo-300 font-medium">Indigo nodes</span> — AI-driven steps.
-                  Each agent has a single, well-defined job.
+                  <span className="text-indigo-300 font-medium">Indigo nodes</span> — analysis and synthesis controls.
+                  Each control point has a single, well-defined job.
                 </p>
               </div>
               <div className="flex items-start gap-3 rounded-lg bg-emerald-950/40 border border-emerald-600/20 px-5 py-4">
@@ -457,7 +457,7 @@ export function HowItWorks() {
               className="mt-6 rounded-lg bg-slate-900/80 border border-slate-800/60 px-5 py-4"
             >
               <p className="text-sm text-slate-400 leading-relaxed">
-                Each agent is purpose-built for one job. No single monolithic model attempting
+                Each agent is purpose-built for one job. No generic assistant attempting
                 to do everything. Structured inputs, structured outputs, full audit trail at
                 every step.
               </p>
@@ -526,7 +526,7 @@ export function HowItWorks() {
                 Every KPI gets an owner
               </h2>
               <p className="text-slate-400 max-w-2xl text-sm leading-relaxed">
-                Before any KPI is monitored, an AI-led accountability interview assigns each KPI
+                Before any KPI is monitored, a guided accountability interview assigns each KPI
                 to a named owner across the leadership team. The system uses process-to-KPI
                 inference and gap-resolution dialogue to build a complete ownership graph — so
                 when a situation surfaces later, the owner is already named.
@@ -561,9 +561,9 @@ export function HowItWorks() {
             viewport={{ once: true, margin: '-80px' }}
           >
             <motion.div variants={fadeUp} className="mb-12">
-              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">Agent details</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">Control point details</h2>
               <p className="text-slate-400 max-w-2xl text-sm leading-relaxed">
-                What each agent does, how it works, and what it produces.
+                What each control point does, how it works, and what it produces.
               </p>
             </motion.div>
           </motion.div>
@@ -768,20 +768,20 @@ export function HowItWorks() {
           >
             <motion.div variants={fadeUp} className="mb-12">
               <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
-                Where AI is used — and where it isn't
+                Where synthesis is used — and where the math is fixed
               </h2>
               <p className="text-slate-400 max-w-2xl text-sm leading-relaxed">
-                AI generates insight. Structure ensures rigor. The combination is what makes this work.
+                Models synthesize context. Structure ensures rigor. The combination is what makes this work.
               </p>
             </motion.div>
 
             <motion.div variants={fadeUp} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* AI-driven */}
+              {/* Model-assisted */}
               <div className="rounded-xl bg-indigo-950/40 border border-indigo-600/20 p-6">
                 <div className="flex items-center gap-2 mb-5">
                   <div className="w-2 h-2 rounded-full bg-indigo-500" />
                   <h3 className="text-sm font-semibold text-indigo-300 uppercase tracking-widest">
-                    AI-driven
+                    Model-assisted synthesis
                   </h3>
                 </div>
                 <ul className="space-y-3">
@@ -832,7 +832,7 @@ export function HowItWorks() {
               className="mt-6 rounded-lg border border-slate-700/40 bg-slate-900/60 px-5 py-4"
             >
               <p className="text-sm text-slate-400 leading-relaxed">
-                When an AI component generates a narrative or recommendation, it should be
+                When a model generates a narrative or recommendation, it should be
                 anchored to structured data that can be audited. You can challenge the diagnosis
                 by looking at the dimensional table. You can verify the attribution by examining
                 the trajectory math. The architecture is designed to keep the reasoning inspectable.
@@ -1053,14 +1053,14 @@ export function HowItWorks() {
             viewport={{ once: true, margin: '-60px' }}
           >
             <motion.p variants={fadeUp} className="text-xs font-semibold uppercase tracking-widest text-slate-500 text-center mb-12">
-              The full pipeline
+              The full operating sequence
             </motion.p>
             <motion.div variants={fadeUp} className="flex items-center justify-center gap-0">
               {[
                 { label: 'Monitor',   color: 'bg-blue-500' },
                 { label: 'Detect',    color: 'bg-red-500' },
                 { label: 'Diagnose',  color: 'bg-amber-500' },
-                { label: 'Recommend', color: 'bg-violet-400' },
+                { label: 'Options', color: 'bg-violet-400' },
                 { label: 'Decide',    color: 'bg-indigo-500' },
                 { label: 'Prove',     color: 'bg-emerald-500' },
               ].map((step, i, arr) => (

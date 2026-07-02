@@ -110,7 +110,7 @@ const GOVERNANCE_NAV: NavGroup[] = [
     group: 'Assessment',
     items: [
       { label: 'Portfolio',    to: '/portfolio',                     icon: <LineChart className="w-4 h-4" /> },
-      { label: 'Dashboard',   to: '/dashboard',                     icon: <Eye className="w-4 h-4" /> },
+      { label: 'Situation Console', to: '/dashboard',                icon: <Eye className="w-4 h-4" /> },
     ],
   },
 ]
@@ -278,7 +278,7 @@ function Sidebar({ mode, clientId }: { mode: SettingsMode; clientId: string }) {
             className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-500 hover:text-slate-300 hover:bg-slate-800/40 transition-colors"
           >
             <Eye className="w-4 h-4" />
-            Back to Dashboard
+            Back to Situation Console
           </Link>
         </div>
       )}

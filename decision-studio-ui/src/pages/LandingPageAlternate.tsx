@@ -104,6 +104,7 @@ const closedLoopProofPoints = [
 // ═══════════════════════════════════════════════════
 export function LandingPageAlternate() {
   useSatoshiFont()
+  const councilCaseStudyVideoSrc = `${import.meta.env.BASE_URL}media/the-coffee-shop-council.mp4`
 
   // Nav opacity on scroll
   const [navSolid, setNavSolid] = useState(false)
@@ -127,6 +128,7 @@ export function LandingPageAlternate() {
   // Conversation form
   const [form, setForm] = useState({ name: '', company: '', email: '', message: '' })
   const [submitted, setSubmitted] = useState(false)
+  const [showCouncilVideo, setShowCouncilVideo] = useState(false)
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((p) => ({ ...p, [e.target.name]: e.target.value }))
   const onSubmit = (e: FormEvent) => { e.preventDefault(); setSubmitted(true) }
@@ -257,13 +259,13 @@ export function LandingPageAlternate() {
                 The decision execution gap
               </motion.p>
               <motion.h2 variants={fadeUp} className="text-2xl font-bold text-white mb-4 leading-snug">
-                Your board wants AI that moves the P&amp;L. Not another chatbot.
+                Your board wants measurable impact. Not another AI experiment.
               </motion.h2>
               <motion.p variants={fadeUp} className="text-slate-300 text-sm leading-relaxed mb-4">
-                Every executive team is under pressure to show AI investment. But most options —
-                copilots, assistants, prompt playgrounds — just generate text and can't tie their 
-                output to a financial outcome. Decision Studio is different. It delivers an unbroken 
-                chain of accountability from anomaly detection to root-cause diagnosis to proven ROI.
+                Every executive team is under pressure to show return on AI investment. Most options —
+                copilots, assistants, prompt playgrounds — generate text but stop short of financial
+                accountability. Decision Studio is different. It creates an unbroken chain from KPI
+                movement to diagnosis, approved action, and measured outcome.
               </motion.p>
               <motion.a
                 variants={fadeUp}
@@ -282,7 +284,7 @@ export function LandingPageAlternate() {
                 The speed of instinct
               </motion.p>
               <motion.h2 variants={fadeUp} className="text-2xl font-bold text-white mb-4 leading-snug">
-                Rigorous analysis at the speed of human reaction.
+                Rigorous analysis before instinct takes over.
               </motion.h2>
               <motion.p variants={fadeUp} className="text-slate-300 text-sm leading-relaxed mb-4">
                 When executives don't have time for a twelve-week consulting engagement, they revert to instinct. 
@@ -443,11 +445,55 @@ export function LandingPageAlternate() {
             <motion.div variants={fadeUp} className="text-center mb-20">
               <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">See it in action</h2>
               <p className="text-slate-400 max-w-xl mx-auto">
-                Six AI-driven steps from detection to proof — with you in the loop at every decision point.
+                The operating sequence from detection to proof, with you in the loop at every decision point.
               </p>
             </motion.div>
 
             {/* Setup beat — accountability before action */}
+            <motion.div
+              id="council-video"
+              variants={fadeUp}
+              className="mb-20 rounded-2xl border border-indigo-600/20 bg-slate-950/70 p-6 sm:p-7"
+            >
+              <div className="max-w-3xl">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-indigo-400">
+                  Narrated case study
+                </p>
+                <h3 className="mb-3 text-2xl font-bold text-white">Watch the full decision loop</h3>
+                <p className="text-sm leading-relaxed text-slate-300">
+                  This NotebookLM walkthrough follows a 50-location coffee chain from dashboard
+                  symptom to verified outcome: the drop is detected, the cause is isolated,
+                  the council debates conflicting actions, a human approves the move, and
+                  Value Assurance proves whether it worked.
+                </p>
+              </div>
+
+              {!showCouncilVideo ? (
+                <div className="mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowCouncilVideo(true)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-700/60 bg-slate-900 px-4 py-2.5 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800 hover:text-white"
+                  >
+                    Open narrated case study
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-6 overflow-hidden rounded-xl border border-slate-800/60 bg-black">
+                  <video
+                    className="aspect-video w-full"
+                    controls
+                    playsInline
+                    preload="metadata"
+                    aria-label="Narrated decision loop case study video"
+                  >
+                    <source src={councilCaseStudyVideoSrc} type="video/mp4" />
+                  </video>
+                </div>
+              )}
+            </motion.div>
+
             <motion.div variants={fadeUp} className="mb-20 max-w-3xl mx-auto">
               <div className="rounded-2xl border border-emerald-600/30 bg-emerald-950/30 p-6 sm:p-7">
                 <div className="flex items-center gap-3 mb-3">
@@ -462,8 +508,8 @@ export function LandingPageAlternate() {
                   Every KPI gets an owner — before the first scan.
                 </h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
-                  An AI-led accountability interview walks an administrator through assigning every
-                  KPI to a named owner across the leadership team. Every surfaced situation has
+                  A guided accountability interview walks an administrator through assigning every
+                  KPI to a named owner across the leadership team. Every surfaced situation card has
                   a responsible principal before analysis begins.
                 </p>
               </div>
@@ -478,11 +524,11 @@ export function LandingPageAlternate() {
                   </div>
                   <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Step 01</span>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-3">AI-Driven Monitoring</h3>
+                <h3 className="text-xl font-bold text-white mb-3">Situation Detection</h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
-                  AI agents watch your KPIs around the clock. When something meaningful
-                  changes — not just a threshold breach, but a contextual shift — the system surfaces
-                  a situation card with the analysis already started.
+                  Decision Studio monitors the KPI set continuously. When something meaningful
+                  changes — not just a threshold breach, but a contextual shift — it surfaces
+                  a situation card with the diagnostic work already started.
                 </p>
               </div>
               <KPIGridAnimation />
@@ -497,11 +543,11 @@ export function LandingPageAlternate() {
                   </div>
                   <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Step 02</span>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-3">AI-Powered Root Cause Analysis</h3>
+                <h3 className="text-xl font-bold text-white mb-3">Diagnostic Isolation</h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
-                  AI runs dimensional IS/IS NOT analysis to isolate exactly where, when, and what
+                  Dimensional IS/IS NOT analysis isolates exactly where, when, and what
                   changed — deterministically, against your real data. Not a chatbot
-                  guessing. Structured diagnosis you can audit and challenge.
+                  guessing. A structured diagnostic exhibit you can audit and challenge.
                 </p>
               </div>
               <div className="md:order-1">
@@ -518,10 +564,10 @@ export function LandingPageAlternate() {
                   </div>
                   <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Step 03</span>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-3">Automatic Market Context</h3>
+                <h3 className="text-xl font-bold text-white mb-3">External Context</h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
-                  AI scans external sources — competitor moves, industry trends, regulatory
-                  shifts — and weaves market context directly into the analysis. You see
+                  Relevant external signals — competitor moves, industry trends, regulatory
+                  shifts — are woven directly into the analysis. You see
                   whether a problem is internal or part of a broader market pattern, without
                   commissioning separate research.
                 </p>
@@ -538,11 +584,11 @@ export function LandingPageAlternate() {
                   </div>
                   <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Step 04</span>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-3">You Refine, You Challenge</h3>
+                <h3 className="text-xl font-bold text-white mb-3">Executive Review</h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
                   This isn't a black box. You ask follow-up questions, challenge assumptions,
-                  and steer the analysis with your domain knowledge. The AI adapts — your
-                  expertise shapes the outcome. Human-in-the-loop by design, not as an afterthought.
+                  and steer the analysis with your domain knowledge. The briefing adapts as
+                  your expertise shapes the outcome. Human-in-the-loop by design, not as an afterthought.
                 </p>
               </div>
               <div className="md:order-1">
@@ -559,9 +605,9 @@ export function LandingPageAlternate() {
                   </div>
                   <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Step 05</span>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-3">AI-Synthesized Recommendations</h3>
+                <h3 className="text-xl font-bold text-white mb-3">Decision Options</h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
-                  Three AI-driven strategic perspectives debate the best path forward — with visible
+                  Three independent strategic perspectives evaluate the best path forward, with visible
                   disagreement and trade-off analysis. You see where they agree, where they
                   don't, and why. Then you approve, reject, or refine.
                 </p>
@@ -765,7 +811,7 @@ export function LandingPageAlternate() {
               </p>
               <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
                 <Shield className="w-3.5 h-3.5 text-slate-600" />
-                <span>Human-in-the-loop by design. AI does the analysis — you make the decisions.</span>
+                <span>Human-in-the-loop by design. The system does the analytical work — you make the decisions.</span>
               </div>
             </motion.div>
 

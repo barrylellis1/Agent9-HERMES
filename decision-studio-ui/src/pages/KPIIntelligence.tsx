@@ -256,7 +256,7 @@ export function KPIIntelligence() {
             <p className="text-sm text-amber-200">
               {adminMode
                 ? 'Select or create a client workspace in Settings before researching KPI templates.'
-                : 'Select a workspace client before researching KPI templates. Use the workspace selector on the dashboard.'}
+                : 'Select a workspace client before researching KPI templates. Use the workspace selector in the Situation Console.'}
             </p>
           </div>
         )}

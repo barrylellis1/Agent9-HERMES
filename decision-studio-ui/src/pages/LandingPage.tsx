@@ -226,7 +226,7 @@ export function LandingPage() {
               variants={fadeUp}
               className="text-2xl sm:text-3xl font-bold text-white mb-4 leading-snug"
             >
-              Your board wants AI that moves the P&amp;L. Not another chatbot.
+                Your board wants measurable impact. Not another AI experiment.
             </motion.h2>
             <motion.p
               variants={fadeUp}
@@ -320,7 +320,7 @@ export function LandingPage() {
                 looking backward.
               </p>
               <p className="text-slate-400 text-sm leading-relaxed max-w-3xl mt-3">
-                Dashboards show you what happened. They don't watch for you. Alerts fire on
+                Reports show you what happened. They don't watch for you. Alerts fire on
                 thresholds without context — is this a blip or a trend? Is it one product line
                 or systemic? You still need an analyst to figure out what it means.
               </p>
@@ -366,7 +366,7 @@ export function LandingPage() {
               </p>
               <p className="text-slate-400 text-sm leading-relaxed max-w-3xl">
                 Attribution requires counterfactual thinking — what would have happened
-                without the action? Dashboards can't do this. Even advanced analytics teams
+                without the action? Reporting layers can't do this. Even advanced analytics teams
                 rarely set up control groups before acting.
               </p>
               <div className="mt-5 flex items-center gap-2 text-xs text-slate-500">
@@ -405,7 +405,7 @@ export function LandingPage() {
             <motion.div variants={fadeUp} className="text-center mb-20">
               <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">See it in action</h2>
               <p className="text-slate-400 max-w-xl mx-auto">
-                Six AI-driven steps from detection to proof — with you in the loop at every decision point.
+                The operating sequence from detection to proof, with you in the loop at every decision point.
               </p>
             </motion.div>
 
@@ -418,11 +418,11 @@ export function LandingPage() {
                   </div>
                   <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Step 01</span>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-3">AI-Driven Monitoring</h3>
+                <h3 className="text-xl font-bold text-white mb-3">Situation Detection</h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
-                  AI agents watch your KPIs around the clock. When something meaningful
-                  changes — not just a threshold breach, but a contextual shift — the system surfaces
-                  a situation card with the analysis already started.
+                  Decision Studio monitors the KPI set continuously. When something meaningful
+                  changes — not just a threshold breach, but a contextual shift — it surfaces
+                  a situation card with the diagnostic work already started.
                 </p>
               </div>
               <KPIGridAnimation />
@@ -437,11 +437,11 @@ export function LandingPage() {
                   </div>
                   <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Step 02</span>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-3">AI-Powered Root Cause Analysis</h3>
+                <h3 className="text-xl font-bold text-white mb-3">Diagnostic Isolation</h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
-                  AI runs dimensional IS/IS NOT analysis to isolate exactly where, when, and what
+                  Dimensional IS/IS NOT analysis isolates exactly where, when, and what
                   changed — deterministically, against your real data. Not a chatbot
-                  guessing. Structured diagnosis you can audit and challenge.
+                  guessing. A structured diagnostic exhibit you can audit and challenge.
                 </p>
               </div>
               <div className="md:order-1">
@@ -458,10 +458,10 @@ export function LandingPage() {
                   </div>
                   <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Step 03</span>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-3">Automatic Market Context</h3>
+                <h3 className="text-xl font-bold text-white mb-3">External Context</h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
-                  AI scans external sources — competitor moves, industry trends, regulatory
-                  shifts — and weaves market context directly into the analysis. You see
+                  Relevant external signals — competitor moves, industry trends, regulatory
+                  shifts — are woven directly into the analysis. You see
                   whether a problem is internal or part of a broader market pattern, without
                   commissioning separate research.
                 </p>
@@ -478,11 +478,11 @@ export function LandingPage() {
                   </div>
                   <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Step 04</span>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-3">You Refine, You Challenge</h3>
+                <h3 className="text-xl font-bold text-white mb-3">Executive Review</h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
                   This isn't a black box. You ask follow-up questions, challenge assumptions,
-                  and steer the analysis with your domain knowledge. The AI adapts — your
-                  expertise shapes the outcome. Human-in-the-loop by design, not as an afterthought.
+                  and steer the analysis with your domain knowledge. The briefing adapts as
+                  your expertise shapes the outcome. Human-in-the-loop by design, not as an afterthought.
                 </p>
               </div>
               <div className="md:order-1">
@@ -499,9 +499,9 @@ export function LandingPage() {
                   </div>
                   <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Step 05</span>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-3">AI-Synthesized Recommendations</h3>
+                <h3 className="text-xl font-bold text-white mb-3">Decision Options</h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
-                  Three AI-driven strategic perspectives debate the best path forward — with visible
+                  Three independent strategic perspectives evaluate the best path forward, with visible
                   disagreement and trade-off analysis. You see where they agree, where they
                   don't, and why. Then you approve, reject, or refine.
                 </p>
@@ -625,7 +625,7 @@ export function LandingPage() {
         >
           <motion.p variants={fadeUp} className="text-slate-300 leading-relaxed mb-8">
             Decision Studio is built by a data &amp; analytics practitioner with 30+ years
-            across enterprise IT — from ERP implementations to AI-driven decision systems.
+            across enterprise IT — from ERP implementations to decision systems with measurable outcomes.
             It exists because I saw the same pattern at every company: smart people making
             expensive decisions without structured analysis or any way to prove they worked.
           </motion.p>

@@ -112,7 +112,7 @@ const DAY_CARDS: DayCard[] = [
     summary: 'Confirm all data connections are healthy, then trigger the first enterprise assessment. Verify that situation cards are generated and briefings route to the right principals.',
     actions: [
       { label: 'Connection Health Check', to: '/settings?section=connection-health', primary: true },
-      { label: 'Go to Dashboard', to: '/dashboard', note: 'Trigger first Detect Situations run' },
+      { label: 'Go to Situation Console', to: '/dashboard', note: 'Trigger first Detect Situations run' },
     ],
     tips: [
       'Connection Health runs a SELECT 1 (or equivalent) against each data product\'s warehouse. All should show "ok" before the first assessment.',

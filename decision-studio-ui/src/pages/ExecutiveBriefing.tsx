@@ -964,7 +964,7 @@ export function ExecutiveBriefing() {
                         <ol className="space-y-0.5 text-emerald-700 list-decimal list-inside">
                           <li>Value Assurance Agent monitors KPI performance against the expected recovery range</li>
                           <li>Difference-in-Differences attribution separates your intervention's impact from market movements</li>
-                          <li>Results will appear on your Solutions Portfolio dashboard</li>
+                          <li>Results will appear in your Solutions Portfolio</li>
                         </ol>
                       </div>
                       <Link
