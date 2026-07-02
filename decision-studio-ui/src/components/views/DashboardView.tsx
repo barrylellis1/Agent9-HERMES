@@ -222,12 +222,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               />
 
               {rest.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div data-testid="situation-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {rest.map((sit, idx) => {
                     const kpiDef = kpiDefMap[sit.kpi_id ?? ''] || kpiDefByName[sit.kpi_name?.toLowerCase() ?? ''];
                     const isOwner = kpiDef && currentPrincipal?.title && kpiDef.owner_role === currentPrincipal.title;
                     return (
-                      <div key={idx} className="relative group">
+                      <div key={idx} data-testid={`situation-card-${sit.situation_id}`} className="relative group">
                         <KPITile
                           situation={sit}
                           onClick={() => onSelectSituation(sit)}

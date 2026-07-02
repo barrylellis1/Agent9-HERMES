@@ -69,3 +69,9 @@ credentials/
 
 # Claude Code worktrees
 .claude/worktrees/
+# Codex agent logs
+.codex-logs/
+
+# Playwright test output (config + tests are committed; artifacts are not)
+playwright-report/
+playwright-results/

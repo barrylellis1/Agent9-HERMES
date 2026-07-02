@@ -1,0 +1,40 @@
+export const COMPOUND_SITUATION_REVENUE = {
+  situation_id: 'sit_test_comp_rev_001',
+  kpi_name: 'Net Revenue',
+  kpi_id: 'net_revenue',
+  kpi_value: {
+    value: 51200000,
+    unit: '$',
+    currency: '$',
+    percent_change: 6.2,
+    comparison_type: 'yoy',
+    inverse_logic: false,
+  },
+  severity: 'medium',
+  card_type: 'problem',
+  description: 'Revenue growing while margin compressing — volume-margin conflict detected',
+  alert_type: 'threshold_breach',
+  compound_alert: true,
+  related_kpi_id: 'gross_margin_pct',
+  compound_pattern: 'Revenue ↑ / Gross Margin ↓',
+};
+
+export const COMPOUND_SITUATION_MARGIN = {
+  situation_id: 'sit_test_comp_mgn_001',
+  kpi_name: 'Gross Margin %',
+  kpi_id: 'gross_margin_pct',
+  kpi_value: {
+    value: 32.1,
+    unit: '%',
+    percent_change: -3.8,
+    comparison_type: 'yoy',
+    inverse_logic: false,
+  },
+  severity: 'high',
+  card_type: 'problem',
+  description: 'Margin compressing while revenue grows — pricing or mix issue',
+  alert_type: 'threshold_breach',
+  compound_alert: true,
+  related_kpi_id: 'net_revenue',
+  compound_pattern: 'Revenue ↑ / Gross Margin ↓',
+};
