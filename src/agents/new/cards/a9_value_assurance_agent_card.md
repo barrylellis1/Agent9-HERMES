@@ -228,3 +228,26 @@ SA (detect) → DA (Is/Is Not) → MA (market signals) → SF (solutions + HITL)
 ```
 
 - May 2026: `get_portfolio_summary` — added client_id + principal_id isolation filter on in-memory store so cross-tenant solutions never appear in a client-scoped portfolio summary.
+
+## Phase 11I-C: Plan/Budget Trajectory + Compliance Severity (Jul 2026)
+
+**Fourth trajectory:** with `plan_version_value` (11I-A) available on budget-tracked KPIs, VA now captures a plan/budget baseline at approval and tracks position against it as a fourth line alongside inaction/expected/actual.
+
+| Deliverable | Description |
+|---|---|
+| `RegisterSolutionRequest.plan_value_at_approval` / `AcceptedSolution.plan_value_at_approval` | Optional float, caller-supplied. Workflow wiring (`workflows.py` HITL approval) sources it from the originating `Situation.plan_value` via `SituationsStore.get_situation(situation_id)['full_payload']` — populated only when the situation was a `plan_variance`/`projected_breach` alert. `None` when the KPI has no budget data. |
+| `VsPlanVerdict` enum | `ahead_of_plan` \| `on_plan` \| `behind_plan` \| `no_plan_data`. Computed in `evaluate_solution_impact()` as `(current - plan) / abs(plan)`; `on_plan` band is ±2%. Literal — no `inverse_logic` flip (describes numeric position, not good/bad framing). |
+| `ImpactEvaluation.vs_plan_verdict` / `.vs_plan_pct` | Attached alongside the existing DiD verdict/composite fields. |
+| `StrategyAwarePortfolio.ahead_of_plan_count` / `on_plan_count` / `behind_plan_count` / `no_plan_data_count` | Aggregated in `get_portfolio_summary()` from evaluated solutions only (unevaluated solutions don't count toward any bucket). |
+| Covenant/regulatory rejection | `register_solution()` looks up `kpi_type` via `RegistryFactory.get_provider("kpi")` before registering; raises `ValueError` for `kpi_type in ("covenant", "regulatory")`. Compliance obligations are not value-tracked opportunities. Lookup failure is non-fatal (logged, registration proceeds) — matches the agent's existing registry-unavailable fallback pattern. |
+| Frontend | `TrajectoryChart.tsx` renders `planValue` as a flat dashed-amber reference line (not a trend array — a single baseline) with legend + tooltip entries. `PortfolioDashboard.tsx` shows a secondary `VsPlanBadge` next to the verdict badge (omitted for `no_plan_data`). |
+| Migration | `supabase/migrations/20260703_va_plan_tracking.sql` — `plan_value_at_approval` on `value_assurance_solutions`; `vs_plan_verdict` + `vs_plan_pct` on `value_assurance_evaluations`. |
+| Not yet built | PIB "Budget Performance" section and portfolio-summary plan-performance sentence are Phase 11I-D scope, not this phase. |
+
+**Two pre-existing bugs found and fixed by the SA→DA→MA→SF→VA E2E test** (`tests/regression/test_plan_variance_e2e.py`, `tests/regression/_plan_variance_runner.py`) while validating this phase — both predate 11I-C and affected every real HITL approval, not just plan-variance ones:
+1. **`kpi_id` was always empty string at registration.** `workflows.py`'s approve handler read `da_output.get("kpi_name")`, but `DeepAnalysisResponse` has no top-level `kpi_name` field (only nested under `plan`). Every real (non-test-stub) HITL approval registered its VA solution with `kpi_id=""`, silently breaking the covenant/regulatory check, the strategy-snapshot threshold lookup, and any KPI-scoped query. Fixed by sourcing `kpi_id` from the originating SA `Situation.kpi_id` (looked up once via `SituationsStore.get_situation(situation_id)` — the same lookup now also used for `plan_value_at_approval`), falling back to `Situation.kpi_name` then DA's nested `plan.kpi_name`.
+2. **`client_id` was never passed to `RegisterSolutionRequest`.** Every VA solution registered via the real HITL flow had `client_id=None`, invisible to client-scoped `get_portfolio_summary()` queries and a genuine multi-tenant isolation gap (CLAUDE.md Protocol #7). Fixed by threading `wf_payload.get("client_id")` through.
+
+Also confirmed while building the test: the legacy `GET /value-assurance/solutions/{solution_id}` route reads a **module-level dict in `value_assurance.py`** that the real `register_solution` flow never writes to (it writes to the VA agent singleton's own `_solutions_store` via `AgentRegistry`). That route 404s for anything registered through the real HITL path — use `GET /portfolio/{principal_id}` (which correctly resolves the singleton via `_get_va_agent()`) instead, until the legacy route is rewired or removed.
+
+**Test also simulates the real HITL lifecycle clicks**, not just approve: Approve → "Mark Implementing" → "Go Live" (`PATCH /solutions/{id}/phase`, exactly what `Portfolio.tsx`'s buttons call) → `evaluate`. This matters because the LIVE transition is what resets `actual_trend` to a fresh measurement baseline in production.

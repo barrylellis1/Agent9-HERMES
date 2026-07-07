@@ -54,6 +54,14 @@ class StrategyAlignment(str, Enum):
     SUPERSEDED = "SUPERSEDED"
 
 
+class VsPlanVerdict(str, Enum):
+    """Solution's KPI position relative to its budget/plan baseline at approval (Phase 11I-C)."""
+    AHEAD_OF_PLAN = "ahead_of_plan"
+    ON_PLAN = "on_plan"
+    BEHIND_PLAN = "behind_plan"
+    NO_PLAN_DATA = "no_plan_data"
+
+
 # ---------------------------------------------------------------------------
 # Phase 7A core models
 # ---------------------------------------------------------------------------
@@ -127,6 +135,9 @@ class ImpactEvaluation(BaseModel):
     strategy_check: StrategyAlignmentCheck
     composite_verdict: CompositeVerdict
     evaluated_at: str  # ISO datetime string
+    # Phase 11I-C: plan/budget trajectory
+    vs_plan_verdict: Optional[VsPlanVerdict] = None
+    vs_plan_pct: Optional[float] = None  # (current - plan) / abs(plan); None when no plan data
 
 
 class InactionCostProjection(BaseModel):
@@ -182,6 +193,8 @@ class AcceptedSolution(BaseModel):
     actual_trend_dates: List[str] = Field(default_factory=list) # ISO dates of each measurement
     baseline_kpi_value: float = 0.0
     pre_approval_slope: float = 0.0  # KPI change per month before approval
+    # Phase 11I-C: plan/budget baseline captured at approval, if the KPI has one
+    plan_value_at_approval: Optional[float] = None
 
 
 # ---------------------------------------------------------------------------
@@ -205,6 +218,7 @@ class RegisterSolutionRequest(BaseModel):
     benchmark_segments: Optional[List[dict]] = None       # All BenchmarkSegment dicts
     pre_approval_kpi_value: Optional[float] = None        # comparison-period KPI value for slope calc
     analysis_mode: str = "problem"                        # "problem" | "opportunity" — controls inaction trend direction
+    plan_value_at_approval: Optional[float] = None        # Phase 11I-C: budget/plan baseline, if the KPI has one
 
 
 class RegisterSolutionResponse(BaseModel):
@@ -289,6 +303,11 @@ class StrategyAwarePortfolio(BaseModel):
     strategy_superseded_count: int
     executive_attention_required: List[str]  # solution_ids
     solutions: List[AcceptedSolution]
+    # Phase 11I-C: plan/budget performance counts (evaluated solutions only)
+    ahead_of_plan_count: int = 0
+    on_plan_count: int = 0
+    behind_plan_count: int = 0
+    no_plan_data_count: int = 0
 
 
 class RecordKPIMeasurementRequest(BaseModel):

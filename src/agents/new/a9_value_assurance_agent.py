@@ -53,6 +53,7 @@ from src.agents.models.value_assurance_models import (
     StrategyAlignmentCheck,
     StrategyAwarePortfolio,
     StrategySnapshot,
+    VsPlanVerdict,
 )
 from src.agents.new.a9_llm_service_agent import (
     A9_LLM_AnalysisRequest,
@@ -320,6 +321,26 @@ class A9_Value_Assurance_Agent:
                 self.name, request.request_id, request.principal_id, request.kpi_id,
             )
 
+        # Covenant/regulatory KPIs are compliance obligations, not value-tracked
+        # opportunities — VA does not register solutions against them (Phase 11I-C).
+        if self._registry_factory is not None:
+            try:
+                kpi_provider = self._registry_factory.get_provider("kpi")
+                if kpi_provider is not None:
+                    kpi_record = kpi_provider.get(request.kpi_id)
+                    _kpi_type = getattr(kpi_record, "kpi_type", "operational") if kpi_record else "operational"
+                    if _kpi_type in ("covenant", "regulatory"):
+                        raise ValueError(
+                            f"KPI '{request.kpi_id}' is a {_kpi_type} KPI — compliance obligations "
+                            "are not eligible for Value Assurance solution tracking."
+                        )
+            except ValueError:
+                raise
+            except Exception as exc:
+                self.logger.warning(
+                    "%s: kpi_type lookup for covenant check failed (non-fatal): %s", self.name, exc
+                )
+
         # Deterministic ID: same KPI + same situation always produces the same solution_id.
         # Prevents duplicate rows when the same HITL approval fires more than once
         # (e.g. dev re-runs or retry paths). The upsert on `id` then merges rather than inserts.
@@ -385,6 +406,7 @@ class A9_Value_Assurance_Agent:
             actual_trend_dates=actual_trend_dates,
             baseline_kpi_value=baseline,
             pre_approval_slope=pre_slope,
+            plan_value_at_approval=request.plan_value_at_approval,
         )
 
         self._solutions_store[solution_id] = solution
@@ -490,6 +512,20 @@ class A9_Value_Assurance_Agent:
         # Composite verdict
         composite = _build_composite_verdict(verdict, strategy_check.alignment_verdict)
 
+        # Plan/budget trajectory verdict (Phase 11I-C). Literal (actual - plan) / abs(plan) —
+        # this describes numeric position relative to plan, not a good/bad framing, so no
+        # inverse_logic flip (unlike the SA plan_variance severity computation).
+        vs_plan_pct: Optional[float] = None
+        vs_plan_verdict: VsPlanVerdict = VsPlanVerdict.NO_PLAN_DATA
+        if solution.plan_value_at_approval is not None and abs(solution.plan_value_at_approval) > 0:
+            vs_plan_pct = (current_kpi_value - solution.plan_value_at_approval) / abs(solution.plan_value_at_approval)
+            if abs(vs_plan_pct) < 0.02:
+                vs_plan_verdict = VsPlanVerdict.ON_PLAN
+            elif vs_plan_pct > 0:
+                vs_plan_verdict = VsPlanVerdict.AHEAD_OF_PLAN
+            else:
+                vs_plan_verdict = VsPlanVerdict.BEHIND_PLAN
+
         # Attribution method description
         method_parts = ["Total change"]
         if request.control_group_kpi_values:
@@ -528,6 +564,8 @@ class A9_Value_Assurance_Agent:
             strategy_check=strategy_check,
             composite_verdict=composite,
             evaluated_at=_utcnow(),
+            vs_plan_verdict=vs_plan_verdict,
+            vs_plan_pct=vs_plan_pct,
         )
 
         # Persist evaluation, update status + auto-transition phase to COMPLETE
@@ -1010,6 +1048,7 @@ class A9_Value_Assurance_Agent:
         roi_eligible = 0
         aligned = drifted = superseded = 0
         exec_attention: List[str] = []
+        ahead_of_plan = on_plan = behind_plan = no_plan_data = 0
 
         for sol in all_solutions:
             total += 1
@@ -1041,6 +1080,16 @@ class A9_Value_Assurance_Agent:
 
                 if ev.composite_verdict.executive_attention_required:
                     exec_attention.append(sol.solution_id)
+
+                # Plan/budget performance counts (Phase 11I-C) — evaluated solutions only
+                if ev.vs_plan_verdict == VsPlanVerdict.AHEAD_OF_PLAN:
+                    ahead_of_plan += 1
+                elif ev.vs_plan_verdict == VsPlanVerdict.ON_PLAN:
+                    on_plan += 1
+                elif ev.vs_plan_verdict == VsPlanVerdict.BEHIND_PLAN:
+                    behind_plan += 1
+                else:
+                    no_plan_data += 1
             else:
                 # No evaluation yet — treat as aligned for counting purposes
                 aligned += 1
@@ -1058,6 +1107,10 @@ class A9_Value_Assurance_Agent:
             strategy_superseded_count=superseded,
             executive_attention_required=exec_attention,
             solutions=all_solutions,
+            ahead_of_plan_count=ahead_of_plan,
+            on_plan_count=on_plan,
+            behind_plan_count=behind_plan,
+            no_plan_data_count=no_plan_data,
         )
 
     # ------------------------------------------------------------------

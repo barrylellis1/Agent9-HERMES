@@ -714,7 +714,43 @@ async def _record_solution_action(
             wf_payload = record.payload or {}
             situation_id = wf_payload.get("situation_id") or action_payload.get("situation_id") or ""
             da_output = wf_payload.get("deep_analysis_output") or {}
-            kpi_id = da_output.get("kpi_name") or ""
+
+            # Look up the originating SA situation once — it is the single most
+            # reliable source for both the KPI identifier and (when applicable)
+            # the plan/budget baseline (Phase 11I-C), since it is exactly what
+            # SA detected rather than something reconstructed from DA's output.
+            _situation_full_payload: Dict[str, Any] = {}
+            if situation_id:
+                try:
+                    from src.database.situations_store import SituationsStore
+                    _sit_store = SituationsStore()
+                    if _sit_store.enabled:
+                        sit_row = await _sit_store.get_situation(situation_id)
+                        if sit_row:
+                            _situation_full_payload = sit_row.get("full_payload") or {}
+                except Exception as _sit_exc:
+                    import logging as _lg2
+                    _lg2.getLogger("workflows.solutions.approve").debug(
+                        "Situation lookup for VA registration failed (non-fatal): %s", _sit_exc
+                    )
+
+            # kpi_id: prefer the situation's registry KPI id (Situation.kpi_id — "used
+            # to match against VA solution records" per its own field description),
+            # then the situation's display name, then DA's nested plan.kpi_name.
+            # NOTE: da_output.get("kpi_name") directly (the old behaviour here) is
+            # always empty — DeepAnalysisResponse has no top-level kpi_name field,
+            # it only exists nested under `plan`. That bug meant every real HITL
+            # approval registered a VA solution with kpi_id="", breaking KPI-scoped
+            # lookups (covenant check, strategy snapshot threshold lookup, portfolio
+            # filtering) for every solution approved through this path.
+            kpi_id = (
+                _situation_full_payload.get("kpi_id")
+                or _situation_full_payload.get("kpi_name")
+                or (da_output.get("plan") or {}).get("kpi_name")
+                or ""
+            )
+
+            plan_value_at_approval = _situation_full_payload.get("plan_value")
 
             # DA benchmark segments for DiD control group (Phase 7C)
             kt = da_output.get("kt_is_is_not") or {}
@@ -755,6 +791,8 @@ async def _record_solution_action(
                 benchmark_segments=benchmark_segments,
                 pre_approval_kpi_value=pre_approval_kpi_value,
                 ma_market_signals=ma_signals,
+                plan_value_at_approval=plan_value_at_approval,
+                client_id=wf_payload.get("client_id"),
             )
 
             va_resp = await orchestrator.execute_agent_method(

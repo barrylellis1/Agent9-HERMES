@@ -501,6 +501,46 @@ KPIS: List[Dict[str, Any]] = [
     },
 ]
 
+# ── 11I-A: derive plan_variance + projected_breach + acceleration threshold rows ──
+# Threshold-presence gating (Option A): a KPI runs a statistical pattern ONLY if it
+# carries a threshold row for that comparison_type. These three KPIs already have
+# plan_version_value="Budget" set but no plan_variance row — without one, the field
+# is inert (11I-A never fires plan variance / budget-anchored projection for them).
+#   plan_variance    — percent-of-budget tolerance bands, by KPI category.
+#   projected_breach — budget-anchored (mirrors each KPI's own plan_variance red band).
+#   acceleration     — self-calibrating against the KPI's own volatility; uniform
+#     sensitivity row applies to every KPI (yellow = fire floor x, red = HIGH x).
+_PLAN_VARIANCE_BANDS: Dict[str, Dict[str, Any]] = {
+    "net_revenue":  {"green_threshold": 5.0, "yellow_threshold": 10.0, "red_threshold": 15.0, "inverse_logic": False},  # revenue
+    "gross_profit": {"green_threshold": 3.0, "yellow_threshold": 8.0,  "red_threshold": 12.0, "inverse_logic": False},  # profitability
+    "cogs":         {"green_threshold": 5.0, "yellow_threshold": 15.0, "red_threshold": 25.0, "inverse_logic": True},   # cost
+}
+_ACCEL_ROW: Dict[str, Any] = {
+    "comparison_type": "acceleration",
+    "green_threshold": None,
+    "yellow_threshold": 2.0,   # fire floor: |acceleration| > 2x rolling velocity std
+    "red_threshold": 3.0,      # HIGH severity at >= 3x (else MEDIUM)
+    "inverse_logic": False,
+}
+for _kpi in KPIS:
+    _ths = _kpi.setdefault("thresholds", [])
+    _band = _PLAN_VARIANCE_BANDS.get(_kpi["id"])
+    if _band is not None and _kpi.get("plan_version_value") and not any(
+        t.get("comparison_type") == "plan_variance" for t in _ths
+    ):
+        _ths.append({"comparison_type": "plan_variance", **_band})
+    _pv = next((t for t in _ths if t.get("comparison_type") == "plan_variance"), None)
+    if _pv is not None and not any(t.get("comparison_type") == "projected_breach" for t in _ths):
+        _ths.append({
+            "comparison_type": "projected_breach",
+            "green_threshold": _pv.get("green_threshold"),
+            "yellow_threshold": _pv.get("yellow_threshold"),
+            "red_threshold": _pv.get("red_threshold"),
+            "inverse_logic": _pv.get("inverse_logic", False),
+        })
+    if not any(t.get("comparison_type") == "acceleration" for t in _ths):
+        _ths.append(dict(_ACCEL_ROW))
+
 PRINCIPALS: List[Dict[str, Any]] = [
     {
         "id": "cfo_001",

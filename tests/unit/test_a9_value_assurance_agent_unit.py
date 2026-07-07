@@ -36,6 +36,7 @@ from src.agents.models.value_assurance_models import (
     StrategyAlignment,
     StrategyAlignmentCheck,
     StrategySnapshot,
+    VsPlanVerdict,
 )
 from src.agents.agent_config_models import A9ValueAssuranceAgentConfig
 
@@ -873,3 +874,194 @@ async def test_project_inaction_cost_with_zero_current_value(agent):
 
     # Should not raise; revenue impact will be None or 0
     assert resp.projection.current_kpi_value == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Test: Phase 11I-C — VA Plan/Budget Trajectory + Compliance Severity
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_register_solution_captures_plan_value_at_approval(agent, register_request):
+    """plan_value_at_approval on the request is stored on the AcceptedSolution."""
+    register_request.plan_value_at_approval = 48.0
+    reg_resp = await agent.register_solution(register_request)
+
+    stored = agent._solutions_store[reg_resp.solution_id]
+    assert stored.plan_value_at_approval == 48.0
+
+
+@pytest.mark.asyncio
+async def test_register_solution_no_plan_value_defaults_none(agent, register_request):
+    """When the caller omits plan_value_at_approval (no budget KPI), it stays None."""
+    reg_resp = await agent.register_solution(register_request)
+
+    stored = agent._solutions_store[reg_resp.solution_id]
+    assert stored.plan_value_at_approval is None
+
+
+@pytest.mark.asyncio
+async def test_evaluate_solution_vs_plan_ahead(agent, register_request):
+    """current tracking above the plan baseline by >2% -> ahead_of_plan."""
+    register_request.plan_value_at_approval = 45.0
+    reg_resp = await agent.register_solution(register_request)
+
+    eval_req = EvaluateSolutionRequest(
+        request_id="eval-plan-1",
+        principal_id="cfo_001",
+        solution_id=reg_resp.solution_id,
+        current_kpi_value=49.0,  # (49-45)/45 = +8.9%
+    )
+    resp = await agent.evaluate_solution_impact(eval_req)
+
+    assert resp.evaluation.vs_plan_verdict == VsPlanVerdict.AHEAD_OF_PLAN
+    assert resp.evaluation.vs_plan_pct == pytest.approx((49.0 - 45.0) / 45.0)
+
+
+@pytest.mark.asyncio
+async def test_evaluate_solution_vs_plan_behind(agent, register_request):
+    """current tracking below the plan baseline by >2% -> behind_plan."""
+    register_request.plan_value_at_approval = 45.0
+    reg_resp = await agent.register_solution(register_request)
+
+    eval_req = EvaluateSolutionRequest(
+        request_id="eval-plan-2",
+        principal_id="cfo_001",
+        solution_id=reg_resp.solution_id,
+        current_kpi_value=40.0,  # (40-45)/45 = -11.1%
+    )
+    resp = await agent.evaluate_solution_impact(eval_req)
+
+    assert resp.evaluation.vs_plan_verdict == VsPlanVerdict.BEHIND_PLAN
+    assert resp.evaluation.vs_plan_pct == pytest.approx((40.0 - 45.0) / 45.0)
+
+
+@pytest.mark.asyncio
+async def test_evaluate_solution_vs_plan_on_plan(agent, register_request):
+    """current within +-2% of the plan baseline -> on_plan."""
+    register_request.plan_value_at_approval = 45.0
+    reg_resp = await agent.register_solution(register_request)
+
+    eval_req = EvaluateSolutionRequest(
+        request_id="eval-plan-3",
+        principal_id="cfo_001",
+        solution_id=reg_resp.solution_id,
+        current_kpi_value=45.5,  # (45.5-45)/45 = +1.1% -- within the 2% band
+    )
+    resp = await agent.evaluate_solution_impact(eval_req)
+
+    assert resp.evaluation.vs_plan_verdict == VsPlanVerdict.ON_PLAN
+
+
+@pytest.mark.asyncio
+async def test_evaluate_solution_vs_plan_no_plan_data(agent, register_request):
+    """No plan_value_at_approval captured (KPI has no budget) -> no_plan_data, pct is None."""
+    reg_resp = await agent.register_solution(register_request)  # no plan_value_at_approval set
+
+    eval_req = EvaluateSolutionRequest(
+        request_id="eval-plan-4",
+        principal_id="cfo_001",
+        solution_id=reg_resp.solution_id,
+        current_kpi_value=49.0,
+    )
+    resp = await agent.evaluate_solution_impact(eval_req)
+
+    assert resp.evaluation.vs_plan_verdict == VsPlanVerdict.NO_PLAN_DATA
+    assert resp.evaluation.vs_plan_pct is None
+
+
+@pytest.mark.asyncio
+async def test_get_portfolio_summary_plan_status_counts(agent, register_request):
+    """Portfolio summary aggregates ahead/behind/on/no-data plan counts from evaluated solutions."""
+    # Solution 1: ahead of plan
+    register_request.kpi_id = "lub_gross_margin_pct"
+    register_request.plan_value_at_approval = 45.0
+    reg1 = await agent.register_solution(register_request)
+    await agent.evaluate_solution_impact(EvaluateSolutionRequest(
+        request_id="eval-port-1", principal_id="cfo_001",
+        solution_id=reg1.solution_id, current_kpi_value=49.0,
+    ))
+
+    # Solution 2: behind plan
+    register_request.kpi_id = "lub_revenue"
+    register_request.plan_value_at_approval = 45.0
+    reg2 = await agent.register_solution(register_request)
+    await agent.evaluate_solution_impact(EvaluateSolutionRequest(
+        request_id="eval-port-2", principal_id="cfo_001",
+        solution_id=reg2.solution_id, current_kpi_value=40.0,
+    ))
+
+    # Solution 3: no plan data
+    register_request.kpi_id = "lub_cogs"
+    register_request.plan_value_at_approval = None
+    reg3 = await agent.register_solution(register_request)
+    await agent.evaluate_solution_impact(EvaluateSolutionRequest(
+        request_id="eval-port-3", principal_id="cfo_001",
+        solution_id=reg3.solution_id, current_kpi_value=49.0,
+    ))
+
+    summary_req = PortfolioSummaryRequest(
+        request_id="port-plan-1", principal_id="cfo_001", include_superseded=False,
+    )
+    resp = await agent.get_portfolio_summary(summary_req)
+
+    assert resp.ahead_of_plan_count == 1
+    assert resp.behind_plan_count == 1
+    assert resp.no_plan_data_count == 1
+    assert resp.on_plan_count == 0
+
+
+@pytest.mark.asyncio
+async def test_register_solution_rejects_covenant_kpi(agent, register_request):
+    """A covenant KPI is a compliance obligation, not a value-tracked opportunity."""
+    mock_kpi_record = MagicMock(kpi_type="covenant")
+    mock_provider = MagicMock()
+    mock_provider.get.return_value = mock_kpi_record
+    mock_factory = MagicMock()
+    mock_factory.get_provider.return_value = mock_provider
+    agent._registry_factory = mock_factory
+
+    with pytest.raises(ValueError, match="covenant"):
+        await agent.register_solution(register_request)
+
+
+@pytest.mark.asyncio
+async def test_register_solution_rejects_regulatory_kpi(agent, register_request):
+    """A regulatory KPI is also excluded from VA solution tracking."""
+    mock_kpi_record = MagicMock(kpi_type="regulatory")
+    mock_provider = MagicMock()
+    mock_provider.get.return_value = mock_kpi_record
+    mock_factory = MagicMock()
+    mock_factory.get_provider.return_value = mock_provider
+    agent._registry_factory = mock_factory
+
+    with pytest.raises(ValueError, match="regulatory"):
+        await agent.register_solution(register_request)
+
+
+@pytest.mark.asyncio
+async def test_register_solution_allows_operational_kpi_with_registry_factory(agent, register_request):
+    """A normal operational KPI registers successfully even when kpi_type is looked up."""
+    mock_kpi_record = MagicMock(kpi_type="operational")
+    mock_provider = MagicMock()
+    mock_provider.get.return_value = mock_kpi_record
+    mock_factory = MagicMock()
+    mock_factory.get_provider.return_value = mock_provider
+    agent._registry_factory = mock_factory
+
+    resp = await agent.register_solution(register_request)
+
+    assert resp.solution_id is not None
+    assert resp.status == SolutionVerdict.MEASURING
+
+
+@pytest.mark.asyncio
+async def test_register_solution_covenant_check_non_fatal_when_lookup_fails(agent, register_request):
+    """A broken registry factory must not block registration (non-fatal by design)."""
+    mock_factory = MagicMock()
+    mock_factory.get_provider.side_effect = Exception("registry unavailable")
+    agent._registry_factory = mock_factory
+
+    resp = await agent.register_solution(register_request)
+
+    assert resp.solution_id is not None

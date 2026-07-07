@@ -127,6 +127,8 @@ class VASolutionsStore:
                 and (solution.phase.value if hasattr(solution.phase, "value") else str(solution.phase)),
                 "go_live_at": getattr(solution, "go_live_at", None),
                 "completed_at": getattr(solution, "completed_at", None),
+                # Phase 11I-C: plan/budget baseline
+                "plan_value_at_approval": getattr(solution, "plan_value_at_approval", None),
             }
 
             # Drop None values for trend fields that aren't yet on the model
@@ -434,6 +436,14 @@ class VASolutionsStore:
                 "strategy_alignment": _safe_json(evaluation.strategy_check),
                 "composite_verdict": _safe_json(evaluation.composite_verdict),
                 "evaluated_at": evaluation.evaluated_at,
+                # Phase 11I-C: plan/budget trajectory verdict
+                "vs_plan_verdict": getattr(evaluation, "vs_plan_verdict", None)
+                and (
+                    evaluation.vs_plan_verdict.value
+                    if hasattr(evaluation.vs_plan_verdict, "value")
+                    else str(evaluation.vs_plan_verdict)
+                ),
+                "vs_plan_pct": getattr(evaluation, "vs_plan_pct", None),
             }
 
             async with httpx.AsyncClient() as client:
