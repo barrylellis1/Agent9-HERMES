@@ -47,6 +47,9 @@ export interface Situation {
   compound_alert?: boolean;
   related_kpi_id?: string | null;
   compound_pattern?: string | null;
+  // Same-KPI multi-alert-type consolidation — present when this card folds together
+  // more than one alert_type for the same KPI (e.g. threshold_breach + plan_variance)
+  merged_alert_types?: string[] | null;
 }
 
 export interface OpportunitySignal {
