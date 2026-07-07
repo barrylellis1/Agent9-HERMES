@@ -73,7 +73,7 @@ run_enterprise_assessment.py
 | ~~DA market signal conflict detection (outperforming / confirming / missing tailwinds)~~ | ✅ Phase 11F — complete (Jun 2026) |
 | ~~DA Mixed Analysis Mode — single IS/IS NOT view with both problem segments (red) and opportunity segments (green); mixed SCQA narrative; DA determines framing from segment variance, not SA~~ | ✅ Phase 11G — complete (Jun 2026) |
 | DA Statistical Enrichment — effect size relative to segment weight, seasonal decomposition (structural vs cyclical), confidence scoring on IS/IS NOT items; replaces heuristic replication_potential with evidence-based scores (Analytical Intelligence Layer 1) | ⚠️ Phase 11H — partial (Jun 2026): effect size + outlier classification shipped; seasonal decomposition deferred |
-| **Advanced Alert Intelligence** — SA: budget/plan variance, projected breach, acceleration, concentration risk; DA: cross-KPI compound patterns (KPI relationship registry); VA: plan trajectory + covenant severity; PIB: alert-type-differentiated briefings | **Phase 11I** |
+| **Advanced Alert Intelligence** — SA: budget/plan variance, projected breach, acceleration, concentration risk; DA: cross-KPI compound patterns (KPI relationship registry); VA: plan trajectory + covenant severity; PIB: alert-type-differentiated briefings | **Phase 11I** — 11I-A/B/C complete (Jul 2026); 11I-D (PIB) remaining |
 | **Solution Validity Monitoring** — recurring health checks on active VA solutions: control group stability (V1), market condition drift + strategic alignment drift (V2); health score HEALTHY/WATCH/DEGRADED/INVALID; PIB "Solutions Requiring Attention" + "Pending Confirmations" sections; Portfolio health badge with action protocol | **Phase 11J** |
 | **Meridian Flow Systems synthetic dataset** — 79,200-row SAP CO-PA BigQuery dataset; 21 dimensions (including `order_type` at rank #1); FY2024+2025+2026 all 12 months; 4 drift scenarios for 11K–11N unit tests; `scripts/clients/meridian.py` seed script | **Pre-11K** |
 | **Data Product Observability** — DGA auto-classifies each data product's refresh cadence (`real_time \| micro_batch \| daily_batch \| weekly_batch \| monthly_close`); continuously confirms cadence; detects pipeline stalls; `pipeline_status` on data product contract | **Phase 11K** |
@@ -1243,6 +1243,24 @@ Phase 11L (EDA profile) ──────────────────�
 - No fixed PIB cron schedule — PIB fires on DA completion events gated by materiality check
 - Interactive DA path from SA card is first-class and always available — not a fallback
 - Pipeline failure (`stale` data product) suppresses both DA and PIB — analysis on stale data is not delivered
+
+**Sequencing decision (2026-07-02) — Harden before expanding:**
+
+Pre-11K through 11N are deferred until the existing pipeline survives a complete end-to-end demo without breakage. The rationale:
+
+1. The 5-dimension cap has not been raised as a prospect objection. Finance model ICPs (CFO-owned CO-PA data) naturally have 5–12 meaningful dimensions — the current cap is representative, not limiting, for the confirmed target audience.
+2. Three higher-priority gaps exist that break the stated commercial moat (SA→DA→SF→VA) before dimensional depth becomes relevant:
+   - **SF→VA wiring incomplete** — `kpi_id` and impact bounds are missing from the HITL approval payload in `workflows.py`. Solution handoff to VA does not work end-to-end.
+   - **VA persistence is in-memory** — accepted solutions do not survive a Railway restart. VA trajectory chart cannot be demonstrated credibly.
+   - **Phase 11I incomplete** — alert intelligence is the active phase; finish what is in flight before adding phases.
+3. 11K–11N is 4 phases (XL/L/M/M scope) built on infrastructure that doesn't exist yet. The architectural boundaries it discovers (BQ parallel query limits, asyncio.gather under load, Supabase JSONB sizing) are only testable after the Meridian seed script exists.
+
+**Revised build order before 11K–11N:**
+1. Fix SF→VA HITL wiring (`workflows.py` — kpi_id + impact bounds in approval payload)
+2. Persist VA solutions to Supabase (replace in-memory store)
+3. Ship Phase 11I (Alert Intelligence) — complete the active phase
+4. Build `scripts/clients/meridian.py` seed script as a standalone task — this is the only Pre-11K deliverable worth building now; it stress-tests BQ onboarding and provides a richer demo dataset regardless of whether 11K–11N ships
+5. Implement 11K–11N when a prospect conversation confirms dimensional depth as a requirement, or when a specific SAP CO-PA / operational data model demo is scheduled
 
 ---
 
