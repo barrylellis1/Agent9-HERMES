@@ -7,7 +7,7 @@ import {
   TrendingUp,
   Eye,
 } from 'lucide-react';
-import { AcceptedSolution, SolutionVerdict, SolutionPhase } from '../types/valueAssurance';
+import { AcceptedSolution, SolutionVerdict, SolutionPhase, VsPlanVerdict } from '../types/valueAssurance';
 
 interface PortfolioDashboardProps {
   solutions: AcceptedSolution[];
@@ -89,6 +89,22 @@ function VerdictBadge({ status }: { status: SolutionVerdict }) {
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${cfg.className} ${cfg.pulse ? 'animate-pulse' : ''}`}
     >
       <Icon className="w-2.5 h-2.5" />
+      {cfg.label}
+    </span>
+  );
+}
+
+/** Secondary badge showing plan/budget position (Phase 11I-C) — omitted when no plan data. */
+function VsPlanBadge({ verdict }: { verdict?: VsPlanVerdict }) {
+  if (!verdict || verdict === 'no_plan_data') return null;
+  const map: Record<Exclude<VsPlanVerdict, 'no_plan_data'>, { label: string; className: string }> = {
+    ahead_of_plan: { label: 'Ahead of Plan', className: 'bg-amber-950 text-amber-400 border border-amber-800/50' },
+    on_plan: { label: 'On Plan', className: 'bg-slate-800 text-slate-300 border border-slate-700' },
+    behind_plan: { label: 'Behind Plan', className: 'bg-amber-950 text-amber-500 border border-amber-800/50' },
+  };
+  const cfg = map[verdict];
+  return (
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium ${cfg.className}`}>
       {cfg.label}
     </span>
   );
@@ -249,8 +265,11 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
                     </span>
                   </div>
 
-                  {/* Verdict badge */}
-                  <VerdictBadge status={sol.status} />
+                  {/* Verdict badge (+ plan-position secondary badge, Phase 11I-C) */}
+                  <div className="flex flex-col items-start gap-1">
+                    <VerdictBadge status={sol.status} />
+                    <VsPlanBadge verdict={sol.impact_evaluation?.vs_plan_verdict} />
+                  </div>
 
                   {/* Impact — right-aligned */}
                   <span

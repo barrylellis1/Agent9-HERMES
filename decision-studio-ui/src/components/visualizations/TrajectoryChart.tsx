@@ -18,6 +18,8 @@ export interface TrajectoryChartProps {
   kpiName?: string;
   /** Lifecycle phase — controls which lines are visible */
   phase?: SolutionPhase;
+  /** Phase 11I-C: budget/plan baseline captured at approval — renders as a flat dashed amber reference line */
+  planValue?: number | null;
 }
 
 interface TooltipState {
@@ -87,9 +89,11 @@ const InnerChart: React.FC<InnerChartProps> = ({
   width,
   height,
   phase,
+  planValue,
 }) => {
   // Show expected/actual only when solution is live or beyond
   const showExpectedActual = !phase || LIVE_PHASES.has(phase);
+  const hasPlanValue = planValue !== null && planValue !== undefined && !isNaN(planValue);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
   const innerWidth = width - MARGIN.left - MARGIN.right;
@@ -106,6 +110,7 @@ const InnerChart: React.FC<InnerChartProps> = ({
     ...inactionTrend,
     ...expectedTrend,
     ...actualTrend,
+    ...(hasPlanValue ? [planValue as number] : []),
   ].filter((v) => v !== undefined && v !== null && !isNaN(v));
 
   const rawMin = allValues.length > 0 ? Math.min(...allValues) : 0;
@@ -281,6 +286,32 @@ const InnerChart: React.FC<InnerChartProps> = ({
             />
           )}
 
+          {/* Plan / Budget baseline — flat dashed amber reference line (Phase 11I-C) */}
+          {hasPlanValue && (
+            <>
+              <line
+                x1={0}
+                x2={innerWidth}
+                y1={yScale(planValue as number)}
+                y2={yScale(planValue as number)}
+                stroke="#f59e0b"
+                strokeWidth={1.5}
+                strokeDasharray="6,3"
+                strokeOpacity={0.7}
+              />
+              <text
+                x={innerWidth - 4}
+                y={yScale(planValue as number) - 4}
+                textAnchor="end"
+                fill="#f59e0b"
+                fontSize={9}
+                opacity={0.8}
+              >
+                Plan / Budget
+              </text>
+            </>
+          )}
+
           {/* Expected line — slate solid (hidden during APPROVED/IMPLEMENTING) */}
           {showExpectedActual && expectedPoints.length >= 2 && (
             <AnimatedLine
@@ -368,7 +399,7 @@ const InnerChart: React.FC<InnerChartProps> = ({
         const inactionVal = getValueAtMonth(inactionPoints, tooltip.monthIndex);
         const expectedVal = getValueAtMonth(expectedPoints, tooltip.monthIndex);
         const actualVal = getValueAtMonth(actualPoints, tooltip.monthIndex);
-        const hasAny = inactionVal !== null || expectedVal !== null || actualVal !== null;
+        const hasAny = inactionVal !== null || expectedVal !== null || actualVal !== null || hasPlanValue;
         if (!hasAny) return null;
 
         const boxLeft = MARGIN.left + tooltip.x + 8;
@@ -397,10 +428,17 @@ const InnerChart: React.FC<InnerChartProps> = ({
               </div>
             )}
             {actualVal !== null && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mb-0.5">
                 <span className="w-3 h-0.5 bg-white inline-block" />
                 <span className="text-slate-400">Actual</span>
                 <span className="text-white font-mono ml-auto pl-3">{actualVal.toFixed(2)}</span>
+              </div>
+            )}
+            {hasPlanValue && (
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-0.5 bg-amber-500 opacity-70 inline-block" />
+                <span className="text-slate-400">Plan / Budget</span>
+                <span className="text-amber-400 font-mono ml-auto pl-3">{(planValue as number).toFixed(2)}</span>
               </div>
             )}
           </motion.div>
@@ -448,6 +486,7 @@ export const TrajectoryChart: React.FC<TrajectoryChartProps> = (props) => {
       {/* Legend */}
       {(() => {
         const showLines = !props.phase || LIVE_PHASES.has(props.phase);
+        const hasPlan = props.planValue !== null && props.planValue !== undefined && !isNaN(props.planValue as number);
         return (
           <div className="flex items-center gap-6 mt-3 pt-3 border-t border-slate-800">
             <div className="flex items-center gap-1.5">
@@ -471,6 +510,14 @@ export const TrajectoryChart: React.FC<TrajectoryChartProps> = (props) => {
                   <span className="text-[10px] text-slate-400">Actual</span>
                 </div>
               </>
+            )}
+            {hasPlan && (
+              <div className="flex items-center gap-1.5">
+                <svg width={20} height={8}>
+                  <line x1={0} y1={4} x2={20} y2={4} stroke="#f59e0b" strokeOpacity={0.7} strokeWidth={1.5} strokeDasharray="6,3" />
+                </svg>
+                <span className="text-[10px] text-slate-500">Plan / Budget</span>
+              </div>
             )}
           </div>
         );

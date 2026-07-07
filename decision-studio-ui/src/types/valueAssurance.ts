@@ -2,6 +2,7 @@ export type SolutionVerdict = 'VALIDATED' | 'PARTIAL' | 'FAILED' | 'MEASURING';
 export type SolutionPhase = 'APPROVED' | 'IMPLEMENTING' | 'LIVE' | 'MEASURING' | 'COMPLETE';
 export type ConfidenceLevel = 'HIGH' | 'MODERATE' | 'LOW';
 export type StrategyAlignment = 'ALIGNED' | 'DRIFTED' | 'SUPERSEDED';
+export type VsPlanVerdict = 'ahead_of_plan' | 'on_plan' | 'behind_plan' | 'no_plan_data';
 
 export interface StrategySnapshot {
   principal_priorities: string[];
@@ -61,6 +62,9 @@ export interface ImpactEvaluation {
   strategy_check: StrategyAlignmentCheck;
   composite_verdict: CompositeVerdict;
   evaluated_at: string;
+  // Phase 11I-C: plan/budget trajectory
+  vs_plan_verdict?: VsPlanVerdict;
+  vs_plan_pct?: number;
 }
 
 export interface InactionCostProjection {
@@ -116,6 +120,8 @@ export interface AcceptedSolution {
   actual_trend_dates: string[];
   baseline_kpi_value: number;
   pre_approval_slope: number;
+  // Phase 11I-C: budget/plan baseline captured at approval
+  plan_value_at_approval?: number;
 }
 
 export interface StrategyAwarePortfolio {
@@ -131,6 +137,11 @@ export interface StrategyAwarePortfolio {
   strategy_superseded_count: number;
   executive_attention_required: string[];
   solutions: AcceptedSolution[];
+  // Phase 11I-C: plan/budget performance counts (evaluated solutions only)
+  ahead_of_plan_count: number;
+  on_plan_count: number;
+  behind_plan_count: number;
+  no_plan_data_count: number;
 }
 
 export interface RecordKPIMeasurementResponse {

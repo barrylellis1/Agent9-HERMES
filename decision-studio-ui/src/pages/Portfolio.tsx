@@ -354,6 +354,7 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
           inactionHorizonMonths={solution.inaction_horizon_months}
           kpiName={solution.kpi_id}
           phase={currentPhase}
+          planValue={solution.plan_value_at_approval}
         />
       </div>
 
