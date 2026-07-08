@@ -750,3 +750,133 @@ class TestSQLServerSQLHelpers:
         sa = _make_sa_stub()
         result = sa._ss_monthly_series_sql("NOT VALID SQL AT ALL")
         assert result == ""
+
+
+# ===========================================================================
+# MERGE COMPOUND KPI SITUATIONS (same-KPI multi-alert-type consolidation)
+# ===========================================================================
+
+class TestMergeCompoundKpiSituations:
+    """`_merge_compound_kpi_situations` folds multiple alert_types for the same
+    KPI into one card. Pattern-specific fields (plan_value, acceleration_signal,
+    compound_*) are each set by exactly one member — never by primary alone —
+    so the merge must scan all members for each field, not just take primary's.
+    """
+
+    def _sit(self, situation_id, kpi_name="Total Revenue", kpi_id="total_revenue",
+             severity=SituationSeverity.CRITICAL, alert_type="threshold_breach",
+             card_type="problem", **kwargs):
+        kv = _kpi_value(value=100.0)
+        defaults = dict(
+            situation_id=situation_id, kpi_name=kpi_name, kpi_id=kpi_id,
+            kpi_value=kv, severity=severity, card_type=card_type,
+            description="test", business_impact=f"impact-{situation_id}",
+            alert_type=alert_type,
+        )
+        defaults.update(kwargs)
+        return Situation(**defaults)
+
+    def test_single_alert_type_passes_through_unchanged(self):
+        """A KPI with only one problem situation is untouched by the merge."""
+        sa = _make_sa_stub()
+        sit = self._sit("s1", alert_type="plan_variance", plan_value=50.0)
+        result = sa._merge_compound_kpi_situations([sit])
+        assert len(result) == 1
+        assert result[0] is sit
+        assert result[0].merged_alert_types is None
+
+    def test_opportunity_cards_pass_through_without_merging(self):
+        """card_type='opportunity' situations are never grouped/merged."""
+        sa = _make_sa_stub()
+        sit1 = self._sit("o1", card_type="opportunity", alert_type=None)
+        sit2 = self._sit("o2", card_type="opportunity", alert_type=None)
+        result = sa._merge_compound_kpi_situations([sit1, sit2])
+        assert len(result) == 2
+        assert all(s.merged_alert_types is None for s in result)
+
+    def test_plan_value_survives_merge_when_threshold_breach_is_primary(self):
+        """The exact production collision: threshold_breach (no plan_value) and
+        plan_variance (has plan_value) fire together; threshold_breach wins the
+        primary slot (same severity, detected first) but plan_value must still
+        surface on the merged card — this is what VA's registration reads.
+        """
+        sa = _make_sa_stub()
+        thresh = self._sit("thresh_1", alert_type="threshold_breach", plan_value=None)
+        plan = self._sit("plan_1", alert_type="plan_variance", plan_value=264_000_000.0)
+
+        merged = sa._merge_compound_kpi_situations([thresh, plan])
+
+        assert len(merged) == 1
+        m = merged[0]
+        assert m.alert_type == "threshold_breach"  # primary unchanged
+        assert set(m.merged_alert_types) == {"threshold_breach", "plan_variance"}
+        assert m.plan_value == 264_000_000.0, (
+            "plan_value must be pulled from whichever member set it, not just primary"
+        )
+
+    def test_all_pattern_specific_fields_survive_merge(self):
+        """acceleration_signal, compound_alert/related_kpi_id/compound_pattern,
+        and projected_breach fields must each survive from their own member too.
+        """
+        sa = _make_sa_stub()
+        thresh = self._sit(
+            "thresh_1", alert_type="threshold_breach",
+            compound_alert=True, related_kpi_id="gross_margin_pct",
+            compound_pattern="Revenue DOWN / Margin DOWN",
+        )
+        plan = self._sit("plan_1", alert_type="plan_variance", plan_value=264_000_000.0)
+        proj = self._sit(
+            "proj_1", alert_type="projected_breach", severity=SituationSeverity.HIGH,
+            projected_breach_at_period="t+2", projection_confidence=0.82, periods_until_breach=2,
+        )
+        accel = self._sit(
+            "accel_1", alert_type="acceleration", severity=SituationSeverity.MEDIUM,
+            acceleration_signal=3.4,
+        )
+
+        merged = sa._merge_compound_kpi_situations([thresh, plan, proj, accel])
+
+        assert len(merged) == 1
+        m = merged[0]
+        assert set(m.merged_alert_types) == {
+            "threshold_breach", "plan_variance", "projected_breach", "acceleration"
+        }
+        assert m.plan_value == 264_000_000.0
+        assert m.projected_breach_at_period == "t+2"
+        assert m.projection_confidence == 0.82
+        assert m.periods_until_breach == 2
+        assert m.acceleration_signal == 3.4
+        assert m.compound_alert is True
+        assert m.related_kpi_id == "gross_margin_pct"
+        assert m.compound_pattern == "Revenue DOWN / Margin DOWN"
+
+    def test_hitl_required_is_union_across_members(self):
+        """hitl_required must be True if ANY member requires it (pre-existing
+        behavior, verified to still hold after adding the new field-preservation logic).
+        """
+        sa = _make_sa_stub()
+        thresh = self._sit("thresh_1", alert_type="threshold_breach", hitl_required=False)
+        plan = self._sit("plan_1", alert_type="plan_variance", hitl_required=True)
+        merged = sa._merge_compound_kpi_situations([thresh, plan])
+        assert merged[0].hitl_required is True
+
+    def test_different_kpis_are_not_merged_together(self):
+        """Situations for different KPIs must never be folded into one card."""
+        sa = _make_sa_stub()
+        sit1 = self._sit("s1", kpi_name="Total Revenue", kpi_id="total_revenue")
+        sit2 = self._sit("s2", kpi_name="Gross Margin %", kpi_id="gross_margin_pct")
+        result = sa._merge_compound_kpi_situations([sit1, sit2])
+        assert len(result) == 2
+        assert {s.kpi_name for s in result} == {"Total Revenue", "Gross Margin %"}
+
+    def test_business_impact_bullets_combined_and_capped(self):
+        """business_impact concatenates each member's impact, capped at 4 bullets."""
+        sa = _make_sa_stub()
+        members = [
+            self._sit(f"s{i}", alert_type=f"type{i}", business_impact=f"impact-{i}")
+            for i in range(6)
+        ]
+        merged = sa._merge_compound_kpi_situations(members)
+        assert len(merged) == 1
+        bullets = merged[0].business_impact.split(" • ")
+        assert len(bullets) == 4

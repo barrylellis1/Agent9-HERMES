@@ -684,6 +684,16 @@ class A9_Situation_Awareness_Agent:
                         _seen_kpi[_key] = sit
             situations = list(_seen_kpi.values())
 
+            # ── Consolidate multiple problem alert_types for the same KPI ──────
+            # A single KPI can legitimately trigger several 11I-A/11I-B patterns in one
+            # scan (e.g. threshold_breach + plan_variance + acceleration). Showing each
+            # as its own card duplicates the KPI in the UI and inflates finding counts.
+            # Fold all 'problem' situations for a given kpi_name into one card, keyed off
+            # the most severe member; every original alert_type is preserved in
+            # merged_alert_types and its narrative folded into key_observations (capped
+            # so a KPI with many simultaneous patterns doesn't produce an unbounded card).
+            situations = self._merge_compound_kpi_situations(situations)
+
             # Sort situations: primary = severity (critical first), secondary = |percent_change| descending
             situations.sort(key=lambda s: (
                 list(SituationSeverity).index(s.severity) if s.severity in SituationSeverity else 99,
@@ -2241,6 +2251,92 @@ class A9_Situation_Awareness_Agent:
             )
             return None
         return result
+
+    def _merge_compound_kpi_situations(self, situations: List['Situation']) -> List['Situation']:
+        """Fold multiple 'problem' alert_types for the same kpi_name into one card.
+
+        A KPI can trigger any number of 11I-A/11I-B patterns in a single scan
+        (threshold_breach, plan_variance, projected_breach, acceleration, compound).
+        Without consolidation each pattern becomes its own Situation, so the same
+        KPI shows up repeatedly in the UI and inflates finding counts. This groups
+        by kpi_name, keeps the most-severe member as the base card, and folds every
+        other member's alert_type/narrative into it — capped so a KPI with many
+        simultaneous patterns still produces a readable card. 'opportunity' cards
+        and KPIs with only one problem alert are passed through unchanged.
+        """
+        _MAX_OBSERVATIONS = 6
+        _MAX_IMPACT_BULLETS = 4
+        _severity_order = {s: i for i, s in enumerate(SituationSeverity)}
+
+        groups: Dict[str, List['Situation']] = {}
+        passthrough: List['Situation'] = []
+        for sit in situations:
+            if sit.card_type == "problem":
+                groups.setdefault(sit.kpi_name, []).append(sit)
+            else:
+                passthrough.append(sit)
+
+        merged: List['Situation'] = []
+        for members in groups.values():
+            if len(members) == 1:
+                merged.append(members[0])
+                continue
+
+            members_sorted = sorted(members, key=lambda s: _severity_order.get(s.severity, 99))
+            primary = members_sorted[0]
+
+            alert_types: List[str] = []
+            impact_bullets: List[str] = []
+            observations: List[str] = []
+            tags: List[str] = []
+            for m in members_sorted:
+                at = m.alert_type or "threshold_breach"
+                if at not in alert_types:
+                    alert_types.append(at)
+                if m.business_impact and m.business_impact not in impact_bullets:
+                    impact_bullets.append(m.business_impact)
+                for obs in (m.key_observations or []):
+                    if obs not in observations:
+                        observations.append(obs)
+                for t in (m.tags or []):
+                    if t not in tags:
+                        tags.append(t)
+            if "compound_multi_alert" not in tags:
+                tags.append("compound_multi_alert")
+
+            # Pattern-specific fields (plan_value, projected_breach_*, acceleration_signal,
+            # compound_*) are each set by exactly ONE member — whichever situation matches
+            # that alert_type — never by all of them at once. Taking these only from
+            # `primary` silently drops them whenever a different pattern (typically
+            # threshold_breach, which is detected first and therefore usually wins ties)
+            # ends up as primary. Scan all members instead, so e.g. a merged card whose
+            # primary is threshold_breach still carries the plan_variance member's
+            # plan_value through to VA registration and the frontend alert badge.
+            def _first(attr: str):
+                for m in members_sorted:
+                    v = getattr(m, attr, None)
+                    if v is not None:
+                        return v
+                return None
+
+            combined = primary.model_copy(update={
+                "merged_alert_types": alert_types,
+                "business_impact": " • ".join(impact_bullets[:_MAX_IMPACT_BULLETS]),
+                "key_observations": observations[:_MAX_OBSERVATIONS] or primary.key_observations,
+                "hitl_required": any(m.hitl_required for m in members_sorted),
+                "tags": tags,
+                "plan_value": _first("plan_value"),
+                "projected_breach_at_period": _first("projected_breach_at_period"),
+                "projection_confidence": _first("projection_confidence"),
+                "periods_until_breach": _first("periods_until_breach"),
+                "acceleration_signal": _first("acceleration_signal"),
+                "compound_alert": any(m.compound_alert for m in members_sorted),
+                "related_kpi_id": _first("related_kpi_id"),
+                "compound_pattern": _first("compound_pattern"),
+            })
+            merged.append(combined)
+
+        return merged + passthrough
 
     async def _fetch_plan_value(self, kpi_def, timeframe, filters, principal_context):
         """Execute plan SQL and return the scalar plan value, or None on any error."""

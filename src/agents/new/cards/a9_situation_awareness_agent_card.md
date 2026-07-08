@@ -430,6 +430,26 @@ Post-processing step called in `detect_situations()` after the main KPI loop, be
 | `related_kpi_id` | `Optional[str]` | The other KPI in the compound pair |
 | `compound_pattern` | `Optional[str]` | Human-readable tension e.g. `"Revenue UP / Gross Margin DOWN — pricing or mix pressure"` |
 
+## Same-KPI Multi-Alert-Type Consolidation (`_merge_compound_kpi_situations()`) (Jul 2026)
+
+A single KPI can trigger several 11I-A/11I-B patterns in one scan (e.g. `threshold_breach` + `plan_variance`; per live Hess data this is the *common* case for revenue/profitability KPIs, not an edge case). Without consolidation each pattern becomes its own `Situation`, duplicating the KPI in the UI and inflating finding counts.
+
+Called in `detect_situations()` after `_detect_compound_alerts()` and after the `(kpi_name, alert_type)` dedup step, right before sorting:
+1. Groups all `card_type == "problem"` situations by `kpi_name` (`card_type == "opportunity"` passes through untouched — never merged).
+2. Sorts each group by severity; the most-severe member becomes `primary` (ties broken by original list order — `threshold_breach` is detected before `plan_variance`/`projected_breach`/`acceleration` in the per-KPI loop, so it usually wins ties and becomes primary).
+3. Builds the merged card via `primary.model_copy(update={...})`:
+   - `merged_alert_types`: every distinct `alert_type` folded in (`primary.alert_type` itself is left unchanged — it still reflects only the primary member's own pattern).
+   - `business_impact`: concatenated bullets from all members (` • `-joined, capped at 4).
+   - `key_observations`: deduped union, capped at 6.
+   - `hitl_required`: `True` if **any** member requires it.
+   - `tags`: union of all members' tags, plus `"compound_multi_alert"`.
+
+**Pattern-specific fields are pulled from whichever member set them, not from `primary` alone** (fixed Jul 2026 — see below): `plan_value`, `projected_breach_at_period`, `projection_confidence`, `periods_until_breach`, `acceleration_signal`, `compound_alert`, `related_kpi_id`, `compound_pattern`. These fields are mutually exclusive by construction — only the plan_variance-tagged situation ever sets `plan_value`, only the projected_breach one sets `projected_breach_at_period`, etc. — so scanning all members for a non-`None` value has no conflict to resolve.
+
+**Bug fixed Jul 2026:** the initial version only copied the five fields above (`merged_alert_types`/`business_impact`/`key_observations`/`hitl_required`/`tags`) via `model_copy`; every pattern-specific field silently fell back to `primary`'s own value. Since `threshold_breach` usually wins the primary slot, this meant `plan_value` was `None` on most merged cards despite `merged_alert_types` correctly listing `plan_variance` as present — breaking VA's `plan_value_at_approval` capture (11I-C) for any KPI with a compound alert, and suppressing the `KPITile` alert badge (which reads `alert_type`, sees `threshold_breach`, and renders nothing). Verified fixed against a live Hess scan: 3 of 4 merged cards had `threshold_breach` as primary, all three now correctly carry `plan_value`.
+
+**Known follow-up (not yet built):** `KPITile.tsx`'s alert badge still reads only `situation.alert_type` (singular) — it will show the primary pattern's badge but not surface the other folded-in patterns from `merged_alert_types`. Separately, DA's own alert-type-aware SCQA framing (`DeepAnalysisRequest.alert_type`/`.compound_pattern`, consumed in `a9_deep_analysis_agent.py`'s prompt construction) is structurally unreachable from the live workflow — `DeepAnalysisWorkflowRequest` (the HTTP-level model `workflows.py` actually builds) has no field to carry `alert_type`/`compound_pattern`/`merged_alert_types` through, and the route never looks them up from the situation. This predates this fix and is a separate, untracked gap.
+
 ## Future Enhancements
 - Integration with A9_NLP_Interface_Agent for advanced query parsing
 - Enhanced business impact analysis using LLM

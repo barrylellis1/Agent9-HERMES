@@ -265,6 +265,13 @@ class Situation(BaseModel):
     compound_alert: bool = Field(False, description="True when this situation is part of a cross-KPI conflict pattern")
     related_kpi_id: Optional[str] = Field(None, description="The other KPI involved in the compound alert")
     compound_pattern: Optional[str] = Field(None, description="Human-readable description of the compound tension, e.g. 'Revenue UP / Gross Margin DOWN — pricing or mix pressure'")
+    # Same-KPI multi-alert-type consolidation (e.g. a KPI triggers both threshold_breach
+    # and plan_variance in the same scan). `alert_type` stays the most-severe pattern for
+    # backward compatibility; `merged_alert_types` lists every pattern folded into this card.
+    merged_alert_types: Optional[List[str]] = Field(
+        None,
+        description="All alert_type patterns folded into this card when the same KPI triggers more than one in a single scan. None/absent when only one pattern fired."
+    )
 
     @classmethod
     def from_opportunity_signal(cls, signal: "OpportunitySignal", kpi_value: "KPIValue") -> "Situation":
