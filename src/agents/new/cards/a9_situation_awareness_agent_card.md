@@ -89,12 +89,14 @@ class NLQueryResponse(BaseResponse):
 - A9_NLP_Interface_Agent: For advanced natural language processing (future)
 - A9_LLM_Service_Agent: For SQL generation from natural language queries
 
-## LLM Configuration
-| Task Type | Optimal Model | Rationale |
-|-----------|---------------|-----------|
-| `sql_generation` | `gpt-4o-mini` | Fast, cost-effective SQL generation from natural language |
+## LLM Configuration (Anthropic — via A9_LLM_Service_Agent)
+| Use | Task Type | Model | Rationale |
+|-----|-----------|-------|-----------|
+| Situation-card observations | `nlp_parsing` (temperature 0.2) | `claude-haiku-4-5-20251001` | 2–3 short plain-language KPI observations as JSON array |
+| Headline-vs-trend tension one-liner | `nlp_parsing` (temperature 0.2) | `claude-haiku-4-5-20251001` | Single-sentence tension framing for CFO |
+| `sql_generation` (NL query path) | `sql_generation` | `claude-haiku-4-5-20251001` | Fast, cost-effective SQL generation from natural language |
 
-Environment variable override: `OPENAI_MODEL_SQL`
+Environment variable overrides: `CLAUDE_MODEL_NLP` (observations + tension line), `CLAUDE_MODEL_SQL`. As of Jul 2026 all SA call sites resolve models via `get_claude_model_for_task()` — no hardcoded model strings remain.
 
 ## Assignment & HITL
 - Delayed assignment until Deep Analysis completes; ownership mapping can be more precise once scope is identified across dimensions.

@@ -19,9 +19,9 @@ Defined in `src/agents/agent_config_models.py`:
 class A9_KPI_Assistant_Agent_Config(BaseModel):
     model_config = ConfigDict(extra="allow")
     
-    # LLM settings
-    llm_provider: str = "openai"
-    llm_model: str = "gpt-4-turbo"
+    # LLM settings — honour LLM_PROVIDER env var (default "anthropic")
+    llm_provider: str            # default from LLM_PROVIDER env var
+    llm_model: str               # "claude-sonnet-4-6" when anthropic (default); "gpt-4-turbo" legacy openai
     temperature: float = 0.7
     max_tokens: int = 4096
     

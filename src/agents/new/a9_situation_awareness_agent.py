@@ -45,6 +45,7 @@ from src.models.kpi_models import KPI, KPIThreshold, KPIComparisonMethod
 
 # LLM Service models for SQL generation
 from src.agents.new.a9_llm_service_agent import A9_LLM_SQLGenerationRequest
+from src.llm_services.claude_service import ClaudeTaskType, get_claude_model_for_task
 
 # Data quality filtering utility
 from src.agents.utils.data_quality_filter import DataQualityFilter
@@ -3723,7 +3724,8 @@ class A9_Situation_Awareness_Agent:
                 prompt=prompt,
                 operation="generate",
                 temperature=0.2,
-                model="claude-haiku-4-5-20251001",
+                # Haiku via routing table — overridable via CLAUDE_MODEL_NLP
+                model=get_claude_model_for_task(ClaudeTaskType.NLP_PARSING),
             )
 
             response = await self.llm_service_agent.generate(request)
@@ -3807,7 +3809,8 @@ class A9_Situation_Awareness_Agent:
                 prompt=prompt,
                 operation="generate",
                 temperature=0.2,
-                model="claude-haiku-4-5-20251001",
+                # Haiku via routing table — overridable via CLAUDE_MODEL_NLP
+                model=get_claude_model_for_task(ClaudeTaskType.NLP_PARSING),
             )
 
             response = await self.llm_service_agent.generate(request)

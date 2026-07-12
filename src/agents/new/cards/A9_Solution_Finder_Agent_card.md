@@ -42,12 +42,13 @@ class A9_Solution_Finder_Agent_Config(BaseModel):
 - `A9_Deep_Analysis_Agent` (consumes its output for context)
 - `A9_LLM_Service_Agent` (persona debate and narrative synthesis; fallback acquisition from AgentRegistry if not injected)
 
-## LLM Configuration
-| Task Type | Optimal Model | Rationale |
-|-----------|---------------|-----------|
-| `solution_finding` | `o1-mini` | Complex multi-perspective reasoning for solution generation and trade-off analysis |
+## LLM Configuration (Anthropic — via A9_LLM_Service_Agent)
+| Task Type | Model | Rationale |
+|-----------|-------|-----------|
+| `stage1_persona` | `claude-haiku-4-5-20251001` | 3 parallel focused single-persona calls; temperature=0.0 for deterministic hypotheses |
+| `synthesis` | `claude-sonnet-4-6` | Cross-review and consensus synthesis; max_tokens raised to 16384 |
 
-Environment variable override: `OPENAI_MODEL_SOLUTION`
+Environment variable overrides: `CLAUDE_MODEL_STAGE1`, `CLAUDE_MODEL_SYNTHESIS`
 
 ## Key Features (Dec 2024)
 - **Business Context Injection**: Loads domain-specific context from `src/registry_references/business_context/*.yaml` to inform LLM recommendations

@@ -63,12 +63,13 @@ class A9_Deep_Analysis_Agent_Config(BaseModel):
 - `A9_Data_Governance_Agent` (glossary/KPI context)
 - `A9_LLM_Service_Agent` (optional narrative summarization via orchestrator)
 
-## LLM Configuration
-| Task Type | Optimal Model | Rationale |
-|-----------|---------------|-----------|
-| `reasoning` | `o1-mini` | Complex reasoning for narrative summarization and hypothesis generation |
+## LLM Configuration (Anthropic — via A9_LLM_Service_Agent)
+| Task Type | Model | Rationale |
+|-----------|-------|-----------|
+| `nlp_parsing` | `claude-haiku-4-5-20251001` | Insight extraction — pure JSON classification, no reasoning needed |
+| `reasoning` (default) | `claude-sonnet-4-6` | Narrative summarization (SCQA) and refinement question generation |
 
-Environment variable override: `OPENAI_MODEL_REASONING`
+Environment variable overrides: `CLAUDE_MODEL_NLP`, `CLAUDE_MODEL_REASONING`
 
 ## Planning and Execution
 - Dimensions are sourced from the Data Product Contract YAML (`src/registry_references/data_product_registry/data_products/fi_star_schema.yaml`) using `llm_profile.dimension_semantics` for `FI_Star_View`.

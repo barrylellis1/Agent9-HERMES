@@ -1,10 +1,10 @@
 # A9_LLM_Service_Agent Card
 
-**Last Updated:** 2026-05-08  
-**Status:** MVP (Centralized LLM Gateway)
+**Last Updated:** 2026-07-12  
+**Status:** Operational (Centralized LLM Gateway — Anthropic primary)
 
 ## Overview
-The `A9_LLM_Service_Agent` is the shared LLM gateway for Agent9. It standardizes all large-language-model operations, enforces guardrails, applies prompt templates, and abstracts provider-specific APIs (OpenAI, Anthropic). All other agents must route LLM interactions through this agent to guarantee policy compliance, logging, and consistent model selection.
+The `A9_LLM_Service_Agent` is the shared LLM gateway for Agent9. It standardizes all large-language-model operations, enforces guardrails, applies prompt templates, and abstracts provider-specific APIs. **Anthropic (Claude) is the primary provider** (`LLM_PROVIDER=anthropic`, the default); OpenAI remains as a legacy fallback path only when `LLM_PROVIDER=openai` is explicitly set. All other agents must route LLM interactions through this agent to guarantee policy compliance, logging, and consistent model selection.
 
 ## Protocol Entrypoints
 
@@ -25,10 +25,10 @@ Defined in `src/agents/agent_config_models.py`:
 ```python
 class A9_LLM_Service_Agent_Config(BaseModel):
     model_config = ConfigDict(extra="allow")
-    provider: str = "openai"
-    model_name: Optional[str] = None
+    provider: str            # default from LLM_PROVIDER env var → "anthropic" (default) or "openai"
+    model_name: Optional[str] = None   # None → auto-selected from task_type via routing table
     task_type: str = "general"
-    api_key_env_var: str = "OPENAI_API_KEY"
+    api_key_env_var: str     # auto-set from provider: ANTHROPIC_API_KEY / OPENAI_API_KEY
     max_tokens: int = 4096
     temperature: float = 0.7
     guardrails_path: str = "docs/cascade_guardrails.yaml"
@@ -39,14 +39,35 @@ class A9_LLM_Service_Agent_Config(BaseModel):
     use_mocks_in_test: bool = True
 ```
 
+## Model Routing (Anthropic — primary provider)
+
+Task-based routing lives in `src/llm_services/claude_service.py` (`get_claude_model_for_task()`). Per-call `model` on the request overrides everything; otherwise env var override, then default:
+
+| ClaudeTaskType | Default model | Env override | Consumed by |
+|---|---|---|---|
+| `SQL_GENERATION` | `claude-haiku-4-5-20251001` | `CLAUDE_MODEL_SQL` | `generate_sql()` entrypoint |
+| `NLP_PARSING` | `claude-haiku-4-5-20251001` | `CLAUDE_MODEL_NLP` | DA insight extraction (JSON classification); VA narrative generation |
+| `STAGE1_PERSONA` | `claude-haiku-4-5-20251001` | `CLAUDE_MODEL_STAGE1` | SF Stage 1 — 3 parallel persona calls (temperature=0.0 set by SF) |
+| `REASONING` | `claude-sonnet-4-6` | `CLAUDE_MODEL_REASONING` | DA narrative summarization / hypotheses |
+| `SOLUTION_FINDING` | `claude-sonnet-4-6` | `CLAUDE_MODEL_SOLUTION` | Legacy task type (SF now uses STAGE1_PERSONA + SYNTHESIS) |
+| `BRIEFING` | `claude-sonnet-4-6` | `CLAUDE_MODEL_BRIEFING` | Reserved (PIB briefing composition is deterministic Jinja2, no LLM) |
+| `SYNTHESIS` | `claude-sonnet-4-6` | `CLAUDE_MODEL_SYNTHESIS` | SF synthesis/cross-review; Market Analysis signal synthesis |
+| `GENERAL` | `claude-sonnet-4-6` | `CLAUDE_MODEL` | KPI Assistant, Accountability Interview (config default) |
+
+Per-task generation defaults (temperature/max_tokens) are also defined in `claude_service.py` — e.g. SQL/NLP at 0.1, synthesis at 0.7/8192. Callers may override per request (SF raises synthesis `max_tokens` to 16384).
+
+### Known routing deviations (call sites that bypass the routing table)
+- `a9_accountability_interview_agent.py`: hardcodes its own constants `MODEL_CHAT = "claude-haiku-4-5-20251001"` and `MODEL_ANALYSIS = "claude-sonnet-4-6"`.
+- (Resolved Jul 2026: SA's situation-card observations and tension one-liner previously hardcoded Haiku; both now resolve via `get_claude_model_for_task(NLP_PARSING)` and honour `CLAUDE_MODEL_NLP`.)
+
 ## Guardrails & Prompt Templates
-- Guardrails YAML defines provider-specific system prompts, prohibited patterns, and required behaviors.
+- Guardrails YAML defines provider-specific system prompts, prohibited patterns, and required behaviors. (Note: the Claude system prompt is read from the legacy YAML key `system_prompts.claude_sonnet_thinking.content`.)
 - Prompt templates are parsed from Markdown (`docs/cascade_prompt_templates.md`) and can be formatted with runtime variables.
 - System prompts fall back to guardrail defaults unless `system_prompt_override` is supplied.
 
 ## Provider Abstraction
-- **OpenAI**: Auto-selects model via `task_type` when explicit `model_name` not provided (e.g., `solution_finding` → `o1-mini`).
-- **Anthropic**: Defaults to `claude-3-sonnet-20240229` unless overridden.
+- **Anthropic (primary)**: `src/llm_services/claude_service.py` — async Messages API (`client.messages.create`), task-based model routing per the table above. Sampling uses explicit `temperature` on every call (**note:** incompatible with Fable 5 / Opus 4.7+ / Sonnet 5 non-default values — a capability-aware request builder is required before adopting those models).
+- **OpenAI (legacy fallback)**: `src/llm_services/openai_service.py` — only initialized when `LLM_PROVIDER=openai`; task map defaults to `gpt-4-turbo`. Not exercised in the current deployment (`.env` sets `LLM_PROVIDER=anthropic`).
 - Validates API key presence via config or environment. Initialization errors raise `RuntimeError` to surface misconfiguration early.
 
 ## Usage Notes
@@ -133,14 +154,12 @@ status: str                         # "success" or "error"
 | SQL validation fails | `generate_sql()` | confidence reduced (0.7×) + warnings appended |
 | Timeout/network | All methods | Exception propagates; caller must handle or retry |
 
-## Recent Updates (Mar 2026)
-- Switched to Anthropic Claude as primary provider (OpenAI fallback supported)
-- Task-based model routing: `CLAUDE_MODEL_STAGE1`, `CLAUDE_MODEL_SYNTHESIS`, etc.
-- SQL generation confidence scoring with validation warnings (unsafe patterns, non-SELECT start)
-- Template support via Jinja2 formatting (in-memory cache via service layer)
+## Recent Updates
+- **Jul 2026**: Card refreshed — documented Anthropic-primary routing table, env overrides, per-agent consumers, and known routing deviations (SA hardcoded call sites). Flagged `temperature` incompatibility with Fable 5 / Opus 4.7+ / Sonnet 5 as a prerequisite for any model upgrade.
+- **Mar 2026**: Switched to Anthropic Claude as primary provider (`LLM_PROVIDER=anthropic` default; OpenAI legacy fallback). Task-based model routing (`CLAUDE_MODEL_STAGE1`, `CLAUDE_MODEL_SYNTHESIS`, etc.). SQL generation confidence scoring with validation warnings. Template support via Jinja2 formatting.
 
 ## Dependencies
-- `src/llm_services/claude_service.py` (async Messages API)
-- `src/llm_services/openai_service.py` (sync, fallback)
+- `src/llm_services/claude_service.py` (async Messages API — primary)
+- `src/llm_services/openai_service.py` (sync, legacy fallback)
 - Guardrails file: `docs/cascade_guardrails.yaml`
 - Prompt templates: `docs/cascade_prompt_templates.md`
