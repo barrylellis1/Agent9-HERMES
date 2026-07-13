@@ -1334,7 +1334,23 @@ Shipped as designed with two deviations: the effort env var is `A9_LLM_EFFORT` (
 
 **Scope:** S. Rollback = one env var (`CLAUDE_MODEL_SYNTHESIS=claude-sonnet-4-6`).
 
-#### 11O-C: Fable 5 Gated Experiment (env-override only — no default change)
+#### 11O-C: Fable 5 Gated Experiment — evidence collected, adoption deferred (Jul 2026)
+
+**Three A/B rounds run (2026-07-13), all on lubricants gross_margin_pct with frozen DA + identical synthesis inputs per round:**
+
+| Round | Input shape | Sonnet 5 | Fable 5 |
+|---|---|---|---|
+| 1 | Degraded DA (empty segments, data contradiction) | Epistemically careful but underpowered ("audit the data first"), 139s | Flagged the contradiction AND made the call; sharpest inference; 111s |
+| 2 | Segment-rich DA, no Stage 1 (non-production shape) | Hit SF's 16384 max_tokens — truncated to 2 options | Complete 3-option briefing, 9.2K tokens, 115s |
+| 3 | **Production-shaped** (41 segments + MBB Stage 1) | Complete, high quality: cost audit + pricing recalibration, 12–22pp anchored recovery, 114s, ~$0.14 | Complete, modestly sharper: used the internal benchmark (High Mileage Engine Oil +15pp) as replication anchor, explicit lever-risk causality, 111s, ~$0.60 |
+
+**Verdict against the decision gate:** on clean production-shaped input, Fable is modestly better — not visibly 3× better. On degraded/contradictory input, Fable is clearly the strongest reasoner. Fable's natural home is therefore the **offline enterprise assessment** (messy data, latency-insensitive, quality-is-the-deliverable) — but that pipeline is SA-only today (DA/SF are HITL). **Decision: keep Sonnet 5 as the routing default; revisit Fable adoption when background DA/SF execution ships (Phase 11M/11N)** — at that point set `CLAUDE_MODEL_SYNTHESIS=claude-fable-5` on the scheduled path only. The capability layer (11O-A) makes that a config change.
+
+**Watch item:** Sonnet 5 synthesis outputs run 11–16K tokens (vs Fable's ~9K) — round 3 used 11.2K of the 16384 cap. The cap only truncated on a non-production input shape, but headroom is thin; consider raising SF synthesis `max_tokens` to ~20000 defensively.
+
+**Deferred (optional):** the loosened-scaffolding Fable variant (Phase 12 prompt constraints relaxed) — run if/when Fable adoption is activated.
+
+Original deliverables table (for reference):
 
 | Deliverable | Description |
 |---|---|
