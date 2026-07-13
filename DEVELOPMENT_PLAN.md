@@ -55,6 +55,7 @@ run_enterprise_assessment.py
 | DA market signal conflict detection (Phase 11F) — keyword scan of MA signals vs. DA `analysis_mode`; amber conflict badge + confidence % in Root Cause Analysis accordion | Production-ready (Phase 11F complete) |
 | DA Mixed Analysis Mode (Phase 11G) — single IS/IS NOT view with problem (red) + opportunity (green) segments; mixed SCQA narrative; HITL resolution panel; SF `analysis_mode` propagation; 22 unit tests | Production-ready (Phase 11G complete) |
 | DA Statistical Enrichment — partial (Phase 11H) — `effect_size_pct` (segment share of total gap), `is_outlier` flag (>mean+2σ), outlier segments forced to `control_group`; `replication_potential` now evidence-based; effect-size chips + Outlier badge in UI | Partial — effect size + outlier classification shipped; seasonal decomposition deferred |
+| DA Segment Matrix (11I-A/B Addendum) — same-KPI cross-basis Is/Is-Not table (previous-period + plan-variance joined on shared dimensional rows); confirmed/basis_specific/secondary_only/healthy tier per segment; SF scoping prioritises confirmed tiers; replaces contradictory same-KPI problem+opportunity cards; 42 unit tests | Production-ready (Jul 2026) |
 | Infra A4 — per-request registry refresh, client_id enforcement on all list endpoints, /admin/registry/reload, connection health dashboard | Production-ready |
 | Infra B — connection profiles backend storage + credential encryption (AES-256 at rest) | Production-ready |
 | Infra B — Supabase Auth dual-mode login (demo selector + email/password), backend JWT middleware | Production-ready |
@@ -91,7 +92,7 @@ run_enterprise_assessment.py
 | KPI Assistant UI | Phase 12 |
 | Slack notifications | Phase 12 |
 | Executive Briefing Quality + Principal-Adaptive Output | Phase 13 |
-| ~~**Uniform Time Dimension Layer**~~ — `TimeDimensionSpec` typed contract on every data product; single `TimeFilter` utility replaces 4 fragmented DPA mechanisms; 78 unit tests; all backends | ✅ Phase 10F — complete (May 2026) |
+| ~~**Uniform Time Dimension Layer**~~ — `TimeDimensionSpec` typed contract on every data product; single `TimeFilter` utility replaces 4 fragmented DPA mechanisms; 78 unit tests; all backends | ✅ Phase 10F — complete (May 2026). **Bug fix Jul 2026:** `*-to-date` previous-period comparisons (YTD/QTD/MTD) were comparing a partial current window against the *full* prior period instead of the same partial window one year back; DA's dimensional previous-query call sites were also double-applying the year shift (2 years back instead of 1). Both fixed in `_fyp_previous`/`_date_previous` and the 6 affected DA call sites — see 11I-A/B Addendum below. |
 | **Time Dimension Mapping Wizard** — during onboarding schema inspection (step 2), auto-detect date columns and fragments (year, period, timestamp, etc.) per dialect; propose `display_expr` / `sort_expr` for `TimeDimensionSpec`; user confirms or edits; no developer seed changes required for new clients | Phase 12 |
 | **Data Product Schema Sync / Drift Detection** — store `schema_snapshot` + `last_synced_at` on `DataProduct`; "Re-sync" button in Admin Console re-inspects live source, diffs against snapshot, flags affected KPIs, surfaces reconciliation UI; triggers: manual + pre-assessment auto-detect; impacted KPI SQL flagged before next assessment runs | Infra A5 |
 | Platform Admin & Client Onboarding (4-step guided flow) | Infra A2 |
@@ -693,6 +694,24 @@ VA currently tracks three trajectories: inaction, expected, actual. With plan/bu
 
 ---
 
+##### 11I-A/B Addendum: DA Segment Matrix ✅ COMPLETE (Jul 2026)
+
+**Not originally scoped — emerged from a live production-shaped bug.** A KPI breaching on both the previous-period basis (`threshold_breach`) and the plan-variance basis (`plan_variance`) rendered as two separate, contradictory situation cards — e.g. EBITDA down 70% YoY shown alongside a green "ahead of plan" opportunity card that confusingly displayed the same −70% figure. The two bases are different perspectives on the same KPI and needed reconciling into one shared-frame view, not two rival cards.
+
+| Deliverable | Description |
+|---|---|
+| SA `_merge_compound_kpi_situations` fold | A `plan_variance` situation for a KPI that already has a `problem` card folds into that card instead of rendering standalone — eliminates the contradictory-card display bug |
+| DA segment matrix | When `merged_alert_types` contains both `threshold_breach` and `plan_variance` and budget data is available, DA re-runs the dimensional grouping for the secondary basis and joins `secondary_delta` + `basis_agreement` onto the primary Is/Is-Not table's rows — one shared-frame table, not a second KT pass or LLM narrative fusion |
+| `_classify_basis_agreement` | Four-tier per-segment classification: `confirmed` (adverse on both bases — real problem), `basis_specific` (adverse on primary only — likely a comparison artifact), `secondary_only` (adverse on secondary only — missed by the primary diagnosis), `healthy` |
+| Budget-SQL substitution fix | DPA's `generate_sql_for_kpi` silently drops its `filters` argument, so the matrix's secondary Budget pass was producing SQL identical to the Actual pass (delta=0 for every segment). Fixed via a `_budget_variant_kpi` proxy that pre-substitutes the version filter in the stored SQL (mirrors SA's `_derive_plan_sql`), applied at all 3 DA budget-comparison call sites (dimensional, total-summary, hierarchical) |
+| SF tier-aware scoping | Solution Finder derives `confirmed_problem_segments` from the matrix tiers and prioritises them in the option-generation prompt; `basis_specific` segments are flagged as probable artifacts, not built around |
+| Frontend | `IsIsNotExhibit` renders a second delta column (secondary basis) + tier chip per row; `—` shown for segments absent from the secondary grouping (was rendering as `$0`) |
+| Unit tests | 42 tests in `test_da_alert_comparator.py` — comparator precedence, matrix eligibility, basis-agreement tiers (incl. inverse-logic cost KPIs), budget-SQL derivation across SQL Server / BigQuery / Snowflake dialects, response round-trips |
+
+**Also fixed while verifying against live data** (see Phase 10F note above): the matrix's own verification was showing spurious 100%-adverse results until the underlying `TimeFilter` YoY window bug was found and fixed — worth noting since it would otherwise have looked like a matrix defect rather than a pre-existing timeframe defect.
+
+---
+
 ##### 11I-D: PIB Alert-Type Differentiation
 
 PIB email and flash briefing currently presents all situation cards with equivalent visual weight and narrative framing. With 6 distinct alert types, the briefing should prioritise, section, and frame them differently.
@@ -1261,6 +1280,53 @@ Pre-11K through 11N are deferred until the existing pipeline survives a complete
 3. Ship Phase 11I (Alert Intelligence) — complete the active phase
 4. Build `scripts/clients/meridian.py` seed script as a standalone task — this is the only Pre-11K deliverable worth building now; it stress-tests BQ onboarding and provides a richer demo dataset regardless of whether 11K–11N ships
 5. Implement 11K–11N when a prospect conversation confirms dimensional depth as a requirement, or when a specific SAP CO-PA / operational data model demo is scheduled
+
+---
+
+### Phase 11O: LLM Model Routing Modernization + Fable 5 A/B (Jul 2026)
+
+**Goal:** Make the LLM service layer capability-aware so newer Claude models (Sonnet 5, Opus 4.8, Fable 5) can be adopted per-task via the existing routing table, then A/B the highest-value call sites against the current Sonnet 4.6 / Haiku 4.5 baseline.
+
+**Why this matters:** The routing table pins Sonnet 4.6 (Feb 2026 generation) for synthesis/reasoning and the SF card documents repeated prompt-scaffolding fights against its reasoning limits (recovery_range 0.0 fallback, consistency-check paradox, boilerplate rationale). Sonnet 5 is the same sticker price with near-Opus quality ($2/$10 intro through Aug 2026); Fable 5 is a targeted experiment for the two call sites where analysis quality *is* the product — SF synthesis and the offline enterprise assessment (the stated commercial moat). Blocker today: `ClaudeService.generate()` unconditionally passes `temperature`, which returns 400 on Fable 5 / Opus 4.7+ and on Sonnet 5 for non-default values.
+
+**Relationship to the 2026-07-02 "harden before expanding" decision:** 11O-A/B are hardening-compatible — small scope, no new agents, no new infrastructure, and they de-risk every future model migration. 11O-C is an experiment explicitly gated behind env overrides: zero production behavior change unless the A/B wins.
+
+**Baseline (recorded 2026-07-12, commit 941a425):** unit suite 508 passed / 9 skipped / 2 pre-existing failures unrelated to LLM routing (`test_get_portfolio_summary_empty_store` — local VA store not empty; `test_generate_sql_ignores_all_tokens_in_filters` — column casing drift). All SA call sites route via `get_claude_model_for_task()`; only remaining deviation is Accountability Interview's hardcoded constants.
+
+#### 11O-A: Capability-Aware Request Builder (prerequisite)
+
+| Deliverable | Description |
+|---|---|
+| Model capability map in `claude_service.py` | Per-model-family flags: `accepts_temperature`, `supports_thinking_config`, `supports_effort`, `max_output_tokens`. Keyed by model-ID prefix (e.g. `claude-sonnet-4-`, `claude-sonnet-5`, `claude-opus-4-8`, `claude-fable-5`). |
+| Request builder | `generate()` / `analyze()` etc. consult the map: drop `temperature`/`top_p`/`top_k` for models that reject them; pass `output_config.effort` where supported (env-tunable per task, default `high`). |
+| `stop_reason` handling | Check `stop_reason == "refusal"` before reading content; return `A9_LLM_Response(status="error", error_message=...)` with the refusal category in warnings. Required for Fable 5; harmless elsewhere. |
+| Server-side fallbacks (Fable only) | When the resolved model is `claude-fable-5`, include `betas=["server-side-fallback-2026-06-01"]` + `fallbacks=[{"model": "claude-opus-4-8"}]` so classifier false-positives degrade to Opus instead of failing the request. |
+| `anthropic` SDK bump | 0.84.0 → latest; verify `output_config` / `fallbacks` parameter support. |
+| Unit tests | 4 — temperature dropped for Fable/Opus-4.8/Sonnet-5 IDs; temperature preserved for Sonnet 4.6/Haiku; refusal stop_reason → status="error"; capability map fallback for unknown model IDs (conservative: send no sampling params). |
+
+**Scope:** S–M. No behavior change for current models — pure enablement.
+
+#### 11O-B: Routing Table Refresh — Sonnet 5
+
+| Deliverable | Description |
+|---|---|
+| Routing table update | `REASONING` / `SYNTHESIS` / `GENERAL` (+ `SOLUTION_FINDING`, `BRIEFING`) → `claude-sonnet-5`. `STAGE1_PERSONA` / `NLP_PARSING` / `SQL_GENERATION` stay on Haiku 4.5. |
+| Stage 1 determinism check | Sonnet 5 rejects non-default sampling; Stage 1 stays on Haiku 4.5 (temperature 0.0 preserved) — no change, but verify the capability map doesn't strip Haiku's temperature. |
+| A/B validation | Run the Lubricants gross-margin scenario end-to-end (DA → SF full debate) on Sonnet 4.6 vs Sonnet 5 with identical inputs. Compare: synthesis rationale specificity, recovery_range plausibility, consistency-check pass rate, latency, token cost. |
+| Regression gate | Unit suite matches the 941a425 baseline (508 pass; the 2 pre-existing failures tracked separately). |
+
+**Scope:** S. Rollback = one env var (`CLAUDE_MODEL_SYNTHESIS=claude-sonnet-4-6`).
+
+#### 11O-C: Fable 5 Gated Experiment (env-override only — no default change)
+
+| Deliverable | Description |
+|---|---|
+| Org retention check | Confirm the Anthropic org meets Fable's 30-day data-retention requirement before any call (ZDR orgs 400 on every request). Also a client-facing consideration — document for enterprise conversations. |
+| SF synthesis A/B | `CLAUDE_MODEL_SYNTHESIS=claude-fable-5` in dev only. Full-mode debate on the Lubricants scenario; per the Fable migration guidance, also test with Phase 12 prompt scaffolding (CONSISTENCY CHECK, recovery anchors) loosened — over-prescriptive prompts reduce Fable output quality. |
+| Offline assessment A/B | `run_enterprise_assessment.py` run with Fable synthesis — latency-insensitive, quality-is-the-deliverable context. Evaluate Batch API (50% discount → Opus-standard pricing) if adopted. |
+| Decision gate | Fable earns a routing-table place only if it visibly beats Sonnet 5 on synthesis quality at ~3.3× the price. Otherwise close the experiment and record findings here. |
+
+**Scope:** S (experiment). **Dependencies:** 11O-A (blocker), 11O-B (comparison baseline).
 
 ---
 
