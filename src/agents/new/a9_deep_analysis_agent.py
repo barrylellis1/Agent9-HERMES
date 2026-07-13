@@ -255,6 +255,190 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
     def _prev_timeframe(self, timeframe: Optional[str]) -> Optional[str]:
         return TimeFilter.previous_period_name(timeframe)
 
+    # ── Phase 11I-D: alert-type-aware comparator selection ──────────────────────
+    _TIME_BASED_ALERT_TYPES = {"threshold_breach"}
+
+    @staticmethod
+    def _kpi_has_budget_data(kpi_def: Any) -> bool:
+        """True when the KPI can be diagnosed against a Budget/Plan basis.
+
+        Checks `plan_version_value` (the field SA/DPA use to derive plan SQL) first,
+        then any threshold whose comparison_type is 'budget' or 'plan_variance'. Note
+        SA's plan_variance alert uses ComparisonType.PLAN_VARIANCE — a different enum
+        member than the narrow 'budget' scan _pick_threshold_spec does — so both must
+        be checked here or a plan_variance-only KPI would look budget-less.
+        """
+        if getattr(kpi_def, "plan_version_value", None):
+            return True
+        for t in (getattr(kpi_def, "thresholds", None) or []):
+            ct = getattr(t, "comparison_type", None) or (t.get("comparison_type") if isinstance(t, dict) else None)
+            ct_str = str(getattr(ct, "value", ct)).lower() if ct is not None else ""
+            if ct_str in ("budget", "plan_variance"):
+                return True
+        return False
+
+    @staticmethod
+    def _derive_budget_sql(sql_query: Optional[str], plan_version_value: Optional[str]) -> Optional[str]:
+        """Substitute the version filter in the actuals SQL to produce budget SQL.
+
+        Mirrors SA's `_derive_plan_sql` exactly (same regex, same quoting styles).
+        The DPA's `generate_sql_for_kpi` silently DROPS its `filters` argument, so the
+        budget-dimensional pass cannot get a Budget query by passing filters={"Version":
+        "Budget"} — both passes would produce the actuals SQL and every segment delta
+        would be 0. Instead we pre-substitute the version in the stored sql_query and
+        feed the DPA a proxy whose sql_query is already the budget variant. Handles
+        double-quoted ("version"), bracket-quoted ([version]), backtick and bare styles.
+        Returns None when no version='Actual' filter is present.
+        """
+        import re as _re
+        if not sql_query or not plan_version_value:
+            return None
+        pattern = r'((?:"version"|\[version\]|`version`|version))\s*=\s*\'Actual\''
+        replacement = r'\1' + f" = '{plan_version_value}'"
+        result, count = _re.subn(pattern, replacement, sql_query, flags=_re.IGNORECASE)
+        if count == 0:
+            return None
+        return result
+
+    def _budget_variant_kpi(self, kpi_def: Any) -> Optional[Any]:
+        """Clone `kpi_def` with its sql_query rewritten to the Budget version, or None
+        if no budget SQL can be derived (no plan_version_value / no version filter)."""
+        pvv = getattr(kpi_def, "plan_version_value", None) or "Budget"
+        budget_sql = self._derive_budget_sql(
+            getattr(kpi_def, "sql_query", None) or getattr(kpi_def, "calculation", None),
+            pvv,
+        )
+        if not budget_sql:
+            return None
+
+        class _BudgetKpiProxy:
+            """KPI-like object carrying the budget-substituted sql_query."""
+            def __init__(self, base_kpi: Any, sql_override: str) -> None:
+                self.sql_query = sql_override
+                self.calculation = sql_override
+                self.name = getattr(base_kpi, "name", "budget")
+                self.id = getattr(base_kpi, "id", "budget")
+                self.metadata = getattr(base_kpi, "metadata", {})
+                self.unit = getattr(base_kpi, "unit", None)
+                self.data_product_id = getattr(base_kpi, "data_product_id", None)
+                self.plan_version_value = getattr(base_kpi, "plan_version_value", None)
+
+        return _BudgetKpiProxy(kpi_def, budget_sql)
+
+    def _resolve_da_comparator(self, plan: Any, kpi_def: Any, registry_comparator: str) -> str:
+        """Choose the Is/Is-Not comparison basis: 'previous' (vs prior period) or 'budget'.
+
+        Precedence: explicit drill override > the dominant alert_type's basis >
+        today's registry-preference default (`registry_comparator`, unchanged for
+        non-situation-originated calls).
+        """
+        override = getattr(plan, "comparator_override", None)
+        if override in ("previous", "budget"):
+            return override
+
+        alert_type = getattr(plan, "alert_type", None)
+        if alert_type == "plan_variance":
+            if self._kpi_has_budget_data(kpi_def):
+                return "budget"
+            self.logger.warning(
+                "[DA] alert_type=plan_variance but KPI '%s' has no resolvable budget data; "
+                "falling back to registry comparator '%s'",
+                getattr(kpi_def, "id", getattr(plan, "kpi_name", "?")), registry_comparator,
+            )
+        elif alert_type in self._TIME_BASED_ALERT_TYPES:
+            return "previous"
+
+        return registry_comparator
+
+    def _is_matrix_eligible(self, plan: Any, kpi_def: Any, comparator_main: str) -> bool:
+        """True when a KPI breached on BOTH cross-sectional bases (previous-period AND
+        plan-variance) and budget data is available — so the two can share one Is/Is-Not
+        table as a segment × basis matrix. Temporal/relational patterns (projected_breach,
+        acceleration, compound) are NOT matrix columns; they stay as narrated annotations.
+        """
+        merged = set(getattr(plan, "merged_alert_types", None) or [])
+        if not ({"threshold_breach", "plan_variance"} <= merged):
+            return False
+        if comparator_main not in ("previous", "budget"):
+            return False
+        return self._kpi_has_budget_data(kpi_def)
+
+    @staticmethod
+    def _classify_basis_agreement(
+        primary_delta: Any,
+        secondary_delta: Any,
+        trend_positive: bool,
+        primary_side: str,
+    ) -> Optional[str]:
+        """Per-segment cross-basis tier for the matrix. Returns None when the segment
+        has no secondary delta (not cross-checked).
+
+        `trend_positive`: True when a higher value is good (revenue); False for costs.
+        `primary_side`: 'problem' (row is in where_is) or 'healthy' (where_is_not).
+          - problem + secondary adverse  -> 'confirmed'      (bad on both — real problem)
+          - problem + secondary favorable -> 'basis_specific' (bad on one basis only — likely artifact)
+          - healthy + secondary adverse  -> 'secondary_only'  (missed by the primary basis)
+          - healthy + secondary favorable -> 'healthy'        (true control)
+        """
+        if secondary_delta is None:
+            return None
+        try:
+            sd = float(secondary_delta)
+        except (TypeError, ValueError):
+            return None
+        sec_adverse = (sd < 0) if trend_positive else (sd > 0)
+        if primary_side == "problem":
+            return "confirmed" if sec_adverse else "basis_specific"
+        return "secondary_only" if sec_adverse else "healthy"
+
+    @staticmethod
+    def _build_secondary_alert_appendix(
+        primary_alert_type: Optional[str],
+        merged_alert_types: Optional[List[str]],
+        facts: Optional[Dict[str, Any]],
+        max_lines: int = 3,
+    ) -> str:
+        """Bounded, deterministic narration of the alert patterns that also fired for
+        this KPI beyond the one being diagnosed. Facts only (SA's scalars) — never a
+        second dimensional analysis, never LLM-reasoned. '' when nothing to add.
+
+        This is what keeps the compound case comprehensible: the primary basis gets a
+        full Is/Is-Not diagnosis; every other pattern gets a single flag line + a pointer
+        to the on-demand drill, rather than a competing narrative.
+        """
+        if not merged_alert_types or len(merged_alert_types) < 2:
+            return ""
+        facts = facts or {}
+        lines: List[str] = []
+        for at in merged_alert_types:
+            if at == primary_alert_type:
+                continue
+            if at == "plan_variance":
+                pv = facts.get("plan_value")
+                extra = f" (Budget baseline ≈ {pv:,.0f})" if isinstance(pv, (int, float)) else ""
+                lines.append(
+                    f"also flagged for plan variance vs its Budget baseline{extra} "
+                    f"— use 'Diagnose vs Budget' for the dimensional breakdown"
+                )
+            elif at == "threshold_breach":
+                lines.append(
+                    "also breaching its prior-period threshold "
+                    "— use 'Diagnose vs prior period' for that basis"
+                )
+            elif at == "projected_breach":
+                pu = facts.get("periods_until_breach")
+                when = f" in ~{pu} period(s)" if isinstance(pu, int) else ""
+                lines.append(f"on a projected-breach trajectory{when}")
+            elif at == "acceleration":
+                sig = facts.get("acceleration_signal")
+                mag = f" ({sig:.1f}× baseline volatility)" if isinstance(sig, (int, float)) else ""
+                lines.append(f"showing accelerating deterioration{mag}")
+            if len(lines) >= max_lines:
+                break
+        if not lines:
+            return ""
+        return " Additional signals for this KPI: " + "; ".join(lines) + "."
+
     def _build_group_compare_steps(self, dimensions: List[str], timeframe: Optional[str], filters: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Build grouped comparison step skeletons for the provided dimensions.
@@ -554,6 +738,10 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 alert_type=getattr(request, "alert_type", None),
                 compound_alert=getattr(request, "compound_alert", False),
                 compound_pattern=getattr(request, "compound_pattern", None),
+                # 11I-D: comparator selection + bounded secondary-fact narration
+                merged_alert_types=getattr(request, "merged_alert_types", None),
+                secondary_alert_facts=getattr(request, "secondary_alert_facts", None),
+                comparator_override=getattr(request, "comparator_override", None),
             )
             try:
                 self.logger.info(f"plan_deep_analysis: selected_dims={len(dimensions)} steps={len(steps)}")
@@ -789,11 +977,11 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                     _gen_nc = await self.data_product_agent.generate_sql_for_kpi(
                                         _num_proxy, timeframe=cur_tf, filters=_base_f, breakdown=True, override_group_by=[level_label])
                                     _gen_np = await self.data_product_agent.generate_sql_for_kpi(
-                                        _num_proxy, timeframe=prev_tf, filters=_base_f, breakdown=True, override_group_by=[level_label], comparison_period=True)
+                                        _num_proxy, timeframe=cur_tf, filters=_base_f, breakdown=True, override_group_by=[level_label], comparison_period=True)
                                     _gen_dc = await self.data_product_agent.generate_sql_for_kpi(
                                         _den_proxy, timeframe=cur_tf, filters=_base_f, breakdown=True, override_group_by=[level_label])
                                     _gen_dp = await self.data_product_agent.generate_sql_for_kpi(
-                                        _den_proxy, timeframe=prev_tf, filters=_base_f, breakdown=True, override_group_by=[level_label], comparison_period=True)
+                                        _den_proxy, timeframe=cur_tf, filters=_base_f, breakdown=True, override_group_by=[level_label], comparison_period=True)
 
                                     if not all(g.get("success") for g in [_gen_nc, _gen_np, _gen_dc, _gen_dp]):
                                         raise ValueError("bridge: SQL generation failed for one or more components")
@@ -845,15 +1033,20 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             m_cur = _as_map(cur_exec)
 
                             if comparator == "budget":
-                                # Budget map: same timeframe, Version='Budget'
-                                base_filters = getattr(plan, "filters", None) or {}
-                                f_act = {**base_filters, "Version": "Actual"}
-                                f_bud = {**base_filters, "Version": "Budget"}
+                                # Budget map: same timeframe, version filter rewritten to Budget.
+                                # NOTE: filters={"Version":"Budget"} does NOT work — the DPA drops
+                                # its `filters` argument, so both queries would be identical and
+                                # every segment delta would be 0. We instead feed a proxy whose
+                                # sql_query is already version-substituted (mirrors SA's plan SQL).
+                                _base_f = getattr(plan, "filters", None)
+                                _bud_kpi = self._budget_variant_kpi(kpi_def)
+                                if _bud_kpi is None:
+                                    return []
                                 gen_act = await self.data_product_agent.generate_sql_for_kpi(
-                                    kpi_def, timeframe=cur_tf, filters=f_act, breakdown=True, override_group_by=[level_label]
+                                    kpi_def, timeframe=cur_tf, filters=_base_f, breakdown=True, override_group_by=[level_label]
                                 )
                                 gen_bud = await self.data_product_agent.generate_sql_for_kpi(
-                                    kpi_def, timeframe=cur_tf, filters=f_bud, breakdown=True, override_group_by=[level_label]
+                                    _bud_kpi, timeframe=cur_tf, filters=_base_f, breakdown=True, override_group_by=[level_label]
                                 )
                                 if not (gen_act.get("success") and gen_bud.get("success")):
                                     return []
@@ -878,7 +1071,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 if not prev_tf:
                                     return []
                                 gen_prev = await self.data_product_agent.generate_sql_for_kpi(
-                                    kpi_def, timeframe=prev_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[level_label], comparison_period=True
+                                    kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[level_label], comparison_period=True
                                 )
                                 if not gen_prev.get("success"):
                                     return []
@@ -988,13 +1181,15 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         try:
                             base_filters = getattr(plan, "filters", None) or {}
                             if comparator == "budget":
-                                f_act = {**base_filters, "Version": "Actual"}
-                                f_bud = {**base_filters, "Version": "Budget"}
+                                # version-substituted proxy — see _budget_variant_kpi (DPA drops filters)
+                                _bud_kpi_tot = self._budget_variant_kpi(kpi_def)
+                                if _bud_kpi_tot is None:
+                                    return None
                                 gen_act_tot = await self.data_product_agent.generate_sql_for_kpi(
-                                    kpi_def, timeframe=cur_tf, filters=f_act
+                                    kpi_def, timeframe=cur_tf, filters=base_filters
                                 )
                                 gen_bud_tot = await self.data_product_agent.generate_sql_for_kpi(
-                                    kpi_def, timeframe=cur_tf, filters=f_bud
+                                    _bud_kpi_tot, timeframe=cur_tf, filters=base_filters
                                 )
                                 if not (gen_act_tot.get("success") and gen_bud_tot.get("success")):
                                     return None
@@ -1040,7 +1235,17 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     hmap = _hierarchies_from_contract()
                     used_hierarchical = False
                     spec_main = _pick_threshold_spec()
-                    comparator_main = "budget" if str(spec_main.get("comparison_type", "")).lower() == "budget" else "previous"
+                    # 11I-D: comparator basis precedence — explicit drill override > alert-type-driven > registry default.
+                    _registry_comparator = "budget" if str(spec_main.get("comparison_type", "")).lower() == "budget" else "previous"
+                    comparator_main = self._resolve_da_comparator(plan, kpi_def, _registry_comparator)
+                    # Keep spec_main.comparison_type consistent with the resolved basis so downstream
+                    # threshold classification and SCQA labeling agree with the data actually fetched.
+                    if comparator_main == "budget" and str(spec_main.get("comparison_type", "")).lower() != "budget":
+                        spec_main = dict(spec_main); spec_main["comparison_type"] = "budget"
+                    elif comparator_main == "previous" and str(spec_main.get("comparison_type", "")).lower() == "budget":
+                        _tf_reconcile = str(cur_tf or "").lower()
+                        spec_main = dict(spec_main)
+                        spec_main["comparison_type"] = "qoq" if "quarter" in _tf_reconcile else ("yoy" if "year" in _tf_reconcile else "mom")
                     overall_summary = await _compute_overall_summary(comparator_main) if self.data_product_agent else None
                     if hmap:
                         used_hierarchical = True
@@ -1242,7 +1447,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                         m_prev: Dict[str, float] = {}
                                         if prev_tf:
                                             gen_prev = await self.data_product_agent.generate_sql_for_kpi(
-                                                kpi_def, timeframe=prev_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim], comparison_period=True
+                                                kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim], comparison_period=True
                                             )
                                             if gen_prev.get("success"):
                                                 prev_exec = await self.data_product_agent.execute_sql(gen_prev.get("sql"), data_product_id=dp_id)
@@ -1296,14 +1501,14 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                     m_prev_h: Dict[str, float] = {}
                                     if comp_fb == "budget":
                                         base_filters = getattr(plan, "filters", None) or {}
-                                        f_act = {**base_filters, "Version": "Actual"}
-                                        f_bud = {**base_filters, "Version": "Budget"}
+                                        # version-substituted proxy — see _budget_variant_kpi (DPA drops filters)
+                                        _bud_kpi_h = self._budget_variant_kpi(kpi_def)
                                         gen_act_h = await self.data_product_agent.generate_sql_for_kpi(
-                                            kpi_def, timeframe=cur_tf, filters=f_act, breakdown=True, override_group_by=[dim]
+                                            kpi_def, timeframe=cur_tf, filters=base_filters, breakdown=True, override_group_by=[dim]
                                         )
                                         gen_bud_h = await self.data_product_agent.generate_sql_for_kpi(
-                                            kpi_def, timeframe=cur_tf, filters=f_bud, breakdown=True, override_group_by=[dim]
-                                        )
+                                            _bud_kpi_h, timeframe=cur_tf, filters=base_filters, breakdown=True, override_group_by=[dim]
+                                        ) if _bud_kpi_h is not None else {"success": False}
                                         if gen_act_h.get("success") and gen_bud_h.get("success"):
                                             act_exec_h = await self.data_product_agent.execute_sql(gen_act_h.get("sql"), data_product_id=dp_id)
                                             bud_exec_h = await self.data_product_agent.execute_sql(gen_bud_h.get("sql"), data_product_id=dp_id)
@@ -1323,7 +1528,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                                 kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim]
                                             )
                                             gen_prev_h = await self.data_product_agent.generate_sql_for_kpi(
-                                                kpi_def, timeframe=prev_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim], comparison_period=True
+                                                kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim], comparison_period=True
                                             )
                                             if gen_cur_h.get("success") and gen_prev_h.get("success"):
                                                 cur_exec_h = await self.data_product_agent.execute_sql(gen_cur_h.get("sql"), data_product_id=dp_id)
@@ -1421,6 +1626,47 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     # "problem" mode: no reshuffling needed
                     # --- End post-loop mode inference ---
 
+                    # ── Phase 11I-D: segment matrix — join the secondary cross-sectional basis ──
+                    # When the KPI breached on BOTH previous-period and plan-variance, run the
+                    # dimensional grouping a second time for the other basis (reusing _maps_for_level,
+                    # which is already comparator-parameterized) and join each segment's secondary
+                    # delta + cross-basis tier onto the primary table's rows. One shared-frame table,
+                    # no second KT table, no LLM cross-table fusion. Degrades to primary-only on any error.
+                    comparator_secondary: Optional[str] = None
+                    matrix_ran = False
+                    try:
+                        if self._is_matrix_eligible(plan, kpi_def, comparator_main) and self.data_product_agent:
+                            comparator_secondary = "budget" if comparator_main == "previous" else "previous"
+                            _trend_pos = self._trend_positive(plan.kpi_name, kpi_def)
+                            _primary_dims: List[Any] = []
+                            for _row in (kt.where_is or []) + (kt.where_is_not or []):
+                                _dm = _row.get("dimension")
+                                if _dm is not None and _dm not in _primary_dims:
+                                    _primary_dims.append(_dm)
+                            _sec_delta: Dict[tuple, Any] = {}
+                            for _dm in _primary_dims[: max(1, self.config.max_dimensions)]:
+                                for _g in (await _maps_for_level(_dm, comparator_secondary) or []):
+                                    _gk = _g.get("key")
+                                    if _gk is not None:
+                                        _sec_delta[(str(_dm), str(_gk))] = _g.get("delta")
+                            if _sec_delta:
+                                for _row in (kt.where_is or []):
+                                    _sd = _sec_delta.get((str(_row.get("dimension")), str(_row.get("key"))))
+                                    _row["secondary_delta"] = _sd
+                                    _row["basis_agreement"] = self._classify_basis_agreement(
+                                        _row.get("delta"), _sd, _trend_pos, "problem")
+                                for _row in (kt.where_is_not or []):
+                                    _sd = _sec_delta.get((str(_row.get("dimension")), str(_row.get("key"))))
+                                    _row["secondary_delta"] = _sd
+                                    _row["basis_agreement"] = self._classify_basis_agreement(
+                                        _row.get("delta"), _sd, _trend_pos, "healthy")
+                                matrix_ran = True
+                    except Exception as _mx_exc:
+                        self.logger.warning("[DA] segment matrix secondary pass failed, degrading to primary-only: %s", _mx_exc)
+                        comparator_secondary = None
+                        matrix_ran = False
+                    # --- End segment matrix ---
+
                     # WHEN (time buckets with greatest variance)
                     # Resolve time dimension column from data product contract — no hardcoding
                     time_bucket: Optional[str] = None
@@ -1512,7 +1758,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 m_prev_t: Dict[str, float] = {}
                                 if prev_tf:
                                     gen_prev_t = await self.data_product_agent.generate_sql_for_kpi(
-                                        kpi_def, timeframe=prev_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket], comparison_period=True
+                                        kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[time_bucket], comparison_period=True
                                     )
                                     if gen_prev_t.get("success"):
                                         prev_exec_t = await self.data_product_agent.execute_sql(gen_prev_t.get("sql"), data_product_id=dp_id)
@@ -1712,10 +1958,29 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     analysis_mode=getattr(plan, "analysis_mode", "problem"),
                     alert_type=getattr(plan, "alert_type", None),
                     compound_pattern=getattr(plan, "compound_pattern", None),
+                    matrix_ran=matrix_ran,
+                    comparator_secondary=comparator_secondary,
                 )
             except Exception as _scqa_err:
                 self.logger.warning("[DA] SCQA generation failed: %s", _scqa_err)
                 scqa_summary = f"Situation: Reviewing {getattr(plan, 'kpi_name', 'KPI')}. Complication: Variance detected vs target. Question: Which segments drive the change?"
+            # 11I-D: append bounded secondary-fact flags for the alert types that are NOT columns in
+            # the matrix (temporal/relational: projected_breach, acceleration, compound). When the
+            # matrix ran, threshold_breach + plan_variance are the two matrix columns and are narrated
+            # by the SCQA itself, so exclude them from the appendix to avoid double-narration.
+            try:
+                _merged_for_appendix = getattr(plan, "merged_alert_types", None)
+                if matrix_ran and _merged_for_appendix:
+                    _merged_for_appendix = [a for a in _merged_for_appendix if a not in ("threshold_breach", "plan_variance")]
+                _appendix = self._build_secondary_alert_appendix(
+                    getattr(plan, "alert_type", None),
+                    _merged_for_appendix,
+                    getattr(plan, "secondary_alert_facts", None),
+                )
+                if _appendix:
+                    scqa_summary = f"{scqa_summary}{_appendix}"
+            except Exception:
+                pass
             # Ensure plan has non-empty counters for UI summary even if DP path didn't run
             try:
                 if not getattr(plan, "dimensions", None):
@@ -1791,6 +2056,13 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 dimensions_suggested=getattr(plan, "dimensions", []),
                 analysis_mode=getattr(plan, "analysis_mode", "problem"),
                 mixed_framing=(_effective_mode_final == "mixed"),
+                # 11I-D: surface which alert basis was diagnosed so SF/PIB can label it and the
+                # frontend can offer the on-demand 'diagnose vs the other basis' drill.
+                alert_type=getattr(plan, "alert_type", None),
+                comparator=comparator_main,
+                merged_alert_types=getattr(plan, "merged_alert_types", None),
+                comparator_secondary=comparator_secondary,
+                matrix_ran=matrix_ran,
             )
         except Exception as e:
             import traceback as _tb
@@ -2227,12 +2499,27 @@ If nothing relevant is found for a category, use an empty list."""
         analysis_mode: str = "problem",
         alert_type: Optional[str] = None,
         compound_pattern: Optional[str] = None,
+        matrix_ran: bool = False,
+        comparator_secondary: Optional[str] = None,
     ) -> str:
         """Generate a Situation-Complication-Question-Answer narrative via LLM.
 
-        Falls back to a deterministic summary if the LLM call fails.
+        Falls back to a deterministic summary if the LLM call fails. When `matrix_ran`,
+        the narrative reads ACROSS the segment × basis matrix (one enriched table) — leading
+        with `confirmed` segments (adverse on both bases), flagging `basis_specific` ones as
+        probable comparison artifacts, and surfacing any `secondary_only` segments — rather
+        than diagnosing a single basis.
         """
         import json as _json
+
+        def _basis_label(c: Optional[str]) -> str:
+            return "Budget/Plan" if c == "budget" else "prior period"
+
+        # Matrix tier buckets (only meaningful when matrix_ran) — segment keys per cross-basis tier.
+        _rows_all = [r for r in ((getattr(kt, "where_is", []) or []) + (getattr(kt, "where_is_not", []) or [])) if isinstance(r, dict)]
+        _confirmed = [r.get("key", "") for r in _rows_all if r.get("basis_agreement") == "confirmed"][:5]
+        _basis_specific = [r.get("key", "") for r in _rows_all if r.get("basis_agreement") == "basis_specific"][:5]
+        _secondary_only = [r.get("key", "") for r in _rows_all if r.get("basis_agreement") == "secondary_only"][:5]
 
         # Build compact context strings from available data
         # DA agent populates where_is/where_is_not (dimensional segments), not what_is/what_is_not
@@ -2257,6 +2544,30 @@ If nothing relevant is found for a category, use an empty list."""
             is_str = ", ".join(is_items) if is_items else "leading segments"
             is_not_str = ", ".join(is_not_items) if is_not_items else "remaining segments"
             cp_str = "; ".join(top_cps) if top_cps else "key contributors identified"
+            # Matrix branch takes priority — one narrative read ACROSS the two cross-sectional bases.
+            if matrix_ran and (_confirmed or _basis_specific):
+                _prim = _basis_label(comparator)
+                _sec = _basis_label(comparator_secondary)
+                _conf_str = ", ".join(_confirmed) if _confirmed else "no segments"
+                _bs_str = ", ".join(_basis_specific) if _basis_specific else None
+                parts = [
+                    f"Situation: {plan.kpi_name} breached on two bases — vs {_prim} and vs {_sec}.",
+                    (f"Complication: {_conf_str} are adverse on BOTH bases — the genuine problem to solve."
+                     if _confirmed else
+                     f"Complication: no segment is adverse on both bases — the breach is basis-specific."),
+                ]
+                if _bs_str:
+                    parts.append(
+                        f"Note: {_bs_str} are adverse vs {_prim} but on-track vs {_sec} — likely a comparison-timing artifact, not a root-cause problem."
+                    )
+                if _secondary_only:
+                    parts.append(
+                        f"Also: {', '.join(_secondary_only)} look fine vs {_prim} but are adverse vs {_sec} — surfaced only by the second basis."
+                    )
+                parts.append(
+                    f"Question: What actions address the {_conf_str} problem confirmed across both bases?"
+                )
+                return " ".join(parts)
             if analysis_mode == "opportunity":
                 return (
                     f"Situation: {plan.kpi_name} is {direction}-performing vs. {comparator}. "
@@ -2361,7 +2672,20 @@ If nothing relevant is found for a category, use an empty list."""
             else:
                 # Build alert-type context for the prompt
                 _alert_context = ""
-                if compound_pattern:
+                if matrix_ran and (_confirmed or _basis_specific):
+                    _prim_l = _basis_label(comparator)
+                    _sec_l = _basis_label(comparator_secondary)
+                    _alert_context = (
+                        f"\n\nCRITICAL FRAMING — TWO-BASIS SEGMENT MATRIX: This KPI breached vs {_prim_l} AND vs {_sec_l}. "
+                        f"Each segment has been cross-classified across both bases:\n"
+                        f"- CONFIRMED (adverse on both — the real problem): {', '.join(_confirmed) or 'none'}\n"
+                        f"- BASIS-SPECIFIC (adverse on {_prim_l} but on-track vs {_sec_l} — likely a comparison-timing artifact, NOT a root cause): {', '.join(_basis_specific) or 'none'}\n"
+                        f"- SECONDARY-ONLY (fine vs {_prim_l} but adverse vs {_sec_l}): {', '.join(_secondary_only) or 'none'}\n"
+                        f"The Complication MUST lead with the CONFIRMED segments as the genuine problem, and MUST explicitly "
+                        f"note that BASIS-SPECIFIC segments are probably a timing/budget artifact so they are not chased. "
+                        f"Do NOT treat a segment that is only adverse on one basis as a confirmed problem."
+                    )
+                elif compound_pattern:
                     _alert_context = (
                         f"\n\nCRITICAL FRAMING — COMPOUND ALERT: This situation involves a cross-KPI conflict: {compound_pattern}. "
                         f"The Complication MUST lead with this cross-KPI tension before naming dimensional segments. "

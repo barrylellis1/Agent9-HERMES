@@ -245,6 +245,22 @@ def _extract_deep_analysis_summary(da_ctx: Any) -> Dict[str, Any]:
         if internal_benchmarks:
             summary["benchmark_segments"] = _limit(internal_benchmarks, 3)
 
+        # Phase 11I-D segment matrix: when DA cross-classified each segment across both
+        # comparison bases (matrix_ran), surface the CONFIRMED problem segments (adverse on
+        # both bases) and the BASIS-SPECIFIC ones (adverse on only one — likely a comparison
+        # artifact). SF should prioritise confirmed and NOT build primary options around
+        # basis_specific segments. Derived tiers only — SF never reasons across the raw matrix.
+        if ctx.get("matrix_ran"):
+            _all_rows = (kt.get("where_is") or []) + (kt.get("where_is_not") or [])
+            _confirmed = [str(r.get("key")) for r in _all_rows
+                          if isinstance(r, dict) and r.get("basis_agreement") == "confirmed" and r.get("key")]
+            _basis_specific = [str(r.get("key")) for r in _all_rows
+                               if isinstance(r, dict) and r.get("basis_agreement") == "basis_specific" and r.get("key")]
+            if _confirmed:
+                summary["confirmed_problem_segments"] = _limit(_confirmed, 5)
+            if _basis_specific:
+                summary["basis_specific_segments"] = _limit(_basis_specific, 5)
+
     when_started = _first_str(ctx.get("when_started"))
     if when_started:
         summary["when_started"] = when_started
@@ -795,6 +811,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "Map risk_signal similarly. recovery_range MUST be non-zero — anchor from Stage 1 impact_estimates in stage_1_persona_hypotheses. "
                         "Do NOT output 0.0 for any numeric field.\n"
                         "- SCOPING REQUIREMENT: Use 'where_is_not' and 'what_is_not' from deep_analysis_summary to explicitly scope each option — name which segments already perform well (no intervention needed) and which are the target. This prevents boiling-the-ocean recommendations.\n"
+                        "- CROSS-BASIS SCOPING (when present): If deep_analysis_summary has 'confirmed_problem_segments', prioritise those — they are adverse on BOTH comparison bases (vs prior period AND vs plan), so they are the genuine, most-defensible problem. If it has 'basis_specific_segments', treat them as probable comparison-timing artifacts (adverse on only one basis, e.g. down vs last year but on-plan) — do NOT build primary options around them.\n"
                         "- INTERNAL BENCHMARK FEASIBILITY: If benchmark_segments (internal_benchmark type) are present in deep_analysis_summary or kt_is_is_not, at least one option MUST address replication: how the outperforming segment's practices can be scaled to underperforming areas. Name the benchmark segment explicitly and quantify the replication upside using its delta.\n"
                         "- OPTION DIVERSITY REQUIREMENT: Generate EXACTLY 3 options with meaningfully different primary mechanisms — do NOT collapse them into a single 'Strategic Realignment'. Example structure: (1) an immediate operational intervention (0-90 days, lower cost, higher reversibility), (2) a structural fix targeting the root cause dimension (3-12 months), (3) a strategic portfolio or pricing play (12+ months, higher investment). Each option must be independently actionable and have a distinct title reflecting the specific lever.\n"
                         "- CONSISTENCY CHECK (mandatory before writing opt_2/opt_3): Before recommending mix shift toward a product category or customer segment, verify from the where_is data that the TARGET category has BETTER margin performance than the PROBLEM category. If the target segment is ALSO underperforming in the data, you MUST explicitly acknowledge this in the option description AND provide a resolution path (e.g., 'Step 1 is to restore that segment's margins via [mechanism], then accelerate shift'). Never recommend moving volume toward a segment with worse margins than the one being abandoned without resolving the contradiction.\n"

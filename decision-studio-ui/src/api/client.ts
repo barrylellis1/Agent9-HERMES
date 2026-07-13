@@ -435,7 +435,8 @@ export async function runDeepAnalysis(
   principalId: string = 'cfo_001',
   timeframe?: string,
   analysisMode?: 'problem' | 'opportunity',
-  clientId?: string
+  clientId?: string,
+  comparatorOverride?: 'previous' | 'budget'
 ) {
     // 1. Trigger the workflow
     const body: Record<string, any> = {
@@ -446,6 +447,8 @@ export async function runDeepAnalysis(
     };
     if (analysisMode) body.analysis_mode = analysisMode;
     if (clientId) body.client_id = clientId;
+    // Phase 11I-D on-demand drill: force the Is/Is-Not comparison basis.
+    if (comparatorOverride) body.comparator_override = comparatorOverride;
     const runResponse = await fetch(`${API_BASE}/workflows/deep-analysis/run`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

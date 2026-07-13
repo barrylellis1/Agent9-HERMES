@@ -11,6 +11,9 @@ export interface IsIsNotItem {
   delta: number
   text?: string
   segment_type?: 'problem' | 'opportunity'
+  // Phase 11I-D segment matrix — second comparison basis + cross-basis tier
+  secondary_delta?: number | null
+  basis_agreement?: 'confirmed' | 'basis_specific' | 'secondary_only' | 'healthy' | null
 }
 
 export interface KTIsIsNotData {
@@ -27,6 +30,26 @@ interface IsIsNotExhibitProps {
   kpiName?: string
   width?: number
   analysisMode?: 'problem' | 'opportunity' | 'mixed'
+  // Phase 11I-D segment matrix
+  matrixRan?: boolean
+  comparator?: 'previous' | 'budget'
+  comparatorSecondary?: 'previous' | 'budget'
+}
+
+// Label a comparison basis for column headers / chips
+const basisLabel = (c?: string): string => (c === 'budget' ? 'vs Budget' : 'vs Prior')
+
+// Cross-basis tier chip (Phase 11I-D)
+const TierChip: React.FC<{ tier?: string | null }> = ({ tier }) => {
+  if (!tier || tier === 'healthy') return null
+  const cfg: Record<string, { label: string; cls: string }> = {
+    confirmed: { label: 'confirmed', cls: 'bg-red-950 text-red-300 border-red-800/60' },
+    basis_specific: { label: 'artifact?', cls: 'bg-amber-950 text-amber-300 border-amber-800/60' },
+    secondary_only: { label: '2nd-basis', cls: 'bg-blue-950 text-blue-300 border-blue-800/60' },
+  }
+  const c = cfg[tier]
+  if (!c) return null
+  return <span className={`px-1 py-px rounded text-[8px] font-medium border ${c.cls}`}>{c.label}</span>
 }
 
 // ─── IsIsNotExhibit — printed exhibit style, two-level expand ────────────────
@@ -35,6 +58,9 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
   data,
   kpiName = 'KPI',
   analysisMode = 'problem',
+  matrixRan = false,
+  comparator,
+  comparatorSecondary,
 }) => {
   const isOpportunity = analysisMode === 'opportunity'
   const isMixed = analysisMode === 'mixed'
@@ -79,6 +105,8 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
           delta: parseFloat(item.delta) || 0,
           text: item.text,
           segment_type: item.segment_type,
+          secondary_delta: item.secondary_delta ?? null,
+          basis_agreement: item.basis_agreement ?? null,
         })
         dimData.isKeys.add(key)
       })
@@ -99,6 +127,8 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
           previous: parseFloat(item.previous) || 0,
           delta: parseFloat(item.delta) || 0,
           text: item.text,
+          secondary_delta: item.secondary_delta ?? null,
+          basis_agreement: item.basis_agreement ?? null,
         })
       })
 
@@ -181,6 +211,18 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
           )}
         </div>
       </div>
+
+      {/* Phase 11I-D: two-basis matrix banner — explains the second delta column + tiers */}
+      {matrixRan && (
+        <div className="mb-2 flex items-center flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500">
+          <span>Each segment cross-checked on two bases:</span>
+          <span className="font-mono text-slate-400">{basisLabel(comparator)}</span>
+          <span className="font-mono text-slate-400">{basisLabel(comparatorSecondary)}</span>
+          <span className="flex items-center gap-1"><TierChip tier="confirmed" /> bad on both</span>
+          <span className="flex items-center gap-1"><TierChip tier="basis_specific" /> likely timing artifact</span>
+          <span className="flex items-center gap-1"><TierChip tier="secondary_only" /> only 2nd basis</span>
+        </div>
+      )}
 
       {/* Dimension rows */}
       <div className="border border-slate-800 rounded-lg overflow-hidden">
@@ -283,6 +325,14 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                         <span className={`w-20 flex-shrink-0 text-right font-mono text-xs ${isOppItem ? 'text-emerald-400' : 'text-red-400'}`}>
                           {formatExecutive(item.delta || 0)}
                         </span>
+                        {matrixRan && (
+                          <>
+                            <span className="w-20 flex-shrink-0 text-right font-mono text-[11px] text-slate-400" title={basisLabel(comparatorSecondary)}>
+                              {item.secondary_delta != null ? formatExecutive(item.secondary_delta) : '—'}
+                            </span>
+                            <span className="w-16 flex-shrink-0"><TierChip tier={item.basis_agreement} /></span>
+                          </>
+                        )}
                       </div>
                     )
                   })}
@@ -312,6 +362,14 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                         <span className={`w-20 flex-shrink-0 text-right font-mono text-xs ${isOpportunity ? 'text-amber-600' : 'text-emerald-600'}`}>
                           {displayVal}
                         </span>
+                        {matrixRan && (
+                          <>
+                            <span className="w-20 flex-shrink-0 text-right font-mono text-[11px] text-slate-500" title={basisLabel(comparatorSecondary)}>
+                              {item.secondary_delta != null ? formatExecutive(item.secondary_delta) : '—'}
+                            </span>
+                            <span className="w-16 flex-shrink-0"><TierChip tier={item.basis_agreement} /></span>
+                          </>
+                        )}
                       </div>
                     )
                   })}

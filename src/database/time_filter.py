@@ -132,12 +132,24 @@ class TimeFilter:
         fy, fp = cls._calendar_to_fiscal(y, m, fy_start)
         fq = cls._quarter_of(fp)
 
-        # current/this → previous = last equivalent
-        if tf in ("current_quarter", "this_quarter", "quarter_to_date"):
+        # *-to-date → SAME to-date window, prior year (YoY). Comparing a partial
+        # current window (e.g. YTD through period 7) against the FULL prior period
+        # is apples-to-oranges and makes every segment look adverse; the correct
+        # comparison holds the window fixed and steps the year back one.
+        if tf == "year_to_date":
+            return f"{year_col} = {fy - 1} AND {period_col} <= {fp}"
+        if tf == "quarter_to_date":
+            fqs, _ = cls._quarter_months(fq)
+            return f"{year_col} = {fy - 1} AND {period_col} BETWEEN {fqs} AND {fp}"
+        if tf == "month_to_date":
+            return f"{year_col} = {fy - 1} AND {period_col} = {fp}"
+
+        # full current period → previous = last equivalent full period (sequential)
+        if tf in ("current_quarter", "this_quarter"):
             return cls._fyp_current(year_col, period_col, "last_quarter", today, fy_start)
-        if tf in ("current_year", "this_year", "year_to_date"):
+        if tf in ("current_year", "this_year"):
             return cls._fyp_current(year_col, period_col, "last_year", today, fy_start)
-        if tf in ("current_month", "this_month", "month_to_date"):
+        if tf in ("current_month", "this_month"):
             return cls._fyp_current(year_col, period_col, "last_month", today, fy_start)
 
         # last_* → two periods back (in fiscal space)
@@ -250,16 +262,30 @@ class TimeFilter:
 
     @classmethod
     def _date_previous(cls, col: str, tf: str, today: date, dialect: str) -> Optional[str]:
+        quoted = f"`{col}`" if dialect == "bigquery" else col
+        # *-to-date → SAME to-date window, prior year (YoY): hold the window fixed,
+        # step the year back one. (See _fyp_previous for the rationale.)
+        if tf in ("year_to_date", "quarter_to_date", "month_to_date"):
+            py = today.year - 1
+            # same month/day one year back, guarding Feb-29 → Feb-28
+            prev_end = date(py, today.month, min(today.day, cls._month_end(py, today.month)))
+            if tf == "year_to_date":
+                start = str(date(py, 1, 1))
+            elif tf == "quarter_to_date":
+                qs, _ = cls._quarter_months(cls._quarter_of(today.month))
+                start = str(date(py, qs, 1))
+            else:  # month_to_date
+                start = str(date(py, today.month, 1))
+            return f"{quoted} BETWEEN '{start}' AND '{prev_end}'"
+
+        # full current period → previous = last equivalent full period (sequential)
         prev_map = {
             "current_quarter": "last_quarter",
             "this_quarter": "last_quarter",
-            "quarter_to_date": "last_quarter",
             "current_year": "last_year",
             "this_year": "last_year",
-            "year_to_date": "last_year",
             "current_month": "last_month",
             "this_month": "last_month",
-            "month_to_date": "last_month",
         }
         if tf in prev_map:
             return cls._date_current(col, prev_map[tf], today, dialect)

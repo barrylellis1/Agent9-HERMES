@@ -36,6 +36,19 @@ class DeepAnalysisRequest(A9AgentBaseRequest):
     )
     compound_alert: bool = Field(False, description="True when a cross-KPI compound conflict triggered this analysis")
     compound_pattern: Optional[str] = Field(None, description="Human-readable compound tension, e.g. 'Revenue UP / Gross Margin DOWN'")
+    # Phase 11I-D: alert-type-aware comparator selection + bounded secondary-fact narration
+    merged_alert_types: Optional[List[str]] = Field(
+        None,
+        description="All alert patterns that fired for this KPI in the originating SA scan (from Situation.merged_alert_types). The dominant one is `alert_type`; the rest are narrated as bounded scalar facts, not a second diagnosis."
+    )
+    secondary_alert_facts: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Scalar values from the originating situation for narrating non-primary alert types (plan_value, projected_breach_at_period, periods_until_breach, acceleration_signal). Facts only — no second dimensional analysis."
+    )
+    comparator_override: Optional[Literal["previous", "budget"]] = Field(
+        None,
+        description="Explicit comparator basis for the on-demand 'diagnose vs the other basis' drill. When set, forces comparator_main and bypasses alert-type/registry selection. None on the normal path."
+    )
 
 
 class DeepAnalysisPlan(A9AgentBaseModel):
@@ -58,6 +71,19 @@ class DeepAnalysisPlan(A9AgentBaseModel):
     )
     compound_alert: bool = Field(False, description="True when a cross-KPI compound conflict triggered this analysis")
     compound_pattern: Optional[str] = Field(None, description="Human-readable compound tension, e.g. 'Revenue UP / Gross Margin DOWN'")
+    # Phase 11I-D: alert-type-aware comparator selection + bounded secondary-fact narration (propagated from request)
+    merged_alert_types: Optional[List[str]] = Field(
+        None,
+        description="All alert patterns that fired for this KPI in the originating SA scan. Dominant one is `alert_type`; rest narrated as bounded facts."
+    )
+    secondary_alert_facts: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Scalar values for narrating non-primary alert types (plan_value, projected_breach_at_period, periods_until_breach, acceleration_signal)."
+    )
+    comparator_override: Optional[Literal["previous", "budget"]] = Field(
+        None,
+        description="Explicit comparator basis for the on-demand drill. When set, forces comparator_main. None on the normal path."
+    )
 
 
 class BenchmarkSegment(A9AgentBaseModel):
@@ -139,6 +165,31 @@ class DeepAnalysisResponse(A9AgentBaseResponse):
     mixed_framing: bool = Field(
         False,
         description="True when DA determined analysis_mode='mixed' from segment variance — signals the frontend to show the HITL mode-resolution gate before invoking SF."
+    )
+    # Phase 11I-D: which alert basis was actually diagnosed, so SF/PIB/frontend can label it and
+    # the frontend can offer the on-demand 'diagnose vs the other basis' drill.
+    alert_type: Optional[str] = Field(
+        None,
+        description="The dominant alert pattern this analysis was framed for (propagated from the originating situation)."
+    )
+    comparator: Optional[Literal["previous", "budget"]] = Field(
+        None,
+        description="Which comparison basis this run's Is/Is-Not used: 'previous' (vs prior period) or 'budget' (vs plan/budget, same period)."
+    )
+    merged_alert_types: Optional[List[str]] = Field(
+        None,
+        description="All alert patterns that fired for this KPI. If it contains a basis other than `comparator`, the frontend can offer an on-demand drill to diagnose that basis."
+    )
+    # Phase 11I-D segment matrix: when a KPI breached on BOTH cross-sectional bases (YoY + Plan),
+    # the primary kt_is_is_not table's rows are enriched with `secondary_delta` + `basis_agreement`
+    # (confirmed | basis_specific | secondary_only | healthy) forming a segment × basis matrix.
+    comparator_secondary: Optional[Literal["previous", "budget"]] = Field(
+        None,
+        description="The second comparison basis whose per-segment deltas were joined onto the primary Is/Is-Not table as an extra column. None when only one basis was analyzed."
+    )
+    matrix_ran: bool = Field(
+        False,
+        description="True when the segment matrix (both cross-sectional bases joined) was built. When False, kt_is_is_not rows carry no secondary_delta/basis_agreement."
     )
 
     # Raw data excerpts (optional)

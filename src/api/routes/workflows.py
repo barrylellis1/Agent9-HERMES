@@ -4,7 +4,7 @@ import asyncio
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -144,6 +144,10 @@ class DeepAnalysisWorkflowRequest(BaseModel):
     include_supporting_evidence: bool = Field(True, description="Whether to compute supporting evidence artifacts")
     analysis_mode: Optional[str] = Field(default="problem", description="Analysis framing: 'problem' or 'opportunity'")
     client_id: Optional[str] = Field(None, description="Client/tenant ID — scopes KPI lookup to this client only")
+    comparator_override: Optional[Literal["previous", "budget"]] = Field(
+        None,
+        description="Phase 11I-D on-demand drill: force the Is/Is-Not comparison basis ('previous' vs prior period, 'budget' vs plan). When set, bypasses alert-type/registry comparator selection. Client-supplied (explicit user drill action)."
+    )
 
 
 class SolutionWorkflowRequest(BaseModel):
@@ -913,6 +917,38 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
         elif hasattr(principal_resp, "context"):
             principal_context = serialize(principal_resp.context)
 
+        # Phase 11I-D: look up the originating SA situation to carry alert-type framing into DA.
+        # Mirrors the VA HITL-approve handler's situation lookup (_record_solution_action). The
+        # situation is the source of truth for which alert pattern(s) fired and their scalars —
+        # DA uses `alert_type` to pick the comparison basis and `merged_alert_types`/scalars to
+        # narrate bounded secondary facts. Non-fatal: any failure degrades to today's
+        # registry-default comparator selection + generic framing.
+        _da_alert_type: Optional[str] = None
+        _da_merged_alert_types: Optional[List[str]] = None
+        _da_secondary_facts: Optional[Dict[str, Any]] = None
+        if request.situation_id:
+            try:
+                from src.database.situations_store import SituationsStore
+                _sit_store = SituationsStore()
+                if _sit_store.enabled:
+                    _sit_row = await _sit_store.get_situation(request.situation_id)
+                    if _sit_row:
+                        _fp = _sit_row.get("full_payload") or {}
+                        _da_alert_type = _fp.get("alert_type")
+                        _da_merged_alert_types = _fp.get("merged_alert_types")
+                        _facts = {
+                            k: _fp.get(k) for k in (
+                                "plan_value", "projected_breach_at_period",
+                                "periods_until_breach", "acceleration_signal",
+                            ) if _fp.get(k) is not None
+                        }
+                        _da_secondary_facts = _facts or None
+            except Exception as _da_sit_exc:
+                import logging as _lg3
+                _lg3.getLogger("workflows.deep_analysis").debug(
+                    "Situation lookup for DA framing failed (non-fatal): %s", _da_sit_exc
+                )
+
         deep_request_payload: Dict[str, Any] = {
             "request_id": request_id,
             "principal_id": request.principal_id,
@@ -932,6 +968,15 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
         if request.hypotheses:
             deep_request_payload["extra"] = {"hypotheses": request.hypotheses}
         deep_request_payload["analysis_mode"] = request.analysis_mode or "problem"
+        # Alert-type framing (Phase 11I-D)
+        if _da_alert_type:
+            deep_request_payload["alert_type"] = _da_alert_type
+        if _da_merged_alert_types:
+            deep_request_payload["merged_alert_types"] = _da_merged_alert_types
+        if _da_secondary_facts:
+            deep_request_payload["secondary_alert_facts"] = _da_secondary_facts
+        if request.comparator_override:
+            deep_request_payload["comparator_override"] = request.comparator_override
         deep_request = DeepAnalysisRequest(**deep_request_payload)
 
         # Use Orchestrator to run the full Deep Analysis workflow (Plan + Execute)

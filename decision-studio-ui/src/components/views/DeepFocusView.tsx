@@ -18,6 +18,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { Situation, ProblemRefinementResult, MarketSignal, MarketConflict } from '../../api/types';
+import { runDeepAnalysis } from '../../api/client';
 import { formatExecutive } from '../../utils/formatExecutive';
 import { ProblemRefinementChat } from '../ProblemRefinementChat';
 import { IsIsNotExhibit } from '../visualizations/DivergingBarChart';
@@ -150,6 +151,9 @@ interface DeepFocusViewProps {
   principalId: string;
   initialMarketSignals?: MarketSignal[];
   initialMarketConflict?: MarketConflict | null;
+  // Phase 11I-D on-demand comparator drill
+  clientId?: string;
+  timeframe?: string;
 }
 
 export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
@@ -181,9 +185,25 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   principalId,
   initialMarketSignals,
   initialMarketConflict,
+  clientId,
+  timeframe,
 }) => {
   const navigate = useNavigate();
-  const currentAnalysis = analysisResults;
+
+  // Phase 11I-D: on-demand comparator drill. The primary analysis (analysisResults) is
+  // diagnosed against the dominant alert's basis; when the KPI also fired the OTHER basis,
+  // the user can run a fresh single-comparator diagnosis of it. drillAnalysis, when set,
+  // replaces the displayed analysis (one table on screen at a time — never two fused).
+  const [drillAnalysis, setDrillAnalysis] = useState<any | null>(null);
+  const [drillLoading, setDrillLoading] = useState(false);
+  const [drillError, setDrillError] = useState<string | null>(null);
+  // Clear any drill when the underlying situation/primary analysis changes.
+  useEffect(() => {
+    setDrillAnalysis(null);
+    setDrillError(null);
+  }, [situation.situation_id, analysisResults?.comparator]);
+
+  const currentAnalysis = drillAnalysis ?? analysisResults;
 
   // Effective analysis mode: use DA result when available, fall back to situation framing
   const situationIsOpportunity = situation.direction === 'up' || situation.card_type === 'opportunity';
@@ -234,6 +254,46 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
       else next.add(id);
       return next;
     });
+  };
+
+  // ── Phase 11I-D: on-demand comparator drill availability ──────────────────
+  // Map alert types to comparison bases. If the KPI's merged_alert_types implies a
+  // basis the current diagnosis did NOT use, offer a drill to that other basis.
+  const alertTypeToBasis = (at?: string | null): 'previous' | 'budget' | null =>
+    at === 'plan_variance' ? 'budget' : at === 'threshold_breach' ? 'previous' : null;
+  const diagnosedComparator: 'previous' | 'budget' | undefined = currentAnalysis?.comparator;
+  const otherBasis: 'previous' | 'budget' | null = (() => {
+    const merged: string[] = situation.merged_alert_types || currentAnalysis?.merged_alert_types || [];
+    if (!diagnosedComparator || merged.length < 2) return null;
+    const bases = new Set(merged.map(alertTypeToBasis).filter(Boolean) as ('previous' | 'budget')[]);
+    for (const b of bases) if (b !== diagnosedComparator) return b;
+    return null;
+  })();
+  const otherBasisLabel = otherBasis === 'budget' ? 'Budget' : 'prior period';
+  const viewingDrill = drillAnalysis != null;
+
+  const handleComparatorDrill = async (basis: 'previous' | 'budget') => {
+    if (drillLoading) return;
+    setDrillLoading(true);
+    setDrillError(null);
+    try {
+      const kpi = situation.kpi_id || situation.kpi_name;
+      const result = await runDeepAnalysis(
+        situation.situation_id,
+        kpi,
+        principalId,
+        timeframe || currentAnalysis?.plan?.timeframe,
+        undefined,
+        clientId,
+        basis,
+      );
+      if (!result || !result.execution) throw new Error('Drill analysis returned no results.');
+      setDrillAnalysis(result.execution);
+    } catch (e: any) {
+      setDrillError(e?.message || 'Drill analysis failed.');
+    } finally {
+      setDrillLoading(false);
+    }
   };
 
   const AccordionSection = ({ id, title, icon, summary, children }: { id: string; title: string; icon: React.ReactNode; summary?: string; children: React.ReactNode }) => {
@@ -411,10 +471,48 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                         icon={<Microscope className="w-5 h-5 text-blue-400" />}
                         summary={`${currentAnalysis.kt_is_is_not.where_is?.length ?? 0} segments`}
                     >
+                        {/* Phase 11I-D: comparison-basis banner + on-demand drill to the other basis */}
+                        {(diagnosedComparator || otherBasis || viewingDrill) && (
+                          <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
+                            <span className="text-xs text-slate-400">
+                              Diagnosed vs{' '}
+                              <span className="font-semibold text-slate-200">
+                                {diagnosedComparator === 'budget' ? 'Budget / Plan' : 'prior period'}
+                              </span>
+                              {viewingDrill && <span className="ml-1 text-amber-400">(on-demand drill)</span>}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              {viewingDrill && (
+                                <button
+                                  onClick={() => { setDrillAnalysis(null); setDrillError(null); }}
+                                  className="text-xs px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors"
+                                >
+                                  Back to primary
+                                </button>
+                              )}
+                              {otherBasis && !viewingDrill && (
+                                <button
+                                  onClick={() => handleComparatorDrill(otherBasis)}
+                                  disabled={drillLoading}
+                                  className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-medium transition-colors inline-flex items-center gap-1.5"
+                                >
+                                  {drillLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Microscope className="w-3 h-3" />}
+                                  {drillLoading ? 'Analyzing…' : `Diagnose vs ${otherBasisLabel}`}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {drillError && (
+                          <div className="mb-3 text-xs text-red-400">{drillError}</div>
+                        )}
                         <IsIsNotExhibit
                             data={currentAnalysis.kt_is_is_not}
                             kpiName={situation.kpi_name}
                             analysisMode={analysisMode}
+                            matrixRan={currentAnalysis.matrix_ran}
+                            comparator={currentAnalysis.comparator}
+                            comparatorSecondary={currentAnalysis.comparator_secondary}
                         />
                     </AccordionSection>
                 )}

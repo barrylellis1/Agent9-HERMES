@@ -2269,10 +2269,19 @@ class A9_Situation_Awareness_Agent:
         _MAX_IMPACT_BULLETS = 4
         _severity_order = {s: i for i, s in enumerate(SituationSeverity)}
 
+        # KPIs that have at least one problem card. A plan_variance situation folds into
+        # these even if it resolved to 'opportunity' (actual ahead of a conservative plan),
+        # so a KPI that is down vs prior period does not ALSO render a contradictory green
+        # 'ahead of plan' card. The two comparison bases belong on ONE card — DA renders them
+        # together as the segment × basis matrix (Phase 11I-D).
+        _problem_kpis = {s.kpi_name for s in situations if s.card_type == "problem"}
         groups: Dict[str, List['Situation']] = {}
         passthrough: List['Situation'] = []
         for sit in situations:
-            if sit.card_type == "problem":
+            _folds_in = (sit.card_type == "problem") or (
+                sit.alert_type == "plan_variance" and sit.kpi_name in _problem_kpis
+            )
+            if _folds_in:
                 groups.setdefault(sit.kpi_name, []).append(sit)
             else:
                 passthrough.append(sit)
@@ -2284,7 +2293,10 @@ class A9_Situation_Awareness_Agent:
                 continue
 
             members_sorted = sorted(members, key=lambda s: _severity_order.get(s.severity, 99))
-            primary = members_sorted[0]
+            # Primary is always a PROBLEM card — never the folded-in plan_variance 'opportunity',
+            # so the merged card keeps problem framing/direction while still absorbing the
+            # plan_variance member's alert_type + plan_value via the field collection below.
+            primary = next((m for m in members_sorted if m.card_type == "problem"), members_sorted[0])
 
             alert_types: List[str] = []
             impact_bullets: List[str] = []

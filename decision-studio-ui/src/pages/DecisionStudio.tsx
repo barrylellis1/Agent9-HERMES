@@ -31,6 +31,7 @@ export function DecisionStudio() {
     currentPrincipal,
     principalInput,
     timeframe,
+    selectedClientId,
     availablePrincipals,
 
     // Actions
@@ -106,6 +107,8 @@ export function DecisionStudio() {
             name: currentPrincipal.name,
             input: principalInput
         }}
+        clientId={selectedClientId}
+        timeframe={timeframe}
       />
     );
   }

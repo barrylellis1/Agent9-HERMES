@@ -89,14 +89,19 @@ class TestFiscalYearPeriodPrevious:
         assert prev(FYP, "current_quarter") == "fiscal_year = 2026 AND fiscal_period BETWEEN 1 AND 3"
 
     def test_prev_quarter_to_date(self):
-        # same as prev of current_quarter
-        assert prev(FYP, "quarter_to_date") == "fiscal_year = 2026 AND fiscal_period BETWEEN 1 AND 3"
+        # YoY same window: Q2-to-date (periods 4-5) one year back
+        assert prev(FYP, "quarter_to_date") == "fiscal_year = 2025 AND fiscal_period BETWEEN 4 AND 5"
 
     def test_prev_current_year(self):
         assert prev(FYP, "current_year") == "fiscal_year = 2025"
 
     def test_prev_year_to_date(self):
-        assert prev(FYP, "year_to_date") == "fiscal_year = 2025"
+        # YoY same window: YTD through period 5 one year back (NOT full prior year)
+        assert prev(FYP, "year_to_date") == "fiscal_year = 2025 AND fiscal_period <= 5"
+
+    def test_prev_month_to_date(self):
+        # YoY same window: month 5 one year back
+        assert prev(FYP, "month_to_date") == "fiscal_year = 2025 AND fiscal_period = 5"
 
     def test_prev_current_month(self):
         # previous of May = April
@@ -224,6 +229,21 @@ class TestDateTypePrevious:
     def test_prev_current_year(self):
         result = prev(DATE_BQ, "current_year")
         assert result == "`posting_date` BETWEEN '2025-01-01' AND '2025-12-31'"
+
+    def test_prev_year_to_date(self):
+        # YoY same window: Jan 1 → same day one year back (NOT full prior year)
+        result = prev(DATE_BQ, "year_to_date")
+        assert result == "`posting_date` BETWEEN '2025-01-01' AND '2025-05-15'"
+
+    def test_prev_quarter_to_date(self):
+        # YoY same window: Q2 start (Apr 1) → same day one year back
+        result = prev(DATE_BQ, "quarter_to_date")
+        assert result == "`posting_date` BETWEEN '2025-04-01' AND '2025-05-15'"
+
+    def test_prev_month_to_date(self):
+        # YoY same window: month start → same day one year back
+        result = prev(DATE_BQ, "month_to_date")
+        assert result == "`posting_date` BETWEEN '2025-05-01' AND '2025-05-15'"
 
     def test_prev_last_quarter(self):
         # two quarters back from Q2 = Q4 2025
@@ -357,7 +377,8 @@ class TestAprilFiscalYearPrevious:
         assert prev(FYP_APR, "current_quarter") == "fiscal_year = 2025 AND fiscal_period BETWEEN 10 AND 12"
 
     def test_prev_year_to_date(self):
-        assert prev(FYP_APR, "year_to_date") == "fiscal_year = 2025"
+        # YoY same window: fiscal YTD through period 2 one year back
+        assert prev(FYP_APR, "year_to_date") == "fiscal_year = 2025 AND fiscal_period <= 2"
 
     def test_prev_current_month(self):
         # prev of fiscal period 2 = fiscal period 1

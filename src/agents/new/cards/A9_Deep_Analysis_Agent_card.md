@@ -255,3 +255,73 @@ Compound framing example:
 > **Complication:** "Despite revenue growing 8%, gross margin declined 3pp — the divergence suggests a mix shift or pricing compression, not a volume problem."
 
 When `alert_type` is `None` (caller did not set it), the SCQA narrative is unchanged from pre-11I behaviour.
+
+## Phase 11I-D — Alert-Type-Aware Comparator Selection + On-Demand Drill (Jul 2026)
+
+**Two pre-existing gaps this closes** (the 11I-B framing above was effectively dead in production until now):
+1. `/deep-analysis/run` never populated `alert_type` from the originating situation, so the 11I-B framing branches never fired — DA always narrated as a generic threshold breach.
+2. `comparator_main` was chosen purely from KPI-registry threshold preference (hard bias toward time-based over budget), **independent of which alert fired** — so a KPI that fired `plan_variance` was still diagnosed vs prior period, not vs budget.
+
+### Wiring (server-side lookup, not frontend-passed)
+`_run_deep_analysis_workflow` (`workflows.py`) now looks up the originating situation via `SituationsStore.get_situation(situation_id)` — mirroring the VA HITL-approve handler — and reads `alert_type`, `merged_alert_types`, and the per-pattern scalars (`plan_value`, `projected_breach_at_period`, `periods_until_breach`, `acceleration_signal`) from `full_payload`. Non-fatal: any failure degrades to the pre-11I-D registry-default selection + generic framing.
+
+### Comparator selection precedence — `_resolve_da_comparator(plan, kpi_def, registry_comparator)`
+Chooses the single Is/Is-Not comparison basis (`"previous"` vs prior period, `"budget"` vs plan, same period):
+1. `comparator_override` present (on-demand drill) → use it verbatim.
+2. else `alert_type == "plan_variance"` **and** the KPI has budget data (`_kpi_has_budget_data`: `plan_version_value` set, or a `"budget"`/`"plan_variance"`-typed threshold) → `"budget"`; `alert_type == "threshold_breach"` → `"previous"`.
+3. else → today's registry-preference default (`registry_comparator`), unchanged for direct/non-situation calls.
+
+`_kpi_has_budget_data` checks `plan_version_value` first and both `"budget"` **and** `"plan_variance"` comparison_types — SA's `plan_variance` is `ComparisonType.PLAN_VARIANCE`, a different enum member than the narrow `"budget"` scan `_pick_threshold_spec` does, so a plan_variance-only KPI would otherwise look budget-less. After resolution, `spec_main["comparison_type"]` is reconciled to match the chosen basis.
+
+**Still one KT table, one comparator, one LLM call per run** — no dual-pass, no structural refactor of `execute_deep_analysis`. The rejected dual-comparator design (two tables synthesized by the LLM) was dropped on comprehension grounds (KT = one problem per analysis; LLM cross-table synthesis goes muddy at the diagnosis step).
+
+### Bounded secondary-fact narration — `_build_secondary_alert_appendix()`
+When `merged_alert_types` has entries beyond the diagnosed `alert_type`, a **deterministic** appendix (no LLM, no second diagnosis) is appended to `scqa_summary` — one bounded flag line per other pattern from SA's scalars, capped at 3, e.g. *"Additional signals for this KPI: also flagged for plan variance vs its Budget baseline (Budget ≈ …) — use 'Diagnose vs Budget' for the dimensional breakdown; …"*. This is what keeps the compound case comprehensible: primary basis gets the full diagnosis, other patterns get a flag + a pointer to the drill.
+
+### Response propagation (fixes gap #1's downstream half)
+`DeepAnalysisResponse` now carries `alert_type`, `comparator` (`"previous"`|`"budget"`), and `merged_alert_types` — so SF/PIB can label the basis and the frontend can offer the drill. Additive/optional; no existing consumer breaks. (Prior to this, `alert_type` existed only on Request/Plan, never on the Response — SF never saw it.)
+
+### On-demand "diagnose vs the other basis" drill
+`DeepAnalysisWorkflowRequest.comparator_override` (client-supplied — explicit user action) forces the basis end-to-end via `DeepAnalysisRequest.comparator_override` → `_resolve_da_comparator` step 1. `DeepFocusView.tsx` shows a "Diagnose vs Budget" / "Diagnose vs prior period" button when the situation's `merged_alert_types` implies a basis the current diagnosis didn't use; the drill runs a fresh single-comparator DA and swaps the displayed IS/IS-NOT (one table on screen — never two fused). "Back to primary" restores the original.
+
+### New model fields (11I-D)
+| Model | Field | Type | Purpose |
+|---|---|---|---|
+| `DeepAnalysisRequest`/`Plan` | `merged_alert_types` | `Optional[List[str]]` | All patterns that fired; dominant is `alert_type` |
+| `DeepAnalysisRequest`/`Plan` | `secondary_alert_facts` | `Optional[Dict[str,Any]]` | Scalars for the bounded appendix (facts only) |
+| `DeepAnalysisRequest`/`Plan` | `comparator_override` | `Optional[Literal["previous","budget"]]` | Forces the basis (drill) |
+| `DeepAnalysisResponse` | `alert_type` / `comparator` / `merged_alert_types` | — | Which basis was diagnosed + what else fired |
+
+**Default when both `threshold_breach` and `plan_variance` fired:** follows the merge's dominant `alert_type` (highest-severity / first-detected). The other basis is one click away via the drill. Revisit if demo feedback wants budget to lead.
+
+## Phase 11I-D (matrix) — Same-axis two-basis segment matrix (Jul 2026)
+
+When a KPI breached on BOTH *cross-sectional* bases — previous-period (`threshold_breach`) AND plan-variance — DA no longer diagnoses just one; it builds a **segment × basis matrix** in the single primary `kt_is_is_not` table. Temporal/relational patterns (`projected_breach`, `acceleration`, `compound`) are NOT matrix columns — they stay as the bounded `_build_secondary_alert_appendix` annotation (and are excluded from the appendix's double-narration when the matrix ran).
+
+**Why a matrix, not two tables:** KT is one problem per Is/Is-Not; two separate tables + LLM narrative fusion was rejected (too much LLM reasoning load). Same-axis bases (same KPI, same segments, different baseline) share the dimensional *frame*, so the synthesis is **structural** — one table, an extra delta column, the reader/LLM reads across a single row. Different-axis breaches (temporal/relational) can't be columns.
+
+**Mechanism (cheap reuse, no block extraction):**
+1. `_is_matrix_eligible(plan, kpi_def, comparator_main)` — true when `merged_alert_types ⊇ {threshold_breach, plan_variance}`, `comparator_main ∈ {previous, budget}`, and `_kpi_has_budget_data`.
+2. After the primary pass finalises `kt`, run the dimensional grouping a **second time** for the other basis by reusing the already-comparator-parameterized `_maps_for_level(dim, comparator_secondary)` (budget path returns `delta = actual − budget` per segment). No extraction of the 1200-line `execute_deep_analysis` block, no second full KT table.
+3. Join `secondary_delta` onto each primary `where_is`/`where_is_not` row by `(dimension, key)`, plus a `basis_agreement` tier from `_classify_basis_agreement(primary_delta, secondary_delta, trend_positive, side)`:
+   - `confirmed` — adverse on both bases → the genuine problem
+   - `basis_specific` — adverse on primary only (e.g. down YoY but on-plan) → likely a comparison-timing artifact
+   - `secondary_only` — adverse on the secondary basis only → missed by the primary diagnosis
+   - `healthy` — favorable on both
+   - `None` — segment had no secondary delta (not cross-checked)
+4. Guarded by try/except — any failure degrades to primary-only (`matrix_ran=False`), never errors the run. `matrix_ran`/`comparator_secondary` on the response; rows carry `secondary_delta`/`basis_agreement`.
+
+**SCQA (`_generate_scqa_summary`)** gains a matrix branch (fallback + LLM) that reads across the tiers in ONE narrative: leads with `confirmed`, explicitly flags `basis_specific` as probable artifacts, surfaces `secondary_only`. Bounded — the LLM reads one enriched table with per-row tiers, never two tables.
+
+**Downstream (bounded projections, not the raw matrix):**
+- **SF** `_extract_deep_analysis_summary` derives `confirmed_problem_segments` / `basis_specific_segments` from `basis_agreement` (only when `matrix_ran`); a CROSS-BASIS SCOPING line tells the option LLM to prioritise confirmed and treat basis_specific as artifacts. No new `SolutionFinderRequest` field.
+- **Frontend** `IsIsNotExhibit` renders a second delta column + tier chips (confirmed / artifact? / 2nd-basis) + a matrix banner, driven by `matrix_ran`/`comparator`/`comparator_secondary`. One exhibit, two columns — never two tables.
+- **SA** `_merge_compound_kpi_situations` now folds a `plan_variance` situation into the KPI's primary problem card even when it resolved to `card_type="opportunity"` (ahead of a conservative plan) — fixing the bug where a KPI down 70% YoY also rendered a contradictory green "ahead of plan" card. Genuine standalone opportunities (no problem card for that KPI) still pass through.
+
+**On-demand drill:** demoted to optional — with the matrix showing both cross-sectional bases at once, switching between YoY and Plan no longer needs the drill. The `comparator_override` plumbing is retained (harmless, still forces a basis for single-basis re-analysis).
+
+**New response fields (matrix):** `comparator_secondary: Optional[Literal["previous","budget"]]`, `matrix_ran: bool`. `KTIsIsNot` rows gain free-form `secondary_delta` / `basis_agreement` keys (no model-field change — rows are `Dict[str,Any]`).
+
+**Deferred (explicit):** VA DiD **basis-tagged control groups**. Today `control_group_segments` is a flat, time-basis-defaulted list, so a solution scoped/measured on the budget basis may subtract the wrong DiD counterfactual — a latent correctness gap, to be **pressure-tested after this lands** then addressed (basis-tag the control set; evaluate picks the basis-matched set; label the AttributionBreakdown/TrajectoryChart basis). The new `comparator`/`comparator_secondary` fields are the hook.
+
+**v1 scope note:** secondary deltas are joined onto the **primary** basis's segment set; a full union of both bases' top-N segments is a v2 refinement.
