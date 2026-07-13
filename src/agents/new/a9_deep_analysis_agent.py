@@ -159,34 +159,68 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         abs_canonical = os.path.join(proj_root, canonical)
         return abs_canonical if os.path.exists(abs_canonical) else canonical
 
+    def _lookup_kpi_scoped(self, kpi_ref: Optional[str], client_id: Optional[str]):
+        """
+        Resolve a KPI by id OR display name with strict tenant isolation.
+
+        Multiple tenants legitimately share KPI ids under the composite PK
+        (client_id, id) — e.g. gross_margin_pct exists for lubricants (BigQuery),
+        apex_lubricants (Snowflake), and hess (SQL Server). When client_id is known,
+        only that tenant's record may be returned; a same-id record from another
+        tenant is NEVER an acceptable fallback (it carries the wrong data_product_id
+        and therefore the wrong backend, SQL dialect, and dimensions).
+
+        Returns None when client_id is provided and no scoped match exists.
+        """
+        if not kpi_ref:
+            return None
+        try:
+            from src.registry.factory import RegistryFactory
+            provider = RegistryFactory().get_provider("kpi")
+            if not provider:
+                return None
+            ref = kpi_ref.strip()
+            ref_lower = ref.lower()
+            candidates = [
+                k for k in provider.get_all()
+                if getattr(k, "id", None) == ref
+                or (getattr(k, "name", "") or "").lower().strip() == ref_lower
+            ]
+            if client_id:
+                scoped = [k for k in candidates if getattr(k, "client_id", None) == client_id]
+                if scoped:
+                    return scoped[0]
+                if candidates:
+                    self.logger.error(
+                        f"KPI '{ref}' not found for client '{client_id}' — "
+                        f"{len(candidates)} same-id record(s) exist for other tenants; "
+                        f"refusing cross-tenant fallback"
+                    )
+                return None
+            return candidates[0] if candidates else None
+        except Exception as e:
+            self.logger.debug(f"_lookup_kpi_scoped('{kpi_ref}', client_id={client_id}) failed: {e}")
+            return None
+
     def _contract_path_for_kpi(self, kpi_name: str = None, client_id: str = None) -> str:
         """
-        Resolve the data product contract path for a given KPI name.
-        Looks up the KPI's data_product_id in the Supabase registry (via the shared
-        RegistryFactory singleton) and scans the contracts directory for a matching YAML.
-        Falls back to the bicycle FI contract if the KPI or contract is not found.
+        Resolve the data product contract path for a given KPI id or name.
+        Looks up the KPI's data_product_id in the Supabase registry (tenant-scoped)
+        and scans the contracts directory for a matching YAML.
+
+        Fallback rules:
+        - client_id known but KPI unresolvable → "" (no contract; downstream dim
+          fallbacks take over). NEVER the bicycle FI contract — that leaks another
+          client's dimension names into the plan.
+        - no client_id (legacy single-tenant path) → bicycle FI contract default.
         """
         try:
             if not kpi_name:
                 return self._contract_path()
-            # Look up the KPI in the shared registry factory singleton
-            data_product_id = None
-            try:
-                from src.registry.factory import RegistryFactory
-                kpi_provider = RegistryFactory().get_provider("kpi")
-                if kpi_provider:
-                    kpi_name_lower = kpi_name.lower().strip()
-                    for k in kpi_provider.get_all():
-                        if (getattr(k, "name", "") or "").lower().strip() != kpi_name_lower:
-                            continue
-                        # Enforce tenant isolation when client_id is known
-                        _k_client = getattr(k, "client_id", None)
-                        if client_id and _k_client and _k_client != client_id:
-                            continue
-                        data_product_id = getattr(k, "data_product_id", None)
-                        break
-            except Exception as e:
-                self.logger.debug(f"_contract_path_for_kpi: registry lookup failed: {e}")
+            kpi_def = self._lookup_kpi_scoped(kpi_name, client_id)
+            if kpi_def is None and client_id:
+                return ""
+            data_product_id = getattr(kpi_def, "data_product_id", None) if kpi_def else None
 
             if data_product_id:
                 # Scan contracts directory for a YAML whose metadata.id matches
@@ -664,29 +698,21 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             # Priority 2: KPI registry — registered _DIMS are more authoritative than DGA-inferred view columns
             if not dimensions and request.kpi_name:
                 try:
-                    from src.registry.factory import RegistryFactory
-                    kpi_provider = RegistryFactory().get_provider("kpi")
-                    if kpi_provider:
-                        kpi_name_lower = request.kpi_name.lower().strip()
-                        _req_client = getattr(request, "client_id", None)
-                        for k in kpi_provider.get_all():
-                            if (getattr(k, "name", "") or "").lower().strip() != kpi_name_lower:
-                                continue
-                            # Enforce tenant isolation: skip KPIs from other clients
-                            _k_client = getattr(k, "client_id", None)
-                            if _req_client and _k_client and _k_client != _req_client:
-                                continue
-                            kpi_dims = getattr(k, "dimensions", None) or []
-                            dimensions = [
-                                (d.get("field") or d.get("name") if isinstance(d, dict) else
-                                 getattr(d, "field", None) or getattr(d, "name", None) or str(d))
-                                for d in kpi_dims
-                                if d
-                            ]
-                            dimensions = [d for d in dimensions if d]
-                            if dimensions:
-                                self.logger.info(f"plan_deep_analysis: using {len(dimensions)} dims from KPI registry for '{request.kpi_name}' (client={_req_client})")
-                            break
+                    _req_client = getattr(request, "client_id", None)
+                    # Tenant-scoped id-or-name resolution (matches by KPI id too — the
+                    # workflow passes scope.kpi_id in the kpi_name field)
+                    k = self._lookup_kpi_scoped(request.kpi_name, _req_client)
+                    if k is not None:
+                        kpi_dims = getattr(k, "dimensions", None) or []
+                        dimensions = [
+                            (d.get("field") or d.get("name") if isinstance(d, dict) else
+                             getattr(d, "field", None) or getattr(d, "name", None) or str(d))
+                            for d in kpi_dims
+                            if d
+                        ]
+                        dimensions = [d for d in dimensions if d]
+                        if dimensions:
+                            self.logger.info(f"plan_deep_analysis: using {len(dimensions)} dims from KPI registry for '{request.kpi_name}' (client={_req_client})")
                 except Exception as e:
                     self.logger.debug(f"plan_deep_analysis: KPI registry dim fallback failed: {e}")
 
@@ -775,22 +801,17 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             # If DP Agent is available, compute where/when by executing grouped queries
             if self.data_product_agent is not None and getattr(plan, "kpi_name", None):
                 try:
-                    # Load KPI definition from Supabase-backed RegistryFactory (single source of truth)
-                    from src.registry.factory import RegistryFactory
-                    rf_provider = RegistryFactory().get_provider("kpi")
-                    kpi_def = None
+                    # Load KPI definition from Supabase-backed RegistryFactory (single source of truth).
+                    # Tenant-scoped id-or-name resolution — the previous unscoped
+                    # rf_provider.get() fallback here resolved same-id KPIs from OTHER
+                    # tenants (wrong data product → wrong backend → empty Is/Is-Not).
                     _plan_client_id = getattr(plan, "client_id", None)
-                    if rf_provider:
-                        kpi_name_lower = (plan.kpi_name or "").lower().strip()
-                        for k in rf_provider.get_all():
-                            if (getattr(k, "name", "") or "").lower().strip() != kpi_name_lower:
-                                continue
-                            # Enforce client isolation: skip KPIs from other tenants when client_id is known
-                            if _plan_client_id and getattr(k, "client_id", None) and getattr(k, "client_id") != _plan_client_id:
-                                continue
-                            kpi_def = k
-                            break
-                        if kpi_def is None:
+                    kpi_def = self._lookup_kpi_scoped(plan.kpi_name, _plan_client_id)
+                    if kpi_def is None and not _plan_client_id:
+                        # Legacy single-tenant path only: provider-level lookup by bare id/name
+                        from src.registry.factory import RegistryFactory
+                        rf_provider = RegistryFactory().get_provider("kpi")
+                        if rf_provider:
                             kpi_def = rf_provider.get(plan.kpi_name)
                 except Exception as e:
                     kpi_def = None

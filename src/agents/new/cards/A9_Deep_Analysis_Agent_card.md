@@ -325,3 +325,9 @@ When a KPI breached on BOTH *cross-sectional* bases — previous-period (`thresh
 **Deferred (explicit):** VA DiD **basis-tagged control groups**. Today `control_group_segments` is a flat, time-basis-defaulted list, so a solution scoped/measured on the budget basis may subtract the wrong DiD counterfactual — a latent correctness gap, to be **pressure-tested after this lands** then addressed (basis-tag the control set; evaluate picks the basis-matched set; label the AttributionBreakdown/TrajectoryChart basis). The new `comparator`/`comparator_secondary` fields are the hook.
 
 **v1 scope note:** secondary deltas are joined onto the **primary** basis's segment set; a full union of both bases' top-N segments is a v2 refinement.
+
+## Tenant-Scoped KPI Resolution — `_lookup_kpi_scoped()` (Jul 2026)
+
+**Bug fixed:** three clients share KPI id `gross_margin_pct` (composite PK `(client_id, id)`). DA's KPI lookups matched by display name only — but the workflow passes the KPI **id** in `kpi_name` — so they always missed, and the unscoped `provider.get(id)` fallback returned another tenant's record (apex_lubricants → `dp_lubricants_snowflake`), routing all dimension queries to the wrong backend. Every query failed → empty Is/Is-Not. A second leak: `_contract_path_for_kpi` defaulted to the bicycle FI contract on a total miss, injecting FI star dimension names into other clients' plans.
+
+**Fix:** `_lookup_kpi_scoped(kpi_ref, client_id)` resolves by id OR display name with strict tenant isolation — when `client_id` is known, a same-id record from another tenant is never returned (scoped miss → `None` + error log). Used at all three resolution sites: `_contract_path_for_kpi` (scoped miss now returns `""`, never the FI contract default), plan-phase Priority 2 dims, and the execute-phase KPI load (unscoped `provider.get()` retained only for the legacy no-client_id path). Regression tests: `tests/unit/test_da_kpi_scoped_lookup.py`.
