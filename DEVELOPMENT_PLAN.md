@@ -1293,7 +1293,11 @@ Pre-11K through 11N are deferred until the existing pipeline survives a complete
 
 **Baseline (recorded 2026-07-12, commit 941a425):** unit suite 508 passed / 9 skipped / 2 pre-existing failures unrelated to LLM routing (`test_get_portfolio_summary_empty_store` — local VA store not empty; `test_generate_sql_ignores_all_tokens_in_filters` — column casing drift). All SA call sites route via `get_claude_model_for_task()`; only remaining deviation is Accountability Interview's hardcoded constants.
 
-#### 11O-A: Capability-Aware Request Builder (prerequisite)
+#### 11O-A: Capability-Aware Request Builder ✅ COMPLETE (Jul 2026)
+
+Shipped as designed with two deviations: the effort env var is `A9_LLM_EFFORT` (not `CLAUDE_EFFORT` — that name is injected by the Claude Code harness into its shell sessions and would leak into local runs), and text extraction was additionally hardened to take the first `text` content block (Fable responses may lead with fallback/thinking blocks). SDK 0.84.0 → 0.116.0. 11 unit tests in `tests/unit/test_claude_service_capabilities.py`; full suite matches baseline (546 passed, same 2 pre-existing failures).
+
+**E2E verified (2026-07-13):** live-API smoke across all five model families — Haiku 4.5 / Sonnet 4.6 with temperature preserved, Sonnet 5 / Opus 4.8 with temperature dropped (would 400 on old code), Fable 5 with server-side fallbacks beta accepted (org retention requirement confirmed). Full pipeline e2e: `run_enterprise_assessment.py --client lubricants --dry-run` — 15 KPIs, 13 escalated, 0 errors, SA card observations generated through the new builder.
 
 | Deliverable | Description |
 |---|---|

@@ -87,6 +87,109 @@ def get_claude_model_for_task(task_type: str = ClaudeTaskType.GENERAL) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Model capability map + request builder (Phase 11O-A)
+# ---------------------------------------------------------------------------
+
+class ModelCapabilities(BaseModel):
+    """API-surface flags for a Claude model family, used to build valid requests."""
+    accepts_temperature: bool = True   # False → temperature/top_p/top_k return 400; omit them
+    supports_effort: bool = False      # output_config.effort accepted
+    server_fallbacks: bool = False     # opt into server-side refusal fallbacks (Fable 5)
+    max_output_tokens: int = 128000
+
+
+# Keyed by model-ID prefix; the longest matching prefix wins (so
+# "claude-sonnet-4-6" beats "claude-sonnet-4-" style overlaps).
+# Sonnet 5 / Opus 4.7+ / Fable 5 reject sampling params with a 400.
+MODEL_CAPABILITIES: Dict[str, ModelCapabilities] = {
+    "claude-haiku-4-5":  ModelCapabilities(max_output_tokens=64000),
+    "claude-sonnet-4-5": ModelCapabilities(max_output_tokens=64000),
+    "claude-sonnet-4-6": ModelCapabilities(supports_effort=True),
+    "claude-opus-4-5":   ModelCapabilities(supports_effort=True, max_output_tokens=64000),
+    "claude-opus-4-6":   ModelCapabilities(supports_effort=True),
+    "claude-sonnet-5":   ModelCapabilities(accepts_temperature=False, supports_effort=True),
+    "claude-opus-4-7":   ModelCapabilities(accepts_temperature=False, supports_effort=True),
+    "claude-opus-4-8":   ModelCapabilities(accepts_temperature=False, supports_effort=True),
+    "claude-fable-5":    ModelCapabilities(accepts_temperature=False, supports_effort=True,
+                                           server_fallbacks=True),
+}
+
+# Unknown model IDs get the conservative profile: omitting sampling params is
+# always valid, sending them is not. Output ceiling left high — the API gives
+# a clear 400 if exceeded, whereas silent clamping would truncate synthesis.
+_CONSERVATIVE_CAPABILITIES = ModelCapabilities(accepts_temperature=False)
+
+# Server-side refusal fallback target for Fable 5 (the only supported target at launch)
+FABLE_FALLBACK_MODEL = os.environ.get("CLAUDE_FABLE_FALLBACK_MODEL", "claude-opus-4-8")
+_FALLBACK_BETA_HEADER = "server-side-fallback-2026-06-01"
+
+
+def get_model_capabilities(model_id: str) -> ModelCapabilities:
+    """Longest-prefix match against MODEL_CAPABILITIES; conservative profile for unknown IDs."""
+    best: Optional[str] = None
+    for prefix in MODEL_CAPABILITIES:
+        if model_id.startswith(prefix) and (best is None or len(prefix) > len(best)):
+            best = prefix
+    if best is None:
+        logger.warning(
+            f"Unknown Claude model '{model_id}' — using conservative capabilities (no sampling params)"
+        )
+        return _CONSERVATIVE_CAPABILITIES
+    return MODEL_CAPABILITIES[best]
+
+
+def build_messages_kwargs(
+    model: str,
+    max_tokens: int,
+    temperature: Optional[float],
+    system: str,
+    messages: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Build kwargs for client.messages.create() that are valid for the target model.
+
+    - Drops temperature for models that reject sampling params (Sonnet 5, Opus 4.7+, Fable 5).
+    - Applies output_config.effort when the A9_LLM_EFFORT env var is set and the model supports it
+      (unset = API default "high"). Sent via extra_body for SDK-version tolerance.
+      (Deliberately NOT named CLAUDE_EFFORT — the Claude Code harness injects that
+      name into its shell sessions, which would silently leak into local test runs.)
+    - For Fable 5, opts into server-side refusal fallbacks so classifier false-positives
+      are re-served by FABLE_FALLBACK_MODEL instead of failing the request.
+    - Clamps max_tokens to the model's output ceiling (warns when clamping).
+    """
+    caps = get_model_capabilities(model)
+
+    _max_tokens = max_tokens
+    if max_tokens > caps.max_output_tokens:
+        logger.warning(
+            f"max_tokens={max_tokens} exceeds {model} output ceiling; clamping to {caps.max_output_tokens}"
+        )
+        _max_tokens = caps.max_output_tokens
+
+    kwargs: Dict[str, Any] = {
+        "model": model,
+        "max_tokens": _max_tokens,
+        "system": system,
+        "messages": messages,
+    }
+
+    if caps.accepts_temperature and temperature is not None:
+        kwargs["temperature"] = temperature
+
+    extra_body: Dict[str, Any] = {}
+    effort = os.environ.get("A9_LLM_EFFORT")
+    if effort and caps.supports_effort:
+        extra_body["output_config"] = {"effort": effort}
+    if caps.server_fallbacks:
+        extra_body["fallbacks"] = [{"model": FABLE_FALLBACK_MODEL}]
+        kwargs["extra_headers"] = {"anthropic-beta": _FALLBACK_BETA_HEADER}
+    if extra_body:
+        kwargs["extra_body"] = extra_body
+
+    return kwargs
+
+
+# ---------------------------------------------------------------------------
 # Config and service models
 # ---------------------------------------------------------------------------
 
@@ -271,14 +374,35 @@ class ClaudeService:
             logger.info(f"[ClaudeService] {request_id} → model={_model}, max_tokens={_max_tokens}")
 
             message = self.client.messages.create(
-                model=_model,
-                max_tokens=_max_tokens,
-                temperature=_temperature,
-                system=_system,
-                messages=[{"role": "user", "content": prompt}],
+                **build_messages_kwargs(
+                    model=_model,
+                    max_tokens=_max_tokens,
+                    temperature=_temperature,
+                    system=_system,
+                    messages=[{"role": "user", "content": prompt}],
+                )
             )
 
-            response_text = message.content[0].text if message.content else ""
+            # Safety classifiers (Fable 5) can decline with HTTP 200 + stop_reason="refusal".
+            # With server-side fallbacks enabled this only surfaces if the whole chain refused.
+            if getattr(message, "stop_reason", None) == "refusal":
+                details = getattr(message, "stop_details", None)
+                category = getattr(details, "category", None) if details else None
+                logger.warning(f"[ClaudeService] {request_id} ✗ refused (category={category})")
+                return {
+                    "request_id": request_id,
+                    "error": f"Model declined the request (stop_reason=refusal, category={category})",
+                    "model": getattr(message, "model", _model),
+                    "response": None,
+                    "timestamp": datetime.now().isoformat(),
+                }
+
+            # First text block — content may lead with non-text blocks (thinking,
+            # fallback markers) on newer models, so don't assume content[0] is text.
+            response_text = next(
+                (b.text for b in (message.content or []) if getattr(b, "type", None) == "text"),
+                "",
+            )
             usage = {
                 "prompt_tokens": message.usage.input_tokens,
                 "completion_tokens": message.usage.output_tokens,
@@ -291,7 +415,9 @@ class ClaudeService:
             )
             return {
                 "request_id": request_id,
-                "model": _model,
+                # message.model reports the model that actually served the response
+                # (differs from _model when a Fable refusal fell back to Opus)
+                "model": getattr(message, "model", _model) or _model,
                 "response": response_text,
                 "usage": usage,
                 "timestamp": datetime.now().isoformat(),

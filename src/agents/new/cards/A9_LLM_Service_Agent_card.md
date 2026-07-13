@@ -66,7 +66,13 @@ Per-task generation defaults (temperature/max_tokens) are also defined in `claud
 - System prompts fall back to guardrail defaults unless `system_prompt_override` is supplied.
 
 ## Provider Abstraction
-- **Anthropic (primary)**: `src/llm_services/claude_service.py` — async Messages API (`client.messages.create`), task-based model routing per the table above. Sampling uses explicit `temperature` on every call (**note:** incompatible with Fable 5 / Opus 4.7+ / Sonnet 5 non-default values — a capability-aware request builder is required before adopting those models).
+- **Anthropic (primary)**: `src/llm_services/claude_service.py` — async Messages API (`client.messages.create`), task-based model routing per the table above.
+- **Capability-aware request builder (Phase 11O-A, Jul 2026)**: `build_messages_kwargs()` consults a per-model-family `MODEL_CAPABILITIES` map (longest-prefix match) before every call:
+  - Drops `temperature` for families that reject sampling params (Sonnet 5, Opus 4.7/4.8, Fable 5); preserves it for Sonnet 4.6 / Haiku 4.5. Unknown model IDs get a conservative profile (no sampling params).
+  - `output_config.effort` sent when `A9_LLM_EFFORT` env var is set and the model supports effort (unset = API default `high`). Named `A9_LLM_EFFORT`, not `CLAUDE_EFFORT` — the Claude Code harness injects `CLAUDE_EFFORT` into its shells.
+  - Fable 5 requests automatically opt into server-side refusal fallbacks (`server-side-fallback-2026-06-01` beta → falls back to `claude-opus-4-8`; target overridable via `CLAUDE_FABLE_FALLBACK_MODEL`).
+  - `stop_reason == "refusal"` returns `{"error": ..., "response": None}` — the agent layer converts this to `status="error"`. Text extraction takes the first `text` content block (Fable responses may lead with fallback/thinking blocks); the returned `model` field reports the model that actually served the response.
+  - `max_tokens` clamped to the model family's output ceiling (warn on clamp).
 - **OpenAI (legacy fallback)**: `src/llm_services/openai_service.py` — only initialized when `LLM_PROVIDER=openai`; task map defaults to `gpt-4-turbo`. Not exercised in the current deployment (`.env` sets `LLM_PROVIDER=anthropic`).
 - Validates API key presence via config or environment. Initialization errors raise `RuntimeError` to surface misconfiguration early.
 
@@ -155,7 +161,8 @@ status: str                         # "success" or "error"
 | Timeout/network | All methods | Exception propagates; caller must handle or retry |
 
 ## Recent Updates
-- **Jul 2026**: Card refreshed — documented Anthropic-primary routing table, env overrides, per-agent consumers, and known routing deviations (SA hardcoded call sites). Flagged `temperature` incompatibility with Fable 5 / Opus 4.7+ / Sonnet 5 as a prerequisite for any model upgrade.
+- **Jul 2026 (Phase 11O-A)**: Capability-aware request builder shipped — model capability map, sampling-param stripping for Sonnet 5 / Opus 4.7+ / Fable 5, refusal stop_reason handling, Fable server-side fallbacks, `A9_LLM_EFFORT` knob, output-ceiling clamp. `anthropic` SDK 0.84.0 → 0.116.0 (requirements floor `>=0.116.0`). Unit tests: `tests/unit/test_claude_service_capabilities.py` (11 tests). Routing table itself unchanged (still Sonnet 4.6 / Haiku 4.5) — refresh is Phase 11O-B.
+- **Jul 2026**: Card refreshed — documented Anthropic-primary routing table, env overrides, per-agent consumers, and known routing deviations (SA hardcoded call sites, since resolved).
 - **Mar 2026**: Switched to Anthropic Claude as primary provider (`LLM_PROVIDER=anthropic` default; OpenAI legacy fallback). Task-based model routing (`CLAUDE_MODEL_STAGE1`, `CLAUDE_MODEL_SYNTHESIS`, etc.). SQL generation confidence scoring with validation warnings. Template support via Jinja2 formatting.
 
 ## Dependencies
