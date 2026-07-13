@@ -104,7 +104,7 @@ const closedLoopProofPoints = [
 // ═══════════════════════════════════════════════════
 export function LandingPageAlternate() {
   useSatoshiFont()
-  const councilCaseStudyVideoSrc = `${import.meta.env.BASE_URL}media/the-coffee-shop-council.mp4`
+  const councilCaseStudyVideoSrc = 'https://customer-erkp1ybr2e8wokyn.cloudflarestream.com/ab19f3317eeb53efeeb3a6dd516b6ae9/iframe'
 
   // Nav opacity on scroll
   const [navSolid, setNavSolid] = useState(false)
@@ -481,15 +481,14 @@ export function LandingPageAlternate() {
                 </div>
               ) : (
                 <div className="mt-6 overflow-hidden rounded-xl border border-slate-800/60 bg-black">
-                  <video
+                  <iframe
+                    title="Narrated decision loop case study video"
+                    src={councilCaseStudyVideoSrc}
                     className="aspect-video w-full"
-                    controls
-                    playsInline
-                    preload="metadata"
-                    aria-label="Narrated decision loop case study video"
-                  >
-                    <source src={councilCaseStudyVideoSrc} type="video/mp4" />
-                  </video>
+                    style={{ border: 'none' }}
+                    allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+                    allowFullScreen
+                  />
                 </div>
               )}
             </motion.div>

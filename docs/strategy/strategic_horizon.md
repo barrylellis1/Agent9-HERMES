@@ -14,6 +14,18 @@
 
 ---
 
+## 0. Founder Thesis — Decision Intelligence Is a Value Chain
+
+Decision Studio is shaped by a simple observation from 30+ years in data and analytics: most technology waves are introduced as new ways to produce familiar artifacts faster, then abandoned when the next artifact factory arrives. The current generative AI wave is at risk of repeating that pattern. Much of the market is asking, "How can AI build dashboards faster?" That is the wrong problem.
+
+Dashboards were never the destination. They were an intermediate artifact in a larger executive process: create or detect a signal, understand whether it matters, diagnose what is driving it, generate options, choose a course of action, execute with accountability, and verify whether value was actually created. That end-to-end process is the Decision Intelligence value chain.
+
+The central design principle of Agent9 is to treat that value chain as the product. Decision Studio should not recreate the legacy analytics stack with agents attached. It should streamline the essential steps from signal creation through Value Assurance, using LLM capabilities where they remove friction, expose patterns, test options, or improve executive understanding, while preserving human judgment, approval, and accountability at the moments where trust and consequence require it.
+
+This is why Decision Studio is not positioned as a dashboard tool, even when it consumes metrics and visualizes evidence. Its purpose is not to make reporting prettier or faster. Its purpose is to make executive decision-making more measurable, more explainable, more adaptive, and more connected to business outcomes.
+
+---
+
 ## 1. The Organizing Spine — Three Strategic Layers
 
 Decision Studio is not a KPI monitoring tool with features bolted on. It is a three-layer strategic intelligence system, where each layer answers a different executive question and each layer's outputs feed the layer below while outcomes feed back upward as learning.
@@ -274,6 +286,6 @@ The detect→diagnose→solve→verify engine works on any metricized system: op
 
 ## 10. The One-Sentence North Star
 
-> Decision Studio is building the continuous strategic intelligence platform that lets an enterprise run, change, and reimagine itself — autonomously detecting what's breaking, executing toward declared objectives, and discovering what to pursue next — grounded in the company's own data and compounding in value with every assessment it runs.
+> Decision Studio is building the continuous strategic intelligence platform that treats executive decision-making as a measurable value chain — converting business signals into diagnosis, human-approved action, and Value Assurance, then using that evidence to help an enterprise run, change, and reimagine itself.
 
-Everything in the roadmap should ladder up to that sentence. If a build does not advance one of the three layers, the cross-client moat, or the trust curve that unlocks autonomy, question whether it belongs.
+Everything in the roadmap should ladder up to that sentence. If a build does not advance the decision-value chain, one of the three strategic layers, the cross-client moat, or the trust curve that unlocks autonomy, question whether it belongs.
