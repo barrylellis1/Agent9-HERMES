@@ -46,13 +46,15 @@ Task-based routing lives in `src/llm_services/claude_service.py` (`get_claude_mo
 | ClaudeTaskType | Default model | Env override | Consumed by |
 |---|---|---|---|
 | `SQL_GENERATION` | `claude-haiku-4-5-20251001` | `CLAUDE_MODEL_SQL` | `generate_sql()` entrypoint |
-| `NLP_PARSING` | `claude-haiku-4-5-20251001` | `CLAUDE_MODEL_NLP` | DA insight extraction (JSON classification); VA narrative generation |
+| `NLP_PARSING` | `claude-haiku-4-5-20251001` | `CLAUDE_MODEL_NLP` | DA insight extraction (JSON classification); VA narrative generation; SA card observations |
 | `STAGE1_PERSONA` | `claude-haiku-4-5-20251001` | `CLAUDE_MODEL_STAGE1` | SF Stage 1 — 3 parallel persona calls (temperature=0.0 set by SF) |
-| `REASONING` | `claude-sonnet-4-6` | `CLAUDE_MODEL_REASONING` | DA narrative summarization / hypotheses |
-| `SOLUTION_FINDING` | `claude-sonnet-4-6` | `CLAUDE_MODEL_SOLUTION` | Legacy task type (SF now uses STAGE1_PERSONA + SYNTHESIS) |
-| `BRIEFING` | `claude-sonnet-4-6` | `CLAUDE_MODEL_BRIEFING` | Reserved (PIB briefing composition is deterministic Jinja2, no LLM) |
-| `SYNTHESIS` | `claude-sonnet-4-6` | `CLAUDE_MODEL_SYNTHESIS` | SF synthesis/cross-review; Market Analysis signal synthesis |
-| `GENERAL` | `claude-sonnet-4-6` | `CLAUDE_MODEL` | KPI Assistant, Accountability Interview (config default) |
+| `REASONING` | `claude-sonnet-5` | `CLAUDE_MODEL_REASONING` | DA narrative summarization / hypotheses |
+| `SOLUTION_FINDING` | `claude-sonnet-5` | `CLAUDE_MODEL_SOLUTION` | Legacy task type (SF now uses STAGE1_PERSONA + SYNTHESIS) |
+| `BRIEFING` | `claude-sonnet-5` | `CLAUDE_MODEL_BRIEFING` | Reserved (PIB briefing composition is deterministic Jinja2, no LLM) |
+| `SYNTHESIS` | `claude-sonnet-5` | `CLAUDE_MODEL_SYNTHESIS` | SF synthesis/cross-review; Market Analysis signal synthesis (MA config default follows this entry) |
+| `GENERAL` | `claude-sonnet-5` | `CLAUDE_MODEL` | KPI Assistant (config default) |
+
+Sonnet-tier tasks moved 4.6 → 5 in Phase 11O-B (Jul 2026) after a controlled three-way synthesis A/B (see DEVELOPMENT_PLAN.md Phase 11O-B). Rollback: set the env override(s) to `claude-sonnet-4-6`. Note Sonnet 5 rejects non-default sampling params — `build_messages_kwargs()` strips `temperature` for it automatically.
 
 Per-task generation defaults (temperature/max_tokens) are also defined in `claude_service.py` — e.g. SQL/NLP at 0.1, synthesis at 0.7/8192. Callers may override per request (SF raises synthesis `max_tokens` to 16384).
 

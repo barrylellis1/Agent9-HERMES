@@ -5,6 +5,7 @@ All agent configuration models must be defined here for centralized validation.
 
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, ConfigDict, Field
+from src.llm_services.claude_service import ClaudeTaskType, get_claude_model_for_task
 from src.agents.models.nlp_models import (
     NLPBusinessQueryInput,
     NLPBusinessQueryResult,
@@ -38,9 +39,9 @@ class A9_LLM_Service_Agent_Config(BaseModel):
 
     Claude task types for automatic model selection:
     - sql_generation / nlp_parsing  → claude-haiku-4-5-20251001 (cheap, fast)
-    - reasoning / solution_finding / briefing / synthesis → claude-sonnet-4-6
+    - reasoning / solution_finding / briefing / synthesis → claude-sonnet-5 (11O-B)
     - stage1_persona → claude-haiku-4-5-20251001 (single-persona focused call)
-    - general → claude-sonnet-4-6
+    - general → claude-sonnet-5
     """
     model_config = ConfigDict(extra="allow")
 
@@ -470,7 +471,7 @@ class A9_KPI_Assistant_Agent_Config(BaseModel):
     
     # LLM settings — honour LLM_PROVIDER env var (same as all other agents)
     llm_provider: str = Field(default_factory=_default_llm_provider, description="LLM provider for KPI suggestions")
-    llm_model: str = Field(default_factory=lambda: "claude-sonnet-4-6" if _default_llm_provider() == "anthropic" else "gpt-4-turbo", description="Model for KPI generation and chat")
+    llm_model: str = Field(default_factory=lambda: "claude-sonnet-5" if _default_llm_provider() == "anthropic" else "gpt-4-turbo", description="Model for KPI generation and chat")
     temperature: float = Field(0.7, description="Temperature for LLM generation")
     max_tokens: int = Field(4096, description="Maximum tokens for LLM responses")
     
@@ -537,8 +538,8 @@ class A9_Market_Analysis_Agent_Config(BaseModel):
         5, description="Default maximum number of market signals to retrieve per request"
     )
     synthesis_model: str = Field(
-        "claude-sonnet-4-6",
-        description="Claude model to use for market signal synthesis",
+        default_factory=lambda: get_claude_model_for_task(ClaudeTaskType.SYNTHESIS),
+        description="Claude model for market signal synthesis — follows the SYNTHESIS routing table entry (honours CLAUDE_MODEL_SYNTHESIS)",
     )
     require_orchestrator: bool = Field(
         False,

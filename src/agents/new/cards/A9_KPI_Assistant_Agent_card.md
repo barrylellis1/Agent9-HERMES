@@ -21,7 +21,7 @@ class A9_KPI_Assistant_Agent_Config(BaseModel):
     
     # LLM settings — honour LLM_PROVIDER env var (default "anthropic")
     llm_provider: str            # default from LLM_PROVIDER env var
-    llm_model: str               # "claude-sonnet-4-6" when anthropic (default); "gpt-4-turbo" legacy openai
+    llm_model: str               # "claude-sonnet-5" when anthropic (default, 11O-B); "gpt-4-turbo" legacy openai
     temperature: float = 0.7
     max_tokens: int = 4096
     

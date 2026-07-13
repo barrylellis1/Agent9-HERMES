@@ -1310,7 +1310,20 @@ Shipped as designed with two deviations: the effort env var is `A9_LLM_EFFORT` (
 
 **Scope:** S–M. No behavior change for current models — pure enablement.
 
-#### 11O-B: Routing Table Refresh — Sonnet 5
+#### 11O-B: Routing Table Refresh — Sonnet 5 ✅ COMPLETE (Jul 2026)
+
+**A/B result (2026-07-13, three-way controlled test):** one frozen DA output (lubricants gross_margin_pct), one deterministic Stage 1, synthesis stage run per model. The frozen DA input happened to carry a data contradiction (quarterly avg +1.41pp vs intra-quarter −7.5pp slide, empty where_signals) — an unplanned reasoning stress test.
+
+| | Sonnet 4.6 | Sonnet 5 | Fable 5 |
+|---|---|---|---|
+| Latency | 206.5s | 139.4s | 110.7s |
+| Tokens in/out | 6,264/9,938 | 8,739/13,816 | 8,739/8,629 |
+| Cost/call | ~$0.17 | ~$0.16 intro | ~$0.52 |
+| Contradiction handling | buried in next steps | led with it, containment-first | flagged it AND made the call; sharpest inference ("quarterly average conceals the slide — next quarter opens from ~32% run-rate") |
+
+**Decision: Sonnet 5 adopted** for REASONING / SOLUTION_FINDING / BRIEFING / SYNTHESIS / GENERAL. Haiku tasks unchanged. MA `synthesis_model` config default now follows the SYNTHESIS routing entry. KPI Assistant default → sonnet-5. Rollback = env override(s) to `claude-sonnet-4-6`. Accountability Interview's hardcoded constants intentionally not touched (documented deviation).
+
+**11O-C evidence from the same run:** Fable won on quality AND latency at ~3× cost — promising but the input was degraded (empty where_signals), so the decision gate stays open pending one confirmatory round on a segment-rich DA output. Two anomalies logged from the run: (1) lubricants DA returned an empty Is/Is-Not table; (2) ~13 Snowflake SQL compilation errors fired at the end of the run despite lubricants being BigQuery-backed — possible cross-client routing leak. Both under investigation before the confirmatory round.
 
 | Deliverable | Description |
 |---|---|

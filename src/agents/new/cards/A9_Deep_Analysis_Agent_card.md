@@ -67,7 +67,7 @@ class A9_Deep_Analysis_Agent_Config(BaseModel):
 | Task Type | Model | Rationale |
 |-----------|-------|-----------|
 | `nlp_parsing` | `claude-haiku-4-5-20251001` | Insight extraction — pure JSON classification, no reasoning needed |
-| `reasoning` (default) | `claude-sonnet-4-6` | Narrative summarization (SCQA) and refinement question generation |
+| `reasoning` (default) | `claude-sonnet-5` | Narrative summarization (SCQA) and refinement question generation (11O-B: 4.6 → 5) |
 
 Environment variable overrides: `CLAUDE_MODEL_NLP`, `CLAUDE_MODEL_REASONING`
 

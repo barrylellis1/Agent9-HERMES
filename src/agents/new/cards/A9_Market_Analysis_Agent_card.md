@@ -25,7 +25,7 @@ class A9_Market_Analysis_Agent_Config(BaseModel):
     model_config = ConfigDict(extra="allow")
     enable_perplexity: bool = True   # Set False for LLM-only mode
     max_signals: int = 5             # Max market signals per request
-    synthesis_model: str = "claude-sonnet-4-6"
+    synthesis_model: str    # default follows the SYNTHESIS routing table entry (claude-sonnet-5 as of 11O-B; honours CLAUDE_MODEL_SYNTHESIS)
     require_orchestrator: bool = False  # Can run standalone
     log_all_requests: bool = True
 ```
@@ -34,7 +34,7 @@ class A9_Market_Analysis_Agent_Config(BaseModel):
 1. Build a search query from `(kpi_name, industry, da_structural_context)` — structural segment names included for specificity; **no DA conclusion** at this stage to avoid confirmation bias
 2. Call `PerplexityService` to fetch web-search results (signals + citations)
 3. Convert Perplexity citations into `MarketSignal` objects
-4. Send signals + `kpi_context` + `analysis_mode` to `A9_LLM_Service_Agent` (claude-sonnet-4-6) for synthesis and conflict assessment — DA conclusion (analysis_mode/scqa) enters here, not at signal fetch
+4. Send signals + `kpi_context` + `analysis_mode` to `A9_LLM_Service_Agent` (SYNTHESIS routing — claude-sonnet-5) for synthesis and conflict assessment — DA conclusion (analysis_mode/scqa) enters here, not at signal fetch
 5. Return `MarketAnalysisResponse` with signals, synthesis narrative, conflict dict, and confidence score
 
 ## Context Enrichment Strategy (May 2026)
@@ -55,7 +55,7 @@ Signal generation uses a two-tier enrichment to produce business-specific signal
 ## LLM Configuration
 | Task Type | Model | Rationale |
 |-----------|-------|-----------|
-| `synthesis` | `claude-sonnet-4-6` | Executive-quality market narrative synthesis |
+| `synthesis` | `claude-sonnet-5` | Executive-quality market narrative synthesis (11O-B: 4.6 → 5) |
 
 Environment variable override: `CLAUDE_MODEL_SYNTHESIS`
 
@@ -65,7 +65,7 @@ Environment variable override: `CLAUDE_MODEL_SYNTHESIS`
 - **Perplexity model**: `sonar` (search-enabled); override via `PERPLEXITY_MODEL` env var
 
 ## LLM-Only Signal Generation (Mar 2026)
-When `PERPLEXITY_API_KEY` is not set, `_llm_generate_signals()` asks the LLM (claude-sonnet-4-6)
+When `PERPLEXITY_API_KEY` is not set, `_llm_generate_signals()` asks the LLM (SYNTHESIS routing model)
 to produce structured `MarketSignal` JSON objects from its training knowledge of the KPI and
 industry. Signals are tagged `source="llm_knowledge"` and `sources_queried=["llm_knowledge"]`.
 This ensures `MarketAnalysisResponse.signals` is always populated (not empty) so the refinement

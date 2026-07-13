@@ -39,16 +39,21 @@ class ClaudeTaskType:
 
 
 # Default Claude model per task type
-# Haiku = cheap/fast for focused tasks; Sonnet = full power for synthesis
+# Haiku = cheap/fast for focused tasks; Sonnet = full power for synthesis.
+# Sonnet 4.6 → Sonnet 5 (Phase 11O-B, Jul 2026): won the controlled synthesis A/B
+# on the Lubricants scenario — better reasoning under contradictory evidence, 32%
+# faster, same sticker price. Rollback: CLAUDE_MODEL_SYNTHESIS=claude-sonnet-4-6 etc.
+# NOTE: Sonnet 5 rejects non-default sampling params — build_messages_kwargs()
+# strips temperature for it (capability map above).
 DEFAULT_CLAUDE_TASK_MODELS: Dict[str, str] = {
     ClaudeTaskType.SQL_GENERATION:   "claude-haiku-4-5-20251001",
     ClaudeTaskType.NLP_PARSING:      "claude-haiku-4-5-20251001",
-    ClaudeTaskType.REASONING:        "claude-sonnet-4-6",
-    ClaudeTaskType.SOLUTION_FINDING: "claude-sonnet-4-6",
-    ClaudeTaskType.BRIEFING:         "claude-sonnet-4-6",
+    ClaudeTaskType.REASONING:        "claude-sonnet-5",
+    ClaudeTaskType.SOLUTION_FINDING: "claude-sonnet-5",
+    ClaudeTaskType.BRIEFING:         "claude-sonnet-5",
     ClaudeTaskType.STAGE1_PERSONA:   "claude-haiku-4-5-20251001",
-    ClaudeTaskType.SYNTHESIS:        "claude-sonnet-4-6",
-    ClaudeTaskType.GENERAL:          "claude-sonnet-4-6",
+    ClaudeTaskType.SYNTHESIS:        "claude-sonnet-5",
+    ClaudeTaskType.GENERAL:          "claude-sonnet-5",
 }
 
 # Environment variable names for task-specific model overrides
