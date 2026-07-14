@@ -104,7 +104,7 @@ run_enterprise_assessment.py
 | ~~Connection Profiles backend storage + credential encryption~~ | ✅ Infra B — complete |
 | ~~Authentication (Supabase Auth)~~ | ✅ Infra B — complete (dual-mode login + JWT middleware) |
 | Azure OpenAI provider + LLM audit export | Infra B2 |
-| ~~Database-level multi-tenant isolation~~ | ✅ Infra B3 — complete (RLS via `a9_tenant_scope` role on 12 tables, `tenant_scope()` transaction helper, provider `get_by_client()`, DGA gate in DPA `execute_sql`, composite-delete fix). Prod migration pending: `supabase db push --linked` |
+| ~~Database-level multi-tenant isolation~~ | ✅ Infra B3 — complete and verified live in production (RLS via `a9_tenant_scope` role on 12 tables, `tenant_scope()` transaction helper, provider `get_by_client()`, DGA gate in DPA `execute_sql`, composite-delete fix) |
 | **SOC 2 Controls Foundation** — audit event log, sign-in audit, principal archive lifecycle, briefing provenance footer, Sentry availability monitoring | **Infra C** (Q4 2026 — before first security review) |
 
 ### Known tech debt (remaining)
@@ -2699,7 +2699,9 @@ RUN apt-get update && apt-get install -y curl gnupg \
 
 ### Infra B3: Database-Level Multi-Tenant Isolation ← ✅ SHIPPED July 2026
 
-**Status: complete (2026-07-13).** All three layers implemented and verified locally; migration `supabase/migrations/20260713_rls_client_isolation.sql` must be applied to production (`supabase db push --linked`) before or with the code deploy (code falls back to application-layer filtering with a loud error until the role exists).
+**Status: complete and verified live in production (2026-07-14).** All three layers implemented, migration `supabase/migrations/20260713_rls_client_isolation.sql` applied to production via `supabase db push --linked`, and `scripts/verify_prod_registry.py --env production` confirms: `a9_tenant_scope` role present without BYPASSRLS, RLS + `client_isolation` policy live on all 12 tenant tables, and both fail-closed probes pass (no client context ⇒ 0 rows; scoped context ⇒ only that client's rows) against the real production database.
+
+**Follow-on cleanup (2026-07-14):** while closing out verification, found and fixed two unrelated items surfaced along the way — `.env.production`'s `SUPABASE_DB_URL` was malformed (password missing, wrong pooler region) and had silently been pointing nowhere useful for direct-Postgres tooling; and production's `business_contexts`/`business_processes` tables carried stale non-production rows (`bicycle`, `hess` demo clients; 26 legacy canonical business-process rows on `lubricants` predating `BUSINESS_PROCESS_IDS`-scoped onboarding). Both cleaned up; `_FALLBACK_CLIENTS` in `registry.py` updated so `bicycle` can't reappear via the fallback path.
 
 **Design deviations from the original sketch below (verified during implementation):**
 - The app's asyncpg pool connects as `postgres`, which has **BYPASSRLS** in Supabase — plain `ENABLE ROW LEVEL SECURITY` + FastAPI middleware would have been silently bypassed. Instead: a dedicated `NOLOGIN` role `a9_tenant_scope` (no BYPASSRLS), switched to per-transaction via `SET LOCAL ROLE` + `set_config('app.client_id', …, true)` in `src/database/tenant_scope.py`. Policies are fail-closed (`client_id = current_setting('app.client_id', true)` — GUC unset ⇒ zero rows).
