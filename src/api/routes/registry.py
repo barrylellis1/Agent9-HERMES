@@ -105,15 +105,13 @@ async def list_kpis(
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "KPI provider unavailable"))
 
-    items: List[KPI] = provider.get_all()
+    items: List[KPI] = provider.get_by_client(client_id) if client_id else provider.get_all()
     if domain:
         items = [kpi for kpi in items if kpi.domain == domain]
     if owner_role:
         items = [kpi for kpi in items if kpi.owner_role == owner_role]
     if tag:
         items = [kpi for kpi in items if tag in getattr(kpi, "tags", [])]
-    if client_id:
-        items = [kpi for kpi in items if getattr(kpi, "client_id", None) == client_id]
 
     return wrap(items)
 
@@ -228,9 +226,9 @@ async def list_principals(
     provider = factory.get_principal_profile_provider()
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "Principal provider unavailable"))
-    items: List[PrincipalProfile] = provider.get_all()
-    if client_id:
-        items = [p for p in items if getattr(p, "client_id", None) == client_id]
+    items: List[PrincipalProfile] = (
+        provider.get_by_client(client_id) if client_id else provider.get_all()
+    )
     return wrap(items)
 
 
@@ -326,8 +324,8 @@ async def list_data_products(
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "Data product provider unavailable"))
 
-    items: List[DataProduct] = provider.get_all()
-    
+    items: List[DataProduct] = provider.get_by_client(client_id) if client_id else provider.get_all()
+
     # Include staging products if requested
     if include_staging:
         import os
@@ -368,6 +366,7 @@ async def list_data_products(
             or business_process_id in dp.metadata.get("business_process_ids", [])
         ]
     if client_id:
+        # Staging merge above can add unscoped items — re-apply strict tenant filter
         items = [dp for dp in items if getattr(dp, "client_id", None) == client_id]
 
     return wrap(items)
@@ -479,15 +478,13 @@ async def list_business_processes(
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "Business process provider unavailable"))
 
-    items: List[BusinessProcess] = provider.get_all()
+    items: List[BusinessProcess] = provider.get_by_client(client_id) if client_id else provider.get_all()
     if domain:
         items = [bp for bp in items if bp.domain == domain]
     if owner_role:
         items = [bp for bp in items if bp.owner_role == owner_role]
     if tag:
         items = [bp for bp in items if tag in getattr(bp, "tags", [])]
-    if client_id:
-        items = [bp for bp in items if getattr(bp, "client_id", None) == client_id]
 
     return wrap(items)
 
@@ -575,9 +572,7 @@ async def list_terms(
     factory: RegistryFactory = Depends(get_registry_factory),
 ):
     provider = _get_glossary_provider(factory)
-    items = provider.get_all()
-    if client_id:
-        items = [t for t in items if getattr(t, "client_id", None) == client_id]
+    items = provider.get_by_client(client_id) if client_id else provider.get_all()
     return wrap(items)
 
 

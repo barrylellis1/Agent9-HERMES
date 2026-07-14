@@ -67,8 +67,15 @@ class DatabaseRegistryProvider(RegistryProvider[T]):
         )
 
         try:
-            filters = {"client_id": self.client_id} if self.client_id else None
-            records = await self.db_manager.fetch_records(self.table_name, filters=filters)
+            if self.client_id and hasattr(self.db_manager, "fetch_records_scoped"):
+                # Infra B3: client-scoped load runs under the RLS tenant role so the
+                # database itself enforces isolation, not just the filter below.
+                records = await self.db_manager.fetch_records_scoped(
+                    self.table_name, self.client_id
+                )
+            else:
+                filters = {"client_id": self.client_id} if self.client_id else None
+                records = await self.db_manager.fetch_records(self.table_name, filters=filters)
 
             loaded_count = 0
             for record in records:
@@ -248,11 +255,13 @@ class DatabaseRegistryProvider(RegistryProvider[T]):
                 if len(parts) != len(self.key_fields):
                     logger.error(f"Composite key {item_id} does not match expected {len(self.key_fields)} fields")
                     return False
-                # Use the LAST key field (typically "id") to target a single record.
-                # Using key_fields[0] ("client_id") would delete ALL records for that client.
-                key_col = self.key_fields[-1]
-                key_value = parts[-1]
-                success = await self.db_manager.delete_record(self.table_name, key_col, key_value)
+                # Infra B3: delete must match ALL key fields. Deleting by the bare id
+                # alone removes the same-id row of every other tenant.
+                keys = dict(zip(self.key_fields, parts))
+                if hasattr(self.db_manager, "delete_record_multi"):
+                    return await self.db_manager.delete_record_multi(self.table_name, keys)
+                # Fallback for managers without composite delete: last key field (id)
+                success = await self.db_manager.delete_record(self.table_name, self.key_fields[-1], parts[-1])
                 return success
             else:
                 # Single key field: delete by that field

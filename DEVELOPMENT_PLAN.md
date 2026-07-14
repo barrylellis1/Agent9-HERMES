@@ -1,12 +1,12 @@
 # Agent9-HERMES Development Plan
 
 **Created:** 2026-03-14
-**Last updated:** 2026-06-08
+**Last updated:** 2026-07-13
 **Status:** Active
 
 ---
 
-## Where We Are — June 2026
+## Where We Are — July 2026
 
 ### Pipeline status: fully operational end-to-end
 
@@ -59,6 +59,8 @@ run_enterprise_assessment.py
 | Infra A4 — per-request registry refresh, client_id enforcement on all list endpoints, /admin/registry/reload, connection health dashboard | Production-ready |
 | Infra B — connection profiles backend storage + credential encryption (AES-256 at rest) | Production-ready |
 | Infra B — Supabase Auth dual-mode login (demo selector + email/password), backend JWT middleware | Production-ready |
+| Capability-aware LLM layer (Phase 11O) — per-model capability map (temperature/effort/fallbacks), Sonnet 5 routing default for reasoning/synthesis/briefing, refusal handling, product system prompt decoupled from dev-era Cascade guardrails | Production-ready (Jul 2026) |
+| DA tenant-scoped KPI resolution — `_lookup_kpi_scoped` strict isolation at all 3 DA lookup sites (contract path, plan dims, execute); no cross-tenant same-id fallback; 5 regression tests | Production-ready (Jul 2026) |
 
 ### What's not built yet
 
@@ -102,7 +104,7 @@ run_enterprise_assessment.py
 | ~~Connection Profiles backend storage + credential encryption~~ | ✅ Infra B — complete |
 | ~~Authentication (Supabase Auth)~~ | ✅ Infra B — complete (dual-mode login + JWT middleware) |
 | Azure OpenAI provider + LLM audit export | Infra B2 |
-| **Database-level multi-tenant isolation** — Supabase RLS policies on all registry tables; `get_by_client(client_id)` on all providers; DGA `validate_data_access()` real enforcement (replaces always-true stub) | **Infra B3** (pre-first paying customer) |
+| ~~Database-level multi-tenant isolation~~ | ✅ Infra B3 — complete (RLS via `a9_tenant_scope` role on 12 tables, `tenant_scope()` transaction helper, provider `get_by_client()`, DGA gate in DPA `execute_sql`, composite-delete fix). Prod migration pending: `supabase db push --linked` |
 | **SOC 2 Controls Foundation** — audit event log, sign-in audit, principal archive lifecycle, briefing provenance footer, Sentry availability monitoring | **Infra C** (Q4 2026 — before first security review) |
 
 ### Known tech debt (remaining)
@@ -1283,7 +1285,9 @@ Pre-11K through 11N are deferred until the existing pipeline survives a complete
 
 ---
 
-### Phase 11O: LLM Model Routing Modernization + Fable 5 A/B (Jul 2026)
+### Phase 11O: LLM Model Routing Modernization + Fable 5 A/B ✅ COMPLETE (Jul 2026)
+
+**Outcome:** 11O-A and 11O-B shipped; 11O-C experiment closed with adoption deferred — Sonnet 5 is the routing default for all interactive surfaces; Fable 5 is earmarked for the offline/background DA-SF path when Phase 11M/11N ships (config-only change thanks to 11O-A). Two side discoveries fixed along the way: DA cross-tenant KPI fallback (commit 5925de7) and the Cascade-guardrail system-prompt leak (commit 92619b0).
 
 **Goal:** Make the LLM service layer capability-aware so newer Claude models (Sonnet 5, Opus 4.8, Fable 5) can be adopted per-task via the existing routing table, then A/B the highest-value call sites against the current Sonnet 4.6 / Haiku 4.5 baseline.
 
@@ -1323,7 +1327,7 @@ Shipped as designed with two deviations: the effort env var is `A9_LLM_EFFORT` (
 
 **Decision: Sonnet 5 adopted** for REASONING / SOLUTION_FINDING / BRIEFING / SYNTHESIS / GENERAL. Haiku tasks unchanged. MA `synthesis_model` config default now follows the SYNTHESIS routing entry. KPI Assistant default → sonnet-5. Rollback = env override(s) to `claude-sonnet-4-6`. Accountability Interview's hardcoded constants intentionally not touched (documented deviation).
 
-**11O-C evidence from the same run:** Fable won on quality AND latency at ~3× cost — promising but the input was degraded (empty where_signals), so the decision gate stays open pending one confirmatory round on a segment-rich DA output. Two anomalies logged from the run: (1) lubricants DA returned an empty Is/Is-Not table; (2) ~13 Snowflake SQL compilation errors fired at the end of the run despite lubricants being BigQuery-backed — possible cross-client routing leak. Both under investigation before the confirmatory round.
+**11O-C evidence from the same run:** Fable won on quality AND latency at ~3× cost — promising but the input was degraded (empty where_signals), so the decision gate stayed open pending one confirmatory round on a segment-rich DA output. Two anomalies logged from the run: (1) lubricants DA returned an empty Is/Is-Not table; (2) ~13 Snowflake SQL compilation errors fired at the end of the run despite lubricants being BigQuery-backed. **Both resolved (2026-07-13, commit 5925de7) — shared root cause:** three clients share KPI id `gross_margin_pct`; DA's lookups matched display name only, always missed, and fell back to an unscoped `provider.get(id)` that returned another tenant's record → wrong `data_product_id` → Snowflake backend for a BigQuery client → every dimension query failed → empty table. A second leak defaulted `_contract_path_for_kpi` to the bicycle FI contract on a miss. Fixed with `_lookup_kpi_scoped(kpi_ref, client_id)` (id-or-name match, strict tenant isolation, scoped miss returns None) applied at all 3 lookup sites; verified 19/19 queries route to BigQuery, where_is 0 → 41 segments, zero Snowflake errors; 5 regression tests. This unblocked the segment-rich confirmatory round (11O-C round 3 below).
 
 | Deliverable | Description |
 |---|---|
@@ -1334,7 +1338,7 @@ Shipped as designed with two deviations: the effort env var is `A9_LLM_EFFORT` (
 
 **Scope:** S. Rollback = one env var (`CLAUDE_MODEL_SYNTHESIS=claude-sonnet-4-6`).
 
-#### 11O-C: Fable 5 Gated Experiment — evidence collected, adoption deferred (Jul 2026)
+#### 11O-C: Fable 5 Gated Experiment ✅ CLOSED — adoption deferred to background DA/SF (Jul 2026)
 
 **Three A/B rounds run (2026-07-13), all on lubricants gross_margin_pct with frozen DA + identical synthesis inputs per round:**
 
@@ -2693,7 +2697,20 @@ RUN apt-get update && apt-get install -y curl gnupg \
 
 ---
 
-### Infra B3: Database-Level Multi-Tenant Isolation ← BLOCKER for first paying customer
+### Infra B3: Database-Level Multi-Tenant Isolation ← ✅ SHIPPED July 2026
+
+**Status: complete (2026-07-13).** All three layers implemented and verified locally; migration `supabase/migrations/20260713_rls_client_isolation.sql` must be applied to production (`supabase db push --linked`) before or with the code deploy (code falls back to application-layer filtering with a loud error until the role exists).
+
+**Design deviations from the original sketch below (verified during implementation):**
+- The app's asyncpg pool connects as `postgres`, which has **BYPASSRLS** in Supabase — plain `ENABLE ROW LEVEL SECURITY` + FastAPI middleware would have been silently bypassed. Instead: a dedicated `NOLOGIN` role `a9_tenant_scope` (no BYPASSRLS), switched to per-transaction via `SET LOCAL ROLE` + `set_config('app.client_id', …, true)` in `src/database/tenant_scope.py`. Policies are fail-closed (`client_id = current_setting('app.client_id', true)` — GUC unset ⇒ zero rows).
+- Registry reads are served from an in-memory all-tenant cache loaded at bootstrap, so per-request middleware would gate nothing. RLS enforcement is applied at the DB-access layer on the paths that hit Postgres per request: `PostgresManager.fetch_records_scoped()`, `DatabaseRegistryProvider.load()` (when client-scoped), and the accountability + kpi_relationship providers.
+- Layer 3 (DGA `validate_data_access`) was already implemented and tested but never called at runtime; the actual work was wiring it into DPA `execute_sql` as a fail-closed gate (scoped principal + no DGA ⇒ deny).
+- Bonus fix: composite-key delete in `DatabaseRegistryProvider` deleted by bare `id`, which removed every tenant's same-id row. Now `delete_record_multi` matches all key fields.
+
+**Residual gaps (tracked, not blockers):**
+- `situations`, `kpi_assessments`, `situation_actions`, `value_assurance_evaluations`, `briefing_tokens` have no `client_id` column — isolation is indirect via parent records. Add columns + policies when those tables become tenant-sensitive.
+- `list_principals` (registry.py) has a PostgREST/service-role fast path that bypasses RLS by design; it applies its own strict `client_id` filter server-side.
+- SA agent still loads all tenants' KPIs into its dual-keyed in-memory registry and filters in `_get_relevant_kpis` (strict, tested) — moving SA to per-request scoped loads is future work.
 
 **When:** Before first signed paying customer. Not required for demos — required before a customer's financial data (KPI results, situation assessments, solution decisions) lives in production alongside another customer's data.
 

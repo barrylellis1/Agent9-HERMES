@@ -229,12 +229,12 @@ class PostgresManager(DatabaseManager):
             self.logger.error(f"Get record failed: {str(e)}")
             return None
 
-    async def delete_record(self, table: str, key_field: str, key_value: Any, 
+    async def delete_record(self, table: str, key_field: str, key_value: Any,
                           transaction_id: Optional[str] = None) -> bool:
         """Delete a record."""
         if not self.pool:
             return False
-            
+
         sql = f"DELETE FROM {table} WHERE {key_field} = $1"
         try:
             async with self.pool.acquire() as conn:
@@ -242,6 +242,30 @@ class PostgresManager(DatabaseManager):
                 return True
         except Exception as e:
             self.logger.error(f"Delete record failed: {str(e)}")
+            return False
+
+    async def delete_record_multi(self, table: str, keys: Dict[str, Any],
+                                  transaction_id: Optional[str] = None) -> bool:
+        """Delete records matching ALL key/value pairs (composite-key delete).
+
+        Required for tenant-safe deletes on tables with composite PK
+        (client_id, id) — deleting by id alone would remove every tenant's row.
+        """
+        if not self.pool or not keys:
+            return False
+
+        conditions = []
+        values = []
+        for i, (k, v) in enumerate(keys.items()):
+            conditions.append(f"{k} = ${i+1}")
+            values.append(v)
+        sql = f"DELETE FROM {table} WHERE " + " AND ".join(conditions)
+        try:
+            async with self.pool.acquire() as conn:
+                await conn.execute(sql, *values)
+                return True
+        except Exception as e:
+            self.logger.error(f"Composite delete failed for table {table}: {str(e)}")
             return False
 
     async def fetch_records(self, table: str, filters: Optional[Dict[str, Any]] = None, 
@@ -266,6 +290,39 @@ class PostgresManager(DatabaseManager):
                 return [dict(r) for r in records]
         except Exception as e:
             self.logger.error(f"Fetch records failed: {str(e)}")
+            return []
+
+    async def fetch_records_scoped(self, table: str, client_id: str,
+                                   filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """Fetch records under RLS tenant scope (Infra B3).
+
+        Runs inside a transaction as the a9_tenant_scope role with app.client_id
+        set, so the database enforces tenant visibility even if the WHERE clause
+        were wrong. The explicit client_id filter is still applied (index use +
+        identical rows when the RLS role is unavailable pre-migration).
+        """
+        if not self.pool:
+            return []
+        if not client_id:
+            raise ValueError("fetch_records_scoped requires a non-empty client_id")
+
+        from src.database.tenant_scope import tenant_scope
+
+        all_filters = {"client_id": client_id, **(filters or {})}
+        sql = f"SELECT * FROM {table}"
+        values = []
+        conditions = []
+        for i, (k, v) in enumerate(all_filters.items()):
+            conditions.append(f"{k} = ${i+1}")
+            values.append(v)
+        sql += " WHERE " + " AND ".join(conditions)
+
+        try:
+            async with tenant_scope(self.pool, client_id) as conn:
+                records = await conn.fetch(sql, *values)
+                return [dict(r) for r in records]
+        except Exception as e:
+            self.logger.error(f"Scoped fetch failed for table {table}: {str(e)}")
             return []
 
     # --- Standard DatabaseManager Methods ---

@@ -153,6 +153,18 @@ Value Assurance pipeline (outcome tracking — all within your systems)
 
 ---
 
+## Multi-Tenant Data Isolation
+
+Decision Studio does not store your business data — your revenue and cost figures stay in your own warehouse (Snowflake, BigQuery, SQL Server). What we store is metadata: KPI definitions, principal profiles, situation cards, and approved solutions. That metadata is isolated per tenant at three enforced layers:
+
+1. **Database Row-Level Security (Postgres RLS).** Every tenant table carries a `client_id` column with an RLS policy bound to a dedicated low-privilege database role. Tenant-scoped queries run under that role inside a transaction pinned to one `client_id` — the database returns zero rows for any other tenant, regardless of what the application SQL says. The policy is fail-closed: no tenant context means no rows, never all rows.
+2. **Tenant-scoped data accessors.** Application code reads registry data through a single `get_by_client(client_id)` accessor with strict-match semantics — records without a tenant assignment are excluded, not defaulted in.
+3. **Governance gate on query execution.** Before any SQL reaches a data backend on behalf of a tenant-scoped user, the Data Governance Agent independently validates that the requested data product belongs to that user's tenant. A scoped request with no governance agent available is denied, not waved through.
+
+Isolation is verified by an automated regression suite (`tests/unit/test_client_isolation.py`) that asserts cross-tenant reads, unscoped-record leaks, and cross-tenant deletes are all blocked.
+
+---
+
 ## Compliance Posture
 
 | Requirement | Decision Studio position |

@@ -83,6 +83,27 @@ class RegistryProvider(ABC, Generic[T]):
         """
         pass
     
+    def get_by_client(self, client_id: str) -> List[T]:
+        """
+        Get all registry items belonging to a tenant (strict client_id match).
+
+        Infra B3: single correct-by-construction accessor — callers must use
+        this instead of get_all() + a manual filter loop. Items without a
+        client_id are excluded (fail-closed); an empty client_id returns [].
+
+        Args:
+            client_id: The tenant identifier to filter by
+
+        Returns:
+            List of items whose client_id exactly matches
+        """
+        if not client_id:
+            return []
+        return [
+            item for item in self.get_all()
+            if getattr(item, "client_id", None) == client_id
+        ]
+
     @abstractmethod
     def find_by_attribute(self, attr_name: str, attr_value: Any) -> List[T]:
         """

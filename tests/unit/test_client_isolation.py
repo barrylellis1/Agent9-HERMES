@@ -313,3 +313,161 @@ async def test_dga_mapping_filters_by_client():
     assert "Gross Revenue" in mapped_names
     # Lubricant Sales should NOT appear — it belongs to a different client
     assert "Lubricant Sales" not in mapped_names or "Lubricant Sales" in resp.unmapped_kpis
+
+
+# ---------------------------------------------------------------------------
+# Infra B3 Layer 2: provider get_by_client — correct-by-construction accessor
+# ---------------------------------------------------------------------------
+
+def _make_db_provider(key_fields=None):
+    from src.registry.providers.database_provider import DatabaseRegistryProvider
+    from src.agents.models.situation_awareness_models import KPIDefinition
+
+    db_manager = MagicMock()
+    provider = DatabaseRegistryProvider(
+        db_manager=db_manager,
+        table_name="kpis",
+        model_class=KPIDefinition,
+        key_fields=key_fields,
+    )
+    return provider, db_manager
+
+
+def test_get_by_client_returns_only_matching_tenant():
+    provider, _ = _make_db_provider()
+    for kpi in ALL_KPIS.values():
+        provider._cache_item(kpi.model_copy(update={"id": kpi.name.lower().replace(" ", "_")}))
+    result = provider.get_by_client("bicycle")
+    assert {k.name for k in result} == set(BICYCLE_KPIS.keys())
+
+
+def test_get_by_client_excludes_unscoped_items():
+    """Items with client_id=None must never leak into a tenant-scoped read."""
+    provider, _ = _make_db_provider()
+    unscoped = _make_kpi("Shared Metric", "bicycle").model_copy(
+        update={"client_id": None, "id": "shared_metric"}
+    )
+    provider._cache_item(unscoped)
+    scoped = _make_kpi("Gross Revenue", "bicycle").model_copy(update={"id": "gross_revenue"})
+    provider._cache_item(scoped)
+    result = provider.get_by_client("bicycle")
+    assert {k.name for k in result} == {"Gross Revenue"}
+
+
+def test_get_by_client_empty_client_id_returns_nothing():
+    """Fail-closed: no tenant context → no rows, never all rows."""
+    provider, _ = _make_db_provider()
+    provider._cache_item(_make_kpi("Gross Revenue", "bicycle").model_copy(update={"id": "gross_revenue"}))
+    assert provider.get_by_client("") == []
+    assert provider.get_by_client(None) == []
+
+
+# ---------------------------------------------------------------------------
+# Infra B3: composite-key delete must match ALL key fields (cross-tenant guard)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_composite_delete_targets_single_tenant_row():
+    """Deleting 'bicycle:net_revenue' must never touch lubricants' net_revenue."""
+    provider, db_manager = _make_db_provider(key_fields=["client_id", "id"])
+    db_manager.delete_record_multi = AsyncMock(return_value=True)
+    db_manager.delete_record = AsyncMock(return_value=True)
+
+    result = await provider._delete_async("bicycle:net_revenue")
+
+    assert result is True
+    db_manager.delete_record_multi.assert_awaited_once_with(
+        "kpis", {"client_id": "bicycle", "id": "net_revenue"}
+    )
+    db_manager.delete_record.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# Infra B3 Layer 1: tenant_scope — fail-closed without a client_id
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_tenant_scope_rejects_empty_client_id():
+    from src.database.tenant_scope import tenant_scope
+
+    pool = MagicMock()
+    with pytest.raises(ValueError):
+        async with tenant_scope(pool, ""):
+            pass
+    pool.acquire.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Infra B3 Layer 3: DPA execute_sql — DGA gate on tenant-scoped SQL
+# ---------------------------------------------------------------------------
+
+async def _get_dpa_agent():
+    from src.agents.new.a9_orchestrator_agent import (
+        A9_Orchestrator_Agent,
+        initialize_agent_registry,
+    )
+    from src.registry.factory import RegistryFactory
+
+    orchestrator = await A9_Orchestrator_Agent.create({})
+    await initialize_agent_registry()
+    rf = RegistryFactory()
+
+    dpa = await orchestrator.create_agent_with_dependencies(
+        "A9_Data_Product_Agent",
+        {"orchestrator": orchestrator, "registry_factory": rf},
+    )
+    return dpa
+
+
+@pytest.mark.asyncio
+async def test_dpa_execute_sql_denies_on_dga_rejection():
+    dpa = await _get_dpa_agent()
+    mock_dga = MagicMock()
+    mock_dga.validate_data_access = AsyncMock(
+        return_value=SimpleNamespace(allowed=False, reason="Client mismatch", policy_id=None)
+    )
+    dpa.data_governance_agent = mock_dga
+
+    ctx = _make_principal("cfo_002", "lubricants")
+    result = await dpa.execute_sql(
+        "SELECT 1", principal_context=ctx, data_product_id="bicycle_star_schema"
+    )
+
+    assert result["success"] is False
+    assert "Access denied by Data Governance" in result["message"]
+    assert result["rows"] == []
+    req = mock_dga.validate_data_access.await_args.args[0]
+    assert req.principal_id == "cfo_002"
+    assert req.client_id == "lubricants"
+    assert req.data_product_id == "bicycle_star_schema"
+
+
+@pytest.mark.asyncio
+async def test_dpa_execute_sql_fails_closed_without_dga():
+    """A tenant-scoped principal with no DGA wired must be denied, not allowed through."""
+    dpa = await _get_dpa_agent()
+    dpa.data_governance_agent = None
+
+    ctx = _make_principal("cfo_002", "lubricants")
+    result = await dpa.execute_sql(
+        "SELECT 1", principal_context=ctx, data_product_id="bicycle_star_schema"
+    )
+
+    assert result["success"] is False
+    assert "fail-closed" in result["message"]
+
+
+@pytest.mark.asyncio
+async def test_dpa_execute_sql_skips_gate_for_unscoped_principal():
+    """System/admin context (no client_id) is not gated — DGA must not be consulted."""
+    dpa = await _get_dpa_agent()
+    mock_dga = MagicMock()
+    mock_dga.validate_data_access = AsyncMock()
+    dpa.data_governance_agent = mock_dga
+
+    ctx = _make_principal("admin_001", None)
+    await dpa.execute_sql(
+        "SELECT 1", principal_context=ctx, data_product_id="bicycle_star_schema"
+    )
+
+    mock_dga.validate_data_access.assert_not_awaited()

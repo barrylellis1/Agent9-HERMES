@@ -3933,6 +3933,58 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 "data": []
             }
 
+        # ── Infra B3 Layer 3: tenant access gate (DGA validate_data_access) ──
+        # When the caller supplies a tenant-scoped principal AND a data product,
+        # DGA is the authoritative checkpoint before any SQL reaches a backend.
+        # Fail-closed: a scoped principal with no DGA available is denied.
+        _pc = principal_context
+        _pc_client = getattr(_pc, "client_id", None) if _pc is not None else None
+        if _pc_client is None and isinstance(_pc, dict):
+            _pc_client = _pc.get("client_id")
+        if _pc_client and data_product_id:
+            _pc_principal = str(
+                getattr(_pc, "principal_id", None)
+                or (_pc.get("principal_id") if isinstance(_pc, dict) else None)
+                or getattr(_pc, "role", None)
+                or "unknown"
+            )
+            _deny_reason = None
+            if self.data_governance_agent is None:
+                _deny_reason = (
+                    "Data Governance Agent unavailable — tenant-scoped SQL execution "
+                    "denied (fail-closed)"
+                )
+            else:
+                from src.agents.models.data_governance_models import DataAccessValidationRequest
+                _access = await self.data_governance_agent.validate_data_access(
+                    DataAccessValidationRequest(
+                        principal_id=_pc_principal,
+                        data_product_id=data_product_id,
+                        access_type="read",
+                        client_id=_pc_client,
+                    )
+                )
+                if not _access.allowed:
+                    _deny_reason = f"Access denied by Data Governance: {_access.reason}"
+            if _deny_reason:
+                self.logger.warning(
+                    f"[TXN:{transaction_id}] {_deny_reason} "
+                    f"(principal={_pc_principal}, dp={data_product_id}, client={_pc_client})"
+                )
+                return {
+                    "transaction_id": transaction_id,
+                    "sql": sql_query,
+                    "columns": [],
+                    "rows": [],
+                    "row_count": 0,
+                    "execution_time": 0,
+                    "query_time_ms": 0,
+                    "success": False,
+                    "status": "error",
+                    "message": _deny_reason,
+                    "data": []
+                }
+
         try:
             # ── Source-system-based routing (when data_product_id is known) ─────
             _resolved_source = self._resolve_source_system(data_product_id) if data_product_id else None

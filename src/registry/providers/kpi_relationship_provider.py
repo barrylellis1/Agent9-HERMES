@@ -11,6 +11,7 @@ from typing import List
 
 import asyncpg
 
+from src.database.tenant_scope import tenant_scope
 from src.registry.models.kpi_relationship import KPIRelationship
 
 logger = logging.getLogger(__name__)
@@ -56,7 +57,7 @@ class KPIRelationshipProvider:
 
         The relationship is bidirectional for detection purposes.
         """
-        async with self._pool().acquire() as conn:
+        async with tenant_scope(self._pool(), client_id) as conn:
             rows = await conn.fetch(
                 """
                 SELECT * FROM kpi_relationships
@@ -68,8 +69,8 @@ class KPIRelationshipProvider:
         return [_row_to_model(r) for r in rows]
 
     async def get_all(self, client_id: str) -> List[KPIRelationship]:
-        """Return all relationships for a client (strict match)."""
-        async with self._pool().acquire() as conn:
+        """Return all relationships for a client (strict match, RLS-scoped)."""
+        async with tenant_scope(self._pool(), client_id) as conn:
             rows = await conn.fetch(
                 "SELECT * FROM kpi_relationships WHERE client_id = $1 ORDER BY kpi_id",
                 client_id,

@@ -141,7 +141,7 @@ import logging; logger = logging.getLogger()
 | `a9_deep_analysis_agent.py` | Dimensional Is/Is Not analysis; change-point detection; SCQA framing; BigQuery support |
 | `a9_solution_finder_agent.py` | Multi-call parallel LLM debate (3×Stage1 + synthesis); trade-off matrix; HITL events |
 | `a9_data_product_agent.py` | Schema inspection (DuckDB/BigQuery/Postgres); contract YAML; SQL execution; view management |
-| `a9_data_governance_agent.py` | Business term translation; KPI-to-data-product mapping; MVP allows all access |
+| `a9_data_governance_agent.py` | Business term translation; KPI-to-data-product mapping; tenant access gate for DPA SQL execution (Infra B3) |
 | `a9_nlp_interface_agent.py` | Deterministic regex parsing (no LLM); TopN intent; timeframe/grouping extraction |
 | `a9_llm_service_agent.py` | Multi-provider (Claude/OpenAI); template prompting; model routing; token tracking |
 | `a9_kpi_assistant_agent.py` | LLM-powered KPI suggestions; conversational refinement; API-only (no UI) |

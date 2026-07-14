@@ -69,7 +69,7 @@ orchestrated AI workflows. ~100K lines of backend and UI code, 10 months of deve
 | **A9_Solution_Finder_Agent** | 3×Stage1 parallel LLM + synthesis, trade-off matrix, quantified impact, HITL, MA enrichment | Operational |
 | **A9_Market_Analysis_Agent** | Perplexity web search + Claude synthesis → market signals, competitor context (LLM-only fallback) | Operational |
 | **A9_Data_Product_Agent** | Schema inspection (DuckDB/BigQuery/Postgres), contract YAML, SQL execution | Operational |
-| **A9_Data_Governance_Agent** | Business term translation, KPI mapping, registry validation; MVP allows all | Operational |
+| **A9_Data_Governance_Agent** | Business term translation, KPI mapping, registry validation; tenant access gate (validate_data_access wired into DPA SQL path — Infra B3) | Operational |
 | **A9_NLP_Interface_Agent** | Deterministic regex parsing (no LLM), TopN/timeframe/grouping extraction | Operational |
 | **A9_LLM_Service_Agent** | Multi-provider (Claude/Anthropic), model routing, token tracking, guardrails | Operational |
 | **A9_KPI_Assistant_Agent** | LLM KPI suggestions, conversational refinement, contract updates | API-only (no UI) |

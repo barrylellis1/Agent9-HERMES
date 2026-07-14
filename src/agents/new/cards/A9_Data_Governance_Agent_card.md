@@ -1,6 +1,6 @@
 # A9_Data_Governance_Agent Card
 
-**Last Updated:** 2026-05-08  
+**Last Updated:** 2026-07-13  
 **Status:** MVP
 
 ## Overview
@@ -124,3 +124,8 @@ On ambiguity (e.g., "Margin" could be gross_margin or net_margin), `human_action
 - Post-bootstrap DGA wiring: A9_Orchestrator calls `runtime._wire_governance_dependencies()` after all agents connect, injecting DGA into Data Product and Deep Analysis agents
 - Client isolation hardened: all governance queries scoped to PrincipalContext.client_id
 - DGA is a required dependency of Data Product Agent — wiring enforced at bootstrap (raises RuntimeError if DGA unavailable)
+
+## Infra B3: Runtime Enforcement (Jul 2026)
+- `validate_data_access()` is now CALLED at runtime: DPA `execute_sql` invokes it before routing any SQL when the caller supplies a tenant-scoped principal_context (client_id set) plus data_product_id. Previously the method existed but had no runtime callers.
+- Deny semantics (fail-closed): cross-client mismatch → deny; data product missing client_id while principal is scoped → deny; unscoped principal (system/admin) → allow.
+- Regression coverage: `tests/unit/test_client_isolation.py` (DGA deny/allow + DPA gate tests).

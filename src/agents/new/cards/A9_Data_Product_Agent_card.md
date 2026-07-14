@@ -8,7 +8,7 @@ The `A9_Data_Product_Agent` is responsible for contract-driven SQL orchestration
 ## Protocol Entrypoints
 - Query execution:
   - `generate_sql_for_kpi(kpi_definition, timeframe, filters, topn, breakdown, override_group_by) -> Dict`
-  - `execute_sql(sql, data_product_id=None) -> Dict`  — routes to BigQuery, SQL Server (bracket-quoted T-SQL detection), or DuckDB
+  - `execute_sql(sql, parameters=None, principal_context=None, data_product_id=None) -> Dict`  — routes to BigQuery, SQL Server (bracket-quoted T-SQL detection), Snowflake, or DuckDB. **Infra B3 (Jul 2026):** when principal_context carries a client_id AND data_product_id is given, DGA `validate_data_access` gates execution before routing — cross-client access returns `success: False` with an "Access denied by Data Governance" message; a scoped principal with `data_governance_agent=None` is denied fail-closed.
   - `register_tables_from_contract(contract_path) -> Dict`
   - `create_view_from_contract(contract_path, view_name) -> Dict`
 - Data factory onboarding:

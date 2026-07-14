@@ -14,6 +14,7 @@ from typing import List, Optional
 
 import asyncpg
 
+from src.database.tenant_scope import tenant_scope
 from src.registry.models.kpi_accountability import AccountabilityRole, KPIAccountability
 
 logger = logging.getLogger(__name__)
@@ -58,8 +59,8 @@ class KPIAccountabilityProvider:
     # ------------------------------------------------------------------
 
     async def get_all(self, client_id: str) -> List[KPIAccountability]:
-        """Return all accountability records for a client (strict match)."""
-        async with self._pool().acquire() as conn:
+        """Return all accountability records for a client (strict match, RLS-scoped)."""
+        async with tenant_scope(self._pool(), client_id) as conn:
             rows = await conn.fetch(
                 "SELECT * FROM kpi_accountability WHERE client_id = $1 ORDER BY kpi_id, role",
                 client_id,
@@ -70,7 +71,7 @@ class KPIAccountabilityProvider:
         self, client_id: str, principal_id: str
     ) -> List[KPIAccountability]:
         """Return accountability records for a specific principal."""
-        async with self._pool().acquire() as conn:
+        async with tenant_scope(self._pool(), client_id) as conn:
             rows = await conn.fetch(
                 "SELECT * FROM kpi_accountability WHERE client_id = $1 AND principal_id = $2 ORDER BY kpi_id",
                 client_id,
@@ -80,7 +81,7 @@ class KPIAccountabilityProvider:
 
     async def get_for_kpi(self, client_id: str, kpi_id: str) -> List[KPIAccountability]:
         """Return accountability records for a specific KPI."""
-        async with self._pool().acquire() as conn:
+        async with tenant_scope(self._pool(), client_id) as conn:
             rows = await conn.fetch(
                 "SELECT * FROM kpi_accountability WHERE client_id = $1 AND kpi_id = $2 ORDER BY role",
                 client_id,
