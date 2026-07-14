@@ -150,6 +150,115 @@ def _key_fields_for(table: str) -> List[str]:
 
 
 # ---------------------------------------------------------------------------
+# RLS verification (Infra B3)
+# ---------------------------------------------------------------------------
+
+# Must stay in sync with supabase/migrations/20260713_rls_client_isolation.sql
+_RLS_TABLES = [
+    "kpis",
+    "principal_profiles",
+    "data_products",
+    "business_processes",
+    "business_glossary_terms",
+    "value_assurance_solutions",
+    "kpi_accountability",
+    "kpi_relationships",
+    "connection_profiles",
+    "briefing_runs",
+    "assessment_runs",
+    "business_contexts",
+]
+
+
+def verify_rls(dsn: str, probe_client_id: str) -> List[str]:
+    """Verify database-level tenant isolation is live. Returns issue strings.
+
+    Checks that the a9_tenant_scope role exists (without BYPASSRLS), that every
+    tenant table has RLS enabled with the client_isolation policy, and runs a
+    live probe: the tenant role with no app.client_id must see zero rows, and
+    scoped to one client must see only that client.
+    """
+    import asyncio
+
+    import asyncpg
+
+    async def _run() -> List[str]:
+        issues: List[str] = []
+        # statement_cache_size=0: required through the Supabase pgbouncer pooler
+        conn = await asyncpg.connect(dsn, statement_cache_size=0, timeout=15)
+        try:
+            role = await conn.fetchrow(
+                "SELECT rolbypassrls FROM pg_roles WHERE rolname = 'a9_tenant_scope'"
+            )
+            if role is None:
+                return [
+                    "RLS: role 'a9_tenant_scope' does not exist — migration "
+                    "20260713_rls_client_isolation.sql has not been applied "
+                    "(run: supabase db push --linked)"
+                ]
+            if role["rolbypassrls"]:
+                issues.append("RLS: a9_tenant_scope has BYPASSRLS — policies are inert")
+
+            rows = await conn.fetch(
+                """
+                SELECT c.relname AS table_name,
+                       c.relrowsecurity AS rls_enabled,
+                       EXISTS (
+                           SELECT 1 FROM pg_policies p
+                           WHERE p.schemaname = 'public'
+                             AND p.tablename = c.relname
+                             AND p.policyname = 'client_isolation'
+                       ) AS has_policy
+                FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public' AND c.relname = ANY($1::text[])
+                """,
+                _RLS_TABLES,
+            )
+            found = {r["table_name"]: r for r in rows}
+            for table in _RLS_TABLES:
+                r = found.get(table)
+                if r is None:
+                    issues.append(f"RLS: table '{table}' not found in database")
+                elif not r["rls_enabled"]:
+                    issues.append(f"RLS: '{table}' does not have row security enabled")
+                elif not r["has_policy"]:
+                    issues.append(f"RLS: '{table}' is missing the client_isolation policy")
+
+            # Live probe — fail-closed: tenant role without app.client_id sees nothing
+            async with conn.transaction():
+                await conn.execute("SET LOCAL ROLE a9_tenant_scope")
+                n = await conn.fetchval("SELECT count(*) FROM kpis")
+                if n != 0:
+                    issues.append(
+                        f"RLS: tenant role with NO client context sees {n} kpi rows (expected 0)"
+                    )
+
+            # Live probe — scoped: only the probe client's rows are visible
+            async with conn.transaction():
+                await conn.execute("SET LOCAL ROLE a9_tenant_scope")
+                await conn.execute(
+                    "SELECT set_config('app.client_id', $1, true)", probe_client_id
+                )
+                visible = [
+                    r["client_id"]
+                    for r in await conn.fetch("SELECT DISTINCT client_id FROM kpis")
+                ]
+                if visible and visible != [probe_client_id]:
+                    issues.append(
+                        f"RLS: scoped to '{probe_client_id}' but sees clients {visible}"
+                    )
+        finally:
+            await conn.close()
+        return issues
+
+    try:
+        return asyncio.run(_run())
+    except Exception as e:
+        return [f"RLS: verification failed to run: {e}"]
+
+
+# ---------------------------------------------------------------------------
 # Per-client verification
 # ---------------------------------------------------------------------------
 
@@ -243,6 +352,23 @@ Examples:
     print(f"{'='*65}\n")
 
     all_clean = True
+
+    # Database-level isolation check (Infra B3) — needs a direct Postgres DSN,
+    # which PostgREST cannot provide.
+    dsn = (os.environ.get("SUPABASE_DB_URL") or os.environ.get("DATABASE_URL") or "").strip()
+    print("Checking: RLS tenant isolation")
+    if dsn:
+        rls_issues = verify_rls(dsn, clients_to_check[0])
+        if rls_issues:
+            all_clean = False
+            for issue in rls_issues:
+                print(f"  MISMATCH  {issue}")
+        else:
+            print("  OK  — a9_tenant_scope role, policies, and fail-closed probes verified")
+    else:
+        print(f"  SKIPPED — set SUPABASE_DB_URL in {env_file} to verify RLS")
+    print()
+
     with httpx.Client(timeout=30) as http:
         for client_id in clients_to_check:
             print(f"Checking: {client_id}")

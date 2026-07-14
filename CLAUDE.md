@@ -236,6 +236,19 @@ Registry data lives in Supabase (local and production). Only **code** travels au
 | Schema change (new column, new table) | SQL migration in `supabase/migrations/` — commit and apply via `supabase db push --linked` |
 | Data change (KPI tweak, SQL fix, new principal) | Update `scripts/clients/<client_id>.py` seed file — commit it, then run `onboard_client.py` against production |
 
+### New tenant table? RLS is MANDATORY (Infra B3) 🔴
+
+Any new table with a `client_id` column silently sits OUTSIDE the tenant isolation boundary unless its migration also includes all three of:
+
+```sql
+GRANT SELECT ON <table> TO a9_tenant_scope;
+ALTER TABLE <table> ENABLE ROW LEVEL SECURITY;
+CREATE POLICY client_isolation ON <table> FOR SELECT TO a9_tenant_scope
+    USING (client_id = current_setting('app.client_id', true));
+```
+
+Then add the table to `_RLS_TABLES` in `scripts/verify_prod_registry.py` (the RLS check fails loudly if the policy is missing). Reference migration: `supabase/migrations/20260713_rls_client_isolation.sql`.
+
 ### When you change registry data locally during debugging
 
 1. **Update the seed file** — `scripts/clients/<client_id>.py` is the source of truth for all client data
@@ -261,7 +274,7 @@ When adding a new client/tenant:
 1. **Seed script** — must set `client_id` on every record (KPIs, principals, data product, business context)
 2. **Data product** — `source_system` field must match the actual backend (bigquery, snowflake, sqlserver, duckdb)
 3. **KPI SQL** — `sql_query` must use native syntax for that backend (e.g., backtick-quoted for BigQuery, bare for Snowflake)
-4. **Verify isolation** — after seeding, query Supabase: `SELECT id, client_id FROM kpis WHERE client_id = '<new_client>'`
+4. **Verify isolation** — `python scripts/verify_prod_registry.py --client <new_client>` (checks seed match AND that RLS policies + fail-closed probes pass; needs `SUPABASE_DB_URL` set)
 5. **Test login** — select the new client on login page, verify only its principals appear
 6. **Test SA scan** — run assessment for a principal of the new client, verify only that client's KPIs are evaluated
 7. **Test Registry Explorer** — filter by client, verify correct records shown
