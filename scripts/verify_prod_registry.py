@@ -185,7 +185,13 @@ def verify_rls(dsn: str, probe_client_id: str) -> List[str]:
     async def _run() -> List[str]:
         issues: List[str] = []
         # statement_cache_size=0: required through the Supabase pgbouncer pooler
-        conn = await asyncpg.connect(dsn, statement_cache_size=0, timeout=15)
+        # Non-local Supabase hosts require SSL; the Supavisor pooler returns a
+        # misleading "tenant/user not found" error rather than a clean SSL
+        # failure when the handshake isn't encrypted (mirrors PostgresManager.connect).
+        from urllib.parse import urlparse
+        host = (urlparse(dsn).hostname or "").lower()
+        ssl_setting = False if host in ("localhost", "127.0.0.1", "::1") else "require"
+        conn = await asyncpg.connect(dsn, statement_cache_size=0, timeout=15, ssl=ssl_setting)
         try:
             role = await conn.fetchrow(
                 "SELECT rolbypassrls FROM pg_roles WHERE rolname = 'a9_tenant_scope'"
