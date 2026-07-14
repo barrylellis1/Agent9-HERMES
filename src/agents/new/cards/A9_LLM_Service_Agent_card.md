@@ -62,10 +62,11 @@ Per-task generation defaults (temperature/max_tokens) are also defined in `claud
 - `a9_accountability_interview_agent.py`: hardcodes its own constants `MODEL_CHAT = "claude-haiku-4-5-20251001"` and `MODEL_ANALYSIS = "claude-sonnet-4-6"`.
 - (Resolved Jul 2026: SA's situation-card observations and tension one-liner previously hardcoded Haiku; both now resolve via `get_claude_model_for_task(NLP_PARSING)` and honour `CLAUDE_MODEL_NLP`.)
 
-## Guardrails & Prompt Templates
-- Guardrails YAML defines provider-specific system prompts, prohibited patterns, and required behaviors. (Note: the Claude system prompt is read from the legacy YAML key `system_prompts.claude_sonnet_thinking.content`.)
-- Prompt templates are parsed from Markdown (`docs/cascade_prompt_templates.md`) and can be formatted with runtime variables.
-- System prompts fall back to guardrail defaults unless `system_prompt_override` is supplied.
+## Default System Prompt & Prompt Templates
+- **The product default system prompt lives in code**: `A9_DEFAULT_SYSTEM_PROMPT` in `src/llm_services/claude_service.py` — used by every call that doesn't pass its own `system_prompt` (SF briefing Q&A, DA insight extraction, SA card observations). Neutral and format-agnostic; each call site's prompt carries its own format instructions.
+- **`docs/cascade_guardrails.yaml` is NOT read at runtime** (decoupled Jul 2026). It is a development-coaching artifact for the Windsurf/Cascade coding assistant that built the codebase — loading it as the runtime default leaked its `PLAN:/VERIFIED_ACTION:` format into a customer-facing answer once Fable 5 followed it literally. The agent's `_load_guardrails()` (unused at runtime) delegates to the in-code constant.
+- Prompt templates are parsed from Markdown (`docs/cascade_prompt_templates.md`) for the `generate_with_template` entrypoint — no product code currently calls it.
+- `system_prompt_override` config still takes precedence when supplied.
 
 ## Provider Abstraction
 - **Anthropic (primary)**: `src/llm_services/claude_service.py` — async Messages API (`client.messages.create`), task-based model routing per the table above.

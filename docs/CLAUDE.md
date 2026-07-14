@@ -12,6 +12,7 @@ Read before designing changes to agents, registries, or workflows:
 | `core_workflow_diagram.md` | Visual workflow diagrams, agent interaction sequences |
 | `analytical_methodology_positioning.md` | KT + MBB architecture rationale, IS NOT as control group, competitive positioning |
 | `hitl_decision_philosophy.md` | HITL gate design, Solution Q&A, cognitive dissonance principle, context stack, approval flow |
+| `llm_prompt_redesign_da_sf.md` | DA+SF prompt redesign proposal: structured outputs, principal/business context contract, prompt slimming (Phase 13 Cat 2/4 umbrella) |
 
 Technical debt and known issue plans:
 

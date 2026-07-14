@@ -1350,6 +1350,8 @@ Shipped as designed with two deviations: the effort env var is `A9_LLM_EFFORT` (
 
 **Deferred (optional):** the loosened-scaffolding Fable variant (Phase 12 prompt constraints relaxed) — run if/when Fable adoption is activated.
 
+**HITL conversational A/B addendum (2026-07-13):** dossier-driven simulated-CFO harness (frozen 6-turn refinement transcript + per-turn next-question replay; 3 hard tier-3 briefing Q&A probes). Results: Fable's questions modestly sharper (hypothesis-led, builds on captured facts instead of re-asking) but ~19s/turn vs Sonnet 5's ~10s/turn — a worse chat UX; Sonnet 5 won briefing Q&A outright (faster, format-compliant). **Fable also leaked `PLAN:/VERIFIED_ACTION:` scaffold into a customer-facing answer — root cause: the runtime was loading `docs/cascade_guardrails.yaml` (development coaching for the Windsurf/Cascade coding assistant, never a product prompt) as its default system prompt. Fixed by decoupling: product default now lives in code (`A9_DEFAULT_SYSTEM_PROMPT`, claude_service.py); the YAML is preserved untouched as a dev artifact the product never reads.** Conclusion reinforced: Sonnet 5 for all interactive surfaces; Fable's home is offline synthesis. Prompt-quality findings feed `docs/architecture/llm_prompt_redesign_da_sf.md` (Phase 13 Category 2/4 umbrella).
+
 Original deliverables table (for reference):
 
 | Deliverable | Description |
@@ -1653,6 +1655,8 @@ SA assessment results (already computed per run) ──────────�
 | ~~Fix "Source: llm_knowledge"~~ | `ExecutiveBriefing.tsx` | ✅ `llm_knowledge` → "AI Knowledge Base"; `perplexity` → "Real-time Web Search" |
 
 #### Category 2 — SF agent prompt rules
+
+> **Umbrella design (Jul 2026):** `docs/architecture/llm_prompt_redesign_da_sf.md` — structured outputs (API-guaranteed schemas replacing the hand-built JSON template + ~12 format MUST-rules), a principal/business context contract injected at BOTH SF stages with explicit consumption instructions, strict-tenancy business context (no generic fallback), refinement-interviewer value-of-information rules, and token-cap fixes (synthesis 16384→20000, QA 800→1200). The deliverables below are subsumed by / sequenced within that design. Evidence base: Phase 11O A/B rounds + HITL replay A/B.
 
 | Deliverable | File | Description |
 |------------|------|-------------|

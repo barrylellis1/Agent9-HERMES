@@ -306,41 +306,17 @@ class A9_LLM_Service_Agent:
             raise
     
     def _load_guardrails(self) -> GuardrailConfig:
-        """Load guardrails configuration from YAML file"""
-        try:
-            with open(self.config.guardrails_path, 'r') as f:
-                guardrail_data = yaml.safe_load(f)
-                
-            # Extract system prompt from guardrails
-            system_prompt = guardrail_data.get('system_prompts', {}).get(
-                'claude_sonnet_thinking', {}).get('content', '')
-            
-            # Extract prohibited patterns
-            prohibited_patterns = guardrail_data.get('prohibited_patterns', [])
-            
-            # Extract required behaviors
-            required_behaviors = []
-            behaviors_data = guardrail_data.get('behaviors', {})
-            for behavior_id, behavior in behaviors_data.items():
-                required_behaviors.append({
-                    'id': behavior_id,
-                    'description': behavior.get('description', ''),
-                    'pattern': behavior.get('pattern', ''),
-                    'required': behavior.get('required', False)
-                })
-            
-            logger.info(f"Loaded guardrails from {self.config.guardrails_path}")
-            return GuardrailConfig(
-                system_prompt=system_prompt,
-                prohibited_patterns=prohibited_patterns,
-                required_behaviors=required_behaviors
-            )
-        except Exception as e:
-            logger.error(f"Failed to load guardrails: {str(e)}")
-            # Return default guardrails
-            return GuardrailConfig(
-                system_prompt="You are an AI assistant following Agent9 standards."
-            )
+        """
+        Product runtime system-prompt defaults.
+
+        Does NOT read docs/cascade_guardrails.yaml — that file is a development-
+        coaching artifact (Windsurf/Cascade era), not a product prompt; loading
+        it leaked PLAN:/VERIFIED_ACTION: format into customer-facing output
+        (2026-07-13). Runtime guardrails normally come from the Claude service
+        layer; this method exists as a consistent fallback only.
+        """
+        from src.llm_services.claude_service import A9_DEFAULT_SYSTEM_PROMPT
+        return GuardrailConfig(system_prompt=A9_DEFAULT_SYSTEM_PROMPT)
     
     def _load_prompt_templates(self) -> Dict[str, PromptTemplate]:
         """Load prompt templates from markdown file"""

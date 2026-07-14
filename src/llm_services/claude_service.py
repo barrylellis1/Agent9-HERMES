@@ -92,6 +92,23 @@ def get_claude_model_for_task(task_type: str = ClaudeTaskType.GENERAL) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Product default system prompt
+# ---------------------------------------------------------------------------
+# Used for every runtime LLM call that does not supply its own system_prompt
+# (SF briefing Q&A, DA insight extraction, SA card observations, ...).
+# Keep it neutral and format-agnostic — each call site's own prompt carries
+# the format instructions.
+
+A9_DEFAULT_SYSTEM_PROMPT = """You are the analytical engine of Agent9 Decision Studio, generating precise, business-facing analysis for enterprise decision makers.
+
+Rules:
+1. Ground every claim in the data and context provided in the request — never invent numbers, segments, or facts.
+2. Follow the format instructions in each request exactly. If the request asks for JSON, return only valid JSON — no preamble, no meta-commentary, no markdown fences.
+3. Write for a senior business audience: plain language, specific figures, no filler.
+4. If the requested information is not present in the provided context, say so plainly rather than guessing."""
+
+
+# ---------------------------------------------------------------------------
 # Model capability map + request builder (Phase 11O-A)
 # ---------------------------------------------------------------------------
 
@@ -285,33 +302,18 @@ class ClaudeService:
     # ------------------------------------------------------------------
 
     def _load_guardrails(self) -> GuardrailConfig:
-        try:
-            with open(self.config.guardrails_path, "r", encoding="utf-8") as f:
-                data = yaml.safe_load(f)
-            system_prompt = (
-                data.get("system_prompts", {})
-                    .get("claude_sonnet_thinking", {})
-                    .get("content", "")
-            )
-            prohibited = data.get("prohibited_patterns", [])
-            behaviors: List[BehaviorRule] = []
-            for bid, bdata in data.get("behaviors", {}).items():
-                behaviors.append(BehaviorRule(
-                    id=str(bid),
-                    description=str(bdata.get("description", "")),
-                    pattern=str(bdata.get("pattern", "")),
-                    required=bool(bdata.get("required", False)),
-                ))
-            return GuardrailConfig(
-                system_prompt=system_prompt,
-                prohibited_patterns=prohibited,
-                required_behaviors=behaviors,
-            )
-        except Exception as e:
-            logger.warning(f"Could not load guardrails ({e}); using default system prompt")
-            return GuardrailConfig(
-                system_prompt="You are Cascade, an AI assistant following Agent9 standards."
-            )
+        """
+        Product runtime system-prompt defaults.
+
+        Deliberately does NOT read docs/cascade_guardrails.yaml — that file is a
+        development-coaching artifact for the coding assistant that built this
+        codebase (Windsurf/Cascade era), never a product prompt. Loading it into
+        runtime calls leaked its PLAN:/VERIFIED_ACTION: format into a
+        customer-facing answer once a strong instruction-following model ran it
+        (Fable 5, 2026-07-13). The product default lives in code below;
+        per-call-site prompts override it via system_prompt.
+        """
+        return GuardrailConfig(system_prompt=A9_DEFAULT_SYSTEM_PROMPT)
 
     def _load_prompt_templates(self) -> Dict[str, PromptTemplate]:
         templates: Dict[str, PromptTemplate] = {}
