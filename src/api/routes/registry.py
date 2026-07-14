@@ -666,6 +666,9 @@ async def delete_kpi_relationship(
 # ---------------------------------------------------------------------------
 
 # Fallback list used when Supabase business_contexts is unavailable.
+# Production clients only — bicycle/hess are local-only demo contexts and were
+# removed from production business_contexts; keep this list in sync so a
+# transient Supabase read failure can't reintroduce them on the login screen.
 _FALLBACK_CLIENTS = [
     {
         "id": "apex_lubricants",
@@ -678,12 +681,6 @@ _FALLBACK_CLIENTS = [
         "name": "Lubricants Business",
         "industry": "Oil & Gas / Specialty Chemicals",
         "data_product_ids": ["dp_lubricants_financials"],
-    },
-    {
-        "id": "bicycle",
-        "name": "Global Bike Inc.",
-        "industry": "Retail & Manufacturing",
-        "data_product_ids": ["fi_star_schema"],
     },
 ]
 
