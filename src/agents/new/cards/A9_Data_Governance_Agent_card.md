@@ -129,3 +129,6 @@ On ambiguity (e.g., "Margin" could be gross_margin or net_margin), `human_action
 - `validate_data_access()` is now CALLED at runtime: DPA `execute_sql` invokes it before routing any SQL when the caller supplies a tenant-scoped principal_context (client_id set) plus data_product_id. Previously the method existed but had no runtime callers.
 - Deny semantics (fail-closed): cross-client mismatch → deny; data product missing client_id while principal is scoped → deny; unscoped principal (system/admin) → allow.
 - Regression coverage: `tests/unit/test_client_isolation.py` (DGA deny/allow + DPA gate tests).
+
+## Infra A2: Registry write persistence fix (Jul 2026)
+- `register_kpi_metadata()` and `map_business_process()` now `await` `kpi_provider.upsert()` / `bp_provider.upsert()` — these are genuinely async now (see `DatabaseRegistryProvider` fix in the Data Product Agent card). Previously the coroutine was created and discarded unawaited, so KPI/business-process registration through DGA silently never persisted to Supabase.

@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
+from src.api.auth_middleware import AuthUser, get_optional_user
 from src.registry.factory import RegistryFactory
 from src.registry.models.business_process import BusinessProcess
 from src.registry.models.data_product import DataProduct
@@ -55,6 +56,92 @@ def serialize(value: Any) -> Any:
 
 def wrap(data: Any) -> Envelope:
     return Envelope(data=serialize(data))
+
+
+# ---------------------------------------------------------------------------
+# Infra A2: server-derived client_id for tenant-scoped writes
+#
+# Registry models default client_id from a static ACTIVE_CLIENT_ID server env
+# var (src/registry/models/kpi.py etc.) — a body-omitted client_id would
+# silently stamp records with whatever tenant the process happens to be
+# configured for, not the client actually being onboarded. These helpers make
+# every create/replace/update route resolve client_id authoritatively
+# server-side instead: a valid JWT wins; without one (demo/admin mode) an
+# explicit client_id query param is required and validated against
+# business_contexts. Fails closed — never falls through to a default tenant.
+# ---------------------------------------------------------------------------
+
+
+async def _client_exists(bc_provider: Any, client_id: str) -> bool:
+    """Check a client_id names a real business_contexts row.
+
+    Deliberately checks list_contexts() (raw dicts) rather than get_context()
+    (which hydrates a strict A9_PS_BusinessContext model and returns None on
+    ANY validation error — e.g. a legitimate client's business_contexts row
+    with more than the model's max strategic_priorities would silently look
+    "unknown" here otherwise).
+    """
+    if bc_provider is None:
+        return False
+    rows = await bc_provider.list_contexts()
+    return any(row.get("id") == client_id for row in rows)
+
+
+async def _resolve_create_client_id(
+    client_id_qp: Optional[str],
+    user: Optional[AuthUser],
+    factory: RegistryFactory,
+) -> str:
+    if user is not None:
+        if client_id_qp and client_id_qp != user.client_id:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                error_response(
+                    "client_mismatch",
+                    f"Authenticated for client '{user.client_id}', cannot write to '{client_id_qp}'",
+                ),
+            )
+        return user.client_id
+
+    if not client_id_qp:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            error_response("client_id_required", "client_id query parameter is required when not authenticated"),
+        )
+
+    bc_provider = factory.get_business_context_provider()
+    known = await _client_exists(bc_provider, client_id_qp)
+    if not known:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            error_response("unknown_client", f"No such client '{client_id_qp}'"),
+        )
+    return client_id_qp
+
+
+def _enforce_write_ownership(
+    existing_client_id: Optional[str],
+    client_id_qp: Optional[str],
+    user: Optional[AuthUser],
+) -> str:
+    """Verify the caller may modify a record with an existing client_id.
+
+    Returns the caller's resolved client_id — callers must persist this,
+    never the request body's client_id, so an update can never re-parent a
+    record to a different tenant.
+    """
+    caller_client_id = user.client_id if user is not None else client_id_qp
+    if not caller_client_id:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            error_response("client_id_required", "client_id query parameter is required when not authenticated"),
+        )
+    if existing_client_id and caller_client_id != existing_client_id:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            error_response("forbidden", f"Record belongs to client '{existing_client_id}', not '{caller_client_id}'"),
+        )
+    return caller_client_id
 
 
 async def _fetch_principal_from_supabase(principal_id: str) -> Optional[PrincipalProfile]:
@@ -126,23 +213,41 @@ async def get_kpi(kpi_id: str, factory: RegistryFactory = Depends(get_registry_f
 
 
 @router.post("/kpis", response_model=Envelope, status_code=status.HTTP_201_CREATED)
-async def create_kpi(payload: KPI, factory: RegistryFactory = Depends(get_registry_factory)):
+async def create_kpi(
+    payload: KPI,
+    client_id: Optional[str] = Query(None, description="Required when not authenticated"),
+    user: Optional[AuthUser] = Depends(get_optional_user),
+    factory: RegistryFactory = Depends(get_registry_factory),
+):
     provider = factory.get_kpi_provider()
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "KPI provider unavailable"))
     if provider.get(payload.id):
         raise HTTPException(status.HTTP_409_CONFLICT, error_response("duplicate", f"KPI '{payload.id}' exists"))
-    provider.register(payload)
+    resolved_client_id = await _resolve_create_client_id(client_id, user, factory)
+    payload = payload.model_copy(update={"client_id": resolved_client_id})
+    await provider.register(payload)
     return wrap(payload)
 
 
 @router.put("/kpis/{kpi_id}", response_model=Envelope)
-async def replace_kpi(kpi_id: str, payload: KPI, factory: RegistryFactory = Depends(get_registry_factory)):
+async def replace_kpi(
+    kpi_id: str,
+    payload: KPI,
+    client_id: Optional[str] = Query(None, description="Required when not authenticated"),
+    user: Optional[AuthUser] = Depends(get_optional_user),
+    factory: RegistryFactory = Depends(get_registry_factory),
+):
     provider = factory.get_kpi_provider()
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "KPI provider unavailable"))
-    replacement = payload.model_copy(update={"id": kpi_id})
-    provider.upsert(replacement)
+    existing = provider.get(kpi_id)
+    if existing is not None:
+        owner_client_id = _enforce_write_ownership(getattr(existing, "client_id", None), client_id, user)
+    else:
+        owner_client_id = await _resolve_create_client_id(client_id, user, factory)
+    replacement = payload.model_copy(update={"id": kpi_id, "client_id": owner_client_id})
+    await provider.upsert(replacement)
     return wrap(replacement)
 
 
@@ -150,14 +255,18 @@ async def replace_kpi(kpi_id: str, payload: KPI, factory: RegistryFactory = Depe
 async def update_kpi(
     kpi_id: str,
     payload: Dict[str, Any],
+    client_id: Optional[str] = Query(None, description="Required when not authenticated"),
+    user: Optional[AuthUser] = Depends(get_optional_user),
     factory: RegistryFactory = Depends(get_registry_factory),
 ):
     provider = factory.get_kpi_provider()
     kpi = provider.get(kpi_id) if provider else None
     if kpi is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"KPI '{kpi_id}' not found"))
+    _enforce_write_ownership(getattr(kpi, "client_id", None), client_id, user)
+    payload = {k: v for k, v in payload.items() if k != "client_id"}
     updated = kpi.model_copy(update=payload)
-    provider.upsert(updated)
+    await provider.upsert(updated)
     return wrap(updated)
 
 
@@ -176,12 +285,14 @@ async def delete_kpi(
     if kpi is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"KPI '{kpi_id}' not found"))
 
-    if client_id:
-        kpi_client = getattr(kpi, "client_id", None)
-        if kpi_client != client_id:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, error_response("forbidden", f"KPI belongs to client '{kpi_client}', not '{client_id}'"))
+    kpi_client = getattr(kpi, "client_id", None)
+    if client_id and kpi_client != client_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, error_response("forbidden", f"KPI belongs to client '{kpi_client}', not '{client_id}'"))
 
-    if not provider.delete(kpi_id):
+    # Delete keys on the provider's composite cache key (client_id:id) — the
+    # record's own client_id, not just the id, or the delete never matches.
+    delete_key = f"{kpi_client}:{kpi_id}" if kpi_client else kpi_id
+    if not await provider.delete(delete_key):
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"KPI '{kpi_id}' not found"))
 
 
@@ -252,34 +363,60 @@ async def get_principal(
 
 
 @router.post("/principals", response_model=Envelope, status_code=status.HTTP_201_CREATED)
-async def create_principal(payload: PrincipalProfile, factory: RegistryFactory = Depends(get_registry_factory)):
+async def create_principal(
+    payload: PrincipalProfile,
+    client_id: Optional[str] = Query(None, description="Required when not authenticated"),
+    user: Optional[AuthUser] = Depends(get_optional_user),
+    factory: RegistryFactory = Depends(get_registry_factory),
+):
     provider = factory.get_principal_profile_provider()
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "Principal provider unavailable"))
     if provider.get(payload.id):
         raise HTTPException(status.HTTP_409_CONFLICT, error_response("duplicate", f"Principal '{payload.id}' exists"))
-    provider.register(payload)
+    resolved_client_id = await _resolve_create_client_id(client_id, user, factory)
+    payload = payload.model_copy(update={"client_id": resolved_client_id})
+    await provider.register(payload)
     return wrap(payload)
 
 
 @router.put("/principals/{principal_id}", response_model=Envelope)
-async def replace_principal(principal_id: str, payload: PrincipalProfile, factory: RegistryFactory = Depends(get_registry_factory)):
+async def replace_principal(
+    principal_id: str,
+    payload: PrincipalProfile,
+    client_id: Optional[str] = Query(None, description="Required when not authenticated"),
+    user: Optional[AuthUser] = Depends(get_optional_user),
+    factory: RegistryFactory = Depends(get_registry_factory),
+):
     provider = factory.get_principal_profile_provider()
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "Principal provider unavailable"))
-    replacement = payload.model_copy(update={"id": principal_id})
-    provider.upsert(replacement)
+    existing = provider.get(principal_id)
+    if existing is not None:
+        owner_client_id = _enforce_write_ownership(getattr(existing, "client_id", None), client_id, user)
+    else:
+        owner_client_id = await _resolve_create_client_id(client_id, user, factory)
+    replacement = payload.model_copy(update={"id": principal_id, "client_id": owner_client_id})
+    await provider.upsert(replacement)
     return wrap(replacement)
 
 
 @router.patch("/principals/{principal_id}", response_model=Envelope)
-async def update_principal(principal_id: str, payload: Dict[str, Any], factory: RegistryFactory = Depends(get_registry_factory)):
+async def update_principal(
+    principal_id: str,
+    payload: Dict[str, Any],
+    client_id: Optional[str] = Query(None, description="Required when not authenticated"),
+    user: Optional[AuthUser] = Depends(get_optional_user),
+    factory: RegistryFactory = Depends(get_registry_factory),
+):
     provider = factory.get_principal_profile_provider()
     profile = provider.get(principal_id) if provider else None
     if profile is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Principal '{principal_id}' not found"))
+    _enforce_write_ownership(getattr(profile, "client_id", None), client_id, user)
+    payload = {k: v for k, v in payload.items() if k != "client_id"}
     updated = profile.model_copy(update=payload)
-    provider.upsert(updated)
+    await provider.upsert(updated)
     return wrap(updated)
 
 
@@ -297,12 +434,12 @@ async def delete_principal(
     if profile is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Principal '{principal_id}' not found"))
 
-    if client_id:
-        profile_client = getattr(profile, "client_id", None)
-        if profile_client != client_id:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, error_response("forbidden", f"Principal belongs to client '{profile_client}', not '{client_id}'"))
+    profile_client = getattr(profile, "client_id", None)
+    if client_id and profile_client != client_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, error_response("forbidden", f"Principal belongs to client '{profile_client}', not '{client_id}'"))
 
-    if not provider.delete(principal_id):
+    delete_key = f"{profile_client}:{principal_id}" if profile_client else principal_id
+    if not await provider.delete(delete_key):
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Principal '{principal_id}' not found"))
 
 
@@ -402,23 +539,41 @@ async def get_data_product(data_product_id: str, factory: RegistryFactory = Depe
 
 
 @router.post("/data-products", response_model=Envelope, status_code=status.HTTP_201_CREATED)
-async def create_data_product(payload: DataProduct, factory: RegistryFactory = Depends(get_registry_factory)):
+async def create_data_product(
+    payload: DataProduct,
+    client_id: Optional[str] = Query(None, description="Required when not authenticated"),
+    user: Optional[AuthUser] = Depends(get_optional_user),
+    factory: RegistryFactory = Depends(get_registry_factory),
+):
     provider = factory.get_data_product_provider()
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "Data product provider unavailable"))
     if provider.get(payload.id):
         raise HTTPException(status.HTTP_409_CONFLICT, error_response("duplicate", f"Data product '{payload.id}' exists"))
-    provider.register(payload)
+    resolved_client_id = await _resolve_create_client_id(client_id, user, factory)
+    payload = payload.model_copy(update={"client_id": resolved_client_id})
+    await provider.register(payload)
     return wrap(payload)
 
 
 @router.put("/data-products/{data_product_id}", response_model=Envelope)
-async def replace_data_product(data_product_id: str, payload: DataProduct, factory: RegistryFactory = Depends(get_registry_factory)):
+async def replace_data_product(
+    data_product_id: str,
+    payload: DataProduct,
+    client_id: Optional[str] = Query(None, description="Required when not authenticated"),
+    user: Optional[AuthUser] = Depends(get_optional_user),
+    factory: RegistryFactory = Depends(get_registry_factory),
+):
     provider = factory.get_data_product_provider()
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "Data product provider unavailable"))
-    replacement = payload.model_copy(update={"id": data_product_id})
-    provider.upsert(replacement)
+    existing = provider.get(data_product_id)
+    if existing is not None:
+        owner_client_id = _enforce_write_ownership(getattr(existing, "client_id", None), client_id, user)
+    else:
+        owner_client_id = await _resolve_create_client_id(client_id, user, factory)
+    replacement = payload.model_copy(update={"id": data_product_id, "client_id": owner_client_id})
+    await provider.upsert(replacement)
     return wrap(replacement)
 
 
@@ -426,14 +581,18 @@ async def replace_data_product(data_product_id: str, payload: DataProduct, facto
 async def update_data_product(
     data_product_id: str,
     payload: Dict[str, Any],
+    client_id: Optional[str] = Query(None, description="Required when not authenticated"),
+    user: Optional[AuthUser] = Depends(get_optional_user),
     factory: RegistryFactory = Depends(get_registry_factory),
 ):
     provider = factory.get_data_product_provider()
     data_product = provider.get(data_product_id) if provider else None
     if data_product is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Data product '{data_product_id}' not found"))
+    _enforce_write_ownership(getattr(data_product, "client_id", None), client_id, user)
+    payload = {k: v for k, v in payload.items() if k != "client_id"}
     updated = data_product.model_copy(update=payload)
-    provider.upsert(updated)
+    await provider.upsert(updated)
     return wrap(updated)
 
 
@@ -452,12 +611,12 @@ async def delete_data_product(
     if dp is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Data product '{data_product_id}' not found"))
 
-    if client_id:
-        dp_client = getattr(dp, "client_id", None)
-        if dp_client != client_id:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, error_response("forbidden", f"Data product belongs to client '{dp_client}', not '{client_id}'"))
+    dp_client = getattr(dp, "client_id", None)
+    if client_id and dp_client != client_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, error_response("forbidden", f"Data product belongs to client '{dp_client}', not '{client_id}'"))
 
-    if not provider.delete(data_product_id):
+    delete_key = f"{dp_client}:{data_product_id}" if dp_client else data_product_id
+    if not await provider.delete(delete_key):
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Data product '{data_product_id}' not found"))
 
 
@@ -505,7 +664,7 @@ async def create_business_process(payload: BusinessProcess, factory: RegistryFac
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "Business process provider unavailable"))
     if provider.get(payload.id):
         raise HTTPException(status.HTTP_409_CONFLICT, error_response("duplicate", f"Business process '{payload.id}' exists"))
-    provider.register(payload)
+    await provider.register(payload)
     return wrap(payload)
 
 
@@ -515,7 +674,7 @@ async def replace_business_process(process_id: str, payload: BusinessProcess, fa
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "Business process provider unavailable"))
     replacement = payload.model_copy(update={"id": process_id})
-    provider.upsert(replacement)
+    await provider.upsert(replacement)
     return wrap(replacement)
 
 
@@ -526,7 +685,7 @@ async def update_business_process(process_id: str, payload: Dict[str, Any], fact
     if process is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Business process '{process_id}' not found"))
     updated = process.model_copy(update=payload)
-    provider.upsert(updated)
+    await provider.upsert(updated)
     return wrap(updated)
 
 
@@ -545,12 +704,12 @@ async def delete_business_process(
     if bp is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Business process '{process_id}' not found"))
 
-    if client_id:
-        bp_client = getattr(bp, "client_id", None)
-        if bp_client != client_id:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, error_response("forbidden", f"Business process belongs to client '{bp_client}', not '{client_id}'"))
+    bp_client = getattr(bp, "client_id", None)
+    if client_id and bp_client != client_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, error_response("forbidden", f"Business process belongs to client '{bp_client}', not '{client_id}'"))
 
-    if not provider.delete(process_id):
+    delete_key = f"{bp_client}:{process_id}" if bp_client else process_id
+    if not await provider.delete(delete_key):
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Business process '{process_id}' not found"))
 
 

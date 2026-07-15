@@ -499,7 +499,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
                                 dp['domain'] = "Enterprise"
                                 
                         data_product = DataProduct(**dp)
-                        self.data_product_provider.register(data_product)
+                        await self.data_product_provider.register(data_product)
                         loaded_count += 1
                     except Exception as e:
                         self.logger.error(f"[TXN:{transaction_id}] Error creating DataProduct: {str(e)}")
@@ -845,7 +845,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
             }
 
             existing = self.data_product_provider.get(request.data_product_id)
-            self.data_product_provider.upsert(registry_entry)
+            await self.data_product_provider.upsert(registry_entry)
             was_created = existing is None
 
             registry_path = getattr(self.data_product_provider, "source_path", None)

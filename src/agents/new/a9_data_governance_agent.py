@@ -498,7 +498,7 @@ class A9_Data_Governance_Agent:
                     duplicated_ids.append(registry_kpi.id)
                     continue
 
-                self.kpi_provider.upsert(registry_kpi)
+                await self.kpi_provider.upsert(registry_kpi)
                 updated_count += 1
             except Exception as err:
                 self.logger.error(f"Failed to register KPI {entry.kpi_id}: {err}")
@@ -555,7 +555,7 @@ class A9_Data_Governance_Agent:
                     }
 
                     bp_model = BusinessProcess(**payload)
-                    bp_provider.upsert(bp_model)
+                    await bp_provider.upsert(bp_model)
                     applied.append(mapping)
                 except Exception as err:
                     self.logger.error(

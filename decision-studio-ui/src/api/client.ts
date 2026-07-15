@@ -16,6 +16,8 @@ import type {
   RecordKPIMeasurementResponse,
   InactionCostProjection,
 } from '../types/valueAssurance';
+import { supabase } from '../lib/supabase';
+import { getToolTargetClientId } from '../utils/adminMode';
 
 // Re-export types for backward compatibility
 export type { ProblemRefinementRequest, ProblemRefinementResult, Situation, OpportunitySignal, SituationDetectionResult };
@@ -38,6 +40,23 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     return undefined as unknown as T;
   }
   return response.json() as Promise<T>;
+}
+
+// ------------------------------------------------------------------
+// Infra A2: server-derived client_id for tenant-scoped writes.
+// The backend resolves client_id authoritatively from the JWT when present,
+// and requires this query param when it isn't (demo/admin mode) — see
+// _resolve_create_client_id / _enforce_write_ownership in registry.py.
+// ------------------------------------------------------------------
+
+async function _authHeaders(): Promise<Record<string, string>> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+}
+
+function _writeClientIdQs(): string {
+  const clientId = getToolTargetClientId();
+  return clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
 }
 
 export interface SituationRequest {
@@ -99,27 +118,27 @@ export async function getKpi(id: string): Promise<any> {
 }
 
 export async function createKpi(payload: any): Promise<any> {
-  const envelope = await requestJson<Envelope<any>>(`/registry/kpis`, {
+  const envelope = await requestJson<Envelope<any>>(`/registry/kpis${_writeClientIdQs()}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await _authHeaders()) },
     body: JSON.stringify(payload),
   });
   return envelope.data;
 }
 
 export async function updateKpi(id: string, payload: any): Promise<any> {
-  const envelope = await requestJson<Envelope<any>>(`/registry/kpis/${encodeURIComponent(id)}`, {
+  const envelope = await requestJson<Envelope<any>>(`/registry/kpis/${encodeURIComponent(id)}${_writeClientIdQs()}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await _authHeaders()) },
     body: JSON.stringify(payload),
   });
   return envelope.data;
 }
 
 export async function replaceKpi(id: string, payload: any): Promise<any> {
-  const envelope = await requestJson<Envelope<any>>(`/registry/kpis/${encodeURIComponent(id)}`, {
+  const envelope = await requestJson<Envelope<any>>(`/registry/kpis/${encodeURIComponent(id)}${_writeClientIdQs()}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await _authHeaders()) },
     body: JSON.stringify(payload),
   });
   return envelope.data;
@@ -167,27 +186,27 @@ export async function getPrincipal(id: string, clientId?: string): Promise<any> 
 }
 
 export async function createPrincipal(payload: any): Promise<any> {
-  const envelope = await requestJson<Envelope<any>>(`/registry/principals`, {
+  const envelope = await requestJson<Envelope<any>>(`/registry/principals${_writeClientIdQs()}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await _authHeaders()) },
     body: JSON.stringify(payload),
   });
   return envelope.data;
 }
 
 export async function updatePrincipal(principalId: string, payload: any): Promise<any> {
-  const envelope = await requestJson<Envelope<any>>(`/registry/principals/${encodeURIComponent(principalId)}`, {
+  const envelope = await requestJson<Envelope<any>>(`/registry/principals/${encodeURIComponent(principalId)}${_writeClientIdQs()}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await _authHeaders()) },
     body: JSON.stringify(payload)
   });
   return envelope.data;
 }
 
 export async function replacePrincipal(principalId: string, payload: any): Promise<any> {
-  const envelope = await requestJson<Envelope<any>>(`/registry/principals/${encodeURIComponent(principalId)}`, {
+  const envelope = await requestJson<Envelope<any>>(`/registry/principals/${encodeURIComponent(principalId)}${_writeClientIdQs()}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await _authHeaders()) },
     body: JSON.stringify(payload)
   });
   return envelope.data;
@@ -216,27 +235,27 @@ export async function getDataProduct(id: string): Promise<any> {
 }
 
 export async function createDataProduct(payload: any): Promise<any> {
-  const envelope = await requestJson<Envelope<any>>(`/registry/data-products`, {
+  const envelope = await requestJson<Envelope<any>>(`/registry/data-products${_writeClientIdQs()}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await _authHeaders()) },
     body: JSON.stringify(payload),
   });
   return envelope.data;
 }
 
 export async function updateDataProduct(id: string, payload: any): Promise<any> {
-  const envelope = await requestJson<Envelope<any>>(`/registry/data-products/${encodeURIComponent(id)}`, {
+  const envelope = await requestJson<Envelope<any>>(`/registry/data-products/${encodeURIComponent(id)}${_writeClientIdQs()}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await _authHeaders()) },
     body: JSON.stringify(payload),
   });
   return envelope.data;
 }
 
 export async function replaceDataProduct(id: string, payload: any): Promise<any> {
-  const envelope = await requestJson<Envelope<any>>(`/registry/data-products/${encodeURIComponent(id)}`, {
+  const envelope = await requestJson<Envelope<any>>(`/registry/data-products/${encodeURIComponent(id)}${_writeClientIdQs()}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await _authHeaders()) },
     body: JSON.stringify(payload),
   });
   return envelope.data;

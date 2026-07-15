@@ -40,21 +40,46 @@ class DatabaseRegistryProvider(RegistryProvider[T]):
             db_manager: Configured DatabaseManager instance (Postgres, DuckDB, etc.)
             table_name: Name of the database table to persist to
             model_class: Pydantic model class for deserialization
-            key_fields: List of column names that form the unique key (default: ["id"] or ["client_id","id"])
+            key_fields: List of column names that form the unique key (default: ["client_id", "id"])
             json_column: Name of the column to store the full JSON payload (default: "definition")
-            client_id: If set, only load/write records for this client. Also changes default key_fields
-                       to ["client_id", "id"] for composite PK upserts.
+            client_id: If set, only load/write records for this client. Does NOT affect key_fields —
+                       every table this provider manages has a composite (client_id, id) primary key
+                       regardless of whether this instance loads one tenant or all of them (bootstrap
+                       loads with client_id=None to serve all tenants from one cache, but writes still
+                       need the real composite key or ON CONFLICT has no matching constraint to target).
         """
         super().__init__()
         self.db_manager = db_manager
         self.table_name = table_name
         self.model_class = model_class
         self.client_id = client_id
-        # When client_id is provided, default key_fields to composite PK
-        self.key_fields = key_fields or (["client_id", "id"] if client_id else ["id"])
+        self.key_fields = key_fields or ["client_id", "id"]
         self.json_column = json_column
+        self._columns_cache: Optional[set] = None
 
         self._items: Dict[str, T] = {}
+
+    async def _get_columns(self) -> set:
+        """Introspect the table's real columns (cached after first call).
+
+        Infra A2: writes must only include keys that exist as real columns —
+        these tables are fully columnar (no generic JSON blob column), so
+        blindly including every model_dump() key fails with "column ... does
+        not exist". table_name is a fixed constructor argument (never user
+        input), so inlining it into the SQL string here is safe.
+        """
+        if self._columns_cache is None:
+            df = await self.db_manager.execute_query(
+                f"SELECT column_name FROM information_schema.columns WHERE table_name = '{self.table_name}'"
+            )
+            columns = set(df["column_name"]) if not df.empty else set()
+            if not columns:
+                raise RuntimeError(
+                    f"DatabaseRegistryProvider: table '{self.table_name}' has no columns "
+                    "(introspection failed or table does not exist) — refusing to write blind"
+                )
+            self._columns_cache = columns
+        return self._columns_cache
 
     async def load(self) -> None:
         """
@@ -120,36 +145,24 @@ class DatabaseRegistryProvider(RegistryProvider[T]):
         # 3. Create model
         return self.model_class(**data)
 
-    def _serialize_item(self, item: T) -> Dict[str, Any]:
+    async def _serialize_item(self, item: T) -> Dict[str, Any]:
         """
         Convert a Pydantic model to a DB record dict.
-        Stores full dump in json_column, and specific fields as top-level columns.
+
+        These tables are fully columnar (kpis, principal_profiles,
+        data_products, business_processes, business_glossary_terms all have
+        typed columns for every field, verified against
+        information_schema.columns — none has a generic JSON blob column).
+        The previous "hybrid schema" design assumed a `definition` blob column
+        that doesn't exist on any of them (and on business_glossary_terms,
+        `definition` is a real, unrelated column holding the term's own
+        definition text) — writing to it always failed with "column
+        ... does not exist", silently swallowed by register()'s try/except.
+        Only include keys that are real columns on this table.
         """
-        model_dump = item.model_dump()
-        
-        # Start with the full payload in the JSON column
-        record = {
-            self.json_column: json.dumps(model_dump, default=str)
-        }
-        
-        # Promote top-level fields to columns if they exist in the model
-        # NOTE: In a real "Hybrid Schema", we only promote columns that actually exist in the DB table.
-        # Since we don't know the DB schema schema here, we might rely on the DB manager to ignore extra keys
-        # OR we rely on the specific provider subclass to know which columns to promote.
-        # For this generic implementation, we will promote ID and basic metadata fields 
-        # that are common across our tables (id, name, domain, etc).
-        
-        common_fields = ["id", "client_id", "name", "domain", "owner", "owner_role", "title", "version"]
-        for field in common_fields:
-            if field in model_dump:
-                record[field] = model_dump[field]
-                
-        # Also promote key fields to ensure upsert works
-        for field in self.key_fields:
-            if field in model_dump:
-                record[field] = model_dump[field]
-                
-        return record
+        model_dump = item.model_dump(mode="json")
+        columns = await self._get_columns()
+        return {k: v for k, v in model_dump.items() if k in columns}
 
     def _cache_item(self, item: T) -> None:
         """Add item to internal cache, keyed by composite (client_id:id) when client_id is present."""
@@ -194,34 +207,24 @@ class DatabaseRegistryProvider(RegistryProvider[T]):
                     results.append(item)
         return results
 
-    def register(self, item: T) -> bool:
+    async def register(self, item: T) -> bool:
         """
         Register (Upsert) an item to the database.
-        Note: This method is sync in the base class but we need async for DB.
-        The base class `register` signature is `def register(self, item: T) -> bool`.
-        We cannot make it async without breaking the interface or requiring callers to await.
-        
-        However, Supabase providers already implemented `async def register` which violated the type hint 
-        but worked because callers awaited it (or checked isawaitable).
-        
-        We will implement `register` as async (compatible with our refactored callers).
+
+        Async — callers MUST await this. Historically this returned an
+        unawaited coroutine (the DB write was silently a no-op for every
+        caller that didn't await it); it is now a real async method so a
+        missing `await` fails loudly (unawaited-coroutine warning / wrong
+        type) instead of silently dropping the write.
         """
         # Update cache immediately (optimistic)
         self._cache_item(item)
-        
-        # We need to schedule the DB write. 
-        # Since we are in a sync context if following strict base class, 
-        # but we know our application uses async.
-        # We will return a Coroutine.
-        return self._register_async(item)
 
-    async def _register_async(self, item: T) -> bool:
-        """Async implementation of register."""
         try:
-            record = self._serialize_item(item)
+            record = await self._serialize_item(item)
             success = await self.db_manager.upsert_record(
-                self.table_name, 
-                record, 
+                self.table_name,
+                record,
                 self.key_fields
             )
             if success:
@@ -233,18 +236,15 @@ class DatabaseRegistryProvider(RegistryProvider[T]):
             logger.error(f"Error persisting item {item.id}: {e}")
             return False
 
-    def upsert(self, item: T) -> bool:
+    async def upsert(self, item: T) -> bool:
         """Alias for register."""
-        return self.register(item)
-    
-    def delete(self, item_id: str) -> bool:
-        """
-        Delete an item.
-        Returns coroutine.
-        """
+        return await self.register(item)
+
+    async def delete(self, item_id: str) -> bool:
+        """Delete an item. Async — callers MUST await this."""
         if item_id in self._items:
             del self._items[item_id]
-        return self._delete_async(item_id)
+        return await self._delete_async(item_id)
 
     async def _delete_async(self, item_id: str) -> bool:
         try:
