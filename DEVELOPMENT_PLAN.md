@@ -1,7 +1,7 @@
 # Agent9-HERMES Development Plan
 
 **Created:** 2026-03-14
-**Last updated:** 2026-07-13
+**Last updated:** 2026-07-14
 **Status:** Active
 
 ---
@@ -2418,7 +2418,7 @@ Same convention as UI Refinement Track. ✅ for shipped (with commit), ⊘ for r
 |------------|-------------|
 | Platform Admin login path | Separate credential or `role=platform_admin` flag at login. Admin sees all clients; per-client users see only their workspace. |
 | Client Management screen | Table of all registered clients (id, name, industry, status, created date). "New Client" button initiates onboarding. |
-| Guided onboarding flow (4 steps) | **Step 1 — Company Profile** (already built: `CompanyProfile.tsx` creates BusinessContext + locks `client_id`). **Step 2 — Data Product** (already built: Data Product Onboarding wizard). **Step 3 — Principals** (new: create initial principal profiles for the client). **Step 4 — Validation** (new: run a dry-run SA detect to confirm the pipeline is live). |
+| ~~Guided onboarding flow (4 steps)~~ | **Superseded (Jul 2026)** by a 6-step wizard shell (Workspace Setup / Principals / KPI Library / Assign Ownership / Connect Data / Validate & Launch) that embeds the real step components inline, computes completion from actual registry state (not click history), and adds a resume entry screen. Full design + implementation plan: `docs/architecture/onboarding_wizard_redesign.md`. |
 | Workspace badge (done ✅) | Persistent `client_id` indicator in Settings header so users always know which workspace they're managing. |
 | `client_id` stamped server-side | API create endpoints (`/kpis`, `/principals`, `/data-products`, etc.) read `client_id` from session/token — never from form payload. Form templates omit `client_id`; backend injects it. |
 
