@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, Loader2, Check, X, ChevronDown, ChevronUp, Building2, Lock } from 'lucide-react'
 import { BrandLogo } from '../components/BrandLogo'
 import { API_BASE_URL } from '../config/api-endpoints'
+import { getToolTargetClientId, isAdminMode, setAdminTargetClient } from '../utils/adminMode'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -166,7 +167,7 @@ function SaveButton({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function CompanyProfile() {
+export default function CompanyProfile({ embedded = false }: { embedded?: boolean } = {}) {
   // ── Profile state ──
   const [isNew, setIsNew] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -250,8 +251,24 @@ export default function CompanyProfile() {
   useEffect(() => {
     const load = async () => {
       try {
-        // Use the client selected at login, falling back to the previously stored profile client
-        const activeClientId = localStorage.getItem('a9_active_client_id') || localStorage.getItem(CLIENT_ID_KEY)
+        // In admin/onboarding mode, scope strictly to the client being onboarded
+        // (a9_admin_target_client via getToolTargetClientId()) — including the "not set
+        // yet" case, where this must stay empty rather than falling back to a stale
+        // a9_client_id left over from a previous, unrelated onboarding session in this
+        // browser. Outside admin mode, fall back to the previously stored profile client.
+        const activeClientId = isAdminMode()
+          ? getToolTargetClientId()
+          : getToolTargetClientId() || localStorage.getItem(CLIENT_ID_KEY)
+
+        // Admin mode with no target client selected yet means "brand new company" —
+        // don't call the API at all. GET /company-profile with no client_id falls back
+        // to a backend-side "guess the first non-demo client" resolution, which would
+        // show an unrelated existing client's profile here instead of a blank form.
+        if (isAdminMode() && !activeClientId) {
+          setIsNew(true)
+          return
+        }
+
         const url = activeClientId
           ? `${API_BASE_URL}/api/v1/company-profile?client_id=${encodeURIComponent(activeClientId)}`
           : `${API_BASE_URL}/api/v1/company-profile`
@@ -320,6 +337,12 @@ export default function CompanyProfile() {
             setClientId(created.client_id)
             setIsClientIdLocked(true)
             localStorage.setItem(CLIENT_ID_KEY, created.client_id)
+            // Keep the admin-mode target client in sync with whatever id Step 1 actually
+            // minted (auto-slugified from the company name), so steps 2-5 immediately
+            // resolve to this same new client instead of a stale/unset target.
+            if (isAdminMode()) {
+              setAdminTargetClient(created.client_id)
+            }
           }
         }
         setIsNew(false)
@@ -391,25 +414,27 @@ export default function CompanyProfile() {
     'w-full p-3 bg-slate-950 border border-slate-800 rounded-lg text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none'
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8 font-sans">
-      {/* Header */}
-      <header className="mb-8 flex justify-between items-center max-w-6xl mx-auto">
-        <div className="flex items-center gap-4">
-          <Link
-            to="/settings"
-            className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">Company Profile</h1>
-            <p className="text-sm text-slate-400">
-              Business context used for KPI suggestions and situational analysis
-            </p>
+    <div className={embedded ? 'font-sans' : 'min-h-screen bg-background text-foreground p-8 font-sans'}>
+      {/* Header — omitted when embedded in the onboarding wizard shell */}
+      {!embedded && (
+        <header className="mb-8 flex justify-between items-center max-w-6xl mx-auto">
+          <div className="flex items-center gap-4">
+            <Link
+              to="/settings"
+              className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-white">Company Profile</h1>
+              <p className="text-sm text-slate-400">
+                Business context used for KPI suggestions and situational analysis
+              </p>
+            </div>
           </div>
-        </div>
-        <BrandLogo size={32} />
-      </header>
+          <BrandLogo size={32} />
+        </header>
+      )}
 
       {loadError && (
         <div className="max-w-6xl mx-auto mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-300 text-sm">

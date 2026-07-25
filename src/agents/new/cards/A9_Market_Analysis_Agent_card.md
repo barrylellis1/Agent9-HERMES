@@ -14,6 +14,7 @@ The `A9_Market_Analysis_Agent` retrieves external market signals relevant to a K
 |--------|-----------|---------|
 | `analyze_market` | `async def analyze_market(request: MarketAnalysisRequest) -> MarketAnalysisResponse` | Market signals + synthesis + confidence |
 | `research_company_kpi_profile` | `async def research_company_kpi_profile(request: CompanyResearchRequest) -> CompanyKPIProfile` | Benchmark-anchored template KPIs grouped by domain |
+| `research_company_business_processes` | `async def research_company_business_processes(request: BusinessProcessResearchRequest) -> CompanyBusinessProcessProfile` | Selected canonical + extra business processes for a client |
 
 Models defined in `src/agents/models/market_analysis_models.py`.
 
@@ -169,3 +170,45 @@ Researches a company's public footprint to generate benchmark-anchored KPI templ
 **Downstream impact:**
 - SA agent skips `status='template'` KPIs during `_load_kpi_registry` — template rows never reach detection until the admin connects data sources and promotes them to `status='active'`
 - Template KPIs use `data_product_id='pending'` as a sentinel until data is connected
+
+## Phase 12F — Business Process Template Generator (July 2026)
+
+### `research_company_business_processes(request) -> CompanyBusinessProcessProfile`
+
+Selects the business processes relevant to a client from the canonical taxonomy
+(`src/registry/canonical/business_processes.py`, 39 processes across 12 domains — the
+existing single source of truth, already used by `scripts/onboard_client.py` for scripted
+seeding), plus proposes a small number of client-specific extras not in that taxonomy.
+
+**No external research needed** — unlike KPI templates, this is a pure selection/curation
+task over already-known data, not benchmark research. No Perplexity search is performed.
+
+**Pipeline:**
+1. Resolve industry context: stored company profile (`business_contexts` table via
+   `SupabaseBusinessContextProvider.get_context()`) first, then `request.industry_override`,
+   else `degraded=True` and select from a generic cross-industry prompt.
+2. Single LLM call (`_llm_json_call`) given the full compact canonical taxonomy listing,
+   asking only for `selected_canonical_ids` + `extra_processes` — the LLM never regenerates
+   canonical content.
+3. **Canonical selections are hydrated server-side from `BP_BY_ID`, verbatim** — protects the
+   canonical taxonomy as ground truth even if the LLM echoes different name/description text.
+   Extra processes are validated/slugified; any colliding with an existing canonical id is
+   dropped (merge-into-canonical, not duplicated).
+
+**Models** (defined in `src/agents/models/business_process_template_models.py`):
+- `TemplateBusinessProcess` — id, name, domain, description, owner_role, stakeholder_roles,
+  tags, source ('canonical'|'extra'), confidence, rationale
+- `CompanyBusinessProcessProfile` — client_id, industry_used, domains, selected, generated_at,
+  degraded
+- `BusinessProcessResearchRequest` / `Response` — API I/O wrappers
+
+**API surface:** `POST /api/v1/templates/research-business-processes` → returns
+`BusinessProcessResearchResponse`; `POST /api/v1/templates/commit-business-processes` writes
+accepted processes directly to the `business_processes` registry (no template/active lifecycle
+— a committed business process is immediately valid, unlike KPIs).
+
+**Downstream impact:**
+- The accountability interview (`a9_accountability_interview_agent.py::_load_registry_context`)
+  already queries the real `business_process` provider and falls back to KPI-derived
+  pseudo-processes only when the table is empty — once real rows exist for a client it upgrades
+  automatically, no code changes needed there.

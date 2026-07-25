@@ -35,6 +35,8 @@ from src.api.routes.company_profile import router as company_profile_router
 from src.api.routes.admin import router as admin_router
 from src.api.routes.kpi_accountability import router as accountability_router
 from src.api.routes.kpi_templates import router as kpi_templates_router
+from src.api.routes.business_process_templates import router as business_process_templates_router
+from src.api.routes.onboarding import router as onboarding_router
 
 app = FastAPI(
     title="Agent9 API",
@@ -77,6 +79,8 @@ app.include_router(company_profile_router)
 app.include_router(admin_router)
 app.include_router(accountability_router)
 app.include_router(kpi_templates_router)
+app.include_router(business_process_templates_router)
+app.include_router(onboarding_router)
 
 
 @app.on_event("startup")

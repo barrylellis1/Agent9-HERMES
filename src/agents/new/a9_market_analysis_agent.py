@@ -27,6 +27,11 @@ import json
 from typing import Any, Dict, List, Optional, Tuple
 
 from src.agents.agent_config_models import A9_Market_Analysis_Agent_Config
+from src.agents.models.business_process_template_models import (
+    BusinessProcessResearchRequest,
+    CompanyBusinessProcessProfile,
+    TemplateBusinessProcess,
+)
 from src.agents.models.kpi_template_models import (
     BenchmarkSource,
     CompanyKPIProfile,
@@ -306,6 +311,203 @@ class A9_Market_Analysis_Agent:
 
         profile = await self._synthesize_company_profile(request, clean_results, queries)
         return profile
+
+    async def research_company_business_processes(
+        self, request: BusinessProcessResearchRequest
+    ) -> CompanyBusinessProcessProfile:
+        """
+        Phase 12F entrypoint — select the business processes relevant to a
+        client from the canonical taxonomy, plus a few client-specific extras.
+
+        Unlike research_company_kpi_profile, this needs no external research:
+        the canonical taxonomy (src/registry/canonical/business_processes.py)
+        already represents the ~80% common ground across Agent9's Mid-Market
+        ICP. The LLM's job is pure selection — pick the relevant subset for
+        this client's industry, and propose genuine gaps not covered by the
+        taxonomy. Canonical selections are hydrated server-side from BP_BY_ID
+        afterward, never trusted verbatim from the LLM response.
+
+        Returns:
+            CompanyBusinessProcessProfile — never raises; degrades gracefully
+            to a generic cross-industry subset when no industry context is
+            available.
+        """
+        from src.registry.canonical.business_processes import ALL_BUSINESS_PROCESSES
+
+        if self.config.log_all_requests:
+            logger.info(
+                "%s: research_company_business_processes — client=%s industry_override=%s",
+                self.name,
+                request.client_id,
+                request.industry_override,
+            )
+
+        industry_used, degraded = await self._resolve_bp_industry(request)
+
+        candidates_block = "\n".join(
+            f"- {bp['id']}: {bp['name']} ({bp['domain']}) — {bp['description']}"
+            for bp in ALL_BUSINESS_PROCESSES
+        )
+
+        industry_line = industry_used or "a general Mid-Market company (no specific industry known)"
+        prompt = (
+            f"You are a business-process taxonomist selecting the relevant business processes "
+            f"for a client in: {industry_line}.\n\n"
+            f"CANONICAL TAXONOMY (the single source of truth — {len(ALL_BUSINESS_PROCESSES)} "
+            f"processes across 12 domains):\n{candidates_block}\n\n"
+            f"TASK:\n"
+            f"1. Select every canonical process id that is genuinely relevant to this client's "
+            f"industry and operations. Most Mid-Market companies share the majority of Finance, "
+            f"Strategy, and Operations processes — be inclusive there. Be more selective for "
+            f"industry-specific domains (e.g. only include IT/Data processes if the company is "
+            f"plausibly tech-forward).\n"
+            f"2. Propose up to {request.max_extra_processes} EXTRA processes that are genuinely "
+            f"specific to this industry and NOT already covered by the canonical taxonomy above "
+            f"(e.g. 'Perishables Inventory Management' for a grocery retailer). Do not propose an "
+            f"extra that duplicates or lightly rewords a canonical entry.\n\n"
+            f"Return ONLY valid JSON in this schema:\n"
+            f"{{\n"
+            f'  "selected_canonical_ids": ["finance_expense_management", "..."],\n'
+            f'  "extra_processes": [\n'
+            f"    {{\n"
+            f'      "name": "Perishables Inventory Management",\n'
+            f'      "domain": "Supply Chain",\n'
+            f'      "description": "One-sentence description",\n'
+            f'      "owner_role": "COO",\n'
+            f'      "stakeholder_roles": ["Supply Chain Manager"],\n'
+            f'      "tags": ["perishables", "inventory"],\n'
+            f'      "confidence": 0.7,\n'
+            f'      "rationale": "One-sentence reason this fits the industry"\n'
+            f"    }}\n"
+            f"  ]\n"
+            f"}}\n"
+            f"No markdown, no preamble."
+        )
+
+        parsed = await self._llm_json_call(prompt=prompt, principal_id=None, temperature=0.2)
+
+        if not parsed:
+            logger.warning(
+                "%s: BP selection returned no parseable JSON — returning empty profile", self.name
+            )
+            return CompanyBusinessProcessProfile(
+                client_id=request.client_id,
+                industry_used=industry_used,
+                domains=[],
+                selected=[],
+                degraded=True,
+            )
+
+        return self._bp_profile_from_parsed(request, parsed, industry_used, degraded)
+
+    async def _resolve_bp_industry(
+        self, request: BusinessProcessResearchRequest
+    ) -> tuple[Optional[str], bool]:
+        """Resolve industry context: stored company profile first, then override, then degrade."""
+        try:
+            from src.registry.factory import RegistryFactory
+
+            factory = RegistryFactory()
+            if not factory.is_initialized:
+                await factory.initialize()
+            bc_provider = factory.get_business_context_provider()
+            if bc_provider is not None:
+                context = await bc_provider.get_context(request.client_id)
+                if context is not None and context.industry:
+                    industry = context.industry
+                    if context.subindustry:
+                        industry = f"{industry} / {context.subindustry}"
+                    return industry, False
+        except Exception as exc:
+            logger.warning("%s: failed to load stored company profile: %s", self.name, exc)
+
+        if request.industry_override:
+            return request.industry_override, False
+
+        return None, True
+
+    def _bp_profile_from_parsed(
+        self,
+        request: BusinessProcessResearchRequest,
+        parsed: Dict[str, Any],
+        industry_used: Optional[str],
+        degraded: bool,
+    ) -> CompanyBusinessProcessProfile:
+        """
+        Convert parsed LLM JSON into a typed profile. Canonical selections are
+        hydrated verbatim from BP_BY_ID — the LLM only chose ids, it never
+        supplies canonical content. Extra processes are tolerantly parsed,
+        dropping malformed items rather than raising.
+        """
+        from src.registry.canonical.business_processes import BP_BY_ID
+
+        selected: List[TemplateBusinessProcess] = []
+
+        raw_ids = parsed.get("selected_canonical_ids", [])
+        if isinstance(raw_ids, list):
+            for bp_id in raw_ids:
+                bp = BP_BY_ID.get(bp_id)
+                if bp is None:
+                    continue
+                selected.append(
+                    TemplateBusinessProcess(
+                        id=bp["id"],
+                        name=bp["name"],
+                        domain=bp["domain"],
+                        description=bp.get("description"),
+                        owner_role=bp.get("owner_role"),
+                        stakeholder_roles=list(bp.get("stakeholder_roles") or []),
+                        tags=list(bp.get("tags") or []),
+                        source="canonical",
+                        confidence=0.8,
+                        rationale=None,
+                    )
+                )
+
+        raw_extras = parsed.get("extra_processes", [])
+        if isinstance(raw_extras, list):
+            for item in raw_extras[: request.max_extra_processes]:
+                if not isinstance(item, dict):
+                    continue
+                try:
+                    name = str(item.get("name", "")).strip()
+                    domain = str(item.get("domain", "")).strip() or "General"
+                    if not name:
+                        continue
+                    # Skip extras that collide with an existing canonical id —
+                    # merge-into-canonical rather than duplicate.
+                    candidate_id = f"{domain.lower().replace(' ', '_')}_{name.lower().replace(' ', '_')}"
+                    if candidate_id in BP_BY_ID:
+                        continue
+                    selected.append(
+                        TemplateBusinessProcess(
+                            id=None,
+                            name=name,
+                            domain=domain,
+                            description=str(item.get("description") or "").strip() or None,
+                            owner_role=item.get("owner_role") or None,
+                            stakeholder_roles=[str(r) for r in (item.get("stakeholder_roles") or [])],
+                            tags=[str(t) for t in (item.get("tags") or [])],
+                            source="extra",
+                            confidence=float(item.get("confidence", 0.5)),
+                            rationale=str(item.get("rationale") or "").strip() or None,
+                        )
+                    )
+                except (ValueError, TypeError) as exc:
+                    logger.warning(
+                        "%s: dropped malformed extra business process: %s (%s)", self.name, exc, item
+                    )
+                    continue
+
+        domains = sorted({bp.domain for bp in selected if bp.domain})
+
+        return CompanyBusinessProcessProfile(
+            client_id=request.client_id,
+            industry_used=industry_used,
+            domains=domains,
+            selected=selected,
+            degraded=degraded,
+        )
 
     # ------------------------------------------------------------------
     # Private helpers

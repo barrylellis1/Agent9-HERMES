@@ -25,6 +25,7 @@ import {
   Code2,
   Users,
 } from 'lucide-react'
+import { usePageMeta } from '../utils/pageMeta'
 
 // ─────────────────────────────────────────────────
 // Satoshi font (loaded from Fontshare CDN)
@@ -224,6 +225,11 @@ function PlatformBadge({
 // ═══════════════════════════════════════════════════
 export function DataOnboarding() {
   useSatoshiFont()
+  usePageMeta({
+    title: 'Data Onboarding for Decision Studio | Scoped Analysis in Days',
+    description: 'Connect Decision Studio to governed warehouse views, tables, and KPIs without broad migration or rebuilding your BI stack.',
+    path: '/data-onboarding',
+  })
 
   const font = { fontFamily: 'Satoshi, sans-serif' }
 
@@ -245,7 +251,7 @@ export function DataOnboarding() {
       >
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link
-            to="/landing"
+            to="/"
             className="text-lg font-bold tracking-tight text-white hover:text-slate-200 transition-colors"
             style={font}
           >
@@ -271,7 +277,7 @@ export function DataOnboarding() {
               Sign In
             </Link>
             <Link
-              to="/landing#conversation"
+              to="/#conversation"
               className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
             >
               Request a Conversation
@@ -300,7 +306,7 @@ export function DataOnboarding() {
             transition={{ duration: 0.4 }}
             className="flex items-center gap-2 text-xs text-slate-500 mb-8"
           >
-            <Link to="/landing" className="hover:text-slate-300 transition-colors flex items-center gap-1.5">
+            <Link to="/" className="hover:text-slate-300 transition-colors flex items-center gap-1.5">
               <ArrowLeft className="w-3.5 h-3.5" />
               Back to Decision Studio
             </Link>
@@ -746,7 +752,7 @@ export function DataOnboarding() {
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
-                to="/landing#conversation"
+                to="/#conversation"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors"
               >
                 Request a Conversation
@@ -779,7 +785,7 @@ export function DataOnboarding() {
         >
           <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
             <Link
-              to="/landing"
+              to="/"
               className="font-bold text-white hover:text-slate-200 transition-colors"
               style={font}
             >

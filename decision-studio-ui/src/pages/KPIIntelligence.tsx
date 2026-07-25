@@ -102,7 +102,10 @@ function ResearchProgress({ companyName }: { companyName: string }) {
 // ─────────────────────────────────────────────────
 // Main page
 // ─────────────────────────────────────────────────
-export function KPIIntelligence() {
+export function KPIIntelligence({
+  embedded = false,
+  onContinue,
+}: { embedded?: boolean; onContinue?: () => void } = {}) {
   const clientId = getToolTargetClientId()
   const adminMode = isAdminMode()
 
@@ -225,14 +228,15 @@ export function KPIIntelligence() {
     setErrorMsg('')
   }
 
-  return (
-    <SettingsLayout>
+  const content = (
     <div className="p-8 font-sans min-h-full">
       <header className="mb-6 flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <Link to="/settings" className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
+          {!embedded && (
+            <Link to="/settings" className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors">
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+          )}
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-white">KPI Intelligence</h1>
             <p className="text-sm text-slate-400">
@@ -560,13 +564,23 @@ export function KPIIntelligence() {
                 >
                   Research another company
                 </button>
-                <Link
-                  to="/settings/onboarding"
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold"
-                >
-                  Connect data sources
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
+                {embedded && onContinue ? (
+                  <button
+                    onClick={onContinue}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold"
+                  >
+                    Continue to Assign Ownership
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <Link
+                    to="/settings/data-onboarding"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold"
+                  >
+                    Connect data sources
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                )}
               </div>
             </div>
           </div>
@@ -590,6 +604,7 @@ export function KPIIntelligence() {
         )}
       </main>
     </div>
-    </SettingsLayout>
   )
+
+  return embedded ? content : <SettingsLayout>{content}</SettingsLayout>
 }

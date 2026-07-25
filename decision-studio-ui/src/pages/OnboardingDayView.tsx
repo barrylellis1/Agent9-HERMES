@@ -1,152 +1,175 @@
 /**
- * OnboardingDayView — System Admin Mode Day-by-Day Content (Mode 1)
+ * OnboardingDayView — onboarding wizard shell (System Admin Mode, Mode 1).
  *
- * Routes:
- *   /settings/onboarding/day-1  — Workspace Setup (Company Profile + client creation)
- *   /settings/onboarding/day-2  — Principal Profiles (registry editor)
- *   /settings/onboarding/day-3  — KPI Library (KPI Intelligence + registry editor)
- *   /settings/onboarding/day-4  — Assign Ownership (interview tool)
- *   /settings/onboarding/day-5  — Connect Data (data product onboarding + connection profiles)
- *   /settings/onboarding/day-6  — Validate & Launch (connection health + assessment trigger)
+ * Routes (unchanged from the previous static day-view):
+ *   /settings/onboarding/day-1  — Workspace Setup (Company Profile, embedded)
+ *   /settings/onboarding/day-2  — Principal Profiles (PrincipalCardList)
+ *   /settings/onboarding/day-3  — KPI Library (KPI Intelligence, embedded)
+ *   /settings/onboarding/day-4  — Assign Ownership (Accountability interview)
+ *   /settings/onboarding/day-5  — Connect Data (Data Product Onboarding, embedded)
+ *   /settings/onboarding/day-6  — Validate & Launch (Connection health + launch)
+ *
+ * Replaces the old static "6 links to full pages" shell with an embedded
+ * wizard whose completion is driven by GET /api/v1/onboarding/progress
+ * (see hooks/useOnboardingProgress.ts) instead of a route-position heuristic.
+ *
+ * Full design rationale: docs/architecture/onboarding_wizard_redesign.md
  */
 
-import { Link, useParams } from 'react-router-dom'
-import {
-  ArrowRight, Building2, Users, Sparkles, UserCheck,
-  Database, CheckCircle2, ChevronRight,
-} from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { CheckCircle2, ChevronLeft, ChevronRight, LogOut, RotateCcw, X } from 'lucide-react'
 import { SettingsLayout } from '../components/SettingsLayout'
 import { getSettingsClientId } from '../utils/settingsMode'
+import { exitAdminMode } from '../utils/adminMode'
+import { useOnboardingProgress } from '../hooks/useOnboardingProgress'
+import { ONBOARDING_STEPS } from '../config/onboardingSteps'
+import CompanyProfile from './CompanyProfile'
+import { BusinessProcessIntelligence } from './BusinessProcessIntelligence'
+import { KPIIntelligence } from './KPIIntelligence'
+import { PrincipalCardList } from '../components/PrincipalEditor'
+import { AccountabilityInterviewPanel } from '../components/AccountabilityInterviewPanel'
+import { DataProductOnboardingNew } from './DataProductOnboardingNew'
+import { ConnectionHealthPanel } from '../components/ConnectionHealthPanel'
 
-// ─────────────────────────────────────────────────
-// Day content card
-// ─────────────────────────────────────────────────
-
-interface DayCard {
-  day: number
-  title: string
-  icon: React.ReactNode
-  summary: string
-  actions: { label: string; to: string; primary?: boolean; note?: string }[]
-  tips: string[]
+function clampDay(n: number): number {
+  if (Number.isNaN(n)) return 1
+  return Math.min(6, Math.max(1, n))
 }
-
-const DAY_CARDS: DayCard[] = [
-  {
-    day: 1,
-    title: 'Workspace Setup',
-    icon: <Building2 className="w-6 h-6" />,
-    summary: 'Create the client workspace and enter the company profile. This establishes the client_id that all subsequent registry data will be scoped to.',
-    actions: [
-      { label: 'Edit Company Profile', to: '/settings/company-profile', primary: true },
-    ],
-    tips: [
-      'The Client ID (e.g. "valvoline") is set when you create the client above. It cannot be renamed later.',
-      'Industry and sub-sector here will be pre-filled in the KPI Intelligence research form on Day 3.',
-      'Company Profile data feeds the Market Analysis agent — the more specific, the better the KPI benchmarks.',
-    ],
-  },
-  {
-    day: 2,
-    title: 'Principal Profiles',
-    icon: <Users className="w-6 h-6" />,
-    summary: 'Add the C-level and key operational principals who will use the system. Each principal needs a name, role, and email. Decision style and business process assignments can be completed later.',
-    actions: [
-      { label: 'Manage Principals', to: '/settings?section=principals', primary: true },
-    ],
-    tips: [
-      'Email is required for PIB briefing delivery. Principals without an email are excluded from briefings.',
-      'Decision style (analytical / pragmatic / visionary / decisive) adapts how Solution Finder presents recommendations. It does not have to be set on Day 2.',
-      'AI-assisted principal research is coming in Phase 12E — for now, add principals manually.',
-    ],
-  },
-  {
-    day: 3,
-    title: 'KPI Library',
-    icon: <Sparkles className="w-6 h-6" />,
-    summary: 'Research and define the KPIs this client cares about. Start with KPI Intelligence to get a benchmark-anchored set from the company\'s public footprint, then fill in any domain-specific KPIs manually.',
-    actions: [
-      { label: 'KPI Intelligence (AI Research)', to: '/settings/kpi-intelligence', primary: true },
-      { label: 'Manual KPI Editor', to: '/settings?section=kpis', note: 'For KPIs not in the research output' },
-    ],
-    tips: [
-      'KPIs committed via KPI Intelligence land with status="template". They show in the registry but are excluded from monitoring until data is connected (Day 5).',
-      'The benchmark range from the research is advisory — the client\'s actual thresholds are set separately in the KPI editor.',
-      'Aim for 10–20 KPIs for a first deployment. More KPIs = longer assessment runs.',
-    ],
-  },
-  {
-    day: 4,
-    title: 'Assign Ownership',
-    icon: <UserCheck className="w-6 h-6" />,
-    summary: 'Run the AI-guided accountability interview to assign each KPI to a named owner across the leadership team. The interview uses the principals and KPIs from Days 2–3.',
-    actions: [
-      { label: 'Start Accountability Interview', to: '/settings?section=ownership-interview', primary: true },
-      { label: 'View Accountability Records', to: '/settings?section=accountability' },
-    ],
-    tips: [
-      'The interview infers ownership from business process mappings first, then asks the admin to confirm or reassign gaps.',
-      'Target 100% coverage before Day 5 — KPIs without an owner surface in assessments but briefings cannot be routed.',
-      'Ownership can be updated at any time after launch via the Assign Ownership tool.',
-    ],
-  },
-  {
-    day: 5,
-    title: 'Connect Data',
-    icon: <Database className="w-6 h-6" />,
-    summary: 'Connect the client\'s data warehouse and map KPIs to their source tables. This promotes template KPIs to active monitoring status.',
-    actions: [
-      { label: 'Data Product Onboarding', to: '/settings/onboarding', primary: true },
-      { label: 'Connection Profiles', to: '/settings?section=connection-health', note: 'Manage warehouse credentials' },
-    ],
-    tips: [
-      'Supported backends: BigQuery, Snowflake, SQL Server / Azure SQL, Databricks, PostgreSQL.',
-      'Template KPIs (from Day 3) become active once a data product is registered and their sql_query is validated.',
-      'Run the SQL validation step in the onboarding wizard before registering — it catches syntax errors against the live warehouse.',
-    ],
-  },
-  {
-    day: 6,
-    title: 'Validate & Launch',
-    icon: <CheckCircle2 className="w-6 h-6" />,
-    summary: 'Confirm all data connections are healthy, then trigger the first enterprise assessment. Verify that situation cards are generated and briefings route to the right principals.',
-    actions: [
-      { label: 'Connection Health Check', to: '/settings?section=connection-health', primary: true },
-      { label: 'Go to Situation Console', to: '/dashboard', note: 'Trigger first Detect Situations run' },
-    ],
-    tips: [
-      'Connection Health runs a SELECT 1 (or equivalent) against each data product\'s warehouse. All should show "ok" before the first assessment.',
-      'The first assessment may be slow — it evaluates every active KPI. Subsequent runs are faster as the SA agent caches results.',
-      'After the first successful briefing email, the onboarding is complete. Log out of admin mode and hand off to the Product Owner.',
-    ],
-  },
-]
-
-// ─────────────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────────────
 
 export function OnboardingDayView() {
   const { day: dayParam } = useParams<{ day?: string }>()
-  const dayNum = parseInt(dayParam?.replace('day-', '') ?? '1', 10)
-  const card = DAY_CARDS.find((c) => c.day === dayNum) ?? DAY_CARDS[0]
+  const day = clampDay(parseInt((dayParam ?? 'day-1').replace('day-', ''), 10))
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+
   const clientId = getSettingsClientId()
-  const nextDay = DAY_CARDS.find((c) => c.day === dayNum + 1)
+  const { progress, error, isStepUnlocked, refetch } = useOnboardingProgress(clientId)
+
+  // Resumed-session chip — read once on mount, not derived reactively on every render.
+  const [showResumedChip, setShowResumedChip] = useState(() => searchParams.get('resumed') === '1')
+
+  // Day 5 (Connect Data) sub-wizard progress — Continue is gated on registration success.
+  // dp5Ready tracks a registration that just happened in THIS session; it must be OR'd with
+  // the server's own connect_data.complete so a returning admin who already has a data product
+  // registered (e.g. after clicking Back from Step 6) isn't stuck behind a permanently-disabled
+  // Continue button.
+  const [dp5RegisteredThisSession, setDp5RegisteredThisSession] = useState(false)
+  const dp5Ready = dp5RegisteredThisSession || (progress?.steps.connect_data?.complete ?? false)
+
+  // Non-linear jump banner — dismissible, state resets per navigation.
+  const [jumpBannerDismissed, setJumpBannerDismissed] = useState(false)
+  useEffect(() => { setJumpBannerDismissed(false) }, [day])
+
+  // Day 3 (KPI Library) is a two-panel sequence — Business Processes first,
+  // then KPI Intelligence — sharing the single day-3 route rather than
+  // becoming its own numbered wizard step (avoids renumbering every day-N
+  // route, clampDay, and both frontend/backend _STEP_ORDER arrays).
+  const [day3SubStep, setDay3SubStep] = useState<'business_processes' | 'kpis'>('business_processes')
+  useEffect(() => { setDay3SubStep('business_processes') }, [day])
+
+  const clearResumedParam = () => {
+    if (!showResumedChip) return
+    setShowResumedChip(false)
+    setSearchParams((prev) => {
+      prev.delete('resumed')
+      return prev
+    }, { replace: true })
+  }
+
+  const goToDay = async (n: number) => {
+    clearResumedParam()
+    await refetch()
+    navigate(`/settings/onboarding/day-${clampDay(n)}`)
+  }
+
+  const handleBack = () => {
+    if (day === 3 && day3SubStep === 'kpis') {
+      setDay3SubStep('business_processes')
+      return
+    }
+    void goToDay(day - 1)
+  }
+  const handleSkip = () => { void goToDay(day + 1) }
+
+  const handleLaunch = async () => {
+    clearResumedParam()
+    await refetch()
+    // Admin mode gates /dashboard behind AdminGuard (redirects back to
+    // /settings) — hand off the target client as the active session client
+    // and drop just the admin-mode flag so the dashboard's auto-scan
+    // (useDecisionStudio's mount effect) can run for this client.
+    if (clientId) {
+      localStorage.setItem('a9_active_client_id', clientId)
+    }
+    localStorage.removeItem('a9_admin_mode')
+    navigate('/dashboard', { state: { clientId } })
+  }
+
+  const handleContinue = () => {
+    if (day === 6) {
+      void handleLaunch()
+    } else {
+      void goToDay(day + 1)
+    }
+  }
+
+  const handleExit = () => {
+    exitAdminMode()
+    navigate('/login')
+  }
+
+  const currentStepDef = ONBOARDING_STEPS.find((s) => s.step === day) ?? ONBOARDING_STEPS[0]
+  const StepIcon = currentStepDef.icon
+  const stepUnlocked = isStepUnlocked(day)
 
   return (
     <SettingsLayout>
       <div className="p-8 font-sans min-h-full max-w-3xl">
+        {/* Resumed-session chip */}
+        {showResumedChip && (
+          <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-950/50 border border-indigo-700/40 text-xs text-indigo-300">
+            <RotateCcw className="w-3.5 h-3.5" />
+            Resumed from your last session
+          </div>
+        )}
 
-        {/* Day header */}
+        {error && (
+          <div className="mb-4 flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-red-950/30 border border-red-700/40 text-red-300 text-xs">
+            <span>Couldn't load onboarding progress — showing last known state.</span>
+            <button onClick={() => void refetch()} className="text-red-200 hover:text-white underline flex-shrink-0">
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* 6-segment progress strip */}
+        <div className="mb-6 flex items-center gap-1.5">
+          {ONBOARDING_STEPS.map((s) => {
+            const complete = progress?.steps[s.key]?.complete ?? false
+            const active = s.step === day
+            return (
+              <div
+                key={s.step}
+                title={s.label}
+                className={`h-1.5 flex-1 rounded-full transition-colors ${
+                  active ? 'bg-indigo-400' : complete ? 'bg-emerald-600' : 'bg-slate-800'
+                }`}
+              />
+            )
+          })}
+        </div>
+
+        {/* Step header */}
         <div className="mb-6 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 flex-shrink-0">
-            {card.icon}
+            <StepIcon className="w-6 h-6" />
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-0.5">
-              Day {card.day} of 6
+              Step {day} of 6
             </p>
-            <h1 className="text-2xl font-bold text-white">{card.title}</h1>
+            <h1 className="text-2xl font-bold text-white">{currentStepDef.label}</h1>
           </div>
         </div>
 
@@ -157,64 +180,101 @@ export function OnboardingDayView() {
           </div>
         )}
 
-        {/* Summary */}
-        <div className="mb-6 p-5 rounded-xl bg-card border border-border">
-          <p className="text-sm text-slate-300 leading-relaxed">{card.summary}</p>
-        </div>
-
-        {/* Actions */}
-        <div className="mb-6 space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Actions</p>
-          {card.actions.map((a) => (
-            <Link
-              key={a.to}
-              to={a.to}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors ${
-                a.primary
-                  ? 'bg-indigo-600/15 border-indigo-500/40 text-white hover:bg-indigo-600/25'
-                  : 'bg-slate-900/40 border-slate-700/60 text-slate-300 hover:bg-slate-800/60'
-              }`}
-            >
-              <span className="flex-1 text-sm font-medium">{a.label}</span>
-              {a.note && <span className="text-xs text-slate-500">{a.note}</span>}
-              <ChevronRight className="w-4 h-4 text-slate-500 flex-shrink-0" />
-            </Link>
-          ))}
-        </div>
-
-        {/* Tips */}
-        <div className="mb-8 space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Tips for this step</p>
-          <ul className="space-y-2">
-            {card.tips.map((tip, i) => (
-              <li key={i} className="flex items-start gap-2.5 text-sm text-slate-400">
-                <span className="mt-1.5 w-1 h-1 rounded-full bg-slate-600 flex-shrink-0" />
-                {tip}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Next day */}
-        {nextDay && (
-          <div className="pt-6 border-t border-slate-800/60">
-            <p className="text-xs text-slate-500 mb-2">Next</p>
-            <Link
-              to={`/settings/onboarding/day-${nextDay.day}`}
-              className="inline-flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
-            >
-              Day {nextDay.day} — {nextDay.title}
-              <ArrowRight className="w-4 h-4" />
-            </Link>
+        {/* Non-linear jump banner — advisory only, never blocks navigation */}
+        {!stepUnlocked && !jumpBannerDismissed && (
+          <div className="mb-4 flex items-start justify-between gap-3 px-4 py-3 rounded-lg bg-amber-950/30 border border-amber-700/40 text-amber-200 text-sm">
+            <span>You're jumping ahead — Step {day} isn't complete yet.</span>
+            <button onClick={() => setJumpBannerDismissed(true)} className="text-amber-400 hover:text-white flex-shrink-0">
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
 
-        {!nextDay && (
-          <div className="pt-6 border-t border-slate-800/60 flex items-center gap-3">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-            <p className="text-sm text-emerald-200 font-medium">
-              All 6 days complete — client onboarding finished.
-            </p>
+        <p className="mb-6 text-sm text-slate-300 leading-relaxed">{currentStepDef.summary}</p>
+
+        {/* Day 3 sub-step indicator — two panels share this one wizard step */}
+        {day === 3 && (
+          <div className="mb-4 flex items-center gap-2 text-xs">
+            <span className={day3SubStep === 'business_processes' ? 'text-indigo-300 font-semibold' : 'text-emerald-400'}>
+              1. Business Processes
+            </span>
+            <span className="text-slate-600">→</span>
+            <span className={day3SubStep === 'kpis' ? 'text-indigo-300 font-semibold' : 'text-slate-500'}>
+              2. KPI Library
+            </span>
+          </div>
+        )}
+
+        {/* Step body */}
+        <div className="mb-8">
+          {day === 1 && <CompanyProfile embedded />}
+          {day === 2 && <PrincipalCardList clientId={clientId} />}
+          {day === 3 && day3SubStep === 'business_processes' && (
+            <BusinessProcessIntelligence embedded onContinue={() => setDay3SubStep('kpis')} />
+          )}
+          {day === 3 && day3SubStep === 'kpis' && (
+            <KPIIntelligence embedded onContinue={() => { void goToDay(4) }} />
+          )}
+          {day === 4 && <AccountabilityInterviewPanel clientId={clientId} />}
+          {day === 5 && (
+            <DataProductOnboardingNew
+              embedded
+              initialMode={progress?.steps.connect_data?.complete ? undefined : 'new'}
+              onRegistrationSuccess={() => setDp5RegisteredThisSession(true)}
+            />
+          )}
+          {day === 6 && <ConnectionHealthPanel clientId={clientId} />}
+        </div>
+
+        {/* Footer nav */}
+        <div className="pt-6 border-t border-slate-800/60 flex items-center justify-between gap-3">
+          <button
+            onClick={handleBack}
+            disabled={day === 1}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm text-slate-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" /> Back
+          </button>
+
+          <div className="flex items-center gap-3">
+            {day <= 5 && (
+              <button
+                onClick={handleSkip}
+                className="px-4 py-2 rounded-lg text-sm text-slate-400 hover:text-white transition-colors"
+              >
+                Skip
+              </button>
+            )}
+            <button
+              onClick={handleContinue}
+              disabled={day === 5 && !dp5Ready}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
+            >
+              {day === 6 ? (
+                <>
+                  Run First Assessment &amp; Launch
+                  <CheckCircle2 className="w-4 h-4" />
+                </>
+              ) : (
+                <>
+                  Continue
+                  <ChevronRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Exit Admin Mode — day 6 only, deliberately separate from the primary launch action */}
+        {day === 6 && (
+          <div className="pt-4 flex justify-end">
+            <button
+              onClick={handleExit}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-500 hover:text-slate-300 hover:bg-slate-800/40 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Exit Admin Mode
+            </button>
           </div>
         )}
       </div>

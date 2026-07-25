@@ -13,11 +13,13 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Box, Briefcase, Building2, CheckCircle2, ChevronRight,
   Database, Eye, LineChart, LogOut, Sparkles, Users,
-  UserCheck, Activity, Shield, BarChart2, Target,
+  UserCheck, Activity, Shield, BarChart2, Target, Library,
 } from 'lucide-react'
 import { BrandLogo } from './BrandLogo'
 import { getSettingsMode, getSettingsClientId, type SettingsMode } from '../utils/settingsMode'
 import { exitAdminMode } from '../utils/adminMode'
+import { ONBOARDING_STEPS } from '../config/onboardingSteps'
+import { useOnboardingProgress } from '../hooks/useOnboardingProgress'
 
 // ─────────────────────────────────────────────────
 // Nav item type
@@ -36,27 +38,8 @@ interface NavGroup {
 }
 
 // ─────────────────────────────────────────────────
-// Day step type (Onboarding mode only)
-// ─────────────────────────────────────────────────
-interface DayStep {
-  day: number
-  label: string
-  to: string
-  icon: React.ReactNode
-}
-
-// ─────────────────────────────────────────────────
 // Nav definitions per mode
 // ─────────────────────────────────────────────────
-
-const ONBOARDING_DAYS: DayStep[] = [
-  { day: 1, label: 'Workspace Setup',   to: '/settings/onboarding/day-1', icon: <Building2 className="w-4 h-4" /> },
-  { day: 2, label: 'Principal Profiles', to: '/settings/onboarding/day-2', icon: <Users className="w-4 h-4" /> },
-  { day: 3, label: 'KPI Library',        to: '/settings/onboarding/day-3', icon: <Sparkles className="w-4 h-4" /> },
-  { day: 4, label: 'Assign Ownership',   to: '/settings/onboarding/day-4', icon: <UserCheck className="w-4 h-4" /> },
-  { day: 5, label: 'Connect Data',       to: '/settings/onboarding/day-5', icon: <Database className="w-4 h-4" /> },
-  { day: 6, label: 'Validate & Launch',  to: '/settings/onboarding/day-6', icon: <CheckCircle2 className="w-4 h-4" /> },
-]
 
 const MAINTENANCE_NAV: NavGroup[] = [
   {
@@ -71,8 +54,9 @@ const MAINTENANCE_NAV: NavGroup[] = [
   {
     group: 'Intelligence',
     items: [
+      { label: 'Business Process Intelligence', to: '/settings/business-process-intelligence', icon: <Library className="w-4 h-4" /> },
       { label: 'KPI Intelligence', to: '/settings/kpi-intelligence', icon: <Sparkles className="w-4 h-4" /> },
-      { label: 'Data Onboarding',  to: '/settings/onboarding',       icon: <Box className="w-4 h-4" /> },
+      { label: 'Data Onboarding',  to: '/settings/data-onboarding',  icon: <Box className="w-4 h-4" /> },
     ],
   },
   {
@@ -167,6 +151,7 @@ function GroupNav({ groups }: { groups: NavGroup[] }) {
 function OnboardingNav({ clientId }: { clientId: string }) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
+  const { progress, isStepUnlocked } = useOnboardingProgress(clientId || null)
 
   function handleExit() {
     exitAdminMode()
@@ -183,14 +168,13 @@ function OnboardingNav({ clientId }: { clientId: string }) {
         </div>
       )}
 
-      {/* Day steps */}
-      {ONBOARDING_DAYS.map((step, i) => {
+      {/* Step nav — completion is server-derived (GET /api/v1/onboarding/progress),
+          not a route-position heuristic. Non-linear jumps are never blocked here —
+          the dismissible "jumping ahead" warning lives in OnboardingDayView. */}
+      {ONBOARDING_STEPS.map((step) => {
         const isActive = pathname === step.to || pathname.startsWith(step.to)
-        // Mark as complete if a later step is active (simple visited heuristic)
-        const currentDayIndex = ONBOARDING_DAYS.findIndex(
-          (s) => pathname === s.to || pathname.startsWith(s.to)
-        )
-        const isComplete = currentDayIndex > i
+        const isComplete = progress?.steps[step.key]?.complete ?? false
+        const unlocked = isStepUnlocked(step.step)
 
         return (
           <Link
@@ -201,7 +185,9 @@ function OnboardingNav({ clientId }: { clientId: string }) {
                 ? 'bg-indigo-600/20 text-white'
                 : isComplete
                 ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/40'
+                : unlocked
+                ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/40'
+                : 'text-slate-600 hover:text-slate-400 hover:bg-slate-800/30'
             }`}
           >
             {/* Step indicator */}
@@ -214,7 +200,7 @@ function OnboardingNav({ clientId }: { clientId: string }) {
                   : 'bg-slate-700/60 text-slate-400'
               }`}
             >
-              {isComplete ? <CheckCircle2 className="w-3.5 h-3.5" /> : step.day}
+              {isComplete ? <CheckCircle2 className="w-3.5 h-3.5" /> : step.step}
             </div>
             <span className="flex-1">{step.label}</span>
             {isActive && <ChevronRight className="w-3.5 h-3.5 text-indigo-400" />}

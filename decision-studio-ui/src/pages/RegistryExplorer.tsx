@@ -1,12 +1,12 @@
-import { type ComponentType, useCallback, useEffect, useMemo, useState } from 'react'
+import { type ComponentType, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams, useParams, useLocation } from 'react-router-dom'
-import { Activity, BookOpen, Box, Briefcase, CheckCircle2, Code2, Database, KeyRound, Loader2, Save, Trash2, Plus, X, XCircle } from 'lucide-react'
+import { BookOpen, Box, Briefcase, Code2, Database, KeyRound, Loader2, Save, Trash2, Plus, X } from 'lucide-react'
 import { SettingsLayout } from '../components/SettingsLayout'
 import { AccountabilityInterviewPanel } from '../components/AccountabilityInterviewPanel'
+import { ConnectionHealthPanel } from '../components/ConnectionHealthPanel'
+import { PrincipalCardList } from '../components/PrincipalEditor'
 import {
   type BusinessTerm,
-  type ConnectionHealthResult,
-  type ConnectionHealthResponse,
   type KPIAccountability,
   listGlossaryTerms,
   createGlossaryTerm,
@@ -22,8 +22,6 @@ import {
   createPrincipal, replacePrincipal, deletePrincipal,
   createDataProduct, replaceDataProduct, deleteDataProduct,
   createBusinessProcess, replaceBusinessProcess, deleteBusinessProcess,
-  getConnectionHealth,
-  testConnectionHealth,
   listAccountabilities,
 } from '../api/client'
 
@@ -118,6 +116,8 @@ function columnsForRegistry(key: RegistryKey): ColumnDef[] {
       { key: 'owner', label: 'Owner', widthClass: 'w-[160px]', render: (r) => safeString(r?.owner) },
       { key: 'tables', label: 'Tables', widthClass: 'w-[90px]', render: (r) => String(countOf(r?.tables)) },
       { key: 'views', label: 'Views', widthClass: 'w-[90px]', render: (r) => String(countOf(r?.views)) },
+      { key: 'time_dimensions', label: 'Time Dims', widthClass: 'w-[90px]', render: (r) => String(countOf(r?.time_dimensions)) },
+      { key: 'related_business_processes', label: 'Related BPs', widthClass: 'w-[100px]', render: (r) => String(countOf(r?.related_business_processes)) },
     ]
   }
   if (key === 'kpis') {
@@ -164,116 +164,7 @@ function parseJsonObject(text: string): Record<string, unknown> {
   return JSON.parse(trimmed) as Record<string, unknown>
 }
 
-// ── Connection Health Panel ───────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: ConnectionHealthResult['status'] }) {
-  if (status === 'ok') return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
-      <CheckCircle2 className="w-3.5 h-3.5" /> Connected
-    </span>
-  )
-  if (status === 'error') return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400">
-      <XCircle className="w-3.5 h-3.5" /> Error
-    </span>
-  )
-  return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500">
-      <Activity className="w-3.5 h-3.5" /> {status}
-    </span>
-  )
-}
-
-function ConnectionHealthPanel({ clientId }: { clientId?: string }) {
-  const [health, setHealth] = useState<ConnectionHealthResponse | null>(null)
-  const [probing, setProbing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    try {
-      const data = await getConnectionHealth(clientId)
-      setHealth(data)
-    } catch (e: any) {
-      setError(e.message ?? 'Failed to load health data')
-    }
-  }, [clientId])
-
-  useEffect(() => { load() }, [load])
-
-  const probe = async () => {
-    setProbing(true)
-    setError(null)
-    try {
-      const data = await testConnectionHealth(clientId)
-      setHealth(data)
-    } catch (e: any) {
-      setError(e.message ?? 'Probe failed')
-    } finally {
-      setProbing(false)
-    }
-  }
-
-  const results = health?.results ?? []
-  const probedAt = health?.probed_at ? new Date(health.probed_at).toLocaleString() : null
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-lg font-semibold text-white">Connection Health</h2>
-          <p className="text-sm text-slate-400">
-            {probedAt ? `Last probed: ${probedAt}` : 'Not yet probed — click Test All to run.'}
-          </p>
-        </div>
-        <button
-          onClick={probe}
-          disabled={probing}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white text-sm font-medium"
-        >
-          {probing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
-          {probing ? 'Probing…' : 'Test All Connections'}
-        </button>
-      </div>
-
-      {error && (
-        <div className="mb-4 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm">{error}</div>
-      )}
-
-      {results.length === 0 && !probing ? (
-        <p className="text-sm text-slate-500 italic">No data products found. Click Test All Connections to probe.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-800 text-left">
-                <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Data Product</th>
-                <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Client</th>
-                <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Source System</th>
-                <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Status</th>
-                <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Latency</th>
-                <th className="pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide">Error</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((r) => (
-                <tr key={r.data_product_id} className="border-b border-slate-800/60 hover:bg-slate-800/20">
-                  <td className="py-2.5 pr-4 text-white font-medium">{r.name ?? r.data_product_id}</td>
-                  <td className="py-2.5 pr-4 text-slate-400 font-mono text-xs">{r.client_id ?? '—'}</td>
-                  <td className="py-2.5 pr-4">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-800 text-slate-300 font-mono">{r.source_system}</span>
-                  </td>
-                  <td className="py-2.5 pr-4"><StatusBadge status={r.status} /></td>
-                  <td className="py-2.5 pr-4 text-slate-400 text-xs">{r.latency_ms > 0 ? `${r.latency_ms} ms` : '—'}</td>
-                  <td className="py-2.5 text-red-400 text-xs truncate max-w-[300px]" title={r.error ?? undefined}>{r.error ?? (r.note ?? '—')}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-}
+// ── Connection Health Panel — extracted to components/ConnectionHealthPanel.tsx ──
 
 // ── Accountability Panel ──────────────────────────────────────────────────────
 
@@ -448,6 +339,7 @@ export function RegistryExplorer() {
       ? sectionParam
       : 'glossary'
   ) as RegistryKey
+  const showPrincipals = registryKey === 'principals'
 
   // Section is now driven purely by URL params — no programmatic setters needed.
   // Left-nav links use <Link to="..."> to change sections.
@@ -543,9 +435,11 @@ export function RegistryExplorer() {
           data = await listKpis(activeClientId)
         } else if (registryKey === 'business-processes') {
           data = await listBusinessProcesses(activeClientId)
-        } else if (registryKey === 'principals') {
-          data = await listPrincipals(activeClientId)
         }
+        // 'principals' is intentionally omitted — that tab now renders
+        // PrincipalCardList, which does its own independent listPrincipals
+        // fetch; loading it into `items` here too would just duplicate the
+        // request for state this panel no longer renders.
 
         if (!canceled) setItems(Array.isArray(data) ? data : [])
       } catch (e) {
@@ -922,59 +816,8 @@ export function RegistryExplorer() {
     )
   }
 
-  const renderPrincipalForm = () => {
-    if (!formDraft) return null
-    return (
-      <div className="space-y-4">
-        <p className="text-xs text-slate-500">Edit principal profile, responsibilities, and preferences.</p>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={labelCls}>ID</label>
-            <input value={formDraft.id || ''} onChange={e => updateDraft('id', e.target.value)}
-              disabled={isEditing} className={inputCls + (isEditing ? ' opacity-50' : '')} />
-          </div>
-          <div>
-            <label className={labelCls}>Name</label>
-            <input value={formDraft.name || ''} onChange={e => updateDraft('name', e.target.value)} className={inputCls} />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={labelCls}>Title</label>
-            <input value={formDraft.title || ''} onChange={e => updateDraft('title', e.target.value)} className={inputCls} placeholder="CFO, CEO, Finance Manager" />
-          </div>
-          <div>
-            <label className={labelCls}>Decision Style</label>
-            <input value={formDraft.decision_style || ''} onChange={e => updateDraft('decision_style', e.target.value)} className={inputCls} placeholder="analytical, visionary, pragmatic" />
-          </div>
-        </div>
-        <div>
-          <label className={labelCls}>Description</label>
-          <textarea value={formDraft.description || ''} onChange={e => updateDraft('description', e.target.value)}
-            rows={2} className={inputCls} />
-        </div>
-        <div>
-          <label className={labelCls}>Business Processes (comma-separated)</label>
-          <input value={arrayToCsv(formDraft.business_processes)} onChange={e => updateDraft('business_processes', csvToArray(e.target.value))} className={inputCls} />
-        </div>
-        <div>
-          <label className={labelCls}>KPIs (comma-separated)</label>
-          <input value={arrayToCsv(formDraft.kpis)} onChange={e => updateDraft('kpis', csvToArray(e.target.value))} className={inputCls} />
-        </div>
-        <div>
-          <label className={labelCls}>Responsibilities (comma-separated)</label>
-          <input value={arrayToCsv(formDraft.responsibilities)} onChange={e => updateDraft('responsibilities', csvToArray(e.target.value))} className={inputCls} />
-        </div>
-        <div>
-          <label className={labelCls}>Metadata (JSON)</label>
-          <textarea value={JSON.stringify(formDraft.metadata || {}, null, 2)}
-            onChange={e => { try { updateDraft('metadata', JSON.parse(e.target.value)) } catch { /* ignore */ } }}
-            rows={3} className={inputCls + ' font-mono'} />
-        </div>
-        {renderFormActions()}
-      </div>
-    )
-  }
+  // Principal form/list — extracted to components/PrincipalEditor.tsx
+  // (PrincipalCardList + PrincipalForm), composed below via showPrincipals.
 
   const renderDataProductForm = () => {
     if (!formDraft) return null
@@ -1006,6 +849,8 @@ export function RegistryExplorer() {
             <select value={formDraft.source_system || 'duckdb'} onChange={e => updateDraft('source_system', e.target.value)} className={inputCls}>
               <option value="duckdb">DuckDB</option>
               <option value="bigquery">BigQuery</option>
+              <option value="snowflake">Snowflake</option>
+              <option value="sqlserver">SQL Server</option>
               <option value="postgresql">PostgreSQL</option>
             </select>
           </div>
@@ -1035,6 +880,24 @@ export function RegistryExplorer() {
           <label className={labelCls}>Views (JSON)</label>
           <textarea value={JSON.stringify(formDraft.views || {}, null, 2)}
             onChange={e => { try { updateDraft('views', JSON.parse(e.target.value)) } catch { /* ignore */ } }}
+            rows={6} className={inputCls + ' font-mono'} />
+        </div>
+        <div>
+          <label className={labelCls}>Time Dimensions (JSON)</label>
+          <textarea value={JSON.stringify(formDraft.time_dimensions || [], null, 2)}
+            onChange={e => { try { updateDraft('time_dimensions', JSON.parse(e.target.value)) } catch { /* ignore */ } }}
+            rows={6} className={inputCls + ' font-mono'} />
+        </div>
+        <div>
+          <label className={labelCls}>Related Business Processes (comma-separated)</label>
+          <input value={arrayToCsv(formDraft.related_business_processes)}
+            onChange={e => updateDraft('related_business_processes', csvToArray(e.target.value))}
+            className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Metadata (JSON)</label>
+          <textarea value={JSON.stringify(formDraft.metadata || {}, null, 2)}
+            onChange={e => { try { updateDraft('metadata', JSON.parse(e.target.value)) } catch { /* ignore */ } }}
             rows={6} className={inputCls + ' font-mono'} />
         </div>
         {renderFormActions()}
@@ -1210,7 +1073,13 @@ export function RegistryExplorer() {
             </div>
           ) : null}
 
-          <div className={showConnectionHealth || showAccountability || showInterview ? 'hidden' : ''}>
+          {showPrincipals ? (
+            <div className="bg-card border border-border rounded-xl p-6">
+              <PrincipalCardList clientId={activeClientId ?? ''} />
+            </div>
+          ) : null}
+
+          <div className={showConnectionHealth || showAccountability || showInterview || showPrincipals ? 'hidden' : ''}>
           <div className="bg-card border border-border rounded-xl p-6">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
@@ -1228,7 +1097,7 @@ export function RegistryExplorer() {
 
                 {active.editable && registryKey === 'data-products' ? (
                   <Link
-                    to="/settings/onboarding"
+                    to="/settings/data-onboarding"
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium"
                   >
                     <Plus className="w-4 h-4" />
@@ -1389,8 +1258,6 @@ export function RegistryExplorer() {
                       renderJsonFallback()
                     ) : registryKey === 'kpis' ? (
                       renderKpiForm()
-                    ) : registryKey === 'principals' ? (
-                      renderPrincipalForm()
                     ) : registryKey === 'data-products' ? (
                       renderDataProductForm()
                     ) : registryKey === 'business-processes' ? (

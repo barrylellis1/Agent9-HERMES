@@ -18,8 +18,10 @@ import ActionHandler from './pages/ActionHandler'
 import DelegatePage from './pages/DelegatePage'
 import CompanyProfile from './pages/CompanyProfile'
 import { KPIIntelligence } from './pages/KPIIntelligence'
+import { BusinessProcessIntelligence } from './pages/BusinessProcessIntelligence'
 import { GovernanceView } from './pages/GovernanceView'
 import { OnboardingDayView } from './pages/OnboardingDayView'
+import { OnboardingResume } from './pages/OnboardingResume'
 // PrincipalManagement merged into Settings (RegistryExplorer)
 
 // Hostname routing: decision-studios.com → corporate site, everything else → app
@@ -53,11 +55,18 @@ function App() {
         {/* Settings — standalone pages wrapped in SettingsLayout */}
         <Route path="/settings/company-profile" element={<CompanyProfile />} />
         <Route path="/settings/kpi-intelligence" element={<KPIIntelligence />} />
-        <Route path="/settings/onboarding" element={<DataProductOnboardingNew />} />
+        <Route path="/settings/business-process-intelligence" element={<BusinessProcessIntelligence />} />
+        <Route path="/settings/data-onboarding" element={<DataProductOnboardingNew />} />
         <Route path="/settings/onboarding-legacy" element={<DataProductOnboarding />} />
 
-        {/* Settings — Admin onboarding day pages (Mode 1) */}
-        <Route path="/settings/onboarding/day-:day" element={<OnboardingDayView />} />
+        {/* Settings — Admin onboarding wizard (Mode 1) */}
+        <Route path="/settings/onboarding" element={<OnboardingResume />} />
+        {/* React Router 7.10.1 fails to match a hyphen-prefixed dynamic segment
+            (path="day-:day") on this route shape — confirmed via isolated repro,
+            unrelated to any app code. Capture the whole segment via :day instead;
+            OnboardingDayView already strips the "day-" prefix itself, so no
+            component change is needed, only the route pattern. */}
+        <Route path="/settings/onboarding/:day" element={<OnboardingDayView />} />
 
         {/* Settings — Executive governance pages (Mode 3) */}
         <Route path="/settings/governance/:subsection" element={<GovernanceView />} />
@@ -68,6 +77,7 @@ function App() {
         {/* Architecture / how it works */}
         <Route path="/how-it-works" element={<HowItWorks />} />
         {/* Insights / content marketing pages */}
+        <Route path="/insights" element={<Navigate to="/insights/bi-modernization" replace />} />
         <Route path="/insights/bi-modernization" element={<InsightsBIModernization />} />
         {/* Data onboarding capability page */}
         <Route path="/data-onboarding" element={<DataOnboarding />} />

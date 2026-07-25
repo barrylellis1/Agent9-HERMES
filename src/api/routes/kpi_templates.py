@@ -157,6 +157,22 @@ async def _insert_template_kpi(
     bp_ids: list[str] = [kpi.business_process_id] if kpi.business_process_id else []
     now = datetime.now(timezone.utc)
 
+    # KPI.metadata is typed Dict[str, str] — confidence/benchmark_low/benchmark_high
+    # are floats on AcceptedTemplateKPI, so they must be stringified before storage.
+    # Storing them as raw numbers writes valid JSON that later fails Pydantic
+    # validation on read (DatabaseRegistryProvider._deserialize_record), silently
+    # dropping the row from every in-memory registry cache — invisible to KPI
+    # list endpoints, the accountability interview, and onboarding progress, even
+    # though the row is sitting correctly in Supabase.
+    template_metadata: dict[str, str] = {
+        "confidence": str(kpi.confidence),
+        "created_by": created_by,
+    }
+    if kpi.benchmark_low is not None:
+        template_metadata["benchmark_low"] = str(kpi.benchmark_low)
+    if kpi.benchmark_high is not None:
+        template_metadata["benchmark_high"] = str(kpi.benchmark_high)
+
     try:
         result = await conn.execute(
             """
@@ -179,12 +195,7 @@ async def _insert_template_kpi(
             bp_ids,
             kpi.benchmark_range,
             kpi.benchmark_source,
-            {
-                "confidence": kpi.confidence,
-                "benchmark_low": kpi.benchmark_low,
-                "benchmark_high": kpi.benchmark_high,
-                "created_by": created_by,
-            },
+            template_metadata,
             now,
         )
     except Exception as exc:
