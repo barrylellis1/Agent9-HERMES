@@ -11,7 +11,7 @@ Status: BigQuery/DuckDB/SQL Server/Snowflake production; PostgreSQL/HANA/Databri
 
 ### 1.1 Purpose
 
-The A9_Data_Product_Agent (DPA) is Decision Studio's universal data access layer. It connects to enterprise clients' existing data warehouses (Snowflake, BigQuery, Databricks, SAP HANA, PostgreSQL) without requiring custom connector development per client. DPA manages the lifecycle of data products, schema inspection, KPI time-series queries, and contract-driven governance.
+The A9_Data_Product_Agent (DPA) is Decision Studio's universal data access layer. It connects to enterprise clients' existing data warehouses (Snowflake, BigQuery, Databricks, SAP HANA, PostgreSQL) without requiring custom connector development per client. DPA manages the lifecycle of data products, schema inspection, and KPI time-series queries — all persisted directly to the Supabase registry (see §3.1.6 note: no YAML contract files are generated or read at runtime).
 
 ### 1.2 Design Philosophy
 
@@ -30,7 +30,7 @@ This document covers:
 - QueryDialect abstraction for SQL syntax differences
 - Schema inspection adapters (DuckDB, BigQuery, SQL Server, Snowflake production; PostgreSQL/HANA planned)
 - KPI data query entrypoint (`get_kpi_data`, `get_kpi_comparison_data`)
-- Data product discovery and contract management
+- Data product discovery via the Supabase registry (no YAML contract files)
 - LLM-assisted KPI definition workflow (API-only, no UI)
 - Error handling and governance integration
 
@@ -178,9 +178,15 @@ Multi-step workflow for registering a new data warehouse with Decision Studio:
 1. **Connection Validation** — test credentials, list datasets
 2. **Schema Inspection** — enumerate tables/views, profile columns (via MCP or SDK)
 3. **Metadata Analysis** — semantic tag detection (measure, dimension, time, identifier)
-4. **Contract Generation** — YAML with table definitions, KPI proposals
-5. **KPI & Governance Assistant** — LLM-powered refinement (optional)
-6. **Registry Activation** — persist metadata, trigger governance mapping
+4. **KPI & Governance Assistant** — LLM-powered refinement (optional)
+5. **Registry Activation** — persist `DataProduct` + `KPI` rows directly to Supabase
+
+**No YAML contract file is generated or persisted at any step** (corrected 2026-07-23 — see
+§10 Change Log). `generate_contract_yaml()` builds an in-memory contract dict for downstream
+steps that need schema metadata during the same request, then discards it; `contract_path` is
+always `null` on the registered `DataProduct` row. `register_data_product`'s SQL query is
+self-contained (table/column names baked in by the LLM during KPI definition) — the DPA's
+runtime query-execution path (`generate_sql_for_kpi`) never looks up a persisted schema at all.
 
 **Schema Inspection Adapters (three-tier):**
 - **DuckDB adapter:** Native INFORMATION_SCHEMA query
@@ -211,7 +217,7 @@ Interactive LLM-powered chat during onboarding to define comprehensive KPIs with
 | `POST /api/v1/data-product-onboarding/kpi-assistant/suggest` | `{ data_product_id, schema_metadata, user_context }` | `{ suggested_kpis: [...], conversation_id }` |
 | `POST /api/v1/data-product-onboarding/kpi-assistant/chat` | `{ conversation_id, message, current_kpis }` | `{ response, updated_kpis, actions }` |
 | `POST /api/v1/data-product-onboarding/kpi-assistant/validate` | `{ kpi_definition, schema_metadata }` | `{ valid, errors, warnings }` |
-| `POST /api/v1/data-product-onboarding/kpi-assistant/finalize` | `{ data_product_id, kpis }` | `{ updated_contract_yaml, registry_updates }` |
+| `POST /api/v1/data-product-onboarding/kpi-assistant/finalize` | `{ data_product_id, kpis }` | `{ status, registered_kpi_count, registry_updates }` — writes directly to Supabase, no YAML contract produced |
 
 **Core Capabilities:**
 
@@ -389,7 +395,7 @@ src/registry/
 - Cost controls (result capping)
 
 **E2E Tests (Tiers 1–3):**
-- Full onboarding workflow (schema → contract → KPI registration)
+- Full onboarding workflow (schema inspection → KPI definition → Supabase registration)
 - Multi-client profile switching
 - MCP endpoint failure recovery (when available)
 
@@ -413,6 +419,24 @@ src/registry/
 - DuckDB (local file or memory)
 
 ## 10. Change Log
+
+**2026-07-23 (v2.2)** — Correct stale "contract YAML" framing
+- Removed "contract-driven governance" from Overview and "Contract Generation" step from the
+  onboarding workflow — `generate_contract_yaml()` has never persisted YAML to disk; it builds
+  an in-memory dict for same-request use only, and `contract_path` on every registered
+  `DataProduct` row is always `null`. Confirmed by tracing `generate_sql_for_kpi` (the real
+  runtime query path): it executes the KPI's self-contained `sql_query` directly, with no
+  schema lookup of any kind.
+- Fixed `/kpi-assistant/finalize`'s documented response shape (was `updated_contract_yaml`,
+  actually `{status, registered_kpi_count, registry_updates}`).
+- Deleted `src/contracts/*.yaml` (6 orphaned files, last touched Feb 2026, referenced by nothing)
+  and the dead `DataProductPromoter` class (`a9_data_product_promotion.py`, zero callers) that
+  used a similar YAML-staging pattern for a pre-Supabase-migration promotion workflow.
+- **Not in scope for this correction:** the legacy hardcoded FI Star Schema DuckDB demo path
+  (`_contract_path`/`_get_contract_column_aliases` in `a9_data_product_agent.py`) still reads
+  `fi_star_schema.yaml` from `src/registry_references/data_product_registry/data_products/` —
+  that file was already missing from `src/contracts/` before this cleanup and is unrelated to
+  the onboarding-wizard-created data products this PRD otherwise describes.
 
 **2026-05-01 (v2.1)** — Align with actual direct SDK architecture
 - Corrected design philosophy from MCP-first to direct SDK connections

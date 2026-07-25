@@ -204,10 +204,18 @@ async def list_kpis(
 
 
 @router.get("/kpis/{kpi_id}", response_model=Envelope)
-async def get_kpi(kpi_id: str, factory: RegistryFactory = Depends(get_registry_factory)):
+async def get_kpi(
+    kpi_id: str,
+    client_id: Optional[str] = Query(None, description="Tenant client ID for ownership verification"),
+    factory: RegistryFactory = Depends(get_registry_factory),
+):
     provider = factory.get_kpi_provider()
-    kpi = provider.get(kpi_id) if provider else None
+    kpi = provider.get(kpi_id, client_id=client_id) if provider else None
     if kpi is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"KPI '{kpi_id}' not found"))
+    # Defense in depth: provider.get() already scopes by client_id when given,
+    # but re-check explicitly in case a future provider swap doesn't honor it.
+    if client_id and getattr(kpi, "client_id", None) != client_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"KPI '{kpi_id}' not found"))
     return wrap(kpi)
 
@@ -222,9 +230,13 @@ async def create_kpi(
     provider = factory.get_kpi_provider()
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "KPI provider unavailable"))
-    if provider.get(payload.id):
-        raise HTTPException(status.HTTP_409_CONFLICT, error_response("duplicate", f"KPI '{payload.id}' exists"))
     resolved_client_id = await _resolve_create_client_id(client_id, user, factory)
+    # Duplicate check must be scoped to this tenant — an unscoped bare-id
+    # lookup would wrongly reject a new client's KPI as "already exists"
+    # whenever another tenant happens to use the same generic id (e.g. every
+    # client's "net_income").
+    if provider.get(payload.id, client_id=resolved_client_id):
+        raise HTTPException(status.HTTP_409_CONFLICT, error_response("duplicate", f"KPI '{payload.id}' exists"))
     payload = payload.model_copy(update={"client_id": resolved_client_id})
     await provider.register(payload)
     return wrap(payload)
@@ -241,7 +253,7 @@ async def replace_kpi(
     provider = factory.get_kpi_provider()
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "KPI provider unavailable"))
-    existing = provider.get(kpi_id)
+    existing = provider.get(kpi_id, client_id=user.client_id if user else client_id)
     if existing is not None:
         owner_client_id = _enforce_write_ownership(getattr(existing, "client_id", None), client_id, user)
     else:
@@ -260,7 +272,7 @@ async def update_kpi(
     factory: RegistryFactory = Depends(get_registry_factory),
 ):
     provider = factory.get_kpi_provider()
-    kpi = provider.get(kpi_id) if provider else None
+    kpi = provider.get(kpi_id, client_id=user.client_id if user else client_id) if provider else None
     if kpi is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"KPI '{kpi_id}' not found"))
     _enforce_write_ownership(getattr(kpi, "client_id", None), client_id, user)
@@ -281,7 +293,7 @@ async def delete_kpi(
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"KPI '{kpi_id}' not found"))
 
     # Fetch KPI to validate ownership if client_id provided
-    kpi = provider.get(kpi_id)
+    kpi = provider.get(kpi_id, client_id=client_id)
     if kpi is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"KPI '{kpi_id}' not found"))
 
@@ -350,7 +362,7 @@ async def get_principal(
     factory: RegistryFactory = Depends(get_registry_factory),
 ):
     provider = factory.get_principal_profile_provider()
-    profile = provider.get(principal_id) if provider else None
+    profile = provider.get(principal_id, client_id=client_id) if provider else None
     # Fallback: query Supabase directly if not in the in-memory provider
     if profile is None:
         profile = await _fetch_principal_from_supabase(principal_id)
@@ -372,9 +384,9 @@ async def create_principal(
     provider = factory.get_principal_profile_provider()
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "Principal provider unavailable"))
-    if provider.get(payload.id):
-        raise HTTPException(status.HTTP_409_CONFLICT, error_response("duplicate", f"Principal '{payload.id}' exists"))
     resolved_client_id = await _resolve_create_client_id(client_id, user, factory)
+    if provider.get(payload.id, client_id=resolved_client_id):
+        raise HTTPException(status.HTTP_409_CONFLICT, error_response("duplicate", f"Principal '{payload.id}' exists"))
     payload = payload.model_copy(update={"client_id": resolved_client_id})
     await provider.register(payload)
     return wrap(payload)
@@ -391,7 +403,7 @@ async def replace_principal(
     provider = factory.get_principal_profile_provider()
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "Principal provider unavailable"))
-    existing = provider.get(principal_id)
+    existing = provider.get(principal_id, client_id=user.client_id if user else client_id)
     if existing is not None:
         owner_client_id = _enforce_write_ownership(getattr(existing, "client_id", None), client_id, user)
     else:
@@ -410,7 +422,7 @@ async def update_principal(
     factory: RegistryFactory = Depends(get_registry_factory),
 ):
     provider = factory.get_principal_profile_provider()
-    profile = provider.get(principal_id) if provider else None
+    profile = provider.get(principal_id, client_id=user.client_id if user else client_id) if provider else None
     if profile is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Principal '{principal_id}' not found"))
     _enforce_write_ownership(getattr(profile, "client_id", None), client_id, user)
@@ -430,7 +442,7 @@ async def delete_principal(
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Principal '{principal_id}' not found"))
 
-    profile = provider.get(principal_id)
+    profile = provider.get(principal_id, client_id=client_id)
     if profile is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Principal '{principal_id}' not found"))
 
@@ -453,7 +465,6 @@ async def list_data_products(
     domain: Optional[str] = Query(None),
     tag: Optional[str] = Query(None),
     business_process_id: Optional[str] = Query(None),
-    include_staging: bool = Query(True, description="Include staging products"),
     client_id: Optional[str] = Query(None),
     factory: RegistryFactory = Depends(get_registry_factory),
 ):
@@ -463,34 +474,6 @@ async def list_data_products(
 
     items: List[DataProduct] = provider.get_by_client(client_id) if client_id else provider.get_all()
 
-    # Include staging products if requested
-    if include_staging:
-        import os
-        import yaml
-        staging_dir = "src/registry_references/data_product_registry/staging"
-        if os.path.exists(staging_dir):
-            for filename in os.listdir(staging_dir):
-                if filename.endswith('.yaml') and filename != 'README.md':
-                    try:
-                        filepath = os.path.join(staging_dir, filename)
-                        with open(filepath, 'r', encoding='utf-8') as f:
-                            contract_data = yaml.safe_load(f)
-                            if contract_data:
-                                product_id = os.path.splitext(filename)[0]
-                                staging_product = DataProduct.from_yaml_contract(contract_data, product_id)
-                                # Mark as staging in metadata
-                                staging_product.metadata['staging'] = True
-                                
-                                # Replace existing product with staging version if it exists
-                                existing_idx = next((i for i, dp in enumerate(items) if dp.id == product_id), None)
-                                if existing_idx is not None:
-                                    items[existing_idx] = staging_product
-                                else:
-                                    items.append(staging_product)
-                    except Exception as e:
-                        # Skip invalid staging files
-                        pass
-    
     if domain:
         items = [dp for dp in items if dp.domain == domain]
     if tag:
@@ -502,38 +485,25 @@ async def list_data_products(
             if business_process_id in getattr(dp, "related_business_processes", [])
             or business_process_id in dp.metadata.get("business_process_ids", [])
         ]
-    if client_id:
-        # Staging merge above can add unscoped items — re-apply strict tenant filter
-        items = [dp for dp in items if getattr(dp, "client_id", None) == client_id]
 
     return wrap(items)
 
 
 @router.get("/data-products/{data_product_id}", response_model=Envelope)
-async def get_data_product(data_product_id: str, factory: RegistryFactory = Depends(get_registry_factory)):
+async def get_data_product(
+    data_product_id: str,
+    client_id: Optional[str] = Query(None, description="Tenant client ID for ownership verification"),
+    factory: RegistryFactory = Depends(get_registry_factory),
+):
     provider = factory.get_data_product_provider()
-    
-    # First check staging directory for this product
-    import os
-    import yaml
-    staging_dir = "src/registry_references/data_product_registry/staging"
-    staging_file = os.path.join(staging_dir, f"{data_product_id}.yaml")
-    
-    if os.path.exists(staging_file):
-        try:
-            with open(staging_file, 'r', encoding='utf-8') as f:
-                contract_data = yaml.safe_load(f)
-                if contract_data:
-                    data_product = DataProduct.from_yaml_contract(contract_data, data_product_id)
-                    data_product.metadata['staging'] = True
-                    return wrap(data_product)
-        except Exception as e:
-            # Fall through to registry lookup if staging file is invalid
-            pass
-    
-    # Fall back to registry provider
-    data_product = provider.get(data_product_id) if provider else None
+    data_product = provider.get(data_product_id, client_id=client_id) if provider else None
     if data_product is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Data product '{data_product_id}' not found"))
+    # Defense in depth: provider.get() already scopes by client_id when given,
+    # but re-check explicitly in case a future provider swap doesn't honor it.
+    # 404 (not 403) so an unauthorized caller can't distinguish "wrong tenant"
+    # from "doesn't exist".
+    if client_id and getattr(data_product, "client_id", None) != client_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Data product '{data_product_id}' not found"))
     return wrap(data_product)
 
@@ -548,9 +518,9 @@ async def create_data_product(
     provider = factory.get_data_product_provider()
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "Data product provider unavailable"))
-    if provider.get(payload.id):
-        raise HTTPException(status.HTTP_409_CONFLICT, error_response("duplicate", f"Data product '{payload.id}' exists"))
     resolved_client_id = await _resolve_create_client_id(client_id, user, factory)
+    if provider.get(payload.id, client_id=resolved_client_id):
+        raise HTTPException(status.HTTP_409_CONFLICT, error_response("duplicate", f"Data product '{payload.id}' exists"))
     payload = payload.model_copy(update={"client_id": resolved_client_id})
     await provider.register(payload)
     return wrap(payload)
@@ -567,7 +537,7 @@ async def replace_data_product(
     provider = factory.get_data_product_provider()
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "Data product provider unavailable"))
-    existing = provider.get(data_product_id)
+    existing = provider.get(data_product_id, client_id=user.client_id if user else client_id)
     if existing is not None:
         owner_client_id = _enforce_write_ownership(getattr(existing, "client_id", None), client_id, user)
     else:
@@ -586,7 +556,7 @@ async def update_data_product(
     factory: RegistryFactory = Depends(get_registry_factory),
 ):
     provider = factory.get_data_product_provider()
-    data_product = provider.get(data_product_id) if provider else None
+    data_product = provider.get(data_product_id, client_id=user.client_id if user else client_id) if provider else None
     if data_product is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Data product '{data_product_id}' not found"))
     _enforce_write_ownership(getattr(data_product, "client_id", None), client_id, user)
@@ -607,7 +577,7 @@ async def delete_data_product(
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Data product '{data_product_id}' not found"))
 
     # Fetch data product to validate ownership if client_id provided
-    dp = provider.get(data_product_id)
+    dp = provider.get(data_product_id, client_id=client_id)
     if dp is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Data product '{data_product_id}' not found"))
 
@@ -649,41 +619,73 @@ async def list_business_processes(
 
 
 @router.get("/business-processes/{process_id}", response_model=Envelope)
-async def get_business_process(process_id: str, factory: RegistryFactory = Depends(get_registry_factory)):
+async def get_business_process(
+    process_id: str,
+    client_id: Optional[str] = Query(None, description="Tenant client ID for ownership verification"),
+    factory: RegistryFactory = Depends(get_registry_factory),
+):
     provider = factory.get_business_process_provider()
-    process = provider.get(process_id) if provider else None
+    process = provider.get(process_id, client_id=client_id) if provider else None
     if process is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Business process '{process_id}' not found"))
+    if client_id and getattr(process, "client_id", None) != client_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Business process '{process_id}' not found"))
     return wrap(process)
 
 
 @router.post("/business-processes", response_model=Envelope, status_code=status.HTTP_201_CREATED)
-async def create_business_process(payload: BusinessProcess, factory: RegistryFactory = Depends(get_registry_factory)):
+async def create_business_process(
+    payload: BusinessProcess,
+    client_id: Optional[str] = Query(None, description="Required when not authenticated"),
+    user: Optional[AuthUser] = Depends(get_optional_user),
+    factory: RegistryFactory = Depends(get_registry_factory),
+):
     provider = factory.get_business_process_provider()
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "Business process provider unavailable"))
-    if provider.get(payload.id):
+    resolved_client_id = await _resolve_create_client_id(client_id, user, factory)
+    if provider.get(payload.id, client_id=resolved_client_id):
         raise HTTPException(status.HTTP_409_CONFLICT, error_response("duplicate", f"Business process '{payload.id}' exists"))
+    payload = payload.model_copy(update={"client_id": resolved_client_id})
     await provider.register(payload)
     return wrap(payload)
 
 
 @router.put("/business-processes/{process_id}", response_model=Envelope)
-async def replace_business_process(process_id: str, payload: BusinessProcess, factory: RegistryFactory = Depends(get_registry_factory)):
+async def replace_business_process(
+    process_id: str,
+    payload: BusinessProcess,
+    client_id: Optional[str] = Query(None, description="Required when not authenticated"),
+    user: Optional[AuthUser] = Depends(get_optional_user),
+    factory: RegistryFactory = Depends(get_registry_factory),
+):
     provider = factory.get_business_process_provider()
     if provider is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("provider_missing", "Business process provider unavailable"))
-    replacement = payload.model_copy(update={"id": process_id})
+    existing = provider.get(process_id, client_id=user.client_id if user else client_id)
+    if existing is not None:
+        owner_client_id = _enforce_write_ownership(getattr(existing, "client_id", None), client_id, user)
+    else:
+        owner_client_id = await _resolve_create_client_id(client_id, user, factory)
+    replacement = payload.model_copy(update={"id": process_id, "client_id": owner_client_id})
     await provider.upsert(replacement)
     return wrap(replacement)
 
 
 @router.patch("/business-processes/{process_id}", response_model=Envelope)
-async def update_business_process(process_id: str, payload: Dict[str, Any], factory: RegistryFactory = Depends(get_registry_factory)):
+async def update_business_process(
+    process_id: str,
+    payload: Dict[str, Any],
+    client_id: Optional[str] = Query(None, description="Required when not authenticated"),
+    user: Optional[AuthUser] = Depends(get_optional_user),
+    factory: RegistryFactory = Depends(get_registry_factory),
+):
     provider = factory.get_business_process_provider()
-    process = provider.get(process_id) if provider else None
+    process = provider.get(process_id, client_id=user.client_id if user else client_id) if provider else None
     if process is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Business process '{process_id}' not found"))
+    _enforce_write_ownership(getattr(process, "client_id", None), client_id, user)
+    payload.pop("client_id", None)
     updated = process.model_copy(update=payload)
     await provider.upsert(updated)
     return wrap(updated)
@@ -700,7 +702,7 @@ async def delete_business_process(
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Business process '{process_id}' not found"))
 
     # Fetch business process to validate ownership if client_id provided
-    bp = provider.get(process_id)
+    bp = provider.get(process_id, client_id=client_id)
     if bp is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, error_response("not_found", f"Business process '{process_id}' not found"))
 
@@ -745,16 +747,34 @@ async def get_term(term_name: str, factory: RegistryFactory = Depends(get_regist
 
 
 @router.post("/glossary", response_model=Envelope, status_code=status.HTTP_201_CREATED)
-async def create_term(payload: BusinessTerm, factory: RegistryFactory = Depends(get_registry_factory)):
+async def create_term(
+    payload: BusinessTerm,
+    client_id: Optional[str] = Query(None, description="Required when not authenticated"),
+    user: Optional[AuthUser] = Depends(get_optional_user),
+    factory: RegistryFactory = Depends(get_registry_factory),
+):
     provider = _get_glossary_provider(factory)
+    resolved_client_id = await _resolve_create_client_id(client_id, user, factory)
+    payload = payload.model_copy(update={"client_id": resolved_client_id})
     provider.add_term(payload)
     return wrap(payload)
 
 
 @router.put("/glossary/{term_name}", response_model=Envelope)
-async def replace_term(term_name: str, payload: BusinessTerm, factory: RegistryFactory = Depends(get_registry_factory)):
+async def replace_term(
+    term_name: str,
+    payload: BusinessTerm,
+    client_id: Optional[str] = Query(None, description="Required when not authenticated"),
+    user: Optional[AuthUser] = Depends(get_optional_user),
+    factory: RegistryFactory = Depends(get_registry_factory),
+):
     provider = _get_glossary_provider(factory)
-    replacement = payload.model_copy(update={"name": term_name})
+    existing = provider.get_term(term_name)
+    if existing is not None:
+        owner_client_id = _enforce_write_ownership(getattr(existing, "client_id", None), client_id, user)
+    else:
+        owner_client_id = await _resolve_create_client_id(client_id, user, factory)
+    replacement = payload.model_copy(update={"name": term_name, "client_id": owner_client_id})
     provider.upsert_term(replacement)
     return wrap(replacement)
 

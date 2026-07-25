@@ -172,21 +172,36 @@ class DatabaseRegistryProvider(RegistryProvider[T]):
         key = f"{client_prefix}:{item.id}" if client_prefix else item.id
         self._items[key] = item
 
-    def get(self, id_or_name: str) -> Optional[T]:
+    def get(self, id_or_name: str, client_id: Optional[str] = None) -> Optional[T]:
         """Get an item by ID. Tries composite key (client_id:id) first, then plain id,
         then a bare-id linear scan for items cached under a different client prefix
-        (e.g. shared records stored with client_id='default')."""
-        if self.client_id:
-            result = self._items.get(f"{self.client_id}:{id_or_name}")
+        (e.g. shared records stored with client_id='default').
+
+        `client_id`, when given, scopes every step to that tenant — including the
+        bare-id fallback scan. Without it, that scan matches the first cached item
+        with the given id regardless of tenant, which silently returns a different
+        client's record whenever two tenants happen to use the same generic id
+        (e.g. two clients both naming a KPI "cost_of_goods_sold") — found live via
+        a DELETE that resolved to the wrong client's row. Callers that need a
+        specific tenant's record MUST pass client_id; omit it only for genuinely
+        cross-client/shared lookups.
+        """
+        effective_client = client_id or self.client_id
+        if effective_client:
+            result = self._items.get(f"{effective_client}:{id_or_name}")
             if result is not None:
                 return result
-        result = self._items.get(id_or_name)
-        if result is not None:
-            return result
+        if not client_id:
+            result = self._items.get(id_or_name)
+            if result is not None:
+                return result
         # Fallback: scan for matching bare id — handles items stored under a client_id
-        # prefix different from the lookup context (e.g. shared records with client_id='default')
+        # prefix different from the lookup context (e.g. shared records with client_id='default').
+        # Scoped to client_id when given, so a same-named id in another tenant can't win.
         for item in self._items.values():
             if getattr(item, "id", None) == id_or_name:
+                if client_id and getattr(item, "client_id", None) != client_id:
+                    continue
                 return item
         return None
 

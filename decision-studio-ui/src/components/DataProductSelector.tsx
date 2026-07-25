@@ -22,11 +22,12 @@ interface DataProductSummary {
 }
 
 interface DataProductSelectorProps {
+  clientId: string
   onSelect: (product: DataProductSummary) => void
   onCancel: () => void
 }
 
-export function DataProductSelector({ onSelect, onCancel }: DataProductSelectorProps) {
+export function DataProductSelector({ clientId, onSelect, onCancel }: DataProductSelectorProps) {
   const [products, setProducts] = useState<DataProductSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -36,15 +37,26 @@ export function DataProductSelector({ onSelect, onCancel }: DataProductSelectorP
 
   useEffect(() => {
     loadDataProducts()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId])
 
   const loadDataProducts = async () => {
     setLoading(true)
     setError(null)
 
+    if (!clientId) {
+      setProducts([])
+      setError('No client selected — cannot load data products.')
+      setLoading(false)
+      return
+    }
+
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/v1/registry/data-products`)
-      
+      const params = new URLSearchParams({ client_id: clientId })
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/v1/registry/data-products?${params.toString()}`
+      )
+
       if (!response.ok) {
         throw new Error(`Failed to load data products: ${response.statusText}`)
       }

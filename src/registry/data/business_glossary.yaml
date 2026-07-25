@@ -1,18 +1,61 @@
 terms:
-- name: Revenue
-  synonyms:
-  - sales
-  - income
-  - turnover
-  description: Total income generated from sales
-  technical_mappings:
-    sap: REVENUE
-    duckdb: revenue
-- name: Profit Margin
-  synonyms:
-  - margin
-  - profit percentage
-  description: Percentage of profit relative to revenue
-  technical_mappings:
-    sap: PROFIT_MARGIN
-    duckdb: profit_margin
+- id: gross_revenue
+  client_id: lubricants
+  name: Gross Revenue
+  synonyms: []
+  description: null
+  technical_mappings: {}
+- id: net_revenue
+  client_id: lubricants
+  name: Net Revenue
+  synonyms: []
+  description: null
+  technical_mappings: {}
+- id: gross_margin
+  client_id: lubricants
+  name: Gross Margin
+  synonyms: []
+  description: null
+  technical_mappings: {}
+- id: ebitda
+  client_id: lubricants
+  name: EBITDA
+  synonyms: []
+  description: null
+  technical_mappings: {}
+- id: cogs
+  client_id: apex_lubricants
+  name: COGS
+  synonyms: []
+  description: null
+  technical_mappings: {}
+- id: kpi
+  client_id: apex_lubricants
+  name: KPI
+  synonyms: []
+  description: null
+  technical_mappings: {}
+- id: yoy
+  client_id: apex_lubricants
+  name: Year-over-Year (YoY)
+  synonyms: []
+  description: null
+  technical_mappings: {}
+- id: sga
+  client_id: apex_lubricants
+  name: SG&A
+  synonyms: []
+  description: null
+  technical_mappings: {}
+- id: operating_income
+  client_id: apex_lubricants
+  name: Operating Income
+  synonyms: []
+  description: null
+  technical_mappings: {}
+- id: qoq
+  client_id: apex_lubricants
+  name: Quarter-over-Quarter (QoQ)
+  synonyms: []
+  description: null
+  technical_mappings: {}

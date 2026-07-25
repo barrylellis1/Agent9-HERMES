@@ -79,10 +79,18 @@ def lint_tests() -> list[tuple[str, str]]:
 
 
 def _get_staged_files() -> list[str]:
-    """Return list of staged file paths (POSIX-style) or [] if unavailable."""
+    """Return list of staged file paths (POSIX-style) or [] if unavailable.
+
+    Excludes deleted files (--diff-filter=ACMR: Added/Copied/Modified/Renamed).
+    Both sync checks below ask "does this implementation have a card/PRD
+    alongside it" — a deletion has no implementation left to keep in sync, so
+    treating it the same as a modification produces a false positive (e.g.
+    removing a dead, never-documented agent file and being told to add a card
+    for it, which would only reintroduce drift the deletion just fixed).
+    """
     try:
         res = subprocess.run(
-            ["git", "diff", "--cached", "--name-only"],
+            ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True,

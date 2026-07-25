@@ -151,12 +151,28 @@ class BusinessGlossaryProvider:
     def get_all(self) -> List[BusinessTerm]:
         """
         Get all business terms.
-        
+
         Returns:
             List of all business terms
         """
         return list(self.terms.values())
-        
+
+    def get_by_client(self, client_id: str) -> List[BusinessTerm]:
+        """Return business terms scoped to a client. Strict match, fail-closed.
+
+        BusinessTerm.client_id defaults to 'default' in the model, a vestige
+        of a pre-multi-tenant design — no production row actually uses it (all
+        real glossary terms are client-scoped), and CLAUDE.md's tenant
+        isolation rule explicitly lists Glossary Terms among the registries
+        requiring a real client_id. A "default is shared" carve-out here would
+        make any future stray row with client_id='default' visible to every
+        tenant — exactly the bug class this method must not reintroduce.
+        """
+        if not client_id:
+            return []
+        return [term for term in self.terms.values() if term.client_id == client_id]
+
+
     def get(self, id_or_name: str) -> Optional[BusinessTerm]:
         """
         Get a business term by ID or name.
