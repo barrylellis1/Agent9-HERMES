@@ -225,13 +225,17 @@ class TestSAAccountabilityFilter:
         ctx.business_processes = ["Finance"]
         return ctx
 
-    def test_restricts_kpis_to_accountable_set(self):
-        """When accountable_kpi_ids is provided, only those KPIs are returned."""
+    def test_restricts_kpis_to_accountable_set_when_others_are_assigned_elsewhere(self):
+        """A KPI assigned to a *different* principal is excluded, but only when it's
+        actually assigned to someone — assigned_anywhere_kpi_ids is what distinguishes
+        "owned by someone else" from "owned by nobody yet" (see the sibling test
+        below for the latter, which must NOT be excluded)."""
         agent = _sa_agent()
         agent.kpi_registry = self._make_kpi_registry()
 
         ctx = self._make_principal_context()
         accountable = {"gross_margin_pct", "net_revenue"}
+        assigned_anywhere = {"gross_margin_pct", "net_revenue", "sga_expense"}
 
         with patch.object(
             agent, "_apply_principal_kpi_preferences",
@@ -242,6 +246,7 @@ class TestSAAccountabilityFilter:
                 business_processes=["Finance"],
                 client_id="lubricants",
                 accountable_kpi_ids=accountable,
+                assigned_anywhere_kpi_ids=assigned_anywhere,
             )
 
         assert "sga_expense" not in result
@@ -249,6 +254,34 @@ class TestSAAccountabilityFilter:
         # business process filter (they will since kpi_def.business_processes = ["Finance"])
         surviving = set(result.keys())
         assert surviving.issubset({"gross_margin_pct", "net_revenue"})
+
+    def test_kpi_unassigned_to_anyone_is_not_hidden_by_another_kpis_accountability(self):
+        """Regression: a KPI with NO accountability assignment to anyone must stay
+        visible even when the requesting principal has unrelated assignments
+        elsewhere. Found live 2026-07-25 (brookshire_brothers): CFO had 4
+        accountability rows against old KPIs, which activated this filter and hid
+        5 brand-new, wholly-unassigned KPIs from every principal, not just CFO."""
+        agent = _sa_agent()
+        agent.kpi_registry = self._make_kpi_registry()
+
+        ctx = self._make_principal_context()
+        accountable = {"gross_margin_pct", "net_revenue"}
+        # sga_expense is NOT in assigned_anywhere — nobody has claimed it yet.
+        assigned_anywhere = {"gross_margin_pct", "net_revenue"}
+
+        with patch.object(
+            agent, "_apply_principal_kpi_preferences",
+            side_effect=lambda _ctx, kpis: kpis,
+        ):
+            result = agent._get_relevant_kpis(
+                ctx,
+                business_processes=["Finance"],
+                client_id="lubricants",
+                accountable_kpi_ids=accountable,
+                assigned_anywhere_kpi_ids=assigned_anywhere,
+            )
+
+        assert "sga_expense" in result
 
     def test_no_filter_when_accountable_kpi_ids_is_none(self):
         """When accountable_kpi_ids is None, the full set is returned."""
@@ -270,3 +303,50 @@ class TestSAAccountabilityFilter:
 
         # All three KPIs match "Finance" business process — none should be excluded
         assert len(result) == 3
+
+
+# ---------------------------------------------------------------------------
+# SA business-process relevance filter — fail-open on an empty principal filter
+# ---------------------------------------------------------------------------
+
+class TestSABusinessProcessFailOpen:
+    """Regression: an empty principal.business_processes must not be read as
+    "match nothing" when the KPI itself DOES have real business_process_ids.
+    Found live 2026-07-25 (brookshire_brothers): all 3 principals had
+    business_processes=[], which silently excluded every KPI with real
+    business_process_ids from every situation-detection scan."""
+
+    def _kpi_with_business_processes(self, kpi_id: str, client_id: str = "brookshire_brothers"):
+        kpi = MagicMock(spec=KPIDefinition)
+        kpi.id = kpi_id
+        kpi.name = kpi_id
+        kpi.client_id = client_id
+        kpi.business_processes = ["revenue_management", "Revenue: Management"]
+        kpi.business_process_ids = ["revenue_management"]
+        return kpi
+
+    def _make_principal_context(self):
+        ctx = MagicMock(spec=PrincipalContext)
+        ctx.principal_id = "CFO"
+        ctx.role = "CFO"
+        ctx.business_processes = []  # never assigned during onboarding
+        return ctx
+
+    def test_kpi_with_business_processes_stays_visible_when_principal_has_none(self):
+        agent = _sa_agent()
+        agent.kpi_registry = {
+            "brookshire_brothers:net_revenue_actual": self._kpi_with_business_processes("net_revenue_actual"),
+        }
+        ctx = self._make_principal_context()
+
+        with patch.object(
+            agent, "_apply_principal_kpi_preferences",
+            side_effect=lambda _ctx, kpis: kpis,
+        ):
+            result = agent._get_relevant_kpis(
+                ctx,
+                business_processes=None,  # resolves to principal_context.business_processes = []
+                client_id="brookshire_brothers",
+            )
+
+        assert "net_revenue_actual" in result

@@ -382,13 +382,22 @@ class A9_Situation_Awareness_Agent:
 
             # Load accountability assignments so the scan is restricted to KPIs
             # this principal owns. Falls back to all KPIs when no assignments exist.
+            #
+            # Fetch the whole client's assignments (not just this principal's) so we
+            # can tell "unassigned to anyone" apart from "assigned to someone else."
+            # Only the latter should be excluded — a KPI nobody has claimed yet must
+            # not disappear just because the requesting principal happens to have
+            # unrelated assignments elsewhere. Found live 2026-07-25: CFO had 4
+            # accountability rows against old KPIs, which activated this filter and
+            # hid 5 brand-new, wholly-unassigned dp1 KPIs from every principal.
             accountable_kpi_ids: Optional[Set[str]] = None
+            assigned_anywhere_kpi_ids: Optional[Set[str]] = None
             _principal_id = getattr(request.principal_context, "principal_id", None)
             if client_id and _principal_id:
                 try:
-                    _assignments = await KPIAccountabilityProvider().get_for_principal(
-                        client_id, _principal_id
-                    )
+                    _all_assignments = await KPIAccountabilityProvider().get_all(client_id)
+                    assigned_anywhere_kpi_ids = {a.kpi_id for a in _all_assignments}
+                    _assignments = [a for a in _all_assignments if a.principal_id == _principal_id]
                     if _assignments:
                         accountable_kpi_ids = {a.kpi_id for a in _assignments}
                         self.logger.info(
@@ -406,6 +415,7 @@ class A9_Situation_Awareness_Agent:
                 request.business_processes,
                 client_id=client_id,
                 accountable_kpi_ids=accountable_kpi_ids,
+                assigned_anywhere_kpi_ids=assigned_anywhere_kpi_ids,
             )
 
             if not relevant_kpis:
@@ -1454,6 +1464,11 @@ class A9_Situation_Awareness_Agent:
                 return _fallback
             time_dims = getattr(dp, "time_dimensions", None)
             if not time_dims:
+                self.logger.warning(
+                    f"[SA] No time_dimensions on data product '{data_product_id}' — falling back "
+                    f"to a hardcoded 'transaction_date' guess; QoQ/YoY/MoM queries will fail at "
+                    f"execution if that column doesn't exist in the real schema."
+                )
                 return _fallback
             # time_dimensions may be a list of dicts or objects
             first = time_dims[0] if isinstance(time_dims, list) else time_dims
@@ -1941,6 +1956,7 @@ class A9_Situation_Awareness_Agent:
         business_processes: Optional[List[str]] = None,
         client_id: Optional[str] = None,
         accountable_kpi_ids: Optional[Set[str]] = None,
+        assigned_anywhere_kpi_ids: Optional[Set[str]] = None,
     ) -> Dict[str, KPIDefinition]:
         """Get KPIs relevant to the principal's business processes.
         
@@ -2044,12 +2060,20 @@ class A9_Situation_Awareness_Agent:
                 if kpi_client != client_id:
                     continue
 
-            # Include KPIs without business processes defined (test/dev data)
+            # Fail open on incomplete registry data rather than silently hiding a
+            # real KPI: an empty principal-side filter (no business_processes
+            # assigned to this principal yet) must not be read as "match nothing,"
+            # any more than an unclassified KPI is. Symmetric escape hatch on both
+            # sides — durable regardless of whether accountability later
+            # generalizes into full RACI (an unassigned pairing should surface,
+            # not vanish). Found live 2026-07-25: brookshire_brothers' principals
+            # all have business_processes=[], which silently zeroed out every KPI
+            # that DOES have real business_process_ids.
             # Client filter above still applies — no cross-client leak here.
-            if not kpi_def.business_processes:
+            if not process_strings or not kpi_def.business_processes:
                 relevant_kpis[kpi_name] = kpi_def
                 continue
-                
+
             # Check if KPI matches any of the relevant business processes
             for bp in process_strings:
                 # 1. Check for normalized business process IDs (Exact Match) - High Priority
@@ -2082,13 +2106,20 @@ class A9_Situation_Awareness_Agent:
         # Apply principal KPI preferences (line/altitude) to ordering when possible
         ordered_kpis = self._apply_principal_kpi_preferences(principal_context, relevant_kpis)
 
-        # Restrict to accountable KPIs when assignments were loaded for this principal.
+        # Restrict to accountable KPIs when assignments were loaded for this principal —
+        # but only among KPIs assigned to *someone*. A KPI nobody has claimed yet must
+        # not disappear just because this principal happens to have unrelated
+        # assignments elsewhere. Found live 2026-07-25: CFO had 4 accountability rows
+        # against old KPIs, which activated this filter and hid 5 brand-new, wholly-
+        # unassigned dp1 KPIs from every principal, not just CFO.
         # kpi.id is the registry machine ID (e.g. "net_revenue") matching kpi_accountability.kpi_id.
         if accountable_kpi_ids:
             before = len(ordered_kpis)
+            assigned_elsewhere = assigned_anywhere_kpi_ids or set()
             ordered_kpis = {
                 name: kpi for name, kpi in ordered_kpis.items()
                 if getattr(kpi, "id", None) in accountable_kpi_ids
+                or getattr(kpi, "id", None) not in assigned_elsewhere
             }
             logger.debug(
                 "_get_relevant_kpis: accountability filter %d → %d KPIs "
