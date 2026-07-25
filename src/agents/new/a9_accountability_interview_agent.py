@@ -211,6 +211,18 @@ class A9_Accountability_Interview_Agent:
 
         # Check for interview completion
         if session.phase == "review" and self._review_complete(agent_message):
+            # The review phase's own coverage % counts "proposed" as covered (see
+            # _get_unassigned_kpis), so the admin can see "100% coverage" and agree
+            # to end the interview while some assignments are still only
+            # "proposed", never explicitly confirmed. Only "confirmed"/"modified"
+            # rows get written by /interview/confirm, so left as-is those would be
+            # silently dropped despite the interview having just reported full
+            # coverage. Declaring the interview complete is itself the admin's
+            # final sign-off — auto-confirm anything still pending at that point
+            # (nothing was rejected, or it wouldn't still be "proposed").
+            for assignment in session.proposed_assignments:
+                if assignment.status == "proposed":
+                    assignment.status = "confirmed"
             session.interview_complete = True
 
         return self._build_response(session, agent_message, suggested_responses)
@@ -473,6 +485,25 @@ MANDATORY OUTPUT RULES — follow these on EVERY turn:
 
     # ── State management ───────────────────────────────────────────────────────
 
+    def _normalize_principal_id(self, session: _InterviewSession, principal_id: Optional[str]) -> Optional[str]:
+        """Correct the LLM's principal_id to the registry's canonical casing.
+
+        The system prompt lists REGISTERED PRINCIPALS with their real ids, but the
+        model sometimes emits a differently-cased id anyway (observed: lowercasing
+        to match the illustrative example in the output-rules block, e.g. writing
+        "cfo" instead of the real id "CFO"). Written as-is, that silently creates
+        an accountability row against a principal_id that doesn't exist — it won't
+        match in coverage checks, PIB routing, or any other principal_id lookup.
+        Case-insensitive match against the real roster; falls back to the
+        original value if nothing matches (fail-open, don't drop data).
+        """
+        if not principal_id:
+            return principal_id
+        for p in session.all_principals:
+            if p["id"].lower() == principal_id.lower():
+                return p["id"]
+        return principal_id
+
     def _merge_assignments(
         self, session: _InterviewSession, new_assignments: List[ProposedAssignment]
     ) -> None:
@@ -481,6 +512,7 @@ MANDATORY OUTPUT RULES — follow these on EVERY turn:
             for a in session.proposed_assignments
         }
         for assignment in new_assignments:
+            assignment.principal_id = self._normalize_principal_id(session, assignment.principal_id)
             key = (assignment.kpi_id, assignment.principal_id, assignment.scope_dimension, assignment.scope_value)
             if key not in existing_keys:
                 session.proposed_assignments.append(assignment)
@@ -488,7 +520,7 @@ MANDATORY OUTPUT RULES — follow these on EVERY turn:
 
     def _apply_status_update(self, session: _InterviewSession, update: dict) -> None:
         kpi_id = update.get("kpi_id")
-        principal_id = update.get("principal_id")
+        principal_id = self._normalize_principal_id(session, update.get("principal_id"))
         new_status = update.get("status", "confirmed")
         new_scope_dimension = update.get("scope_dimension")
         new_scope_value = update.get("scope_value")

@@ -105,6 +105,19 @@ Defined in `src/api/routes/kpi_accountability.py`:
 - No direct LLM provider imports
 - Multi-tenant: all registry loads are `client_id`-filtered
 
+## Fixes (Jul 2026)
+
+- `_normalize_principal_id`: the LLM sometimes emits a differently-cased `principal_id` than the
+  REGISTERED PRINCIPALS list in its system prompt (e.g. `"cfo"` instead of the real id `"CFO"`).
+  Written as-is this silently creates an orphaned accountability row that never matches any
+  principal_id lookup (coverage, PIB routing). Case-insensitive match against the real roster in
+  `_merge_assignments`, falling back to the original value if nothing matches.
+- Auto-confirm at completion: the review phase's own coverage % counts `"proposed"` as covered, so
+  an admin can see "100% coverage" and end the interview while some assignments are still only
+  `"proposed"` — never explicitly confirmed, and only `confirmed`/`modified` rows get written by
+  `/interview/confirm`. Declaring the interview complete is itself the admin's sign-off, so anything
+  still `"proposed"` at that point is now auto-confirmed.
+
 ## Pipeline Position
 
 This agent is a standalone admin utility, not part of the SA→DA→SF→VA pipeline. It is triggered from the **Registry Explorer → Accountability tab** in the admin console.
