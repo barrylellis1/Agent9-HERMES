@@ -89,7 +89,7 @@ run_enterprise_assessment.py
 | Business Optimization Agent — Phase B: portfolio conflict detection, sequencing, strategic alignment scoring; Phase C: fully autonomous objective pursuit, KPI trajectory forecasting, living Business Plan generation (Analytical Intelligence Layer 3) | Phase 3 (2028) |
 | ~~Company Intelligence KPI Template Generator (org-first onboarding with benchmarks)~~ | ✅ Phase 12A — complete (June 2026) |
 | **Company Intelligence Principal Templates** — MA agent researches a company's leadership team; admin reviews + commits as `status='template'` principals; email optional at commit; no decision-style inference (admin chooses after seeing SF in action) | **Phase 12E** |
-| Org-First Accountability Onboarding (process template → KPI requirements → assign) | Phase 12B |
+| RACI Accountability Model (4-role R/A/C/I, KPI + Business-Process level, BP→KPI cascading; redefines the original 2-role/KPI-only design) | Phase 12B |
 | Business Optimization workflow (top-down strategic) | Phase 12 |
 | KPI Assistant UI | Phase 12 |
 | Slack notifications | Phase 12 |
@@ -127,12 +127,15 @@ run_enterprise_assessment.py
 - **Unit of decision is the segment, not the KPI headline** — DA's IS/IS NOT produces dimensional coordinates; SF targets solutions at those coordinates; VA validates recovery at segment level before aggregating to KPI
 - **Assessment runs are client-scoped** — one enterprise scan per client, all principals read from it
 - **KPI accountability is dimensional** — principals own KPIs at their scope of control (enterprise, region, LOB); same KPI can belong to multiple principals at different scopes
+- **Accountability is a routing/escalation axis, not a visibility gate** — RACI role (Responsible/Accountable/Consulted/Informed) determines *how* a KPI surfaces (actively, included, digest-only), never whether it's hidden outright; an unassigned KPI/business-process is visible to everyone by default (fail-open), never silently excluded
 - **No snooze/hide preference layer** — correct signal routing eliminates noise at source
 - **LLM-assisted accountability import** — HCM documents are the source of truth; LLM extracts, human confirms (same pattern as KPI Assistant)
 - **Brand: "Decision Studio"** — Swiss Style, monochrome dominance, semantic color only, "Quiet Expert" voice
 - **Domains:** decision-studios.com (brand) + trydecisionstudio.com (demo/trial)
 
-Full accountability model: `docs/architecture/kpi_accountability_model.md`
+Full accountability model: `docs/architecture/kpi_accountability_model.md` (original 2-role, KPI-only
+design) and `docs/architecture/raci_accountability_model.md` (4-role RACI, KPI + Business-Process
+level, redefines Phase 12B)
 
 ---
 
@@ -1512,19 +1515,24 @@ Original deliverables table (for reference):
 
 ---
 
-### Phase 12B: Org-First Accountability Onboarding
+### Phase 12B: RACI Accountability Model
 
-**Goal:** Complement Phase 12A — when business process templates define KPI requirements, capture accountability during template selection rather than as a post-KPI interview step.
+**Redefined 2026-07-25** — this phase's original design (single `accountable` role, KPI-only,
+inferred purely from business-process template selection) is superseded. Live testing exposed why:
+onboarding `brookshire_brothers`, a KPI-only strict-accountability model silently hid 5 real,
+correctly-configured KPIs from every principal (see incident writeup in the new doc below), and a
+follow-on design conversation concluded that ownership-gated visibility itself fights the theory
+layer's cross-KPI correlation value proposition and the realistic ICP workflow (FP&A analyst
+steward → VP → executive, not exec-navigates-everything).
 
-**Design:** Admin selects applicable business processes → templates show which principal is typically accountable for each → admin confirms or reassigns → accountability rows written to `kpi_accountability` directly. Phase 11B interview remains the tool for re-onboarding and gap resolution on existing registries.
+**Full design:** `docs/architecture/raci_accountability_model.md` — 4-role RACI
+(Responsible/Accountable/Consulted/Informed) applied at both KPI and Business-Process level, with
+BP-level assignments cascading to KPIs by default; ownership becomes a routing/escalation axis, not
+a hard visibility gate (graduated R/A/C/I visibility replaces binary include/exclude); generalizes
+`kpi_accountability` to a `subject_type`/`subject_id` shape rather than duplicating it per subject
+type. See that document for the full data model, governance rules, and phase deliverables table.
 
-| Deliverable | Description |
-|------------|-------------|
-| Process template → principal suggestion | During template review, each KPI shows a suggested accountable principal based on process ownership (COO → operations KPIs, CFO → finance KPIs) |
-| One-step confirm | Admin confirms principal per KPI or reassigns; approved rows write directly to `kpi_accountability` |
-| Integration with Phase 11B | Interview agent used for gap resolution only when template accountability is incomplete |
-
-**Prerequisite:** Phase 12A (template KPIs in registry) + Phase 11A (kpi_accountability table).
+**Prerequisite:** Phase 12A (template KPIs in registry) + Phase 11A (kpi_accountability table) + **Phase 12F (business process templates — shipped July 2026; RACI's BP-level assignments assume real `business_processes` rows exist, which nothing created before 12F)**.
 
 ---
 
