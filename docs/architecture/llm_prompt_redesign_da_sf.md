@@ -2,6 +2,7 @@
 
 **Status:** Proposal (Jul 2026) — umbrella design for DEVELOPMENT_PLAN Phase 13 Categories 2 & 4
 **Evidence base:** Phase 11O A/B rounds 1–3 (synthesis quality), HITL replay A/B (refinement chat + briefing Q&A), Cascade-guardrails leak incident (2026-07-13)
+**Part of the unified SF build spine — DEVELOPMENT_PLAN.md Phase 15:** this doc is **Stages A–C** (structured-output foundation, unified `SFResponse` schema, context/principal contract). The trust-pillar half — **Stages D–F** (grounding, constraints, critic pass, bets-on → VA) — is `theory_layer_design.md` §5.2/§8/§10. The unified `SolutionAssumption` in Stage B is defined once and also absorbs Phase 11J P1 (one schema, one M2/M5 compliance gate).
 
 ---
 

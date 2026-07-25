@@ -86,7 +86,7 @@ orchestrated AI workflows. ~100K lines of backend and UI code, 10 months of deve
 - Data Governance Admin UI — placeholder in Admin Console
 - Scheduled/offline SA execution — `run_enterprise_assessment.py` operational (Phase 9A–9C shipped); landing page refactor pending
 - Email/Slack notification to principals — PIB email delivery shipped (Phase 9C); Slack integration pending
-- Value Assurance Supabase persistence — in-memory store only (MVP)
+- Value Assurance Supabase persistence — DONE (VA solutions + evaluations persist via `VASolutionsStore` → `value_assurance_solutions` / `value_assurance_evaluations`, client_id-scoped with RLS). Remaining cleanup: retire the legacy in-memory `_solutions_store` dict still serving the deprecated `/value-assurance/solutions` CRUD endpoints.
 - Per-KPI monitoring profiles — registry model fields added (Phase 9A complete); SA runtime use pending Phase 9B
 
 ### API Surface (~70 endpoints)

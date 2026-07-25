@@ -53,11 +53,12 @@ def test_something(mock_factory): ...
 - `test_sa_kpi_registry.py::test_load_kpi_registry` — mock wiring for KPI count is fragile.
   Passes but assertion on exact count may break if YAML data changes. Handle with care.
 
-## Coverage Status (as of Feb 2026)
+## Coverage Status (as of 2026-07-21)
 
-- Unit tests: **42/42 pass**, 6 skipped
+- Unit tests: **587 pass**, 9 skipped (with the standard `--ignore` for the hanging MCP file)
 - Smoke tests: 3/3 pass
 - Integration / e2e: run individually — some require live Supabase or BigQuery
+- Suite is fully green — keep it that way. A single red unit test had gone unnoticed for months (`test_dpa_principal_filters` stale since the Sept 2025 Phase 10B-DGA resolver neutralization), which masked new failures on the pre-push checklist.
 
 ## Known Coverage Gaps
 

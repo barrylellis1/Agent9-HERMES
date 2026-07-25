@@ -1,7 +1,7 @@
 # Agent9-HERMES Development Plan
 
 **Created:** 2026-03-14
-**Last updated:** 2026-07-14
+**Last updated:** 2026-07-22
 **Status:** Active
 
 ---
@@ -767,6 +767,8 @@ PIB email and flash briefing currently presents all situation cards with equival
 
 ##### P1: Structured Assumption Model on SF Output
 
+> **Absorbed into Phase 15 Stage B (2026-07-21).** This typed assumption model is now the *canonical* SF assumption object, defined once as part of the unified `SFResponse` schema alongside `DecisionAsk`/`ImmediateAction` and extended with `grounded_vs_inferred` + `provenance` (Phase 15's "bets on" list and calibrated confidence are the same object — do not build a second one). Build it in Phase 15 Stage B, not separately here. Phase 11J retains only its monitoring/drift work (P2 onward), which *consumes* this schema. The model below stays as the reference spec.
+
 Replace `key_assumptions: List[str]` in `StrategySnapshot` with a typed model:
 
 ```python
@@ -1435,6 +1437,32 @@ Original deliverables table (for reference):
 
 ---
 
+### Phase 12F: Business Process Template Generator ✅ COMPLETE (July 2026)
+
+**Status:** Shipped 2026-07-22. Backend (MA extension + API routes + unit tests), embedded wizard panel (Day 3, before KPI Library), standalone Intelligence-nav page all in place.
+
+**Goal:** Give every new client a governed business-process taxonomy at onboarding time, instead of onboarding with zero `business_processes` rows (discovered live-testing the onboarding wizard — Context Explorer showed 0 business processes for a practice client despite 19 active KPIs). This is a **prerequisite for Phase 12B**, not the other way around implied by earlier doc ordering — 12B's "templates show which principal is typically accountable for each process" assumes real process templates already exist.
+
+**Design:** Unlike Phase 12A, no external research is needed. A canonical taxonomy of 39 business processes across 12 domains already existed (`src/registry/canonical/business_processes.py`, already used by `scripts/onboard_client.py` for scripted seeding) — this is genuinely the ~80% common ground across Agent9's Mid-Market ICP referenced in earlier product discussions. The LLM's job is pure selection: given the client's stored company profile (industry), select the relevant canonical subset and propose a small number of industry-specific extras. Canonical selections are always hydrated server-side from `BP_BY_ID`, never trusted verbatim from the LLM response, so the canonical taxonomy stays the actual single source of truth for their content.
+
+| Deliverable | Description |
+|------------|-------------|
+| `POST /api/v1/templates/research-business-processes` | Resolves client_id server-side (never trusts the request body — a stricter pattern than 12A's `/commit`, see below); MA agent selects canonical + extra processes |
+| `POST /api/v1/templates/commit-business-processes` | Writes accepted processes directly to `business_processes` — no template/active lifecycle, a committed process is immediately valid |
+| MA agent `research_company_business_processes()` | 1 LLM call (no search) → `CompanyBusinessProcessProfile` |
+| `BusinessProcessIntelligence.tsx` | Same 4-state flow as `KPIIntelligence.tsx`; embedded as the first of two panels sharing Day 3's route (`day3SubStep`), plus a standalone Intelligence-nav page |
+| Unit tests | Canonical hydration verbatim from `BP_BY_ID` even with a mismatched LLM echo; extras colliding with canonical ids dropped; degraded fallback; commit idempotency; cache-mirroring |
+
+**Real bug found and fixed during build:** the raw-SQL commit pattern this mirrors from 12A (`kpi_templates.py`) bypasses `DatabaseRegistryProvider`'s in-memory cache entirely — a newly committed row was invisible to every `registry.py` list endpoint (Context Explorer, the accountability interview) until the backend process restarted. Fixed here by mirroring new rows into the live provider's cache via `_cache_item()` on a genuine write, skipped on `skipped_duplicate` to avoid clobbering hand-edited existing rows. **12A likely has the same latent bug — flagged as a fast-follow, not fixed in this phase.**
+
+**Deliberate divergence from the 12A precedent:** `kpi_templates.py`'s `/commit` trusts the request body's `client_id` outright (confirmed by reading the endpoint — no auth check, no query-param validation). Given this project's tenant-isolation rules, the new commit endpoint instead resolves the authoritative client_id server-side via `_resolve_create_client_id` (registry.py's existing helper) — an authenticated user's own client_id, or a validated `client_id` query param, never the body. **Backporting this to `kpi_templates.py` is a fast-follow, out of scope here.**
+
+**Out of scope:** Process hierarchy (`docs/architecture/business_process_hierarchy_blueprint.md`'s `parent_id` model — separate, unimplemented future design). Retrofitting existing clients that onboarded before this shipped (no backfill script). Folding `business_processes_count` into the `kpi_library` progress-step's `complete` gate (informational field only — would retroactively mark already-onboarded clients incomplete).
+
+**Prerequisite:** None — the canonical taxonomy and `business_processes` table/RLS already existed.
+
+---
+
 ### Phase 12E: Company Intelligence-Driven Principal Templates
 
 **Status:** Scoped 2026-06-04. Ready to build immediately after Phase 12A end-to-end validation passes. Estimated effort: ~9 hours focused work.
@@ -1670,6 +1698,8 @@ SA assessment results (already computed per run) ──────────�
 
 > **Umbrella design (Jul 2026):** `docs/architecture/llm_prompt_redesign_da_sf.md` — structured outputs (API-guaranteed schemas replacing the hand-built JSON template + ~12 format MUST-rules), a principal/business context contract injected at BOTH SF stages with explicit consumption instructions, strict-tenancy business context (no generic fallback), refinement-interviewer value-of-information rules, and token-cap fixes (synthesis 16384→20000, QA 800→1200). The deliverables below are subsumed by / sequenced within that design. Evidence base: Phase 11O A/B rounds + HITL replay A/B.
 
+> **Reconciliation (2026-07-21):** This category is **Stages A–C** of the unified SF build spine in **Phase 15**. Its structured-output migration and `SFResponse` schema are the single foundation that also carries Phase 11J P1's typed `SolutionAssumption` and Phase 15's "bets on" + calibrated-confidence fields — **one schema, one M2/M5 compliance gate**, not three rewrites. The `key_assumptions` field below becomes the typed `List[SolutionAssumption]` (see Phase 15 Stage B). Build order and gates: see Phase 15.
+
 | Deliverable | File | Description |
 |------------|------|-------------|
 | Strip firm names from display narrative | `a9_solution_finder_agent.py` synthesis prompt | "BCG's Growth-Share Matrix" → "portfolio segmentation by volume and margin". Firm names retained as internal reasoning; available in "View methodology" panel |
@@ -1703,6 +1733,46 @@ SA assessment results (already computed per run) ──────────�
 **Build order:** Category 1 bugs → Category 2 SF prompt + schema definitions → Category 2 schema compliance testing → Category 3 UI → Category 4 principal adaptation.
 
 **Prerequisite:** `ImmediateAction` and `DecisionAsk` Pydantic models schema-tested before any Category 3 UI work begins.
+
+---
+
+### Phase 15: LLM Trust & Trustworthy Solution Generation
+
+> **Numbering note:** Phase 14+ below is the reserved *unscheduled Future* bucket, so this scheduled body of work takes the next free number, 15.
+
+**Goal:** Make Solution Finder produce recommendations an executive will act on — grounded in a verified cause, honest about what they bet on, and calibrated about what is known vs inferred. This is the "full pillar set" trust work, and it **folds the theory layer** (`docs/architecture/theory_layer_design.md`) into the numbered plan for the first time.
+
+**Why this is one phase, not three (the reconciliation):** Phase 13 Cat 2/4, Phase 11J P1, and this phase all edit the *same two surfaces* — the `SFResponse` schema and the synthesis prompt in `a9_solution_finder_agent.py`. Built separately they rewrite that schema 3–4 times and re-pay the M2/M5 compliance gate each time. Instead they are sequenced as **one dependency-ordered build spine** with a single schema-compliance gate. **Key unification: Phase 11J P1's typed `SolutionAssumption` and this phase's "bets on" list are the same object** — one typed model carrying `{text, source_class, grounded_vs_inferred, confidence, provenance}`, defined once in Stage B. Phase 13 owns Stages A–C (the foundation); Phase 15 owns Stages D–F plus the confidence fields in B; Phase 11J P1 is absorbed into Stage B (11J keeps only its monitoring/drift work, which now *consumes* that schema).
+
+**Unified build spine (dependency-ordered; each stage names its owning phase and whether it is buildable now or gated):**
+
+| Stage | Work | Owner | Status |
+|---|---|---|---|
+| **A** | Migrate SF off the hand-built JSON template to API-guaranteed structured outputs; apply deferred 11O config (synthesis `max_tokens` 16384→20000, QA 800→1200) | Phase 13 Cat 2 | Buildable now |
+| **B** | Unified `SFResponse` schema — `DecisionAsk`, `List[ImmediateAction]`, one typed `SolutionAssumption` (source-class + grounded/inferred + provenance). **One schema, one compliance gate** | Phase 13 Cat 2 + 11J P1 + Phase 15 | Buildable now |
+| **C** | Principal/business-context contract at BOTH SF stages; strict tenancy (closes the SF cross-tenant contamination defect); principal-adaptive entry point/depth (never the conclusion — M1) | Phase 13 Cat 2 + Cat 4 | Buildable now |
+| **D** | Grounding + constraint *input* contract — SF consumes verified causal chain + constraints + levers. Plumbing buildable now; constraint **content gated** on tenant-isolation tests + a pilot with real SF usage (theory §5.2 / §10 P2) | Phase 15 | Plumbing now, payoff gated |
+| **E** | Critic pass — `generate → critique-against-theory → synthesize`; traces each lever through the causal graph, flags side-effects / violated assumptions. Best model spent here | Phase 15 | After D |
+| **F** | "Bets on" assumptions → VA registration (`kpi_id` + impact bounds — verify SF→VA wiring); 11J market-condition drift re-query consumes the typed assumptions. Wiring can precede D/E (needs only Stage B) | Phase 15 + 11J P2 | After B stable |
+| **G** | Briefing UI built **once** against the unified schema — hero (`DecisionAsk`), Options table w/ Option-0 baseline, `ImmediateActionsChecklist`, the **single** `AssumptionsPanel` (grounded/inferred + provenance), Risk block surfacing Stage E side-effects; then Cat 4 role-adaptive depth. **Gated after Stage B (M5)** | Phase 13 Cat 3 + Cat 4 + Phase 15 | Gated after B |
+
+**Test sequence (one gate per stage):**
+- **A:** structured-output smoke test; token-headroom check on production-shaped input.
+- **B:** the **single** LLM compliance gate (M2/M5) on the complete schema — 20+ synthetic runs; decision-ask ≤25 words; hedge words rejected at validation; `source_class` + `grounded_vs_inferred` populated. **No SF UI starts until this passes.**
+- **C:** cross-tenant business-context isolation regression; principal-adaptation consistency (same facts + same recommendation; only entry point/depth vary — M1).
+- **D:** constraint-respecting test (SF does not re-propose a seeded impossible option); grounding test (each option cites the causal link it targets); **cross-tenant constraint-injection isolation test** before per-client prompt injection ships.
+- **E:** critic-pass test — option with a known downstream side-effect flagged; known-good option passes clean.
+- **F:** SF→VA round-trip (bets-on land with `kpi_id` + bounds; VA grades held/broke); drift re-query on a changed market assumption.
+- **G:** no jest/vitest for `decision-studio-ui/` — `npm run build` for TS errors + manual walkthrough via `restart_decision_studio_ui.ps1`.
+
+**Cross-cutting gates & pre-mortem constraints:**
+- Schema defined and compliance-tested **before any SF UI** (M2/M5).
+- **No "proved" language**; calibrated confidence capped at "consistent with" (theory §4).
+- **Tenant-isolation tests pass before constraint injection ships** (theory §5.2; `feedback_sf_defects` — the SF contamination surface was hit once already).
+- Constraint/grounding *content* gated on ≥1 pilot with real SF usage (accretion needs fuel; theory §10 kill-criteria apply).
+- VA adjudication never pre-fills the flattering answer (theory §5.3) — relevant where F meets VA.
+
+**Design references:** `docs/architecture/llm_prompt_redesign_da_sf.md` (Phase 13 umbrella, Stages A–C) and `docs/architecture/theory_layer_design.md` (Phase 15 pillars §5.2/§8/§10, Stages D–F). The Value Driver Tree / layered cross-section is a **separate, later, gated exhibit** (theory §7: static at P3 after 12C, interactive at P4 after observed pilot engagement) — not part of Stage G.
 
 ---
 
@@ -2721,6 +2791,13 @@ RUN apt-get update && apt-get install -y curl gnupg \
 - `situations`, `kpi_assessments`, `situation_actions`, `value_assurance_evaluations`, `briefing_tokens` have no `client_id` column — isolation is indirect via parent records. Add columns + policies when those tables become tenant-sensitive.
 - `list_principals` (registry.py) has a PostgREST/service-role fast path that bypasses RLS by design; it applies its own strict `client_id` filter server-side.
 - SA agent still loads all tenants' KPIs into its dual-keyed in-memory registry and filters in `_get_relevant_kpis` (strict, tested) — moving SA to per-request scoped loads is future work.
+- `RegisterSolutionRequest.client_id` (value_assurance.py `/register`) is accepted and correctly threaded into the persisted `AcceptedSolution`, but not required — a caller that omits it produces an orphaned row (`client_id=NULL` never matches any tenant's RLS session) rather than active misattribution. Lower severity than the writes below (data goes missing, not to the wrong tenant) but should eventually fail closed the same way.
+
+**Follow-on audit (2026-07-21) — write-path completeness, not RLS:** Testing the rebuilt onboarding wizard (see Onboarding Wizard Redesign below) surfaced that RLS's read-isolation guarantee does not catch a different bug class: a write path that never resolves a `client_id` at all, so the persisted record silently gets the model's env-var default (`DataProduct`/`KPI` both default to `os.getenv("ACTIVE_CLIENT_ID", "lubricants")`) — a fully RLS-valid but *wrong* tenant, not a leak RLS is positioned to detect. Two directly wizard-reachable paths had this bug: `A9_Data_Product_Agent.register_data_product` (the data-product-onboarding workflow's registration step) and `A9_KPI_Assistant_Agent._trigger_registry_updates` (the "Register Data Product" button's KPI finalize call) — both fixed to fail loudly instead of defaulting, with `client_id` now threaded through the full request chain from the frontend. Widened into a full audit of every registry-mutating endpoint against CLAUDE.md's tenant-isolation rule (client_id mandatory on every KPI/Principal/DataProduct/BusinessProcess/GlossaryTerm record):
+  - `business-processes` and `business_glossary_terms` create/update endpoints had **no ownership enforcement at all** (trusted whatever `client_id` was in the request body verbatim) — brought in line with kpis/principals/data-products via the same `_resolve_create_client_id`/`_enforce_write_ownership` helpers. Their models' `client_id` field previously defaulted to `"default"` with a docstring claiming shared/cross-tenant visibility; confirmed via the actual RLS policy (strict equality, no shared carve-out) and production data (zero rows anywhere use `"default"`) that this was vestigial from a pre-multi-tenant design, not a real feature — removed rather than preserved.
+  - `connection_profiles`, `kpi_accountability`, `kpi_relationships`, `kpi_templates` `/commit` were already correctly enforcing this and needed no change.
+  - Regression coverage: `tests/unit/test_registry_write_requires_client_id.py`.
+  - **Product idea preserved, mechanism changed:** the original reasoning behind the shared `business_processes` scope was sound — most Mid-Market ICP clients share ~80% of common business processes, and a shared starting point would speed onboarding. Rather than a shared/ambiguously-owned registry row (which is exactly the ownership-ambiguity this audit closed), implement this the way KPI templates already do it: a canonical process library used as a *generation* source during onboarding, committed as a fully client-owned row the moment a client accepts it. Nothing is ever stored without a real owner. Candidate for Phase 12 (pairs naturally with Org-First Accountability Onboarding, Phase 12B).
 
 **When:** Before first signed paying customer. Not required for demos — required before a customer's financial data (KPI results, situation assessments, solution decisions) lives in production alongside another customer's data.
 

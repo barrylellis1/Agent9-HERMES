@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(.venv/Scripts/pytest.exe .claude/worktrees/agent-a9d52d86ee3197426/tests/unit/ --timeout=15 --ignore=.claude/worktrees/agent-a9d52d86ee3197426/tests/unit/test_a9_data_product_mcp_service_agent_unit.py -q)",
-      "Bash(.venv/Scripts/pytest.exe .claude/worktrees/agent-a9d52d86ee3197426/tests/unit/test_11i_alert_intelligence.py -v --timeout=15)"
+      "Bash(.venv/Scripts/pytest.exe .claude/worktrees/agent-a9d52d86ee3197426/tests/unit/test_11i_alert_intelligence.py -v --timeout=15)",
+      "Bash(npx tsc *)",
+      "Bash(npx playwright *)"
     ]
   }
 }
