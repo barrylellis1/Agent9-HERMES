@@ -23,6 +23,7 @@ import {
   CouncilDebateAnimation,
   TrajectoryMiniChart,
 } from '../components/animations/AgentAnimations'
+import { usePageMeta } from '../utils/pageMeta'
 
 // ─────────────────────────────────────────────────
 // Satoshi font (loaded from Fontshare CDN)
@@ -301,6 +302,11 @@ function AgentSection({
 // ═══════════════════════════════════════════════════
 export function HowItWorks() {
   useSatoshiFont()
+  usePageMeta({
+    title: 'How Decision Studio Works | Governed Decision Intelligence Pipeline',
+    description: 'See how Decision Studio moves from principal context and situation awareness to deep analysis, solution debate, human approval, and Value Assurance.',
+    path: '/how-it-works',
+  })
 
   const [navSolid, setNavSolid] = useState(false)
   useEffect(() => {
@@ -323,7 +329,7 @@ export function HowItWorks() {
         }`}
       >
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/landing" className="text-lg font-bold tracking-tight text-white" style={font}>
+          <Link to="/" className="text-lg font-bold tracking-tight text-white" style={font}>
             Decision Studio
           </Link>
           <div className="flex items-center gap-6">
@@ -346,7 +352,7 @@ export function HowItWorks() {
               Sign In
             </Link>
             <Link
-              to="/landing#conversation"
+              to="/#conversation"
               className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
             >
               Request a Conversation
@@ -359,7 +365,7 @@ export function HowItWorks() {
       <div className="pt-24 pb-0 px-6">
         <div className="max-w-4xl mx-auto">
           <Link
-            to="/landing"
+            to="/"
             className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-300 transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -1102,13 +1108,13 @@ export function HowItWorks() {
 
             <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
-                to="/landing#walkthrough"
+                to="/#walkthrough"
                 className="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-semibold transition-colors text-sm border border-slate-700/60 flex items-center justify-center gap-2"
               >
                 See the walkthrough <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
-                to="/landing#conversation"
+                to="/#conversation"
                 className="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors text-sm flex items-center justify-center gap-2"
               >
                 Ready to talk? <ArrowRight className="w-4 h-4" />

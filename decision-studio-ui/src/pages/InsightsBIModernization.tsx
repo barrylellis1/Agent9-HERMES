@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   TrendingUp,
 } from 'lucide-react'
+import { usePageMeta } from '../utils/pageMeta'
 
 // ─────────────────────────────────────────────────
 // Satoshi font (loaded from Fontshare CDN)
@@ -98,6 +99,11 @@ function ProblemBlock({
 // ═══════════════════════════════════════════════════
 export function InsightsBIModernization() {
   useSatoshiFont()
+  usePageMeta({
+    title: 'After the KPI Moves, Can You Prove What Worked? | Decision Studio',
+    description: 'Why dashboards, BI modernization, and copilots still leave executives without diagnosis, approved action, and proof that decisions worked.',
+    path: '/insights/bi-modernization',
+  })
 
   const font = { fontFamily: 'Satoshi, sans-serif' }
 
@@ -119,7 +125,7 @@ export function InsightsBIModernization() {
         }`}
       >
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/landing" className="text-lg font-bold tracking-tight text-white hover:text-slate-200 transition-colors" style={font}>
+          <Link to="/" className="text-lg font-bold tracking-tight text-white hover:text-slate-200 transition-colors" style={font}>
             Decision Studio
           </Link>
           <div className="flex items-center gap-6">
@@ -142,7 +148,7 @@ export function InsightsBIModernization() {
               Sign In
             </Link>
             <Link
-              to="/landing#conversation"
+              to="/#conversation"
               className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
             >
               Request a Conversation
@@ -171,7 +177,7 @@ export function InsightsBIModernization() {
             transition={{ duration: 0.4 }}
             className="flex items-center gap-2 text-xs text-slate-500 mb-8"
           >
-            <Link to="/landing" className="hover:text-slate-300 transition-colors flex items-center gap-1.5">
+            <Link to="/" className="hover:text-slate-300 transition-colors flex items-center gap-1.5">
               <ArrowLeft className="w-3.5 h-3.5" />
               Back to Decision Studio
             </Link>
@@ -522,7 +528,7 @@ export function InsightsBIModernization() {
             {/* Soft link to Decision Studio */}
             <motion.div variants={fadeUp} className="mt-12">
               <Link
-                to="/landing#walkthrough"
+                to="/#walkthrough"
                 className="inline-flex items-center gap-2 text-indigo-400 hover:text-indigo-300 text-sm font-medium transition-colors group"
               >
                 This is what we built.
@@ -640,7 +646,7 @@ export function InsightsBIModernization() {
             </p>
 
             <Link
-              to="/landing#conversation"
+              to="/#conversation"
               className="inline-flex items-center gap-2 px-8 py-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors"
             >
               Request a Conversation
@@ -661,7 +667,7 @@ export function InsightsBIModernization() {
       <footer className="border-t border-slate-800/40 py-10 px-6">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500" style={font}>
           <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
-            <Link to="/landing" className="font-bold text-white hover:text-slate-200 transition-colors" style={font}>
+            <Link to="/" className="font-bold text-white hover:text-slate-200 transition-colors" style={font}>
               Decision Studio
             </Link>
             <a href="mailto:info@trydecisionstudio.com" className="hover:text-slate-300 transition-colors">

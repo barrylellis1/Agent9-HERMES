@@ -21,6 +21,7 @@ import {
   Users,
   LineChart,
 } from 'lucide-react'
+import { usePageMeta } from '../utils/pageMeta'
 
 // ─────────────────────────────────────────────────
 // Satoshi font (loaded from Fontshare CDN)
@@ -104,6 +105,11 @@ const closedLoopProofPoints = [
 // ═══════════════════════════════════════════════════
 export function LandingPageAlternate() {
   useSatoshiFont()
+  usePageMeta({
+    title: 'Decision Studio | Decision Assurance for Executive Teams',
+    description: 'Decision Studio closes the loop from KPI movement to diagnosed cause, human-approved action, and verified outcome tracking.',
+    path: '/',
+  })
   const councilCaseStudyVideoSrc = 'https://customer-erkp1ybr2e8wokyn.cloudflarestream.com/ab19f3317eeb53efeeb3a6dd516b6ae9/iframe'
 
   // Nav opacity on scroll
