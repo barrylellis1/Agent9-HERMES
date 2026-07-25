@@ -84,13 +84,43 @@ class WorkflowRecord:
 _workflow_store: Dict[str, WorkflowRecord] = {}
 _store_lock = asyncio.Lock()
 
+_SECRET_KEY_MARKERS = ("password", "secret", "private_key", "token", "api_key", "access_key")
+
+
+def _redact_secrets(value: Any) -> Any:
+    """Recursively redact credential-shaped fields before a request payload is
+    cached in the in-memory workflow store.
+
+    Without this, data-product-onboarding's `connection_overrides` (Snowflake/
+    SQL Server passwords, private keys) was stored verbatim and echoed back in
+    plaintext on every GET .../status poll — found live 2026-07-25 during
+    Brookshire Brothers onboarding. Only the *stored* copy is redacted; the
+    original request object passed to the background execution task is
+    untouched, so this doesn't affect connecting to the actual warehouse.
+    """
+    if isinstance(value, dict):
+        return {
+            key: (
+                "***REDACTED***"
+                if isinstance(val, str) and val and any(marker in key.lower() for marker in _SECRET_KEY_MARKERS)
+                else _redact_secrets(val)
+            )
+            for key, val in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_secrets(item) for item in value]
+    return value
+
 
 def _generate_request_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex}"
 
 
 async def _create_record(request_id: str, workflow_type: str, payload: Dict[str, Any]) -> WorkflowRecord:
-    record = WorkflowRecord(request_id=request_id, workflow_type=workflow_type, state="pending", payload=payload)
+    record = WorkflowRecord(
+        request_id=request_id, workflow_type=workflow_type, state="pending",
+        payload=_redact_secrets(payload),
+    )
     async with _store_lock:
         _workflow_store[request_id] = record
     return record
@@ -186,6 +216,9 @@ class ActionRequest(BaseModel):
 
 class DataProductOnboardingWorkflowApiRequest(BaseModel):
     principal_id: str = Field(..., description="Principal initiating onboarding")
+    client_id: Optional[str] = Field(
+        None, description="Tenant this data product belongs to — stamped onto the registry entry"
+    )
     data_product_id: str = Field(..., description="Identifier for the new data product")
     source_system: str = Field(..., description="Source system identifier (duckdb, bigquery, etc.)")
     database: Optional[str] = Field(None, description="Database or catalog")
@@ -1148,6 +1181,7 @@ async def _run_data_product_onboarding_workflow(
         workflow_request = DataProductOnboardingWorkflowRequest(
             request_id=request_id,
             principal_id=request.principal_id,
+            client_id=request.client_id,
             data_product_id=request.data_product_id,
             source_system=request.source_system,
             database=request.database,
