@@ -221,6 +221,12 @@ class DataProductRegistrationRequest(A9AgentBaseRequest):
     """Request model for registering the data product in the registry."""
 
     data_product_id: str = Field(..., description="Unique identifier for the data product")
+    client_id: Optional[str] = Field(
+        None, description="Tenant this data product belongs to — mandatory for the registry entry"
+    )
+    source_system: Optional[str] = Field(
+        None, description="Backend this data product's KPI SQL targets (duckdb, bigquery, snowflake, sqlserver)"
+    )
     contract_path: Optional[str] = Field(None, description="Path to YAML contract (deprecated — Supabase is canonical)")
     display_name: Optional[str] = Field(None, description="Human-friendly display name")
     domain: Optional[str] = Field(None, description="Business domain for the data product")
@@ -231,6 +237,13 @@ class DataProductRegistrationRequest(A9AgentBaseRequest):
     )
     additional_metadata: Dict[str, Any] = Field(
         default_factory=dict, description="Arbitrary metadata blob forwarded to the registry provider"
+    )
+    schema_summary: List[TableProfile] = Field(
+        default_factory=list,
+        description=(
+            "Profiled tables/views from inspect_source_schema — used to synthesize "
+            "DataProduct.tables/views/time_dimensions instead of registering an empty shell."
+        ),
     )
 
 
@@ -246,6 +259,24 @@ class DataProductRegistrationResponse(A9AgentBaseResponse):
     registry_path: Optional[str] = Field(
         None, description="Path to the registry file that was updated"
     )
+
+
+class DataProductBusinessProcessSyncRequest(A9AgentBaseRequest):
+    """Request to union a set of business process IDs into a data product's
+    related_business_processes — called after KPI finalize, since KPIs are the
+    only place business_process_ids get set today."""
+
+    data_product_id: str = Field(..., description="Data product to update")
+    client_id: str = Field(..., description="Tenant — must match the existing record's client_id")
+    business_process_ids: List[str] = Field(
+        default_factory=list, description="Business process IDs to union into the data product"
+    )
+
+
+class DataProductBusinessProcessSyncResponse(A9AgentBaseResponse):
+    """Response summarizing the data product's related_business_processes after sync."""
+
+    related_business_processes: List[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -465,6 +496,9 @@ class WorkflowStepSummary(A9AgentBaseModel):
 class DataProductOnboardingWorkflowRequest(A9AgentBaseRequest):
     """Top-level request driving the data product onboarding workflow."""
 
+    client_id: Optional[str] = Field(
+        None, description="Tenant this data product belongs to — stamped onto the registry entry"
+    )
     data_product_id: str = Field(..., description="Identifier for the new data product")
     source_system: str = Field(..., description="Source system identifier (duckdb, bigquery, etc.)")
     database: Optional[str] = Field(
@@ -610,11 +644,21 @@ class KPIQueryValidationResult(A9AgentBaseModel):
     )
     error_message: Optional[str] = Field(None, description="Error message (if failed)")
     error_type: Optional[str] = Field(
-        None, 
+        None,
         description="Error category: syntax, column_not_found, permission, timeout, connection"
     )
     nlp_suggestion: Optional[str] = Field(
         None, description="NLP-generated suggestion for fixing the error"
+    )
+    warning_message: Optional[str] = Field(
+        None,
+        description=(
+            "Set when the query executed successfully (status stays 'success') but "
+            "its aggregate 'value' column is NULL for every row — almost always a "
+            "WHERE filter literal that doesn't match any real value in the source "
+            "data. This does not fail validation on its own since it's a plausible "
+            "true-zero-rows result too, but it must not pass silently."
+        ),
     )
 
 

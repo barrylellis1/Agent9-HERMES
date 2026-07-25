@@ -44,6 +44,15 @@ class SchemaMetadata(BaseModel):
     time_columns: List[Dict[str, Any]] = Field(default_factory=list, description="Columns tagged as time")
     identifiers: List[Dict[str, Any]] = Field(default_factory=list, description="Columns tagged as identifiers")
     business_context: Optional[Dict[str, Any]] = Field(None, description="Company business context for KPI suggestion")
+    view_definitions: Optional[Dict[str, str]] = Field(
+        None,
+        description=(
+            "Raw SQL definition per view/table name, when available (e.g. Snowflake/SQL Server "
+            "views). Lets the LLM read the actual aggregation/filter logic already built into the "
+            "source (e.g. a filtered SUM over a GL account range) instead of guessing a KPI purely "
+            "from column names and types."
+        ),
+    )
 
 
 class KPISuggestionRequest(BaseModel):
@@ -97,6 +106,7 @@ class KPIValidationResponse(A9AgentBaseResponse):
 class KPIFinalizeRequest(BaseModel):
     """Request to finalize KPIs and update contract"""
     data_product_id: str
+    client_id: Optional[str] = None
     kpis: List[Dict[str, Any]]
     extend_mode: bool = Field(default=False, description="If True, merge new KPIs with existing ones; if False, replace all KPIs")
     request_id: str = Field(default_factory=lambda: f"kpi_finalize_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
@@ -149,6 +159,16 @@ class A9_KPI_Assistant_Agent:
             except Exception as dg_err:
                 self.data_governance_agent = None
                 self.logger.warning(f"Data Governance Agent unavailable, KPI validation will use local rules only: {dg_err}")
+
+            # Initialize Data Product Agent connection to sync related_business_processes
+            # after KPI finalize (via registry, not direct instantiation)
+            try:
+                from src.agents.new.a9_orchestrator_agent import AgentRegistry
+                self.data_product_agent = await AgentRegistry.get_agent("A9_Data_Product_Agent")
+                self.logger.info("Data Product Agent resolved via AgentRegistry")
+            except Exception as dp_err:
+                self.data_product_agent = None
+                self.logger.warning(f"Data Product Agent unavailable, related_business_processes sync will be skipped: {dp_err}")
 
             return True
         except Exception as e:
@@ -366,7 +386,33 @@ class A9_KPI_Assistant_Agent:
             self.logger.info(f"Finalizing {len(request.kpis)} KPIs for {request.data_product_id} (mode: {mode_str})")
 
             # Write KPIs directly to Supabase via registry provider
-            registry_updates = await self._trigger_registry_updates(request.data_product_id, request.kpis)
+            registry_updates = await self._trigger_registry_updates(
+                request.data_product_id, request.kpis, request.client_id
+            )
+
+            # Best-effort: union each KPI's business_process_ids into the data
+            # product's related_business_processes. Non-fatal — KPIs are
+            # already durably registered by this point.
+            bp_ids = sorted({
+                bp for kpi in request.kpis for bp in (kpi.get("business_process_ids") or [])
+            })
+            if bp_ids and request.client_id and getattr(self, "data_product_agent", None):
+                try:
+                    from src.agents.models.data_product_onboarding_models import (
+                        DataProductBusinessProcessSyncRequest,
+                    )
+                    sync_request = DataProductBusinessProcessSyncRequest(
+                        request_id=f"{request.request_id}_bp_sync",
+                        principal_id="system",
+                        data_product_id=request.data_product_id,
+                        client_id=request.client_id,
+                        business_process_ids=bp_ids,
+                    )
+                    await self.data_product_agent.sync_related_business_processes(sync_request)
+                except Exception as sync_err:
+                    self.logger.warning(
+                        f"related_business_processes sync failed for {request.data_product_id}: {sync_err}"
+                    )
 
             return KPIFinalizeResponse(
                 status="success",
@@ -427,6 +473,17 @@ warning/critical thresholds on suggested KPIs. For example, if the breakeven cos
 benchmark is $65/bbl, set the lifting cost KPI warning threshold at that value.
 """
 
+        view_sql_guidance = ""
+        if schema.view_definitions:
+            view_sql_guidance = (
+                "VIEW SQL PROVIDED: When a VIEW DEFINITIONS section is present below, it is the "
+                "ground truth for what's actually calculable — prioritize it over the bare "
+                "measures/dimensions lists. Look for aggregate expressions (SUM/COUNT/AVG/MIN/MAX) "
+                "and filtered/CASE-WHEN logic (e.g. a SUM over rows filtered to a specific GL "
+                "account range) — these are pre-built business metrics (e.g. COGS, gross margin) "
+                "already encoded in the source, not something to reinvent from column names alone."
+            )
+
         return f"""You are a KPI definition assistant for Agent9's data product onboarding.
 
 CONTEXT:
@@ -460,19 +517,55 @@ STRATEGIC METADATA GUIDANCE:
 - Revenue KPIs → line:top_line, altitude:strategic, driver:revenue, lens:bcg,mckinsey
 - Efficiency KPIs → line:middle_line, altitude:tactical, driver:efficiency, lens:bain
 - Cost KPIs → line:bottom_line, altitude:operational, driver:expense, lens:bain
-
+{view_sql_guidance}
 INTERACTION STYLE:
 - Suggest 3-5 KPIs with complete attributes and sensible defaults
-- Explain WHY you chose each metadata value
 - Validate SQL against available schema
 - Format suggestions as structured JSON with all attributes
+
+RESPONSE LENGTH — READ THIS FIRST: Your response has a hard token limit. The JSON array is the
+only part that matters functionally — a response that runs out of room before the JSON block is
+complete is a total failure, even if the prose before it was insightful. Therefore:
+- Any schema analysis or rationale must be AT MOST 3 sentences, placed BEFORE the JSON.
+- Do NOT write section headers, a "Schema Assessment", or a "Key design decisions" breakdown.
+- Move directly to the JSON code block as soon as you've picked your KPIs — do not narrate the
+  reasoning behind each one inline; a one-line "rationale" field per KPI (if the schema needs one)
+  covers that.
 """
     
     def _build_suggestion_user_prompt(self, schema: SchemaMetadata, num_suggestions: int) -> str:
         """Build user prompt for KPI suggestion"""
         measures_str = "\n".join([f"  - {m.get('name')} ({m.get('data_type')})" for m in schema.measures[:10]])
-        dimensions_str = "\n".join([f"  - {d.get('name')} ({d.get('data_type')})" for d in schema.dimensions[:10]])
+
+        # Real sampled values (see A9_Data_Product_Agent._sample_distinct_values),
+        # when available, are the only way this prompt can give a correct WHERE
+        # filter literal instead of a guess — a guessed literal that doesn't match
+        # any real row doesn't error, it silently returns a NULL aggregate that
+        # still passes Query Validation as "success" (found live 2026-07-24
+        # onboarding Brookshire Brothers: account_category='COGS' guessed when the
+        # real data uses account_type='COGS'). Falls back to name+type only when
+        # sampling wasn't possible (e.g. DuckDB/legacy schema_summary path).
+        def _dimension_line(d: Dict[str, Any]) -> str:
+            base = f"  - {d.get('name')} ({d.get('data_type')})"
+            values = d.get("sample_values")
+            if values:
+                shown = ", ".join(f"'{v}'" for v in values[:10])
+                base += f" — real values: {shown}"
+            return base
+
+        dimensions_str = "\n".join([_dimension_line(d) for d in schema.dimensions[:10]])
         tables_str = "\n".join([f"  - {table}" for table in schema.tables]) if schema.tables else "  - (no tables specified)"
+
+        # Raw view SQL, when available, is ground truth for real calculated/filtered
+        # metrics already built into the source — truncate per-view to keep prompt size sane.
+        view_definitions_block = ""
+        if schema.view_definitions:
+            _MAX_VIEW_SQL_CHARS = 4000
+            _view_sql_parts = []
+            for _view_name, _view_sql in schema.view_definitions.items():
+                _sql = _view_sql if len(_view_sql) <= _MAX_VIEW_SQL_CHARS else _view_sql[:_MAX_VIEW_SQL_CHARS] + "\n-- (truncated)"
+                _view_sql_parts.append(f"-- {_view_name}\n{_sql}")
+            view_definitions_block = "\nVIEW DEFINITIONS (real SQL powering these views):\n" + "\n\n".join(_view_sql_parts) + "\n"
         
         # Build fully qualified table name for SQL examples
         if schema.tables:
@@ -562,7 +655,7 @@ MEASURES:
 
 DIMENSIONS:
 {dimensions_str}
-
+{view_definitions_block}
 Please suggest {num_suggestions} KPIs with:
 - Semantic IDs (e.g., "total_sales_volume", NOT "kpi_001")
 - Complete attribute sets (all required fields)
@@ -575,6 +668,12 @@ CRITICAL SQL REQUIREMENTS:
 {_sql_format_note}- Use the actual table names from the TABLES/VIEWS list above
 - ALWAYS alias the aggregate as "value": SELECT SUM(col) AS value ...
 - Static dimension filters (e.g. version = 'Actual') go in the WHERE clause
+- When a dimension above lists "real values", ONLY use one of those exact literals in a
+  WHERE filter on that column — never invent a plausible-sounding value (e.g. 'COGS') that
+  isn't in the list. A filter literal that doesn't exist in the real data returns a NULL
+  aggregate, not an error, so it looks like a working KPI until someone checks the value.
+- If a dimension has no "real values" listed (sampling wasn't available), avoid filtering on
+  it unless the view SQL above shows the exact literal already in use.
 - Do NOT add date/time filters — the platform injects date ranges automatically
 
 IMPORTANT: Return a JSON array of KPI objects in this EXACT flat structure:
@@ -913,37 +1012,54 @@ If the user is requesting changes to KPIs, format your response with clear JSON 
         all_columns = schema.measures + schema.dimensions + schema.time_columns + schema.identifiers
         return any(col.get('name') == field for col in all_columns)
     
-    async def _trigger_registry_updates(self, data_product_id: str, kpis: List[Dict[str, Any]]) -> Dict[str, Any]:
+    async def _trigger_registry_updates(
+        self, data_product_id: str, kpis: List[Dict[str, Any]], client_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Trigger registry updates for new KPIs"""
         results = {
             "success": [],
             "failed": []
         }
-        
+
+        if not client_id:
+            # Fail loudly rather than letting KPI.client_id silently fall back to
+            # its env-var default — every registry record must be tenant-scoped
+            # (CLAUDE.md Multi-Tenant Client Isolation).
+            error_msg = (
+                "client_id is required to register KPIs; the caller must pass the "
+                "onboarding client through the full request chain"
+            )
+            self.logger.error(error_msg)
+            return {"success": [], "failed": [{"id": "all", "error": error_msg}]}
+
         try:
             from src.registry.factory import RegistryFactory
             from src.registry.models.kpi import KPI
-            
+
             # Get KPI provider
             factory = RegistryFactory()
             if not factory.is_initialized:
                 await factory.initialize()
-                
+
             provider = factory.get_kpi_provider()
             if not provider:
                 raise ValueError("KPI provider not available")
-            
+
             self.logger.info(f"Registering {len(kpis)} KPIs to {provider.__class__.__name__}")
-            
+
             import inspect
-            
+
             for kpi_data in kpis:
                 try:
                     # Convert dict to KPI model
-                    # Ensure data_product_id is set
+                    # Ensure data_product_id and client_id are set. client_id is the
+                    # resolved caller's tenant — always override any value that may
+                    # already be present in kpi_data, never trust the request body
+                    # for tenant identity (mirrors registry.py's write-ownership rule).
                     if "data_product_id" not in kpi_data:
                         kpi_data["data_product_id"] = data_product_id
-                        
+                    kpi_data["client_id"] = client_id
+
                     kpi = KPI(**kpi_data)
                     
                     # Register with provider (handles Database insertion if configured)

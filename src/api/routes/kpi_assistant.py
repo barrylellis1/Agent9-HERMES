@@ -59,6 +59,9 @@ class SuggestKPIsAPIRequest(BaseModel):
     dimensions: List[Dict[str, Any]] = Field(default_factory=list)
     time_columns: List[Dict[str, Any]] = Field(default_factory=list)
     identifiers: List[Dict[str, Any]] = Field(default_factory=list)
+    view_definitions: Optional[Dict[str, str]] = Field(
+        None, description="Raw SQL definition per view/table name, when available"
+    )
     user_context: Optional[Dict[str, Any]] = None
     business_context: Optional[Dict[str, Any]] = None
     num_suggestions: int = 5
@@ -114,6 +117,7 @@ class ValidateKPIAPIResponse(BaseModel):
 class FinalizeKPIsAPIRequest(BaseModel):
     """API request for KPI finalization"""
     data_product_id: str
+    client_id: Optional[str] = Field(None, description="Tenant these KPIs belong to — stamped onto every registry row")
     kpis: List[Dict[str, Any]]
     extend_mode: bool = Field(default=False, description="If True, merge new KPIs with existing ones; if False, replace all KPIs")
 
@@ -153,8 +157,9 @@ async def suggest_kpis(
             time_columns=request.time_columns,
             identifiers=request.identifiers,
             business_context=request.business_context,
+            view_definitions=request.view_definitions,
         )
-        
+
         # Create agent request
         agent_request = KPISuggestionRequest(
             schema_metadata=schema_metadata,
@@ -282,6 +287,7 @@ async def finalize_kpis(
 
         agent_request = KPIFinalizeRequest(
             data_product_id=request.data_product_id,
+            client_id=request.client_id,
             kpis=request.kpis,
             extend_mode=request.extend_mode
         )

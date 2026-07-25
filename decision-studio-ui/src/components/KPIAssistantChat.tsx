@@ -51,9 +51,10 @@ interface KPIAssistantChatProps {
     schema?: string
     schemaMetadata: {
         measures: Array<{ name: string; data_type: string }>
-        dimensions: Array<{ name: string; data_type: string }>
+        dimensions: Array<{ name: string; data_type: string; sample_values?: any[] }>
         time_columns: Array<{ name: string; data_type: string }>
         identifiers: Array<{ name: string; data_type: string }>
+        viewDefinitions?: Record<string, string>
     }
     businessContext?: Record<string, unknown> | null
     onKPIsFinalized: (kpis: KPIDefinition[]) => void
@@ -112,6 +113,7 @@ export function KPIAssistantChat({
                     dimensions: schemaMetadata.dimensions,
                     time_columns: schemaMetadata.time_columns,
                     identifiers: schemaMetadata.identifiers,
+                    view_definitions: schemaMetadata.viewDefinitions,
                     num_suggestions: 5,
                     ...(businessContext && Object.keys(businessContext).length > 0
                         ? {

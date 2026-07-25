@@ -10,6 +10,7 @@ import { DataProductSelector } from '../components/DataProductSelector'
 import { API_ENDPOINTS, API_BASE_URL, buildUrl } from '../config/api-endpoints'
 import type { ConnectionProfile } from '../utils/connectionProfileStorage'
 import { BrandLogo } from '../components/BrandLogo'
+import { getSettingsClientId } from '../utils/settingsMode'
 
 // Step definitions
 const STEPS = [
@@ -34,6 +35,7 @@ interface ColumnProfile {
     data_type: string
     is_nullable: boolean
     semantic_tags: string[]
+    sample_values?: any[]
 }
 
 interface ForeignKey {
@@ -71,16 +73,34 @@ const SOURCE_SYSTEMS = [
     { value: 'databricks', label: 'Databricks', hasMetadata: true },
 ]
 
-export function DataProductOnboardingNew() {
-    // Workflow mode
-    const [workflowMode, setWorkflowMode] = useState<'select' | 'new' | 'extend'>('select')
+export function DataProductOnboardingNew({
+    embedded = false,
+    initialMode,
+    onStepChange,
+    onRegistrationSuccess,
+}: {
+    embedded?: boolean
+    initialMode?: 'new' | 'extend'
+    onStepChange?: (step: number) => void
+    onRegistrationSuccess?: () => void
+} = {}) {
+    // Workflow mode — seeded from initialMode when the wizard shell provides one
+    // (e.g. 'new' skips the mode-picker screen entirely).
+    const [workflowMode, setWorkflowMode] = useState<'select' | 'new' | 'extend'>(initialMode ?? 'select')
     const [showProductSelector, setShowProductSelector] = useState(false)
     const [extendingProduct, setExtendingProduct] = useState<any>(null)
-    
+    const [registrationSuccess, setRegistrationSuccess] = useState(false)
+
     const [currentStep, setCurrentStep] = useState(0)
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
     const [logs, setLogs] = useState<string[]>([])
+
+    // Let an embedding wizard shell track sub-wizard progress.
+    useEffect(() => {
+        onStepChange?.(currentStep)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentStep])
 
     // Company Profile / Business Context
     const [businessContext, setBusinessContext] = useState<Record<string, unknown> | null>(null)
@@ -214,6 +234,10 @@ export function DataProductOnboardingNew() {
             setError('Host, Database, and Username are required for SQL Server')
             return
         }
+        if (sourceSystem === 'snowflake' && (!connectionOverrides.account || !connectionOverrides.warehouse || !connectionOverrides.database || !connectionOverrides.schema || !connectionOverrides.username || !connectionOverrides.password)) {
+            setError('Account, Warehouse, Database, Schema, Username, and Password are required for Snowflake')
+            return
+        }
         setLogs(prev => [...prev, `✓ Connection configured: ${sourceSystem}`])
         setCurrentStep(1)
     }
@@ -231,6 +255,7 @@ export function DataProductOnboardingNew() {
 
             const payload = {
                 principal_id: 'admin_user',
+                client_id: getSettingsClientId() || undefined,
                 data_product_id: 'temp_discovery',
                 source_system: sourceSystem,
                 database: database || undefined,
@@ -328,6 +353,7 @@ export function DataProductOnboardingNew() {
         try {
             const payload = {
                 principal_id: 'admin_user',
+                client_id: getSettingsClientId() || undefined,
                 data_product_id: dataProductId,
                 source_system: sourceSystem,
                 database: database || undefined,
@@ -426,10 +452,11 @@ export function DataProductOnboardingNew() {
     void _updateSemanticTag
 
     return (
-        <div className="min-h-screen bg-background text-foreground p-8 font-sans">
+        <div className={embedded ? 'font-sans' : 'min-h-screen bg-background text-foreground p-8 font-sans'}>
             {/* Data Product Selector Modal */}
             {showProductSelector && (
                 <DataProductSelector
+                    clientId={getSettingsClientId() || ''}
                     onSelect={async (product) => {
                         setExtendingProduct(product)
                         setDataProductId(product.id)
@@ -441,7 +468,8 @@ export function DataProductOnboardingNew() {
                         
                         // Load product's schema from contract
                         try {
-                            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/v1/registry/data-products/${product.id}`)
+                            const _dpParams = new URLSearchParams({ client_id: getSettingsClientId() || '' })
+                            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/v1/registry/data-products/${product.id}?${_dpParams.toString()}`)
                             if (response.ok) {
                                 const data = await response.json()
                                 const productData = data.data
@@ -503,44 +531,46 @@ export function DataProductOnboardingNew() {
                 />
             )}
 
-            {/* Header */}
-            <header className="mb-8 flex justify-between items-center max-w-6xl mx-auto">
-                <div className="flex items-center gap-4">
-                    {workflowMode === 'select' ? (
-                        <Link to="/settings" className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors">
-                            <ArrowLeft className="w-5 h-5" />
-                        </Link>
-                    ) : currentStep === 0 && workflowMode === 'new' ? (
-                        <button 
-                            onClick={() => {
-                                setWorkflowMode('select')
-                                setLogs([])
-                            }}
-                            className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors"
-                        >
-                            <ArrowLeft className="w-5 h-5" />
-                        </button>
-                    ) : (
-                        <Link to="/settings" className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors">
-                            <ArrowLeft className="w-5 h-5" />
-                        </Link>
-                    )}
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-white">
-                            {workflowMode === 'extend' ? 'Extend Data Product' : workflowMode === 'new' ? 'New Data Product' : 'Data Product Onboarding'}
-                        </h1>
-                        <p className="text-sm text-slate-400">
-                            {workflowMode === 'extend' 
-                                ? `Adding KPIs to ${extendingProduct?.name || 'existing product'}`
-                                : workflowMode === 'new'
-                                ? 'Platform-Adaptive Onboarding'
-                                : 'Choose your workflow to get started'
-                            }
-                        </p>
+            {/* Header — omitted when embedded in the onboarding wizard shell */}
+            {!embedded && (
+                <header className="mb-8 flex justify-between items-center max-w-6xl mx-auto">
+                    <div className="flex items-center gap-4">
+                        {workflowMode === 'select' ? (
+                            <Link to="/settings" className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors">
+                                <ArrowLeft className="w-5 h-5" />
+                            </Link>
+                        ) : currentStep === 0 && workflowMode === 'new' ? (
+                            <button
+                                onClick={() => {
+                                    setWorkflowMode('select')
+                                    setLogs([])
+                                }}
+                                className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors"
+                            >
+                                <ArrowLeft className="w-5 h-5" />
+                            </button>
+                        ) : (
+                            <Link to="/settings" className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors">
+                                <ArrowLeft className="w-5 h-5" />
+                            </Link>
+                        )}
+                        <div>
+                            <h1 className="text-2xl font-bold tracking-tight text-white">
+                                {workflowMode === 'extend' ? 'Extend Data Product' : workflowMode === 'new' ? 'New Data Product' : 'Data Product Onboarding'}
+                            </h1>
+                            <p className="text-sm text-slate-400">
+                                {workflowMode === 'extend'
+                                    ? `Adding KPIs to ${extendingProduct?.name || 'existing product'}`
+                                    : workflowMode === 'new'
+                                    ? 'Platform-Adaptive Onboarding'
+                                    : 'Choose your workflow to get started'
+                                }
+                            </p>
+                        </div>
                     </div>
-                </div>
-                <BrandLogo size={32} />
-            </header>
+                    <BrandLogo size={32} />
+                </header>
+            )}
 
             <main className="max-w-6xl mx-auto">
                 {/* Mode Selection Screen */}
@@ -708,6 +738,13 @@ export function DataProductOnboardingNew() {
                                             database,
                                             schema,
                                             serviceAccountPath: connectionOverrides.service_account_json_path,
+                                            host: connectionOverrides.host,
+                                            port: connectionOverrides.port,
+                                            password: connectionOverrides.password,
+                                            account: connectionOverrides.account,
+                                            warehouse: connectionOverrides.warehouse,
+                                            username: connectionOverrides.username,
+                                            role: connectionOverrides.role,
                                         }}
                                     />
 
@@ -790,6 +827,93 @@ export function DataProductOnboardingNew() {
                                                 <AlertCircle className="w-3 h-3" /> FK relationships will be inferred - manual review recommended
                                             </p>
                                         </div>
+                                    )}
+
+                                    {sourceSystem === 'snowflake' && (
+                                        <>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-400 mb-2">Account *</label>
+                                                    <input
+                                                        type="text"
+                                                        value={connectionOverrides.account || ''}
+                                                        onChange={(e) => setConnectionOverrides({ ...connectionOverrides, account: e.target.value })}
+                                                        placeholder="VSGHWKW-SI38932"
+                                                        className="w-full p-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-400 mb-2">Warehouse *</label>
+                                                    <input
+                                                        type="text"
+                                                        value={connectionOverrides.warehouse || ''}
+                                                        onChange={(e) => setConnectionOverrides({ ...connectionOverrides, warehouse: e.target.value })}
+                                                        placeholder="AGENT9_WH"
+                                                        className="w-full p-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-400 mb-2">Database *</label>
+                                                    <input
+                                                        type="text"
+                                                        value={database}
+                                                        onChange={(e) => {
+                                                            setDatabase(e.target.value)
+                                                            setConnectionOverrides({ ...connectionOverrides, database: e.target.value })
+                                                        }}
+                                                        placeholder="AGENT9_DEMO"
+                                                        className="w-full p-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-400 mb-2">Schema *</label>
+                                                    <input
+                                                        type="text"
+                                                        value={schema}
+                                                        onChange={(e) => {
+                                                            setSchema(e.target.value)
+                                                            setConnectionOverrides({ ...connectionOverrides, schema: e.target.value })
+                                                        }}
+                                                        placeholder="BROOKSHIRE_BROTHERS"
+                                                        className="w-full p-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-400 mb-2">Username *</label>
+                                                    <input
+                                                        type="text"
+                                                        value={connectionOverrides.username || ''}
+                                                        onChange={(e) => setConnectionOverrides({ ...connectionOverrides, username: e.target.value })}
+                                                        placeholder="agent9_svc"
+                                                        className="w-full p-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-400 mb-2">Password *</label>
+                                                    <input
+                                                        type="password"
+                                                        value={connectionOverrides.password || ''}
+                                                        onChange={(e) => setConnectionOverrides({ ...connectionOverrides, password: e.target.value })}
+                                                        placeholder="••••••••"
+                                                        className="w-full p-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-400 mb-2">Role (optional)</label>
+                                                <input
+                                                    type="text"
+                                                    value={connectionOverrides.role || ''}
+                                                    onChange={(e) => setConnectionOverrides({ ...connectionOverrides, role: e.target.value })}
+                                                    placeholder="ACCOUNTADMIN"
+                                                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                />
+                                            </div>
+                                        </>
                                     )}
 
                                     {sourceSystem === 'sqlserver' && (
@@ -1129,10 +1253,11 @@ export function DataProductOnboardingNew() {
                                                     data_type: c.data_type
                                                 }))
                                             ),
-                                            dimensions: inspectionResult.tables.flatMap(t => 
+                                            dimensions: inspectionResult.tables.flatMap(t =>
                                                 t.columns.filter(c => c.semantic_tags.includes('dimension')).map(c => ({
                                                     name: c.name,
-                                                    data_type: c.data_type
+                                                    data_type: c.data_type,
+                                                    sample_values: c.sample_values
                                                 }))
                                             ),
                                             time_columns: inspectionResult.tables.flatMap(t => 
@@ -1141,11 +1266,16 @@ export function DataProductOnboardingNew() {
                                                     data_type: c.data_type
                                                 }))
                                             ),
-                                            identifiers: inspectionResult.tables.flatMap(t => 
+                                            identifiers: inspectionResult.tables.flatMap(t =>
                                                 t.columns.filter(c => c.semantic_tags.includes('identifier')).map(c => ({
                                                     name: c.name,
                                                     data_type: c.data_type
                                                 }))
+                                            ),
+                                            viewDefinitions: Object.fromEntries(
+                                                inspectionResult.tables
+                                                    .filter(t => !!t.view_definition)
+                                                    .map(t => [t.name, t.view_definition as string])
                                             )
                                         }}
                                         onKPIsFinalized={(kpis) => {
@@ -1242,7 +1372,11 @@ export function DataProductOnboardingNew() {
                                                 <div className="flex items-start justify-between mb-2">
                                                     <div className="flex items-center gap-2">
                                                         {result.status === 'success' ? (
-                                                            <CheckCircle className="w-5 h-5 text-green-400 shrink-0" />
+                                                            result.warning_message ? (
+                                                                <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+                                                            ) : (
+                                                                <CheckCircle className="w-5 h-5 text-green-400 shrink-0" />
+                                                            )
                                                         ) : (
                                                             <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
                                                         )}
@@ -1256,6 +1390,11 @@ export function DataProductOnboardingNew() {
                                                         <p className="text-sm text-slate-400 mb-2">
                                                             {result.row_count} {result.row_count === 1 ? 'row' : 'rows'} returned
                                                         </p>
+                                                        {result.warning_message && (
+                                                            <div className="mb-2 p-2 bg-amber-950/30 border border-amber-700/40 rounded text-xs text-amber-300">
+                                                                ⚠️ {result.warning_message}
+                                                            </div>
+                                                        )}
                                                         {result.sample_rows && result.sample_rows.length > 0 && (
                                                             <div className="mt-2 p-3 bg-slate-950 rounded border border-slate-800 overflow-x-auto">
                                                                 <table className="w-full text-xs">
@@ -1381,54 +1520,67 @@ export function DataProductOnboardingNew() {
                                         </dl>
                                     </div>
 
-                                    <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
-                                        <p className="text-sm text-green-400 flex items-center gap-2">
-                                            <Check className="w-4 h-4" />
-                                            Ready to register data product to Agent9 registry
-                                        </p>
-                                    </div>
+                                    {registrationSuccess ? (
+                                        <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                                            <p className="text-sm text-green-400 flex items-center gap-2 font-medium">
+                                                <Check className="w-4 h-4" />
+                                                Data product registered successfully
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                                            <p className="text-sm text-green-400 flex items-center gap-2">
+                                                <Check className="w-4 h-4" />
+                                                Ready to register data product to Agent9 registry
+                                            </p>
+                                        </div>
+                                    )}
 
                                     <div className="flex gap-4">
-                                        <button 
+                                        <button
                                             onClick={() => setCurrentStep(4)}
                                             className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium transition-colors"
                                         >
                                             Back to KPIs
                                         </button>
-                                        <button 
+                                        <button
                                             onClick={async () => {
                                                 try {
                                                     setLogs(prev => [...prev, `Finalizing KPIs and registering data product...`])
-                                                    
-                                                    // Finalize KPIs - write them to the contract YAML
+
+                                                    // Finalize KPIs - write them to the Supabase KPI registry
                                                     const finalizeResponse = await fetch(buildUrl(API_ENDPOINTS.kpiAssistant.finalize), {
                                                         method: 'POST',
                                                         headers: { 'Content-Type': 'application/json' },
                                                         body: JSON.stringify({
                                                             data_product_id: dataProductId,
+                                                            client_id: getSettingsClientId() || undefined,
                                                             kpis: definedKPIs,
                                                             extend_mode: workflowMode === 'extend'
                                                         })
                                                     })
-                                                    
+
                                                     const finalizeData = await finalizeResponse.json()
 
                                                     if (!finalizeResponse.ok || finalizeData.status === 'error') {
                                                         const errorMsg = finalizeData.error || finalizeData.detail || 'Failed to finalize KPIs'
                                                         throw new Error(errorMsg)
                                                     }
-                                                    
-                                                    setLogs(prev => [...prev, `✓ ${definedKPIs.length} KPIs persisted to contract YAML`])
+
+                                                    setLogs(prev => [...prev, `✓ ${definedKPIs.length} KPIs persisted to the registry`])
                                                     setLogs(prev => [...prev, `✓ Data product ${dataProductId} registered successfully!`])
+                                                    setRegistrationSuccess(true)
+                                                    onRegistrationSuccess?.()
                                                 } catch (error) {
                                                     console.error('Registration error:', error)
                                                     setLogs(prev => [...prev, `❌ Error registering data product: ${error}`])
                                                 }
                                             }}
-                                            className="flex-1 py-3 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                                            disabled={registrationSuccess}
+                                            className="flex-1 py-3 bg-green-600 hover:bg-green-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
                                         >
                                             <Check className="w-4 h-4" />
-                                            Register Data Product
+                                            {registrationSuccess ? 'Registered' : 'Register Data Product'}
                                         </button>
                                     </div>
                                 </div>

@@ -651,6 +651,8 @@ class A9_Orchestrator_Agent:
             registration_payload = {
                 "request_id": request.request_id,
                 "principal_id": request.principal_id,
+                "client_id": request.client_id,
+                "source_system": request.source_system,
                 "data_product_id": request.data_product_id,
                 "contract_path": None,
                 "display_name": request.data_product_name,
@@ -659,6 +661,7 @@ class A9_Orchestrator_Agent:
                 "tags": request.data_product_tags or [],
                 "owner_metadata": request.owner_metadata or {},
                 "additional_metadata": request.additional_metadata or {},
+                "schema_summary": schema_summary,
             }
             registration_step = await _run_step(
                 "A9_Data_Product_Agent",

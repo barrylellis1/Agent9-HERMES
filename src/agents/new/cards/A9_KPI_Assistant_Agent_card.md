@@ -10,7 +10,7 @@ The `A9_KPI_Assistant_Agent` provides an LLM-powered conversational interface fo
   - `suggest_kpis(KPISuggestionRequest) -> KPISuggestionResponse`
   - `chat(KPIChatRequest) -> KPIChatResponse`
   - `validate_kpi(KPIValidationRequest) -> KPIValidationResponse`
-  - `finalize_kpis(KPIFinalizeRequest) -> KPIFinalizeResponse` (supports `extend_mode` for merging with existing KPIs)
+  - `finalize_kpis(KPIFinalizeRequest) -> KPIFinalizeResponse` (supports `extend_mode` for merging with existing KPIs). As of Phase 12G (Jul 2026), after KPIs are registered this also unions each KPI's `business_process_ids` into the data product's `related_business_processes` via `A9_Data_Product_Agent.sync_related_business_processes` (resolved in `connect()` as `self.data_product_agent`, same try/except-and-degrade pattern as `data_governance_agent`). Best-effort — sync failure logs a warning but does not fail the finalize call, since KPIs are already durably registered by that point.
 
 ## Configuration Schema
 Defined in `src/agents/agent_config_models.py`:

@@ -54,6 +54,8 @@ from src.agents.models.data_product_onboarding_models import (
     DataProductContractGenerationResponse,
     DataProductRegistrationRequest,
     DataProductRegistrationResponse,
+    DataProductBusinessProcessSyncRequest,
+    DataProductBusinessProcessSyncResponse,
     DataProductQARequest,
     DataProductQAResponse,
     TableProfile,
@@ -830,25 +832,53 @@ class A9_Data_Product_Agent(DataProductProtocol):
         try:
             if not self.data_product_provider:
                 raise RuntimeError("Data product provider is not initialized")
+            if not request.client_id:
+                # Fail loudly rather than letting DataProduct.client_id silently fall
+                # back to its env-var default — every registry record must be
+                # tenant-scoped (CLAUDE.md Multi-Tenant Client Isolation).
+                raise ValueError(
+                    "client_id is required to register a data product; the caller "
+                    "must pass the onboarding client through the full request chain"
+                )
 
-            registry_entry = {
-                "id": request.data_product_id,
-                "product_id": request.data_product_id,
-                "name": request.display_name or request.data_product_id,
-                "domain": request.domain or "Unknown",
-                "description": request.description or "",
-                "owner": request.owner_metadata.get("owner", "system") if request.owner_metadata else "system",
-                "contract_path": request.contract_path,
-                "tags": request.tags,
-                "owner_metadata": request.owner_metadata,
-                "additional_metadata": request.additional_metadata,
-            }
+            from src.registry.models.data_product import DataProduct
 
-            existing = self.data_product_provider.get(request.data_product_id)
-            await self.data_product_provider.upsert(registry_entry)
+            derived_tables, derived_views = self._derive_tables_and_views(request.schema_summary)
+            derived_time_dims = self._synthesize_time_dimensions(request.schema_summary)
+            if request.schema_summary and not derived_time_dims:
+                self.logger.warning(
+                    "No time dimension could be synthesized for '%s' from %d profiled table(s); "
+                    "QoQ/YoY/MoM KPI queries will fall back to a hardcoded 'transaction_date' guess "
+                    "at execution time (see _resolve_time_spec).",
+                    request.data_product_id,
+                    len(request.schema_summary),
+                )
+
+            data_product = DataProduct(
+                id=request.data_product_id,
+                client_id=request.client_id,
+                name=request.display_name or request.data_product_id,
+                domain=request.domain or "Unknown",
+                description=request.description or "",
+                owner=request.owner_metadata.get("owner", "system") if request.owner_metadata else "system",
+                source_system=request.source_system or "duckdb",
+                tags=request.tags or [],
+                tables=derived_tables,
+                views=derived_views,
+                time_dimensions=derived_time_dims,
+                metadata={
+                    **(request.additional_metadata or {}),
+                    "owner_metadata": request.owner_metadata or {},
+                    "contract_path": request.contract_path,
+                },
+            )
+
+            existing = self.data_product_provider.get(request.data_product_id, client_id=request.client_id)
+            await self.data_product_provider.upsert(data_product)
             was_created = existing is None
 
             registry_path = getattr(self.data_product_provider, "source_path", None)
+            registry_entry = data_product.model_dump(mode="json")
 
             return DataProductRegistrationResponse.success(
                 request_id=request_id,
@@ -864,6 +894,52 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 registry_entry={},
                 was_created=False,
                 registry_path=None,
+            )
+
+    async def sync_related_business_processes(
+        self, request: DataProductBusinessProcessSyncRequest
+    ) -> DataProductBusinessProcessSyncResponse:
+        """Union business_process_ids (from finalized KPIs) into a data
+        product's related_business_processes. Best-effort denormalization —
+        callers should log-and-continue on failure rather than treat this as
+        fatal, since the KPIs themselves are already durably registered by
+        the time this runs.
+        """
+        request_id = request.request_id
+        try:
+            if not self.data_product_provider:
+                raise RuntimeError("Data product provider is not initialized")
+
+            existing = self.data_product_provider.get(request.data_product_id, client_id=request.client_id)
+            if existing is None:
+                raise ValueError(f"Data product '{request.data_product_id}' not found")
+            if existing.client_id != request.client_id:
+                # Fail loud — never let a sync call re-parent or write into a
+                # different tenant's record (CLAUDE.md Multi-Tenant Isolation).
+                raise ValueError(
+                    f"Data product '{request.data_product_id}' belongs to client "
+                    f"'{existing.client_id}', not '{request.client_id}'"
+                )
+
+            merged = list(existing.related_business_processes or [])
+            for bp_id in request.business_process_ids:
+                if bp_id not in merged:
+                    merged.append(bp_id)
+            merged.sort()
+
+            existing.related_business_processes = merged
+            await self.data_product_provider.upsert(existing)
+
+            return DataProductBusinessProcessSyncResponse.success(
+                request_id=request_id,
+                related_business_processes=merged,
+            )
+        except Exception as err:
+            self.logger.warning(f"Business-process sync failed for '{request.data_product_id}': {err}")
+            return DataProductBusinessProcessSyncResponse.error(
+                request_id=request_id,
+                error_message=str(err),
+                related_business_processes=[],
             )
 
     async def validate_data_product_onboarding(
@@ -1151,6 +1227,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 _sf_conn_params["password"] = overrides.get("password") or _os.getenv("SF_PASSWORD", "")
             settings["connection_params"] = _sf_conn_params
             settings["schema"] = settings["connection_config"]["schema"]
+            settings["project"] = settings["connection_config"]["database"]
 
         # Set defaults for inspection
         if not settings["schema"]:
@@ -1274,6 +1351,31 @@ class A9_Data_Product_Agent(DataProductProtocol):
             rows = result.get("rows", []) if isinstance(result, dict) else []
             return [row.get("table_name") or row.get("TABLE_NAME") for row in rows if row]
 
+        elif source_system == "snowflake":
+            sf_database = settings.get("project") or settings.get("connection_config", {}).get("database")
+            sf_schema = schema or settings.get("connection_config", {}).get("schema")
+            query = f"""
+                SELECT table_name
+                FROM {sf_database}.INFORMATION_SCHEMA.TABLES
+                WHERE table_schema = '{sf_schema}'
+                  AND table_type IN ('BASE TABLE', 'VIEW')
+                ORDER BY table_name
+            """
+            self.logger.info(f"Executing Snowflake discovery query for database={sf_database}, schema={sf_schema}")
+            result = await inspection_manager.execute_query(query, {})
+
+            # Snowflake DataFrames: unquoted aliases come back UPPERCASE by default.
+            if hasattr(result, 'iterrows'):
+                col = 'table_name' if 'table_name' in result.columns else 'TABLE_NAME'
+                if not result.empty and col in result.columns:
+                    tables = result[col].tolist()
+                    self.logger.info(f"Discovered {len(tables)} tables: {tables}")
+                    return tables
+                self.logger.warning(f"Snowflake discovery returned 0 rows for schema={sf_schema}")
+                return []
+            rows = result.get("rows", []) if isinstance(result, dict) else []
+            return [row.get("table_name") or row.get("TABLE_NAME") for row in rows if row]
+
         return []
     
     async def _profile_table(
@@ -1281,27 +1383,125 @@ class A9_Data_Product_Agent(DataProductProtocol):
     ) -> Optional[TableProfile]:
         """
         Profile a table/view using the appropriate backend method.
-        
+
         Dispatches to _profile_table_duckdb or _profile_table_bigquery.
         """
         source_system = settings["source_system"]
         include_samples = settings.get("include_samples", False)
         inspection_depth = settings.get("inspection_depth", "standard")
-        
+
         if source_system == "duckdb":
-            return await self._profile_table_duckdb(
+            profile = await self._profile_table_duckdb(
                 inspection_manager, table_name, include_samples, inspection_depth
             )
         elif source_system == "bigquery":
-            return await self._profile_table_bigquery(
+            profile = await self._profile_table_bigquery(
                 inspection_manager, table_name, include_samples, inspection_depth, settings
             )
         elif source_system in ("sqlserver", "sql_server", "mssql"):
-            return await self._profile_table_sqlserver(
+            profile = await self._profile_table_sqlserver(
                 inspection_manager, table_name, include_samples, inspection_depth, settings
             )
+        elif source_system == "snowflake":
+            profile = await self._profile_table_snowflake(
+                inspection_manager, table_name, include_samples, inspection_depth, settings
+            )
+        else:
+            return None
 
-        return None
+        if profile is not None:
+            await self._populate_categorical_sample_values(
+                inspection_manager, source_system, profile, settings
+            )
+        return profile
+
+    def _is_categorical_candidate(
+        self, column: "TableColumnProfile", primary_keys: List[str], fk_source_columns: set
+    ) -> bool:
+        """True for columns worth sampling real distinct values from — text-typed,
+        not an identifier. Skips primary/foreign keys (naturally high-cardinality,
+        never used as filter literals) and anything already tagged time/measure."""
+        if column.name in primary_keys or column.name in fk_source_columns:
+            return False
+        if "time" in column.semantic_tags or "measure" in column.semantic_tags:
+            return False
+        dtype_lower = (column.data_type or "").lower()
+        return any(t in dtype_lower for t in ("varchar", "char", "text", "string"))
+
+    async def _sample_distinct_values(
+        self,
+        inspection_manager,
+        source_system: str,
+        table_name: str,
+        column_name: str,
+        settings: Dict[str, Any],
+        limit: int = 15,
+    ) -> List[Any]:
+        """Sample up to `limit` distinct values for a column.
+
+        Without this, KPI SQL generation only ever sees a column's name and
+        data type — never what's actually in it — so it has to guess filter
+        literals (e.g. `account_category = 'COGS'` when the real data uses
+        `account_type = 'COGS'`). A guessed literal that doesn't match any real
+        row doesn't error — it silently returns a NULL aggregate that still
+        passes Query Validation as "success" (found live 2026-07-24 onboarding
+        Brookshire Brothers). Feeding real sample values into the KPI prompt
+        closes that gap.
+
+        One shared implementation across all backends — only identifier
+        quoting, qualified table naming, and top-N syntax vary, so a new
+        backend adds one branch here instead of a whole duplicated profiling
+        method (see _profile_table_duckdb/_bigquery/_sqlserver/_snowflake,
+        which already duplicate far more than this and are left as-is).
+        """
+        schema = settings.get("schema")
+        database = settings.get("project") or settings.get("connection_config", {}).get("database")
+
+        if source_system == "snowflake":
+            qualified = f'"{schema}"."{table_name}"' if schema else f'"{table_name}"'
+            query = f'SELECT DISTINCT "{column_name}" AS sample_value FROM {qualified} LIMIT {limit}'
+        elif source_system == "bigquery":
+            qualified = f"`{database}.{schema}.{table_name}`" if database and schema else f"`{table_name}`"
+            query = f"SELECT DISTINCT {column_name} AS sample_value FROM {qualified} LIMIT {limit}"
+        elif source_system in ("sqlserver", "sql_server", "mssql"):
+            db_schema = schema or "dbo"
+            query = f"SELECT DISTINCT TOP {limit} [{column_name}] AS sample_value FROM [{db_schema}].[{table_name}]"
+        elif source_system == "duckdb":
+            query = f'SELECT DISTINCT "{column_name}" AS sample_value FROM "{table_name}" LIMIT {limit}'
+        else:
+            return []
+
+        try:
+            result = await inspection_manager.execute_query(query, {})
+            if hasattr(result, "iterrows"):
+                col = "sample_value" if "sample_value" in result.columns else "SAMPLE_VALUE"
+                return [v for v in result[col].tolist() if v is not None][:limit]
+            rows = result.get("rows", []) if isinstance(result, dict) else []
+            values = [row.get("sample_value", row.get("SAMPLE_VALUE")) for row in rows]
+            return [v for v in values if v is not None][:limit]
+        except Exception as e:
+            self.logger.warning(
+                f"Could not sample distinct values for {table_name}.{column_name}: {e}"
+            )
+            return []
+
+    async def _populate_categorical_sample_values(
+        self,
+        inspection_manager,
+        source_system: str,
+        profile: TableProfile,
+        settings: Dict[str, Any],
+    ) -> None:
+        """Fill in TableColumnProfile.sample_values for likely-categorical
+        columns on an already-profiled table. Best-effort — a sampling
+        failure for one column must not fail the whole profiling pass."""
+        fk_source_columns = {fk.source_column for fk in profile.foreign_keys}
+        for column in profile.columns:
+            if not self._is_categorical_candidate(column, profile.primary_keys, fk_source_columns):
+                continue
+            column.sample_values = await self._sample_distinct_values(
+                inspection_manager, source_system, profile.name, column.name, settings
+            )
     
     async def _profile_table_duckdb(
         self, inspection_manager, table_name: str, include_samples: bool, inspection_depth: str
@@ -1743,25 +1943,344 @@ class A9_Data_Product_Agent(DataProductProtocol):
             self.logger.error(f"Failed to profile SQL Server table {table_name}: {e}")
             return None
 
+    async def _profile_table_snowflake(
+        self, inspection_manager, table_name: str, include_samples: bool,
+        inspection_depth: str, settings: Dict[str, Any]
+    ) -> Optional[TableProfile]:
+        """Profile a Snowflake table/view using database-qualified INFORMATION_SCHEMA.
+
+        Mirrors _profile_table_sqlserver's structure. Snowflake's DataFrames return
+        unquoted aliases UPPERCASE by default (fetch_pandas_all), so every row read
+        here checks both the lowercase alias and its uppercase form.
+        """
+        try:
+            sf_database = settings.get("project") or settings.get("connection_config", {}).get("database")
+            db_schema = settings.get("schema") or settings.get("connection_config", {}).get("schema")
+
+            columns_query = f"""
+                SELECT
+                    COLUMN_NAME   AS column_name,
+                    DATA_TYPE     AS data_type,
+                    IS_NULLABLE   AS is_nullable
+                FROM {sf_database}.INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_NAME   = '{table_name}'
+                  AND TABLE_SCHEMA = '{db_schema}'
+                ORDER BY ORDINAL_POSITION
+            """
+            columns_result = await inspection_manager.execute_query(columns_query, {})
+
+            columns = []
+            if hasattr(columns_result, 'iterrows'):
+                for _, row in columns_result.iterrows():
+                    col_name = row.get("column_name") if "column_name" in columns_result.columns else row.get("COLUMN_NAME")
+                    col_type = row.get("data_type") if "data_type" in columns_result.columns else row.get("DATA_TYPE")
+                    nullable_val = row.get("is_nullable") if "is_nullable" in columns_result.columns else row.get("IS_NULLABLE")
+                    is_nullable = str(nullable_val or "YES").upper() != "NO"
+                    if col_name:
+                        semantic_tags = self._infer_semantic_tags(col_name, col_type)
+                        columns.append(TableColumnProfile(
+                            name=col_name,
+                            data_type=col_type or "UNKNOWN",
+                            is_nullable=is_nullable,
+                            semantic_tags=semantic_tags,
+                        ))
+            else:
+                column_rows = columns_result.get("rows", []) if isinstance(columns_result, dict) else []
+                for row in column_rows:
+                    col_name = row.get("column_name") or row.get("COLUMN_NAME")
+                    col_type = row.get("data_type") or row.get("DATA_TYPE")
+                    is_nullable = str(row.get("is_nullable", "YES")).upper() != "NO"
+                    if col_name:
+                        semantic_tags = self._infer_semantic_tags(col_name, col_type)
+                        columns.append(TableColumnProfile(
+                            name=col_name,
+                            data_type=col_type or "UNKNOWN",
+                            is_nullable=is_nullable,
+                            semantic_tags=semantic_tags,
+                        ))
+
+            # Get row count (double-quoted identifiers preserve case exactly as given)
+            row_count = 0
+            try:
+                count_query = f'SELECT COUNT(1) AS row_count FROM "{db_schema}"."{table_name}"'
+                count_result = await inspection_manager.execute_query(count_query, {})
+                if hasattr(count_result, 'iloc'):
+                    if not count_result.empty:
+                        col = 'row_count' if 'row_count' in count_result.columns else 'ROW_COUNT'
+                        row_count = int(count_result.iloc[0][col])
+                else:
+                    count_rows = count_result.get("rows", []) if isinstance(count_result, dict) else []
+                    row_count = count_rows[0].get("row_count", 0) if count_rows else 0
+            except Exception as count_error:
+                self.logger.warning(f"Could not get row count for {table_name}: {count_error}")
+
+            # FK relationships — Snowflake rarely declares/enforces these, but the
+            # ANSI INFORMATION_SCHEMA views exist; query them best-effort.
+            foreign_keys = []
+            try:
+                from src.agents.models.data_product_onboarding_models import ForeignKeyRelationship
+                fk_query = f"""
+                    SELECT
+                        kcu.COLUMN_NAME        AS column_name,
+                        ccu.TABLE_NAME         AS referenced_table_name,
+                        ccu.COLUMN_NAME        AS referenced_column_name,
+                        rc.CONSTRAINT_NAME     AS constraint_name
+                    FROM {sf_database}.INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc
+                    JOIN {sf_database}.INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+                        ON  kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+                        AND kcu.TABLE_SCHEMA    = rc.CONSTRAINT_SCHEMA
+                    JOIN {sf_database}.INFORMATION_SCHEMA.KEY_COLUMN_USAGE ccu
+                        ON  ccu.CONSTRAINT_NAME = rc.UNIQUE_CONSTRAINT_NAME
+                        AND ccu.TABLE_SCHEMA    = rc.UNIQUE_CONSTRAINT_SCHEMA
+                    WHERE kcu.TABLE_NAME   = '{table_name}'
+                      AND kcu.TABLE_SCHEMA = '{db_schema}'
+                """
+                fk_result = await inspection_manager.execute_query(fk_query, {})
+                if hasattr(fk_result, 'iterrows'):
+                    for _, fk_row in fk_result.iterrows():
+                        get = (lambda k: fk_row.get(k) if k in fk_result.columns else fk_row.get(k.upper()))
+                        foreign_keys.append(ForeignKeyRelationship(
+                            source_table=table_name,
+                            source_column=get("column_name"),
+                            target_table=get("referenced_table_name"),
+                            target_column=get("referenced_column_name"),
+                            confidence=1.0,
+                            constraint_name=get("constraint_name"),
+                        ))
+                else:
+                    fk_rows = fk_result.get("rows", []) if isinstance(fk_result, dict) else []
+                    for fk_row in fk_rows:
+                        foreign_keys.append(ForeignKeyRelationship(
+                            source_table=table_name,
+                            source_column=fk_row.get("column_name") or fk_row.get("COLUMN_NAME"),
+                            target_table=fk_row.get("referenced_table_name") or fk_row.get("REFERENCED_TABLE_NAME"),
+                            target_column=fk_row.get("referenced_column_name") or fk_row.get("REFERENCED_COLUMN_NAME"),
+                            confidence=1.0,
+                            constraint_name=fk_row.get("constraint_name"),
+                        ))
+            except Exception as fk_error:
+                self.logger.warning(f"Could not extract FK relationships for {table_name}: {fk_error}")
+
+            # View definition, if applicable
+            view_definition = None
+            try:
+                view_query = f"""
+                    SELECT VIEW_DEFINITION AS view_definition
+                    FROM {sf_database}.INFORMATION_SCHEMA.VIEWS
+                    WHERE TABLE_NAME   = '{table_name}'
+                      AND TABLE_SCHEMA = '{db_schema}'
+                """
+                view_result = await inspection_manager.execute_query(view_query, {})
+                if hasattr(view_result, 'iloc'):
+                    if not view_result.empty:
+                        col = 'view_definition' if 'view_definition' in view_result.columns else 'VIEW_DEFINITION'
+                        view_definition = view_result.iloc[0].get(col)
+                else:
+                    view_rows = view_result.get("rows", []) if isinstance(view_result, dict) else []
+                    if view_rows:
+                        view_definition = view_rows[0].get("view_definition")
+            except Exception as view_error:
+                self.logger.debug(f"Table {table_name} is not a view or view definition unavailable: {view_error}")
+
+            if view_definition and len(foreign_keys) == 0:
+                inferred_fks = self._infer_fks_from_view_definition(table_name, view_definition, columns)
+                foreign_keys.extend(inferred_fks)
+
+            primary_keys = [
+                col.name for col in columns
+                if "identifier" in col.semantic_tags and col.name.lower().endswith("id")
+            ]
+            timestamp_columns = [col.name for col in columns if "time" in col.semantic_tags]
+            table_role = self._infer_table_role(table_name, columns, view_definition)
+
+            return TableProfile(
+                name=table_name,
+                row_count=row_count,
+                columns=columns,
+                primary_keys=primary_keys,
+                timestamp_columns=timestamp_columns,
+                foreign_keys=foreign_keys,
+                table_role=table_role,
+                view_definition=view_definition,
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to profile Snowflake table {table_name}: {e}")
+            return None
+
     def _infer_semantic_tags(self, column_name: str, data_type: Optional[str]) -> List[str]:
-        """Infer semantic tags from column name and data type."""
-        tags = []
+        """Infer semantic tags from column name and data type.
+
+        Identifier/time naming patterns take priority over type (an INTEGER
+        "customer_id" is an identifier, not a measure). After that, numeric
+        data type is the primary measure signal — most fact-table numeric
+        columns (net_value, qty_sold, margin_pct) are measures even when
+        their name has no English finance keyword; the keyword list is a
+        fallback for when data_type is missing/unrecognized. A narrower,
+        name-keyword-only version of this previously left every non-keyword
+        numeric column tagged "dimension", so KPI suggestion saw 0 measures
+        against real fact tables whose columns didn't say "amount"/"cost"/etc.
+
+        Time-name tokens include compound fiscal_year/fiscal_period/fiscal_qtr
+        forms, not bare "year"/"period"/"quarter" (which would false-positive
+        on legitimate columns like warranty_years or a model_year dimension).
+        Without the compound forms, a fiscal_year/fiscal_period INTEGER pair
+        falls through to the numeric-measure branch and gets mistagged,
+        leaving time-dimension synthesis with nothing to find even on schemas
+        that genuinely have a fiscal calendar.
+        """
         lower_name = column_name.lower()
-        
-        if any(token in lower_name for token in ["amount", "revenue", "cost", "price", "total", "sum"]):
-            tags.append("measure")
-        if any(token in lower_name for token in ["date", "time", "_at", "timestamp"]):
-            tags.append("time")
-        if any(token in lower_name for token in ["id", "key"]):
-            tags.append("identifier")
-        if not tags:
-            tags.append("dimension")
+        dtype_lower = str(data_type).lower() if data_type else ""
 
-        if data_type and any(token in str(data_type).lower() for token in ("int", "decimal", "double", "numeric", "float")):
-            if "measure" not in tags:
-                tags.append("numeric")
+        if any(token in lower_name for token in ["id", "key", "code"]):
+            return ["identifier"]
+        if any(token in lower_name for token in [
+            "date", "time", "_at", "timestamp",
+            "fiscal_year", "fiscal_period", "fiscal_qtr", "fiscal_quarter",
+        ]) or any(token in dtype_lower for token in ("date", "timestamp")):
+            return ["time"]
+        if any(token in dtype_lower for token in ("int", "decimal", "double", "numeric", "float", "number")):
+            return ["measure"]
+        if any(token in lower_name for token in [
+            "amount", "revenue", "cost", "price", "total", "sum", "margin",
+            "qty", "quantity", "value", "pct", "percent", "rate", "discount", "tax",
+        ]):
+            return ["measure"]
+        return ["dimension"]
 
-        return tags
+    def _detect_time_dimension_for_table(self, table: TableProfile) -> Optional[Dict[str, Any]]:
+        """Detect a single time-dimension candidate for one profiled table.
+
+        Priority: fiscal_year+fiscal_period pair > fiscal_year alone > best
+        single date/timestamp column. Returns None when nothing qualifies —
+        never fabricates a column name. `primary` is not set here; the caller
+        (_synthesize_time_dimensions) decides which table's candidate wins
+        across the whole data product.
+        """
+        columns = table.columns or []
+        time_cols = [c for c in columns if "time" in (c.semantic_tags or [])]
+        if not time_cols:
+            return None
+
+        year_col = next((c for c in time_cols if "fiscal_year" in c.name.lower()), None)
+        if year_col:
+            period_col = next(
+                (
+                    c for c in time_cols
+                    if c.name != year_col.name
+                    and any(tok in c.name.lower() for tok in ("fiscal_period", "fiscal_qtr", "fiscal_quarter"))
+                ),
+                None,
+            )
+            if period_col:
+                is_quarter = "qtr" in period_col.name.lower() or "quarter" in period_col.name.lower()
+                is_string_period = any(
+                    tok in period_col.data_type.lower() for tok in ("char", "varchar", "string")
+                )
+                return {
+                    "type": "fiscal_year_period",
+                    "year_column": year_col.name,
+                    "period_column": period_col.name,
+                    "period_type": "quarter" if is_quarter else "month",
+                    "period_column_type": "string" if is_string_period else "integer",
+                    "source_columns": [year_col.name, period_col.name],
+                    "display_expr": f"CONCAT(CAST({year_col.name} AS VARCHAR), '-', {period_col.name})",
+                    "sort_expr": f"{year_col.name} * 100 + CAST({period_col.name} AS INTEGER)",
+                    "label": "Fiscal Period",
+                    "granularity": "quarter" if is_quarter else "month",
+                }
+            return {
+                "type": "fiscal_year",
+                "year_column": year_col.name,
+                "granularity": "year",
+                "label": "Fiscal Year",
+            }
+
+        date_cols = [c for c in time_cols if any(tok in c.data_type.lower() for tok in ("date", "timestamp"))]
+        if not date_cols:
+            return None
+
+        _BUSINESS_DATE_NAMES = ("transaction_date", "order_date", "posting_date", "effective_date", "date")
+        _AUDIT_DATE_TOKENS = ("created_at", "updated_at", "modified_at", "deleted_at")
+
+        def _rank(col: TableColumnProfile) -> int:
+            lname = col.name.lower()
+            for i, pat in enumerate(_BUSINESS_DATE_NAMES):
+                if pat == lname or pat in lname:
+                    return i
+            if any(tok in lname for tok in _AUDIT_DATE_TOKENS):
+                return 100
+            return 50
+
+        best = min(date_cols, key=_rank)
+        return {
+            "type": "date",
+            "column": best.name,
+            "granularity": "day",
+            "label": best.name.replace("_", " ").title(),
+        }
+
+    def _synthesize_time_dimensions(self, tables: List[TableProfile]) -> List[Dict[str, Any]]:
+        """Derive TimeDimensionSpec-shaped dicts from profiled table/column
+        metadata. Pure heuristic — no LLM call. Without this, DataProduct rows
+        built via onboarding have no time_dimensions at all, and SA/DA's
+        _resolve_time_spec silently falls back to a hardcoded 'transaction_date'
+        guess that fails at query execution time against real client schemas.
+        """
+        found: List[tuple] = []  # (is_fact_table, spec_dict)
+        for table in tables:
+            spec = self._detect_time_dimension_for_table(table)
+            if spec is not None:
+                found.append((getattr(table, "table_role", None) == "FACT", spec))
+
+        if not found:
+            return []
+
+        # Exactly one primary=True — prefer a FACT-role table's candidate,
+        # else the first candidate found (stable, deterministic).
+        primary_pos = next((i for i, (is_fact, _) in enumerate(found) if is_fact), 0)
+        result = []
+        for i, (_, spec) in enumerate(found):
+            spec["primary"] = (i == primary_pos)
+            result.append(spec)
+        return result
+
+    def _derive_tables_and_views(
+        self, tables: List[TableProfile]
+    ) -> tuple[Dict[str, Any], Dict[str, Any]]:
+        """Split profiled tables into DataProduct.tables / .views dicts.
+
+        A profiled entry with a non-empty view_definition is a SQL view; its
+        raw SQL is preserved as ViewDefinition.sql_definition. Everything else
+        is a physical table, mapped to TableDefinition's shape (columns as a
+        name->type dict, primary/foreign keys carried through unchanged).
+        """
+        tables_out: Dict[str, Any] = {}
+        views_out: Dict[str, Any] = {}
+
+        for table in tables:
+            view_definition = getattr(table, "view_definition", None)
+            if view_definition:
+                views_out[table.name] = {
+                    "name": table.name,
+                    "description": f"Auto-derived from {table.name} during onboarding",
+                    "sql_definition": view_definition,
+                    "depends_on": [],
+                }
+                continue
+
+            tables_out[table.name] = {
+                "name": table.name,
+                "description": "",
+                "data_source_type": "database",
+                "column_schema": {c.name: c.data_type for c in (table.columns or [])},
+                "primary_keys": list(table.primary_keys or []),
+                "foreign_keys": {
+                    fk.source_column: f"{fk.target_table}.{fk.target_column}"
+                    for fk in (table.foreign_keys or [])
+                },
+            }
+
+        return tables_out, views_out
 
     def _infer_table_role(
         self, table_name: str, columns: List[TableColumnProfile], view_definition: Optional[str]
@@ -3881,6 +4400,12 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     return primary.model_dump() if hasattr(primary, "model_dump") else dict(primary)
         except Exception:
             pass
+        self.logger.warning(
+            "No time_dimensions on data product '%s' — falling back to a hardcoded "
+            "'transaction_date' guess; QoQ/YoY/MoM queries will fail at execution if "
+            "that column doesn't exist in the real schema.",
+            data_product_id,
+        )
         return _DEFAULT
 
     async def execute_sql(self, sql_query: Union[str, 'SQLExecutionRequest'], parameters: Optional[Dict[str, Any]] = None, principal_context=None, data_product_id: Optional[str] = None) -> Dict[str, Any]:
@@ -4917,6 +5442,86 @@ class A9_Data_Product_Agent(DataProductProtocol):
     # KPI Query Validation (Phase 2)
     # ------------------------------------------------------------------
 
+    def _build_connection_config_for_source(
+        self, source_system: str, schema: Optional[str], project: Optional[str],
+        connection_overrides: Dict[str, Any],
+    ) -> tuple[Dict[str, Any], Dict[str, Any]]:
+        """Build (connection_config, connection_params) for a source_system.
+
+        Mirrors the per-backend branches in _resolve_inspection_settings
+        (used by inspect_source_schema). validate_kpi_queries previously only
+        handled duckdb/bigquery here — snowflake/sqlserver silently connected
+        with an empty config and failed at query execution with a confusing
+        'password or private_key must be provided' error, even though the
+        same connection_overrides worked fine one step earlier in the wizard.
+        """
+        overrides = connection_overrides or {}
+        connection_config: Dict[str, Any] = {}
+        connection_params: Dict[str, Any] = {}
+
+        if source_system == "duckdb":
+            db_path = overrides.get("path") or self.db_path
+            connection_config = {"type": "duckdb", "path": db_path}
+        elif source_system == "bigquery":
+            resolved_project = project or overrides.get("project")
+            resolved_dataset = schema or overrides.get("dataset")
+            connection_config = {"type": "bigquery", "project": resolved_project, "dataset": resolved_dataset}
+            if "service_account_info" in overrides:
+                connection_params["service_account_info"] = overrides["service_account_info"]
+            elif "service_account_json_path" in overrides:
+                connection_params["service_account_json_path"] = overrides["service_account_json_path"]
+            elif "service_account_path" in overrides:
+                connection_params["service_account_json_path"] = overrides["service_account_path"]
+        elif source_system in ("sqlserver", "sql_server", "mssql"):
+            host = overrides.get("host") or "localhost"
+            port = overrides.get("port") or 1433
+            database = overrides.get("database") or "master"
+            username = overrides.get("username") or overrides.get("user") or "sa"
+            password = overrides.get("password") or ""
+            resolved_schema = overrides.get("schema") or schema or "dbo"
+            connection_config = {
+                "type": "sqlserver", "host": host, "port": int(port), "database": database,
+                "username": username, "password": password, "schema": resolved_schema,
+                "encrypt": overrides.get("encrypt", False),
+                "trust_server_certificate": overrides.get("trust_server_certificate", True),
+            }
+        elif source_system == "snowflake":
+            import os as _os
+            connection_config = {
+                "account": overrides.get("account") or _os.getenv("SF_ACCOUNT", ""),
+                "warehouse": overrides.get("warehouse") or _os.getenv("SF_WAREHOUSE", "AGENT9_WH"),
+                "database": overrides.get("database") or project or _os.getenv("SF_DATABASE", "AGENT9_DEMO"),
+                "schema": overrides.get("schema") or schema or _os.getenv("SF_SCHEMA", "LUBRICANTS"),
+                "role": overrides.get("role") or _os.getenv("SF_ROLE", "ACCOUNTADMIN"),
+            }
+            sf_conn_params: Dict[str, Any] = {"user": overrides.get("username") or _os.getenv("SF_USERNAME", "")}
+            pk_path = _os.getenv("SF_PRIVATE_KEY_PATH", "")
+            pk_content = _os.getenv("SF_PRIVATE_KEY", "")
+            if pk_path or pk_content:
+                try:
+                    from cryptography.hazmat.primitives import serialization as _ser
+                    passphrase = _os.getenv("SF_PRIVATE_KEY_PASSPHRASE", "")
+                    if pk_path:
+                        with open(pk_path, "rb") as f:
+                            key_data = f.read()
+                    else:
+                        key_data = pk_content.encode() if isinstance(pk_content, str) else pk_content
+                    private_key = _ser.load_pem_private_key(
+                        key_data, password=passphrase.encode() if passphrase else None
+                    )
+                    sf_conn_params["private_key"] = private_key.private_bytes(
+                        encoding=_ser.Encoding.DER,
+                        format=_ser.PrivateFormat.PKCS8,
+                        encryption_algorithm=_ser.NoEncryption(),
+                    )
+                except Exception:
+                    sf_conn_params["password"] = overrides.get("password") or _os.getenv("SF_PASSWORD", "")
+            else:
+                sf_conn_params["password"] = overrides.get("password") or _os.getenv("SF_PASSWORD", "")
+            connection_params = sf_conn_params
+
+        return connection_config, connection_params
+
     async def validate_kpi_queries(
         self, request: ValidateKPIQueriesRequest
     ) -> ValidateKPIQueriesResponse:
@@ -4960,20 +5565,15 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 "connection_params": {},
             }
             
-            # Build connection config for manager factory
-            if source_system == "duckdb":
-                db_path = settings["connection_overrides"].get("path") or self.db_path
-                settings["connection_config"] = {"type": "duckdb", "path": db_path}
-            elif source_system == "bigquery":
-                settings["connection_config"] = {
-                    "type": "bigquery",
-                    "project": settings["project"],
-                    "dataset": settings["schema"],
-                }
-                # Add service account path if provided
-                if settings["connection_overrides"].get("service_account_json_path"):
-                    settings["connection_params"]["service_account_json_path"] = settings["connection_overrides"]["service_account_json_path"]
-            
+            # Build connection config for manager factory — covers all
+            # backends (duckdb/bigquery/sqlserver/snowflake), not just the
+            # two this method used to handle inline.
+            settings["connection_config"], settings["connection_params"] = (
+                self._build_connection_config_for_source(
+                    source_system, settings["schema"], settings["project"], settings["connection_overrides"]
+                )
+            )
+
             # Create and connect validation manager
             validation_manager, manager_connected = await self._prepare_inspection_manager(settings)
             
@@ -5137,13 +5737,31 @@ class A9_Data_Product_Agent(DataProductProtocol):
                 # Unknown result type
                 raise RuntimeError(f"Unexpected result type: {type(result)}")
 
+            # A NULL aggregate is a plausible true result (genuinely zero matching
+            # rows) but is indistinguishable from a wrong filter literal without a
+            # human looking at it — and until now this passed as a silent green
+            # checkmark (found live 2026-07-24: guessed filter literals like
+            # account_category='COGS' against real data that uses account_type).
+            # Flag it without failing validation outright.
+            warning_message = None
+            if sample_rows:
+                value_keys = [k for k in sample_rows[0].keys() if k.lower() == "value"]
+                if value_keys and all(row.get(value_keys[0]) is None for row in sample_rows):
+                    warning_message = (
+                        "Query executed successfully but returned NULL for every row. "
+                        "This usually means a WHERE filter literal doesn't match any "
+                        "real value in the source data — check the filter against "
+                        "actual column values before finalizing this KPI."
+                    )
+
             return KPIQueryValidationResult(
                 kpi_id=kpi_id,
                 kpi_name=kpi_name,
                 status="success",
                 execution_time_ms=execution_time_ms,
                 row_count=row_count,
-                sample_rows=sample_rows
+                sample_rows=sample_rows,
+                warning_message=warning_message,
             )
 
         except Exception as e:
