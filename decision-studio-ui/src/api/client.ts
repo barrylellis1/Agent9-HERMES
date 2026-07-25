@@ -79,18 +79,18 @@ export async function listGlossaryTerms(clientId?: string): Promise<BusinessTerm
 }
 
 export async function createGlossaryTerm(payload: BusinessTerm): Promise<BusinessTerm> {
-  const envelope = await requestJson<Envelope<BusinessTerm>>(`/registry/glossary`, {
+  const envelope = await requestJson<Envelope<BusinessTerm>>(`/registry/glossary${_writeClientIdQs()}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await _authHeaders()) },
     body: JSON.stringify(payload),
   });
   return envelope.data;
 }
 
 export async function updateGlossaryTerm(termName: string, payload: BusinessTerm): Promise<BusinessTerm> {
-  const envelope = await requestJson<Envelope<BusinessTerm>>(`/registry/glossary/${encodeURIComponent(termName)}`, {
+  const envelope = await requestJson<Envelope<BusinessTerm>>(`/registry/glossary/${encodeURIComponent(termName)}${_writeClientIdQs()}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await _authHeaders()) },
     body: JSON.stringify(payload),
   });
   return envelope.data;
@@ -284,27 +284,27 @@ export async function getBusinessProcess(id: string): Promise<any> {
 }
 
 export async function createBusinessProcess(payload: any): Promise<any> {
-  const envelope = await requestJson<Envelope<any>>(`/registry/business-processes`, {
+  const envelope = await requestJson<Envelope<any>>(`/registry/business-processes${_writeClientIdQs()}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await _authHeaders()) },
     body: JSON.stringify(payload),
   });
   return envelope.data;
 }
 
 export async function updateBusinessProcess(id: string, payload: any): Promise<any> {
-  const envelope = await requestJson<Envelope<any>>(`/registry/business-processes/${encodeURIComponent(id)}`, {
+  const envelope = await requestJson<Envelope<any>>(`/registry/business-processes/${encodeURIComponent(id)}${_writeClientIdQs()}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await _authHeaders()) },
     body: JSON.stringify(payload),
   });
   return envelope.data;
 }
 
 export async function replaceBusinessProcess(id: string, payload: any): Promise<any> {
-  const envelope = await requestJson<Envelope<any>>(`/registry/business-processes/${encodeURIComponent(id)}`, {
+  const envelope = await requestJson<Envelope<any>>(`/registry/business-processes/${encodeURIComponent(id)}${_writeClientIdQs()}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await _authHeaders()) },
     body: JSON.stringify(payload),
   });
   return envelope.data;
@@ -825,6 +825,20 @@ export async function getAccountabilityCoverage(clientId: string): Promise<Accou
 }
 
 // ---------------------------------------------------------------------------
+// Onboarding wizard progress
+// ---------------------------------------------------------------------------
+
+export interface OnboardingProgressResponse {
+  client_id: string;
+  steps: Record<string, { complete: boolean; [metric: string]: any }>;
+  first_incomplete_step: number;
+}
+
+export async function getOnboardingProgress(clientId: string): Promise<OnboardingProgressResponse> {
+  return requestJson<OnboardingProgressResponse>(`/onboarding/progress?client_id=${encodeURIComponent(clientId)}`);
+}
+
+// ---------------------------------------------------------------------------
 // Admin — Connection Health (Infra A4-d)
 // ---------------------------------------------------------------------------
 
@@ -874,6 +888,9 @@ export interface ConnectionProfile {
   port?: number | null;
   database_name?: string | null;
   schema_name?: string | null;
+  warehouse?: string | null;
+  username?: string | null;
+  role?: string | null;
   credentials?: ConnectionProfileCredentials | null;  // masked ••••••  on read
   is_default: boolean;
   created_by?: string | null;
@@ -891,6 +908,9 @@ export interface CreateConnectionProfilePayload {
   port?: number;
   database_name?: string;
   schema_name?: string;
+  warehouse?: string;
+  username?: string;
+  role?: string;
   credentials?: Record<string, string>;
   is_default?: boolean;
   created_by?: string;
@@ -903,6 +923,9 @@ export interface UpdateConnectionProfilePayload {
   port?: number;
   database_name?: string;
   schema_name?: string;
+  warehouse?: string;
+  username?: string;
+  role?: string;
   credentials?: Record<string, string>;  // omit to leave credentials unchanged
   is_default?: boolean;
   last_used_by?: string;
@@ -1037,4 +1060,109 @@ export async function commitKpiTemplates(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Business Process Template Generator — Phase 12F
+// ---------------------------------------------------------------------------
+
+export type BusinessProcessSource = 'canonical' | 'extra';
+
+export interface TemplateBusinessProcess {
+  id: string | null;
+  name: string;
+  domain: string;
+  description: string | null;
+  owner_role: string | null;
+  stakeholder_roles: string[];
+  tags: string[];
+  source: BusinessProcessSource;
+  confidence: number;
+  rationale: string | null;
+}
+
+export interface CompanyBusinessProcessProfile {
+  client_id: string;
+  industry_used: string | null;
+  domains: string[];
+  selected: TemplateBusinessProcess[];
+  generated_at: string;
+  degraded: boolean;
+}
+
+export interface BusinessProcessResearchRequest {
+  client_id: string;
+  industry_override?: string;
+  max_extra_processes?: number;
+}
+
+export interface BusinessProcessResearchResponse {
+  status: 'success' | 'degraded' | 'error';
+  profile: CompanyBusinessProcessProfile | null;
+  error: string | null;
+}
+
+export interface AcceptedTemplateBusinessProcess extends Omit<TemplateBusinessProcess, 'rationale'> {}
+
+export interface CommitBusinessProcessTemplatesRequest {
+  client_id: string;
+  accepted_processes: AcceptedTemplateBusinessProcess[];
+  created_by?: string;
+}
+
+export interface CommittedBusinessProcessSummary {
+  id: string;
+  name: string;
+  status: 'written' | 'skipped_duplicate' | 'error';
+  error: string | null;
+}
+
+export interface CommitBusinessProcessTemplatesResponse {
+  rows_written: number;
+  rows_skipped: number;
+  rows_failed: number;
+  results: CommittedBusinessProcessSummary[];
+}
+
+export async function researchCompanyBusinessProcesses(
+  payload: BusinessProcessResearchRequest,
+): Promise<BusinessProcessResearchResponse> {
+  return requestJson<BusinessProcessResearchResponse>(
+    `/templates/research-business-processes?client_id=${encodeURIComponent(payload.client_id)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export interface CompanyProfileSummary {
+  enterprise_name?: string;
+  industry?: string;
+  subindustry?: string;
+  [key: string]: unknown;
+}
+
+export async function getCompanyProfile(clientId: string): Promise<CompanyProfileSummary | null> {
+  const params = new URLSearchParams({ client_id: clientId });
+  try {
+    const data = await requestJson<CompanyProfileSummary>(`/company-profile?${params.toString()}`);
+    return data && Object.keys(data).length > 0 ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function commitBusinessProcessTemplates(
+  payload: CommitBusinessProcessTemplatesRequest,
+): Promise<CommitBusinessProcessTemplatesResponse> {
+  return requestJson<CommitBusinessProcessTemplatesResponse>(
+    `/templates/commit-business-processes?client_id=${encodeURIComponent(payload.client_id)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  );
 }

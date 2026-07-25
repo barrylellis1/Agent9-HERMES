@@ -66,6 +66,9 @@ class ConnectionProfileOut(BaseModel):
     port: Optional[int] = None
     database_name: Optional[str] = None
     schema_name: Optional[str] = None
+    warehouse: Optional[str] = None
+    username: Optional[str] = None
+    role: Optional[str] = None
     credentials: Optional[Dict[str, str]] = None  # values masked as ••••••
     is_default: bool
     created_by: Optional[str] = None
@@ -83,6 +86,9 @@ class CreateConnectionProfileRequest(BaseModel):
     port: Optional[int] = None
     database_name: Optional[str] = None
     schema_name: Optional[str] = None
+    warehouse: Optional[str] = None
+    username: Optional[str] = None
+    role: Optional[str] = None
     credentials: Optional[Dict[str, Any]] = None  # plain-text on write, encrypted at rest
     is_default: bool = False
     created_by: Optional[str] = None
@@ -95,6 +101,9 @@ class UpdateConnectionProfileRequest(BaseModel):
     port: Optional[int] = None
     database_name: Optional[str] = None
     schema_name: Optional[str] = None
+    warehouse: Optional[str] = None
+    username: Optional[str] = None
+    role: Optional[str] = None
     credentials: Optional[Dict[str, Any]] = None  # None = leave unchanged
     is_default: Optional[bool] = None
     last_used_by: Optional[str] = None
@@ -130,6 +139,9 @@ def _row_to_out(row: asyncpg.Record) -> ConnectionProfileOut:
         port=row["port"],
         database_name=row["database_name"],
         schema_name=row["schema_name"],
+        warehouse=row["warehouse"],
+        username=row["username"],
+        role=row["role"],
         credentials=masked,
         is_default=bool(row["is_default"]),
         created_by=row["created_by"],
@@ -204,8 +216,9 @@ async def create_connection_profile(
                 """
                 INSERT INTO connection_profiles
                     (id, client_id, name, source_system, host, port, database_name, schema_name,
+                     warehouse, username, role,
                      credentials_encrypted, is_default, created_by, created_at, updated_at)
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$15)
                 RETURNING *
                 """,
                 new_id,
@@ -216,6 +229,9 @@ async def create_connection_profile(
                 request.port,
                 request.database_name,
                 request.schema_name,
+                request.warehouse,
+                request.username,
+                request.role,
                 encrypted,
                 request.is_default,
                 request.created_by,
@@ -246,6 +262,9 @@ async def update_connection_profile(
     port = request.port if request.port is not None else row["port"]
     db_name = request.database_name if request.database_name is not None else row["database_name"]
     schema = request.schema_name if request.schema_name is not None else row["schema_name"]
+    warehouse = request.warehouse if request.warehouse is not None else row["warehouse"]
+    username = request.username if request.username is not None else row["username"]
+    role = request.role if request.role is not None else row["role"]
     is_default = request.is_default if request.is_default is not None else row["is_default"]
     last_used_by = request.last_used_by if request.last_used_by is not None else row["last_used_by"]
 
@@ -261,13 +280,15 @@ async def update_connection_profile(
             """
             UPDATE connection_profiles
                SET name=$2, host=$3, port=$4, database_name=$5, schema_name=$6,
-                   credentials_encrypted=$7, is_default=$8, updated_at=$9,
-                   last_used_at=$10, last_used_by=$11
+                   warehouse=$7, username=$8, role=$9,
+                   credentials_encrypted=$10, is_default=$11, updated_at=$12,
+                   last_used_at=$13, last_used_by=$14
              WHERE id=$1
             RETURNING *
             """,
             uuid.UUID(profile_id),
             name, host, port, db_name, schema,
+            warehouse, username, role,
             encrypted, is_default, now,
             last_used_at, last_used_by,
         )

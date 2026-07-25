@@ -87,8 +87,20 @@ export function getConnectionOverrides(profile: ConnectionProfile): Record<strin
     case 'snowflake':
       return {
         account: profile.host ?? '',
-        warehouse: profile.schema_name ?? '',
+        warehouse: profile.warehouse ?? '',
         database: profile.database_name ?? '',
+        schema: profile.schema_name ?? '',
+        username: profile.username ?? '',
+        role: profile.role ?? '',
+        // password is never returned by the API (masked as ••••••) — the
+        // user must re-enter it after loading a saved profile.
+      };
+    case 'sqlserver':
+      return {
+        host: profile.host ?? '',
+        port: profile.port ?? undefined,
+        database: profile.database_name ?? '',
+        username: profile.username ?? '',
       };
     case 'databricks':
       return {

@@ -28,6 +28,10 @@ interface ConnectionProfileManagerProps {
     host?: string
     port?: number
     password?: string
+    account?: string
+    warehouse?: string
+    username?: string
+    role?: string
   }
 }
 
@@ -61,8 +65,31 @@ export function ConnectionProfileManager({
     loadProfiles()
   }, [loadProfiles])
 
+  const _missingFieldsForSave = (): string | null => {
+    if (sourceSystem === 'snowflake') {
+      if (!currentValues?.account || !currentValues?.warehouse || !currentValues?.database ||
+          !currentValues?.schema || !currentValues?.username || !currentValues?.password) {
+        return 'Fill in Account, Warehouse, Database, Schema, Username, and Password before saving — an incomplete profile silently loads with blank fields next time.'
+      }
+    } else if (sourceSystem === 'sqlserver') {
+      if (!currentValues?.host || !currentValues?.database || !currentValues?.username || !currentValues?.password) {
+        return 'Fill in Host, Database, Username, and Password before saving.'
+      }
+    } else if (sourceSystem === 'bigquery') {
+      if (!currentValues?.database || !currentValues?.schema) {
+        return 'Fill in Project and Dataset before saving.'
+      }
+    }
+    return null
+  }
+
   const handleSaveProfile = async () => {
     if (!profileName.trim()) return
+    const missing = _missingFieldsForSave()
+    if (missing) {
+      setError(missing)
+      return
+    }
     setSaving(true)
     setError(null)
     try {
@@ -75,13 +102,20 @@ export function ConnectionProfileManager({
         if (currentValues?.password) credentials['password'] = currentValues.password
       }
 
+      // Snowflake's "account" has no dedicated column — it's stored in the
+      // generic `host` slot, same one sqlserver uses for its actual host.
+      const host = sourceSystem === 'snowflake' ? currentValues?.account : currentValues?.host
+
       await saveConnectionProfile({
         name: profileName.trim(),
         source_system: sourceSystem,
-        host: currentValues?.host,
+        host,
         port: currentValues?.port,
         database_name: currentValues?.database,
         schema_name: currentValues?.schema,
+        warehouse: currentValues?.warehouse,
+        username: currentValues?.username,
+        role: currentValues?.role,
         credentials: Object.keys(credentials).length > 0 ? credentials : undefined,
       })
 
