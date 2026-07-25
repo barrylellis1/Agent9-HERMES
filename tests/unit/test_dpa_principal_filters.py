@@ -99,9 +99,14 @@ async def test_generate_sql_ignores_all_tokens_in_filters():
 
     kpi_def = SimpleNamespace(name="Gross Revenue", data_product_id='FI_Star_Schema', view_name='FI_Star_View')
 
+    # Filter keys use the canonical view-column labels, exactly as real
+    # principal default_filters do (see scripts/clients/*.py, e.g.
+    # "Profit Center Hierarchyid"). The resolver quotes matched labels as-is;
+    # it deliberately does NOT transform snake_case → Title Case (that
+    # data-product-specific mapping was removed in the Phase 10B-DGA refactor).
     filters = {
-        'profit_center_hierarchyid': ['Total', 'Best Run U'],  # 'Total' should be ignored
-        'customer_hierarchyid': '#',                           # '#' should be ignored entirely
+        'Profit Center Hierarchyid': ['Total', 'Best Run U'],  # 'Total' should be ignored
+        'Customer Hierarchyid': '#',                            # '#' should be ignored entirely
         'Version': 'Actual',
     }
 

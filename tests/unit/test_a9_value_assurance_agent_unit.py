@@ -46,6 +46,40 @@ from src.agents.agent_config_models import A9ValueAssuranceAgentConfig
 # ---------------------------------------------------------------------------
 
 
+class _FakeVAStore:
+    """Hermetic in-memory stand-in for VASolutionsStore.
+
+    Unit tests must not touch live Supabase — the real store connects whenever
+    SUPABASE_URL is set, which makes register_solution write-through to the
+    shared local DB and lets get_portfolio_summary hydrate leftover rows from
+    prior runs (the reason test_get_portfolio_summary_empty_store was flaky).
+    This fake records write-throughs so persistence can be asserted, and always
+    returns an empty principal query so the hydration path stays clean.
+    """
+
+    def __init__(self) -> None:
+        self.enabled = True
+        self.solutions: dict = {}
+        self.evaluations: dict = {}
+
+    async def upsert_solution(self, solution) -> bool:
+        self.solutions[solution.solution_id] = solution
+        return True
+
+    async def upsert_evaluation(self, evaluation, solution_id) -> bool:
+        self.evaluations[solution_id] = evaluation
+        return True
+
+    async def get_solutions_by_principal(self, principal_id, client_id=None) -> list:
+        return []
+
+    def __getattr__(self, name):
+        # Any other store method the agent may call is a no-op in unit tests.
+        async def _noop(*args, **kwargs):
+            return None
+        return _noop
+
+
 @pytest.fixture
 def config():
     """Standard config for all tests."""
@@ -54,9 +88,10 @@ def config():
 
 @pytest_asyncio.fixture
 async def agent(config):
-    """Bare agent with no orchestrator (pure-logic tests)."""
+    """Bare agent with no orchestrator and a hermetic in-memory store."""
     a = await A9_Value_Assurance_Agent.create_from_registry(config.model_dump())
     a.orchestrator = None  # Disable orchestrator for isolation
+    a._va_store = _FakeVAStore()  # Never touch live Supabase in unit tests
     return a
 
 
@@ -248,6 +283,25 @@ async def test_register_solution_preserves_input_fields(agent, register_request)
     assert stored.expected_impact_upper == register_request.expected_impact_upper
     assert stored.benchmark_segments == register_request.benchmark_segments
     assert stored.ma_market_signals == register_request.ma_market_signals
+
+
+@pytest.mark.asyncio
+async def test_register_solution_persists_client_id(agent, register_request):
+    """client_id is stamped on the record AND written through to persistence.
+
+    Guards the multi-tenant isolation wiring: a solution registered for a
+    client must carry that client_id both in the in-memory record and in the
+    persisted row, or it drops out of tenant-scoped portfolio queries / RLS.
+    """
+    register_request.client_id = "hess"
+    resp = await agent.register_solution(register_request)
+
+    # Stamped on the in-memory record
+    assert agent._solutions_store[resp.solution_id].client_id == "hess"
+
+    # Written through to the persistence layer with client_id intact
+    persisted = agent._va_store.solutions[resp.solution_id]
+    assert persisted.client_id == "hess"
 
 
 # ---------------------------------------------------------------------------
