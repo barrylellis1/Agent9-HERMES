@@ -8,6 +8,7 @@ It maintains a registry of available agents and handles agent lifecycle manageme
 # doc-sync-skip
 
 import asyncio
+import os
 import time
 import logging
 from typing import Dict, Any, List, Optional, Callable, Type, Union, Set
@@ -932,9 +933,34 @@ class A9_Orchestrator_Agent:
         self.logger.info(f"Orchestrating solution finding for request: {request.request_id}")
         
         try:
-            # 1. Ensure SF Agent is initialized
-            await self.get_agent("A9_Solution_Finder_Agent")
-            
+            # 1. Ensure SF Agent is initialized.
+            # A9_Solution_Finder_Agent is NOT in runtime.py's eager agent_plan — it's
+            # created lazily here, on first call, via the registered factory with
+            # whatever config is passed. AgentRegistry caches that first instance
+            # forever, so this config only takes effect on the very first
+            # solutions/run call in the process's lifetime (2026-07-26 finding:
+            # Phase 15's enable_causal_grounding/enable_critic_pass flags were
+            # always False in production before this, because the eager bootstrap
+            # helper elsewhere in this file that set them is never called by the
+            # live API server). Env-var gated, same opt-in-by-default posture as
+            # the flags' own Pydantic defaults (False) — set SF_ENABLE_CAUSAL_GROUNDING
+            # / SF_ENABLE_CRITIC_PASS=true to turn on for a deployment.
+            sf_agent = await self.get_agent(
+                "A9_Solution_Finder_Agent",
+                config={
+                    "enable_causal_grounding": os.getenv("SF_ENABLE_CAUSAL_GROUNDING", "false").lower() == "true",
+                    "enable_critic_pass": os.getenv("SF_ENABLE_CRITIC_PASS", "false").lower() == "true",
+                },
+            )
+            # Also fixes a real, separate wiring gap: A9_Solution_Finder_Agent.create()
+            # calls connect() with no args, so self.orchestrator stays None forever
+            # (papered over by a "FORCE LLM" override + a direct AgentRegistry lookup
+            # for the LLM service agent, bypassing orchestrator entirely). The critic
+            # pass and any orchestrator.execute_agent_method call need the real thing.
+            # This part is not flag-gated — it's a bug fix, not new behavior.
+            if sf_agent is not None and getattr(sf_agent, "orchestrator", None) is None:
+                await sf_agent.connect(self)
+
             # 2. Execute recommendation
             response = await self.execute_agent_method(
                 "A9_Solution_Finder_Agent",

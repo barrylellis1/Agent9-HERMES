@@ -4,7 +4,7 @@
 
 **Agent Name:** A9_LLM_Service_Agent  
 **Status:** [MVP] — 2 of 4 entrypoints implemented  
-**Last PRD Sync:** 2026-05-02  
+**Last PRD Sync:** 2026-07-26  
 **Code Location:** `src/agents/new/a9_llm_service_agent.py`  
 **Provider Service:** `src/llm_services/claude_service.py`  
 **Alignment:** 80% → 100% (removed audit_log, retry/circuit-breaker; documented task-based model routing)
@@ -166,6 +166,16 @@ Output:
 **Provider implementation:**
 - **Anthropic (primary):** `src/llm_services/claude_service.py` uses Messages API
 - **OpenAI (fallback, Phase 10+):** Not implemented; placeholder in factory
+
+### 3.1a Forced Structured Output [IMPLEMENTED — Phase 15 Stage A]
+
+`A9_LLM_Request` / `A9_LLM_AnalysisRequest` gained two optional fields: `response_schema`
+(a JSON schema, typically `PydanticModel.model_json_schema()`) and `tool_name`. When
+`response_schema` is set, `generate()` routes to `ClaudeService.generate_structured()`
+instead of free-text generation, forcing a `tool_choice` call so the model's output is
+schema-valid at the API level rather than hand-parsed from a JSON-shaped text template.
+Opt-in only — omitting `response_schema` is the unchanged free-text path. First consumer:
+`A9_Solution_Finder_Agent`'s `use_structured_output` config flag (default off).
 
 ### 3.2 estimate_tokens() [IMPLEMENTED]
 
@@ -345,6 +355,12 @@ Full SF workflow: ~$0.040 (4 cents)
 **v1.0 (2025-12-15)** — Initial MVP with ambitious scope (audit logging, retry, multi-provider, caching)
 
 **v1.1 (2026-02-28)** — Anthropic SDK upgraded to 0.84.0 (Messages API); removed OpenAI support temporarily
+
+**v2.1 (2026-07-26)** — Phase 15 Stage A: added forced structured-output routing
+(`response_schema`/`tool_name` on `A9_LLM_Request`/`A9_LLM_AnalysisRequest` →
+`ClaudeService.generate_structured()`); added `ClaudeTaskType.CRITIC` task routing
+(defaults to Sonnet 5, overridable via `CLAUDE_MODEL_CRITIC`) for the Solution Finder's
+critic-pass calls.
 
 **v2.0 (2026-05-02)** — Aligned with DEVELOPMENT_PLAN:
 - Documented 2 core entrypoints (generate, estimate_tokens); 2 deferred with corrected rationale

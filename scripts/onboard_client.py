@@ -92,6 +92,9 @@ def _headers(service_key: str) -> Dict[str, str]:
 _COLUMN_DEFAULTS: Dict[str, Any] = {
     "kpi_type": "operational",
     "status": "active",
+    # kpi_relationships.provenance is NOT NULL (DB default 'template') — a bare
+    # None here would send an explicit null and bypass that default, not use it.
+    "provenance": "template",
 }
 
 

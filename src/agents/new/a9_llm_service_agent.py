@@ -48,6 +48,12 @@ class A9_LLM_Request(A9AgentBaseRequest):
     max_tokens: Optional[int] = Field(None, description="Override the default max tokens")
     system_prompt: Optional[str] = Field(None, description="Override the default system prompt")
     operation: str = Field("generate", description="The operation to perform")
+    # Phase 15 Stage A: when set, routes to forced tool-use structured output
+    # (ClaudeService.generate_structured) instead of free-text generation.
+    response_schema: Optional[Dict[str, Any]] = Field(
+        None, description="JSON schema (e.g. PydanticModel.model_json_schema()) to force via tool_choice"
+    )
+    tool_name: Optional[str] = Field(None, description="Tool name for the forced tool_choice call")
 
 
 class A9_LLM_TemplateRequest(A9AgentBaseRequest):
@@ -69,6 +75,11 @@ class A9_LLM_AnalysisRequest(A9AgentBaseRequest):
     model: Optional[str] = Field(None, description="Override the default model")
     max_tokens: Optional[int] = Field(None, description="Override the default max tokens")
     operation: str = Field("analyze", description="The operation to perform")
+    # Phase 15 Stage A: threaded through to A9_LLM_Request in analyze()
+    response_schema: Optional[Dict[str, Any]] = Field(
+        None, description="JSON schema to force via tool_choice (forced structured output)"
+    )
+    tool_name: Optional[str] = Field(None, description="Tool name for the forced tool_choice call")
 
 
 class A9_LLM_SummaryRequest(A9AgentBaseRequest):
@@ -399,15 +410,28 @@ class A9_LLM_Service_Agent:
             provider = self.config.provider.lower()
             if provider == "anthropic":
                 try:
-                    # Use the service layer to generate the response - await the coroutine
-                    result = await self.llm_service.generate(
-                        prompt=request.prompt,
-                        system_prompt=system_prompt,
-                        max_tokens=max_tokens,
-                        temperature=temperature,
-                        model=model,
-                    )
-                    
+                    # Phase 15 Stage A: forced tool-use structured output when a
+                    # response_schema is provided; otherwise unchanged free-text path.
+                    if getattr(request, "response_schema", None):
+                        result = await self.llm_service.generate_structured(
+                            prompt=request.prompt,
+                            tool_schema=request.response_schema,
+                            tool_name=getattr(request, "tool_name", None) or "emit_response",
+                            system_prompt=system_prompt,
+                            max_tokens=max_tokens,
+                            temperature=temperature,
+                            model=model,
+                        )
+                    else:
+                        # Use the service layer to generate the response - await the coroutine
+                        result = await self.llm_service.generate(
+                            prompt=request.prompt,
+                            system_prompt=system_prompt,
+                            max_tokens=max_tokens,
+                            temperature=temperature,
+                            model=model,
+                        )
+
                     # Extract response text and usage from service result
                     response_text = result.get("response", "")
                     usage = result.get("usage", {
@@ -640,12 +664,14 @@ class A9_LLM_Service_Agent:
                 model=request.model,
                 max_tokens=request.max_tokens,
                 system_prompt="You are an analytical assistant. Respond only with valid JSON.",
-                operation=request.operation
+                operation=request.operation,
+                response_schema=getattr(request, "response_schema", None),
+                tool_name=getattr(request, "tool_name", None),
             )
-            
+
             # Process using the standard generate method
             response = await self.generate(standard_request)
-            
+
             if response.status == "error":
                 return A9_LLM_AnalysisResponse(
                     status="error",

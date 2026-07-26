@@ -461,6 +461,34 @@ class A9_Solution_Finder_Agent_Config(BaseModel):
         True, description="Log structured inputs/outputs for audit"
     )
 
+    # Phase 15 Stage A/B: forced tool-use structured output for the synthesis call.
+    # Default False — the API-level schema guarantee is a reliability improvement,
+    # but semantic output quality vs the current hand-tuned prompt is unvalidated
+    # until the live A/B compliance run (Phase 15 M2/M5) passes. Flip only after
+    # that run confirms quality parity or better.
+    use_structured_output: bool = Field(
+        False, description="Route the synthesis call through forced tool-use structured output (Phase 15 Stage A)"
+    )
+
+    # Phase 15 Stage D: grounding + constraint input contract. Default False —
+    # the READ path is safe (non-fatal, degrades to no context if the schema
+    # isn't migrated or tables are empty), but consuming this content in real
+    # recommendations is still gated on tenant-isolation tests + a pilot with
+    # real SF usage (theory_layer_design.md §5.2/§10 P2). Flip only after that
+    # gate passes.
+    enable_causal_grounding: bool = Field(
+        False, description="Inject kpi_relationships causal chain + active constraints into the synthesis prompt (Phase 15 Stage D)"
+    )
+
+    # Phase 15 Stage E: critic pass (generate -> critique-against-theory -> synthesize).
+    # Default False, same gating discipline as the other Phase 15 stages. Also
+    # requires enable_causal_grounding — a critic with no causal graph to check
+    # proposals against has nothing to critique, so it's a no-op either way, but
+    # the flag stays explicit rather than implicitly inferred from another flag.
+    enable_critic_pass: bool = Field(
+        False, description="Run a critic LLM pass tracing each Stage 1 proposal through the causal graph before synthesis (Phase 15 Stage E)"
+    )
+
 
 class A9_KPI_Assistant_Agent_Config(BaseModel):
     """

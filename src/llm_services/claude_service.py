@@ -35,6 +35,7 @@ class ClaudeTaskType:
     BRIEFING = "briefing"
     STAGE1_PERSONA = "stage1_persona"   # Cheap, focused single-persona call
     SYNTHESIS = "synthesis"             # Complex multi-option synthesis
+    CRITIC = "critic"                   # Phase 15 Stage E: critique proposed options against the causal graph
     GENERAL = "general"
 
 
@@ -53,6 +54,13 @@ DEFAULT_CLAUDE_TASK_MODELS: Dict[str, str] = {
     ClaudeTaskType.BRIEFING:         "claude-sonnet-5",
     ClaudeTaskType.STAGE1_PERSONA:   "claude-haiku-4-5-20251001",
     ClaudeTaskType.SYNTHESIS:        "claude-sonnet-5",
+    # "Best model spent here" per the Phase 15 Stage E design intent. Sonnet 5
+    # is the routing default for the interactive path, matching every other
+    # reasoning-heavy task above — per Phase 11O-C's own decision, Fable 5 is
+    # deferred to the offline/background path, not the interactive HITL path
+    # SF operates on, so it is NOT the default here either. Override via
+    # CLAUDE_MODEL_CRITIC if a stronger model is deliberately warranted later.
+    ClaudeTaskType.CRITIC:           "claude-sonnet-5",
     ClaudeTaskType.GENERAL:          "claude-sonnet-5",
 }
 
@@ -65,6 +73,7 @@ CLAUDE_TASK_MODEL_ENV_VARS: Dict[str, str] = {
     ClaudeTaskType.BRIEFING:         "CLAUDE_MODEL_BRIEFING",
     ClaudeTaskType.STAGE1_PERSONA:   "CLAUDE_MODEL_STAGE1",
     ClaudeTaskType.SYNTHESIS:        "CLAUDE_MODEL_SYNTHESIS",
+    ClaudeTaskType.CRITIC:           "CLAUDE_MODEL_CRITIC",
     ClaudeTaskType.GENERAL:          "CLAUDE_MODEL",
 }
 
@@ -432,6 +441,108 @@ class ClaudeService:
 
         except Exception as e:
             logger.error(f"[ClaudeService] generation error: {e}")
+            return {
+                "request_id": f"err_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                "error": str(e),
+                "model": model or self.config.model_name,
+                "response": None,
+                "timestamp": datetime.now().isoformat(),
+            }
+
+    async def generate_structured(
+        self,
+        prompt: str,
+        tool_schema: Dict[str, Any],
+        tool_name: str = "emit_response",
+        system_prompt: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+        model: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Generate a schema-guaranteed JSON response via forced Anthropic tool-use
+        (Phase 15 Stage A). Anthropic has no native "response_format" like OpenAI —
+        tool_choice forcing a single tool is the reliable equivalent: the API
+        guarantees message.content includes a tool_use block whose `input` matches
+        tool_schema, eliminating the truncation-mid-JSON and format-drift failure
+        modes of prompt-based JSON + regex parsing (see llm_prompt_redesign_da_sf.md).
+
+        Returns the SAME shape as generate() — {"request_id", "model", "response",
+        "usage", "timestamp"} — with `response` being a JSON string of the
+        guaranteed-valid dict, so existing json.loads()-based callers (e.g.
+        A9_LLM_Service_Agent.analyze()) work unchanged.
+        """
+        try:
+            _system = system_prompt or self.get_system_prompt()
+            _max_tokens = max_tokens or self.config.max_tokens
+            _temperature = temperature if temperature is not None else self.config.temperature
+            _model = model or self.config.model_name
+
+            request_id = f"req_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
+            logger.info(f"[ClaudeService] {request_id} → model={_model} (structured, tool={tool_name})")
+
+            kwargs = build_messages_kwargs(
+                model=_model,
+                max_tokens=_max_tokens,
+                temperature=_temperature,
+                system=_system,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            kwargs["tools"] = [{
+                "name": tool_name,
+                "description": "Emit the structured response.",
+                "input_schema": tool_schema,
+            }]
+            kwargs["tool_choice"] = {"type": "tool", "name": tool_name}
+
+            message = self.client.messages.create(**kwargs)
+
+            if getattr(message, "stop_reason", None) == "refusal":
+                details = getattr(message, "stop_details", None)
+                category = getattr(details, "category", None) if details else None
+                logger.warning(f"[ClaudeService] {request_id} ✗ refused (category={category})")
+                return {
+                    "request_id": request_id,
+                    "error": f"Model declined the request (stop_reason=refusal, category={category})",
+                    "model": getattr(message, "model", _model),
+                    "response": None,
+                    "timestamp": datetime.now().isoformat(),
+                }
+
+            tool_use_block = next(
+                (b for b in (message.content or []) if getattr(b, "type", None) == "tool_use"),
+                None,
+            )
+            if tool_use_block is None:
+                logger.warning(f"[ClaudeService] {request_id} ✗ no tool_use block in forced tool_choice response")
+                return {
+                    "request_id": request_id,
+                    "error": "Forced tool_choice response contained no tool_use block",
+                    "model": getattr(message, "model", _model),
+                    "response": None,
+                    "timestamp": datetime.now().isoformat(),
+                }
+
+            usage = {
+                "prompt_tokens": message.usage.input_tokens,
+                "completion_tokens": message.usage.output_tokens,
+                "total_tokens": message.usage.input_tokens + message.usage.output_tokens,
+            }
+
+            logger.info(
+                f"[ClaudeService] {request_id} ✓ (structured) — "
+                f"in={usage['prompt_tokens']} out={usage['completion_tokens']} tokens"
+            )
+            return {
+                "request_id": request_id,
+                "model": getattr(message, "model", _model) or _model,
+                "response": json.dumps(tool_use_block.input),
+                "usage": usage,
+                "timestamp": datetime.now().isoformat(),
+            }
+
+        except Exception as e:
+            logger.error(f"[ClaudeService] generate_structured error: {e}")
             return {
                 "request_id": f"err_{datetime.now().strftime('%Y%m%d%H%M%S')}",
                 "error": str(e),

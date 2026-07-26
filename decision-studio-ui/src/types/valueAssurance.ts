@@ -10,7 +10,10 @@ export interface StrategySnapshot {
   business_process_domain: string;
   data_product_id: string;
   kpi_threshold_at_approval: number;
-  key_assumptions: string[];
+  // Phase 11J P1 / Phase 15 Stage B: was string[], now the typed, source-classified,
+  // gradeable assumption object (see api/types.ts SolutionAssumption). Backend
+  // coerces legacy plain-string rows on read, so this is never string[] at runtime.
+  key_assumptions: import('../api/types').SolutionAssumption[];
   business_context_name: string;
   strategic_rationale?: string;
   captured_at: string;

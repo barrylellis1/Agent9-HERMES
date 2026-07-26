@@ -353,6 +353,20 @@ class A9_Value_Assurance_Agent:
             request
         )
 
+        # Phase 15 Stage F: thread the approved option's "bets on" assumptions
+        # (SF Stage B's per-option key_assumptions) into the snapshot, regardless
+        # of whether it came from the caller or the fallback builder above —
+        # both previously left key_assumptions as an always-empty stub even
+        # though the real data existed in the SF response the whole time.
+        # Reconstructing via StrategySnapshot(**...) re-runs the model's
+        # existing legacy-string-coercion validator, so this tolerates plain
+        # strings the same way old Supabase rows already do.
+        if request.bets_on_assumptions:
+            snapshot = StrategySnapshot(**{
+                **snapshot.model_dump(),
+                "key_assumptions": request.bets_on_assumptions,
+            })
+
         # --- Compute three-trajectory projections ---
         approved_at = _utcnow()
         baseline = snapshot.kpi_threshold_at_approval

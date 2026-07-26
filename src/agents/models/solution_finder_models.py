@@ -3,14 +3,90 @@ Pydantic models for the Solution Finder Agent (A2A-compliant).
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
-from pydantic import Field
+from typing import Any, Dict, List, Literal, Optional
+from pydantic import Field, field_validator
 
 from src.agents.shared.a9_agent_base_model import (
     A9AgentBaseModel,
     A9AgentBaseRequest,
     A9AgentBaseResponse,
 )
+
+
+# ---------------------------------------------------------------------------
+# Phase 15 Stage B — unified trust/output schema
+#
+# SolutionAssumption is the single typed assumption object shared by Phase 11J
+# P1 (validity monitoring, source-classified) and Phase 15 (per-option "bets
+# on" list + calibrated confidence) — see DEVELOPMENT_PLAN.md Phase 15 §Stage B.
+# Do not introduce a second assumption model; extend this one.
+# ---------------------------------------------------------------------------
+
+_HEDGE_WORDS = {"consider", "potentially", "might", "could possibly", "may want to"}
+
+
+class SolutionAssumption(A9AgentBaseModel):
+    """A single assumption a solution option bets on, source-classified and gradeable."""
+    assumption: str
+    validated_by: Literal["sa_assessment", "ma_query", "human_confirmation"]
+    validated_at: Optional[str] = None  # ISO datetime; None = not yet confirmed
+    revalidation_days: Optional[int] = None  # for human_confirmation: days before re-confirmation needed
+    # Phase 15 additions (trustworthy generation):
+    grounded: bool = Field(
+        default=False,
+        description="True if verifiable from SA/MA data at synthesis time; False if inferred by the LLM.",
+    )
+    confidence: Optional[Literal["high", "moderate", "low"]] = None
+    provenance: Optional[str] = Field(
+        default=None,
+        description="What would confirm or falsify this assumption — never 'proved', at most 'consistent with'.",
+    )
+
+
+class DecisionAsk(A9AgentBaseModel):
+    """The single decision an executive is being asked to make (Phase 13 M2)."""
+    decision_text: str
+    decision_owner: Optional[str] = None
+    deadline: Optional[str] = None
+    approval_type: Optional[str] = None
+
+    @field_validator("decision_text")
+    @classmethod
+    def _validate_decision_text(cls, v: str) -> str:
+        words = v.split()
+        if len(words) > 25:
+            raise ValueError(f"decision_text must be <=25 words, got {len(words)}")
+        lowered = v.lower()
+        for hedge in _HEDGE_WORDS:
+            if hedge in lowered:
+                raise ValueError(f"decision_text must not hedge — found '{hedge}'")
+        return v
+
+
+class ImmediateAction(A9AgentBaseModel):
+    """A single actionable next step (Phase 13 M5)."""
+    action_text: str
+    owner: Optional[str] = None
+    due_by_days: Optional[int] = None
+    why_it_matters: Optional[str] = None
+
+
+class RecoveryRange(A9AgentBaseModel):
+    low: Optional[float] = None
+    high: Optional[float] = None
+
+
+class ImpactEstimate(A9AgentBaseModel):
+    """Typed replacement for the previously untyped impact_estimate dict.
+
+    Field shape is unchanged from the prompt's existing JSON
+    (metric/unit/recovery_range{low,high}/basis) — this is a Pydantic-side
+    typing improvement only, not a prompt or behavior change.
+    """
+    metric: Optional[str] = None
+    unit: Optional[str] = None
+    recovery_range: Optional[RecoveryRange] = None
+    basis: Optional[str] = None
 
 
 class TradeOffCriterion(A9AgentBaseModel):
@@ -37,19 +113,27 @@ class SolutionOption(A9AgentBaseModel):
     id: str
     title: str
     description: Optional[str] = None
-    expected_impact: Optional[float] = None  # + means beneficial
+    expected_impact: Optional[float] = None  # 0-1 normalized ranking score (+ means beneficial); NOT a dollar/pp estimate — see impact_estimate for that
     cost: Optional[float] = None             # normalized cost estimate
     risk: Optional[float] = None             # normalized risk estimate
     evidence: Optional[List[str]] = None     # URLs/refs or citations
     rationale: Optional[str] = None
-    
+
     # Enhanced Decision Briefing Fields
     time_to_value: Optional[str] = None
     reversibility: Optional[str] = None  # high/medium/low
     perspectives: List[PerspectiveAnalysis] = Field(default_factory=list)
     implementation_triggers: List[str] = Field(default_factory=list)
     prerequisites: List[str] = Field(default_factory=list)
-    impact_estimate: Optional[Dict[str, Any]] = None  # {metric, unit, recovery_range: {low, high}, basis}
+    impact_estimate: Optional[ImpactEstimate] = None  # business-unit (dollar/pp) recovery range — distinct from expected_impact above
+    # Phase 15 Stage B: what this option bets on, per-option, gradeable by VA
+    key_assumptions: List[SolutionAssumption] = Field(default_factory=list)
+    # Phase 15 Stage E: critic-pass findings for this option — genuine
+    # cross-KPI consequences or violated assumptions traced through the
+    # causal graph, not a generic risk list. Empty when the critic pass is
+    # disabled or found no basis for concern (see Stage G: "Risk block
+    # surfacing Stage E side-effects").
+    flagged_side_effects: List[str] = Field(default_factory=list)
 
 
 class TradeOffMatrix(A9AgentBaseModel):
@@ -98,6 +182,10 @@ class SolutionFinderResponse(A9AgentBaseResponse):
     # Market Intelligence enrichment (optional — populated when A9_Market_Analysis_Agent is available)
     market_intelligence: Optional[Dict[str, Any]] = None
 
+    # Phase 15 / Phase 13 Cat 2: structured decision ask + immediate actions
+    decision_ask: Optional[DecisionAsk] = None
+    immediate_actions: List[ImmediateAction] = Field(default_factory=list)
+
     # Pending market signals for HITL confirmation before synthesis
     # Populated after Stage 1 (stage1_only); empty on subsequent debate stages.
     pending_market_signals: Optional[List[Dict[str, Any]]] = Field(
@@ -114,3 +202,56 @@ class SolutionFinderResponse(A9AgentBaseResponse):
 
     # Audit
     audit_log: Optional[List[Dict[str, Any]]] = None
+
+
+# ---------------------------------------------------------------------------
+# Phase 15 Stage A — forced tool-use structured output for the synthesis call
+#
+# SFSynthesisSchema mirrors the synthesis JSON shape the prompt already asks
+# for (see a9_solution_finder_agent.py debate_spec/output_instruction). It
+# exists purely so ClaudeService.generate_structured() can derive a JSON
+# schema via .model_json_schema() — the existing manual parsing loop in
+# a9_solution_finder_agent.py is NOT replaced by validating against this
+# model; it stays as a defensive second layer. Used only when
+# A9_Solution_Finder_Agent_Config.use_structured_output is True (default
+# False — flip only after the live A/B compliance run, per Phase 15 M2/M5).
+# ---------------------------------------------------------------------------
+
+class ProblemReframe(A9AgentBaseModel):
+    situation: str
+    complication: str
+    question: str
+    key_assumptions: List[str] = Field(default_factory=list)  # overall analysis assumptions (prose) — distinct from SolutionOption.key_assumptions (per-option bets)
+
+
+class CrossReviewCritique(A9AgentBaseModel):
+    target: str
+    concern: str
+
+
+class CrossReviewEndorsement(A9AgentBaseModel):
+    target: str
+    reason: str
+
+
+class CrossReviewEntry(A9AgentBaseModel):
+    critiques: List[CrossReviewCritique] = Field(default_factory=list)
+    endorsements: List[CrossReviewEndorsement] = Field(default_factory=list)
+
+
+class RecommendationRef(A9AgentBaseModel):
+    id: str
+    title: str
+
+
+class SFSynthesisSchema(A9AgentBaseModel):
+    problem_reframe: ProblemReframe
+    options: List[SolutionOption]
+    recommendation: RecommendationRef
+    recommendation_rationale: str
+    unresolved_tensions: List[UnresolvedTension] = Field(default_factory=list)
+    blind_spots: List[str] = Field(default_factory=list)
+    next_steps: List[str] = Field(default_factory=list)
+    cross_review: Dict[str, CrossReviewEntry] = Field(default_factory=dict)
+    decision_ask: Optional[DecisionAsk] = None
+    immediate_actions: List[ImmediateAction] = Field(default_factory=list)

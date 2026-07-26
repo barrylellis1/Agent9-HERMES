@@ -17,9 +17,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from src.agents.models.solution_finder_models import SolutionAssumption
 
 
 # ---------------------------------------------------------------------------
@@ -73,10 +75,31 @@ class StrategySnapshot(BaseModel):
     business_process_domain: str
     data_product_id: str
     kpi_threshold_at_approval: float
-    key_assumptions: List[str]
+    # Phase 11J P1 / Phase 15 Stage B: typed, source-classified, gradeable assumption.
+    # Absorbed into the same SolutionAssumption object SF's "bets on" list uses — see
+    # DEVELOPMENT_PLAN.md Phase 15 Stage B; do not build a second assumption model.
+    key_assumptions: List[SolutionAssumption]
     business_context_name: str
     strategic_rationale: Optional[str] = None
     captured_at: str  # ISO datetime string
+
+    @field_validator("key_assumptions", mode="before")
+    @classmethod
+    def _coerce_legacy_string_assumptions(cls, v: Any) -> Any:
+        """Legacy coercion on read: pre-Phase-15 rows (and older test fixtures)
+        stored key_assumptions as plain strings. Coerce to SolutionAssumption
+        with validated_by="human_confirmation" rather than requiring a
+        destructive Supabase migration. Dicts and existing SolutionAssumption
+        instances pass through unchanged."""
+        if not isinstance(v, list):
+            return v
+        coerced = []
+        for item in v:
+            if isinstance(item, str):
+                coerced.append({"assumption": item, "validated_by": "human_confirmation"})
+            else:
+                coerced.append(item)
+        return coerced
 
 
 class StrategyAlignmentCheck(BaseModel):
@@ -219,6 +242,14 @@ class RegisterSolutionRequest(BaseModel):
     pre_approval_kpi_value: Optional[float] = None        # comparison-period KPI value for slope calc
     analysis_mode: str = "problem"                        # "problem" | "opportunity" — controls inaction trend direction
     plan_value_at_approval: Optional[float] = None        # Phase 11I-C: budget/plan baseline, if the KPI has one
+    # Phase 15 Stage F: the approved option's "bets on" assumptions (SolutionOption.
+    # key_assumptions from SF's synthesis, Stage B) — threaded into the
+    # StrategySnapshot VA measures against, whichever path builds it. Previously
+    # this data existed in the SF response and was silently discarded; VA's
+    # StrategySnapshot.key_assumptions was always an empty stub. Plain dicts
+    # (SolutionAssumption shape) or legacy strings both work — reconstructing the
+    # snapshot re-runs its existing legacy-coercion validator.
+    bets_on_assumptions: Optional[List[dict]] = None
 
 
 class RegisterSolutionResponse(BaseModel):

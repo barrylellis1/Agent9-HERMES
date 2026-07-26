@@ -27,6 +27,86 @@ from src.agents.models.data_product_onboarding_models import (
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Registry-data extraction helpers (fix for hardcoded PrincipalContext fields).
+#
+# get_principal_context()/get_principal_context_by_id() previously hardcoded
+# preferred_timeframes to the same two enum values for every principal, and
+# read decision_style/communication_style from key paths that don't exist on
+# the current PrincipalProfile registry model (persona_profile.*, flat
+# communication_style) — so both silently fell through to defaults
+# ("Analytical"/"Concise") for effectively every principal, regardless of
+# their real profile. Seed data (scripts/clients/*.py) uses two inconsistent
+# shapes for decision_style/communication_style — flat top-level keys AND
+# nested persona_profile.{decision_style,communication_style} — so both are
+# checked. time_frame is not seeded anywhere yet, but the registry model
+# default (PrincipalProfile.time_frame) is still read rather than overridden
+# by a Python literal, so real per-client values work the moment they exist.
+# ---------------------------------------------------------------------------
+
+def _extract_decision_style(profile_data: Dict[str, Any]) -> str:
+    """KNOWN GAP: PrincipalProfile (src/registry/models/principal.py) has no
+    decision_style field at all. PrincipalProfileProvider.get()/.get_all()
+    return validated PrincipalProfile instances, and Pydantic silently drops
+    unknown keys on load (no extra="allow") — so the flat/persona_profile
+    checks below will NEVER fire for data reached through the provider path,
+    regardless of what scripts/clients/*.py seeds. metadata (Dict[str,str])
+    is the one declared field that survives model_dump(), so it's checked as
+    the best-available real extension point. Until decision_style is either
+    a first-class registry field or consistently seeded into metadata, this
+    resolves to the "Analytical" default for effectively every principal —
+    a registry-schema gap, not something a runtime fix alone can close."""
+    if not isinstance(profile_data, dict):
+        return "Analytical"
+    flat = profile_data.get('decision_style')
+    if flat:
+        return flat
+    persona_profile = profile_data.get('persona_profile')
+    if isinstance(persona_profile, dict) and persona_profile.get('decision_style'):
+        return persona_profile['decision_style']
+    metadata = profile_data.get('metadata')
+    if isinstance(metadata, dict) and metadata.get('decision_style'):
+        return metadata['decision_style']
+    return "Analytical"
+
+
+def _extract_communication_style(profile_data: Dict[str, Any]) -> str:
+    if not isinstance(profile_data, dict):
+        return "Concise"
+    flat = profile_data.get('communication_style')
+    if flat:
+        return flat
+    persona_profile = profile_data.get('persona_profile')
+    if isinstance(persona_profile, dict) and persona_profile.get('communication_style'):
+        return persona_profile['communication_style']
+    # Formal PrincipalProfile field: communication.detail_level (nested)
+    comm = profile_data.get('communication')
+    if isinstance(comm, dict) and comm.get('detail_level'):
+        return comm['detail_level']
+    return "Concise"
+
+
+_PERIOD_TO_TIMEFRAME_ENUM = {
+    "ytd": "year_to_date",
+    "qtd": "quarter_to_date",
+    "mtd": "month_to_date",
+}
+
+
+def _extract_preferred_timeframes(profile_data: Dict[str, Any]) -> list:
+    """Returns a list of situation_awareness_models.TimeFrame enum members,
+    derived from the registry's PrincipalProfile.time_frame.default_period."""
+    from src.agents.models.situation_awareness_models import TimeFrame as _TF
+    if isinstance(profile_data, dict):
+        tf = profile_data.get('time_frame')
+        if isinstance(tf, dict):
+            period = str(tf.get('default_period', '')).lower()
+            mapped_value = _PERIOD_TO_TIMEFRAME_ENUM.get(period)
+            if mapped_value:
+                return [_TF(mapped_value)]
+    return [_TF.CURRENT_QUARTER, _TF.YEAR_TO_DATE]
+
+
 class A9_Principal_Context_Agent:
     """
     Principal Context Agent responsible for managing principal profiles and context.
@@ -618,9 +698,9 @@ class A9_Principal_Context_Agent:
                     client_id=profile.get('client_id', None),
                     business_processes=business_processes or [],
                     default_filters=profile.get('default_filters', {}) if hasattr(profile, 'get') else {},
-                    decision_style=profile.get('decision_style', "Analytical") if hasattr(profile, 'get') else "Analytical",
-                    communication_style=profile.get('communication_style', "Concise") if hasattr(profile, 'get') else "Concise",
-                    preferred_timeframes=[TimeFrame.CURRENT_QUARTER, TimeFrame.YEAR_TO_DATE]
+                    decision_style=_extract_decision_style(profile) if hasattr(profile, 'get') else "Analytical",
+                    communication_style=_extract_communication_style(profile) if hasattr(profile, 'get') else "Concise",
+                    preferred_timeframes=_extract_preferred_timeframes(profile) if hasattr(profile, 'get') else [TimeFrame.CURRENT_QUARTER, TimeFrame.YEAR_TO_DATE],
                 )
 
                 # Return as dictionary for JSON serialization
@@ -824,10 +904,9 @@ class A9_Principal_Context_Agent:
                     client_id=profile_data.get('client_id', None),
                     business_processes=string_business_processes,
                     default_filters=profile_data.get('default_filters', {}),
-                    decision_style=profile_data.get('persona_profile', {}).get('decision_style', "Analytical")
-                        if isinstance(profile_data.get('persona_profile'), dict) else "Analytical",
-                    communication_style=profile_data.get('communication_style', "Concise"),
-                    preferred_timeframes=[TimeFrame.CURRENT_QUARTER, TimeFrame.YEAR_TO_DATE]
+                    decision_style=_extract_decision_style(profile_data),
+                    communication_style=_extract_communication_style(profile_data),
+                    preferred_timeframes=_extract_preferred_timeframes(profile_data),
                 )
                 # Build and return a protocol-compliant response immediately
                 try:

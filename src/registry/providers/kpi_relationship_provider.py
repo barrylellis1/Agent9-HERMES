@@ -25,6 +25,13 @@ def _row_to_model(row: asyncpg.Record) -> KPIRelationship:
         relationship_type=row["relationship_type"],
         conflict_direction=row["conflict_direction"],
         description=row["description"],
+        # Phase 15 Stage D/E causal typing — must be mapped here or reads
+        # silently drop real DB values back to Pydantic field defaults.
+        mechanism=row["mechanism"],
+        lag_periods=row["lag_periods"],
+        causal_rung=row["causal_rung"],
+        provenance=row["provenance"],
+        confidence=row["confidence"],
     )
 
 
@@ -87,12 +94,18 @@ class KPIRelationshipProvider:
             row = await conn.fetchrow(
                 """
                 INSERT INTO kpi_relationships
-                    (kpi_id, related_kpi_id, client_id, relationship_type, conflict_direction, description)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                    (kpi_id, related_kpi_id, client_id, relationship_type, conflict_direction, description,
+                     mechanism, lag_periods, causal_rung, provenance, confidence)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                 ON CONFLICT (client_id, kpi_id, related_kpi_id) DO UPDATE SET
                     relationship_type = EXCLUDED.relationship_type,
                     conflict_direction = EXCLUDED.conflict_direction,
-                    description = EXCLUDED.description
+                    description = EXCLUDED.description,
+                    mechanism = EXCLUDED.mechanism,
+                    lag_periods = EXCLUDED.lag_periods,
+                    causal_rung = EXCLUDED.causal_rung,
+                    provenance = EXCLUDED.provenance,
+                    confidence = EXCLUDED.confidence
                 RETURNING *
                 """,
                 item.kpi_id,
@@ -101,6 +114,11 @@ class KPIRelationshipProvider:
                 item.relationship_type,
                 item.conflict_direction,
                 item.description,
+                item.mechanism,
+                item.lag_periods,
+                item.causal_rung,
+                item.provenance,
+                item.confidence,
             )
         logger.info(
             "Upserted KPI relationship '%s' ↔ '%s' for client '%s'",

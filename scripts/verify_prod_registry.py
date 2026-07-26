@@ -154,6 +154,7 @@ def _key_fields_for(table: str) -> List[str]:
 # ---------------------------------------------------------------------------
 
 # Must stay in sync with supabase/migrations/20260713_rls_client_isolation.sql
+# and 20260723_theory_layer_causal_schema.sql
 _RLS_TABLES = [
     "kpis",
     "principal_profiles",
@@ -167,6 +168,7 @@ _RLS_TABLES = [
     "briefing_runs",
     "assessment_runs",
     "business_contexts",
+    "assumptions",
 ]
 
 

@@ -23,6 +23,13 @@ from src.agents.models.solution_finder_models import (
     TradeOffMatrix,
     PerspectiveAnalysis,
     UnresolvedTension,
+    # Phase 15 Stage B — unified trust/output schema
+    SolutionAssumption,
+    DecisionAsk,
+    ImmediateAction,
+    ImpactEstimate,
+    RecoveryRange,
+    SFSynthesisSchema,
 )
 from src.agents.new.a9_llm_service_agent import (
     A9_LLM_AnalysisRequest,
@@ -367,6 +374,158 @@ def _safe01(v: Any) -> Optional[float]:
         return None
 
 
+def _parse_key_assumptions(raw: Any) -> List[SolutionAssumption]:
+    """Coerce a per-option key_assumptions list (Phase 15 Stage B) into
+    SolutionAssumption instances. Accepts dicts (preferred LLM output) or
+    plain strings (defensive fallback), matching StrategySnapshot's legacy
+    coercion so both paths tolerate the same degraded input."""
+    if not isinstance(raw, list):
+        return []
+    out: List[SolutionAssumption] = []
+    for item in raw:
+        try:
+            if isinstance(item, dict):
+                item.setdefault("validated_by", "human_confirmation")
+                out.append(SolutionAssumption(**item))
+            elif isinstance(item, str) and item.strip():
+                out.append(SolutionAssumption(assumption=item, validated_by="human_confirmation"))
+        except Exception:
+            continue
+    return out
+
+
+def _parse_impact_estimate(raw: Any) -> Optional[ImpactEstimate]:
+    """Coerce the impact_estimate dict into the typed model. Field shape is
+    unchanged from the existing prompt JSON — this only adds validation."""
+    if not isinstance(raw, dict):
+        return None
+    try:
+        rr = raw.get("recovery_range")
+        recovery_range = RecoveryRange(**rr) if isinstance(rr, dict) else None
+        return ImpactEstimate(
+            metric=raw.get("metric"),
+            unit=raw.get("unit"),
+            recovery_range=recovery_range,
+            basis=raw.get("basis"),
+        )
+    except Exception:
+        return None
+
+
+def _parse_decision_ask(raw: Any) -> Optional[DecisionAsk]:
+    if not isinstance(raw, dict):
+        return None
+    try:
+        return DecisionAsk(**raw)
+    except Exception as e:
+        logger.warning(f"[SF] decision_ask failed validation, dropping: {e}")
+        return None
+
+
+def _lookup_kpi_scoped(kpi_ref: Optional[str], client_id: Optional[str], logger_: logging.Logger) -> Optional[Any]:
+    """Resolve a KPI by id OR display name with strict tenant isolation.
+
+    Phase 15 Stage D needs a real kpi_id (not a display name) to query
+    kpi_relationships/assumptions. Reuses the exact tenant-safe pattern from
+    A9_Deep_Analysis_Agent._lookup_kpi_scoped (fix commit 5925de7,
+    2026-07-13): multiple tenants share KPI ids under the composite PK
+    (client_id, id) — e.g. gross_margin_pct exists for lubricants, apex_
+    lubricants, and hess. A same-id record from another tenant is NEVER an
+    acceptable fallback. Returns None on a scoped miss rather than silently
+    resolving cross-tenant.
+    """
+    if not kpi_ref:
+        return None
+    try:
+        from src.registry.factory import RegistryFactory
+        provider = RegistryFactory().get_provider("kpi")
+        if not provider:
+            return None
+        ref = kpi_ref.strip()
+        ref_lower = ref.lower()
+        candidates = [
+            k for k in provider.get_all()
+            if getattr(k, "id", None) == ref
+            or (getattr(k, "name", "") or "").lower().strip() == ref_lower
+        ]
+        if client_id:
+            scoped = [k for k in candidates if getattr(k, "client_id", None) == client_id]
+            if scoped:
+                return scoped[0]
+            if candidates:
+                logger_.error(
+                    f"[SF] KPI '{ref}' not found for client '{client_id}' — "
+                    f"{len(candidates)} same-id record(s) exist for other tenants; "
+                    f"refusing cross-tenant fallback"
+                )
+            return None
+        return candidates[0] if candidates else None
+    except Exception as e:
+        logger_.debug(f"[SF] _lookup_kpi_scoped('{kpi_ref}', client_id={client_id}) failed: {e}")
+        return None
+
+
+_PROVENANCE_CAVEAT = {
+    "template": "UNCONFIRMED industry prior — do not assert as fact; caveat explicitly or ignore",
+    "confirmed": "confirmed by the client — usable with attribution",
+    "hitl_proposed": "extracted from usage, not yet confirmed — treat cautiously",
+    "va_validated": "outcome-tested — describe as 'consistent with' evidence, NEVER 'proved'",
+}
+
+
+def _build_causal_context_section(relationships: List[Any], constraints: List[Any]) -> str:
+    """Format the causal chain + active constraints for the synthesis prompt,
+    with provenance-aware caveating baked into the text itself (Phase 15
+    Stage D). Returns "" when there's nothing to inject — an empty graph
+    must never fabricate content, per theory_layer_design.md design
+    principle 3 (no invented defaults)."""
+    if not relationships and not constraints:
+        return ""
+
+    lines: List[str] = []
+    if relationships:
+        lines.append("## CAUSAL CONTEXT (known relationships for this KPI)")
+        lines.append(
+            "Each relationship below is provenance-tagged. Respect the caveat for each one — "
+            "an unconfirmed prior is not a fact, and a validated relationship is evidence, not proof."
+        )
+        for r in relationships:
+            caveat = _PROVENANCE_CAVEAT.get(getattr(r, "provenance", "template"), "")
+            parts = [f"{r.kpi_id} <-> {r.related_kpi_id} ({r.relationship_type}, {r.conflict_direction})"]
+            if getattr(r, "mechanism", None):
+                parts.append(f"mechanism: {r.mechanism}")
+            if getattr(r, "lag_periods", None) is not None:
+                parts.append(f"lag: ~{r.lag_periods} months")
+            if getattr(r, "causal_rung", None):
+                parts.append(f"rung: {r.causal_rung}")
+            parts.append(f"provenance: {r.provenance} ({caveat})")
+            if getattr(r, "confidence", None):
+                parts.append(f"confidence: {r.confidence}")
+            lines.append("- " + " | ".join(parts))
+        lines.append("")
+
+    if constraints:
+        lines.append("## KNOWN CONSTRAINTS — do not propose options that violate these")
+        for c in constraints:
+            lines.append(f"- {c.text} (source: {c.source})")
+        lines.append("")
+
+    return "\n".join(lines) + "\n"
+
+
+def _parse_immediate_actions(raw: Any) -> List[ImmediateAction]:
+    if not isinstance(raw, list):
+        return []
+    out: List[ImmediateAction] = []
+    for item in raw:
+        if isinstance(item, dict):
+            try:
+                out.append(ImmediateAction(**item))
+            except Exception:
+                continue
+    return out
+
+
 class A9_Solution_Finder_Agent(SolutionFinderProtocol):
     """Solution Finder Agent MVP implementation (skeleton)."""
 
@@ -424,6 +583,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
             cross_review: Optional[Dict[str, Any]] = None
             stage_1_hypotheses_final: Dict[str, Any] = {}
             ma_response: Optional[Dict[str, Any]] = None
+            # Phase 15 Stage B
+            decision_ask: Optional[DecisionAsk] = None
+            immediate_actions_list: List[ImmediateAction] = []
 
             # FORCE LLM for debugging/MVP
             use_llm = True 
@@ -851,7 +1013,11 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "        }\n"
                         "      ],\n"
                         "      \"implementation_triggers\": [\"...\"],\n"
-                        "      \"prerequisites\": [\"...\"]\n"
+                        "      \"prerequisites\": [\"...\"],\n"
+                        "      \"key_assumptions\": [\n"
+                        "        {\"assumption\": \"<what this option bets on>\", \"validated_by\": \"sa_assessment|ma_query|human_confirmation\"}\n"
+                        "      ],\n"
+                        "      \"flagged_side_effects\": []\n"
                         "    },\n"
                         "    {\n"
                         "      \"id\": \"opt_2\",\n"
@@ -878,7 +1044,11 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "        }\n"
                         "      ],\n"
                         "      \"implementation_triggers\": [\"...\"],\n"
-                        "      \"prerequisites\": [\"...\"]\n"
+                        "      \"prerequisites\": [\"...\"],\n"
+                        "      \"key_assumptions\": [\n"
+                        "        {\"assumption\": \"<what this option bets on>\", \"validated_by\": \"sa_assessment|ma_query|human_confirmation\"}\n"
+                        "      ],\n"
+                        "      \"flagged_side_effects\": []\n"
                         "    },\n"
                         "    {\n"
                         "      \"id\": \"opt_3\",\n"
@@ -905,7 +1075,11 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "        }\n"
                         "      ],\n"
                         "      \"implementation_triggers\": [\"...\"],\n"
-                        "      \"prerequisites\": [\"...\"]\n"
+                        "      \"prerequisites\": [\"...\"],\n"
+                        "      \"key_assumptions\": [\n"
+                        "        {\"assumption\": \"<what this option bets on>\", \"validated_by\": \"sa_assessment|ma_query|human_confirmation\"}\n"
+                        "      ],\n"
+                        "      \"flagged_side_effects\": []\n"
                         "    }\n"
                         "  ],\n"
                         "  \"recommendation\": {\"id\": \"opt_1\", \"title\": \"...\"},\n"
@@ -926,6 +1100,15 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "    // Each step must be independently actionable with a named owner.\n"
                         "    \"<action verb> + <role> + <specific deliverable> + <by when>\",\n"
                         "    \"...\"\n"
+                        "  ],\n"
+                        "  \"decision_ask\": {\n"
+                        "    \"decision_text\": \"<the ONE decision the executive is being asked to make, <=25 words, no hedge words like 'consider' or 'might'>\",\n"
+                        "    \"decision_owner\": \"<role title, e.g. 'CFO'>\",\n"
+                        "    \"deadline\": \"<e.g. 'by end of Week 1'>\",\n"
+                        "    \"approval_type\": \"<e.g. 'budget approval', 'go/no-go'>\"\n"
+                        "  },\n"
+                        "  \"immediate_actions\": [\n"
+                        "    {\"action_text\": \"<specific first task>\", \"owner\": \"<role title>\", \"due_by_days\": <integer>, \"why_it_matters\": \"<one sentence>\"}\n"
                         "  ],\n"
                         "  \"cross_review\": {\n"
                         + "".join([
@@ -999,7 +1182,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         if refinement_result.get("external_context"):
                             ctx_items = refinement_result["external_context"][:3]
                             if ctx_items:
-                                dataset_recap_lines.append("PRINCIPAL CONTEXT: " + "; ".join(ctx_items))
+                                # Phase 15 Stage C label fix: this is the principal's own
+                                # statements captured during refinement chat, not their profile.
+                                dataset_recap_lines.append("PRINCIPAL-PROVIDED CONTEXT (from refinement): " + "; ".join(ctx_items))
                         if refinement_result.get("constraints"):
                             constraint_items = refinement_result["constraints"][:3]
                             if constraint_items:
@@ -1047,16 +1232,15 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         except Exception as e:
                             self.logger.warning(f"Failed to load business context from Supabase: {e}")
 
+                        # Phase 15 Stage C / strict tenancy (llm_prompt_redesign_da_sf.md §3.2):
+                        # a missing business-context record must produce an explicit
+                        # "no business context available" line, never invented generic
+                        # defaults presented as if they were this client's real context.
                         if not bc:
                             bc = {
-                                "business_terms": {
-                                    "profit_center": "Operational unit responsible for generating revenue and managing costs.",
-                                    "customer_type": "Segment classification (Enterprise, SMB, Gov)."
-                                },
-                                "supported_processes": [
-                                    "Finance: Profitability Analysis",
-                                    "Finance: Expense Management"
-                                ]
+                                "note": "No business context available for this client — "
+                                        "do not assume generic industry norms; ground recommendations "
+                                        "only in the KPI data and analysis signals provided."
                             }
 
                         try:
@@ -1069,21 +1253,88 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     # full context risks exhausting the LLM's output budget on summarisation.
                     full_da_context = _model_to_dict(trimmed_da)
 
-                    # Extract decision maker context for personalized recommendation framing
+                    # Extract decision maker context for personalized recommendation framing.
+                    # Phase 15 Stage C (llm_prompt_redesign_da_sf.md §3.2): the full principal
+                    # block, injected at BOTH Stage 1 and synthesis — not just synthesis as before.
+                    # time_frame wires PrincipalProfile.time_frame, previously "framed but not
+                    # wired" anywhere in the runtime (see project_principal_lens_weighting memory).
                     decision_maker = None
                     try:
                         pc = getattr(request, "principal_context", None)
                         if pc:
                             pc_dict = pc if isinstance(pc, dict) else _model_to_dict(pc)
                             if isinstance(pc_dict, dict):
+                                _tf = pc_dict.get("time_frame")
+                                _tf_dict = _tf if isinstance(_tf, dict) else _model_to_dict(_tf) if _tf else None
+                                # accountability_scope: no dedicated field exists on PrincipalProfile
+                                # today — business_processes/kpis are the real, existing proxy.
+                                # decision_authority has no source field at all; omitted rather than
+                                # fabricated (design principle: no invented defaults).
+                                _accountability = [
+                                    *(pc_dict.get("business_processes") or []),
+                                    *(pc_dict.get("kpis") or []),
+                                ]
                                 decision_maker = {k: v for k, v in {
                                     "name": pc_dict.get("name") or pc_dict.get("principal_name"),
-                                    "role": pc_dict.get("role"),
+                                    "role": pc_dict.get("role") or pc_dict.get("title"),
                                     "decision_style": pc_dict.get("decision_style"),
+                                    # PrincipalContext.communication_style — sourced from the registry's
+                                    # real communication.detail_level field (high/medium/low). Unlike role-
+                                    # title keyword matching, this is genuinely wired per-principal.
+                                    "communication_style": pc_dict.get("communication_style"),
                                     "priorities": pc_dict.get("current_focus") or pc_dict.get("priorities"),
+                                    "time_frame": (_tf_dict.get("default_period") if isinstance(_tf_dict, dict) else None),
+                                    "accountability_scope": _accountability[:5] or None,
+                                    "decision_authority": pc_dict.get("decision_authority"),
                                 }.items() if v}
                     except Exception:
                         decision_maker = None
+
+                    # Phase 15 Stage D (llm_prompt_redesign_da_sf.md / theory_layer_design.md
+                    # §5.2): grounding + constraint input contract. Default OFF
+                    # (enable_causal_grounding) — the READ path here is safe and non-fatal
+                    # (degrades to no context if the schema isn't migrated, tables are
+                    # empty, or client_id/kpi_id can't be resolved), but consuming this
+                    # content in real recommendations is still gated on tenant-isolation
+                    # tests + a pilot with real SF usage. Reuses A9_Deep_Analysis_Agent's
+                    # tenant-safe _lookup_kpi_scoped pattern (fix commit 5925de7) — a
+                    # same-id KPI from another tenant is never an acceptable fallback.
+                    #
+                    # Fetched HERE (before Stage 1 runs), not just before synthesis — a
+                    # persona forming a hypothesis with no knowledge of a known-impossible
+                    # constraint or an already-established causal mechanism produces a
+                    # hypothesis synthesis then has to silently override or contradict.
+                    # Constraints are worth preventing at the source, not patching after.
+                    _cg_relationships: List[Any] = []
+                    _cg_constraints: List[Any] = []
+                    if getattr(self.config, "enable_causal_grounding", False):
+                        try:
+                            _cg_client_id = (
+                                (da_summary.get("client_id") if da_summary else None)
+                                or getattr(request, "client_id", None)
+                            )
+                            _cg_kpi_ref = da_summary.get("kpi_name") if da_summary else None
+                            _cg_kpi = _lookup_kpi_scoped(_cg_kpi_ref, _cg_client_id, self.logger)
+                            if _cg_client_id and _cg_kpi is not None:
+                                _cg_kpi_id = getattr(_cg_kpi, "id", None)
+                                from src.registry.providers.kpi_relationship_provider import KPIRelationshipProvider
+                                from src.registry.providers.assumption_provider import AssumptionProvider
+
+                                _cg_relationships = await KPIRelationshipProvider().get_relationships_for_kpi(
+                                    _cg_kpi_id, _cg_client_id
+                                )
+                                _cg_constraints = await AssumptionProvider().get_active_constraints(
+                                    _cg_client_id, scope=_cg_kpi_id
+                                )
+                            elif _cg_client_id and _cg_kpi_ref:
+                                self.logger.info(
+                                    f"[SF] Causal grounding: KPI '{_cg_kpi_ref}' not resolvable for "
+                                    f"client '{_cg_client_id}' — proceeding without causal context"
+                                )
+                        except Exception as e:
+                            # Non-fatal by design: missing migration, empty tables, or a
+                            # cold registry pool must never break solution generation.
+                            self.logger.info(f"[SF] Causal grounding unavailable (non-fatal): {e}")
 
                     # Extract situation metadata for urgency calibration (severity, unit, threshold)
                     situation_metadata = None
@@ -1191,6 +1442,20 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             if refinement_result.get("external_context"):
                                 refinement_compact_s1["principal_context"] = refinement_result["external_context"][:3]
 
+                        # Phase 15 Stage D: accreted constraints (kpi_relationships/assumptions,
+                        # fetched above BEFORE Stage 1 runs) merge into the SAME field the LLM
+                        # is already instructed to respect ("Respect any do_not_propose items
+                        # and constraints from PRINCIPAL CONSTRAINTS" in the RULES below) —
+                        # reusing the existing mechanism rather than inventing a second one a
+                        # persona would have to separately learn to honor. Deliberately a
+                        # sibling of the refinement_result block above, not nested inside it —
+                        # accreted constraints are independent of whether refinement chat ran.
+                        if _cg_constraints:
+                            _cg_constraint_texts = [c.text for c in _cg_constraints][:5]
+                            refinement_compact_s1["constraints"] = (
+                                refinement_compact_s1.get("constraints", []) + _cg_constraint_texts
+                            )[:5]
+
                         # Use refined problem statement in Stage 1 if principal provided one
                         ps_s1 = ps
                         if refinement_result and refinement_result.get("refined_problem_statement"):
@@ -1229,6 +1494,33 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                         "## PRINCIPAL CONSTRAINTS\n"
                                         f"{_json_s1.dumps(refinement_compact_s1, indent=2)}\n\n"
                                     )
+                                # Phase 15 Stage C (llm_prompt_redesign_da_sf.md §3.2): principal
+                                # block injected at BOTH stages, paired with a consumption
+                                # instruction — data without direction is tokens wasted.
+                                decision_maker_section = ""
+                                if decision_maker:
+                                    _dm_role = decision_maker.get("role") or "the decision maker"
+                                    _dm_pri = decision_maker.get("priorities")
+                                    _dm_pri_str = ", ".join(_dm_pri) if isinstance(_dm_pri, list) else (_dm_pri or "not specified")
+                                    _dm_horizon = decision_maker.get("time_frame") or "not specified"
+                                    decision_maker_section = (
+                                        "## DECISION MAKER\n"
+                                        f"{_json_s1.dumps(decision_maker, indent=2)}\n"
+                                        f"You are advising the {_dm_role} directly. Weight your hypothesis and option "
+                                        f"toward their stated priorities ({_dm_pri_str}) and planning horizon ({_dm_horizon}). "
+                                        "Conviction should reflect what evidence would move *this* decision maker.\n\n"
+                                    )
+                                # Phase 15 Stage D: causal-chain grounding at Stage 1, not just
+                                # synthesis — a persona forming its hypothesis from scratch each
+                                # time, unaware of an already-established mechanism/lag for this
+                                # KPI, either re-derives what's already known or contradicts it.
+                                # Constraints are handled separately above (merged into
+                                # refinement_compact_s1["constraints"], the existing mechanism);
+                                # this is the mechanism/lag/provenance grounding only.
+                                causal_context_section_s1 = (
+                                    _build_causal_context_section(_cg_relationships, [])
+                                    if _cg_relationships else ""
+                                )
                                 if is_opportunity:
                                     _s1_task = (
                                         f"As {p.name}, apply your replication/scaling methodology to:\n"
@@ -1271,6 +1563,8 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                     f"{_json_s1.dumps(bc_compact_s1, indent=2)}\n\n"
                                     "## SITUATION METRICS\n"
                                     f"{_json_s1.dumps(situation_metadata or {}, indent=2)}\n\n"
+                                    f"{decision_maker_section}"
+                                    f"{causal_context_section_s1}"
                                     f"{principal_constraints_section}"
                                     "## YOUR TASK\n"
                                     f"{_s1_task}"
@@ -1335,6 +1629,90 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                 ))
                             self.logger.info(f"[SF] stage1_only: {len(options)} Stage 1 options captured, synthesis LLM skipped")
 
+                    # Phase 15 Stage E: critic pass (generate -> critique-against-theory ->
+                    # synthesize). Runs HERE — after Stage 1 completes (needs real proposals
+                    # to critique) and before synthesis (feeds findings in so synthesis can
+                    # address them at the source, not patch them after the fact — same
+                    # principle as the Stage D constraint-timing fix). Gated on BOTH
+                    # enable_critic_pass and enable_causal_grounding — a critic with no
+                    # causal graph has nothing to critique against. Skipped entirely in
+                    # stage1_only mode (_skip_synthesis_llm) since there's no synthesis call
+                    # to feed findings into.
+                    critic_findings: List[Dict[str, Any]] = []
+                    if (
+                        not _skip_synthesis_llm
+                        and getattr(self.config, "enable_critic_pass", False)
+                        and getattr(self.config, "enable_causal_grounding", False)
+                        and stage_1_hyps_dict
+                        and (_cg_relationships or _cg_constraints)
+                    ):
+                        try:
+                            _critic_causal_section = _build_causal_context_section(_cg_relationships, _cg_constraints)
+                            _critic_proposals = []
+                            for _pid, _hyp in stage_1_hyps_dict.items():
+                                _po = _hyp.get("proposed_option") or {}
+                                _critic_proposals.append({
+                                    "persona_id": _pid,
+                                    "title": _po.get("title") if isinstance(_po, dict) else None,
+                                    "mechanism": _po.get("mechanism") if isinstance(_po, dict) else None,
+                                    "recommended_focus": _hyp.get("recommended_focus"),
+                                })
+                            _critic_prompt = (
+                                "## ROLE\n"
+                                "You are a skeptical reviewer checking proposed interventions against a "
+                                "verified causal model of this business, before they reach an executive.\n\n"
+                                "## PROPOSED OPTIONS (from persona hypotheses)\n"
+                                f"{_json_s1.dumps(_critic_proposals, indent=2)}\n\n"
+                                f"{_critic_causal_section}"
+                                "## YOUR TASK\n"
+                                "For each proposed option, check ONLY against the causal context and "
+                                "constraints above:\n"
+                                "1. Does pursuing this option's mechanism plausibly affect another KPI shown "
+                                "in the causal chain, in a way that could work against a stated priority or "
+                                "create an unintended consequence?\n"
+                                "2. Does this option conflict with any KNOWN CONSTRAINT listed above?\n"
+                                "Flag a finding ONLY when it is grounded in the causal context or constraints "
+                                "provided above — do NOT invent generic risks with no basis in that data. If "
+                                "an option has no genuine concern, do not include it in your findings.\n\n"
+                                "## OUTPUT (JSON only, no markdown)\n"
+                                "{\"findings\": [{\"persona_id\": \"...\", \"concern\": \"<specific, grounded "
+                                "concern>\", \"affected_kpi\": \"<kpi id or null>\", \"severity\": "
+                                "\"low|moderate|high\"}]}"
+                            )
+                            _critic_req = A9_LLM_AnalysisRequest(
+                                request_id=f"{req_id}_critic",
+                                principal_id=getattr(request, "principal_id", None),
+                                content=_critic_prompt,
+                                analysis_type="custom",
+                                context="",
+                                # "Best model spent here" per the design intent — routes to the
+                                # same Sonnet 5 default as REASONING/SYNTHESIS (11O-C keeps Fable
+                                # deferred to the offline path, not this interactive one).
+                                model=get_claude_model_for_task(ClaudeTaskType.CRITIC),
+                                max_tokens=2000,
+                            )
+                            if self.orchestrator is not None:
+                                _critic_resp = await self.orchestrator.execute_agent_method(
+                                    "A9_LLM_Service_Agent", "analyze", {"request": _critic_req}
+                                )
+                            else:
+                                _critic_resp = await self.llm_service_agent.analyze(_critic_req)  # type: ignore
+                            if getattr(_critic_resp, "status", "error") == "success":
+                                _critic_analysis = getattr(_critic_resp, "analysis", None)
+                                if isinstance(_critic_analysis, dict):
+                                    critic_findings = [
+                                        f for f in (_critic_analysis.get("findings") or [])
+                                        if isinstance(f, dict) and f.get("concern")
+                                    ]
+                            if critic_findings:
+                                audit_log.append({"event": "critic_pass_findings", "count": len(critic_findings)})
+                                self.logger.info(f"[SF] Critic pass: {len(critic_findings)} grounded finding(s)")
+                        except Exception as e:
+                            # Non-fatal by design: a critic-call failure must never break
+                            # solution generation — same discipline as Stage D's causal fetch.
+                            self.logger.info(f"[SF] Critic pass unavailable (non-fatal): {e}")
+                            critic_findings = []
+
                     # ---- STAGE 2: Synthesis call ----
                     # Separate the data payload from the instructions
                     # The debate_spec contains critical constraints that must be in the prompt prefix
@@ -1390,14 +1768,88 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                 + "Zero is never an acceptable recovery_range value. A partial estimate is always better than 0.\n\n"
                             )
 
+                    # Phase 15 Stage C (llm_prompt_redesign_da_sf.md §3.2): decision_maker was
+                    # previously placed into data_payload with no instruction consuming it —
+                    # "data without direction is tokens wasted". This section is the paired
+                    # instruction (exact wording per the design doc) plus Phase 13 Cat 4
+                    # principal-adaptive framing. M1 (pre-mortem): role adaptation controls
+                    # entry point and depth only — the conclusion is identical for every role,
+                    # stated explicitly below rather than left implicit.
+                    decision_maker_synthesis_section = ""
+                    if decision_maker:
+                        _dm_role = decision_maker.get("role") or "the decision maker"
+                        # communication_style (registry: communication.detail_level) is the real,
+                        # per-principal signal for depth — not a role-title keyword guess (see
+                        # DEVELOPMENT_PLAN.md Phase 15 Stage C notes: the earlier "cfo"/"ceo"/...
+                        # substring match was a brittle, non-generalizing proxy for this).
+                        _dm_detail = str(decision_maker.get("communication_style") or "medium").lower()
+                        if _dm_detail == "low":
+                            _depth_instruction = "Lead with the decision, 5-8 bullets, business-risk language — this reader delegates diagnostic depth."
+                        elif _dm_detail == "high":
+                            _depth_instruction = "Include diagnostic depth and implementation-level detail — this reader executes, not just decides."
+                        else:
+                            _depth_instruction = "Balance decision-first framing with enough diagnostic detail to support follow-up questions."
+                        decision_maker_synthesis_section = (
+                            "## DECISION MAKER — CONSUMPTION INSTRUCTIONS\n"
+                            f"Rank options and frame `time_to_value` against {_dm_role}'s planning horizon "
+                            f"(decision_maker.time_frame). Lead `recommendation_rationale` with their top stated "
+                            f"priority (decision_maker.priorities). Flag any option exceeding their decision "
+                            f"authority as requiring escalation in that option's `prerequisites`.\n"
+                            f"Role-adaptive presentation for {_dm_role}: {_depth_instruction} "
+                            "This changes ENTRY POINT AND DEPTH ONLY — every principal must reach the identical "
+                            "recommendation and options from the same underlying facts; never let role adaptation "
+                            "change the conclusion.\n\n"
+                        )
+
+                    # Phase 15 Stage D: causal chain + constraints for synthesis. Uses the
+                    # SAME fetch already done above (before Stage 1 ran) — not re-queried
+                    # here. Synthesis needs its own explicit view because the legacy/
+                    # non-hybrid-council path generates directly with no Stage 1 at all.
+                    causal_context_section = _build_causal_context_section(_cg_relationships, _cg_constraints)
+
+                    # Phase 15 Stage E: feed critic findings into synthesis so they get
+                    # addressed at generation time, not bolted on afterward. Findings map
+                    # to the ORIGINATING persona, not yet to a final opt_N id (synthesis
+                    # assigns those) — so synthesis is instructed to match by mechanism/
+                    # persona and populate flagged_side_effects on the corresponding option.
+                    critic_findings_section = ""
+                    if critic_findings:
+                        _cf_lines = ["## CRITIC FINDINGS (theory-grounded review — address these, do not silently drop them)"]
+                        for _f in critic_findings:
+                            _cf_line = f"- From {_f.get('persona_id', 'a persona')}'s proposal: {_f.get('concern', '')}"
+                            if _f.get("affected_kpi"):
+                                _cf_line += f" (affects: {_f['affected_kpi']})"
+                            if _f.get("severity"):
+                                _cf_line += f" [severity: {_f['severity']}]"
+                            _cf_lines.append(_cf_line)
+                        _cf_lines.append(
+                            "For the final option expanded from a flagged persona's proposal, populate "
+                            "that option's 'flagged_side_effects' field with the concern (in the "
+                            "executive's language, not verbatim) and address it in the rationale or "
+                            "prerequisites. Do not silently drop a flagged concern.\n"
+                        )
+                        critic_findings_section = "\n".join(_cf_lines) + "\n\n"
+
                     # Build the full prompt with debate_spec as the instruction prefix
                     # This ensures the LLM sees the constraints BEFORE the data
                     full_prompt = (
                         f"{debate_spec}\n\n"
+                        f"{decision_maker_synthesis_section}"
+                        f"{causal_context_section}"
+                        f"{critic_findings_section}"
                         f"## INPUT DATA\n{data_json}\n\n"
                         f"{recovery_anchors_section}"
                         f"## YOUR RESPONSE (JSON ONLY):"
                     )
+
+                    # Phase 15 Stage A: forced tool-use structured output — opt-in only.
+                    # Default False until the live A/B compliance run (M2/M5) confirms
+                    # quality parity vs the current hand-tuned prompt (see
+                    # DEVELOPMENT_PLAN.md Phase 15, A9_Solution_Finder_Agent_Config).
+                    _structured_kwargs: Dict[str, Any] = {}
+                    if getattr(self.config, "use_structured_output", False):
+                        _structured_kwargs["response_schema"] = SFSynthesisSchema.model_json_schema()
+                        _structured_kwargs["tool_name"] = "emit_sf_synthesis"
 
                     analysis_req = A9_LLM_AnalysisRequest(
                         request_id=req_id,
@@ -1411,8 +1863,14 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         context="",  # Empty context since debate_spec is now in content
                         # Full-power model for synthesis/cross-review (overridable via CLAUDE_MODEL_SYNTHESIS)
                         model=get_claude_model_for_task(ClaudeTaskType.SYNTHESIS),
-                        # Synthesis JSON for complex datasets can exceed 10000 tokens — use full budget
-                        max_tokens=16384,
+                        # Synthesis JSON for complex datasets can exceed 10000 tokens — use full budget.
+                        # Bumped from 16384 (Phase 11O's "thin headroom" watch item, DEVELOPMENT_PLAN.md
+                        # line ~1358) after a live Phase 15 Stage D/E test reproduced the predicted
+                        # truncation: causal-grounding + critic-pass content pushed synthesis past
+                        # 16384 output tokens, producing a parsed dict with no "options" key and
+                        # silently falling back to the hardcoded heuristic stub.
+                        max_tokens=20000,
+                        **_structured_kwargs,
                     )
 
                     # Record the analysis request components in audit for UI/debug
@@ -1461,7 +1919,8 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     })
 
                     parsed = getattr(llm_resp, "analysis", None) if llm_ok else None
-                    self.logger.info(f"[SF] LLM response status: {getattr(llm_resp, 'status', 'unknown')}, parsed type: {type(parsed)}, has options: {isinstance(parsed, dict) and bool(parsed.get('options'))}")
+                    _has_options = isinstance(parsed, dict) and bool(parsed.get('options'))
+                    self.logger.info(f"[SF] LLM response status: {getattr(llm_resp, 'status', 'unknown')}, parsed type: {type(parsed)}, has options: {_has_options}")
                     if not llm_ok:
                         self.logger.error(f"[SF] LLM call failed: {getattr(llm_resp, 'error', 'unknown error')}")
                     # Fallback if non-JSON returned
@@ -1492,11 +1951,21 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                         perspectives=pers_list,
                                         implementation_triggers=o.get("implementation_triggers", []),
                                         prerequisites=o.get("prerequisites", []),
-                                        impact_estimate=o.get("impact_estimate"),
+                                        impact_estimate=_parse_impact_estimate(o.get("impact_estimate")),
+                                        # Phase 15 Stage B: per-option "bets on" assumptions
+                                        key_assumptions=_parse_key_assumptions(o.get("key_assumptions")),
+                                        # Phase 15 Stage E: critic-pass side effects, if any
+                                        flagged_side_effects=[
+                                            str(s) for s in (o.get("flagged_side_effects") or []) if s
+                                        ],
                                     )
                                 )
                             except Exception:
                                 continue
+
+                        # Phase 15 Stage B: top-level decision ask + immediate actions
+                        decision_ask = _parse_decision_ask(parsed.get("decision_ask"))
+                        immediate_actions_list = _parse_immediate_actions(parsed.get("immediate_actions"))
 
                         # Extract other top-level fields
                         problem_reframe = parsed.get("problem_reframe")
@@ -1547,8 +2016,11 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     ma_response = None
 
                 except Exception as le:
-                    # LLM path failed; fall back to heuristic
-                    self.logger.info(f"LLM debate path failed, falling back to heuristic: {le}")
+                    # LLM path failed; fall back to heuristic. Full traceback (not just
+                    # str(le)) — this fallback previously gave no way to distinguish a
+                    # transient LLM/parse hiccup from a real code defect after the fact.
+                    import traceback as _tb_debug
+                    self.logger.info(f"LLM debate path failed, falling back to heuristic: {le}\n{_tb_debug.format_exc()}")
                     audit_log.append({"event": "llm_debate_error", "error": str(le)})
 
             # Heuristic fallback or augmentation if LLM didn't yield options
@@ -1668,6 +2140,9 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                 framing_context=framing_context_payload,
                 # Market Intelligence enrichment (None when MA agent unavailable or skipped)
                 market_intelligence=ma_response,
+                # Phase 15 Stage B
+                decision_ask=decision_ask,
+                immediate_actions=immediate_actions_list,
             )
         except Exception as e:
             return SolutionFinderResponse.error(request_id=req_id, error_message=str(e))

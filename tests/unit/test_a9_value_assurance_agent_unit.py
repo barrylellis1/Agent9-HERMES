@@ -304,6 +304,72 @@ async def test_register_solution_persists_client_id(agent, register_request):
     assert persisted.client_id == "hess"
 
 
+@pytest.mark.asyncio
+async def test_register_solution_threads_bets_on_assumptions_into_snapshot(agent, register_request):
+    """Phase 15 Stage F: the approved option's key_assumptions (SF Stage B's
+    'bets on' list) must reach StrategySnapshot.key_assumptions, not be
+    silently discarded — this was previously always an empty stub regardless
+    of what the caller passed, because nothing threaded real data into it."""
+    register_request.bets_on_assumptions = [
+        {"assumption": "Supplier will renegotiate within 30 days", "validated_by": "human_confirmation"},
+        {"assumption": "Base oil price holds under $85", "validated_by": "ma_query", "confidence": "moderate"},
+    ]
+    resp = await agent.register_solution(register_request)
+    stored = agent._solutions_store[resp.solution_id]
+
+    assert len(stored.strategy_snapshot.key_assumptions) == 2
+    assert stored.strategy_snapshot.key_assumptions[0].assumption == "Supplier will renegotiate within 30 days"
+    assert stored.strategy_snapshot.key_assumptions[0].validated_by == "human_confirmation"
+    assert stored.strategy_snapshot.key_assumptions[1].validated_by == "ma_query"
+    assert stored.strategy_snapshot.key_assumptions[1].confidence == "moderate"
+
+
+@pytest.mark.asyncio
+async def test_register_solution_tolerates_legacy_string_bets_on_assumptions(agent, register_request):
+    """Reconstructing the snapshot re-runs StrategySnapshot's existing
+    legacy-string coercion validator -- plain strings must still work, same
+    as old Supabase rows already tolerate."""
+    register_request.bets_on_assumptions = ["Plain string bet with no structure"]
+    resp = await agent.register_solution(register_request)
+    stored = agent._solutions_store[resp.solution_id]
+
+    assert len(stored.strategy_snapshot.key_assumptions) == 1
+    assert stored.strategy_snapshot.key_assumptions[0].assumption == "Plain string bet with no structure"
+    assert stored.strategy_snapshot.key_assumptions[0].validated_by == "human_confirmation"
+
+
+@pytest.mark.asyncio
+async def test_register_solution_without_bets_on_assumptions_unaffected(agent, register_request):
+    """No regression: when bets_on_assumptions is absent (the field's
+    default), whatever key_assumptions the supplied strategy_snapshot already
+    carried (the fixture's legacy string, here) passes through unchanged —
+    this override must be additive, never destructive by default."""
+    assert register_request.bets_on_assumptions is None
+    original_assumptions = list(register_request.strategy_snapshot.key_assumptions)
+    resp = await agent.register_solution(register_request)
+    stored = agent._solutions_store[resp.solution_id]
+    assert [a.assumption for a in stored.strategy_snapshot.key_assumptions] == [
+        a.assumption for a in original_assumptions
+    ]
+
+
+@pytest.mark.asyncio
+async def test_register_solution_threads_bets_on_assumptions_even_with_fallback_snapshot(agent, register_request):
+    """The threading must work regardless of whether the snapshot came from
+    the caller or the agent's own fallback builder (_build_strategy_snapshot)
+    -- both previously left key_assumptions empty with nothing overriding it."""
+    register_request.strategy_snapshot = None  # forces the fallback builder path
+    register_request.bets_on_assumptions = [
+        {"assumption": "Fallback path bet", "validated_by": "sa_assessment"},
+    ]
+    resp = await agent.register_solution(register_request)
+    stored = agent._solutions_store[resp.solution_id]
+
+    assert stored.strategy_snapshot is not None
+    assert len(stored.strategy_snapshot.key_assumptions) == 1
+    assert stored.strategy_snapshot.key_assumptions[0].assumption == "Fallback path bet"
+
+
 # ---------------------------------------------------------------------------
 # Test: Entrypoint 2 — evaluate_solution_impact (DiD Attribution)
 # ---------------------------------------------------------------------------

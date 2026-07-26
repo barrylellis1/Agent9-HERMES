@@ -816,6 +816,12 @@ async def _record_solution_action(
 
             from src.agents.models.value_assurance_models import RegisterSolutionRequest
 
+            # Phase 15 Stage F: the approved option's "bets on" assumptions (SF
+            # Stage B's per-option key_assumptions) — was sitting unused in
+            # `matched` the whole time; VA's StrategySnapshot.key_assumptions
+            # was always an empty stub with nothing threading real data into it.
+            bets_on_assumptions = matched.get("key_assumptions") or None
+
             va_req = RegisterSolutionRequest(
                 request_id=str(uuid.uuid4()),
                 principal_id=wf_payload.get("principal_id", ""),
@@ -830,6 +836,7 @@ async def _record_solution_action(
                 ma_market_signals=ma_signals,
                 plan_value_at_approval=plan_value_at_approval,
                 client_id=wf_payload.get("client_id"),
+                bets_on_assumptions=bets_on_assumptions,
             )
 
             va_resp = await orchestrator.execute_agent_method(

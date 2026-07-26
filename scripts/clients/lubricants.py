@@ -463,6 +463,19 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "conflict_direction": "diverging",
         "description": "Revenue growing slower than COGS indicates eroding unit economics",
     },
+    {
+        "kpi_id": "gross_margin_pct",
+        "related_kpi_id": "cogs",
+        "client_id": CLIENT_ID,
+        "relationship_type": "custom",
+        "conflict_direction": "diverging",
+        "description": "COGS increases compress gross margin when revenue is flat",
+        "mechanism": "Base oil (largest COGS input) price volatility passes through to COGS with a lag; margin absorbs the difference before pricing catches up",
+        "lag_periods": 1,
+        "causal_rung": "correlational",
+        "provenance": "confirmed",
+        "confidence": "high",
+    },
 ]
 
 

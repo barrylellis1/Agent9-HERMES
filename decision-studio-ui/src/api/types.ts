@@ -137,13 +137,53 @@ export interface Perspective {
   arguments_against: string[];
 }
 
+// Phase 15 Stage B — unified trust/output schema. Mirrors
+// src/agents/models/solution_finder_models.py; SolutionAssumption is the
+// single typed object shared by Phase 11J P1 (validity monitoring) and
+// Phase 15 (per-option "bets on" list) — do not add a second assumption type.
+export interface SolutionAssumption {
+  assumption: string;
+  validated_by: 'sa_assessment' | 'ma_query' | 'human_confirmation';
+  validated_at?: string | null;
+  revalidation_days?: number | null;
+  grounded?: boolean;
+  confidence?: 'high' | 'moderate' | 'low' | null;
+  provenance?: string | null;
+}
+
+export interface DecisionAsk {
+  decision_text: string;
+  decision_owner?: string | null;
+  deadline?: string | null;
+  approval_type?: string | null;
+}
+
+export interface ImmediateAction {
+  action_text: string;
+  owner?: string | null;
+  due_by_days?: number | null;
+  why_it_matters?: string | null;
+}
+
+export interface RecoveryRange {
+  low?: number | null;
+  high?: number | null;
+}
+
+export interface ImpactEstimate {
+  metric?: string | null;
+  unit?: string | null;
+  recovery_range?: RecoveryRange | null;
+  basis?: string | null;
+}
+
 export interface SolutionOption {
   id: string;
   title: string;
   description: string;
   rationale?: string;
   cost: number;
-  impact: number; // expected_impact in backend
+  impact: number; // expected_impact in backend — 0-1 ranking score, distinct from impact_estimate below
   risk: number;
   time_to_value: string;
   reversibility: 'low' | 'medium' | 'high';
@@ -151,6 +191,9 @@ export interface SolutionOption {
   prerequisites: string[];
   implementation_triggers: string[];
   expected_impact?: number; // Alias for impact
+  impact_estimate?: ImpactEstimate; // business-unit ($/pp) recovery range — was untyped, now matches backend
+  key_assumptions?: SolutionAssumption[]; // Phase 15 Stage B: what this option bets on
+  flagged_side_effects?: string[]; // Phase 15 Stage E: critic-pass findings, grounded in the causal graph — not yet rendered (Stage G Risk block)
 }
 
 export interface Recommendation {
@@ -205,6 +248,10 @@ export interface SolutionResponse {
     conviction?: string;
   }>;
   cross_review?: CrossReview;
+  // Phase 15 / Phase 13 Cat 2 — not yet rendered (Stage G, gated behind schema
+  // compliance testing); typed here so API responses round-trip cleanly.
+  decision_ask?: DecisionAsk;
+  immediate_actions?: ImmediateAction[];
 }
 
 export interface Principal {
