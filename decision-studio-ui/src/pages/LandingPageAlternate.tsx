@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, FormEvent } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import {
@@ -11,7 +11,6 @@ import {
 } from '../components/animations/AgentAnimations'
 import {
   ArrowRight,
-  CheckCircle2,
   ChevronRight,
   Eye,
   Globe,
@@ -131,13 +130,7 @@ export function LandingPageAlternate() {
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] })
   const gradientY = useTransform(scrollYProgress, [0, 1], ['0%', '40%'])
 
-  // Conversation form
-  const [form, setForm] = useState({ name: '', company: '', email: '', message: '' })
-  const [submitted, setSubmitted] = useState(false)
   const [showCouncilVideo, setShowCouncilVideo] = useState(false)
-  const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm((p) => ({ ...p, [e.target.name]: e.target.value }))
-  const onSubmit = (e: FormEvent) => { e.preventDefault(); setSubmitted(true) }
 
   const font = { fontFamily: 'Satoshi, sans-serif' }
 
@@ -173,12 +166,6 @@ export function LandingPageAlternate() {
             >
               Data Onboarding
             </Link>
-            <button
-              onClick={() => scrollTo('conversation')}
-              className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
-            >
-              Request a Conversation
-            </button>
           </div>
         </div>
       </nav>
@@ -239,14 +226,8 @@ export function LandingPageAlternate() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
             <button
-              onClick={() => scrollTo('conversation')}
-              className="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors text-sm"
-            >
-              Request a Conversation
-            </button>
-            <button
               onClick={() => scrollTo('walkthrough')}
-              className="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-semibold transition-colors text-sm border border-slate-700/60 flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors text-sm flex items-center justify-center gap-2"
             >
               See It In Action <ArrowRight className="w-4 h-4" />
             </button>
@@ -723,84 +704,7 @@ export function LandingPageAlternate() {
       </section>
 
       {/* ═══════════════════════════════════════════
-          5. BUILT BY — Enterprise Pedigree section
-      ═══════════════════════════════════════════ */}
-      {/* Pilot shape */}
-      <section className="py-24 px-6 border-b border-slate-800/40">
-        <div className="max-w-5xl mx-auto">
-          <motion.div
-            variants={stagger}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-60px' }}
-          >
-            <motion.div variants={fadeUp} className="mb-12 max-w-3xl">
-              <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-4">
-                Pilot shape
-              </p>
-              <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-                Start with one decision loop.
-              </h2>
-              <p className="text-slate-300 leading-relaxed">
-                The first engagement should be deliberately narrow: prove the workflow on a
-                small set of executive KPIs before expanding scope.
-              </p>
-            </motion.div>
-
-            <motion.div variants={fadeUp} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {[
-                ['3-5 KPIs', 'Priority metrics tied to one executive sponsor.'],
-                ['1 data source', 'A governed view, table, or scoped extract.'],
-                ['90 days', 'Enough time to diagnose, approve, and begin measuring.'],
-                ['1 proof artifact', 'A clear outcome-tracking brief for leadership.'],
-              ].map(([title, body]) => (
-                <div key={title} className="rounded-xl border border-slate-800/60 bg-slate-900/50 p-5">
-                  <p className="text-white font-semibold mb-2">{title}</p>
-                  <p className="text-sm text-slate-400 leading-relaxed">{body}</p>
-                </div>
-              ))}
-            </motion.div>
-          </motion.div>
-        </div>
-      </section>
-
-      <section className="py-24 px-6 border-b border-slate-800/40">
-        <motion.div
-          className="max-w-4xl mx-auto text-center"
-          variants={stagger}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
-          <motion.p variants={fadeUp} className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-6">
-            Enterprise Pedigree
-          </motion.p>
-          <motion.h2 variants={fadeUp} className="text-2xl sm:text-3xl font-bold text-white mb-6 leading-snug">
-            Architected for scale. Informed by the Fortune 500.
-          </motion.h2>
-          <motion.p variants={fadeUp} className="text-slate-300 leading-relaxed mb-10 max-w-2xl mx-auto text-lg">
-            Decision Studio's intelligence engine is informed by 30+ years of enterprise engagements 
-            designing data platforms, ERP implementations, and decision support systems for the world's most complex organizations.
-          </motion.p>
-          <motion.div variants={fadeUp} className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-sm font-semibold tracking-wide text-slate-500">
-            {[
-              'EXXONMOBIL', 'SHELL', 'VALVOLINE', 'HESS',
-              'BCG', 'PWC',
-              'ROCHE', 'MCKESSON', 'TELEFLEX',
-              'WHIRLPOOL', 'PANASONIC', 'COMMERCIAL METALS',
-              'PILGRIM\'S PRIDE', 'CADENCE',
-            ].map((name) => (
-              <span key={name} className="whitespace-nowrap">{name}</span>
-            ))}
-          </motion.div>
-          <motion.p variants={fadeUp} className="text-slate-600 text-xs mt-8 font-medium uppercase tracking-wider">
-            Past client engagements informing platform architecture
-          </motion.p>
-        </motion.div>
-      </section>
-
-      {/* ═══════════════════════════════════════════
-          6. REQUEST A CONVERSATION
+          5. REQUEST A CONVERSATION
       ═══════════════════════════════════════════ */}
       <section id="conversation" className="py-28 px-6">
         <div className="max-w-2xl mx-auto">
@@ -808,11 +712,12 @@ export function LandingPageAlternate() {
 
             <motion.div variants={fadeUp} className="text-center mb-12">
               <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-                Let's have a conversation
+                Request Founder Background or Share Framing Feedback
               </h2>
               <p className="text-slate-400 max-w-lg mx-auto mb-6">
-                Not a sales call. A real conversation about the decisions your team is
-                making and whether this approach could help.
+                This is a pre-commercial project, not a solicitation. If you'd like
+                founder background, or want to share feedback on the framing, reach
+                out by email.
               </p>
               <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
                 <Shield className="w-3.5 h-3.5 text-slate-600" />
@@ -820,79 +725,16 @@ export function LandingPageAlternate() {
               </div>
             </motion.div>
 
-            <motion.div variants={fadeUp} className="rounded-2xl bg-slate-900/80 border border-slate-800/60 p-8">
-              {submitted ? (
-                <div className="text-center py-10">
-                  <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto mb-4" />
-                  <h3 className="text-white font-semibold text-xl mb-2">Thank you.</h3>
-                  <p className="text-slate-400 text-sm">
-                    I'll reach out within a day or two to find a time that works.
-                  </p>
-                </div>
-              ) : (
-                <form onSubmit={onSubmit} className="space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <div>
-                      <label htmlFor="name" className="block text-xs font-medium text-slate-400 mb-1.5">
-                        Name <span className="text-indigo-400">*</span>
-                      </label>
-                      <input
-                        id="name" name="name" type="text" required
-                        value={form.name} onChange={onChange}
-                        placeholder="Jane Smith"
-                        className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="email" className="block text-xs font-medium text-slate-400 mb-1.5">
-                        Email <span className="text-indigo-400">*</span>
-                      </label>
-                      <input
-                        id="email" name="email" type="email" required
-                        value={form.email} onChange={onChange}
-                        placeholder="jane@company.com"
-                        className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label htmlFor="company" className="block text-xs font-medium text-slate-400 mb-1.5">
-                      Company <span className="text-indigo-400">*</span>
-                    </label>
-                    <input
-                      id="company" name="company" type="text" required
-                      value={form.company} onChange={onChange}
-                      placeholder="Acme Corp"
-                      className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="message" className="block text-xs font-medium text-slate-400 mb-1.5">
-                      What decisions are keeping you up at night?{' '}
-                      <span className="text-slate-600">(optional)</span>
-                    </label>
-                    <textarea
-                      id="message" name="message" rows={3}
-                      value={form.message} onChange={onChange}
-                      placeholder="e.g. We have 20+ KPIs in Snowflake views but nobody's watching them proactively..."
-                      className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition resize-none"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full py-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors"
-                  >
-                    Request a Conversation
-                  </button>
-
-                  <p className="text-center text-slate-500 text-xs pt-1">
-                    No sales pitch. Just a conversation about whether this fits.
-                  </p>
-                </form>
-              )}
+            <motion.div variants={fadeUp} className="rounded-2xl bg-slate-900/80 border border-slate-800/60 p-8 text-center">
+              <a
+                href="mailto:info@trydecisionstudio.com"
+                className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors"
+              >
+                info@trydecisionstudio.com
+              </a>
+              <p className="mt-4 text-slate-500 text-xs">
+                No sales pitch. Just a conversation about whether this fits.
+              </p>
             </motion.div>
 
           </motion.div>
@@ -903,27 +745,33 @@ export function LandingPageAlternate() {
           6. FOOTER
       ═══════════════════════════════════════════ */}
       <footer className="border-t border-slate-800/40 py-10 px-6">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
-          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
-            <span className="font-bold text-white" style={font}>Decision Studio</span>
-            <a href="mailto:info@trydecisionstudio.com" className="hover:text-slate-300 transition-colors">
-              info@trydecisionstudio.com
-            </a>
-            <span>&copy; 2026 Decision Studio</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <Link to="/how-it-works" className="text-slate-400 hover:text-white transition-colors">
-              How It Works
-            </Link>
-            <Link to="/insights/bi-modernization" className="text-slate-400 hover:text-white transition-colors">
-              Insights
-            </Link>
-            <Link to="/data-onboarding" className="text-slate-400 hover:text-white transition-colors">
-              Data Onboarding
-            </Link>
-            <Link to="/login" className="text-slate-400 hover:text-white transition-colors flex items-center gap-1">
-              Sign In <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
+        <div className="max-w-6xl mx-auto">
+          <p className="text-center text-xs text-slate-600 mb-6">
+            This project is currently in development and seeking input from Decision
+            Intelligence practitioners and consumers for awe and wonder.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
+            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
+              <span className="font-bold text-white" style={font}>Decision Studio</span>
+              <a href="mailto:info@trydecisionstudio.com" className="hover:text-slate-300 transition-colors">
+                info@trydecisionstudio.com
+              </a>
+              <span>&copy; 2026 Decision Studio</span>
+            </div>
+            <div className="flex items-center gap-6">
+              <Link to="/how-it-works" className="text-slate-400 hover:text-white transition-colors">
+                How It Works
+              </Link>
+              <Link to="/insights/bi-modernization" className="text-slate-400 hover:text-white transition-colors">
+                Insights
+              </Link>
+              <Link to="/data-onboarding" className="text-slate-400 hover:text-white transition-colors">
+                Data Onboarding
+              </Link>
+              <Link to="/login" className="text-slate-400 hover:text-white transition-colors flex items-center gap-1">
+                Sign In <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
           </div>
         </div>
       </footer>

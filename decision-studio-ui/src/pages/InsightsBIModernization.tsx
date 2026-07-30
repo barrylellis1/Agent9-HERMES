@@ -9,7 +9,6 @@ import {
   BarChart2,
   Clock,
   BellOff,
-  CheckCircle2,
   TrendingUp,
 } from 'lucide-react'
 import { usePageMeta } from '../utils/pageMeta'
@@ -146,12 +145,6 @@ export function InsightsBIModernization() {
               className="text-sm text-slate-400 hover:text-white transition-colors hidden sm:block"
             >
               Sign In
-            </Link>
-            <Link
-              to="/#conversation"
-              className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
-            >
-              Request a Conversation
             </Link>
           </div>
         </div>
@@ -618,73 +611,35 @@ export function InsightsBIModernization() {
       </section>
 
       {/* ═══════════════════════════════════════════
-          7. CTA — READY TO TALK ABOUT IT?
-      ═══════════════════════════════════════════ */}
-      <section className="py-28 px-6">
-        <div className="max-w-4xl mx-auto">
-          <motion.div
-            className="rounded-2xl bg-slate-900/60 border border-slate-800/60 px-10 py-14 text-center"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-          >
-            <div className="flex justify-center mb-6">
-              <div className="w-12 h-12 rounded-full bg-indigo-600/15 border border-indigo-500/25 flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-indigo-400" />
-              </div>
-            </div>
-
-            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
-              Ready to talk about it?
-            </h2>
-
-            <p className="text-slate-400 max-w-lg mx-auto mb-8 leading-relaxed">
-              Not a sales call. A real conversation about the decisions your team is making,
-              the gaps you're feeling, and whether this approach could help — whether or not
-              you're ready to act on it.
-            </p>
-
-            <Link
-              to="/#conversation"
-              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors"
-            >
-              Request a Conversation
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-
-            <p className="mt-5 text-xs text-slate-600">
-              No pitch. No obligation. We've seen this problem many times — sometimes that's
-              enough to make the conversation worthwhile.
-            </p>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════
           FOOTER
       ═══════════════════════════════════════════ */}
-      <footer className="border-t border-slate-800/40 py-10 px-6">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500" style={font}>
-          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
-            <Link to="/" className="font-bold text-white hover:text-slate-200 transition-colors" style={font}>
-              Decision Studio
-            </Link>
-            <a href="mailto:info@trydecisionstudio.com" className="hover:text-slate-300 transition-colors">
-              info@trydecisionstudio.com
-            </a>
-            <span>&copy; 2026 Decision Studio</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <Link to="/how-it-works" className="text-slate-400 hover:text-white transition-colors">
-              How It Works
-            </Link>
-            <Link to="/data-onboarding" className="text-slate-400 hover:text-white transition-colors">
-              Data Onboarding
-            </Link>
-            <Link to="/login" className="text-slate-400 hover:text-white transition-colors flex items-center gap-1">
-              Sign In <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
+      <footer className="border-t border-slate-800/40 py-10 px-6" style={font}>
+        <div className="max-w-6xl mx-auto">
+          <p className="text-center text-xs text-slate-600 mb-6">
+            This project is currently in development and seeking input from Decision
+            Intelligence practitioners and consumers for awe and wonder.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
+            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
+              <Link to="/" className="font-bold text-white hover:text-slate-200 transition-colors" style={font}>
+                Decision Studio
+              </Link>
+              <a href="mailto:info@trydecisionstudio.com" className="hover:text-slate-300 transition-colors">
+                info@trydecisionstudio.com
+              </a>
+              <span>&copy; 2026 Decision Studio</span>
+            </div>
+            <div className="flex items-center gap-6">
+              <Link to="/how-it-works" className="text-slate-400 hover:text-white transition-colors">
+                How It Works
+              </Link>
+              <Link to="/data-onboarding" className="text-slate-400 hover:text-white transition-colors">
+                Data Onboarding
+              </Link>
+              <Link to="/login" className="text-slate-400 hover:text-white transition-colors flex items-center gap-1">
+                Sign In <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
           </div>
         </div>
       </footer>

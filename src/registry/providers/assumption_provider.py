@@ -143,3 +143,19 @@ class AssumptionProvider:
             item.record_type, item.scope, item.client_id,
         )
         return _row_to_model(row)
+
+    async def delete(self, id: str, client_id: str) -> bool:
+        """Delete an assumption/constraint/explanation record by id.
+
+        Returns True if a row was deleted.
+        """
+        async with self._pool().acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM assumptions WHERE id = $1 AND client_id = $2",
+                id,
+                client_id,
+            )
+        deleted = result != "DELETE 0"
+        if deleted:
+            logger.info("Deleted assumption %s for client '%s'", id, client_id)
+        return deleted

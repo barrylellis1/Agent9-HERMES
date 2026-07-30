@@ -1,6 +1,6 @@
 import { type ComponentType, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams, useParams, useLocation } from 'react-router-dom'
-import { BookOpen, Box, Briefcase, Code2, Database, KeyRound, Loader2, Save, Trash2, Plus, X } from 'lucide-react'
+import { BookOpen, Box, Briefcase, Code2, Database, GitBranch, KeyRound, Loader2, Save, ShieldCheck, Trash2, Plus, X } from 'lucide-react'
 import { SettingsLayout } from '../components/SettingsLayout'
 import { AccountabilityInterviewPanel } from '../components/AccountabilityInterviewPanel'
 import { ConnectionHealthPanel } from '../components/ConnectionHealthPanel'
@@ -23,9 +23,11 @@ import {
   createDataProduct, replaceDataProduct, deleteDataProduct,
   createBusinessProcess, replaceBusinessProcess, deleteBusinessProcess,
   listAccountabilities,
+  listKpiRelationships, upsertKpiRelationship, deleteKpiRelationship,
+  listAssumptions, upsertAssumption, deleteAssumption,
 } from '../api/client'
 
-type RegistryKey = 'glossary' | 'data-products' | 'kpis' | 'business-processes' | 'principals'
+type RegistryKey = 'glossary' | 'data-products' | 'kpis' | 'business-processes' | 'principals' | 'kpi-relationships' | 'assumptions'
 
 type RegistryDescriptor = {
   key: RegistryKey
@@ -78,6 +80,20 @@ const REGISTRIES: RegistryDescriptor[] = [
     colorClass: 'text-purple-400 bg-purple-500/10',
     editable: true,
   },
+  {
+    key: 'kpi-relationships',
+    label: 'KPI Relationships',
+    icon: GitBranch,
+    colorClass: 'text-cyan-400 bg-cyan-500/10',
+    editable: true,
+  },
+  {
+    key: 'assumptions',
+    label: 'Assumptions',
+    icon: ShieldCheck,
+    colorClass: 'text-rose-400 bg-rose-500/10',
+    editable: true,
+  },
 ]
 
 function safeString(value: unknown): string {
@@ -86,6 +102,11 @@ function safeString(value: unknown): string {
 }
 
 function rowId(row: any): string {
+  // kpi_relationships has no id field at all — its identity is the composite
+  // (client_id, kpi_id, related_kpi_id) key, so build a synthetic UI-only id.
+  if (row && row.kpi_id != null && row.related_kpi_id != null && row.id == null) {
+    return `${safeString(row.kpi_id)}::${safeString(row.related_kpi_id)}`
+  }
   return safeString((row && (row.id ?? row.name)) ?? '')
 }
 
@@ -137,6 +158,27 @@ function columnsForRegistry(key: RegistryKey): ColumnDef[] {
       { key: 'domain', label: 'Domain', widthClass: 'w-[140px]', render: (r) => safeString(r?.domain) },
       { key: 'owner_role', label: 'Owner Role', widthClass: 'w-[140px]', render: (r) => safeString(r?.owner_role) },
       { key: 'tags', label: 'Tags', widthClass: 'w-[90px]', render: (r) => String(countOf(r?.tags)) },
+    ]
+  }
+  if (key === 'kpi-relationships') {
+    return [
+      { key: 'kpi_id', label: 'KPI', widthClass: 'w-[160px]', render: (r) => safeString(r?.kpi_id) },
+      { key: 'related_kpi_id', label: 'Related KPI', widthClass: 'w-[160px]', render: (r) => safeString(r?.related_kpi_id) },
+      { key: 'relationship_type', label: 'Type', widthClass: 'w-[120px]', render: (r) => safeString(r?.relationship_type) },
+      { key: 'conflict_direction', label: 'Direction', widthClass: 'w-[100px]', render: (r) => safeString(r?.conflict_direction) },
+      { key: 'causal_rung', label: 'Causal Rung', widthClass: 'w-[150px]', render: (r) => safeString(r?.causal_rung) || '—' },
+      { key: 'provenance', label: 'Provenance', widthClass: 'w-[110px]', render: (r) => safeString(r?.provenance) },
+      { key: 'confidence', label: 'Confidence', widthClass: 'w-[100px]', render: (r) => safeString(r?.confidence) || '—' },
+    ]
+  }
+  if (key === 'assumptions') {
+    return [
+      { key: 'scope', label: 'Scope', widthClass: 'w-[160px]', render: (r) => safeString(r?.scope) },
+      { key: 'record_type', label: 'Type', widthClass: 'w-[110px]', render: (r) => safeString(r?.record_type) },
+      { key: 'text', label: 'Text', render: (r) => safeString(r?.text) },
+      { key: 'status', label: 'Status', widthClass: 'w-[100px]', render: (r) => safeString(r?.status) },
+      { key: 'source', label: 'Source', widthClass: 'w-[130px]', render: (r) => safeString(r?.source) },
+      { key: 'provenance', label: 'Provenance', widthClass: 'w-[110px]', render: (r) => safeString(r?.provenance) },
     ]
   }
   return [
@@ -335,7 +377,7 @@ export function RegistryExplorer() {
   const showAccountability   = sectionParam === 'accountability'
   const showInterview        = sectionParam === 'ownership-interview'
   const registryKey: RegistryKey = (
-    ['glossary','kpis','principals','data-products','business-processes'].includes(sectionParam)
+    ['glossary','kpis','principals','data-products','business-processes','kpi-relationships','assumptions'].includes(sectionParam)
       ? sectionParam
       : 'glossary'
   ) as RegistryKey
@@ -399,7 +441,8 @@ export function RegistryExplorer() {
       const description = safeString(it?.description)
       const domain = safeString(it?.domain)
       const owner = safeString(it?.owner)
-      const haystack = `${id} ${name} ${description} ${domain} ${owner}`.toLowerCase()
+      const text = safeString(it?.text)
+      const haystack = `${id} ${name} ${description} ${domain} ${owner} ${text}`.toLowerCase()
       return haystack.includes(q)
     })
   }, [items, searchText])
@@ -435,6 +478,10 @@ export function RegistryExplorer() {
           data = await listKpis(activeClientId)
         } else if (registryKey === 'business-processes') {
           data = await listBusinessProcesses(activeClientId)
+        } else if (registryKey === 'kpi-relationships') {
+          data = await listKpiRelationships(activeClientId)
+        } else if (registryKey === 'assumptions') {
+          data = await listAssumptions(activeClientId)
         }
         // 'principals' is intentionally omitted — that tab now renders
         // PrincipalCardList, which does its own independent listPrincipals
@@ -518,6 +565,19 @@ export function RegistryExplorer() {
           id: 'new_business_process', name: 'New Business Process', domain: '',
           description: '', owner_role: '', tags: [], metadata: {}
         }
+      } else if (registryKey === 'kpi-relationships') {
+        // No id/name — identity is the composite (client_id, kpi_id, related_kpi_id) key.
+        template = {
+          kpi_id: '', related_kpi_id: '', client_id: activeClientId,
+          relationship_type: 'custom', conflict_direction: 'diverging', description: '',
+          mechanism: '', lag_periods: null, causal_rung: null, provenance: 'template', confidence: null,
+        }
+      } else if (registryKey === 'assumptions') {
+        // No id on create — server generates the UUID.
+        template = {
+          client_id: activeClientId, scope: '', record_type: 'assumption', text: '',
+          status: 'active', source: 'manual', provenance: 'template', confidence: null, expiry: null,
+        }
       }
 
       setFormDraft(template)
@@ -532,6 +592,8 @@ export function RegistryExplorer() {
     if (registryKey === 'kpis') data = await listKpis(activeClientId)
     if (registryKey === 'business-processes') data = await listBusinessProcesses(activeClientId)
     if (registryKey === 'principals') data = await listPrincipals(activeClientId)
+    if (registryKey === 'kpi-relationships') data = await listKpiRelationships(activeClientId)
+    if (registryKey === 'assumptions') data = await listAssumptions(activeClientId)
     setItems(data)
   }
 
@@ -586,7 +648,9 @@ export function RegistryExplorer() {
       payload = { ...formDraft }
     }
 
-    if (!payload.id) {
+    // kpi-relationships has no id field (composite key); assumptions has no id
+    // until the server generates one on insert — both are exempt from this check.
+    if (!payload.id && registryKey !== 'kpi-relationships' && registryKey !== 'assumptions') {
       setError('ID field is required in JSON')
       return
     }
@@ -596,7 +660,7 @@ export function RegistryExplorer() {
 
     try {
       const isNew = selectedId === '__new__'
-      const id = payload.id
+      let id = payload.id
 
       if (registryKey === 'kpis') {
         if (isNew) await createKpi(payload)
@@ -610,6 +674,14 @@ export function RegistryExplorer() {
       } else if (registryKey === 'business-processes') {
         if (isNew) await createBusinessProcess(payload)
         else await replaceBusinessProcess(id, payload)
+      } else if (registryKey === 'kpi-relationships') {
+        // Single POST route is an upsert keyed on (client_id, kpi_id, related_kpi_id) — no separate replace call.
+        await upsertKpiRelationship(payload)
+        id = `${payload.kpi_id}::${payload.related_kpi_id}`
+      } else if (registryKey === 'assumptions') {
+        // Single POST route is an upsert (UPDATE when payload.id is set, INSERT otherwise) — server returns the real id.
+        const result = await upsertAssumption(payload)
+        id = result?.id || id
       }
 
       await reload()
@@ -654,6 +726,10 @@ export function RegistryExplorer() {
       else if (registryKey === 'principals') await deletePrincipal(selectedId, activeClientId)
       else if (registryKey === 'data-products') await deleteDataProduct(selectedId, activeClientId)
       else if (registryKey === 'business-processes') await deleteBusinessProcess(selectedId, activeClientId)
+      else if (registryKey === 'kpi-relationships') {
+        const [kpiId, relatedKpiId] = selectedId.split('::')
+        await deleteKpiRelationship(kpiId, relatedKpiId, activeClientId)
+      } else if (registryKey === 'assumptions') await deleteAssumption(selectedId, activeClientId)
 
       await reload()
       setSelectedId(null)
@@ -946,6 +1022,190 @@ export function RegistryExplorer() {
             onChange={e => { try { updateDraft('metadata', JSON.parse(e.target.value)) } catch { /* ignore */ } }}
             rows={3} className={inputCls + ' font-mono'} />
         </div>
+        {renderFormActions()}
+      </div>
+    )
+  }
+
+  const renderKpiRelationshipForm = () => {
+    if (!formDraft) return null
+    return (
+      <div className="space-y-4">
+        <p className="text-xs text-slate-500">Edit a causal / compound-alert relationship between two KPIs.</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>KPI ID</label>
+            <input value={formDraft.kpi_id || ''} onChange={e => updateDraft('kpi_id', e.target.value)}
+              disabled={isEditing} className={inputCls + (isEditing ? ' opacity-50' : '')} />
+          </div>
+          <div>
+            <label className={labelCls}>Related KPI ID</label>
+            <input value={formDraft.related_kpi_id || ''} onChange={e => updateDraft('related_kpi_id', e.target.value)}
+              disabled={isEditing} className={inputCls + (isEditing ? ' opacity-50' : '')} />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Relationship Type</label>
+            <select value={formDraft.relationship_type || 'custom'} onChange={e => updateDraft('relationship_type', e.target.value)} className={inputCls}>
+              <option value="volume_margin">Volume / Margin</option>
+              <option value="receivables_revenue">Receivables / Revenue</option>
+              <option value="cost_revenue">Cost / Revenue</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Conflict Direction</label>
+            <select value={formDraft.conflict_direction || 'diverging'} onChange={e => updateDraft('conflict_direction', e.target.value)} className={inputCls}>
+              <option value="diverging">Diverging (opposite movements signal a problem)</option>
+              <option value="converging">Converging (same-direction movements signal a problem)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Description</label>
+          <textarea value={formDraft.description || ''} onChange={e => updateDraft('description', e.target.value)}
+            rows={2} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Mechanism</label>
+          <textarea value={formDraft.mechanism || ''} onChange={e => updateDraft('mechanism', e.target.value)}
+            rows={2} className={inputCls} placeholder="Free-text causal pathway, e.g. 'input cost pass-through, inventory-buffered'" />
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className={labelCls}>Lag (months)</label>
+            <input type="number" value={formDraft.lag_periods ?? ''}
+              onChange={e => updateDraft('lag_periods', e.target.value === '' ? null : Number(e.target.value))} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Causal Rung</label>
+            <select value={formDraft.causal_rung || ''} onChange={e => updateDraft('causal_rung', e.target.value || null)} className={inputCls}>
+              <option value="">— none —</option>
+              <option value="correlational">Correlational</option>
+              <option value="intervention_hypothesized">Intervention Hypothesized</option>
+              <option value="intervention_tested">Intervention Tested</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Confidence</label>
+            <select value={formDraft.confidence || ''} onChange={e => updateDraft('confidence', e.target.value || null)} className={inputCls}>
+              <option value="">— none —</option>
+              <option value="high">High</option>
+              <option value="moderate">Moderate</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Provenance</label>
+          <select value={formDraft.provenance || 'template'} onChange={e => updateDraft('provenance', e.target.value)} className={inputCls}>
+            <option value="template">Template (unconfirmed industry prior)</option>
+            <option value="confirmed">Confirmed (client/exec blessed)</option>
+            <option value="hitl_proposed">HITL Proposed</option>
+            <option value="va_validated">VA Validated (DiD/Granger tested)</option>
+          </select>
+        </div>
+        {formDraft.causal_rung === 'intervention_tested' && formDraft.provenance !== 'va_validated' && (
+          <p className="text-xs text-amber-400">
+            "Intervention Tested" requires provenance "VA Validated" — the server will reject this combination otherwise (HITL confirmation alone can't establish a tested causal claim).
+          </p>
+        )}
+        {renderFormActions()}
+      </div>
+    )
+  }
+
+  const renderAssumptionForm = () => {
+    if (!formDraft) return null
+    return (
+      <div className="space-y-4">
+        <p className="text-xs text-slate-500">Edit an assumption, constraint, or explanation record for the theory layer.</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>ID</label>
+            <input value={formDraft.id || '(generated on save)'} disabled className={inputCls + ' opacity-50'} />
+          </div>
+          <div>
+            <label className={labelCls}>Scope</label>
+            <input value={formDraft.scope || ''} onChange={e => updateDraft('scope', e.target.value)} className={inputCls} placeholder="KPI id, 'client', or threshold scope" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Record Type</label>
+            <select value={formDraft.record_type || 'assumption'} onChange={e => updateDraft('record_type', e.target.value)} className={inputCls}>
+              <option value="assumption">Assumption</option>
+              <option value="constraint">Constraint</option>
+              <option value="explanation">Explanation</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Status</label>
+            <select value={formDraft.status || 'active'} onChange={e => updateDraft('status', e.target.value)} className={inputCls}>
+              <option value="active">Active</option>
+              <option value="held">Held</option>
+              <option value="falsified">Falsified</option>
+              <option value="lifted">Lifted</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Text</label>
+          <textarea value={formDraft.text || ''} onChange={e => updateDraft('text', e.target.value)} rows={3} className={inputCls} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Source</label>
+            <select value={formDraft.source || 'manual'} onChange={e => updateDraft('source', e.target.value)} className={inputCls}>
+              <option value="manual">Manual</option>
+              <option value="sa_hitl">SA HITL</option>
+              <option value="sf_hitl_rejection">SF HITL Rejection</option>
+              <option value="sf_hitl_approval">SF HITL Approval</option>
+              <option value="va_hitl">VA HITL</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Provenance</label>
+            <select value={formDraft.provenance || 'template'} onChange={e => updateDraft('provenance', e.target.value)} className={inputCls}>
+              <option value="template">Template</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="hitl_proposed">HITL Proposed</option>
+              <option value="va_validated">VA Validated</option>
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Confidence</label>
+            <select value={formDraft.confidence || ''} onChange={e => updateDraft('confidence', e.target.value || null)} className={inputCls}>
+              <option value="">— none —</option>
+              <option value="high">High</option>
+              <option value="moderate">Moderate</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Expiry (ISO datetime)</label>
+            <input value={formDraft.expiry || ''} onChange={e => updateDraft('expiry', e.target.value || null)}
+              className={inputCls} placeholder="2026-08-15T00:00:00Z" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Linked Situation ID</label>
+            <input value={formDraft.linked_situation_id || ''} onChange={e => updateDraft('linked_situation_id', e.target.value || null)} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Linked Solution ID</label>
+            <input value={formDraft.linked_solution_id || ''} onChange={e => updateDraft('linked_solution_id', e.target.value || null)} className={inputCls} />
+          </div>
+        </div>
+        {formDraft.record_type === 'explanation' && !formDraft.expiry && (
+          <p className="text-xs text-amber-400">
+            Explanation records require an expiry date — the server will reject this without one (mandatory self-falsification, never indefinite suppression).
+          </p>
+        )}
         {renderFormActions()}
       </div>
     )
@@ -1262,6 +1522,10 @@ export function RegistryExplorer() {
                       renderDataProductForm()
                     ) : registryKey === 'business-processes' ? (
                       renderBusinessProcessForm()
+                    ) : registryKey === 'kpi-relationships' ? (
+                      renderKpiRelationshipForm()
+                    ) : registryKey === 'assumptions' ? (
+                      renderAssumptionForm()
                     ) : (
                       renderJsonFallback()
                     )}

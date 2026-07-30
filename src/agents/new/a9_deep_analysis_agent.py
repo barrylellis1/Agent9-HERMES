@@ -797,6 +797,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             queries_executed: int = 0
             when_started: Optional[str] = None
             spec_main: Dict[str, Any] = {"comparison_type": "previous", "inverse_logic": False, "yellow_threshold": 0.0}
+            kpi_def = None  # populated below when resolvable; used for unit-aware SCQA framing
 
             # If DP Agent is available, compute where/when by executing grouped queries
             if self.data_product_agent is not None and getattr(plan, "kpi_name", None):
@@ -1981,6 +1982,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     compound_pattern=getattr(plan, "compound_pattern", None),
                     matrix_ran=matrix_ran,
                     comparator_secondary=comparator_secondary,
+                    kpi_unit=getattr(kpi_def, "unit", None),
                 )
             except Exception as _scqa_err:
                 self.logger.warning("[DA] SCQA generation failed: %s", _scqa_err)
@@ -2522,6 +2524,7 @@ If nothing relevant is found for a category, use an empty list."""
         compound_pattern: Optional[str] = None,
         matrix_ran: bool = False,
         comparator_secondary: Optional[str] = None,
+        kpi_unit: Optional[str] = None,
     ) -> str:
         """Generate a Situation-Complication-Question-Answer narrative via LLM.
 
@@ -2535,6 +2538,14 @@ If nothing relevant is found for a category, use an empty list."""
 
         def _basis_label(c: Optional[str]) -> str:
             return "Budget/Plan" if c == "budget" else "prior period"
+
+        # Percentage-point deltas need a "pp" suffix, not the bare "%" unit (which
+        # reads as a percentage of the delta itself, not percentage points) or a
+        # dollar sign (matches the fix already applied on the frontend for the
+        # same class of bug — see decision-studio-ui DeepFocusView.tsx formatDelta).
+        _delta_unit = "pp" if kpi_unit == "%" else (kpi_unit or "")
+        def _fmt_delta(v: float) -> str:
+            return f"{v:.1f}{_delta_unit}" if _delta_unit else f"{v:.1f}"
 
         # Matrix tier buckets (only meaningful when matrix_ran) — segment keys per cross-basis tier.
         _rows_all = [r for r in ((getattr(kt, "where_is", []) or []) + (getattr(kt, "where_is_not", []) or [])) if isinstance(r, dict)]
@@ -2597,18 +2608,42 @@ If nothing relevant is found for a category, use an empty list."""
                     f"Question: How do we scale the {is_str} performance across {is_not_str}?"
                 )
             if analysis_mode == "mixed":
-                problem_segs = [r.get("key", "") for r in (getattr(kt, "where_is", []) or [])
-                                if isinstance(r, dict) and r.get("segment_type") == "problem"][:3]
-                opp_segs = [r.get("key", "") for r in (getattr(kt, "where_is", []) or [])
-                            if isinstance(r, dict) and r.get("segment_type") == "opportunity"][:3]
+                _where_is_rows = [r for r in (getattr(kt, "where_is", []) or []) if isinstance(r, dict)]
+                problem_segs = [r.get("key", "") for r in _where_is_rows if r.get("segment_type") == "problem"][:3]
+                opp_segs = [r.get("key", "") for r in _where_is_rows if r.get("segment_type") == "opportunity"][:3]
+                net_problem = sum(abs(r.get("delta") or 0) for r in _where_is_rows if r.get("segment_type") == "problem")
+                net_opp = sum(abs(r.get("delta") or 0) for r in _where_is_rows if r.get("segment_type") == "opportunity")
                 prob_str = ", ".join(problem_segs) if problem_segs else "underperforming segments"
                 opp_str = ", ".join(opp_segs) if opp_segs else "outperforming segments"
+                # Magnitude-aware ordering — don't default to "fix the problem first"
+                # when the opportunity is the materially larger number (same net-delta
+                # comparison the Action Center's "Let Agent9 Decide" button already makes).
+                if net_opp > net_problem * 3:
+                    question = f"Question: How do we scale the {opp_str} performance while keeping {prob_str} from widening further?"
+                    answer = (
+                        f"Answer: Prioritise scaling the {opp_str} playbook — the opportunity "
+                        f"({_fmt_delta(net_opp)} combined) is far larger than the drag from {prob_str} "
+                        f"({_fmt_delta(net_problem)} combined), which merits monitoring but not the primary response."
+                    )
+                elif net_problem > net_opp * 3:
+                    question = f"Question: How do we arrest the decline in {prob_str} before addressing the smaller {opp_str} opportunity?"
+                    answer = (
+                        f"Answer: Prioritise recovery in {prob_str} — the drag ({_fmt_delta(net_problem)} combined) "
+                        f"far outweighs the {opp_str} opportunity ({_fmt_delta(net_opp)} combined) this period."
+                    )
+                else:
+                    question = "Question: How do we address the laggards while scaling the leaders simultaneously?"
+                    answer = (
+                        f"Answer: Prioritise recovery in {prob_str} and replicate the {opp_str} playbook across similar "
+                        f"segments — the two are comparable in size ({_fmt_delta(net_problem)} vs {_fmt_delta(net_opp)}) "
+                        f"and both merit attention."
+                    )
                 return (
                     f"Situation: {plan.kpi_name} shows mixed performance vs. the comparison period. "
                     f"Complication: Performance is bifurcated — {prob_str} are dragging results while "
                     f"{opp_str} are outperforming. "
-                    f"Question: How do we address the laggards while scaling the leaders simultaneously? "
-                    f"Answer: Prioritise recovery in {prob_str} and replicate the {opp_str} playbook across similar segments."
+                    f"{question} "
+                    f"{answer}"
                 )
             # Problem mode — apply alert-type-aware framing
             if compound_pattern:
@@ -2673,21 +2708,49 @@ If nothing relevant is found for a category, use an empty list."""
                     f"Be specific and quantitative. No bullet points. No headers."
                 )
             elif analysis_mode == "mixed":
-                problem_segs = [r.get("key", "") for r in (getattr(kt, "where_is", []) or [])
-                                if isinstance(r, dict) and r.get("segment_type") == "problem"][:3]
-                opp_segs = [r.get("key", "") for r in (getattr(kt, "where_is", []) or [])
-                            if isinstance(r, dict) and r.get("segment_type") == "opportunity"][:3]
+                _where_is_rows_p = [r for r in (getattr(kt, "where_is", []) or []) if isinstance(r, dict)]
+                problem_segs = [r.get("key", "") for r in _where_is_rows_p if r.get("segment_type") == "problem"][:3]
+                opp_segs = [r.get("key", "") for r in _where_is_rows_p if r.get("segment_type") == "opportunity"][:3]
+                net_problem = sum(abs(r.get("delta") or 0) for r in _where_is_rows_p if r.get("segment_type") == "problem")
+                net_opp = sum(abs(r.get("delta") or 0) for r in _where_is_rows_p if r.get("segment_type") == "opportunity")
+                # Don't hardcode "fix laggards first" regardless of size — that produced
+                # recommendations focused on a 2.9pp problem while ignoring a 98pp+
+                # opportunity sitting right next to it. Let relative magnitude drive
+                # which gets primary billing in the Answer.
+                if net_opp > net_problem * 3:
+                    _magnitude_rule = (
+                        f"- The opportunity ({_fmt_delta(net_opp)} combined) is FAR LARGER than the problem "
+                        f"({_fmt_delta(net_problem)} combined) — at least 3x. The Answer's PRIMARY recommendation "
+                        f"must be to SCALE the opportunity. Mention the laggard as something to monitor/contain "
+                        f"in parallel, not as the primary action.\n"
+                    )
+                elif net_problem > net_opp * 3:
+                    _magnitude_rule = (
+                        f"- The problem ({_fmt_delta(net_problem)} combined) is FAR LARGER than the opportunity "
+                        f"({_fmt_delta(net_opp)} combined) — at least 3x. The Answer's PRIMARY recommendation "
+                        f"must be to FIX the laggard. Mention the replication opportunity as a secondary/parallel "
+                        f"action, not the primary one.\n"
+                    )
+                else:
+                    _magnitude_rule = (
+                        f"- Problem ({_fmt_delta(net_problem)}) and opportunity ({_fmt_delta(net_opp)}) are "
+                        f"comparable in size — the Answer should give both recovery and replication roughly "
+                        f"equal billing.\n"
+                    )
                 prompt = (
                     f"Write a concise SCQA narrative for a CFO reviewing MIXED performance in "
                     f"'{plan.kpi_name}' ({plan.timeframe or 'current period'}).\n\n"
-                    f"Underperforming segments (need recovery): {', '.join(problem_segs) or 'see change points'}\n"
-                    f"Outperforming segments (replication blueprints): {', '.join(opp_segs) or 'see change points'}\n"
+                    f"Underperforming segments (need recovery): {', '.join(problem_segs) or 'see change points'} "
+                    f"— combined magnitude {_fmt_delta(net_problem)}\n"
+                    f"Outperforming segments (replication blueprints): {', '.join(opp_segs) or 'see change points'} "
+                    f"— combined magnitude {_fmt_delta(net_opp)}\n"
                     f"Largest change-points: {'; '.join(top_cps) or 'none'}\n\n"
                     f"FRAMING RULES:\n"
                     f"- This is a MIXED situation. Both problems and opportunities exist simultaneously.\n"
                     f"- Complication must name BOTH the drag from laggards AND the opportunity from leaders.\n"
-                    f"- Question must ask how to fix AND replicate simultaneously.\n"
-                    f"- Answer must name a specific recovery action AND a replication action.\n\n"
+                    f"{_magnitude_rule}"
+                    f"- Do not default to 'fix the problem first' when the numbers say otherwise — lead with "
+                    f"whichever is materially larger.\n\n"
                     f"Output exactly 4 labelled sentences: 'Situation:', 'Complication:', 'Question:', 'Answer:'. No bullet points."
                 )
             else:

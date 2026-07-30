@@ -841,6 +841,53 @@ async def delete_kpi_relationship(
 
 
 # ---------------------------------------------------------------------------
+# Assumptions (Phase 15 Stage D — theory layer assumption/constraint/explanation records)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/assumptions", response_model=Envelope)
+async def list_assumptions(
+    client_id: str = Query(...),
+):
+    """List all assumption/constraint/explanation records for a client."""
+    from src.registry.providers.assumption_provider import AssumptionProvider
+    provider = AssumptionProvider()
+    try:
+        items = await provider.get_all(client_id)
+        return Envelope(data=[i.model_dump() for i in items])
+    except Exception as e:
+        return Envelope(status="error", data=error_response("server_error", str(e)))
+
+
+@router.post("/assumptions", response_model=Envelope, status_code=status.HTTP_201_CREATED)
+async def create_assumption(body: Dict[str, Any]):
+    """Create or update an assumption/constraint/explanation record."""
+    from src.registry.providers.assumption_provider import AssumptionProvider
+    from src.registry.models.assumption import Assumption
+    provider = AssumptionProvider()
+    try:
+        item = Assumption(**body)
+        result = await provider.upsert(item)
+        return Envelope(data=result.model_dump())
+    except Exception as e:
+        return Envelope(status="error", data=error_response("server_error", str(e)))
+
+
+@router.delete("/assumptions/{assumption_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_assumption(
+    assumption_id: str,
+    client_id: str = Query(...),
+):
+    """Delete an assumption/constraint/explanation record by id."""
+    from src.registry.providers.assumption_provider import AssumptionProvider
+    provider = AssumptionProvider()
+    try:
+        await provider.delete(assumption_id, client_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
 # Clients (multi-tenant)
 # ---------------------------------------------------------------------------
 

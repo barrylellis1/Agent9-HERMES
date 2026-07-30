@@ -12,7 +12,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Box, Briefcase, Building2, CheckCircle2, ChevronRight,
-  Database, Eye, LineChart, LogOut, Sparkles, Users,
+  Database, Eye, GitBranch, LineChart, LogOut, ShieldCheck, Sparkles, Users,
   UserCheck, Activity, Shield, BarChart2, Target, Library,
 } from 'lucide-react'
 import { BrandLogo } from './BrandLogo'
@@ -49,6 +49,8 @@ const MAINTENANCE_NAV: NavGroup[] = [
       { label: 'Principals',         to: '/settings/registry/principals',      icon: <Users className="w-4 h-4" /> },
       { label: 'Data Products',      to: '/settings/registry/data-products',   icon: <Database className="w-4 h-4" /> },
       { label: 'Business Processes', to: '/settings/registry/business-processes', icon: <Briefcase className="w-4 h-4" /> },
+      { label: 'KPI Relationships',  to: '/settings/registry/kpi-relationships', icon: <GitBranch className="w-4 h-4" /> },
+      { label: 'Assumptions',        to: '/settings/registry/assumptions',     icon: <ShieldCheck className="w-4 h-4" /> },
     ],
   },
   {

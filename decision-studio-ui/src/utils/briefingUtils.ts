@@ -334,14 +334,39 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       unresolved_tensions: sol?.unresolved_tensions || [],
       // Market Intelligence from DA/MA agent
       market_signals: (marketSignals && marketSignals.length > 0) ? marketSignals : null,
-      // Raw KPI data for Cost of Inaction banner (pre-approval)
-      kpiData: situation?.kpi_value?.value != null ? {
-        kpi_name: kpiName,
-        current_value: situation.kpi_value.value as number,
-        comparison_value: (analysis?.aggregates?.comparison_value ?? analysis?.aggregates?.previous_value ?? null) as number | null,
-        percent_change: (situation?.kpi_value?.percent_change ?? null) as number | null,
-        unit: kpiUnit,
-      } : null,
+      // Raw KPI data for Cost of Inaction banner (pre-approval).
+      // Prefer the SPECIFIC underperforming segment the recommendation targets
+      // over the parent KPI's blended aggregate — a "mixed" situation (aggregate
+      // up, one segment down) would otherwise project "the KPI keeps improving
+      // on its own" right next to an urgent call to action on the declining
+      // segment, which is self-contradictory. Fall back to the aggregate only
+      // when no declining segment exists (a pure opportunity, nothing to warn about).
+      kpiData: (() => {
+        const worstDecliner = (analysis?.change_points || []).reduce((worst: any, cp: any) => {
+          const delta = cp?.delta
+          if (delta == null || delta >= 0) return worst
+          return (!worst || delta < worst.delta) ? cp : worst
+        }, null)
+        if (worstDecliner) {
+          const prev = worstDecliner.previous ?? worstDecliner.previous_value ?? null
+          const curr = worstDecliner.current ?? worstDecliner.current_value ?? null
+          if (curr == null) return null
+          return {
+            kpi_name: `${kpiName} — ${formatDimLabel(worstDecliner.dimension)}: ${worstDecliner.key}`,
+            current_value: curr as number,
+            comparison_value: prev as number | null,
+            percent_change: (prev ? worstDecliner.delta / prev : null) as number | null,
+            unit: kpiUnit,
+          }
+        }
+        return situation?.kpi_value?.value != null ? {
+          kpi_name: kpiName,
+          current_value: situation.kpi_value.value as number,
+          comparison_value: (analysis?.aggregates?.comparison_value ?? analysis?.aggregates?.previous_value ?? null) as number | null,
+          percent_change: (situation?.kpi_value?.percent_change ?? null) as number | null,
+          unit: kpiUnit,
+        } : null
+      })(),
       principalId: situation?.principal_id || null,
     }
     

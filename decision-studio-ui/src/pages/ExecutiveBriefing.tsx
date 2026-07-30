@@ -673,8 +673,17 @@ export function ExecutiveBriefing() {
               monthlyRate = Math.sign(monthlyRate) * Math.min(Math.abs(monthlyRate), MAX_MONTHLY_RATE)
               const projected30d = kd.current_value * (1 + monthlyRate)
               const projected90d = kd.current_value * (1 + monthlyRate * 3)
+              // Threshold for "stable" must be small relative to modest-magnitude
+              // percentage KPIs — a DA-flagged change point (e.g. -0.97% YoY on
+              // Manual Gear Oil, ~-0.08%/month) is already material enough to have
+              // driven the recommendation; 0.001 (0.1%/month, ~1.2%/year) called
+              // that "Stable" right next to numbers that visibly decline each period.
+              const STABLE_THRESHOLD = 0.0001
               const trendDir: 'deteriorating' | 'stable' | 'recovering' =
-                monthlyRate < -0.001 ? 'deteriorating' : monthlyRate > 0.001 ? 'recovering' : 'stable'
+                monthlyRate < -STABLE_THRESHOLD ? 'deteriorating' : monthlyRate > STABLE_THRESHOLD ? 'recovering' : 'stable'
+              const confidenceLevelMap: Record<string, 'HIGH' | 'MODERATE' | 'LOW'> = {
+                'Low': 'LOW', 'Medium': 'MODERATE', 'High': 'HIGH', 'Very High': 'HIGH',
+              }
               return (
                 <div className="mb-4">
                   <CostOfInactionBanner
@@ -683,7 +692,7 @@ export function ExecutiveBriefing() {
                     projected30d={projected30d}
                     projected90d={projected90d}
                     trendDirection={trendDir}
-                    trendConfidence="LOW"
+                    trendConfidence={confidenceLevelMap[data.metrics?.confidence] || 'LOW'}
                     kpiUnit={kd.unit}
                   />
                 </div>

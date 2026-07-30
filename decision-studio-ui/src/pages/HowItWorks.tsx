@@ -351,12 +351,6 @@ export function HowItWorks() {
             >
               Sign In
             </Link>
-            <Link
-              to="/#conversation"
-              className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
-            >
-              Request a Conversation
-            </Link>
           </div>
         </div>
       </nav>
@@ -1109,15 +1103,9 @@ export function HowItWorks() {
             <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
                 to="/#walkthrough"
-                className="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-semibold transition-colors text-sm border border-slate-700/60 flex items-center justify-center gap-2"
-              >
-                See the walkthrough <ArrowRight className="w-4 h-4" />
-              </Link>
-              <Link
-                to="/#conversation"
                 className="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors text-sm flex items-center justify-center gap-2"
               >
-                Ready to talk? <ArrowRight className="w-4 h-4" />
+                See the walkthrough <ArrowRight className="w-4 h-4" />
               </Link>
             </motion.div>
           </motion.div>
@@ -1127,25 +1115,31 @@ export function HowItWorks() {
       {/* ═══════════════════════════════════════════
           FOOTER
       ═══════════════════════════════════════════ */}
-      <footer className="border-t border-slate-800/40 py-10 px-6">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500" style={font}>
-          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
-            <span className="font-bold text-white">Decision Studio</span>
-            <a href="mailto:info@trydecisionstudio.com" className="hover:text-slate-300 transition-colors">
-              info@trydecisionstudio.com
-            </a>
-            <span>&copy; 2026 Decision Studio</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <Link to="/insights/bi-modernization" className="text-slate-400 hover:text-white transition-colors">
-              Insights
-            </Link>
-            <Link to="/data-onboarding" className="text-slate-400 hover:text-white transition-colors">
-              Data Onboarding
-            </Link>
-            <Link to="/login" className="text-slate-400 hover:text-white transition-colors flex items-center gap-1">
-              Sign In <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
+      <footer className="border-t border-slate-800/40 py-10 px-6" style={font}>
+        <div className="max-w-6xl mx-auto">
+          <p className="text-center text-xs text-slate-600 mb-6">
+            This project is currently in development and seeking input from Decision
+            Intelligence practitioners and consumers for awe and wonder.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
+            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
+              <span className="font-bold text-white">Decision Studio</span>
+              <a href="mailto:info@trydecisionstudio.com" className="hover:text-slate-300 transition-colors">
+                info@trydecisionstudio.com
+              </a>
+              <span>&copy; 2026 Decision Studio</span>
+            </div>
+            <div className="flex items-center gap-6">
+              <Link to="/insights/bi-modernization" className="text-slate-400 hover:text-white transition-colors">
+                Insights
+              </Link>
+              <Link to="/data-onboarding" className="text-slate-400 hover:text-white transition-colors">
+                Data Onboarding
+              </Link>
+              <Link to="/login" className="text-slate-400 hover:text-white transition-colors flex items-center gap-1">
+                Sign In <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
           </div>
         </div>
       </footer>

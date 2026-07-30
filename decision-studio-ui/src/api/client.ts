@@ -747,6 +747,59 @@ export async function listAccountabilities(clientId: string): Promise<KPIAccount
   return result || [];
 }
 
+// ------------------------------------------------------------------
+// KPI Relationships Registry API (Phase 15 Stage D — theory layer causal graph)
+// ------------------------------------------------------------------
+
+export async function listKpiRelationships(clientId?: string): Promise<any[]> {
+  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
+  const envelope = await requestJson<Envelope<any[]>>(`/registry/kpi-relationships${qs}`);
+  return envelope.data || [];
+}
+
+export async function upsertKpiRelationship(payload: any): Promise<any> {
+  const envelope = await requestJson<Envelope<any>>(`/registry/kpi-relationships${_writeClientIdQs()}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await _authHeaders()) },
+    body: JSON.stringify(payload),
+  });
+  return envelope.data;
+}
+
+export async function deleteKpiRelationship(kpiId: string, relatedKpiId: string, clientId?: string): Promise<void> {
+  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
+  await requestJson<void>(
+    `/registry/kpi-relationships/${encodeURIComponent(kpiId)}/${encodeURIComponent(relatedKpiId)}${qs}`,
+    { method: 'DELETE' }
+  );
+}
+
+// ------------------------------------------------------------------
+// Assumptions Registry API (Phase 15 Stage D — assumption/constraint/explanation records)
+// ------------------------------------------------------------------
+
+export async function listAssumptions(clientId?: string): Promise<any[]> {
+  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
+  const envelope = await requestJson<Envelope<any[]>>(`/registry/assumptions${qs}`);
+  return envelope.data || [];
+}
+
+export async function upsertAssumption(payload: any): Promise<any> {
+  const envelope = await requestJson<Envelope<any>>(`/registry/assumptions${_writeClientIdQs()}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await _authHeaders()) },
+    body: JSON.stringify(payload),
+  });
+  return envelope.data;
+}
+
+export async function deleteAssumption(id: string, clientId?: string): Promise<void> {
+  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : '';
+  await requestJson<void>(`/registry/assumptions/${encodeURIComponent(id)}${qs}`, {
+    method: 'DELETE',
+  });
+}
+
 // ---------------------------------------------------------------------------
 // KPI Accountability Interview — Phase 11B
 // ---------------------------------------------------------------------------

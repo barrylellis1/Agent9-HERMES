@@ -227,7 +227,12 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
     setAgentDecisionMessage(null);
   }, [analysisResults?.kpi_name, analysisResults?.analysis_mode]);
 
-  // Net absolute delta per segment type — drives the "Let Agent9 Decide" logic
+  // Net absolute delta per segment type — drives the "Let Agent9 Decide" logic.
+  // These are raw deltas in the KPI's own unit (percentage points for a %
+  // KPI, dollars for a $ KPI) — NOT a revenue/dollar exposure estimate, since
+  // no per-segment revenue base is available to weight them. Display unit
+  // must match the KPI, not be hardcoded, or "2.87 percentage points" renders
+  // as a nonsensical "$3".
   const { netProblemDelta, netOppDelta } = useMemo(() => {
     if (!currentAnalysis?.kt_is_is_not?.where_is) return { netProblemDelta: 0, netOppDelta: 0 };
     const items: any[] = currentAnalysis.kt_is_is_not.where_is;
@@ -239,6 +244,14 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
       .reduce((s: number, i: any) => s + Math.abs(i.delta || 0), 0);
     return { netProblemDelta, netOppDelta };
   }, [currentAnalysis]);
+  const deltaUnit = situation?.kpi_value?.unit === '%' ? 'pp' : (situation?.kpi_value?.unit || '');
+  // formatExecutive's currency arg is prefix-only ("$3") — a percentage-point
+  // unit reads as a suffix ("2.9pp"), so format those two cases separately
+  // rather than force "pp" through a prefix-shaped formatter.
+  const formatDelta = (value: number): string =>
+    deltaUnit === '$' || deltaUnit === ''
+      ? formatExecutive(value, '$', false)
+      : `${value.toFixed(1)}${deltaUnit}`;
 
   // The mode that will be handed to the debate — resolvedAnalysisMode when mixed, else analysisMode
   const effectiveDebateMode: 'problem' | 'opportunity' =
@@ -372,7 +385,13 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
         <div className="flex-1 overflow-y-auto p-8 border-r border-slate-800 scrollbar-hide">
             <div className="max-w-4xl mx-auto space-y-8">
                 
-                {/* 1. Situation Summary Card */}
+                {/* 1. Situation Summary Card — SA's pre-DA framing. Only shown before
+                    Deep Analysis completes: once it does, the Analysis accordion's own
+                    Situation/Complication (derived from DA's actual segment-level data,
+                    not SA's aggregate-level description) supersedes this and showing both
+                    produced two narratives that could disagree (e.g. aggregate "grew 2.7%"
+                    here vs. DA's "mixed, two segments declining" below). */}
+                {!currentAnalysis && (
                 <AccordionSection
                     id="situation-summary"
                     title="Situation Summary"
@@ -395,6 +414,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                          </p>
                     </div>
                 </AccordionSection>
+                )}
 
                 {/* 2. Deep Analysis Results (or Trigger) */}
                 <section>
@@ -403,7 +423,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                         <div className="flex items-center mb-4">
                             <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                                 <Microscope className="w-5 h-5 text-blue-400" />
-                                Root Cause Analysis
+                                Analysis
                             </h2>
                         </div>
                     )}
@@ -422,11 +442,18 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                     )}
                 </section>
 
-                {/* Root Cause Analysis — collapsible accordion */}
+                {/* Analysis — collapsible accordion. Was "Root Cause Analysis", which
+                    overclaimed: this shows DA's Situation/Complication/Question/Answer
+                    framing (an "Answer" that recommends what to investigate/do next),
+                    not a validated root cause — see project_theory_layer_design memory
+                    on the causal-rung distinction between diagnosis and root cause.
+                    Named "Analysis" rather than "SCQA" since the latter is consulting
+                    jargon most users won't recognize. Now the sole situation narrative
+                    once DA completes — see the Situation Summary card above. */}
                 {currentAnalysis && (
                     <AccordionSection
                         id="root-cause"
-                        title="Root Cause Analysis"
+                        title="Analysis"
                         icon={<Microscope className="w-5 h-5 text-blue-400" />}
                         summary={`${currentAnalysis.change_points?.length || 0} dimensions analyzed`}
                     >
@@ -758,13 +785,13 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                  <div className="bg-red-950/40 border border-red-800/40 rounded-lg px-3 py-2">
                                    <div className="text-red-400 font-medium mb-0.5">Problem exposure</div>
                                    <div className="font-mono text-red-300 text-sm">
-                                     {netProblemDelta > 0 ? formatExecutive(netProblemDelta, '$', false) : '—'}
+                                     {netProblemDelta > 0 ? formatDelta(netProblemDelta) : '—'}
                                    </div>
                                  </div>
                                  <div className="bg-emerald-950/40 border border-emerald-800/40 rounded-lg px-3 py-2">
                                    <div className="text-emerald-400 font-medium mb-0.5">Opportunity upside</div>
                                    <div className="font-mono text-emerald-300 text-sm">
-                                     {netOppDelta > 0 ? formatExecutive(netOppDelta, '$', false) : '—'}
+                                     {netOppDelta > 0 ? formatDelta(netOppDelta) : '—'}
                                    </div>
                                  </div>
                                </div>
@@ -802,8 +829,8 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                    setResolvedAnalysisMode(decided);
                                    setAgentDecisionMessage(
                                      decided === 'opportunity'
-                                       ? `Agent9 chose Opportunity — upside (${formatExecutive(netOppDelta, '$', false)}) outweighs problem exposure (${formatExecutive(netProblemDelta, '$', false)}).`
-                                       : `Agent9 chose Recovery — problem exposure (${formatExecutive(netProblemDelta, '$', false)}) outweighs upside (${formatExecutive(netOppDelta, '$', false)}).`
+                                       ? `Agent9 chose Opportunity — upside (${formatDelta(netOppDelta)}) outweighs problem exposure (${formatDelta(netProblemDelta)}).`
+                                       : `Agent9 chose Recovery — problem exposure (${formatDelta(netProblemDelta)}) outweighs upside (${formatDelta(netOppDelta)}).`
                                    );
                                  }}
                                  className="w-full text-left bg-slate-950 border border-slate-700 hover:border-amber-500/50 rounded-lg p-3 transition-colors group"

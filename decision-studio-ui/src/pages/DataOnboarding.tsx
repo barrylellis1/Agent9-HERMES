@@ -4,7 +4,6 @@ import {
   siSnowflake,
   siPostgresql,
   siDatabricks,
-  siSap,
 } from 'simple-icons'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
@@ -161,7 +160,6 @@ const PLATFORM_ICON_MAP: Record<string, { path: string; hex: string } | null> = 
   'SQL Server / Azure SQL': null, // text badge fallback
   'PostgreSQL':             { path: siPostgresql.path,     hex: siPostgresql.hex },
   'Databricks':             { path: siDatabricks.path,     hex: siDatabricks.hex },
-  'SAP Business Data Cloud': { path: siSap.path,           hex: siSap.hex },
 }
 
 function PlatformIcon({ name }: { name: string }) {
@@ -203,7 +201,7 @@ function PlatformBadge({
     local: 'text-slate-400 bg-slate-800/60 border-slate-700/40',
   }
   const statusLabel = {
-    production: 'Pilot ready',
+    production: 'Implemented',
     supported: 'Available',
     local: 'Local dev',
   }
@@ -275,12 +273,6 @@ export function DataOnboarding() {
               className="text-sm text-slate-400 hover:text-white transition-colors hidden sm:block"
             >
               Sign In
-            </Link>
-            <Link
-              to="/#conversation"
-              className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
-            >
-              Request a Conversation
             </Link>
           </div>
         </div>
@@ -453,7 +445,7 @@ export function DataOnboarding() {
                 number="1"
                 icon={<Database className="w-4 h-4" />}
                 title="Connect"
-                body="Point Decision Studio at your existing data warehouse — BigQuery, SQL Server / Azure SQL, Snowflake, Databricks, PostgreSQL, or SAP Business Data Cloud. For pilot-scoped use cases, your data stays where it is and the system stores a connection profile, not a copy."
+                body="Point Decision Studio at your existing data warehouse — BigQuery, SQL Server / Azure SQL, Snowflake, Databricks, or PostgreSQL. Your data stays where it is; the system stores a connection profile, not a copy."
               />
               <WorkflowStep
                 number="2"
@@ -621,7 +613,6 @@ export function DataOnboarding() {
               <PlatformBadge name="Snowflake" status="production" />
               <PlatformBadge name="Databricks" status="supported" />
               <PlatformBadge name="PostgreSQL" status="supported" />
-              <PlatformBadge name="SAP Business Data Cloud" status="supported" />
             </motion.div>
 
             <motion.div
@@ -741,23 +732,16 @@ export function DataOnboarding() {
             </div>
 
             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
-              Ready to connect your data?
+              How data connects
             </h2>
 
             <p className="text-slate-400 max-w-lg mx-auto mb-8 leading-relaxed">
-              Tell us what your data infrastructure looks like and what you want to measure.
-              We'll walk through whether Decision Studio is the right fit — no implementation
-              commitment required.
+              Decision Studio inspects your schema, infers relationships, and validates
+              queries against live data before anything is registered — regardless of
+              which warehouse it's connecting to.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link
-                to="/#conversation"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors"
-              >
-                Request a Conversation
-                <ArrowRight className="w-4 h-4" />
-              </Link>
+            <div className="flex items-center justify-center">
               <Link
                 to="/how-it-works"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-semibold text-sm transition-colors border border-slate-700/60"
@@ -768,8 +752,8 @@ export function DataOnboarding() {
             </div>
 
             <p className="mt-5 text-xs text-slate-600">
-              Questions about a specific warehouse or integration? Mention it — we'll give you
-              a straight answer about what's supported and what's in progress.
+              Questions about a specific warehouse or integration? Reach out via the
+              email in the footer below.
             </p>
           </motion.div>
         </div>
@@ -778,34 +762,37 @@ export function DataOnboarding() {
       {/* ═══════════════════════════════════════════
           FOOTER
       ═══════════════════════════════════════════ */}
-      <footer className="border-t border-slate-800/40 py-10 px-6">
-        <div
-          className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500"
-          style={font}
-        >
-          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
-            <Link
-              to="/"
-              className="font-bold text-white hover:text-slate-200 transition-colors"
-              style={font}
-            >
-              Decision Studio
-            </Link>
-            <a href="mailto:info@trydecisionstudio.com" className="hover:text-slate-300 transition-colors">
-              info@trydecisionstudio.com
-            </a>
-            <span>&copy; 2026 Decision Studio</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <Link to="/how-it-works" className="text-slate-400 hover:text-white transition-colors">
-              How It Works
-            </Link>
-            <Link to="/insights/bi-modernization" className="text-slate-400 hover:text-white transition-colors">
-              Insights
-            </Link>
-            <Link to="/login" className="text-slate-400 hover:text-white transition-colors flex items-center gap-1">
-              Sign In <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
+      <footer className="border-t border-slate-800/40 py-10 px-6" style={font}>
+        <div className="max-w-6xl mx-auto">
+          <p className="text-center text-xs text-slate-600 mb-6">
+            This project is currently in development and seeking input from Decision
+            Intelligence practitioners and consumers for awe and wonder.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
+            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
+              <Link
+                to="/"
+                className="font-bold text-white hover:text-slate-200 transition-colors"
+                style={font}
+              >
+                Decision Studio
+              </Link>
+              <a href="mailto:info@trydecisionstudio.com" className="hover:text-slate-300 transition-colors">
+                info@trydecisionstudio.com
+              </a>
+              <span>&copy; 2026 Decision Studio</span>
+            </div>
+            <div className="flex items-center gap-6">
+              <Link to="/how-it-works" className="text-slate-400 hover:text-white transition-colors">
+                How It Works
+              </Link>
+              <Link to="/insights/bi-modernization" className="text-slate-400 hover:text-white transition-colors">
+                Insights
+              </Link>
+              <Link to="/login" className="text-slate-400 hover:text-white transition-colors flex items-center gap-1">
+                Sign In <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
           </div>
         </div>
       </footer>
