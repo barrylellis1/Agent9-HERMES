@@ -956,8 +956,11 @@ class A9_Principal_Context_Agent:
                 preferred_timeframes=[TimeFrame.CURRENT_QUARTER, TimeFrame.YEAR_TO_DATE]
             )
 
-            # Create response object
-            import uuid
+            # Create response object (uuid is imported at module level — a local
+            # `import uuid` here previously shadowed it for this ENTIRE function,
+            # including the except block below, causing "cannot access local
+            # variable 'uuid'" whenever an exception was raised before this line
+            # executed — found live in production 2026-07-29)
             response = PrincipalProfileResponse(
                 request_id=str(uuid.uuid4()),
                 status="success",

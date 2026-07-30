@@ -193,3 +193,30 @@ async def test_get_principal_context_by_id_no_longer_hardcodes_across_principals
     assert context_a["communication_style"] != context_b["communication_style"], (
         "regression: communication_style fell through to the same default for every principal"
     )
+
+
+@pytest.mark.asyncio
+async def test_get_principal_context_by_id_error_path_does_not_crash_on_uuid():
+    """Regression: a local `import uuid` inside the default-profile success
+    branch shadowed the module-level `import uuid` for the ENTIRE function
+    (Python treats any name imported/assigned anywhere in a function as local
+    throughout it) — so whenever an exception was raised earlier in the try
+    block, the except handler's own `uuid.uuid4()` call crashed with
+    "cannot access local variable 'uuid'" instead of returning the intended
+    fallback response. Found live in production 2026-07-29. Forces entry into
+    the except branch by making _load_principal_profiles raise."""
+    agent = object.__new__(A9_Principal_Context_Agent)
+    agent.logger = __import__("logging").getLogger("test")
+    agent._business_process_provider = None
+    agent.principal_profiles = {}
+    agent._principal_provider = None
+
+    async def _boom():
+        raise RuntimeError("simulated failure before the uuid import")
+
+    agent._load_principal_profiles = _boom
+
+    result = await agent.get_principal_context_by_id("cfo_001")
+
+    assert result["status"] == "success"
+    assert result["request_id"]  # a real uuid string, not a crash
