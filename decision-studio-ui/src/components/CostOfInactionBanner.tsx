@@ -17,9 +17,16 @@ interface CostOfInactionBannerProps {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** True when a value is clearly a currency amount, not a percentage/ratio */
+/** True when a value is clearly a currency amount, not a percentage/ratio.
+ * kpiUnit is now reliably populated (see KPIValue.unit fix) — trust it
+ * directly rather than the old magnitude-based guess, which assumed an
+ * empty/percent unit meant "actually dollars in disguise" and therefore
+ * excluded a genuine '$' unit, producing "2614901.0$" instead of "$2.6M". */
 function isCurrencyValue(value: number, unit: string): boolean {
-  return Math.abs(value) >= 1_000 && (unit === '' || unit === '%');
+  if (unit === '$') return true;
+  if (unit === '%' || unit === 'pp') return false;
+  // Genuinely unknown unit — fall back to the old magnitude heuristic.
+  return Math.abs(value) >= 1_000 && unit === '';
 }
 
 function formatValue(value: number, unit: string): string {

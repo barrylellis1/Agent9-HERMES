@@ -105,16 +105,23 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
     const formatImpactEstimate = (opt: any, optIdx: number = 0): string => {
       const ie = opt?.impact_estimate
       if (ie && typeof ie === 'object') {
-        const rawUnit = ie.unit || kpiUnit || ''
-        // Percentage KPIs recover in percentage points (pp), not raw %
-        const displayUnit = rawUnit === '%' ? 'pp' : rawUnit
+        // ie.unit is free-form LLM text and can be verbose (e.g. "percentage
+        // points (pp)"), which previously got concatenated directly onto a
+        // number ("18.0percentage points (pp)"). kpiUnit is the authoritative
+        // registry unit (now reliably populated — see KPIValue.unit fix), so
+        // prefer it and normalize percent-like/dollar-like text down to a
+        // short symbol instead of trusting the model's exact wording.
+        const rawUnitText = String(ie.unit || kpiUnit || '').toLowerCase()
+        const isPercentLike = kpiUnit === '%' || /percent|(?:^|[^a-z])pp(?:[^a-z]|$)|%/.test(rawUnitText)
+        const isDollarLike = !isPercentLike && (kpiUnit === '$' || /\$|dollar/.test(rawUnitText))
+        const displayUnit = isPercentLike ? 'pp' : isDollarLike ? '$' : (ie.unit || kpiUnit || '')
         const low = ie.recovery_range?.low
         const high = ie.recovery_range?.high
         if (low != null && high != null && (low !== 0 || high !== 0)) {
           const fmt = (v: number) => {
             const abs = Math.abs(v)
             const sign = v > 0 ? '+' : ''
-            if (rawUnit === '$') {
+            if (isDollarLike) {
               if (abs >= 1_000_000) return `${sign}$${(v / 1_000_000).toFixed(1)}M`
               if (abs >= 1_000)     return `${sign}$${(v / 1_000).toFixed(0)}K`
               return `${sign}$${v.toFixed(0)}`
