@@ -446,6 +446,24 @@ for _kpi in KPIS:
         _ths.append(dict(_ACCEL_ROW))
 
 
+# ---------------------------------------------------------------------------
+# KPI relationships — cross-branch CAUSAL edges only (theory layer, Phase 15 D/E)
+# ---------------------------------------------------------------------------
+# Deliberately NOT the P&L arithmetic (net_revenue -> gross_profit -> operating_
+# income -> ebitda, revenue channel splits, cogs component sums). That decomposition
+# belongs to the Value Driver Tree spine, which theory_layer_design.md §7 derives
+# from 12C objectives/driver weights — this table is reserved for cross-branch
+# causal edges drawn only when active in a situation (the anti-hairball rule).
+# The required `conflict_direction` field is conflict-detection semantics and has
+# no meaning for an accounting identity, which is the schema telling you the same thing.
+#
+# PROVENANCE HONESTY: this is a hand-authored demo fixture, not accreted client
+# knowledge. `confirmed` here means "a domain fact a Lubricants CFO would recognise
+# on sight", not "this client's exec blessed it in a review" — the real meaning of
+# that rung. Nothing here is `va_validated`; per the epistemic guardrail only VA
+# running DiD/Granger on a specific edge can ever earn `intervention_tested`.
+# Mixed provenance is intentional: it demonstrates SF correctly caveating template
+# edges while citing confirmed ones.
 KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
     {
         "kpi_id": "net_revenue",
@@ -475,6 +493,50 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "causal_rung": "correlational",
         "provenance": "confirmed",
         "confidence": "high",
+    },
+    {
+        # The 11F anchor scenario, now expressible as an internal edge because
+        # base_oil_cost is itself a registered KPI (account_category = 'Base Oil').
+        "kpi_id": "base_oil_cost",
+        "related_kpi_id": "cogs",
+        "client_id": CLIENT_ID,
+        "relationship_type": "custom",
+        # Both are costs: moving together upward is the adverse signal.
+        "conflict_direction": "converging",
+        "description": "Base oil price increases flow through to COGS as inventory turns",
+        "mechanism": "Base oil is the primary raw-material input (~50-60% of COGS). Price moves pass through to reported COGS with an inventory-buffered lag of roughly one month, so a spot-price spike shows up in margin a period later.",
+        "lag_periods": 1,
+        "causal_rung": "correlational",
+        "provenance": "confirmed",
+        "confidence": "high",
+    },
+    {
+        "kpi_id": "premium_mix_pct",
+        "related_kpi_id": "gross_margin_pct",
+        "client_id": CLIENT_ID,
+        "relationship_type": "volume_margin",
+        # Premium mix rising while margin falls means something else (input cost,
+        # discounting) is overwhelming the mix benefit — that divergence is the signal.
+        "conflict_direction": "diverging",
+        "description": "Premium product mix shift moves blended gross margin without any pricing action",
+        "mechanism": "Synthetic Blend and High Mileage formulations carry structurally higher gross margin than conventional grades, so a shift in mix moves blended margin on its own. Margin falling while premium mix rises indicates input-cost or discounting pressure masking the mix benefit.",
+        "lag_periods": 0,
+        "causal_rung": "correlational",
+        "provenance": "template",
+        "confidence": "moderate",
+    },
+    {
+        "kpi_id": "distribution_cost",
+        "related_kpi_id": "cogs",
+        "client_id": CLIENT_ID,
+        "relationship_type": "custom",
+        "conflict_direction": "converging",
+        "description": "Freight and packaging costs are a direct COGS component",
+        "mechanism": "Trucking spot rates and HDPE resin/packaging costs land in COGS with little buffering, so they move reported cost in-period rather than on the base-oil lag.",
+        "lag_periods": 0,
+        "causal_rung": "correlational",
+        "provenance": "template",
+        "confidence": "moderate",
     },
 ]
 
