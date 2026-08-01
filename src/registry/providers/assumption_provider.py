@@ -166,7 +166,7 @@ class AssumptionProvider:
                          provenance, confidence, expiry, linked_situation_id, linked_solution_id,
                          validated_by, falsification_criterion)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-                    ON CONFLICT (linked_solution_id, text) WHERE linked_solution_id IS NOT NULL
+                    ON CONFLICT (linked_solution_id, md5(text)) WHERE linked_solution_id IS NOT NULL
                     DO UPDATE SET
                         scope = EXCLUDED.scope,
                         confidence = EXCLUDED.confidence,

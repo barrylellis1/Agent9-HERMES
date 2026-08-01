@@ -43,8 +43,17 @@ COMMENT ON COLUMN assumptions.falsification_criterion IS
 -- grading time and inflate whatever evidence later accrues to a causal edge.
 -- Partial because linked_solution_id is nullable -- manually-entered assumptions
 -- and SA-derived ones legitimately have no solution attached.
+--
+-- Indexed on md5(text) rather than text itself. A btree index entry must fit in
+-- ~2704 bytes, and `text` here is LLM-generated prose of unbounded length --
+-- verified: 2700 chars of low-entropy text already fails with "index row size
+-- 2728 exceeds btree version 4 maximum 2704". Because the INSERT happens inside
+-- a deliberately non-fatal handler, that failure would not surface as an error;
+-- the assumption would just silently never be registered. md5 is a fixed 32
+-- bytes, so the ceiling disappears entirely. (Used as a dedup key, not for
+-- security.)
 CREATE UNIQUE INDEX IF NOT EXISTS uq_assumptions_solution_text
-    ON assumptions (linked_solution_id, text)
+    ON assumptions (linked_solution_id, md5(text))
     WHERE linked_solution_id IS NOT NULL;
 
 -- Grading lookup: "which active bets belong to this solution?"
