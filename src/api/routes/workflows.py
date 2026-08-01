@@ -706,6 +706,56 @@ async def validate_kpi_queries(
         )
 
 
+def _assumption_from_bet(
+    bet: Any,
+    *,
+    client_id: Optional[str],
+    kpi_id: Optional[str],
+    situation_id: Optional[str],
+    solution_id: str,
+):
+    """Map one SF `SolutionAssumption` to a registry `Assumption` record.
+
+    Extracted from the approve handler so the field mapping is testable — it
+    contains one genuinely counterintuitive rule that is easy to "simplify" back
+    into a bug:
+
+    **`provenance` means two different things on the two models.** On
+    `SolutionAssumption` it is free text — *what would confirm or falsify this
+    claim*. On `Assumption` it is the capture ladder
+    (``template|confirmed|hitl_proposed|va_validated``). Copying one into the
+    other fails the DB CHECK constraint if you are lucky, and corrupts the
+    ladder's meaning if you are not. The falsification text goes to
+    ``falsification_criterion``; the ladder value is always ``hitl_proposed``
+    here, because a human approving a solution that *bets on* a claim has
+    proposed it, not confirmed it.
+
+    Returns ``None`` for anything unusable so the caller can skip it.
+    """
+    from src.registry.models.assumption import Assumption
+
+    if not isinstance(bet, dict):
+        return None
+    text = (bet.get("assumption") or "").strip()
+    if not text:
+        return None
+
+    return Assumption(
+        client_id=client_id,
+        scope=kpi_id or "client",
+        record_type="assumption",
+        text=text,
+        status="active",            # -> held | falsified at VA evaluation
+        source="sf_hitl_approval",
+        provenance="hitl_proposed",             # NOT bet["provenance"] — see docstring
+        falsification_criterion=bet.get("provenance"),
+        confidence=bet.get("confidence"),
+        validated_by=bet.get("validated_by"),
+        linked_situation_id=situation_id,
+        linked_solution_id=solution_id,
+    )
+
+
 async def _record_solution_action(
     request_id: str, action_type: str, request: ActionRequest,
     runtime: Optional["AgentRuntime"] = None,
@@ -849,6 +899,51 @@ async def _record_solution_action(
 
             # Append VA solution_id to the action entry for audit trail
             entry["va_solution_id"] = va_solution_id
+
+            # ── Theory layer §5.3: pre-register the approved option's bets ──
+            # Writing these at APPROVAL time, not at verdict time, is the whole
+            # point. It is the record that we committed to these claims before
+            # the outcome was known — without it, grading assumptions "before
+            # revealing attribution" is a formality, since nothing proves the
+            # bet predated the result. VA's StrategySnapshot already carries the
+            # same list, but as an embedded blob on one solution; these are
+            # first-class rows, queryable as "what is this client currently
+            # betting on" and gradeable to held/falsified later.
+            #
+            # Nothing consumes these yet — grading is the next step and stays
+            # gated per theory doc §9 pre-mortem #1. This is the producer half.
+            if va_solution_id and bets_on_assumptions:
+                try:
+                    from src.registry.models.assumption import Assumption
+                    from src.registry.providers.assumption_provider import AssumptionProvider
+
+                    _ap = AssumptionProvider()
+                    _written = 0
+                    for _bet in bets_on_assumptions:
+                        _record = _assumption_from_bet(
+                            _bet,
+                            client_id=wf_payload.get("client_id"),
+                            kpi_id=kpi_id,
+                            situation_id=situation_id,
+                            solution_id=va_solution_id,
+                        )
+                        if _record is None:
+                            continue
+                        await _ap.upsert(_record)
+                        _written += 1
+                    _va_log.info(
+                        "Pre-registered %d assumption(s) for solution %s",
+                        _written, va_solution_id,
+                    )
+                except Exception as _asm_exc:
+                    # Independently non-fatal, and deliberately NOT folded into
+                    # the VA handler below: a failure here would otherwise be
+                    # reported as "VA register_solution failed" when registration
+                    # actually succeeded, sending a future debugger to the wrong
+                    # place entirely.
+                    _va_log.warning(
+                        "Assumption pre-registration failed (non-fatal): %s", _asm_exc,
+                    )
 
         except Exception as _va_exc:
             import logging as _lg

@@ -38,6 +38,27 @@ class Assumption(BaseModel):
         "hitl_proposed", description="Same provenance ladder as KPIRelationship -- how this was captured"
     )
     confidence: Optional[Literal["high", "moderate", "low"]] = None
+    validated_by: Optional[Literal["sa_assessment", "ma_query", "human_confirmation"]] = Field(
+        None,
+        description=(
+            "Who/what can render a verdict on this claim, carried over from "
+            "SolutionAssumption.validated_by. This is the routing key for grading: "
+            "'sa_assessment' and 'ma_query' are machine-checkable from KPI data / an MA "
+            "re-query, so only 'human_confirmation' rows need to reach a person. Without "
+            "that split every solution puts its full assumption list in front of an "
+            "executive and adjudication quietly stops happening (theory doc §9 pre-mortem #3)."
+        ),
+    )
+    falsification_criterion: Optional[str] = Field(
+        None,
+        description=(
+            "What observation would confirm or falsify this claim, in plain language. "
+            "Carried over from SolutionAssumption.provenance -- deliberately NOT named "
+            "`provenance` here, because that name is already taken above by the capture "
+            "ladder and the two mean entirely different things. Language capped at "
+            "'consistent with', never 'proved' (theory doc §4)."
+        ),
+    )
     expiry: Optional[str] = Field(
         None,
         description=(
