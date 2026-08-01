@@ -221,3 +221,25 @@ If `get_agent("X")` is called before agent X is registered, it raises `ValueErro
 ## Dependencies
 
 The Orchestrator itself has no agent dependencies — it IS the registry. All other agents depend on it.
+
+---
+
+## Agent factory registration — single path (Jul 2026)
+
+`initialize_agent_registry()` in `a9_orchestrator_agent.py` is now the **only**
+thing that registers agent factories. The legacy `AgentBootstrap` path — invoked
+from `src/registry/bootstrap.py`, which scanned `src/agents/*.py` and discovered
+the pre-`new/` agent classes — has been removed along with those implementations.
+
+This closes a long-standing source of confusing startup noise: `AgentBootstrap`
+logged warnings for every legacy file it failed to import
+(`Error discovering agents in src/agents/a9_principal_context_agent.py: No module
+named 'src.agents.agent_provider_connector'`, `Found agent class
+A9_KPI_Assistant_Agent but it lacks a create method`) on every single boot, none
+of which affected the running system — the new-stack agents were registered
+separately the whole time.
+
+Practical consequence: an agent that is not registered by
+`initialize_agent_registry()` does not exist as far as the orchestrator is
+concerned. There is no longer a second, filesystem-scanning path that might
+pick it up.

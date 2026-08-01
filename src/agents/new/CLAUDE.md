@@ -145,7 +145,6 @@ import logging; logger = logging.getLogger()
 | `a9_nlp_interface_agent.py` | Deterministic regex parsing (no LLM); TopN intent; timeframe/grouping extraction |
 | `a9_llm_service_agent.py` | Multi-provider (Claude/OpenAI); template prompting; model routing; token tracking |
 | `a9_kpi_assistant_agent.py` | LLM-powered KPI suggestions; conversational refinement; API-only (no UI) |
-| `a9_data_product_mcp_service_agent.py` | SQL execution via MCP — **DEPRECATED** (removal after 2025-11-30) |
 
 **Shared models:** `src/agents/models/` — Pydantic request/response models per agent
 **Base model:** `src/agents/shared/a9_agent_base_model.py` — `A9AgentBaseRequest` requires `request_id` + `principal_id`

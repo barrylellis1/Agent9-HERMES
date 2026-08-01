@@ -3,35 +3,25 @@
 ## Standard Run Commands
 
 ```bash
-# Unit tests (always use these exact flags):
-.venv/Scripts/pytest tests/unit/ --timeout=15 \
-  --ignore=tests/unit/test_a9_data_product_mcp_service_agent_unit.py
+# Unit tests:
+.venv/Scripts/pytest tests/unit/ --timeout=15
 
 # Verbose output for a specific file:
-.venv/Scripts/pytest tests/unit/test_a9_situation_awareness_agent.py -v --timeout=15
+.venv/Scripts/pytest tests/unit/test_a9_market_analysis_agent.py -v --timeout=15
 
 # Integration tests (longer timeout):
 .venv/Scripts/pytest tests/integration/ --timeout=30
 
 # Single test function:
-.venv/Scripts/pytest tests/unit/test_a9_orchestrator_agent.py::test_name -v --timeout=15
+.venv/Scripts/pytest tests/unit/test_a9_data_governance_wiring.py::test_name -v --timeout=15
 ```
-
-## ALWAYS EXCLUDE This File
-
-```
-tests/unit/test_a9_data_product_mcp_service_agent_unit.py
-```
-
-Hangs permanently on DuckDB initialization — never terminates. Always pass
-`--ignore=tests/unit/test_a9_data_product_mcp_service_agent_unit.py`.
 
 ## Directory Map
 
 ```
 tests/
 ├── conftest.py          — shared pytest fixtures
-├── unit/                — 17 files, one per agent + key components
+├── unit/                — 44 files, one per agent + key components
 ├── integration/         — 9 files (agent-to-agent, API workflow, BigQuery)
 ├── e2e/                 — end-to-end workflow tests
 ├── mocks/               — mock_agents.py (shared mock fixtures)
@@ -53,9 +43,9 @@ def test_something(mock_factory): ...
 - `test_sa_kpi_registry.py::test_load_kpi_registry` — mock wiring for KPI count is fragile.
   Passes but assertion on exact count may break if YAML data changes. Handle with care.
 
-## Coverage Status (as of 2026-07-21)
+## Coverage Status (as of 2026-07-31)
 
-- Unit tests: **587 pass**, 9 skipped (with the standard `--ignore` for the hanging MCP file)
+- Unit tests: **733 pass**, 3 skipped — no `--ignore` flags needed
 - Smoke tests: 3/3 pass
 - Integration / e2e: run individually — some require live Supabase or BigQuery
 - Suite is fully green — keep it that way. A single red unit test had gone unnoticed for months (`test_dpa_principal_filters` stale since the Sept 2025 Phase 10B-DGA resolver neutralization), which masked new failures on the pre-push checklist.

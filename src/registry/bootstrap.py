@@ -14,7 +14,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from src.registry.factory import RegistryFactory
-from src.agents.agent_bootstrap import AgentBootstrap
 from src.registry.providers.business_glossary_provider import BusinessGlossaryProvider, BusinessTerm
 
 # Database-backed registry providers (Supabase)
@@ -275,18 +274,6 @@ class RegistryBootstrap:
                 # YAML fallback removed (2026-02-19) — Supabase is the sole registry backend.
                 if kpi_provider is None:
                     logger.error("KPI provider failed to initialize from Supabase. Check SUPABASE_DB_URL and KPI_REGISTRY_BACKEND env vars.")
-            
-            # Initialize agent factories using AgentBootstrap
-            logger.info("Initializing agent bootstrap")
-            agent_bootstrap_success = await AgentBootstrap.initialize({
-                'base_path': base_path,
-                'registry_factory': cls._factory
-            })
-            
-            if agent_bootstrap_success:
-                logger.info("Agent bootstrap initialization successful")
-            else:
-                logger.warning("Agent bootstrap initialization had issues, continuing with available agents")
             
             cls._initialized = True
             logger.info("Registry providers and agent factories initialized successfully")

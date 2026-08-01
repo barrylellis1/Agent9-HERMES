@@ -58,7 +58,7 @@ orchestrated AI workflows. ~100K lines of backend and UI code, 10 months of deve
 3. **KPI Assistant (API Only — No UI)**
    - 4 endpoints at `/api/v1/data-product-onboarding/kpi-assistant/`
 
-### Implemented Agents (14 Total)
+### Implemented Agents (13 Total)
 
 | Agent | Key Capabilities | Status |
 |---|---|---|
@@ -74,7 +74,6 @@ orchestrated AI workflows. ~100K lines of backend and UI code, 10 months of deve
 | **A9_LLM_Service_Agent** | Multi-provider (Claude/Anthropic), model routing, token tracking, guardrails | Operational |
 | **A9_KPI_Assistant_Agent** | LLM KPI suggestions, conversational refinement, contract updates | API-only (no UI) |
 | **A9_PIB_Agent** | Briefing composition from assessment results, Jinja2 email rendering, SMTP delivery, delegation flow, briefing tokens | Operational |
-| **A9_Data_Product_MCP_Service_Agent** | SQL execution via MCP | **DEPRECATED** (remove after 2025-11-30) |
 | **A9_Risk_Analysis_Agent** | Weighted risk scoring | **Dead code** — no tests, no registration |
 | **A9_Business_Optimization_Agent** | Portfolio conflict detection, causal dependency graphing, strategic alignment scoring, execution sequencing, KPI trajectory forecasting | Planned (Phase 3 — 2028) |
 
@@ -205,7 +204,7 @@ Agent9-HERMES/
 ├── decision-studio-ui/     # React/Vite frontend (+ CLAUDE.md)
 ├── tests/                  # Test suites (+ CLAUDE.md)
 ├── docs/                   # Architecture docs + PRDs (+ CLAUDE.md)
-├── scripts/                # Utility scripts (run_cfo_assessment.py, etc.)
+├── scripts/                # Utility scripts
 ├── workflow_definitions/   # Workflow YAML definitions
 └── supabase/               # Supabase local dev config
 ```
@@ -217,9 +216,9 @@ Agent9-HERMES/
 .\restart_decision_studio_ui.ps1
 
 # Unit tests:
-.venv/Scripts/pytest tests/unit/ --timeout=15 --ignore=tests/unit/test_a9_data_product_mcp_service_agent_unit.py
+.venv/Scripts/pytest tests/unit/ --timeout=15
 
-# Enterprise assessment (replaces run_cfo_assessment.py):
+# Enterprise assessment:
 .venv/Scripts/python run_enterprise_assessment.py [--principal <id>] [--kpi <kpi_id>] [--dry-run]
 ```
 

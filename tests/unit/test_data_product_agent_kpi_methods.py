@@ -3,9 +3,6 @@ from types import SimpleNamespace
 import pytest
 
 
-pytestmark = pytest.mark.no_agent_setup
-
-
 @pytest.mark.asyncio
 async def test_get_kpi_data_happy_path(data_product_agent, monkeypatch):
     agent = data_product_agent
