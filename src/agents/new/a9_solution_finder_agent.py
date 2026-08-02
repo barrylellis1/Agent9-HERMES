@@ -381,16 +381,52 @@ def _parse_key_assumptions(raw: Any) -> List[SolutionAssumption]:
     coercion so both paths tolerate the same degraded input."""
     if not isinstance(raw, list):
         return []
+
+    # The prompt asks for `confidence: high|moderate|low`, but "Medium" appears
+    # all over the same prompt for risk and investment levels, so the model
+    # reaches for it here too. Coerce the near-misses rather than losing the
+    # field — or, before the salvage path below existed, the whole assumption.
+    _CONF_SYNONYMS = {
+        "medium": "moderate", "med": "moderate", "mid": "moderate",
+        "very high": "high", "very low": "low", "none": None, "unknown": None,
+    }
+
+    def _normalise(item: Dict[str, Any]) -> Dict[str, Any]:
+        item = dict(item)
+        item.setdefault("validated_by", "human_confirmation")
+        conf = item.get("confidence")
+        if isinstance(conf, str):
+            key = conf.strip().lower()
+            item["confidence"] = _CONF_SYNONYMS.get(key, key) if key in _CONF_SYNONYMS else key
+        return item
+
     out: List[SolutionAssumption] = []
     for item in raw:
         try:
             if isinstance(item, dict):
-                item.setdefault("validated_by", "human_confirmation")
-                out.append(SolutionAssumption(**item))
+                out.append(SolutionAssumption(**_normalise(item)))
             elif isinstance(item, str) and item.strip():
                 out.append(SolutionAssumption(assumption=item, validated_by="human_confirmation"))
-        except Exception:
-            continue
+        except Exception as e:
+            # Salvage rather than drop. The assumption TEXT is the load-bearing
+            # part — it is what VA later grades and what gets pre-registered at
+            # approval. Losing it because an optional metadata field came back
+            # malformed is a silent, permanent data loss, and this except used
+            # to do exactly that with no log line. Retry with the core fields.
+            if isinstance(item, dict) and str(item.get("assumption") or "").strip():
+                try:
+                    out.append(SolutionAssumption(
+                        assumption=str(item["assumption"]).strip(),
+                        validated_by="human_confirmation",
+                    ))
+                    logger.info(
+                        "[SF] key_assumption metadata rejected (%s) — kept assumption text, dropped metadata: %r",
+                        e, {k: v for k, v in item.items() if k != "assumption"},
+                    )
+                    continue
+                except Exception:
+                    pass
+            logger.info("[SF] key_assumption discarded entirely (unparseable): %s", e)
     return out
 
 
@@ -977,6 +1013,11 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "- INTERNAL BENCHMARK FEASIBILITY: If benchmark_segments (internal_benchmark type) are present in deep_analysis_summary or kt_is_is_not, at least one option MUST address replication: how the outperforming segment's practices can be scaled to underperforming areas. Name the benchmark segment explicitly and quantify the replication upside using its delta.\n"
                         "- OPTION DIVERSITY REQUIREMENT: Generate EXACTLY 3 options with meaningfully different primary mechanisms — do NOT collapse them into a single 'Strategic Realignment'. Example structure: (1) an immediate operational intervention (0-90 days, lower cost, higher reversibility), (2) a structural fix targeting the root cause dimension (3-12 months), (3) a strategic portfolio or pricing play (12+ months, higher investment). Each option must be independently actionable and have a distinct title reflecting the specific lever.\n"
                         "- CONSISTENCY CHECK (mandatory before writing opt_2/opt_3): Before recommending mix shift toward a product category or customer segment, verify from the where_is data that the TARGET category has BETTER margin performance than the PROBLEM category. If the target segment is ALSO underperforming in the data, you MUST explicitly acknowledge this in the option description AND provide a resolution path (e.g., 'Step 1 is to restore that segment's margins via [mechanism], then accelerate shift'). Never recommend moving volume toward a segment with worse margins than the one being abandoned without resolving the contradiction.\n"
+                        "- ASSUMPTION HONESTY REQUIREMENT: populate ALL of `grounded`, `confidence`, `provenance` on every key_assumption. These carry downstream to Value Assurance, which grades whether each assumption held, so a mislabelled one corrupts the record permanently.\n"
+                        "  * `grounded`: true ONLY when the assumption is directly supported by a specific fact present in the INPUT DATA — a named change_point, benchmark segment, market signal, or causal relationship. If you are inferring it from domain knowledge or general reasoning, it is FALSE. An ungrounded assumption is NOT a flaw; it is the normal case, and most assumptions in a typical option are ungrounded. Marking an inferred assumption as grounded is far worse than admitting it was inferred.\n"
+                        "  * `provenance`: name the OBSERVATION that would confirm or falsify this — something checkable later, e.g. 'base oil cost exceeds $85 for two consecutive periods'. When grounded=true, cite the specific input fact instead. Never write 'proved' or 'proven'; the strongest permitted phrasing is 'consistent with'.\n"
+                        "  * `confidence`: high|moderate|low — confidence that the assumption HOLDS, which is independent of `grounded`. A grounded assumption can be low confidence (thin or noisy data); an inferred one can be high confidence (strong domain prior).\n"
+                        "  * Do NOT list fewer assumptions in order to appear more certain. Naming an assumption is the honest act; omitting one is the failure.\n"
                         f"{_accuracy_req}"
                         f"{output_instruction}"
                         "IMPORTANT — fill in this JSON exactly as shown. Do NOT include a stage_1_hypotheses field.\n"
@@ -1015,7 +1056,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "      \"implementation_triggers\": [\"...\"],\n"
                         "      \"prerequisites\": [\"...\"],\n"
                         "      \"key_assumptions\": [\n"
-                        "        {\"assumption\": \"<what this option bets on>\", \"validated_by\": \"sa_assessment|ma_query|human_confirmation\"}\n"
+                        "        {\"assumption\": \"<what this option bets on>\", \"validated_by\": \"sa_assessment|ma_query|human_confirmation\", \"grounded\": false, \"confidence\": \"high|moderate|low\", \"provenance\": \"<what observation would confirm or falsify this>\"}\n"
                         "      ],\n"
                         "      \"flagged_side_effects\": []\n"
                         "    },\n"
@@ -1046,7 +1087,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "      \"implementation_triggers\": [\"...\"],\n"
                         "      \"prerequisites\": [\"...\"],\n"
                         "      \"key_assumptions\": [\n"
-                        "        {\"assumption\": \"<what this option bets on>\", \"validated_by\": \"sa_assessment|ma_query|human_confirmation\"}\n"
+                        "        {\"assumption\": \"<what this option bets on>\", \"validated_by\": \"sa_assessment|ma_query|human_confirmation\", \"grounded\": false, \"confidence\": \"high|moderate|low\", \"provenance\": \"<what observation would confirm or falsify this>\"}\n"
                         "      ],\n"
                         "      \"flagged_side_effects\": []\n"
                         "    },\n"
@@ -1077,7 +1118,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "      \"implementation_triggers\": [\"...\"],\n"
                         "      \"prerequisites\": [\"...\"],\n"
                         "      \"key_assumptions\": [\n"
-                        "        {\"assumption\": \"<what this option bets on>\", \"validated_by\": \"sa_assessment|ma_query|human_confirmation\"}\n"
+                        "        {\"assumption\": \"<what this option bets on>\", \"validated_by\": \"sa_assessment|ma_query|human_confirmation\", \"grounded\": false, \"confidence\": \"high|moderate|low\", \"provenance\": \"<what observation would confirm or falsify this>\"}\n"
                         "      ],\n"
                         "      \"flagged_side_effects\": []\n"
                         "    }\n"
@@ -1588,10 +1629,22 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                     )
                                 else:
                                     s1_resp = await self.llm_service_agent.analyze(s1_req)  # type: ignore
-                                if getattr(s1_resp, "status", "error") == "success":
-                                    s1_result = getattr(s1_resp, "analysis", None)
-                                    if isinstance(s1_result, dict):
-                                        return s1_result
+                                _s1_status = getattr(s1_resp, "status", "error")
+                                s1_result = getattr(s1_resp, "analysis", None) if _s1_status == "success" else None
+                                if isinstance(s1_result, dict):
+                                    return s1_result
+                                # Both remaining paths previously fell through to a
+                                # bare `return None` with NO log line, so a persona
+                                # dropping out of the council was invisible — the only
+                                # trace was a shorter list in "Stage 1 complete: [...]",
+                                # which is easy to miss and impossible to diagnose after
+                                # the fact. Observed 2026-08-02: 2 of 3 personas vanished
+                                # with nothing logged anywhere.
+                                self.logger.warning(
+                                    "[SF] Stage 1 produced no usable hypothesis for %s: status=%s, analysis_type=%s, error=%s",
+                                    p.id, _s1_status, type(getattr(s1_resp, "analysis", None)).__name__,
+                                    getattr(s1_resp, "error", None) or getattr(s1_resp, "error_message", None),
+                                )
                             except Exception as _s1e:
                                 self.logger.warning(f"[SF] Stage 1 call failed for {p.id}: {_s1e}")
                             return None

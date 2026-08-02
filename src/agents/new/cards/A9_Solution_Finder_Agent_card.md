@@ -194,3 +194,27 @@ This design ensures:
 - SF operates on binary modes only (no dual-tracking of options)
 - VA receives consistent control group semantics (no ambiguous DiD setup)
 - Principal engagement is focused (binary choice at a single HITL gate, not throughout SF)
+
+---
+
+## Assumption metadata elicitation (Aug 2026)
+
+**Defect found:** five of seven `SolutionAssumption` fields were never populated. Only `assumption` and `validated_by` carried data on any option of any run; `grounded`, `confidence`, `provenance`, `validated_at` and `revalidation_days` all sat at their model defaults. The cause was simply that the synthesis JSON template asked for two fields and nothing else. Not visible from reading the schema — the fields look correct there — so only inspecting a live run surfaces it.
+
+This mattered beyond cosmetics: `grounded` ("verifiable from SA/MA data at synthesis time vs. inferred by the LLM") is the signal separating a well-founded recommendation from a speculative one, and the assumption pre-registration in `workflows.py` maps `falsification_criterion` from `provenance`, so every persisted record carried `None` for it.
+
+**Elicitation is deliberately designed against self-report inflation** — the model is being asked to report the fields it would be judged on:
+- `grounded=true` requires naming the specific fact in the INPUT DATA supporting it
+- the prompt states plainly that ungrounded is the *normal* case, and that mislabelling an inference as grounded is worse than admitting it
+- the template example shows `false`, not `true`
+- an explicit instruction not to list fewer assumptions in order to appear more certain
+
+Observed behaviour on a live run: 2 of 9 assumptions claimed `grounded`, both traceable to the client-confirmed base-oil→COGS edge, while assumptions resting on `template`-provenance relationships were marked ungrounded **and** low confidence — the provenance ladder propagating into confidence, which is the intended behaviour.
+
+**Rejected alternative:** an assumption-to-constraint ratio as a numeric confidence score. It inverts the incentive (assumption count as denominator rewards listing fewer, but naming assumptions is the honest act, and the model self-reports the list), treats constraints and assumptions as commensurable when one is a wall and the other a bet, confuses cardinality with criticality, and manufactures false precision. Preferred instead: constraint checks as a binary gate, naming the load-bearing assumption, and displaying the provenance mix rather than collapsing it to a scalar.
+
+## Two silent-failure paths hardened (Aug 2026)
+
+- **`_parse_key_assumptions`** caught every exception and dropped the entire assumption. Requesting three additional fields multiplies the chance one returns malformed, so a validation error would have silently destroyed the assumption *text* — the load-bearing part that VA later grades and that gets pre-registered at approval. Now salvages the text, discards only the bad metadata, and logs. Also coerces confidence synonyms; `"Medium"` is the likeliest slip because the same prompt uses Medium for risk and investment levels while this field only accepts `"moderate"`.
+
+- **`_run_stage1`** logged on exception but had two paths returning `None` with no log at all (non-success status, or non-dict `analysis`). Observed 2026-08-02: two of three personas dropped out of the council with nothing logged anywhere, leaving the run impossible to diagnose after the fact — the only trace was a shorter list in `Stage 1 complete: [...]`. Now warns with status, analysis type, and error.
