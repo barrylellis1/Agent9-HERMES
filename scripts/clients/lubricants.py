@@ -541,6 +541,36 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
 ]
 
 
+# Theory-layer assumption register (see docs/architecture/theory_layer_design.md).
+#
+# Seeded rows carry an EXPLICIT stable `id` so onboarding upserts on the primary key
+# instead of delete-first. This table also accumulates rows written at runtime by SF
+# HITL approval (source='sf_hitl_approval'), and that accreted knowledge is the whole
+# point of the theory layer — a delete-by-client pass here would erase it.
+#
+# PROVENANCE HONESTY: same caveat as KPI_RELATIONSHIPS above. `confirmed` means "a
+# Lubricants CFO would recognise this on sight", not "this client's exec blessed it".
+ASSUMPTIONS: List[Dict[str, Any]] = [
+    {
+        # Hard constraint: SF must not propose mid-quarter list-price increases on
+        # anchor accounts. This is the row that makes the causal-grounding A/B visible
+        # — without it SF cheerfully recommends exactly the move the contracts forbid.
+        "id": "8dd4e22c-f23f-48dc-b76e-f4eb89367a3e",
+        "client_id": CLIENT_ID,
+        "scope": "gross_margin_pct",
+        "record_type": "constraint",
+        "text": (
+            "Cannot raise list prices on Lubricants anchor accounts mid-quarter "
+            "(contractual price-lock clause)"
+        ),
+        "status": "active",
+        "source": "manual",
+        "provenance": "confirmed",
+        "confidence": "high",
+    },
+]
+
+
 PRINCIPALS: List[Dict[str, Any]] = [
     {
         "id": "cfo_001",

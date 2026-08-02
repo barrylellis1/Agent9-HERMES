@@ -30,6 +30,7 @@ Seeding order (all idempotent upserts):
     6. principal_profiles
     7. kpi_accountability     (optional — only if ACCOUNTABILITY is exported)
     8. kpi_relationships      (optional — only if KPI_RELATIONSHIPS is exported)
+    9. assumptions            (optional — only if ASSUMPTIONS is exported)
 """
 
 import argparse
@@ -382,7 +383,7 @@ def onboard_client(
         # ------------------------------------------------------------------
         kpi_relationships: List[Dict[str, Any]] = getattr(mod, "KPI_RELATIONSHIPS", [])
         if kpi_relationships:
-            print("[8/8] kpi_relationships")
+            print("[8/9] kpi_relationships")
             bad_r = [r["kpi_id"] for r in kpi_relationships if r.get("client_id") != client_id]
             if bad_r:
                 print(f"  ERROR: {len(bad_r)} relationship(s) have wrong or missing client_id: {bad_r}")
@@ -391,6 +392,34 @@ def onboard_client(
             # and PostgREST merge-duplicates doesn't reliably resolve conflicts on composite keys.
             _delete_by_client(http, base_url, service_key, "kpi_relationships", client_id, dry_run)
             n = _upsert(http, base_url, service_key, "kpi_relationships", kpi_relationships, dry_run)
+            print(f"  OK  {n} row(s) upserted\n")
+
+        # ------------------------------------------------------------------
+        # 9. assumptions  (optional — only if client exports ASSUMPTIONS)
+        # ------------------------------------------------------------------
+        # NO delete-first here, unlike step 8. The assumptions table is not purely
+        # seed-owned: SF HITL approval writes rows into it at runtime
+        # (source='sf_hitl_approval'), and that accretion IS the theory layer's
+        # product. Deleting by client_id on every re-seed would silently destroy
+        # accumulated client knowledge. Seeded rows therefore carry an explicit
+        # stable `id` and upsert on the primary key, touching nothing else.
+        assumptions: List[Dict[str, Any]] = getattr(mod, "ASSUMPTIONS", [])
+        if assumptions:
+            print("[9/9] assumptions")
+            bad_as = [a.get("text", "?") for a in assumptions if a.get("client_id") != client_id]
+            if bad_as:
+                print(f"  ERROR: {len(bad_as)} assumption(s) have wrong or missing client_id: {bad_as}")
+                sys.exit(1)
+            missing_id = [a.get("text", "?") for a in assumptions if not a.get("id")]
+            if missing_id:
+                print(
+                    f"  ERROR: {len(missing_id)} assumption(s) missing an explicit stable 'id'. "
+                    "Seeded assumptions must set one so re-seeding upserts instead of "
+                    "duplicating (the PK default gen_random_uuid() would create a new row "
+                    f"every run): {missing_id}"
+                )
+                sys.exit(1)
+            n = _upsert(http, base_url, service_key, "assumptions", assumptions, dry_run)
             print(f"  OK  {n} row(s) upserted\n")
 
     print(f"{'='*60}")
