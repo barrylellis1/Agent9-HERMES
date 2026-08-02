@@ -22,19 +22,29 @@ The Business Optimization Agent operates at Layer 3 (Portfolio Optimization) of 
 
 The Business Optimization Agent is Decision Studio's outer loop. The existing SA→DA→SF→VA pipeline is the inner loop — it detects situations, diagnoses root causes, recommends solutions, and measures outcomes. The Business Optimization Agent wraps that inner loop with goal-directed execution: principals declare Business Objectives, the system maps those objectives to KPI drivers, autonomously pursues them through the inner loop, tracks composite objective progress, and produces a living Strategic Performance Summary.
 
-At full realization, the system software-displaces the strategic consulting engagement: a CFO or CEO declares "improve EBITDA margin from 12% to 15% by Q4 2026" and the system works toward that objective continuously — monitoring, diagnosing, sequencing solutions, tracking outcomes — escalating to humans only at decision points that exceed its authority.
+At full realization: a CFO or CEO declares "improve EBITDA margin from 12% to 15% by Q4 2026" and the system works toward that objective continuously — monitoring, diagnosing, sequencing solutions, tracking outcomes — escalating to humans only at decision points that exceed its authority.
 
-**Why this matters:** The CFO currently runs manual scenario analysis and hires consultants to diagnose why KPIs moved. The BO Agent eliminates manual analysis for routine variations, and the consultant's work becomes continuous and autonomous.
+**Why this matters:** The CFO currently runs manual scenario analysis in spreadsheets, and objectives declared at the planning offsite decay into a deck nobody revisits until the next cycle. The BO Agent removes the manual analysis for routine variations and keeps the objective live between planning cycles.
+
+> **Positioning note.** Earlier drafts said the system "software-displaces the strategic consulting engagement." That framing is withdrawn from product positioning — see **Market Positioning** below for why, and where it legitimately still lives.
 
 ---
 
 ## Market Positioning
 
-### What the Business Optimization Agent Displaces
+### Where the BO Agent Competes
 
 The inner loop competes with BI tools and junior FP&A analysts.
 
-The outer loop competes with strategy consulting engagements — McKinsey, BCG, Bain charge $500K–$3M per engagement to do what the BO Agent does continuously. They do it manually, once, for 12–18 weeks. The BO Agent does it continuously, autonomously, and adjusts as conditions change.
+The outer loop competes with **the spreadsheet and the quarterly planning cycle** — the objective declared at the offsite, tracked in a deck, revisited when someone remembers. That is the incumbent, and it is what the BO Agent has to beat.
+
+**It does not compete with MBB, and saying so is a strategic error.** Per `docs/architecture/theory_layer_design.md` §3.4 and §11, the house position is that the competitor is Excel and the monthly variance meeting — never a consulting takeover — with MBB serving as **price anchor and plausible acquirer or channel**. Three reasons that discipline holds here:
+
+1. **It contradicts our own sales motion.** `docs/strategy/decision_studio_sales_play.md` lists MBB-on-retainer as an explicit *disqualifier* — "we are not displacing them in this account." A PRD claiming we compete with McKinsey while the sales play says walk away from McKinsey accounts cannot both be operative.
+2. **It poisons the channel.** A firm evaluating us as a delivery tool reads "displaces McKinsey" as a reason not to engage. Same for an acquirer.
+3. **It overclaims to buyers.** A CFO who has bought a $2M engagement knows what it included. Claiming equivalence invites a comparison we lose on scope, and costs credibility on the parts we would genuinely win.
+
+**Where displacement language does belong:** the exit and valuation thesis, where it is used correctly today — `docs/strategy/strategic_horizon.md` frames a displacement platform as a *defensive acquisition* trigger, and `docs/strategy/exit_strategy.md` uses it as a valuation trigger. That argument requires looking threatening to MBB and is investor-facing. It is not a customer-facing claim, and it does not belong in product positioning. **Keep the thesis; keep it in those documents.**
 
 ### Competitive Landscape
 
@@ -43,8 +53,10 @@ The outer loop competes with strategy consulting engagements — McKinsey, BCG, 
 | Anaplan / Workday Adaptive / Oracle EPM | Budgeting, forecasting, scenario modeling | No autonomous diagnosis, no solution recommendation, no outcome attribution — glorified spreadsheets with workflow |
 | Cascade / Betterworks / Workboard | OKR tracking | No AI, no analytics — track whether targets are hit but not why they were missed or what to do |
 | SAP Joule | NL query over SAP data | Root cause analysis is roadmap, not GA; no solution recommendation, no DiD attribution |
-| McKinsey / BCG / Bain | Full strategy engagement | Expensive, one-time, human-dependent, not continuous |
-| **No one** | Continuous autonomous objective pursuit with measurable outcome tracking | **This is the gap** |
+| Spreadsheet + quarterly planning cycle | How objectives are actually managed today in the ICP | **The real incumbent.** No continuity between cycles, no link from objective to the KPI movements underneath it, no record of why an objective was abandoned |
+| **No one** | Continuous objective pursuit with measurable outcome tracking | **This is the gap** |
+
+**Not in this table: McKinsey / BCG / Bain.** Deliberately — see above. They are a pricing reference and a potential channel or acquirer, not a competitor we position against.
 
 ### The Private Equity Portfolio Angle (Highest-Value Go-to-Market)
 
@@ -52,12 +64,18 @@ A PE firm with 20 portfolio companies runs the same value creation playbook on e
 
 The BO Agent deploys the PE firm's standard value creation framework as a template, runs autonomous assessments across all portfolio companies simultaneously, and produces a portfolio dashboard: which companies are on plan, which are at risk, where the playbook is working. It flags which companies actually need consultant intervention vs. which are executing autonomously.
 
-This is a platform sale: one PE firm with 20 portfolio companies = 20 deployments under one contract. Replaces $4M/year in assessment fees with a platform subscription.
+This is a platform sale: one PE firm with 20 portfolio companies = 20 deployments under one contract.
 
-**Market size:**
-- Global strategy consulting market: ~$40B annually
-- Software capturing 1% = ~$400M ARR opportunity at enterprise scale
-- Mid-market entry (200,000+ companies, $20K–$200K/year SaaS): $500M–$1B ARR at 1,000 clients
+**Why this survives the positioning discipline above.** It reads like a displacement claim but is not the same argument, for three reasons worth keeping straight:
+
+1. **It names a specific, repetitive, commoditised spend** — recurring portfolio-company assessments — rather than "strategy consulting" as a category. Repetitive templated work is exactly what software displaces well.
+2. **The buyer is the one paying it.** A PE operating partner wants that line reduced. A CFO who bought a transformation engagement generally does not want to be told it was replaceable.
+3. **It routes work to consultants rather than away from them.** The capability above — *flagging which companies actually need consultant intervention versus which are executing autonomously* — is triage, and it makes the firm's time more valuable, not less. That is a channel-compatible posture.
+
+**Market size — treat with care.** The figures below were previously stated as "~$40B global strategy consulting market; software capturing 1% = ~$400M ARR." **That reasoning is weak and should not be used externally.** A percentage of an adjacent market is not a demand estimate — it assumes substitutability that has to be earned and says nothing about willingness to pay for this specific product. The bottom-up number is the defensible one:
+
+- **Bottom-up (use this):** mid-market entry, 200,000+ candidate companies at $20K–$200K/year → $500M–$1B ARR at 1,000 clients
+- **Reference only, not a TAM claim:** global strategy consulting ≈ $40B annually. Useful as a price anchor for what the buyer already spends on adjacent work — not as evidence of an addressable market.
 
 ---
 
@@ -528,6 +546,12 @@ These may be prioritized in Phase 4+.
 ---
 
 ## Change Log
+
+- **2026-08-02 (v0.2.1 — Positioning reconciliation):** No functional change. Removes the "software-displaces the strategic consulting engagement" framing from product positioning, where it contradicted three other documents at once: `theory_layer_design.md` §3.4/§11 (competitor is Excel and the monthly variance meeting, never a consulting takeover; MBB is price anchor and plausible acquirer/channel), `decision_studio_sales_play.md` (MBB-on-retainer is an explicit *disqualifier* — "we are not displacing them in this account"), and the newly repositioned Innovation Driver PRD v0.3, which withdrew the equivalent claim.
+
+  Changes: Executive Summary displacement sentence removed, with a pointer to where the thesis still lives. "What the BO Agent Displaces" → "Where the BO Agent Competes", with the real incumbent named as the spreadsheet and the quarterly planning cycle. McKinsey/BCG/Bain removed from the Competitive Landscape table, with an explicit note saying so and why. The **displacement exit thesis is preserved, not deleted** — `strategic_horizon.md` (defensive-acquisition trigger) and `exit_strategy.md` (valuation trigger) use it correctly, and the PRD now cross-references them rather than duplicating the claim in a customer-facing frame.
+
+  PE portfolio angle retained with a note on why it survives the same discipline (a specific repetitive commoditised spend, paid by the buyer who wants it reduced, and the capability routes work *to* consultants via triage). The "1% of a $40B market" TAM reasoning is flagged as weak and demoted to a price-anchor reference; the bottom-up figure is marked as the defensible one.
 
 - **2026-06-01 (v0.2 — Strategic Expansion):** Substantially expanded with outer loop architecture, market positioning (software displacing strategy consulting, PE portfolio angle), expanded buyer personas (CEO, COO, PE Operating Partner, Board), trust curve and phasing rationale, Phase A capabilities (Business Objectives registry, objective health score, Strategic Performance Summary). Existing Phase B/C portfolio optimisation capabilities retained. Status updated to multi-phase. Phased Implementation Summary added.
 
