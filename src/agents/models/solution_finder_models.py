@@ -79,14 +79,38 @@ class RecoveryRange(A9AgentBaseModel):
 class ImpactEstimate(A9AgentBaseModel):
     """Typed replacement for the previously untyped impact_estimate dict.
 
-    Field shape is unchanged from the prompt's existing JSON
-    (metric/unit/recovery_range{low,high}/basis) — this is a Pydantic-side
-    typing improvement only, not a prompt or behavior change.
+    ``scope`` was added after live runs produced recovery ranges of 18.5-28.3
+    percentage points on a Gross Margin % of 31.08 whose annual decline was
+    5.08pp. The numbers were not invented: the ``basis`` text traced them to
+    "50-65% of the 43.24pp Chain A decline" and "40-50% of Synthetic Blend's
+    16.76pp loss" — real DIMENSIONAL magnitudes from DA's change_points, worn
+    under the ENTERPRISE KPI's name. Reproduced in both fast and full debate
+    mode, so it is structural rather than model noise.
+
+    Without a scope field the two readings are indistinguishable downstream, and
+    the consumer that matters is not the briefing but VA: solution registration
+    reads recovery_range verbatim into impact bounds, so an unqualified segment
+    figure becomes an enterprise commitment that VA later grades against a
+    target that was never attainable.
+
+    Prompt wording alone cannot fix this — the synthesis prompt already asks for
+    enterprise units AND tells the model to anchor ``basis`` in change_points,
+    which are segment-level. Faced with that, it resolves toward the larger, more
+    salient number. Making scope explicit is what removes the ambiguity.
     """
     metric: Optional[str] = None
     unit: Optional[str] = None
     recovery_range: Optional[RecoveryRange] = None
     basis: Optional[str] = None
+
+    # "enterprise" = moves the headline KPI by this much.
+    # "segment"    = moves the named segment only; scope_label carries which one.
+    # None         = unstated (pre-existing payloads, and any model that ignores
+    #                the instruction). Treated as UNVERIFIED by consumers rather
+    #                than silently assumed to be enterprise — that assumption is
+    #                the bug this field exists to prevent.
+    scope: Optional[Literal["enterprise", "segment"]] = None
+    scope_label: Optional[str] = None  # e.g. "National Auto Parts Chain A"
 
 
 class TradeOffCriterion(A9AgentBaseModel):

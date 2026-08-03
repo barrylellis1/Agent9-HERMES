@@ -75,3 +75,8 @@ credentials/
 # Playwright test output (config + tests are committed; artifacts are not)
 playwright-report/
 playwright-results/
+# Live-run output dirs (playwright.live.config.ts). Separate names so a live run's
+# artifacts never overwrite the mocked suite's, and because these contain real SF
+# payloads with client business context.
+playwright-report-live/
+playwright-results-live/

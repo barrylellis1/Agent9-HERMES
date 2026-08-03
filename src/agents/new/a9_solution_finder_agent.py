@@ -438,11 +438,20 @@ def _parse_impact_estimate(raw: Any) -> Optional[ImpactEstimate]:
     try:
         rr = raw.get("recovery_range")
         recovery_range = RecoveryRange(**rr) if isinstance(rr, dict) else None
+        # Only accept the two known values. An unrecognised string becomes None
+        # ("unstated") rather than being passed through, because a scope nobody
+        # can interpret is more dangerous than an absent one: downstream treats
+        # None as unverified, but would treat a junk value as a real claim.
+        _scope = raw.get("scope")
+        if _scope not in ("enterprise", "segment"):
+            _scope = None
         return ImpactEstimate(
             metric=raw.get("metric"),
             unit=raw.get("unit"),
             recovery_range=recovery_range,
             basis=raw.get("basis"),
+            scope=_scope,
+            scope_label=raw.get("scope_label"),
         )
     except Exception:
         return None
@@ -1002,7 +1011,22 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "  * 'metric' = the KPI name (from SITUATION METRICS kpi_name field)\n"
                         "  * 'unit' = the KPI unit (from SITUATION METRICS unit field, e.g. '%' or '$')\n"
                         "  * 'recovery_range' = {\"low\": <number>, \"high\": <number>} expressed in the KPI's own units — NOT as a generic percentage of improvement. If unit is '%', express as percentage points (e.g. 1.2 to 2.8). If unit is '$', express as dollar amounts (e.g. 2400000 to 4800000).\n"
-                        "  * 'basis' = one sentence grounding the estimate in the actual change_points magnitude and the option's mechanism (e.g. 'Supplier consolidation delivering 3-5% unit cost reduction on the $X COGS base identified in the where_is analysis').\n"
+                        # SCOPE ELICITATION IS DEFERRED — see ImpactEstimate.scope.
+                        # Asking for scope/scope_label here is correct in principle but
+                        # pushes the synthesis JSON past its output budget: the response
+                        # already runs ~25,600 characters (~20k tokens of dense JSON) and
+                        # truncates mid-object, parsing to {"raw_response": ...} and
+                        # silently yielding the heuristic stub. Reproduced 3/3 with the
+                        # instruction present, 0/1 without. Raising max_tokens to 28000
+                        # did not help — claude-sonnet-5 returned status="error".
+                        #
+                        # The model field, parser, and VA guard still ship: with scope
+                        # absent the guard treats every bound as UNVERIFIED, which is the
+                        # safe reading and the property that actually protects VA. Re-add
+                        # this line once the synthesis output budget is resolved, and
+                        # re-verify with the live harness rather than the unit suite —
+                        # nothing in tests/unit exercises a real synthesis call.
+                        "  * 'basis' = one sentence grounding the estimate in the actual change_points magnitude and the option's mechanism (e.g. 'Supplier consolidation delivering 3-5% unit cost reduction on the $X COGS base identified in the where_is analysis'). If the figure sizes a single segment rather than the enterprise KPI, say so explicitly.\n"
                         "  * Calibrate the range against the current_value and comparison_value from SITUATION METRICS — your estimate should be directionally proportional to the observed variance.\n"
                         "- NUMERIC DIFFERENTIATION REQUIREMENT: Each option's expected_impact, cost, risk, AND recovery_range MUST differ from the others. "
                         "Map each option's cost_signal from stage_1_persona_hypotheses.proposed_option: Low→0.25, Medium→0.50, High→0.80. "
@@ -1922,6 +1946,33 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         # truncation: causal-grounding + critic-pass content pushed synthesis past
                         # 16384 output tokens, producing a parsed dict with no "options" key and
                         # silently falling back to the hardcoded heuristic stub.
+                        #
+                        # 20000 IS THE CEILING — and it is not the model's.
+                        #
+                        # Probed directly against claude-sonnet-5: 20000 is accepted;
+                        # 24000, 28000, 32000 and 64000 are all rejected by the Anthropic
+                        # SDK with "Streaming is required for operations that may take
+                        # longer than 10 minutes". The limit is the non-streaming request
+                        # path, so no amount of raising this number helps until the
+                        # synthesis call streams.
+                        #
+                        # That matters because synthesis is ALREADY at the ceiling: across
+                        # repeated full-mode live runs the body lands at ~25,600-26,000
+                        # characters of dense JSON (~20k tokens) and truncates mid-object,
+                        # parsing to {"raw_response": ...} and silently returning the
+                        # heuristic stub with status="success".
+                        #
+                        # It is NOT driven by prompt size — it still truncated with
+                        # debate_spec_length back at 17,409 (baseline 17,321), and that
+                        # run's body was LONGER (25,967) than one with a bigger prompt.
+                        # Output tracks how verbose the model happens to be, so at this
+                        # ceiling the failure is STOCHASTIC: a clean run is a lucky sample,
+                        # not a working configuration.
+                        #
+                        # Two real fixes, both out of scope here: stream the synthesis call
+                        # (raises the ceiling), or shrink what the response carries (stays
+                        # under it). Until one lands, watch for the heuristic_stub_fallback
+                        # audit event — it is the only reliable signal this happened.
                         max_tokens=20000,
                         **_structured_kwargs,
                     )
@@ -1969,6 +2020,18 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "event": "llm_debate_completed",
                         "status": getattr(llm_resp, "status", None),
                         "model_used": model_used,
+                        # Carry the error text. status="error" alone says a call was
+                        # rejected but not why, and the reason only reached the
+                        # backend's console — invisible to anyone reading the payload
+                        # afterwards, which cost a full live run to rediscover.
+                        #
+                        # The field is error_message. `error` is A9AgentBaseResponse's
+                        # classmethod CONSTRUCTOR, so getattr(resp, "error") returns a
+                        # bound method and str() of it yields
+                        # "<bound method A9AgentBaseResponse.error ...>" — a live run
+                        # was spent capturing exactly that instead of the message.
+                        "error": (str(getattr(llm_resp, "error_message", None))[:400]
+                                  if not llm_ok else None),
                     })
 
                     parsed = getattr(llm_resp, "analysis", None) if llm_ok else None
@@ -2078,6 +2141,55 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
 
             # Heuristic fallback or augmentation if LLM didn't yield options
             if not options:
+                # LOUD. This branch has now silently degraded a live run twice: once
+                # when synthesis exceeded 16384 output tokens, and again after that
+                # was bumped to 20000. Both times the response parsed into a dict
+                # with no "options" key, raised nothing, and the generic stub
+                # ("Tighten spend controls" / "Optimize pricing") was returned with
+                # status="success" — indistinguishable from a real recommendation
+                # until someone read the titles.
+                #
+                # An exception here would take the WHOLE workflow down for what may
+                # be a transient truncation, so this stays non-fatal — but it must
+                # never again be silent. Record what the LLM actually returned so a
+                # truncation is separable from a genuinely empty response after the
+                # fact, without needing to reproduce it live.
+                # `parsed` is bound inside the LLM try-block, so it may be unbound
+                # entirely if that block raised before reaching it. Resolve both it
+                # and its type defensively — a diagnostic that itself raises would
+                # re-hide exactly what it exists to expose.
+                try:
+                    _p = parsed  # noqa: F821 - may be unbound; guarded
+                except NameError:
+                    _p = None
+                    _parsed_type = "unset"
+                else:
+                    _parsed_type = type(_p).__name__
+                _parsed_keys = sorted(_p.keys()) if isinstance(_p, dict) else None
+                _had_llm_error = any(a.get("event") == "llm_debate_error" for a in audit_log)
+                self.logger.error(
+                    "[SF] LLM produced NO options — returning the generic heuristic stub. "
+                    "llm_raised=%s parsed_type=%s parsed_keys=%s. A dict lacking 'options' "
+                    "points at max_tokens truncation of the synthesis JSON.",
+                    _had_llm_error, _parsed_type, _parsed_keys,
+                )
+                # parsed_keys == ["raw_response"] means the response never parsed as
+                # JSON at all. Record its length and tail: a long body ending
+                # mid-token is truncation (raise max_tokens), whereas a short body or
+                # one ending cleanly points at the model prefacing its JSON with
+                # prose — different bugs, previously indistinguishable without
+                # reproducing a 13-minute live run.
+                _raw = _p.get("raw_response") if isinstance(_p, dict) else None
+                _raw_info = None
+                if isinstance(_raw, str):
+                    _raw_info = {"len": len(_raw), "head": _raw[:120], "tail": _raw[-160:]}
+                audit_log.append({
+                    "event": "heuristic_stub_fallback",
+                    "reason": "llm_yielded_no_options",
+                    "llm_raised": _had_llm_error,
+                    "parsed_keys": _parsed_keys,
+                    "raw_response_info": _raw_info,
+                })
                 # Preserve Stage 1 hypotheses so progressive reveal still works even in fallback
                 if stage_1_hyps_dict and not stage_1_hypotheses_final:
                     stage_1_hypotheses_final = stage_1_hyps_dict

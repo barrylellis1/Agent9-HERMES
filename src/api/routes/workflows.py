@@ -797,6 +797,43 @@ async def _record_solution_action(
             impact_lower = float(recovery.get("low") or matched.get("expected_impact") or 0.0)
             impact_upper = float(recovery.get("high") or matched.get("expected_impact") or 0.0)
 
+            # Scope guard. These two floats become the solution's registered impact
+            # bounds and are what VA later grades the outcome against, so a bound
+            # that was never attainable does not just misreport — it manufactures a
+            # permanent "failed" verdict and, once assumption grading writes back to
+            # the causal graph, teaches the theory layer the wrong lesson.
+            #
+            # Observed live (both fast and full debate mode): ranges of 18.5-28.3
+            # percentage points registered against a Gross Margin % of 31.08 whose
+            # annual decline was 5.08pp, because the LLM sized the range from a
+            # single segment's 43.24pp drop and labelled it with the enterprise KPI.
+            #
+            # Deliberately NON-fatal: HITL approval must not fail because an estimate
+            # looks large, and the human has already approved the option. The bounds
+            # are recorded as-is and the doubt is recorded alongside them — silently
+            # rewriting a number the approver saw would be worse than flagging it.
+            _impact_scope = impact_est.get("scope")
+            _scope_warning: Optional[str] = None
+            if _impact_scope == "segment":
+                _scope_warning = (
+                    f"impact bounds are SEGMENT-scoped"
+                    f"{' (' + str(impact_est.get('scope_label')) + ')' if impact_est.get('scope_label') else ''}"
+                    f" — not a direct enterprise KPI movement"
+                )
+            elif _impact_scope is None:
+                _scope_warning = (
+                    "impact_estimate.scope is unstated — cannot confirm these bounds are "
+                    "enterprise-scoped rather than a single segment's magnitude"
+                )
+            if _scope_warning:
+                # Use _va_log, already bound a few lines above. This module has no
+                # module-level logger and imports logging locally per handler, so
+                # both a bare `logger` and a bare `logging` would NameError here.
+                _va_log.warning(
+                    "[VA] Solution %s registered with unverified impact scope: %s (bounds %.2f-%.2f)",
+                    solution_option_id, _scope_warning, impact_lower, impact_upper,
+                )
+
             # Extract upstream context from workflow payload
             wf_payload = record.payload or {}
             situation_id = wf_payload.get("situation_id") or action_payload.get("situation_id") or ""
