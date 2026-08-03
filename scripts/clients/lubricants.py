@@ -44,6 +44,23 @@ DATA_PRODUCT = {
         "source_system": "bigquery",
         "bigquery_project": "agent9-465818",
         "bigquery_dataset": "LubricantsBusiness",
+        # SIGN CONVENTION -- declared because its absence caused a real defect.
+        # In this view `amount` is SIGNED: Revenue is positive, and COGS / SGA /
+        # Other (D&A, Interest, Tax) are stored NEGATIVE. Every P&L line therefore
+        # SUMS -- no CASE-based negation is needed or correct.
+        #
+        # Nothing declared this before, so KPI authors guessed and split two ways:
+        # derived KPIs negated COGS (adding cost to revenue -> gross margin read
+        # 166.75% instead of 33.25%), while cost KPIs passed the negative straight
+        # through to a registry that declares unit '$' with inverse_logic=True,
+        # inverting every threshold verdict (COGS +8.0% YoY graded GREEN).
+        #
+        # Rule for new KPIs: sum signed amounts for P&L aggregates; negate ONLY
+        # when presenting a standalone cost as a positive magnitude, to match the
+        # registry's positive_trend_is_good=false convention.
+        "sign_convention": "signed",
+        "positive_account_types": ["Revenue"],
+        "negative_account_types": ["COGS", "SGA", "Other"],
     },
     "time_dimensions": [
         {
@@ -153,8 +170,10 @@ KPIS: List[Dict[str, Any]] = [
         "data_product_id": "dp_lubricants_financials",
         "view_name": _VIEW,
         "business_process_ids": ["finance_revenue_growth_analysis"],
-        "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE channel_name = 'B2B' AND account_type = 'Revenue' AND version = 'Actual'",
-        "filters": {"channel": "B2B", "version": "Actual"},
+        # WAS channel_name = 'B2B', which matches zero rows -- the actual channel
+        # value is 'B2B Direct Sales', so this KPI returned None since seeding.
+        "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE channel_name = 'B2B Direct Sales' AND account_type = 'Revenue' AND version = 'Actual'",
+        "filters": {"channel": "B2B Direct Sales", "version": "Actual"},
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
         ],
@@ -240,7 +259,8 @@ KPIS: List[Dict[str, Any]] = [
         "data_product_id": "dp_lubricants_financials",
         "view_name": _VIEW,
         "business_process_ids": ["finance_profitability_analysis"],
-        "sql_query": f"SELECT SUM(CASE WHEN account_type = 'Revenue' THEN amount WHEN account_type = 'COGS' THEN -amount ELSE 0 END) AS value FROM {_BQ_PREFIX} WHERE version = 'Actual'",
+        # amount is signed (COGS already negative) -- summing IS gross profit.
+        "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_type IN ('Revenue', 'COGS') AND version = 'Actual'",
         "filters": {"version": "Actual"},
         "plan_version_value": "Budget",
         "thresholds": [
@@ -262,7 +282,8 @@ KPIS: List[Dict[str, Any]] = [
         "data_product_id": "dp_lubricants_financials",
         "view_name": _VIEW,
         "business_process_ids": ["finance_profitability_analysis"],
-        "sql_query": f"SELECT ROUND(100.0 * SUM(CASE WHEN account_type = 'Revenue' THEN amount WHEN account_type = 'COGS' THEN -amount ELSE 0 END) / NULLIF(SUM(CASE WHEN account_type = 'Revenue' THEN amount ELSE 0 END), 0), 2) AS value FROM {_BQ_PREFIX} WHERE version = 'Actual'",
+        # Gross profit (signed sum of Revenue + COGS) over revenue.
+        "sql_query": f"SELECT ROUND(100.0 * SUM(CASE WHEN account_type IN ('Revenue', 'COGS') THEN amount ELSE 0 END) / NULLIF(SUM(CASE WHEN account_type = 'Revenue' THEN amount ELSE 0 END), 0), 2) AS value FROM {_BQ_PREFIX} WHERE version = 'Actual'",
         "filters": {"version": "Actual"},
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 1.0, "yellow_threshold": 0.0, "red_threshold": -1.5, "inverse_logic": False},
@@ -283,7 +304,10 @@ KPIS: List[Dict[str, Any]] = [
         "data_product_id": "dp_lubricants_financials",
         "view_name": _VIEW,
         "business_process_ids": ["finance_profitability_analysis"],
-        "sql_query": f"SELECT SUM(CASE WHEN account_type IN ('Revenue') THEN amount ELSE -amount END) AS value FROM {_BQ_PREFIX} WHERE account_type IN ('Revenue', 'COGS', 'SGA') AND version = 'Actual'",
+        # EBIT = Revenue - COGS - SGA - D&A, all signed so it is a plain SUM.
+        # D&A lives in account_category 'D&A' under account_type 'Other'; Interest
+        # and Tax share that account_type and must stay excluded (they are below EBIT).
+        "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE (account_type IN ('Revenue', 'COGS', 'SGA') OR account_category = 'D&A') AND version = 'Actual'",
         "filters": {"version": "Actual"},
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
@@ -304,7 +328,13 @@ KPIS: List[Dict[str, Any]] = [
         "data_product_id": "dp_lubricants_financials",
         "view_name": _VIEW,
         "business_process_ids": ["finance_profitability_analysis"],
-        "sql_query": f"SELECT SUM(CASE WHEN account_type IN ('Revenue') THEN amount ELSE -amount END) AS value FROM {_BQ_PREFIX} WHERE account_type IN ('Revenue', 'COGS', 'SGA', 'DA') AND version = 'Actual'",
+        # EBITDA = earnings BEFORE D&A, so D&A is excluded (this is EBIT + D&A).
+        # The previous filter added account_type 'DA', which matches zero rows --
+        # D&A is an account_CATEGORY under 'Other' -- so this KPI silently returned
+        # a value identical to operating_income, and the two were also inverted:
+        # the old operating_income excluded D&A (making it EBITDA) while this one
+        # tried to include it (making it EBIT).
+        "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_type IN ('Revenue', 'COGS', 'SGA') AND version = 'Actual'",
         "filters": {"version": "Actual"},
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": 5.0, "yellow_threshold": 0.0, "red_threshold": -5.0, "inverse_logic": False},
@@ -328,7 +358,12 @@ KPIS: List[Dict[str, Any]] = [
         "data_product_id": "dp_lubricants_financials",
         "view_name": _VIEW,
         "business_process_ids": ["finance_expense_management", "finance_profitability_analysis"],
-        "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_type = 'COGS' AND version = 'Actual'",
+        # Negated to a positive magnitude so rising cost = rising number, which is
+        # what this KPI's inverse_logic=True / positive_trend_is_good=false assume.
+        # Passing the raw negative through made an 8.0% YoY cost INCREASE compute as
+        # percent_change = -8.0% and grade GREEN. Negation (not ABS) on purpose: ABS
+        # would hide a segment that legitimately nets positive from credits/returns.
+        "sql_query": f"SELECT -SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_type = 'COGS' AND version = 'Actual'",
         "filters": {"account_type": "COGS", "version": "Actual"},
         "plan_version_value": "Budget",
         "thresholds": [
@@ -343,15 +378,33 @@ KPIS: List[Dict[str, Any]] = [
     {
         "id": "base_oil_cost",
         "client_id": CLIENT_ID,
-        "name": "Base Oil Cost",
+        # Id kept as base_oil_cost: it is referenced by the causal edges and the
+        # kpi_accountability rows, and ids are semantic identifiers we do not churn.
+        # Name/description say "raw materials" because that is what the data is.
+        "name": "Raw Materials Cost",
         "domain": "Finance",
-        "description": "Cost of base oil — primary raw material input for lubricants",
+        "description": (
+            "Raw materials cost — predominantly base oil, the primary input for "
+            "lubricant blending. Sourced from account_category 'Raw Materials' "
+            "(~41% of COGS); the warehouse carries no base-oil-specific line."
+        ),
         "unit": "$",
         "data_product_id": "dp_lubricants_financials",
         "view_name": _VIEW,
         "business_process_ids": ["finance_expense_management"],
-        "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_category = 'Base Oil' AND version = 'Actual'",
-        "filters": {"account_category": "Base Oil", "version": "Actual"},
+        # WAS account_category = 'Base Oil', which matches ZERO rows -- this KPI
+        # returned None from the day it was seeded. It is the source node of the
+        # `confirmed` base_oil_cost -> cogs causal edge, so that edge could never
+        # fire numerically; the grounding text still read convincingly because
+        # mechanism/lag/provenance are static registry strings.
+        #
+        # 'Raw Materials' is the real category and the closest true equivalent: it
+        # is 122.0M of 293.8M COGS (41.5%), and base oil is the dominant raw-material
+        # input for a lubricants blender. It is NOT a base-oil-only line, so the name
+        # and description say raw materials -- do not let the id imply more precision
+        # than the warehouse actually carries.
+        "sql_query": f"SELECT -SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_category = 'Raw Materials' AND version = 'Actual'",
+        "filters": {"account_category": "Raw Materials", "version": "Actual"},
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": -5.0, "yellow_threshold": 5.0, "red_threshold": 15.0, "inverse_logic": True},
         ],
@@ -371,7 +424,7 @@ KPIS: List[Dict[str, Any]] = [
         "data_product_id": "dp_lubricants_financials",
         "view_name": _VIEW,
         "business_process_ids": ["finance_expense_management"],
-        "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_category = 'Distribution' AND version = 'Actual'",
+        "sql_query": f"SELECT -SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_category = 'Distribution' AND version = 'Actual'",
         "filters": {"account_category": "Distribution", "version": "Actual"},
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": -3.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
@@ -392,7 +445,7 @@ KPIS: List[Dict[str, Any]] = [
         "data_product_id": "dp_lubricants_financials",
         "view_name": _VIEW,
         "business_process_ids": ["finance_expense_management"],
-        "sql_query": f"SELECT SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_type = 'SGA' AND version = 'Actual'",
+        "sql_query": f"SELECT -SUM(amount) AS value FROM {_BQ_PREFIX} WHERE account_type = 'SGA' AND version = 'Actual'",
         "filters": {"account_type": "SGA", "version": "Actual"},
         "thresholds": [
             {"comparison_type": "yoy", "green_threshold": -2.0, "yellow_threshold": 3.0, "red_threshold": 8.0, "inverse_logic": True},
