@@ -406,9 +406,19 @@ export async function detectSituations(
     throw new Error(`Invalid request_id received from server: ${request_id}`);
   }
 
-  // 2. Poll for completion (90s — monthly series adds ~15s to detection)
+  // 2. Poll for completion.
+  //
+  // 600s, was 90s. Not yet observed failing, unlike the DA and SF budgets — but
+  // measured detect_situations durations on this tenant are 57.9s / 58.0s / 60.7s
+  // / 72.5s, so the worst case was running with ~17s of margin against the old cap.
+  // The scan is 15 KPIs against BigQuery plus a per-KPI Haiku narrative call, so
+  // its duration grows with the tenant's KPI count and with LLM latency, neither
+  // of which is bounded here. A tenant with more KPIs would have tripped it.
+  //
+  // This is the front door of the product: giving up here shows the user an empty
+  // dashboard for a scan the backend completed successfully.
   let attempts = 0;
-  while (attempts < 90) {
+  while (attempts < 600) {
     const statusResponse = await fetch(`${API_BASE}/workflows/situations/${request_id}/status`);
     const { data } = await statusResponse.json();
 
@@ -482,8 +492,23 @@ export async function runDeepAnalysis(
     const { data: { request_id } } = await runResponse.json();
   
     // 2. Poll for completion
+    //
+    // 180s, was 45s. The old budget was ~2 seconds short of the work it was
+    // waiting on, so it discarded results the backend had successfully produced.
+    // Measured on the Lubricants gross-margin situation: execute_deep_analysis
+    // 23.4s + analyze_market 23.2s + planning = ~47s. The client gave up at 45,
+    // threw "Workflow timed out", and the UI fell back to "Run Deep Analysis to
+    // unlock problem refinement and solutions" — i.e. the user is told nothing
+    // ran, while the server has already finished and cached the answer.
+    //
+    // Sitting a hair under the real duration also made it look intermittent:
+    // each attempt costs 1s of sleep PLUS a status round-trip, so whether a run
+    // survived depended on how the LLM leg happened to be feeling. Market
+    // Analysis is an LLM call (two, on the no-Perplexity fallback path) and its
+    // latency is not bounded by anything we control, so the budget needs real
+    // headroom rather than a number fitted to one good run.
     let attempts = 0;
-    while (attempts < 45) { // Timeout after 45s (analysis can be slow)
+    while (attempts < 180) {
       const statusResponse = await fetch(`${API_BASE}/workflows/deep-analysis/${request_id}/status`);
       const { data } = await statusResponse.json();
       
@@ -548,8 +573,28 @@ export async function runSolutionFinder(
     const { data: { request_id } } = await runResponse.json();
 
     // 2. Poll for completion
+    //
+    // 900s, was 120s. THIS is what produced the long-standing "debate stalls after
+    // the hypothesis stage" symptom, and it is a client-side give-up, not a hang.
+    //
+    // Measured: stage1_only completes in 11.8s (13 polls, fine), but the hypothesis
+    // stage took 260.5s against a 120s budget. The access log shows exactly 120
+    // status polls for that request and then nothing — the loop below hit its limit,
+    // threw "Workflow timed out", and because CouncilDebatePage awaits the four
+    // stages SEQUENTIALLY, the whole chain aborted. cross_review and synthesis were
+    // never dispatched at all. The backend, meanwhile, finished the stage normally
+    // and logged "has options: True".
+    //
+    // The budget must cover a single stage, not the debate: this function is called
+    // once per stage. Three of those stages (hypothesis, cross_review, synthesis)
+    // run the SAME full synthesis prompt on Sonnet at max_tokens=32000 — debate_stage
+    // varies only the prior_transcript, not the prompt or the budget — so each can be
+    // a multi-minute generation, and they grew when synthesis was allowed to stop
+    // truncating at the old 20000 ceiling.
+    //
+    // "2 min" was a guess against an unbounded LLM generation. 900s is headroom.
     let attempts = 0;
-    while (attempts < 120) {  // 2 min — synthesis (Sonnet) + 529 retries can exceed 60s
+    while (attempts < 900) {
       const statusResponse = await fetch(`${API_BASE}/workflows/solutions/${request_id}/status`);
       const { data } = await statusResponse.json();
 

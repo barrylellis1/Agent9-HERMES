@@ -25,10 +25,22 @@ const SCAN_TIMEOUT = 240_000;   // SA scans 15 KPIs against BigQuery
 const DA_TIMEOUT = 300_000;     // Deep Analysis: dimensional Is/Is-Not + change points
 // Full debate mode is ~9 min of LLM time (fast mode ~3). Sized for full, since
 // grading solution quality against fast mode would grade the wrong pipeline.
-const SF_TIMEOUT = 900_000;
+//
+// Raised 900s -> 1800s. debate_stage does NOT vary the prompt or the token budget:
+// hypothesis, cross_review and synthesis all run the same full synthesis prompt on
+// Sonnet at the same max_tokens, differing only in prior_transcript. Full mode is
+// therefore three full-size generations, not one. While max_tokens was 20000 those
+// generations were being cut off at the ceiling (synthesis measured at exactly
+// 20000 output tokens, truncating mid-object); now that the call streams at 32000
+// each stage runs to its natural length, so the earlier budget was sized against
+// stages that were quietly finishing early. A run that overruns 900s is expected,
+// not a hang.
+const SF_TIMEOUT = 1_800_000;
 
 test.describe('Live — causal grounding end to end', () => {
-  test.describe.configure({ mode: 'serial', timeout: 20 * 60_000 });
+  // Must exceed SF_TIMEOUT plus SA + DA, or the describe-level cap fires first and
+  // reports a timeout that looks like a pipeline stall but is pure bookkeeping.
+  test.describe.configure({ mode: 'serial', timeout: 34 * 60_000 });
 
   test('drive SA -> DA -> SF and capture what the theory layer produced', async ({ page }, testInfo) => {
     const consoleErrors: string[] = [];
@@ -125,12 +137,33 @@ test.describe('Live — causal grounding end to end', () => {
     // timed out for 5 minutes on a run where DA had actually finished in ~50s
     // (confirmed by driving /workflows/deep-analysis directly).
     //
-    // The level-2 "Analysis" heading appears only once DA has produced results and
-    // is present in every variant. Level matters — the page TITLE is level 1 and
-    // contains "Analysis" too ("Gross Margin % Mixed Analysis"), which is why an
-    // earlier body-text match on /analysis/ passed instantly and proved nothing.
-    await page.getByRole('heading', { name: /^analysis$/i, level: 2 })
-      .waitFor({ state: 'visible', timeout: DA_TIMEOUT });
+    // Third attempt at this signal. The first two both keyed on things that render
+    // regardless of whether DA produced anything:
+    //   - body text /analysis/      -> matches the level-1 page TITLE, passes instantly
+    //   - level-2 "Analysis" heading -> the SECTION header, present even on failure
+    // The level-2 heading was observed sitting directly above the text "Workflow
+    // timed out", having reported DA complete on a run where it had not been.
+    //
+    // Assert on the Action Center's LOCKED state clearing instead. That paragraph is
+    // rendered exactly when downstream controls are unavailable, so its removal is
+    // the same condition the user is waiting on, and it holds across DA variants
+    // (mixed vs single framing) because it is about gating, not content.
+    const daLocked = page.getByText(/run deep analysis to unlock/i);
+
+    // Fail immediately and legibly on the known failure mode rather than letting it
+    // surface 60s later as a confusing "Generate Solutions not visible".
+    const daTimedOut = page.getByText(/workflow timed out/i);
+    await expect(async () => {
+      if (await daTimedOut.count()) {
+        throw new Error(
+          'DA reported "Workflow timed out" in the UI. The backend usually COMPLETED — ' +
+          'check logs/backend.log for execute_deep_analysis / analyze_market durations ' +
+          'and compare against the poll budget in src/api/client.ts runDeepAnalysis.'
+        );
+      }
+      await expect(daLocked).toHaveCount(0);
+    }).toPass({ timeout: DA_TIMEOUT, intervals: [2_000] });
+
     await page.screenshot({ path: testInfo.outputPath('02-deep-analysis.png'), fullPage: true });
 
     // The Action Center holds every downstream control and may render collapsed.
@@ -164,14 +197,38 @@ test.describe('Live — causal grounding end to end', () => {
     // conditional — but it logs which branch it took, because "mixed vs not" is a
     // real difference in what the pipeline was asked to do.
     const focusRecovery = page.getByRole('button', { name: /focus on recovery/i });
+
+    // Anchored, because the framing cards are themselves buttons whose accessible
+    // names are "Focus on Recovery Generate..." and "Focus on Opportunity
+    // Generate...". An unanchored /generate solutions/i matches BOTH of them and
+    // dies on strict mode. Only the real trigger STARTS with "Generate Solutions".
+    const generate = page.getByRole('button', { name: /^generate solutions/i });
+
+    // The Action Center unlocking and its contents rendering are NOT the same
+    // moment. count() resolves immediately and never waits, so checking it the
+    // instant the lock cleared reported zero framing cards on a run that had two —
+    // logging "single framing" and then walking into the strict-mode violation
+    // above. Wait for the panel to actually settle into one shape or the other
+    // before branching.
+    await expect(async () => {
+      const [nRecovery, nGenerate] = await Promise.all([
+        focusRecovery.count(),
+        generate.count(),
+      ]);
+      expect(nRecovery + nGenerate).toBeGreaterThan(0);
+    }).toPass({ timeout: 120_000, intervals: [1_000] });
+
+    // Step 1 is a framing choice, not a trigger, and exists only on a "mixed" DA
+    // verdict. Recovery is the right arm here: margin is down 5.24pp, the obvious
+    // lever is repricing, and repricing anchor accounts mid-quarter is exactly what
+    // the seeded price-lock constraint forbids — the sharpest test of whether that
+    // constraint actually binds.
     if (await focusRecovery.count()) {
       console.log('[live] DA verdict = MIXED — selecting Recovery framing');
       await focusRecovery.first().click();
     } else {
       console.log('[live] DA verdict = single framing — no Recovery/Opportunity choice offered');
     }
-
-    const generate = page.getByRole('button', { name: /generate solutions/i });
 
     // Step 2: opens the persona selector, which REPLACES the Action Center panel
     // rather than stacking over it. So the "Generate Solutions ->" count stays at

@@ -58,6 +58,22 @@ Start-Sleep -Seconds 1
 Kill-Port -Port 8000
 Kill-Port -Port 5173
 
+# 1c. Close windows left behind by previous runs.
+# Kill-Port kills the SERVER, but the -NoExit shell hosting it survives its child,
+# so every run left two dead windows behind. Nine runs had accumulated eighteen.
+# Matched on the exact command lines this script spawns, so ordinary shells the
+# user opened themselves are never touched.
+Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue | ForEach-Object {
+    $cmd = $_.CommandLine
+    if ($cmd -and $_.ProcessId -ne $PID -and (
+            $cmd -like '*-m uvicorn src.api.main:app*' -or
+            $cmd -like '*decision-studio-ui*npm run dev*' -or
+            $cmd -like '*A9 backend log*')) {
+        Write-Host "Closing stale dev window PID $($_.ProcessId)" -ForegroundColor DarkGray
+        Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+}
+
 # 1.4 Ensure Docker is Running
 Write-Host "Checking Docker status..." -ForegroundColor Cyan
 docker info > $null 2>&1
@@ -132,14 +148,48 @@ Write-Host "Starting FastAPI Backend (Port 8000)..." -ForegroundColor Green
 $venvPath = Join-Path $PSScriptRoot '.venv'
 $pythonExe = Join-Path $venvPath 'Scripts\python.exe'
 
-# We start a new PowerShell window for the backend so it persists and logs
-# Run uvicorn directly to match restart_app.ps1 pattern
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot'; & '$pythonExe' -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload"
+$logDir = Join-Path $PSScriptRoot 'logs'
+if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
+$backendOut = Join-Path $logDir 'backend.out.log'
+$backendLog = Join-Path $logDir 'backend.log'   # uvicorn logs to stderr
+
+# The backend must NOT own a console.
+#
+# It used to run inside a -NoExit window. Windows consoles default to QuickEdit
+# mode, so a single stray click inside that window selects text and PAUSES the
+# screen buffer — and every subsequent write to stdout blocks indefinitely. The
+# server then wedges mid logging.emit while still holding the listening socket,
+# so the port looks healthy, connections are accepted, and every request hangs
+# until it times out. Observed exactly that: three py-spy samples two seconds
+# apart, all identical, all parked in logging.emit inside an HTTP send. The UI
+# sat on "Loading identities..." and the live e2e run died at login.
+#
+# Writing to a file instead means a paused console can no longer block the
+# server. The log viewer below is a separate process; pausing THAT is harmless.
+#
+# --reload-dir src is the other half. Bare --reload makes the supervisor walk
+# every file under the repo root looking for .py files — 142,596 of them here,
+# including node_modules, .venv and playwright artifacts — which pinned a core
+# at 100% (1,513 seconds of CPU in ~25 minutes of uptime). src/ is the only
+# tree whose .py files should trigger a reload.
+Start-Process -FilePath $pythonExe `
+    -ArgumentList '-m','uvicorn','src.api.main:app','--host','0.0.0.0','--port','8000','--reload','--reload-dir','src' `
+    -WorkingDirectory $PSScriptRoot `
+    -RedirectStandardOutput $backendOut `
+    -RedirectStandardError $backendLog `
+    -WindowStyle Hidden
+
+# Separate viewer so logs stay visible without the server depending on a console.
+Start-Process powershell -ArgumentList "-NoExit", "-Command", `
+    "`$Host.UI.RawUI.WindowTitle = 'A9 backend log (viewer only - safe to close)'; Get-Content -Path '$backendLog' -Wait -Tail 40"
 
 # 3. Start Frontend (React/Vite)
 Write-Host "Starting React Frontend (Port 5173)..." -ForegroundColor Green
-# We start a new PowerShell window for the frontend
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot\decision-studio-ui'; npm run dev"
+# --strictPort: vite's default is to silently increment to the next free port when
+# 5173 is taken, while this script keeps printing "Frontend: http://localhost:5173".
+# A run that overlapped a surviving vite left the app served on 5174 with nothing
+# reporting that, so the advertised URL was simply dead. Fail loudly instead.
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot\decision-studio-ui'; npm run dev -- --strictPort"
 
 Write-Host "--------------------------------------------------------" -ForegroundColor Cyan
 Write-Host "Backend: http://localhost:8000/docs"
