@@ -1732,21 +1732,47 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             return None
 
                         s1_raw = await asyncio.gather(*[_run_stage1(p) for p in consulting_personas])
-                        for _r in s1_raw:
-                            if isinstance(_r, dict) and _r.get("persona_id"):
-                                _pid = _r["persona_id"]
-                                stage_1_hyps_dict[_pid] = {
-                                    "framework": _r.get("framework"),
-                                    "hypothesis": _r.get("hypothesis"),
-                                    "key_evidence": _r.get("key_evidence", []),
-                                    "recommended_focus": _r.get("recommended_focus"),
-                                    "conviction": _r.get("conviction"),
-                                    "proposed_option": _r.get("proposed_option"),
-                                }
+                        # Key results by POSITION, not by the LLM echoing its own identity.
+                        # gather() preserves input order, so persona attribution is already
+                        # known with certainty. The previous loop keyed on _r["persona_id"]
+                        # and silently discarded any result where the model omitted or
+                        # renamed that field — observed live 2026-08-04: mckinsey's call
+                        # succeeded (status=success, valid dict, tokens billed) and the
+                        # council quietly proceeded with 2 of 3 firms, no log, no error.
+                        # Trusting a generated field for attribution when the caller
+                        # already holds ground truth was the defect.
+                        _dropped_personas: List[str] = []
+                        for p, _r in zip(consulting_personas, s1_raw):
+                            if not isinstance(_r, dict):
+                                _dropped_personas.append(p.id)  # per-call warning already logged in _run_stage1
+                                continue
+                            _echoed = _r.get("persona_id")
+                            if _echoed and _echoed != p.id:
+                                # Attribution stands with the caller; the echo is merely wrong.
+                                self.logger.warning(
+                                    "[SF] Stage 1 result for %s self-identified as %r — keeping positional attribution",
+                                    p.id, _echoed,
+                                )
+                            stage_1_hyps_dict[p.id] = {
+                                "framework": _r.get("framework"),
+                                "hypothesis": _r.get("hypothesis"),
+                                "key_evidence": _r.get("key_evidence", []),
+                                "recommended_focus": _r.get("recommended_focus"),
+                                "conviction": _r.get("conviction"),
+                                "proposed_option": _r.get("proposed_option"),
+                            }
                         audit_log.append({
                             "event": "stage1_calls_complete",
                             "personas": list(stage_1_hyps_dict.keys()),
+                            # A shrunken council must be visible in the payload, not
+                            # only inferable from a shorter list.
+                            "dropped_personas": _dropped_personas,
                         })
+                        if _dropped_personas:
+                            self.logger.warning(
+                                "[SF] Council reduced: %d of %d personas produced no usable hypothesis: %s",
+                                len(_dropped_personas), len(consulting_personas), _dropped_personas,
+                            )
                         self.logger.info(f"[SF] Stage 1 complete: {list(stage_1_hyps_dict.keys())}")
                         # stage1_only: return Stage 1 results immediately — skip synthesis Sonnet call.
                         # The frontend shows firm cards as soon as this returns, then fires the

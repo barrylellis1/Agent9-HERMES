@@ -102,6 +102,13 @@ Environment variable overrides: `CLAUDE_MODEL_STAGE1`, `CLAUDE_MODEL_SYNTHESIS`
 - **Stage 1 hypothesis restoration**: `stage_1_hypotheses` re-attached to cross_review/synthesis responses for progressive reveal in Council In Session UI
 - **`max_tokens`**: Raised to 16384 to prevent synthesis truncation on complex briefings (superseded — now 32000, see above)
 
+## Stage 1 Attribution Fix (Aug 2026)
+Stage 1 results are keyed **positionally** from `asyncio.gather()` order — never by the LLM
+echoing `persona_id` back. The old keying silently discarded a successful call whose JSON
+omitted or renamed that field (observed live: council quietly ran with 2 of 3 firms). A
+mismatched echo is logged and ignored; dropped personas emit a warning plus a
+`dropped_personas` field on the `stage1_calls_complete` audit event.
+
 ## Cost Observability — `token_usage` audit event (Aug 2026)
 Every LLM call SF makes records into a per-run ledger; the totals are appended to the audit
 log as a single `token_usage` event:
