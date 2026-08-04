@@ -56,13 +56,16 @@ load-bearing, not incidental:
   sync client they were `gather`-ed but ran strictly serially (measured 0/3 overlapping
   pairs), and each one blocked the FastAPI event loop for every other request in flight.
 
-⚠️ **`hypothesis`, `cross_review` and `synthesis` all run the SAME full synthesis prompt at the
-SAME `max_tokens`.** `debate_stage` only controls whether Stage 1 is skipped and whether the
-call short-circuits (`stage1_only`); it does not vary the prompt or the budget. The three
-stages differ only in the `prior_transcript` they receive. So full mode pays for three
-full-size Sonnet synthesis generations, not one — the dominant cost and latency term in a
-debate, and the reason raising `max_tokens` slows all three stages rather than just the last.
-Read the `token_usage` audit event for the actual per-stage split.
+⚠️ **`hypothesis`, `cross_review` and `synthesis` are three IDENTICAL requests.** `debate_stage`
+only controls whether Stage 1 is skipped and whether the call short-circuits (`stage1_only`);
+it does not vary the prompt or the budget. The UI sends `prior_transcript` forward each stage
+but **no backend code reads it** — the stages do not build on one another; the only state that
+carries forward is `prior_stage1_hypotheses`. So full mode pays for three full-size Sonnet
+synthesis generations, not one (measured 233s / 272s / 191s, ~35k tokens each), and the
+`hypothesis` stage's output is consumed by nothing. Read the `token_usage` audit event for the
+actual per-stage split. **This architecture is scheduled for replacement** — see the 2026-08-04
+block in `docs/prd/agents/a9_solution_finder_agent_prd.md` (council redesign: theory-guided
+moderator, critic dual-duty, frontend collapse; DEVELOPMENT_PLAN.md Phase 15 Stage H).
 
 Environment variable overrides: `CLAUDE_MODEL_STAGE1`, `CLAUDE_MODEL_SYNTHESIS`
 

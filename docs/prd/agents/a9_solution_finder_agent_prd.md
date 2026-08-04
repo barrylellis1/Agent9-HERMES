@@ -3,9 +3,96 @@
 <!--
 CANONICAL PRD DOCUMENT
 This is the official, canonical PRD document for this agent.
-Last updated: 2026-02-28
+Last updated: 2026-08-04
 -->
 
+> **2026-08-04 Debate Architecture Audit + Council Redesign (supersedes the debate portions of the 2026-02-28 update below):**
+>
+> **As-built finding.** A live end-to-end audit (unmocked SA→DA→SF via the Playwright harness, token
+> ledger attached) established that the "full mode" debate does not do what the design intended:
+> - The `hypothesis`, `cross_review`, and `synthesis` stages are **three identical requests** — same
+>   mega-prompt, same inputs, same model, same `max_tokens`. `debate_stage` only controls whether
+>   Stage 1 is skipped; it never varies the prompt.
+> - The UI sends `prior_transcript` forward on each stage; **no backend code reads it**. Stages do not
+>   build on one another. The only state that carries forward is `prior_stage1_hypotheses`.
+> - The cross-review and moderation are **simulated inside a single call**: the synthesis prompt asks one
+>   Sonnet instance to write all firms' critiques of each other AND the final ranking in one generation.
+>   One author writes both attack and defense, so critiques are pre-harmonized — not a debate.
+> - Measured cost of the pretense (live run, 2026-08-04): `stage1_only` 14.8s; `hypothesis` 233.2s;
+>   `cross_review` 272.2s; `synthesis` 191.1s (~35k tokens per mega-call). The `hypothesis` stage's
+>   output is consumed by nothing; `cross_review`'s only unique contribution is a sub-object the
+>   synthesis call also produces on its own. Full mode ≈ 3× the cost of fast mode for materially the
+>   same epistemics.
+>
+> **Redesigned council (settled 2026-08-04).** The debate-shaped middle is replaced by a spine where
+> every call either generates diversity or checks against ground truth — nothing performs debate:
+>
+> 1. **Stage 1 — 3× independent persona hypotheses (KEPT, unchanged).** Genuinely parallel
+>    (verified: dispatches within 4ms of each other after the AsyncAnthropic fix), genuinely
+>    independent. Decorrelation is real value at the *generation* step: three different opening bids
+>    is where the search happens.
+> 2. **Critic pass — dual duty (EXTENDED).** The existing theory-layer critic (Phase 15 Stage E)
+>    gains a second duty: besides checking options against the causal graph + assumption register, it
+>    *proposes candidate risks/constraints not yet in the register* — the accretion feedstock a human
+>    confirms or rejects at HITL. Its findings must be fully auditable (fixing the defect where
+>    `critic_pass_findings` records only a count).
+> 3. **Moderator — theory-guided adjudication (NEW, replaces simulated cross-review + ranking).**
+>    One call that grades each option against ground truth: which assumption-register constraints it
+>    survives (e.g. the price-lock), which `kpi_relationships` causal edges it actually pulls, whether
+>    its `impact_estimate` arithmetic is consistent with the segment data, and which critic findings
+>    it answers vs. absorbs. Produces per-option grades + winner + rationale citing the above. It is
+>    **forbidden to invent critiques** — it consumes them. Adjudication against checkable claims
+>    dominates adjudication of rhetoric; a debate graded this way cannot be won by the most confident
+>    writer.
+> 4. **HITL — the real adversarial step (EXISTING, reframed).** With no LLM-vs-LLM argument, the
+>    human approval gate is the adversarial pressure on the moderator's blind spots — and the one
+>    whose judgment accretes into the theory layer (bets → VA).
+>
+> **Why adversarial critique/rebuttal rounds are evidence-gated, not built.** (a) RLHF models are
+> agreeable: iterated LLM-to-LLM exchange converges — positions soften toward a polite middle, and a
+> model seeing two peers disagree tends to capitulate even when right. (b) Same-weights personas
+> produce shallow disagreement — different hats, correlated substance. (c) The debate literature's
+> measured gains come mostly from independent sampling + adjudication, which the spine above keeps.
+> If critique ever earns its way in, the gated design is: one critique round with **isolated
+> contexts** (critic sees the proposal, never its defense), then **exactly one schema-bounded rebuttal
+> round** — each persona classifies every critique of its own option as *refute-with-data-citation* /
+> *amend-with-stated-modification* / *accept-as-open-risk*, no free text, so polite capitulation is
+> structurally unavailable — then termination (round 3 is rhetoric-on-rhetoric; nobody has new
+> evidence). The gate: a live A/B through the e2e harness (≥5 runs each way, token ledger attached)
+> showing the staged version changes decisions or risk registers for the better. Burden of proof sits
+> on the machinery.
+>
+> **Second council protocol — collaborative/integrator mode (designed, build deferred).** The
+> adversarial framing assumes personas are *substitutes* (any one could solve the whole problem;
+> sample 3, pick best). Cross-discipline problems (e.g. a pricing fix requiring billing-system and
+> hedging expertise) need *complements*: no persona owns the whole solution. Key asymmetry: same-model
+> personas are weak at manufacturing independent *judgment* but reliably strong at discipline
+> *coverage* — conditioning on a discipline surfaces that discipline's considerations. So collaborative
+> mode is the better fit for what LLM personas actually are. Design: (a) specialists made real via
+> **differentiated context** (each gets its discipline's data — schemas, contracts, hedging positions),
+> not just persona hats; (b) the **theory layer as shared workspace** — each contribution declares
+> which causal edges it pulls and which constraints it consumes/adds, making interface conflicts
+> checkable; (c) the moderator runs an **integrator rubric** (completeness — every sub-problem owned;
+> interface consistency; compose ONE solution) instead of the judge rubric; (d) iteration is
+> **conflict-triggered, not scheduled** — a reconciliation round fires only when integration surfaces a
+> contradiction, bounded to that conflict; (e) **DA routes the protocol** — extending
+> `recommended_council_members`, DA classifies whether the causal chain crosses discipline boundaries
+> and selects judge vs. integrator mode. Same spine either way; only persona conditioning, moderator
+> rubric, and the conditional round vary. Build trigger: first genuinely cross-discipline problem in a
+> pilot. Two cheap accommodations land now: the moderator prompt is parameterized by rubric
+> (judge/integrator), and persona context injection stays pluggable.
+>
+> **Near-term build list** (see DEVELOPMENT_PLAN.md Phase 15 Stage H): frontend collapse (drop the
+> dead `hypothesis` dispatch and unread `prior_transcript`), critic-findings audit fix, moderator
+> prompt + rubric, `impact_estimate.scope` elicitation (unblocked — synthesis now streams at
+> `max_tokens=32000` with measured headroom; the 20000 non-streaming SDK ceiling that justified
+> deferral is gone), per-stage token-ledger labels, then the A/B harness run as the quality gate.
+>
+> Defects logged from the same audit (fix alongside): a Stage 1 persona can be silently dropped from
+> the council (3 calls dispatched and succeeded; 2 hypotheses kept; run proceeds without error);
+> `impact_estimate.scope` is null on all options while the prose `basis` states the scope plainly —
+> segment-sized recovery ranges (18.5–38pp) surface under the enterprise KPI's name and flow verbatim
+> into VA impact bounds.
 
 > **2026-02-28 Phase 10 Update — Multi-Call LLM Architecture:**
 > The Solution Finder Agent now uses a 4-call parallel architecture for the council debate:
