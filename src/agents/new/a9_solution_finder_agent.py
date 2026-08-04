@@ -430,6 +430,32 @@ def _parse_key_assumptions(raw: Any) -> List[SolutionAssumption]:
     return out
 
 
+def _token_usage_event(ledger: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Summarise a run's LLM token spend as a single audit event.
+
+    Returns a list so callers can concatenate it unconditionally — an empty
+    ledger contributes nothing rather than an event claiming zero cost, which
+    would be indistinguishable from a run that genuinely made no LLM calls.
+
+    Per-call rows are kept alongside the totals because the interesting question
+    is usually not "what did this cost" but "which stage grew". Output tokens are
+    broken out separately since they dominate spend and are what a truncating
+    synthesis burns before returning a stub worth nothing.
+    """
+    if not ledger:
+        return []
+    _in = sum(r.get("input_tokens") or 0 for r in ledger)
+    _out = sum(r.get("output_tokens") or 0 for r in ledger)
+    return [{
+        "event": "token_usage",
+        "calls": len(ledger),
+        "input_tokens": _in,
+        "output_tokens": _out,
+        "total_tokens": _in + _out,
+        "by_call": ledger,
+    }]
+
+
 def _parse_impact_estimate(raw: Any) -> Optional[ImpactEstimate]:
     """Coerce the impact_estimate dict into the typed model. Field shape is
     unchanged from the existing prompt JSON — this only adds validation."""
@@ -613,6 +639,34 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
         prefs = request.preferences or {}
         try:
             audit_log: List[Dict[str, Any]] = []
+
+            # Per-run token ledger. Usage was already captured by ClaudeService and
+            # written to a log line, which in this deployment goes to a detached
+            # console window nobody reads — so there was no way to answer "what did
+            # that debate cost" from the payload, or to notice a stage quietly
+            # doubling in size. Every LLM call SF makes records here, and the totals
+            # land in the audit log alongside the result they paid for.
+            _token_ledger: List[Dict[str, Any]] = []
+
+            def _record_usage(label: str, resp: Any) -> None:
+                """Pull usage off an LLM response. Never raises — cost accounting
+                must not be able to break solution generation."""
+                try:
+                    u = getattr(resp, "usage", None) or {}
+                    if not isinstance(u, dict):
+                        u = getattr(u, "__dict__", {}) or {}
+                    _in = u.get("prompt_tokens")
+                    _out = u.get("completion_tokens")
+                    if _in is None and _out is None:
+                        return
+                    _token_ledger.append({
+                        "call": label,
+                        "model": getattr(resp, "model_used", None),
+                        "input_tokens": _in,
+                        "output_tokens": _out,
+                    })
+                except Exception:
+                    pass
 
             # Decide path: LLM persona debate vs heuristic fallback
             # Try LLM when explicitly enabled OR orchestrator is present (safe fallback on failure)
@@ -1653,6 +1707,10 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                     )
                                 else:
                                     s1_resp = await self.llm_service_agent.analyze(s1_req)  # type: ignore
+                                # Recorded before the status check so a FAILED persona
+                                # still shows its cost — a call that errors after
+                                # generating tokens is billed just the same.
+                                _record_usage(f"stage1_{p.id}", s1_resp)
                                 _s1_status = getattr(s1_resp, "status", "error")
                                 s1_result = getattr(s1_resp, "analysis", None) if _s1_status == "success" else None
                                 if isinstance(s1_result, dict):
@@ -1774,6 +1832,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                 )
                             else:
                                 _critic_resp = await self.llm_service_agent.analyze(_critic_req)  # type: ignore
+                            _record_usage("critic_pass", _critic_resp)
                             if getattr(_critic_resp, "status", "error") == "success":
                                 _critic_analysis = getattr(_critic_resp, "analysis", None)
                                 if isinstance(_critic_analysis, dict):
@@ -1947,33 +2006,27 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         # 16384 output tokens, producing a parsed dict with no "options" key and
                         # silently falling back to the hardcoded heuristic stub.
                         #
-                        # 20000 IS THE CEILING — and it is not the model's.
+                        # 32000, now that claude_service streams.
                         #
-                        # Probed directly against claude-sonnet-5: 20000 is accepted;
-                        # 24000, 28000, 32000 and 64000 are all rejected by the Anthropic
-                        # SDK with "Streaming is required for operations that may take
-                        # longer than 10 minutes". The limit is the non-streaming request
-                        # path, so no amount of raising this number helps until the
-                        # synthesis call streams.
+                        # 20000 was a hard wall imposed by the SDK, not the model: it
+                        # REJECTS non-streaming requests whose max_tokens implies a
+                        # >10-minute generation (24000/32000/64000 all refused). Synthesis
+                        # generated right at that wall — measured at exactly 20000 output
+                        # tokens — and truncated mid-object, parsing to
+                        # {"raw_response": ...} and returning the heuristic stub under
+                        # status="success". Verified after the streaming change: 32000 and
+                        # 64000 are now accepted.
                         #
-                        # That matters because synthesis is ALREADY at the ceiling: across
-                        # repeated full-mode live runs the body lands at ~25,600-26,000
-                        # characters of dense JSON (~20k tokens) and truncates mid-object,
-                        # parsing to {"raw_response": ...} and silently returning the
-                        # heuristic stub with status="success".
+                        # This is headroom, not a target. Billing is on tokens GENERATED,
+                        # not the ceiling, so a larger number costs nothing unless the model
+                        # actually writes more. What it buys is that a verbose run finishes
+                        # instead of silently degrading to two generic options.
                         #
-                        # It is NOT driven by prompt size — it still truncated with
-                        # debate_spec_length back at 17,409 (baseline 17,321), and that
-                        # run's body was LONGER (25,967) than one with a bigger prompt.
-                        # Output tracks how verbose the model happens to be, so at this
-                        # ceiling the failure is STOCHASTIC: a clean run is a lucky sample,
-                        # not a working configuration.
-                        #
-                        # Two real fixes, both out of scope here: stream the synthesis call
-                        # (raises the ceiling), or shrink what the response carries (stays
-                        # under it). Until one lands, watch for the heuristic_stub_fallback
-                        # audit event — it is the only reliable signal this happened.
-                        max_tokens=20000,
+                        # The stochastic truncation this fixes was never prompt-size driven
+                        # (it recurred with debate_spec back at baseline, on a LONGER body),
+                        # so watch heuristic_stub_fallback rather than prompt length if it
+                        # ever returns.
+                        max_tokens=32000,
                         **_structured_kwargs,
                     )
 
@@ -2016,6 +2069,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     # Extract options and rationale safely
                     llm_ok = getattr(llm_resp, "status", "error") == "success"
                     model_used = getattr(llm_resp, "model_used", None)
+                    _record_usage("synthesis", llm_resp)
                     audit_log.append({
                         "event": "llm_debate_completed",
                         "status": getattr(llm_resp, "status", None),
@@ -2292,7 +2346,11 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                 human_action_context={
                     "summary": "Review ranked options and approve or select an alternative.",
                 },
-                audit_log=[{"event": "ranked_options", "count": len(options_payload)}] + audit_log,
+                audit_log=(
+                    [{"event": "ranked_options", "count": len(options_payload)}]
+                    + audit_log
+                    + _token_usage_event(_token_ledger)
+                ),
                 # Enhanced Decision Briefing Fields
                 problem_reframe=problem_reframe,
                 unresolved_tensions=unresolved_tensions_list,

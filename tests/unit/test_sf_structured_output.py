@@ -232,6 +232,24 @@ def test_solution_option_round_trips_through_synthesis_schema():
 # ClaudeService.generate_structured() — forced tool-use plumbing (mocked client)
 # ---------------------------------------------------------------------------
 
+def _stream_mock(message):
+    """Mock for client.messages.stream(...) — an async context manager whose
+    get_final_message() awaits to `message`.
+
+    ClaudeService streams rather than calling messages.create: the SDK rejects
+    non-streaming requests with a large max_tokens ("Streaming is required for
+    operations that may take longer than 10 minutes"), and SF synthesis needs
+    that headroom. get_final_message() returns the same object shape create()
+    did, so the assertions below are unchanged — only the mock moved.
+    """
+    ctx = MagicMock()
+    ctx.__aenter__ = AsyncMock(return_value=MagicMock(
+        get_final_message=AsyncMock(return_value=message)
+    ))
+    ctx.__aexit__ = AsyncMock(return_value=False)
+    return MagicMock(return_value=ctx)
+
+
 @pytest.mark.asyncio
 async def test_generate_structured_extracts_tool_input(monkeypatch):
     from src.llm_services.claude_service import ClaudeService, ClaudeServiceConfig
@@ -247,7 +265,7 @@ async def test_generate_structured_extracts_tool_input(monkeypatch):
         usage=SimpleNamespace(input_tokens=100, output_tokens=50),
     )
     service.client = MagicMock()
-    service.client.messages.create = MagicMock(return_value=fake_message)
+    service.client.messages.stream = _stream_mock(fake_message)
 
     result = await service.generate_structured(
         prompt="synthesize", tool_schema={"type": "object"}, tool_name="emit_sf_synthesis"
@@ -261,7 +279,7 @@ async def test_generate_structured_extracts_tool_input(monkeypatch):
     assert result["usage"]["total_tokens"] == 150
 
     # tool_choice must force the exact tool (this is the actual guarantee mechanism)
-    call_kwargs = service.client.messages.create.call_args.kwargs
+    call_kwargs = service.client.messages.stream.call_args.kwargs
     assert call_kwargs["tool_choice"] == {"type": "tool", "name": "emit_sf_synthesis"}
     assert call_kwargs["tools"][0]["name"] == "emit_sf_synthesis"
 
@@ -280,7 +298,7 @@ async def test_generate_structured_handles_refusal(monkeypatch):
         model="claude-sonnet-5",
     )
     service.client = MagicMock()
-    service.client.messages.create = MagicMock(return_value=fake_message)
+    service.client.messages.stream = _stream_mock(fake_message)
 
     result = await service.generate_structured(prompt="x", tool_schema={"type": "object"})
     assert result["response"] is None
@@ -300,7 +318,7 @@ async def test_generate_structured_handles_missing_tool_use_block(monkeypatch):
         model="claude-sonnet-5",
     )
     service.client = MagicMock()
-    service.client.messages.create = MagicMock(return_value=fake_message)
+    service.client.messages.stream = _stream_mock(fake_message)
 
     result = await service.generate_structured(prompt="x", tool_schema={"type": "object"})
     assert result["response"] is None

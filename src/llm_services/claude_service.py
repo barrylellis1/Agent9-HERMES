@@ -298,7 +298,22 @@ class ClaudeService:
         masked = api_key[:8] + "***" + api_key[-4:]
         logger.info(f"Initializing Claude client (key: {masked})")
 
-        self.client = anthropic.Anthropic(api_key=api_key)
+        # ASYNC client, deliberately. The sync anthropic.Anthropic blocks the thread
+        # for the whole call, and both call sites below sit inside `async def` on
+        # FastAPI's event loop — so a blocking call froze the entire server for the
+        # duration of every LLM request (minutes, for synthesis), and any
+        # asyncio.gather over LLM calls could not overlap at all.
+        #
+        # Measured before/after with three concurrent Haiku calls:
+        #   sync + gather   : 20.79s wall, 0/3 overlapping, wall == sum of durations
+        #   AsyncAnthropic  :  5.32s wall, 3/3 overlapping, wall == longest single
+        #
+        # That 3.9x is the visible part; the larger fix is that uvicorn can now serve
+        # other requests (including the UI's own /status polls) while an LLM call is
+        # in flight. It also makes SF's three "parallel" Stage 1 persona calls
+        # (a9_solution_finder_agent.py, asyncio.gather) actually parallel — they were
+        # documented as concurrent but ran strictly one after another.
+        self.client = anthropic.AsyncAnthropic(api_key=api_key)
         logger.info(f"Anthropic SDK version: {anthropic.__version__}")
 
         self.guardrails = self._load_guardrails()
@@ -389,7 +404,20 @@ class ClaudeService:
             request_id = f"req_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
             logger.info(f"[ClaudeService] {request_id} → model={_model}, max_tokens={_max_tokens}")
 
-            message = self.client.messages.create(
+            # Streamed, then accumulated into the same final message object the
+            # non-streaming path returned — every consumer below is unchanged.
+            #
+            # This is not about incremental delivery (nothing consumes partial
+            # tokens; the API is run+poll). It is the only way to raise max_tokens:
+            # the SDK REJECTS non-streaming requests whose max_tokens implies a
+            # >10-minute generation. Probed against claude-sonnet-5: 20000 accepted,
+            # 24000/28000/32000/64000 all rejected with "Streaming is required for
+            # operations that may take longer than 10 minutes."
+            #
+            # That 20000 wall was capping SF synthesis, which generates right at it
+            # (measured: exactly 20000 output tokens) and truncates mid-object,
+            # yielding the heuristic stub under status="success".
+            async with self.client.messages.stream(
                 **build_messages_kwargs(
                     model=_model,
                     max_tokens=_max_tokens,
@@ -397,7 +425,8 @@ class ClaudeService:
                     system=_system,
                     messages=[{"role": "user", "content": prompt}],
                 )
-            )
+            ) as _stream:
+                message = await _stream.get_final_message()
 
             # Safety classifiers (Fable 5) can decline with HTTP 200 + stop_reason="refusal".
             # With server-side fallbacks enabled this only surfaces if the whole chain refused.
@@ -495,7 +524,11 @@ class ClaudeService:
             }]
             kwargs["tool_choice"] = {"type": "tool", "name": tool_name}
 
-            message = self.client.messages.create(**kwargs)
+            # Streamed for the same reason as the free-text path above (SDK rejects
+            # large non-streaming max_tokens). get_final_message() returns the same
+            # object shape, so the tool_use block extraction below is untouched.
+            async with self.client.messages.stream(**kwargs) as _stream:
+                message = await _stream.get_final_message()
 
             if getattr(message, "stop_reason", None) == "refusal":
                 details = getattr(message, "stop_details", None)

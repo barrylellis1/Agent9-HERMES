@@ -11,7 +11,7 @@ Covers:
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.llm_services.claude_service import (
     ClaudeService,
@@ -94,8 +94,26 @@ def test_max_tokens_clamped_to_model_ceiling():
     assert kw["max_tokens"] == 64000
 
 
+def _stream_mock(message):
+    """Mock for client.messages.stream(...) — an async context manager whose
+    get_final_message() awaits to `message`.
+
+    ClaudeService streams rather than calling messages.create, because the SDK
+    rejects non-streaming requests with a large max_tokens ("Streaming is
+    required for operations that may take longer than 10 minutes") and SF
+    synthesis needs the headroom. get_final_message() returns the same object
+    shape create() did, so only the mock changes here, not the assertions.
+    """
+    ctx = MagicMock()
+    ctx.__aenter__ = AsyncMock(return_value=MagicMock(
+        get_final_message=AsyncMock(return_value=message)
+    ))
+    ctx.__aexit__ = AsyncMock(return_value=False)
+    return MagicMock(return_value=ctx)
+
+
 def _make_service(mock_client_cls, message):
-    mock_client_cls.return_value.messages.create.return_value = message
+    mock_client_cls.return_value.messages.stream = _stream_mock(message)
     return ClaudeService({"model_name": "claude-fable-5", "api_key": "test-key"})
 
 
@@ -106,7 +124,7 @@ async def test_refusal_stop_reason_returns_error_dict():
     refusal.model = "claude-fable-5"
     refusal.content = []
     refusal.stop_details = MagicMock(category="cyber")
-    with patch("src.llm_services.claude_service.anthropic.Anthropic") as mock_cls:
+    with patch("src.llm_services.claude_service.anthropic.AsyncAnthropic") as mock_cls:
         service = _make_service(mock_cls, refusal)
         result = await service.generate(prompt="hello")
     assert result["response"] is None
@@ -129,7 +147,7 @@ async def test_text_extraction_skips_non_text_leading_blocks():
     message.content = [fallback_block, text_block]
     message.usage.input_tokens = 10
     message.usage.output_tokens = 5
-    with patch("src.llm_services.claude_service.anthropic.Anthropic") as mock_cls:
+    with patch("src.llm_services.claude_service.anthropic.AsyncAnthropic") as mock_cls:
         service = _make_service(mock_cls, message)
         result = await service.generate(prompt="hello")
     assert result["response"] == "the answer"

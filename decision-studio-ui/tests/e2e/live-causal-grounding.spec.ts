@@ -120,9 +120,24 @@ test.describe('Live — causal grounding end to end', () => {
     // Mixed Analysis"), so it matches instantly and reports success before DA has
     // done anything. Wait for a control that only exists once DA has produced
     // results: the dimensional breakdown accordion.
-    const varianceAccordion = page.getByRole('button', { name: /variance breakdown/i });
-    await varianceAccordion.waitFor({ state: 'visible', timeout: DA_TIMEOUT });
+    // The DA-complete signal must hold across alert variants. "Variance Breakdown"
+    // does NOT: it renders for some analysis types and not others, so keying on it
+    // timed out for 5 minutes on a run where DA had actually finished in ~50s
+    // (confirmed by driving /workflows/deep-analysis directly).
+    //
+    // The level-2 "Analysis" heading appears only once DA has produced results and
+    // is present in every variant. Level matters — the page TITLE is level 1 and
+    // contains "Analysis" too ("Gross Margin % Mixed Analysis"), which is why an
+    // earlier body-text match on /analysis/ passed instantly and proved nothing.
+    await page.getByRole('heading', { name: /^analysis$/i, level: 2 })
+      .waitFor({ state: 'visible', timeout: DA_TIMEOUT });
     await page.screenshot({ path: testInfo.outputPath('02-deep-analysis.png'), fullPage: true });
+
+    // The Action Center holds every downstream control and may render collapsed.
+    const openActionCenter = page.getByRole('button', { name: /open action center/i });
+    if (await openActionCenter.count()) {
+      await openActionCenter.first().click();
+    }
 
     // ── Solution Finder ───────────────────────────────────────────────────────
     // The real control is "Generate Solutions →" in the Action Center. Previously
@@ -142,9 +157,19 @@ test.describe('Live — causal grounding end to end', () => {
     // margin is down 5.08pp, the obvious lever is repricing, and repricing anchor
     // accounts mid-quarter is exactly what the seeded price-lock constraint
     // forbids -- so it is the sharpest test of whether that constraint binds.
+    // Step 1 exists ONLY when DA returns a "mixed" verdict. When DA lands on a
+    // single framing (e.g. a plan-variance alert), the Recovery/Opportunity cards
+    // are never rendered and "Generate Solutions" is directly available. Requiring
+    // the cards unconditionally fails on a perfectly healthy run, so this is
+    // conditional — but it logs which branch it took, because "mixed vs not" is a
+    // real difference in what the pipeline was asked to do.
     const focusRecovery = page.getByRole('button', { name: /focus on recovery/i });
-    await focusRecovery.waitFor({ state: 'visible', timeout: 120_000 });
-    await focusRecovery.click();
+    if (await focusRecovery.count()) {
+      console.log('[live] DA verdict = MIXED — selecting Recovery framing');
+      await focusRecovery.first().click();
+    } else {
+      console.log('[live] DA verdict = single framing — no Recovery/Opportunity choice offered');
+    }
 
     const generate = page.getByRole('button', { name: /generate solutions/i });
 

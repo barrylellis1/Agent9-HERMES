@@ -46,7 +46,23 @@ class A9_Solution_Finder_Agent_Config(BaseModel):
 | Task Type | Model | Rationale |
 |-----------|-------|-----------|
 | `stage1_persona` | `claude-haiku-4-5-20251001` | 3 parallel focused single-persona calls; temperature=0.0 for deterministic hypotheses |
-| `synthesis` | `claude-sonnet-5` | Cross-review and consensus synthesis; max_tokens raised to 16384 (11O-B: 4.6 → 5 after A/B win — Sonnet 5 caught a data contradiction 4.6 glossed over, 32% faster) |
+| `synthesis` | `claude-sonnet-5` | Cross-review and consensus synthesis; `max_tokens=32000` (11O-B: 4.6 → 5 after A/B win — Sonnet 5 caught a data contradiction 4.6 glossed over, 32% faster) |
+
+**All calls stream** (`messages.stream`) via an `AsyncAnthropic` client. Both properties are
+load-bearing, not incidental:
+- **Streaming** is what permits `max_tokens > 20000` at all — the SDK rejects non-streaming
+  requests whose `max_tokens` implies a >10-minute generation.
+- **Async client** is what makes the three Stage 1 personas actually concurrent. With the
+  sync client they were `gather`-ed but ran strictly serially (measured 0/3 overlapping
+  pairs), and each one blocked the FastAPI event loop for every other request in flight.
+
+⚠️ **`hypothesis`, `cross_review` and `synthesis` all run the SAME full synthesis prompt at the
+SAME `max_tokens`.** `debate_stage` only controls whether Stage 1 is skipped and whether the
+call short-circuits (`stage1_only`); it does not vary the prompt or the budget. The three
+stages differ only in the `prior_transcript` they receive. So full mode pays for three
+full-size Sonnet synthesis generations, not one — the dominant cost and latency term in a
+debate, and the reason raising `max_tokens` slows all three stages rather than just the last.
+Read the `token_usage` audit event for the actual per-stage split.
 
 Environment variable overrides: `CLAUDE_MODEL_STAGE1`, `CLAUDE_MODEL_SYNTHESIS`
 
@@ -78,10 +94,31 @@ Environment variable overrides: `CLAUDE_MODEL_STAGE1`, `CLAUDE_MODEL_SYNTHESIS`
 - **Multi-call debate stages**: `stage1_only` → `hypothesis` → `cross_review` → `synthesis`; Stage 1 runs 3 parallel Haiku calls (McKinsey/BCG/Bain); synthesis uses Sonnet
 - **`impact_estimate` field**: Added to `SolutionOption` Pydantic model; LLM-generated recovery range extracted from synthesis output (e.g. "2.1–3.4pp Gross Margin recovery")
 - **`impact_estimate.scope` / `scope_label`**: `enterprise` moves the headline KPI; `segment` moves one dimension member only. `None` means UNSTATED and must be read as unverified — never assumed enterprise. Exists because live runs emitted segment-sized ranges (18.5–28.3pp) under the enterprise KPI's name, sized from a single segment's 43.24pp decline, which VA registration reads verbatim into impact bounds it later grades against. **Prompt elicitation is currently DEFERRED** (synthesis is at its output ceiling — see `max_tokens` comment), so in practice scope is always `None` today and the VA approve path warns on every registration.
-- **Synthesis output ceiling (KNOWN DEFECT)**: the synthesis response sits at ~20k tokens against a hard 20000 `max_tokens` limit — hard because the Anthropic SDK rejects larger non-streaming requests, not because of the model. It truncates mid-object stochastically, parses to `{"raw_response": ...}`, and returns the hardcoded heuristic stub ("Tighten spend controls") with `status="success"`. Detect via the `heuristic_stub_fallback` audit event. Fix requires streaming the call or shrinking the response payload.
+- **Synthesis output ceiling (FIXED — was a known defect)**: synthesis generated *exactly* 20000 output tokens against a 20000 `max_tokens` limit, truncated mid-object, parsed to `{"raw_response": ...}`, and returned the hardcoded heuristic stub ("Tighten spend controls") under `status="success"`. The 20000 wall was the SDK's non-streaming limit, not the model's — 24000/32000/64000 were all refused outright. Fixed by streaming the call; budget now 32000. The truncation was never prompt-size driven (it recurred with `debate_spec` back at baseline, on a *longer* body), so if it returns, watch the `heuristic_stub_fallback` audit event rather than prompt length.
 - **Recommendation rationale**: Fixed extraction — now reads `parsed.get("recommendation_rationale")` instead of hardcoded boilerplate text
 - **Stage 1 hypothesis restoration**: `stage_1_hypotheses` re-attached to cross_review/synthesis responses for progressive reveal in Council In Session UI
-- **`max_tokens`**: Raised to 16384 to prevent synthesis truncation on complex briefings
+- **`max_tokens`**: Raised to 16384 to prevent synthesis truncation on complex briefings (superseded — now 32000, see above)
+
+## Cost Observability — `token_usage` audit event (Aug 2026)
+Every LLM call SF makes records into a per-run ledger; the totals are appended to the audit
+log as a single `token_usage` event:
+
+```json
+{"event": "token_usage", "calls": 5, "input_tokens": 10447, "output_tokens": 21200,
+ "total_tokens": 31647,
+ "by_call": [{"call": "stage1_mckinsey", "model": "...", "input_tokens": ..., "output_tokens": ...}]}
+```
+
+- `call` labels: `stage1_{persona_id}`, `critic_pass`, `synthesis`.
+- Stage 1 usage is recorded **before** the status check — a persona call that errors after
+  generating tokens is billed just the same, so it must still appear.
+- An **empty ledger emits no event at all**, rather than one reporting zero cost, which would
+  be indistinguishable from a run that legitimately made no LLM calls.
+- Recording never raises; cost accounting must not be able to break solution generation.
+
+This exists because usage was already captured by `ClaudeService` but only reached a log line
+in a detached console window, so "what did that debate cost" was unanswerable from the payload
+and a stage quietly doubling in size was invisible.
 
 ## Synthesis Prompt Quality Improvements (Mar 2026 — Phase 12)
 - **next_steps**: Requires minimum 4 items with action verb + named role + specific deliverable + deadline; rejects generic boilerplate
