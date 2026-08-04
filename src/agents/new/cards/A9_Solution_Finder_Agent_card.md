@@ -46,7 +46,7 @@ class A9_Solution_Finder_Agent_Config(BaseModel):
 | Task Type | Model | Rationale |
 |-----------|-------|-----------|
 | `stage1_persona` | `claude-haiku-4-5-20251001` | 3 parallel focused single-persona calls; temperature=0.0 for deterministic hypotheses |
-| `synthesis` | `claude-sonnet-5` | Cross-review and consensus synthesis; `max_tokens=32000` (11O-B: 4.6 → 5 after A/B win — Sonnet 5 caught a data contradiction 4.6 glossed over, 32% faster) |
+| `synthesis` | `claude-sonnet-5` | Cross-review/moderator synthesis; `max_tokens=64000` — raised from 32000 after the moderator arm's first live run generated 30,303 output tokens (94.7% of budget, past the PM-6 90% threshold). Ledger rows carry `max_tokens` so utilization is checkable from the payload; the live harness fails any run at ≥90%. (11O-B: 4.6 → 5 after A/B win) |
 
 **All calls stream** (`messages.stream`) via an `AsyncAnthropic` client. Both properties are
 load-bearing, not incidental:

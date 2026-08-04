@@ -668,9 +668,16 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
             # land in the audit log alongside the result they paid for.
             _token_ledger: List[Dict[str, Any]] = []
 
-            def _record_usage(label: str, resp: Any) -> None:
+            def _record_usage(label: str, resp: Any, budget: Optional[int] = None) -> None:
                 """Pull usage off an LLM response. Never raises — cost accounting
-                must not be able to break solution generation."""
+                must not be able to break solution generation.
+
+                `budget` is the call's max_tokens when the caller knows it, so the
+                ledger row is self-describing: PM-6's utilization check (output
+                must stay <90% of budget or the next verbose run truncates) can
+                run from the payload alone, without the checker knowing what the
+                backend was configured with. The moderator arm's first live run
+                hit 94.7% — this exists so that is visible, not archaeology."""
                 try:
                     u = getattr(resp, "usage", None) or {}
                     if not isinstance(u, dict):
@@ -679,12 +686,15 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     _out = u.get("completion_tokens")
                     if _in is None and _out is None:
                         return
-                    _token_ledger.append({
+                    _row: Dict[str, Any] = {
                         "call": label,
                         "model": getattr(resp, "model_used", None),
                         "input_tokens": _in,
                         "output_tokens": _out,
-                    })
+                    }
+                    if budget:
+                        _row["max_tokens"] = budget
+                    _token_ledger.append(_row)
                 except Exception:
                     pass
 
@@ -2187,6 +2197,11 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         _structured_kwargs["response_schema"] = SFSynthesisSchema.model_json_schema()
                         _structured_kwargs["tool_name"] = "emit_sf_synthesis"
 
+                    # Single source for the synthesis/moderator output budget — the
+                    # request and the ledger row must never disagree about it, or
+                    # PM-6's utilization check grades against the wrong ceiling.
+                    _synthesis_budget = 64000
+
                     analysis_req = A9_LLM_AnalysisRequest(
                         request_id=req_id,
                         principal_id=getattr(request, "principal_id", None),
@@ -2226,7 +2241,14 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         # (it recurred with debate_spec back at baseline, on a LONGER body),
                         # so watch heuristic_stub_fallback rather than prompt length if it
                         # ever returns.
-                        max_tokens=32000,
+                        # 64000, raised from 32000 after the moderator arm's FIRST live
+                        # run generated 30,303 output tokens — 94.7% of the 32000 budget
+                        # (PM-6 threshold is <90%). Grades + scope elicitation legitimately
+                        # grow the output; a verbose run would have truncated into the
+                        # heuristic-stub fallback this same week's work eliminated.
+                        # Streaming accepts 64000 (verified); billing is on tokens
+                        # GENERATED, so headroom costs nothing until used.
+                        max_tokens=_synthesis_budget,
                         **_structured_kwargs,
                     )
 
@@ -2273,7 +2295,8 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     # theory-graded prompt, "synthesis" the simulated-cross-review
                     # baseline. Same call slot, different duty — cost comparisons
                     # between arms need the label to say which one paid.
-                    _record_usage("moderator" if _theory_moderator_on else "synthesis", llm_resp)
+                    _record_usage("moderator" if _theory_moderator_on else "synthesis", llm_resp,
+                                  budget=_synthesis_budget)
                     audit_log.append({
                         "event": "llm_debate_completed",
                         "status": getattr(llm_resp, "status", None),

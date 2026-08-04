@@ -323,6 +323,32 @@ test.describe('Live — causal grounding end to end', () => {
       body: JSON.stringify(opts.map(o => ({ id: o?.id, impact_estimate: o?.impact_estimate })), null, 2),
       contentType: 'application/json',
     });
+
+    // PM-6: token-budget utilization. The ledger rows carry their own max_tokens
+    // (self-describing — this check must not need to know the backend config).
+    // >=90% means the next verbose run truncates into the heuristic-stub
+    // fallback, which reports status="success" and is invisible without this.
+    // The moderator arm's FIRST live run hit 94.7% of a 32000 budget; the
+    // budget was raised, and this assertion exists so drift back toward the
+    // ceiling fails a run instead of waiting for a truncation to be noticed.
+    const auditEvents = (sfPayload?.solutions?.audit_log ?? sfPayload?.audit_log ?? []) as any[];
+    const tokenUsage = auditEvents.find(e => e?.event === 'token_usage');
+    if (tokenUsage) {
+      for (const row of tokenUsage.by_call ?? []) {
+        if (row?.max_tokens && row?.output_tokens != null) {
+          const pct = (100 * row.output_tokens) / row.max_tokens;
+          console.log(`[live] ${row.call} output: ${row.output_tokens}/${row.max_tokens} tokens (${pct.toFixed(1)}% of budget)`);
+          if (pct >= 90) {
+            throw new Error(
+              `PM-6: ${row.call} used ${pct.toFixed(1)}% of its ${row.max_tokens}-token budget — ` +
+              `raise the budget or shrink the output before a verbose run silently truncates`
+            );
+          }
+        }
+      }
+    } else {
+      console.log('[live] token_usage event absent from payload — utilization unchecked');
+    }
     await testInfo.attach('grounding-signals.json', {
       body: JSON.stringify(signals, null, 2),
       contentType: 'application/json',
