@@ -51,23 +51,19 @@ export default defineConfig({
     command: 'npm run dev',
     port: 5173,
 
-    // PRODUCTION PARITY — the point of this config.
-    // .env.development sets VITE_DEBATE_MODE=fast (stage1_only -> synthesis, 2 LLM
-    // calls). Production sets full (stage1_only -> hypothesis -> cross_review ->
-    // synthesis, 4 calls). Judging solution QUALITY against fast mode would grade a
-    // materially different pipeline from the one customers see.
+    // Stage H (2026-08-04): VITE_DEBATE_MODE is retired — the frontend always
+    // runs the same two dispatches (stage1_only -> synthesis) in every mode, so
+    // there is no fast/full split to force here anymore. Production parity for
+    // debate DEPTH is now a backend config concern (the simulated-vs-staged
+    // synthesis path, PM-2's A/B arm), which this harness exercises through
+    // whatever the local backend has enabled.
     //
-    // Only this one variable is overridden. Running vite with `--mode production`
-    // would also swap VITE_API_URL to https://api.trydecisionstudio.com and the
-    // Supabase keys to placeholders — i.e. drive production and break auth. The
-    // backend stays local; only debate depth matches production.
-    //
-    // Vite gives already-present process env the highest priority and will not let
-    // .env files overwrite it, so this beats .env.development's `fast`.
-    env: { VITE_DEBATE_MODE: 'full' },
+    // Deliberately NOT `--mode production`: that would swap VITE_API_URL to
+    // https://api.trydecisionstudio.com and the Supabase keys to placeholders —
+    // i.e. drive production and break auth. The backend stays local.
 
-    // Must NOT reuse a server started under fast mode — it would silently ignore
-    // the override above and produce a fast-mode result labelled production-like.
+    // A stale dev server from before a frontend change would run old dispatch
+    // code under this config's name — always start fresh.
     reuseExistingServer: false,
     timeout: 120_000,
     stdout: 'pipe',

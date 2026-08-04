@@ -420,17 +420,29 @@ export function useDecisionStudio() {
             client_id: selectedClientId
         };
         
-        const stageResults: any[] = [];
         let stageOneHypotheses: any = null;
-        let stageTwoCrossReview: any = null;
         let lastSolutionRequestId: string | null = null;
 
-        const runStage = async (stage: 'stage1_only' | 'hypothesis' | 'cross_review' | 'synthesis') => {
+        // Stage H collapse (2026-08-04): two dispatches, not four.
+        //
+        // The old flow's `hypothesis` and `cross_review` stages were audited as
+        // IDENTICAL requests to the synthesis stage — debate_stage only gates
+        // Stage-1 skipping on the backend, and `prior_transcript` (sent forward
+        // each stage) is read by no backend code at all. Full mode was three
+        // 4-minute Sonnet mega-calls where the first's output was consumed by
+        // nothing and the second's only unique product (cross_review) is also
+        // emitted by the synthesis call itself. See PRD 2026-08-04 block.
+        //
+        // VITE_DEBATE_MODE no longer changes anything here — both former modes
+        // now run the same two dispatches. The A/B comparison arm (simulated vs
+        // staged debate, PM-2) is a BACKEND config choice on the synthesis path,
+        // not a frontend dispatch count; the env var is retired rather than
+        // left as a knob that silently does nothing different.
+        const runStage = async (stage: 'stage1_only' | 'synthesis') => {
             const stagePreferences = {
                 ...preferencesBase,
                 debate_stage: stage,
-                prior_transcript: stageResults[stageResults.length - 1]?.solutions?.debate_transcript,
-                // Pass Stage 1 hypotheses to all stages except stage1_only itself
+                // The only cross-stage state the backend actually consumes.
                 prior_stage1_hypotheses: stage !== 'stage1_only' ? stageOneHypotheses : undefined
             };
 
@@ -444,53 +456,25 @@ export function useDecisionStudio() {
                 selectedSituation?.situation_id,
                 selectedClientId
             );
-            const response = sfResult.result;  // unwrap
             lastSolutionRequestId = sfResult.request_id;
-
-            stageResults.push(response);
-
-            const stageSolutions = response?.solutions;
-            // Capture Stage 1 hypotheses from either the quick stage1_only call or full hypothesis call
-            if ((stage === 'stage1_only' || stage === 'hypothesis') && stageSolutions?.stage_1_hypotheses) {
-                stageOneHypotheses = stageSolutions.stage_1_hypotheses;
-            }
-            if (stage === 'cross_review' && stageSolutions?.cross_review) {
-                stageTwoCrossReview = stageSolutions.cross_review;
-            }
-            return response;
+            return sfResult.result;
         };
 
         // Stage 1: Quick Haiku-only call — returns firm hypotheses in ~5 seconds for immediate card reveal
-        await runStage('stage1_only');
-        const hyps = stageResults[stageResults.length - 1]?.solutions?.stage_1_hypotheses ?? null;
+        const s1Response = await runStage('stage1_only');
+        const hyps = s1Response?.solutions?.stage_1_hypotheses ?? null;
+        stageOneHypotheses = hyps;
         setDebateHypotheses(hyps);
         setDebatePhase(2);
 
-        // Fast mode (VITE_DEBATE_MODE=fast): skip intermediate stages, go straight to synthesis
-        // Full mode (VITE_DEBATE_MODE=full): run all 4 stages for maximum depth
-        const debateMode = import.meta.env.VITE_DEBATE_MODE || 'fast';
-        if (debateMode === 'full') {
-            // Stage 2: Hypothesis synthesis — Sonnet-only (skips Stage 1, uses prior hypotheses)
-            await runStage('hypothesis');
-
-            // Stage 3: Cross-review
-            await runStage('cross_review');
-            setDebatePhase(3);
-        } else {
-            setDebatePhase(3);
-        }
-
+        // Synthesis: Stage-1 hypotheses in, options + cross_review + rationale out.
+        setDebatePhase(3);
         const finalResult = await runStage('synthesis');
-        const solResponse = finalResult?.solutions || stageResults[stageResults.length - 1]?.solutions;
+        const solResponse = finalResult?.solutions || s1Response?.solutions;
         const enrichedSolutions = solResponse ? { ...solResponse } : null;
 
-        if (enrichedSolutions) {
-            if (stageOneHypotheses && !enrichedSolutions.stage_1_hypotheses) {
-                enrichedSolutions.stage_1_hypotheses = stageOneHypotheses;
-            }
-            if (stageTwoCrossReview) {
-                enrichedSolutions.cross_review = stageTwoCrossReview;
-            }
+        if (enrichedSolutions && stageOneHypotheses && !enrichedSolutions.stage_1_hypotheses) {
+            enrichedSolutions.stage_1_hypotheses = stageOneHypotheses;
         }
 
         setSolutions(enrichedSolutions || null);

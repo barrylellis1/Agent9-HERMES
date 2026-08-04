@@ -199,6 +199,13 @@ class SolutionFinderResponse(A9AgentBaseResponse):
     next_steps: List[str] = Field(default_factory=list)
     cross_review: Optional[Dict[str, Any]] = None  # Hybrid Council debate artifacts
     stage_1_hypotheses: Optional[Dict[str, Any]] = None  # Per-persona Stage 1 hypotheses (multi-call)
+    # Phase 15 Stage H: theory-guided moderator verdicts, keyed by option id.
+    # Mutually exclusive with cross_review in practice: the moderator arm emits
+    # grades (constraint_survival / causal_grounding / arithmetic_consistency /
+    # critic_findings_response / grade_rationale), the baseline arm emits the
+    # simulated cross_review. Untyped dict deliberately — the typed ModeratorGrade
+    # model lands with the structured-output flip (PM-4: one variable per run).
+    moderator_grades: Optional[Dict[str, Any]] = None
 
     # Principal-Driven Framing Context (per PRD guardrails)
     framing_context: Optional[Dict[str, Any]] = None  # decision_style, personas_used, presentation_note, disclaimer

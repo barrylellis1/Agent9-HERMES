@@ -102,6 +102,29 @@ Environment variable overrides: `CLAUDE_MODEL_STAGE1`, `CLAUDE_MODEL_SYNTHESIS`
 - **Stage 1 hypothesis restoration**: `stage_1_hypotheses` re-attached to cross_review/synthesis responses for progressive reveal in Council In Session UI
 - **`max_tokens`**: Raised to 16384 to prevent synthesis truncation on complex briefings (superseded — now 32000, see above)
 
+## Stage H — Theory-Guided Moderator (Aug 2026)
+`enable_theory_moderator` (env: `SF_ENABLE_THEORY_MODERATOR`; requires `enable_causal_grounding`)
+selects the NEW arm of the PM-2 A/B on the synthesis call:
+
+- **Baseline arm (flag off, default):** the original simulated cross-review prompt, byte-for-byte
+  untouched — one author writes all firms' critiques. Emits `cross_review`. Ledger label `synthesis`.
+- **Moderator arm (flag on):** replaces the simulation with a MODERATOR DUTY section that grades
+  every option against ground truth — constraint survival (vs the assumption register), causal
+  grounding (named `kpi_relationships` edge or `ungrounded`), arithmetic consistency (recovery_range
+  vs the actual data magnitudes), and critic-findings response (answered vs standing). Emits
+  `moderator_grades` keyed by option id; `cross_review` is neither requested nor accepted (a stray
+  one in the output is dropped — arms must not cross-contaminate). Ledger label `moderator`.
+- **PM-1 denominator:** the prompt states exactly how much register it grades against ("Active
+  constraints: N / Causal edges: M (by provenance: ...)"); zero constraints grades as
+  `insufficient_data`, NEVER `pass`.
+- **Scope elicitation (moderator arm only):** `impact_estimate` must carry `scope`/`scope_label`.
+  PM-7 guard: `scope="enterprise"` + a named `scope_label` is self-contradictory — parser resets
+  scope to `None` (label kept) and the call site emits an `impact_scope_contradiction` audit event.
+- **PM-9 seam:** `moderator_protocol` config — `"judge"` implemented; `"integrator"` designed,
+  gated, falls back to judge with a log line.
+- Frontend runs TWO dispatches (`stage1_only` → `synthesis`); the dead `hypothesis`/`cross_review`
+  dispatches and the never-read `prior_transcript` are gone; `VITE_DEBATE_MODE` is retired.
+
 ## Stage 1 Attribution Fix (Aug 2026)
 Stage 1 results are keyed **positionally** from `asyncio.gather()` order — never by the LLM
 echoing `persona_id` back. The old keying silently discarded a successful call whose JSON

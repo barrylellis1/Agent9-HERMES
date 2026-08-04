@@ -283,9 +283,9 @@ This design ensures tight coupling between state changes and UI re-renders, maki
 1. **Auto-scan on mount**: refs track previous principal/timeframe/client; triggers `detectSituations()` on change.
 2. **Deep-link KPI support**: router state provides kpiName; useEffect matches and auto-selects situation.
 3. **Solutions persistence**: saves to localStorage after synthesis; restores on situation change.
-4. **Debate flow**: Phase 1 (Stage1) → auto-advance if VITE_DEBATE_MODE=fast; Phase 2/3 optional; Phase 4 (synthesis).
+4. **Debate flow** (Stage H, 2026-08-04): two dispatches — `stage1_only` (parallel firm hypotheses, ~15s) → `synthesis` (critic + moderator + generation, minutes). The former `hypothesis`/`cross_review` stages were audited as identical requests to synthesis and removed; `VITE_DEBATE_MODE` is retired.
 
-**Must NOT:** Modify hook's internal state management — it's tightly coupled to the 3-stage debate architecture.
+**Must NOT:** Reintroduce intermediate debate dispatches — depth belongs to the backend synthesis path, not the dispatch count.
 
 ---
 

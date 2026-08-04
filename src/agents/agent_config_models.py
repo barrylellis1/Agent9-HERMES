@@ -489,6 +489,29 @@ class A9_Solution_Finder_Agent_Config(BaseModel):
         False, description="Run a critic LLM pass tracing each Stage 1 proposal through the causal graph before synthesis (Phase 15 Stage E)"
     )
 
+    # Phase 15 Stage H: theory-guided moderator. Default False — this is the NEW
+    # arm of the PM-2 A/B (old simulated cross-review vs moderator grading), so
+    # both prompt variants must coexist until the A/B readout kills one. When
+    # True, the synthesis prompt replaces the single-author simulated firm-vs-firm
+    # cross-review with a moderator duty: grade each option against the assumption
+    # register (constraint survival), the causal graph (edge grounding), the data
+    # (impact arithmetic), and the critic findings (answered vs standing) — and
+    # state the denominator it graded against (PM-1: thin register must yield
+    # "insufficient theory data", never confident grades over nothing). Requires
+    # enable_causal_grounding for the same reason the critic does: a moderator
+    # with no register has nothing to grade against.
+    enable_theory_moderator: bool = Field(
+        False, description="Replace simulated cross-review with theory-guided moderator grading in the synthesis prompt (Phase 15 Stage H)"
+    )
+    # PM-9 seam, deliberately just a string: "judge" (grade independent options,
+    # pick a winner) is the only implemented protocol. "integrator" (compose
+    # complementary contributions, check interfaces) is designed but gated on the
+    # first cross-discipline pilot problem — unknown values fall back to judge
+    # with a log line, so a typo can't silently change behavior.
+    moderator_protocol: str = Field(
+        "judge", description="Moderator rubric: 'judge' (implemented) or 'integrator' (designed, gated — falls back to judge)"
+    )
+
 
 class A9_KPI_Assistant_Agent_Config(BaseModel):
     """

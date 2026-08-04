@@ -1277,6 +1277,54 @@ export function ExecutiveBriefing() {
               </AccordionSection>
             )}
 
+            {/* [K2] Moderator Verdicts (Stage H arm — present instead of cross_review).
+                Minimal rendering by design: full grade-table treatment belongs to the
+                Stage G briefing rebuild. This exists so moderator runs are visible in
+                the briefing rather than silently dropping their adjudication. */}
+            {(data as any).moderator_grades && Object.keys((data as any).moderator_grades).length > 0 && (
+              <AccordionSection id="moderator" title="Moderator Verdicts (graded against verified theory)" openSections={openSections} onToggle={toggleSection}
+                icon={<ShieldCheck className="w-4 h-4 text-slate-400" />}>
+                <div className="p-5">
+                  <p className="text-slate-400 text-sm mb-4 print:text-slate-600">
+                    Each option graded against the client's constraint register, causal model, and the critic's findings — not debate rhetoric.
+                    &ldquo;Insufficient data&rdquo; means the theory register was too thin to grade against, not that the option passed.
+                  </p>
+                  <div className="space-y-3">
+                    {Object.entries((data as any).moderator_grades).map(([optId, g]: [string, any]) => (
+                      <div key={optId} className="bg-slate-900 border border-slate-700 rounded-lg p-4 print:bg-slate-50 print:border-slate-200">
+                        <h4 className="font-bold text-slate-200 text-sm mb-2 print:text-slate-900">{optId}</h4>
+                        <div className="flex flex-wrap gap-2 mb-2 text-xs">
+                          <span className={`px-2 py-0.5 rounded border ${g.constraint_survival === 'pass' ? 'text-emerald-400 border-emerald-700' : g.constraint_survival === 'fail' ? 'text-red-400 border-red-700' : 'text-amber-400 border-amber-700'}`}>
+                            constraints: {g.constraint_survival ?? 'ungraded'}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded border ${g.arithmetic_consistency === 'pass' ? 'text-emerald-400 border-emerald-700' : g.arithmetic_consistency === 'flag' ? 'text-red-400 border-red-700' : 'text-amber-400 border-amber-700'}`}>
+                            arithmetic: {g.arithmetic_consistency ?? 'ungraded'}
+                          </span>
+                          <span className="px-2 py-0.5 rounded border text-slate-300 border-slate-600">
+                            causal: {g.causal_grounding ?? 'ungraded'}
+                          </span>
+                        </div>
+                        {g.violated_constraints?.length > 0 && (
+                          <p className="text-xs text-red-400 mb-1">Violates: {g.violated_constraints.join('; ')}</p>
+                        )}
+                        {g.arithmetic_note && (
+                          <p className="text-xs text-amber-400 mb-1">{g.arithmetic_note}</p>
+                        )}
+                        {g.critic_findings_response?.length > 0 && (
+                          <p className="text-xs text-slate-400 mb-1">
+                            Critic findings: {g.critic_findings_response.map((f: any) => `${f.finding} — ${f.disposition}`).join('; ')}
+                          </p>
+                        )}
+                        {g.grade_rationale && (
+                          <p className="text-xs text-slate-500 italic">{g.grade_rationale}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </AccordionSection>
+            )}
+
             {/* [L] Risk & Considerations divider */}
             <div className="print:hidden flex items-center gap-3 mt-6 mb-2">
               <div className="h-px flex-1 bg-slate-800" />

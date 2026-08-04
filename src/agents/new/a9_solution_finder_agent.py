@@ -471,6 +471,13 @@ def _parse_impact_estimate(raw: Any) -> Optional[ImpactEstimate]:
         _scope = raw.get("scope")
         if _scope not in ("enterprise", "segment"):
             _scope = None
+        # PM-7: an elicited-but-contradictory scope is worse than an absent one,
+        # because downstream (VA impact bounds) trusts it. "enterprise" with a
+        # named segment label is self-contradictory — the label survives (it is
+        # information), the scope claim does not. Callers detect this case via
+        # _scope_contradiction() on the same raw dict to emit the audit event.
+        if _scope == "enterprise" and raw.get("scope_label"):
+            _scope = None
         return ImpactEstimate(
             metric=raw.get("metric"),
             unit=raw.get("unit"),
@@ -481,6 +488,19 @@ def _parse_impact_estimate(raw: Any) -> Optional[ImpactEstimate]:
         )
     except Exception:
         return None
+
+
+def _scope_contradiction(raw: Any) -> bool:
+    """True when an impact_estimate claims 'enterprise' scope while naming a
+    specific segment in scope_label — the self-contradiction PM-7 exists for.
+    Reads the RAW dict (before _parse_impact_estimate normalises the scope to
+    None) so the call site can emit an audit event for a claim the parser has
+    already quietly corrected."""
+    return (
+        isinstance(raw, dict)
+        and raw.get("scope") == "enterprise"
+        and bool(raw.get("scope_label"))
+    )
 
 
 def _parse_decision_ask(raw: Any) -> Optional[DecisionAsk]:
@@ -680,6 +700,8 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
             blind_spots_list: List[str] = []
             next_steps_list: List[str] = []
             cross_review: Optional[Dict[str, Any]] = None
+            # Phase 15 Stage H: moderator verdicts (moderator arm only)
+            moderator_grades: Optional[Dict[str, Any]] = None
             stage_1_hypotheses_final: Dict[str, Any] = {}
             ma_response: Optional[Dict[str, Any]] = None
             # Phase 15 Stage B
@@ -687,7 +709,24 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
             immediate_actions_list: List[ImmediateAction] = []
 
             # FORCE LLM for debugging/MVP
-            use_llm = True 
+            use_llm = True
+
+            # PM-3: state which pipeline this run will actually execute, at the
+            # moment it starts. Local flags and deployed flags have diverged
+            # before (parallel bootstrap paths, missed Railway env vars), and a
+            # debate that silently ran the wrong arm looks identical from the
+            # payload. One line makes the active protocol checkable from any log.
+            self.logger.info(
+                "[SF] run protocol: structured_output=%s causal_grounding=%s critic_pass=%s "
+                "theory_moderator=%s moderator_protocol=%s llm_debate=%s hybrid_council=%s",
+                getattr(self.config, "use_structured_output", False),
+                getattr(self.config, "enable_causal_grounding", False),
+                getattr(self.config, "enable_critic_pass", False),
+                getattr(self.config, "enable_theory_moderator", False),
+                getattr(self.config, "moderator_protocol", "judge"),
+                getattr(self.config, "enable_llm_debate", False),
+                getattr(self.config, "enable_hybrid_council", False),
+            )
             
             # Fallback: Attempt to acquire LLM service if missing
             if use_llm and not self.orchestrator and not self.llm_service_agent:
@@ -952,7 +991,16 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
 
                     # Initialize persona_ids to ensure scope availability
                     persona_ids = []
-                    
+
+                    # Stage H (PM-2 A/B) arm selection — hoisted above the persona
+                    # branch because the shared JSON template below also branches on
+                    # it. Requires causal grounding for the same reason the critic
+                    # does: a moderator with no register has nothing to grade against.
+                    _theory_moderator_on = bool(
+                        getattr(self.config, "enable_theory_moderator", False)
+                        and getattr(self.config, "enable_causal_grounding", False)
+                    )
+
                     # Build Context Strings
                     self.logger.info(f"Final consulting_personas count: {len(consulting_personas)}")
                     self.logger.info(f"Final consulting_personas IDs: {[p.id for p in consulting_personas]}")
@@ -976,28 +1024,58 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             "## CONSULTING COUNCIL PROFILES\n"
                             f"{persona_details}\n"
                         )
-                        task_instruction = (
-                            "Stage 1 persona hypotheses are already captured in INPUT DATA as 'stage_1_persona_hypotheses'.\n"
-                            "Each persona has independently proposed one intervention. Your tasks:\n\n"
-                            "**STAGE 2 - CROSS-REVIEW:**\n"
-                            "Each firm reviews the other firms' Stage 1 proposed_options and provides:\n"
-                            "- Critiques: What blind spots or execution risks does the other firm's approach miss?\n"
-                            "- Endorsements: What aspects of the other firm's approach are strong?\n"
-                            "Be specific — reference the actual option titles from stage_1_persona_hypotheses.\n\n"
-                            "**STAGE 3 - SYNTHESIS:**\n"
-                            "Use each persona's 'proposed_option' from stage_1_persona_hypotheses as the basis for your 3 output options.\n"
-                            "Expand each proposal with: full perspectives (arguments_for, arguments_against, key_questions),\n"
-                            "prerequisites, implementation_triggers, and complete impact_estimate with a calibrated recovery_range.\n"
-                            "Firm-specific frameworks for reference:\n"
-                            f"{frameworks_text}\n"
-                        )
-                        output_instruction = (
-                            "## OUTPUT FORMAT (STRICT JSON)\n"
-                            "The 'cross_review' field MUST contain each firm's Stage 2 critiques and endorsements.\n"
-                            "Each critique must have 'target' (option id or firm name) and 'concern' (specific issue).\n"
-                            "Each endorsement must have 'target' and 'reason' (why they support it).\n"
-                            "Do NOT include a 'stage_1_hypotheses' field — those are already captured separately.\n"
-                        )
+                        # Stage H (PM-2 A/B): two synthesis duties share this prompt slot.
+                        # The DEFAULT arm keeps the original simulated cross-review — one
+                        # author writing all firms' critiques — untouched as the A/B
+                        # baseline. The MODERATOR arm replaces that simulation with a
+                        # grading duty against the theory layer (the rubric itself is
+                        # injected later as MODERATOR DUTY, where the register counts are
+                        # known). Do not edit the baseline text while the A/B is open:
+                        # a drifted baseline grades nothing.
+                        if _theory_moderator_on:
+                            task_instruction = (
+                                "Stage 1 persona hypotheses are already captured in INPUT DATA as 'stage_1_persona_hypotheses'.\n"
+                                "Each persona has independently proposed one intervention. Your tasks:\n\n"
+                                "**SYNTHESIS:**\n"
+                                "Use each persona's 'proposed_option' from stage_1_persona_hypotheses as the basis for your 3 output options.\n"
+                                "Expand each proposal with: full perspectives (arguments_for, arguments_against, key_questions),\n"
+                                "prerequisites, implementation_triggers, and complete impact_estimate with a calibrated recovery_range.\n"
+                                "Firm-specific frameworks for reference:\n"
+                                f"{frameworks_text}\n\n"
+                                "**MODERATION:**\n"
+                                "You are also the council's moderator. Do NOT write firm-vs-firm debate quotes or invent\n"
+                                "critiques in any firm's voice — your adjudication duty is defined in the MODERATOR DUTY\n"
+                                "section below and is graded against evidence, not rhetoric.\n"
+                            )
+                            output_instruction = (
+                                "## OUTPUT FORMAT (STRICT JSON)\n"
+                                "Do NOT include a 'cross_review' field — this council is adjudicated by the moderator\n"
+                                "grades defined in MODERATOR DUTY, not by simulated firm-vs-firm quotes.\n"
+                                "Do NOT include a 'stage_1_hypotheses' field — those are already captured separately.\n"
+                            )
+                        else:
+                            task_instruction = (
+                                "Stage 1 persona hypotheses are already captured in INPUT DATA as 'stage_1_persona_hypotheses'.\n"
+                                "Each persona has independently proposed one intervention. Your tasks:\n\n"
+                                "**STAGE 2 - CROSS-REVIEW:**\n"
+                                "Each firm reviews the other firms' Stage 1 proposed_options and provides:\n"
+                                "- Critiques: What blind spots or execution risks does the other firm's approach miss?\n"
+                                "- Endorsements: What aspects of the other firm's approach are strong?\n"
+                                "Be specific — reference the actual option titles from stage_1_persona_hypotheses.\n\n"
+                                "**STAGE 3 - SYNTHESIS:**\n"
+                                "Use each persona's 'proposed_option' from stage_1_persona_hypotheses as the basis for your 3 output options.\n"
+                                "Expand each proposal with: full perspectives (arguments_for, arguments_against, key_questions),\n"
+                                "prerequisites, implementation_triggers, and complete impact_estimate with a calibrated recovery_range.\n"
+                                "Firm-specific frameworks for reference:\n"
+                                f"{frameworks_text}\n"
+                            )
+                            output_instruction = (
+                                "## OUTPUT FORMAT (STRICT JSON)\n"
+                                "The 'cross_review' field MUST contain each firm's Stage 2 critiques and endorsements.\n"
+                                "Each critique must have 'target' (option id or firm name) and 'concern' (specific issue).\n"
+                                "Each endorsement must have 'target' and 'reason' (why they support it).\n"
+                                "Do NOT include a 'stage_1_hypotheses' field — those are already captured separately.\n"
+                            )
                     else:
                         # Legacy / Generic Persona Path
                         personas_override: List[str] = []
@@ -1229,17 +1307,40 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "  \"immediate_actions\": [\n"
                         "    {\"action_text\": \"<specific first task>\", \"owner\": \"<role title>\", \"due_by_days\": <integer>, \"why_it_matters\": \"<one sentence>\"}\n"
                         "  ],\n"
-                        "  \"cross_review\": {\n"
-                        + "".join([
-                            f'    "{pid}": {{\n'
-                            f'      "critiques": [{{"target": "opt_1", "concern": "Specific critique from {pid} lens"}}],\n'
-                            f'      "endorsements": [{{"target": "opt_2", "reason": "Why {pid} supports this option"}}]\n'
-                            f'    }}{chr(44) if i < len(persona_ids) - 1 else ""}\n'
-                            for i, pid in enumerate(persona_ids)
-                        ])
-                        + "  }\n"
-                        "}\n"
-                        f"\nCRITICAL: The options array MUST have EXACTLY 3 items (opt_1, opt_2, opt_3). The cross_review MUST use EXACTLY these persona IDs as keys: {persona_ids}. Do NOT include a stage_1_hypotheses field.\n"
+                        + (
+                            # Moderator arm: adjudication is data, not simulated quotes.
+                            # Grades keyed by option id; the rubric semantics and the
+                            # insufficient-data rule live in the MODERATOR DUTY section.
+                            "  \"moderator_grades\": {\n"
+                            "    \"opt_1\": {\n"
+                            "      \"constraint_survival\": \"pass|fail|insufficient_data\",\n"
+                            "      \"violated_constraints\": [\"<constraint text, only when fail>\"],\n"
+                            "      \"causal_grounding\": \"<the specific causal edge this option pulls, or 'ungrounded'>\",\n"
+                            "      \"arithmetic_consistency\": \"pass|flag|insufficient_data\",\n"
+                            "      \"arithmetic_note\": \"<only when flag: which number disagrees with the data>\",\n"
+                            "      \"critic_findings_response\": [{\"finding\": \"<finding summary>\", \"disposition\": \"answered|standing\"}],\n"
+                            "      \"grade_rationale\": \"<2-3 sentences citing the specific constraint/edge/number graded against>\"\n"
+                            "    },\n"
+                            "    \"opt_2\": { \"...\": \"same shape\" },\n"
+                            "    \"opt_3\": { \"...\": \"same shape\" }\n"
+                            "  }\n"
+                            "}\n"
+                            "\nCRITICAL: The options array MUST have EXACTLY 3 items (opt_1, opt_2, opt_3). "
+                            "moderator_grades MUST contain an entry for every option id. Do NOT include a "
+                            "cross_review or stage_1_hypotheses field.\n"
+                            if _theory_moderator_on else
+                            "  \"cross_review\": {\n"
+                            + "".join([
+                                f'    "{pid}": {{\n'
+                                f'      "critiques": [{{"target": "opt_1", "concern": "Specific critique from {pid} lens"}}],\n'
+                                f'      "endorsements": [{{"target": "opt_2", "reason": "Why {pid} supports this option"}}]\n'
+                                f'    }}{chr(44) if i < len(persona_ids) - 1 else ""}\n'
+                                for i, pid in enumerate(persona_ids)
+                            ])
+                            + "  }\n"
+                            "}\n"
+                            f"\nCRITICAL: The options array MUST have EXACTLY 3 items (opt_1, opt_2, opt_3). The cross_review MUST use EXACTLY these persona IDs as keys: {persona_ids}. Do NOT include a stage_1_hypotheses field.\n"
+                        )
                     )
                     self.logger.info(f"Cross-review will use persona_ids: {persona_ids}")
                     # Optional user-supplied context to guide the debate
@@ -1867,7 +1968,18 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                         if isinstance(f, dict) and f.get("concern")
                                     ]
                             if critic_findings:
-                                audit_log.append({"event": "critic_pass_findings", "count": len(critic_findings)})
+                                # Full findings, not just a count. The critic is the pipeline's
+                                # adjudication input — under Stage H the moderator grades options
+                                # partly on how they answer these findings, so an audit trail
+                                # that says "3" while discarding WHAT was found makes the
+                                # adjudication unreviewable after the fact. Findings are small
+                                # (concern + kpi + severity, few hundred bytes) and already
+                                # bounded by the critic's 2000-token budget.
+                                audit_log.append({
+                                    "event": "critic_pass_findings",
+                                    "count": len(critic_findings),
+                                    "findings": critic_findings,
+                                })
                                 self.logger.info(f"[SF] Critic pass: {len(critic_findings)} grounded finding(s)")
                         except Exception as e:
                             # Non-fatal by design: a critic-call failure must never break
@@ -1969,6 +2081,64 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     # non-hybrid-council path generates directly with no Stage 1 at all.
                     causal_context_section = _build_causal_context_section(_cg_relationships, _cg_constraints)
 
+                    # Phase 15 Stage H: MODERATOR DUTY. Built here, not with the other
+                    # prompt sections, because the denominator (how much register exists
+                    # to grade against) is only known after the Stage D fetch.
+                    moderator_section = ""
+                    if _theory_moderator_on:
+                        _n_constraints = len(_cg_constraints or [])
+                        _n_edges = len(_cg_relationships or [])
+                        _prov_counts: Dict[str, int] = {}
+                        for _rel in (_cg_relationships or []):
+                            _p = (_rel.get("provenance") if isinstance(_rel, dict)
+                                  else getattr(_rel, "provenance", None)) or "unknown"
+                            _prov_counts[str(_p)] = _prov_counts.get(str(_p), 0) + 1
+                        _prov_mix = ", ".join(f"{k}: {v}" for k, v in sorted(_prov_counts.items())) or "none"
+                        # PM-9: 'judge' is the only implemented protocol. Unknown values
+                        # (including the designed-but-gated 'integrator') fall back with a
+                        # log line so a typo can't silently change adjudication semantics.
+                        _protocol = str(getattr(self.config, "moderator_protocol", "judge") or "judge").lower()
+                        if _protocol != "judge":
+                            self.logger.warning(
+                                "[SF] moderator_protocol=%r not implemented — falling back to 'judge'", _protocol
+                            )
+                            _protocol = "judge"
+                        moderator_section = (
+                            "## MODERATOR DUTY (adjudicate against evidence, not rhetoric)\n"
+                            "Populate `moderator_grades` for EVERY option. You are grading against exactly this "
+                            "much verified theory — state of the register for this KPI:\n"
+                            f"- Active constraints: {_n_constraints}\n"
+                            f"- Causal edges: {_n_edges} (by provenance: {_prov_mix})\n"
+                            "Grading rules:\n"
+                            "1. constraint_survival: check the option's mechanism against each KNOWN CONSTRAINT above. "
+                            "'fail' requires naming the violated constraint in violated_constraints. If there are 0 "
+                            "constraints in scope, the grade is 'insufficient_data' — NEVER 'pass': surviving zero "
+                            "checks is not evidence of anything.\n"
+                            "2. causal_grounding: name the specific causal edge from CAUSAL CONTEXT this option pulls "
+                            "(e.g. 'base_oil_cost -> gross_margin_pct'). If no listed edge applies, write 'ungrounded' "
+                            "— an ungrounded option is not disqualified, but it must be visibly labeled as resting on "
+                            "reasoning outside the verified model. If there are 0 edges, use 'insufficient_data'.\n"
+                            "3. arithmetic_consistency: check the option's recovery_range against the actual magnitudes "
+                            "in INPUT DATA (change points, segment deltas, the headline KPI move). 'flag' any range that "
+                            "exceeds the variance it claims to recover, and say which number disagrees in arithmetic_note.\n"
+                            "4. critic_findings_response: for each CRITIC FINDING aimed at this option's originating "
+                            "proposal, state whether the final option 'answered' it (with a cited change) or it is "
+                            "'standing'. No findings for an option -> empty list.\n"
+                            "5. grade_rationale: cite the SPECIFIC constraint, edge, or number you graded against. "
+                            "Calibration language: 'consistent with' at most — never 'proved'.\n"
+                            "The recommendation MUST be consistent with the grades: do not recommend an option that "
+                            "fails a constraint while an alternative survives, unless recommendation_rationale "
+                            "explicitly justifies the trade-off.\n"
+                            "\n"
+                            "IMPACT SCOPE (required in this mode): every impact_estimate MUST also carry\n"
+                            "  \"scope\": \"enterprise\" | \"segment\"  and  \"scope_label\": <segment name or null>.\n"
+                            "'enterprise' means the recovery_range moves the HEADLINE KPI for the whole business; "
+                            "'segment' means it moves one dimension member only (then scope_label names it, e.g. "
+                            "'National Auto Parts Chain A'). scope_label MUST be null when scope is 'enterprise'. "
+                            "The basis sentence must agree with the declared scope — a range sized from a single "
+                            "segment's change point is 'segment', never 'enterprise'.\n\n"
+                        )
+
                     # Phase 15 Stage E: feed critic findings into synthesis so they get
                     # addressed at generation time, not bolted on afterward. Findings map
                     # to the ORIGINATING persona, not yet to a final opt_N id (synthesis
@@ -1999,6 +2169,10 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         f"{decision_maker_synthesis_section}"
                         f"{causal_context_section}"
                         f"{critic_findings_section}"
+                        # Stage H: moderator rubric sits after the critic findings it
+                        # adjudicates and before the data it grades against. Empty
+                        # string on the baseline arm.
+                        f"{moderator_section}"
                         f"## INPUT DATA\n{data_json}\n\n"
                         f"{recovery_anchors_section}"
                         f"## YOUR RESPONSE (JSON ONLY):"
@@ -2095,7 +2269,11 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     # Extract options and rationale safely
                     llm_ok = getattr(llm_resp, "status", "error") == "success"
                     model_used = getattr(llm_resp, "model_used", None)
-                    _record_usage("synthesis", llm_resp)
+                    # Ledger label distinguishes the A/B arms: "moderator" runs the
+                    # theory-graded prompt, "synthesis" the simulated-cross-review
+                    # baseline. Same call slot, different duty — cost comparisons
+                    # between arms need the label to say which one paid.
+                    _record_usage("moderator" if _theory_moderator_on else "synthesis", llm_resp)
                     audit_log.append({
                         "event": "llm_debate_completed",
                         "status": getattr(llm_resp, "status", None),
@@ -2132,6 +2310,19 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                         # Fallback for partial data
                                         pers_list.append(PerspectiveAnalysis(lens=p_dict.get("lens", "Unknown"), arguments_for=p_dict.get("arguments_for", [])))
 
+                                # PM-7: record the contradiction the parser is about to
+                                # quietly correct (enterprise scope + named segment label
+                                # -> scope reset to None). Without this event the claim
+                                # vanishes without trace and looks like the model simply
+                                # never stated a scope.
+                                if _scope_contradiction(o.get("impact_estimate")):
+                                    audit_log.append({
+                                        "event": "impact_scope_contradiction",
+                                        "option_id": str(o.get("id") or f"opt{idx+1}"),
+                                        "claimed_scope": "enterprise",
+                                        "scope_label": (o.get("impact_estimate") or {}).get("scope_label"),
+                                        "resolution": "scope reset to None (unverified)",
+                                    })
                                 options.append(
                                     SolutionOption(
                                         id=str(o.get("id") or f"opt{idx+1}"),
@@ -2184,6 +2375,16 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         blind_spots_list = parsed.get("blind_spots", [])
                         next_steps_list = parsed.get("next_steps", [])
                         cross_review = parsed.get("cross_review")
+                        # Stage H: moderator verdicts — accepted ONLY on the moderator
+                        # arm. The baseline arm never asked for grades, so a stray
+                        # moderator_grades field in its output is model noise, and
+                        # letting it through would cross-contaminate the A/B (a
+                        # "baseline" payload carrying grades is no longer a baseline).
+                        moderator_grades = (
+                            parsed.get("moderator_grades")
+                            if _theory_moderator_on and isinstance(parsed.get("moderator_grades"), dict)
+                            else None
+                        )
 
                         # Use Stage 1 results as authoritative stage_1_hypotheses (dedicated calls = better quality)
                         # Strip proposed_option from the display dict (it's been expanded into the full options)
@@ -2383,6 +2584,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                 blind_spots=blind_spots_list,
                 next_steps=next_steps_list,
                 cross_review=cross_review,
+                moderator_grades=moderator_grades,
                 # Multi-call Stage 1 per-persona hypotheses
                 stage_1_hypotheses=stage_1_hypotheses_final if stage_1_hypotheses_final else None,
                 # Principal-Driven Framing Context

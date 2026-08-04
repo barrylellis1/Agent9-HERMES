@@ -950,6 +950,10 @@ class A9_Orchestrator_Agent:
                 config={
                     "enable_causal_grounding": os.getenv("SF_ENABLE_CAUSAL_GROUNDING", "false").lower() == "true",
                     "enable_critic_pass": os.getenv("SF_ENABLE_CRITIC_PASS", "false").lower() == "true",
+                    # Stage H: theory-guided moderator (PM-2 A/B arm selector).
+                    # Same env-var pattern; requires SF_ENABLE_CAUSAL_GROUNDING too
+                    # (enforced inside the agent, not silently inferred here).
+                    "enable_theory_moderator": os.getenv("SF_ENABLE_THEORY_MODERATOR", "false").lower() == "true",
                 },
             )
             # Also fixes a real, separate wiring gap: A9_Solution_Finder_Agent.create()

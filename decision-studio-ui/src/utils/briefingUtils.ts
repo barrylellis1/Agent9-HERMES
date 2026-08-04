@@ -128,7 +128,16 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
             }
             return `${sign}${v.toFixed(1)}${displayUnit}`
           }
-          return `${fmt(low)} to ${fmt(high)}`
+          // Stage H scope qualifier. Without this, segment-sized ranges
+          // (observed live: 18.5-32pp sized from ONE customer's -43.24pp
+          // decline) display under the enterprise KPI heading as if they
+          // moved the whole business. Absent scope renders as unverified —
+          // never silently assumed enterprise.
+          const range = `${fmt(low)} to ${fmt(high)}`
+          if (ie.scope === 'segment' && ie.scope_label) return `${range} — ${ie.scope_label} only`
+          if (ie.scope === 'segment') return `${range} — single segment`
+          if (ie.scope === 'enterprise') return `${range} (enterprise)`
+          return `${range} (scope unverified)`
         }
       }
       // Last-resort fallback: attempt rough estimate from primary root cause delta
@@ -334,9 +343,11 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
         deadline: decisionDeadline,
         optionId: sol?.recommendation?.id || topOptions[0]?.id || null,
       },
-      // Hybrid Council artifacts - 3-stage debate
+      // Hybrid Council artifacts — either the simulated cross_review (baseline
+      // arm) or the theory-guided moderator grades (Stage H arm), never both.
       stage_1_hypotheses: sol?.stage_1_hypotheses || null,
       cross_review: sol?.cross_review || null,
+      moderator_grades: sol?.moderator_grades || null,
       blind_spots: sol?.blind_spots || [],
       unresolved_tensions: sol?.unresolved_tensions || [],
       // Market Intelligence from DA/MA agent

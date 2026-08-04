@@ -175,6 +175,26 @@ export interface ImpactEstimate {
   unit?: string | null;
   recovery_range?: RecoveryRange | null;
   basis?: string | null;
+  // Stage H scope qualifier. 'enterprise' = the range moves the headline KPI;
+  // 'segment' = one dimension member only (scope_label names it). null/absent
+  // means UNSTATED and must be rendered as unverified — never assumed
+  // enterprise: live runs emitted segment-sized ranges (18.5-38pp) under the
+  // enterprise KPI's name, sized from a single segment's decline.
+  scope?: 'enterprise' | 'segment' | null;
+  scope_label?: string | null;
+}
+
+// Stage H: theory-guided moderator verdict for one option. Present only when
+// the backend ran the moderator arm (SF_ENABLE_THEORY_MODERATOR); mutually
+// exclusive with cross_review in practice.
+export interface ModeratorGrade {
+  constraint_survival?: 'pass' | 'fail' | 'insufficient_data';
+  violated_constraints?: string[];
+  causal_grounding?: string; // named causal edge, 'ungrounded', or 'insufficient_data'
+  arithmetic_consistency?: 'pass' | 'flag' | 'insufficient_data';
+  arithmetic_note?: string | null;
+  critic_findings_response?: { finding?: string; disposition?: 'answered' | 'standing' }[];
+  grade_rationale?: string;
 }
 
 export interface SolutionOption {
@@ -248,6 +268,10 @@ export interface SolutionResponse {
     conviction?: string;
   }>;
   cross_review?: CrossReview;
+  // Stage H: moderator verdicts keyed by option id — populated by the moderator
+  // arm INSTEAD of cross_review. Components must handle either shape (and old
+  // localStorage briefings carrying neither).
+  moderator_grades?: Record<string, ModeratorGrade>;
   // Phase 15 / Phase 13 Cat 2 — not yet rendered (Stage G, gated behind schema
   // compliance testing); typed here so API responses round-trip cleanly.
   decision_ask?: DecisionAsk;

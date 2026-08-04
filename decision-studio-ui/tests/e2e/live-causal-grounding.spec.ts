@@ -23,24 +23,17 @@ import * as path from 'path';
 
 const SCAN_TIMEOUT = 240_000;   // SA scans 15 KPIs against BigQuery
 const DA_TIMEOUT = 300_000;     // Deep Analysis: dimensional Is/Is-Not + change points
-// Full debate mode is ~9 min of LLM time (fast mode ~3). Sized for full, since
-// grading solution quality against fast mode would grade the wrong pipeline.
-//
-// Raised 900s -> 1800s. debate_stage does NOT vary the prompt or the token budget:
-// hypothesis, cross_review and synthesis all run the same full synthesis prompt on
-// Sonnet at the same max_tokens, differing only in prior_transcript. Full mode is
-// therefore three full-size generations, not one. While max_tokens was 20000 those
-// generations were being cut off at the ceiling (synthesis measured at exactly
-// 20000 output tokens, truncating mid-object); now that the call streams at 32000
-// each stage runs to its natural length, so the earlier budget was sized against
-// stages that were quietly finishing early. A run that overruns 900s is expected,
-// not a hang.
+// Post-Stage-H the debate is stage1_only (~15s Haiku) + ONE synthesis call
+// (critic + moderator + generation on Sonnet, streaming at max_tokens=32000 —
+// measured ~3-4.5 min, unbounded above by anything we control). 1800s is
+// deliberate headroom over one long generation, not a budget for the retired
+// 4-stage flow.
 const SF_TIMEOUT = 1_800_000;
 
 test.describe('Live — causal grounding end to end', () => {
   // Must exceed SF_TIMEOUT plus SA + DA, or the describe-level cap fires first and
   // reports a timeout that looks like a pipeline stall but is pure bookkeeping.
-  test.describe.configure({ mode: 'serial', timeout: 34 * 60_000 });
+  test.describe.configure({ mode: 'serial', timeout: 40 * 60_000 });
 
   test('drive SA -> DA -> SF and capture what the theory layer produced', async ({ page }, testInfo) => {
     const consoleErrors: string[] = [];
@@ -50,14 +43,15 @@ test.describe('Live — causal grounding end to end', () => {
     // a human sees; the payload tells us what actually came back — and the two
     // disagreeing is itself a finding worth having.
     //
-    // CRITICAL: the debate issues up to FOUR sequential POSTs to the SAME endpoint
+    // CRITICAL: the debate issues TWO sequential POSTs to the SAME endpoint
     // /workflows/solutions/run, distinguished only by preferences.debate_stage:
-    //   stage1_only -> hypothesis -> cross_review -> synthesis
-    // (the middle two only when VITE_DEBATE_MODE=full). Capturing the first
-    // `completed` status therefore captures stage1_only — a ~5s Haiku call that
-    // returns firm hypotheses and none of the synthesis output. A previous run
-    // scored exactly that and reported the provenance signals as absent, when in
-    // truth the document being scored had not been written yet.
+    //   stage1_only -> synthesis
+    // (Stage H collapsed the former 4-stage flow; `hypothesis`/`cross_review`
+    // were audited as identical requests to synthesis and dropped.) Capturing
+    // the first `completed` status therefore captures stage1_only — a ~5s Haiku
+    // call that returns firm hypotheses and none of the synthesis output. A
+    // previous run scored exactly that and reported the provenance signals as
+    // absent, when in truth the document being scored had not been written yet.
     //
     // So: match the synthesis POST by its body, remember ITS request_id, and read
     // only that id's status. Anything else silently grades the wrong document.
@@ -274,14 +268,19 @@ test.describe('Live — causal grounding end to end', () => {
     console.log(`[live] stages seen: ${stagesSeen.join(' -> ')}`);
     console.log(`[live] synthesis payload written: ${payloadPath}`);
 
-    // Assert the debate depth we believe we measured. VITE_DEBATE_MODE is baked in
-    // at vite serve time, so a stale fast-mode dev server silently yields a
-    // fast-mode result that would otherwise be reported as production-like. The
-    // stage list is the only honest evidence of which pipeline actually ran.
-    const isFullMode = stagesSeen.includes('cross_review');
-    console.log(`[live] debate depth: ${isFullMode ? 'FULL (production parity)' : 'FAST (NOT production parity)'}`);
+    // Assert the dispatch shape we believe we measured. The stage list is the
+    // only honest evidence of which pipeline actually ran — a stale dev server
+    // from before the Stage H collapse would still fire the dead 4-stage flow
+    // and burn two extra mega-calls, which this catches immediately.
+    const expectedStages = ['stage1_only', 'synthesis'];
+    if (JSON.stringify(stagesSeen) !== JSON.stringify(expectedStages)) {
+      throw new Error(
+        `dispatch shape mismatch: saw [${stagesSeen.join(' -> ')}], expected ` +
+        `[${expectedStages.join(' -> ')}] — a stale frontend build or a reintroduced stage`
+      );
+    }
     await testInfo.attach('debate-stages.json', {
-      body: JSON.stringify({ stagesSeen, isFullMode }, null, 2),
+      body: JSON.stringify({ stagesSeen }, null, 2),
       contentType: 'application/json',
     });
     await testInfo.attach('sf-payload.json', {

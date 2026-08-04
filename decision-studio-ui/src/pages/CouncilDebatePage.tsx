@@ -211,10 +211,14 @@ export const CouncilDebatePage: React.FC = () => {
         preferencesBase.analysis_mode = debateConfig.resolvedAnalysisMode;
       }
 
-      const stageResults: any[] = [];
-      let hyps: any = null;
-      let crossReviewData: any = null;
       let lastRequestId: string | null = null;
+
+      // Stage H collapse (2026-08-04): two dispatches, not four. The audited
+      // `hypothesis` and `cross_review` stages were IDENTICAL requests to
+      // synthesis (debate_stage only gates Stage-1 skipping; prior_transcript
+      // is read by no backend code) — three ~4-minute Sonnet mega-calls where
+      // the first's output fed nothing and the second's cross_review is also
+      // produced by the synthesis call. See PRD 2026-08-04 block.
 
       // ── Stage 1: Hypotheses ────────────────────────────────────────────────
       const s1Result = await runSolutionFinder(
@@ -225,74 +229,29 @@ export const CouncilDebatePage: React.FC = () => {
         principalContext?.client_id
       );
       lastRequestId = s1Result.request_id;
-      stageResults.push(s1Result.result);
-      hyps = s1Result.result?.solutions?.stage_1_hypotheses || null;
+      const hyps = s1Result.result?.solutions?.stage_1_hypotheses || null;
       if (hyps) setStageOneHypotheses(hyps);
+      setPhase(2);
 
-      // Fast mode (VITE_DEBATE_MODE=fast): skip intermediate stages, go straight to synthesis
-      // Full mode (VITE_DEBATE_MODE=full): run all 4 stages for maximum depth
-      const debateMode = import.meta.env.VITE_DEBATE_MODE || 'fast';
-      if (debateMode === 'full') {
-        // ── Stage 2: Hypothesis synthesis ─────────────────────────────────────
-        const s2Result = await runSolutionFinder(
-          deepAnalysisPayload, [], null,
-          situation.principal_id || 'default',
-          {
-            ...preferencesBase,
-            debate_stage: 'hypothesis',
-            prior_transcript: stageResults[stageResults.length - 1]?.solutions?.debate_transcript,
-            prior_stage1_hypotheses: hyps,
-          },
-          principalContext || {}, situation.situation_id,
-          principalContext?.client_id
-        );
-        lastRequestId = s2Result.request_id;
-        stageResults.push(s2Result.result);
-        setPhase(2);
-
-        // ── Stage 3: Cross-review ──────────────────────────────────────────────
-        const s3Result = await runSolutionFinder(
-          deepAnalysisPayload, [], null,
-          situation.principal_id || 'default',
-          {
-            ...preferencesBase,
-            debate_stage: 'cross_review',
-            prior_transcript: stageResults[stageResults.length - 1]?.solutions?.debate_transcript,
-            prior_stage1_hypotheses: hyps,
-          },
-          principalContext || {}, situation.situation_id,
-          principalContext?.client_id
-        );
-        lastRequestId = s3Result.request_id;
-        stageResults.push(s3Result.result);
-        crossReviewData = s3Result.result?.solutions?.cross_review || null;
-        if (crossReviewData) setCrossReview(crossReviewData);
-      }
+      // ── Synthesis: hypotheses in; options + cross_review + rationale out ──
       setPhase(3);
-
-      // ── Stage 4: Synthesis ─────────────────────────────────────────────────
       const s4Result = await runSolutionFinder(
         deepAnalysisPayload, [], null,
         situation.principal_id || 'default',
         {
           ...preferencesBase,
           debate_stage: 'synthesis',
-          prior_transcript: stageResults[stageResults.length - 1]?.solutions?.debate_transcript,
           prior_stage1_hypotheses: hyps,
         },
         principalContext || {}, situation.situation_id,
         principalContext?.client_id
       );
       lastRequestId = s4Result.request_id;
-      const finalSol = s4Result.result?.solutions || stageResults[stageResults.length - 1]?.solutions;
-      // In fast mode, cross_review comes from the synthesis call rather than a dedicated stage
-      const effectiveCrossReview = crossReviewData || finalSol?.cross_review || null;
-      if (effectiveCrossReview && !crossReviewData) setCrossReview(effectiveCrossReview);
+      const finalSol = s4Result.result?.solutions || s1Result.result?.solutions;
+      const effectiveCrossReview = finalSol?.cross_review || null;
+      if (effectiveCrossReview) setCrossReview(effectiveCrossReview);
       const enriched = finalSol ? { ...finalSol } : null;
-      if (enriched) {
-        if (hyps && !enriched.stage_1_hypotheses) enriched.stage_1_hypotheses = hyps;
-        if (effectiveCrossReview) enriched.cross_review = effectiveCrossReview;
-      }
+      if (enriched && hyps && !enriched.stage_1_hypotheses) enriched.stage_1_hypotheses = hyps;
       setSynthesis(enriched || null);
 
       // Persist — clear stale solution keys first to avoid localStorage quota errors
