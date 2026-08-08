@@ -38,14 +38,30 @@ const getFirmColor = (id: string) =>
 
 // ─── Stage progress bar ────────────────────────────────────────────────────────
 
-const STAGE_LABELS = ['Hypothesis', 'Cross-Review', 'Synthesis'];
+// Stage H collapsed the debate to TWO dispatches: stage1_only -> synthesis.
+// There is no cross-review stage anymore — adjudication is the critic pass plus
+// the theory-guided moderator, both of which run INSIDE the synthesis call.
+//
+// The old three-label bar ('Hypothesis', 'Cross-Review', 'Synthesis') mapped
+// stage N to phase N, so a user watched "Stage 2 — Cross-Review" tick over to
+// DONE (green check) during a run where no cross-review had happened or could
+// happen. Phases 2 and 3 now fire back-to-back in the same tick, so that label
+// was also on screen for about a millisecond before jumping.
+//
+// Phases: 0 idle · 1 stage-1 dispatched · 2 stage-1 complete · 3 synthesis
+// dispatched · 4 complete.
+const STAGES: Array<{ label: string; activeAt: number[]; doneFrom: number }> = [
+  { label: 'Hypothesis', activeAt: [1, 2], doneFrom: 3 },
+  { label: 'Adjudication & Synthesis', activeAt: [3], doneFrom: 4 },
+];
 
 const StageProgress: React.FC<{ phase: number }> = ({ phase }) => (
   <div className="flex gap-3 mb-8">
-    {STAGE_LABELS.map((label, i) => {
+    {STAGES.map((stage, i) => {
       const stageNum = i + 1;
-      const isDone = phase > stageNum;
-      const isActive = phase === stageNum || (phase === 0 && stageNum === 1);
+      const label = stage.label;
+      const isDone = phase >= stage.doneFrom;
+      const isActive = !isDone && (stage.activeAt.includes(phase) || (phase === 0 && i === 0));
       return (
         <div key={i} className="flex-1">
           <div className="flex items-center gap-2 mb-1">
@@ -471,7 +487,10 @@ export const CouncilDebatePage: React.FC = () => {
                 {/* ── Stage 1: Hypothesis ──────────────────────────────── */}
                 <div className={`rounded-xl border ${c.border} bg-slate-900 overflow-hidden`}>
                   <div className="px-4 py-2 border-b border-slate-800 bg-slate-950/40">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Stage 1 — Hypothesis</span>
+                    {/* No "Stage N —" prefix inside the cards: the progress bar
+                        above already numbers the stages, and repeating it here
+                        put two competing numbering schemes on one screen. */}
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Hypothesis</span>
                   </div>
                   <div className="p-4">
                     {!hyp && phase < 4 ? (
@@ -501,7 +520,7 @@ export const CouncilDebatePage: React.FC = () => {
                 <div className="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
                   <div className="px-4 py-2 border-b border-slate-800 bg-slate-950/40">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      {adjudicationMode === 'moderator' ? 'Stage 2 — Evidence Check' : 'Stage 2 — Peer Review'}
+                      {adjudicationMode === 'peer' ? 'Peer Review' : 'Evidence Check'}
                     </span>
                   </div>
                   <div className="p-4">
@@ -513,11 +532,15 @@ export const CouncilDebatePage: React.FC = () => {
                         Adjudicated against the client's constraints and causal model — see Moderator Verdicts below.
                       </p>
                     ) : phase < 2 && !displayCrossReview ? (
-                      <p className="text-xs text-slate-700 italic">Awaiting Stage 1…</p>
+                      <p className="text-xs text-slate-700 italic">Awaiting hypotheses…</p>
                     ) : phase < 4 && !displayCrossReview ? (
-                      <FirmThinking label="Council" accent="text-slate-400" stageLabel="synthesizing peer review" />
+                      // Arm-neutral wording. Which adjudication ran is a BACKEND
+                      // config the frontend cannot know until the payload lands,
+                      // so promising "peer review" mid-flight was wrong on every
+                      // moderator run — and moderator is now the default arm.
+                      <FirmThinking label="Council" accent="text-slate-400" stageLabel="adjudicating" />
                     ) : reviews.length === 0 ? (
-                      <p className="text-xs text-slate-600 italic">Peer review not captured for this run</p>
+                      <p className="text-xs text-slate-600 italic">Adjudication detail not captured for this run</p>
                     ) : (
                       <div className="space-y-4 animate-in fade-in">
                         {reviews.map(({ reviewer, critiques, endorsements }) => {
@@ -629,11 +652,13 @@ export const CouncilDebatePage: React.FC = () => {
           </div>
         )}
 
-        {/* ── Stage 3: Trade-Off Analysis ────────────────────────────────────── */}
+        {/* ── Trade-Off Analysis (output of stage 2) ─────────────────────────── */}
         {phase === 4 && synthesis?.options_ranked && (
           <div className="mb-12">
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-white mb-1">Stage 3 — Synthesis & Trade-Off Analysis</h2>
+              {/* Was "Stage 3 — ...", which no longer exists: the flow is two
+                  stages, and this is the OUTPUT of the second, not a third. */}
+              <h2 className="text-xl font-semibold text-white mb-1">Trade-Off Analysis</h2>
               <p className="text-sm text-slate-400">Each option rated on impact, cost, and risk (1-10 scale)</p>
             </div>
 
