@@ -2493,6 +2493,12 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     "llm_raised": _had_llm_error,
                     "parsed_keys": _parsed_keys,
                     "raw_response_info": _raw_info,
+                    # The decode error itself (msg / position / surrounding text),
+                    # captured upstream by parse_llm_json. Head+tail alone proved
+                    # insufficient: two real failures showed output that was
+                    # complete and well-formed at both ends, leaving no way to
+                    # tell WHICH character json.loads rejected.
+                    "parse_error": (_p.get("_parse_error") if isinstance(_p, dict) else None),
                 })
                 # Preserve Stage 1 hypotheses so progressive reveal still works even in fallback
                 if stage_1_hyps_dict and not stage_1_hypotheses_final:

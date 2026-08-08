@@ -158,12 +158,31 @@ status: str                         # "success" or "error"
 |----------|-----------|---------|
 | API key missing | All | `RuntimeError` on init; status="error" in response |
 | Provider unavailable | `generate()` | status="error" with error_message |
-| Invalid JSON response | `analyze()`, `evaluate()` | Fallback to raw response or empty dict; confidence reduced |
+| Invalid JSON response | `analyze()`, `evaluate()` | Repair attempted via `parse_llm_json`; on genuine failure → `{"raw_response", "_parse_error"}`, confidence 0.5 (see below) |
 | Template not found | `generate_with_template()` | status="error", returns empty A9_LLM_Response |
 | SQL validation fails | `generate_sql()` | confidence reduced (0.7×) + warnings appended |
 | Timeout/network | All methods | Exception propagates; caller must handle or retry |
 
+## JSON Response Parsing (`analyze`) — Aug 2026
+`analyze()` routes response parsing through `src/llm_services/response_parsing.py::parse_llm_json`
+rather than a bare `json.loads`. Two behaviours matter to callers:
+
+- **Conservative repair**, least-invasive first, stopping at the first success: code-fence
+  stripping → outermost `{...}` (handles prose before/after the JSON) → trailing commas →
+  unescaped newlines inside strings. A repaired payload carries `_parse_repair: "<method>"` and
+  logs a warning — invalid JSON from the model is a signal worth seeing even when recovered.
+  Repairs never alter the meaning of an already-valid document, and non-dict JSON is rejected.
+- **Diagnostics survive failure.** A genuine failure returns
+  `{"raw_response": ..., "_parse_error": {msg, pos, lineno, colno, context, length}}`.
+
+Why: SF was falling back to its hardcoded stub in ~1 run in 6 under `status="success"`, on model
+output that was complete and well-formed (27k chars, proper closing brace, inside a ```json
+fence, far under budget). The `JSONDecodeError` was caught and discarded, so no audit trail could
+say which character was rejected. Callers that treat a missing key as "the LLM produced nothing"
+(SF's `heuristic_stub_fallback`) should surface `_parse_error` — SF now does.
+
 ## Recent Updates
+- **Aug 2026**: Robust `analyze()` JSON parsing + preserved decode diagnostics (above). Shared by DA and MA, not just SF. Tests: `tests/unit/test_llm_response_parsing.py` (16).
 - **Jul 2026 (Phase 11O-A)**: Capability-aware request builder shipped — model capability map, sampling-param stripping for Sonnet 5 / Opus 4.7+ / Fable 5, refusal stop_reason handling, Fable server-side fallbacks, `A9_LLM_EFFORT` knob, output-ceiling clamp. `anthropic` SDK 0.84.0 → 0.116.0 (requirements floor `>=0.116.0`). Unit tests: `tests/unit/test_claude_service_capabilities.py` (11 tests). Routing table itself unchanged (still Sonnet 4.6 / Haiku 4.5) — refresh is Phase 11O-B.
 - **Jul 2026**: Card refreshed — documented Anthropic-primary routing table, env overrides, per-agent consumers, and known routing deviations (SA hardcoded call sites, since resolved).
 - **Mar 2026**: Switched to Anthropic Claude as primary provider (`LLM_PROVIDER=anthropic` default; OpenAI legacy fallback). Task-based model routing (`CLAUDE_MODEL_STAGE1`, `CLAUDE_MODEL_SYNTHESIS`, etc.). SQL generation confidence scoring with validation warnings. Template support via Jinja2 formatting.

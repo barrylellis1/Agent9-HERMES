@@ -16,6 +16,7 @@ from typing import Dict, List, Any, Optional, Union
 
 # Import service layer
 from src.llm_services.claude_service import ClaudeService, create_claude_service, get_claude_model_for_task, ClaudeTaskType
+from src.llm_services.response_parsing import parse_llm_json
 from src.llm_services.openai_service import (
     OpenAIService, create_openai_service, TaskType, get_model_for_task
 )
@@ -683,21 +684,29 @@ class A9_LLM_Service_Agent:
                     confidence=0.0
                 )
             
-            # Parse JSON response — strip markdown code fences if present
-            try:
-                raw = response.content.strip()
-                if raw.startswith("```"):
-                    # Strip opening fence (```json or ```)
-                    raw = raw[raw.index("\n") + 1:] if "\n" in raw else raw
-                    # Strip closing fence
-                    if raw.endswith("```"):
-                        raw = raw[: raw.rfind("```")].rstrip()
-                analysis_data = json.loads(raw)
+            # Parse JSON response — fence stripping plus conservative repair of
+            # the invalid-JSON patterns LLMs actually produce on long documents.
+            #
+            # This used to be a bare try/except that discarded the JSONDecodeError.
+            # Solution Finder was falling back to its hardcoded stub in ~1 run in 6
+            # (silently, under status="success"), and because the error was thrown
+            # away the audit trail could only say "no options" — never which
+            # character was rejected, on output that was otherwise complete and
+            # well-formed. `_parse_error` now carries msg/pos/line/col plus the
+            # surrounding text, so a failure explains itself instead of needing an
+            # expensive live reproduction. See src/llm_services/response_parsing.py.
+            parsed, parse_error = parse_llm_json(response.content)
+            if parsed is not None:
+                analysis_data = parsed
                 confidence = analysis_data.get("confidence", 0.85)  # Default if not provided
-            except json.JSONDecodeError:
-                # Fallback if response is not valid JSON
-                analysis_data = {"raw_response": response.content}
+            else:
+                analysis_data = {"raw_response": response.content, "_parse_error": parse_error}
                 confidence = 0.5
+                self.logger.error(
+                    "[LLM] analysis response did not parse as JSON: %s (len=%s, at pos %s)",
+                    (parse_error or {}).get("msg"), (parse_error or {}).get("length"),
+                    (parse_error or {}).get("pos"),
+                )
             
             # Create and return analysis response
             return A9_LLM_AnalysisResponse(
