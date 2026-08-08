@@ -184,12 +184,25 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", `
     "`$Host.UI.RawUI.WindowTitle = 'A9 backend log (viewer only - safe to close)'; Get-Content -Path '$backendLog' -Wait -Tail 40"
 
 # 3. Start Frontend (React/Vite)
-Write-Host "Starting React Frontend (Port 5173)..." -ForegroundColor Green
-# --strictPort: vite's default is to silently increment to the next free port when
-# 5173 is taken, while this script keeps printing "Frontend: http://localhost:5173".
-# A run that overlapped a surviving vite left the app served on 5174 with nothing
-# reporting that, so the advertised URL was simply dead. Fail loudly instead.
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot\decision-studio-ui'; npm run dev -- --strictPort"
+# The live Playwright config (playwright.live.config.ts) runs its OWN vite on 5173
+# with reuseExistingServer:false, because a stale dev server would silently test
+# old frontend code. So during an e2e run the port is legitimately taken by the
+# harness — starting a second vite is not something to retry or force, it is a
+# signal that a test owns the port. Detect that and skip, rather than spawning a
+# window that immediately dies with a strictPort error the user has to interpret.
+$feBusy = $null
+try { $feBusy = Get-NetTCPConnection -State Listen -LocalPort 5173 -ErrorAction Stop } catch {}
+if ($feBusy) {
+    Write-Host "Port 5173 already serving (likely a Playwright live run) - leaving it alone." -ForegroundColor Yellow
+    Write-Host "  If that is NOT intentional, stop the owning process and re-run this script." -ForegroundColor DarkGray
+} else {
+    Write-Host "Starting React Frontend (Port 5173)..." -ForegroundColor Green
+    # --strictPort: vite's default is to silently increment to the next free port when
+    # 5173 is taken, while this script keeps printing "Frontend: http://localhost:5173".
+    # A run that overlapped a surviving vite left the app served on 5174 with nothing
+    # reporting that, so the advertised URL was simply dead. Fail loudly instead.
+    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot\decision-studio-ui'; npm run dev -- --strictPort"
+}
 
 Write-Host "--------------------------------------------------------" -ForegroundColor Cyan
 Write-Host "Backend: http://localhost:8000/docs"

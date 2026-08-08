@@ -371,8 +371,12 @@ test.describe('Live — causal grounding end to end', () => {
     } else {
       throw new Error(`cannot reach the briefing: no link found and no situation id in ${page.url()}`);
     }
-    // Any React render failure blanks the page, so assert real content exists.
-    await page.getByText(/situation|recommendation|option/i).first()
+    // Assert a VISIBLE, on-screen control. A broad getByText().first() latched
+    // onto a hidden print-stylesheet element ("Situation & Context", 9px, print
+    // only) and waited out 60s for it to become visible, failing a run whose
+    // pipeline had actually succeeded. The accordion headers are real buttons
+    // and are always on screen.
+    await page.getByRole('button', { name: /strategic options/i })
       .waitFor({ state: 'visible', timeout: 60_000 });
     await page.screenshot({ path: testInfo.outputPath('05-briefing.png'), fullPage: true });
 
