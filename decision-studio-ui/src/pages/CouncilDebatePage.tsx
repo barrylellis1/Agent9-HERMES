@@ -315,6 +315,23 @@ export const CouncilDebatePage: React.FC = () => {
   const displayCrossReview: Record<string, any> | null =
     crossReview || (synthesis?.cross_review as Record<string, any> | null) || null;
 
+  // Stage H: the moderator arm replaces simulated firm-vs-firm peer review with
+  // grades against the theory layer, so `cross_review` is absent by design. The
+  // panel below must render the adjudication that DID happen — otherwise every
+  // moderator run showed a spinner promising "peer review" followed by "not
+  // captured for this run", which reads as a failure rather than a different
+  // (and better-grounded) method.
+  const displayModeratorGrades: Record<string, any> | null =
+    (synthesis?.moderator_grades as Record<string, any> | null) || null;
+  const adjudicationMode: 'moderator' | 'peer' | null =
+    displayModeratorGrades && Object.keys(displayModeratorGrades).length > 0 ? 'moderator'
+      : displayCrossReview ? 'peer' : null;
+
+  // Option id -> title, so grades can name the option a reader actually saw.
+  const optionTitleById: Record<string, string> = Object.fromEntries(
+    ((synthesis?.options_ranked as any[]) || []).map(o => [o?.id, o?.title]).filter(([id]) => id)
+  );
+
   // Helper: normalize value to 1-10 scale for bar chart
   const normalizeScore = (value: any, defaultVal = 5): number => {
     if (typeof value !== 'number') return defaultVal;
@@ -480,13 +497,22 @@ export const CouncilDebatePage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* ── Stage 2: Cross-Review ────────────────────────────── */}
+                {/* ── Stage 2: adjudication (peer review OR moderator grading) ── */}
                 <div className="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
                   <div className="px-4 py-2 border-b border-slate-800 bg-slate-950/40">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Stage 2 — Peer Review</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      {adjudicationMode === 'moderator' ? 'Stage 2 — Evidence Check' : 'Stage 2 — Peer Review'}
+                    </span>
                   </div>
                   <div className="p-4">
-                    {phase < 2 && !displayCrossReview ? (
+                    {adjudicationMode === 'moderator' ? (
+                      // Grades are keyed by option id, and the option->firm mapping is
+                      // not carried in the payload, so this per-firm slot deliberately
+                      // does NOT guess an attribution. The verdicts render once, below.
+                      <p className="text-xs text-slate-500 italic">
+                        Adjudicated against the client's constraints and causal model — see Moderator Verdicts below.
+                      </p>
+                    ) : phase < 2 && !displayCrossReview ? (
                       <p className="text-xs text-slate-700 italic">Awaiting Stage 1…</p>
                     ) : phase < 4 && !displayCrossReview ? (
                       <FirmThinking label="Council" accent="text-slate-400" stageLabel="synthesizing peer review" />
@@ -540,6 +566,68 @@ export const CouncilDebatePage: React.FC = () => {
             );
           })}
         </div>
+
+        {/* ── Moderator Verdicts (Stage H arm) ───────────────────────────────
+            Replaces simulated firm-vs-firm critique. Each option graded against
+            the constraint register, the causal model, and the observed data —
+            evidence, not rhetoric. "Insufficient data" means the theory register
+            was too thin to grade against, NOT that the option passed. */}
+        {phase === 4 && adjudicationMode === 'moderator' && (
+          <div className="mb-12">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+              Moderator Verdicts — graded against verified theory
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {Object.entries(displayModeratorGrades || {}).map(([optId, g]: [string, any]) => {
+                const chip = (v: string | undefined) =>
+                  v === 'pass' ? 'text-emerald-400 border-emerald-700'
+                    : v === 'fail' || v === 'flag' ? 'text-red-400 border-red-700'
+                      : 'text-amber-400 border-amber-700';
+                return (
+                  <div key={optId} className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                    <p className="text-xs font-bold text-slate-200 mb-2">
+                      {optionTitleById[optId] || optId}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 mb-2 text-[10px]">
+                      <span className={`px-1.5 py-0.5 rounded border ${chip(g?.constraint_survival)}`}>
+                        constraints: {g?.constraint_survival ?? 'ungraded'}
+                      </span>
+                      <span className={`px-1.5 py-0.5 rounded border ${chip(g?.arithmetic_consistency)}`}>
+                        arithmetic: {g?.arithmetic_consistency ?? 'ungraded'}
+                      </span>
+                    </div>
+                    {g?.causal_grounding && (
+                      <p className="text-[11px] text-slate-400 mb-1">
+                        <span className="text-slate-600">causal: </span>{g.causal_grounding}
+                      </p>
+                    )}
+                    {Array.isArray(g?.violated_constraints) && g.violated_constraints.length > 0 && (
+                      <p className="text-[11px] text-red-400 mb-1">Violates: {g.violated_constraints.join('; ')}</p>
+                    )}
+                    {g?.arithmetic_note && (
+                      <p className="text-[11px] text-amber-400 mb-1">{g.arithmetic_note}</p>
+                    )}
+                    {Array.isArray(g?.critic_findings_response) && g.critic_findings_response.length > 0 && (
+                      <ul className="space-y-0.5 mb-1">
+                        {g.critic_findings_response.map((f: any, i: number) => (
+                          <li key={i} className="text-[11px] text-slate-400">
+                            <span className={f?.disposition === 'answered' ? 'text-emerald-500' : 'text-amber-500'}>
+                              {f?.disposition === 'answered' ? '✓' : '!'}
+                            </span>{' '}
+                            {f?.finding}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {g?.grade_rationale && (
+                      <p className="text-[11px] text-slate-500 italic mt-2">{g.grade_rationale}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* ── Stage 3: Trade-Off Analysis ────────────────────────────────────── */}
         {phase === 4 && synthesis?.options_ranked && (

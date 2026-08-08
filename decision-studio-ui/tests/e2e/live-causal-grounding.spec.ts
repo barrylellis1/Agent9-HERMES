@@ -354,6 +354,35 @@ test.describe('Live — causal grounding end to end', () => {
       contentType: 'application/json',
     });
 
+    // ── Executive Briefing render ─────────────────────────────────────────────
+    // No test had EVER rendered this page. The Stage H moderator-verdicts section
+    // was written, shipped, and never executed once — the harness stopped at the
+    // debate page, so a component that throws on the customer-facing surface
+    // would have gone unnoticed. Costs nothing extra: the LLM work is already done.
+    // Still on /debate/{situationId} at this point — take the id from the URL
+    // rather than threading it down from the card click.
+    const situationIdFromUrl = (page.url().match(/\/debate\/([^/?#]+)/) || [])[1];
+    const briefingLink = page.getByRole('link', { name: /briefing|executive/i })
+      .or(page.getByRole('button', { name: /briefing|executive/i }));
+    if (await briefingLink.count()) {
+      await briefingLink.first().click();
+    } else if (situationIdFromUrl) {
+      await page.goto(`/briefing/${situationIdFromUrl}`);
+    } else {
+      throw new Error(`cannot reach the briefing: no link found and no situation id in ${page.url()}`);
+    }
+    // Any React render failure blanks the page, so assert real content exists.
+    await page.getByText(/situation|recommendation|option/i).first()
+      .waitFor({ state: 'visible', timeout: 60_000 });
+    await page.screenshot({ path: testInfo.outputPath('05-briefing.png'), fullPage: true });
+
+    const moderatorSection = page.getByText(/moderator verdicts/i);
+    const renderedGrades = await moderatorSection.count();
+    console.log(`[live] briefing rendered; moderator verdicts section present: ${renderedGrades > 0}`);
+    if (sfPayload?.solutions?.moderator_grades && !renderedGrades) {
+      throw new Error('payload carries moderator_grades but the briefing renders no verdicts section');
+    }
+
     if (consoleErrors.length) {
       await testInfo.attach('console-errors.txt', {
         body: consoleErrors.join('\n'),

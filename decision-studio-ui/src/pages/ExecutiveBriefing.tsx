@@ -485,13 +485,15 @@ export function ExecutiveBriefing() {
           <span className="text-sm font-semibold text-white truncate max-w-xs mr-3">{canonicalTitle}</span>
           <button
             onClick={() => {
-              const allIds = ['situation', 'market', 'stage1', 'crossreview', 'options', 'roadmap', 'risks', 'blindspots', 'inaction', 'recommendation']
+              // 'moderator' = Stage H verdicts; renders instead of 'crossreview'
+              // depending on which adjudication the backend ran, so both are listed.
+              const allIds = ['situation', 'market', 'stage1', 'crossreview', 'moderator', 'options', 'roadmap', 'risks', 'blindspots', 'inaction', 'recommendation']
               const allOpen = allIds.every(id => openSections.has(id))
               setOpenSections(allOpen ? new Set(['options', 'recommendation', 'roadmap']) : new Set(allIds))
             }}
             className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
           >
-            {['situation', 'market', 'stage1', 'crossreview', 'risks', 'blindspots', 'inaction'].every(id => openSections.has(id)) ? 'Collapse All' : 'Expand All'}
+            {['situation', 'market', 'stage1', 'crossreview', 'moderator', 'risks', 'blindspots', 'inaction'].every(id => openSections.has(id)) ? 'Collapse All' : 'Expand All'}
           </button>
           <button
             onClick={() => window.print()}
