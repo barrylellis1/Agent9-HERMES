@@ -14,6 +14,7 @@ Read before designing changes to agents, registries, or workflows:
 | `hitl_decision_philosophy.md` | HITL gate design, Solution Q&A, cognitive dissonance principle, context stack, approval flow |
 | `llm_prompt_redesign_da_sf.md` | DA+SF prompt redesign proposal: structured outputs, principal/business context contract, prompt slimming (Phase 13 Cat 2/4 = Phase 15 Stages A–C) |
 | `theory_layer_design.md` | Theory layer: per-client causal model + assumption register, HITL-accreted + template-seeded, provenance ladder; SF/LLM trust pillars = DEVELOPMENT_PLAN Phase 15 Stages D–F |
+| `kpi_semantic_contract.md` | **Design note, not built.** DGA-governed semantics per KPI — additivity across dimensions, unit class, sign convention, scope eligibility. Turns `groundedness`'s cross-segment-summation *heuristic* into a declared *fact*. Parked behind the Stage H A/B; pairs with token substitution |
 
 Technical debt and known issue plans:
 
