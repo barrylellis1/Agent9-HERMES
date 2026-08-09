@@ -175,6 +175,14 @@ rather than a bare `json.loads`. Two behaviours matter to callers:
 - **Diagnostics survive failure.** A genuine failure returns
   `{"raw_response": ..., "_parse_error": {msg, pos, lineno, colno, context, length}}`.
 
+⚠️ **This class has NO `self.logger`** — it logs via the module-level `logger` (line 40). A
+`self.logger` call on the parse-failure path raised `AttributeError`, propagated out of `analyze()`,
+returned `status="error"`, and sent SF to its heuristic stub — destroying the very diagnostic it was
+added to capture, and putting *"Tighten spend controls"* in front of a user. It shipped because 891
+tests exercised `parse_llm_json` as a pure function and **nothing exercised the agent's error
+branch**. `tests/unit/test_llm_service_parse_failure.py` now drives `analyze()` itself on the failure
+path; one test asserts the absence of `self.logger` so the mistake cannot silently return.
+
 Why: SF was falling back to its hardcoded stub in ~1 run in 6 under `status="success"`, on model
 output that was complete and well-formed (27k chars, proper closing brace, inside a ```json
 fence, far under budget). The `JSONDecodeError` was caught and discarded, so no audit trail could

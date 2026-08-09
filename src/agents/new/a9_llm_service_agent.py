@@ -702,7 +702,14 @@ class A9_LLM_Service_Agent:
             else:
                 analysis_data = {"raw_response": response.content, "_parse_error": parse_error}
                 confidence = 0.5
-                self.logger.error(
+                # Module-level `logger` (line 40) — this class has no self.logger.
+                # Using self.logger here raised AttributeError ON THE FAILURE PATH,
+                # which propagated out of analyze(), returned status="error", and
+                # sent SF to its heuristic stub — destroying the very diagnostic
+                # this line exists to record. Shipped because 891 unit tests
+                # exercised parse_llm_json directly and nothing exercised the
+                # AGENT's error branch; see test_llm_service_parse_failure.
+                logger.error(
                     "[LLM] analysis response did not parse as JSON: %s (len=%s, at pos %s)",
                     (parse_error or {}).get("msg"), (parse_error or {}).get("length"),
                     (parse_error or {}).get("pos"),
