@@ -16,6 +16,44 @@ export const STABLE_MONTHLY_THRESHOLD = 0.0001
 const MAX_MONTHLY_RATE = 1.0 / 12
 
 /**
+ * How well one criterion separates the options — computed, not guessed.
+ *
+ * WHY THIS EXISTS
+ * ---------------
+ * A live briefing offered three options where two carried an IDENTICAL Est. ROI
+ * (+3.2 to +5.1pp) and all three read "Moderate Effort" and "Medium" risk. Three
+ * of the four comparison rows therefore told an executive nothing, while still
+ * being laid out as though they informed the choice. The one row that did
+ * separate them — timeline, 30-60 days versus 12-18 months — sat alongside them
+ * with no indication it was carrying the entire decision.
+ *
+ * The root cause is upstream: `expected_impact`, `cost` and `risk` are 0-1 values
+ * the model assigns in the same call that writes the options, so they cluster,
+ * and `_rank_options` then wraps that clustering in a weighted formula that looks
+ * like rigour. Fixing that is a separate change. Until then the table should at
+ * least not overstate itself — a criterion every option shares is a fact about
+ * the analysis, and hiding it is what makes the exhibit misleading.
+ */
+export function axisDiscrimination(values: Array<string | null | undefined>): {
+  distinct: number
+  total: number
+  /** True when every option has the same value — this row cannot inform a choice. */
+  uniform: boolean
+  /** True when some but not all options tie. */
+  partial: boolean
+} {
+  const cleaned = values.map(v => String(v ?? '').trim().toLowerCase()).filter(Boolean)
+  const distinct = new Set(cleaned).size
+  const total = cleaned.length
+  return {
+    distinct,
+    total,
+    uniform: total > 1 && distinct === 1,
+    partial: total > 1 && distinct > 1 && distinct < total,
+  }
+}
+
+/**
  * Truncate prose for a summary block without cutting mid-word.
  *
  * The Flash Briefing — the first paragraph an executive reads — used raw

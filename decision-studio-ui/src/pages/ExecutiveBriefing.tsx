@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { approveSolution, askBriefingQuestion, BriefingQAResponse, storeBriefingSnapshot, getBriefingSnapshot, getVASolution } from '../api/client'
 import { CostOfInactionBanner } from '../components/CostOfInactionBanner'
-import { projectKpiTrend, condenseTimeToValue, truncateProse, endsSentence } from '../utils/briefingUtils'
+import { projectKpiTrend, condenseTimeToValue, truncateProse, endsSentence, axisDiscrimination } from '../utils/briefingUtils'
 import { ValueAssurancePanel } from '../components/ValueAssurancePanel'
 import { AttributionBreakdown } from '../components/AttributionBreakdown'
 import { BrandLogo } from '../components/BrandLogo'
@@ -830,16 +830,41 @@ export function ExecutiveBriefing() {
                         { label: 'Est. ROI', key: 'roi', cls: 'font-bold text-emerald-400 print:text-emerald-600' },
                         { label: 'Investment', key: 'investment', cls: 'text-slate-400 print:text-slate-600' },
                         { label: 'Timeline', key: 'timeline', cls: 'text-slate-400 print:text-slate-600' },
-                      ].map(({ label, key, cls }) => (
+                        // Reversibility varies (high/medium/low) and was already on the
+                        // payload but absent from this table — so the exhibit showed
+                        // three criteria that separated nothing while omitting one that did.
+                        { label: 'Reversibility', key: 'reversibility', cls: 'text-slate-400 print:text-slate-600 capitalize' },
+                      ].map(({ label, key, cls }) => {
+                        // Say plainly when a criterion cannot inform the choice. Laying
+                        // out identical values as though they were a comparison is what
+                        // made this table misleading — two options carried the SAME Est.
+                        // ROI and all three the same effort and risk.
+                        const shown = (data.options ?? []).map((o: any) => key === 'roi' ? formatROI(o[key]) : o[key])
+                        const disc = axisDiscrimination(shown)
+                        return (
                         <tr key={key}>
-                          <td className="p-3 font-semibold text-slate-400 bg-slate-900/50 print:text-slate-700 print:bg-slate-50">{label}</td>
+                          <td className="p-3 font-semibold text-slate-400 bg-slate-900/50 print:text-slate-700 print:bg-slate-50">
+                            {label}
+                            {disc.uniform && (
+                              <div className="text-[9px] font-normal text-amber-500/90 mt-0.5 print:text-amber-700"
+                                   title="Every option scores the same here, so this row cannot separate them.">
+                                same for all — does not inform the choice
+                              </div>
+                            )}
+                            {disc.partial && (
+                              <div className="text-[9px] font-normal text-slate-500 mt-0.5 print:text-slate-500"
+                                   title="Some options are identical on this criterion.">
+                                {disc.distinct} of {disc.total} distinct
+                              </div>
+                            )}
+                          </td>
                           {data.options?.map((opt: any, i: number) => (
                             <td key={i} className={`p-3 ${cls} ${opt.recommended ? 'bg-emerald-900/10 print:bg-emerald-50/30' : ''}`}>
-                              {key === 'roi' ? formatROI(opt[key]) : opt[key]}
+                              {shown[i] ?? '—'}
                             </td>
                           ))}
                         </tr>
-                      ))}
+                      )})}
                       <tr>
                         <td className="p-3 font-semibold text-slate-400 bg-slate-900/50 print:text-slate-700 print:bg-slate-50">Risk</td>
                         {data.options?.map((opt: any, i: number) => (
