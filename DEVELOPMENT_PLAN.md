@@ -1946,6 +1946,53 @@ Same ordering for every KPI, client, and problem type. No framework, principal, 
 
 **Sequencing.** Hold every live run until the `use_structured_output` flip lands (PM-4 — one variable per run). Then: problem-profile-driven topics + dimensions (deterministic, no experiment needed) → cheap proposal-comparison test → shared-interview build only if the test shows divergence. Measure the outcome with the Stage H instruments already built (mechanism fingerprint, groundedness, problem profile), comparing **within** problem type.
 
+#### A total LLM outage renders as a successful briefing (found 2026-08-09, NOT fixed)
+
+A live Solution Finder run was attempted to refresh a test fixture. The Anthropic account had **zero credit**, so every LLM call failed:
+
+```
+credit balance is too low to access the Anthropic API
+```
+
+The workflow returned:
+
+```
+state: completed        error: None
+options: "Tighten spend controls", "Optimize pricing"
+```
+
+The payload **does** carry `heuristic_stub_fallback` and the credit error in its audit trail — so the detection exists. It simply never reaches the reader. A user sees two plausible generic recommendations in a finished briefing with no signal that no analysis occurred.
+
+This is the identical pattern already fixed once for narrative claim validation: *detection that reaches only an audit payload is a smoke alarm wired to a notepad.* The fix is the same shape — surface it as a reader-facing caveat, and consider whether a run in which **every** LLM call failed should report `state: completed` at all rather than `failed`.
+
+Worse than a wrong number, because a wrong number can at least be argued with. This one is indistinguishable from a real recommendation, and its blandness ("tighten spend controls") is exactly what an executive would expect a weak AI tool to say — so it discredits the product precisely when it is not working.
+
+**Also blocked by this:** refreshing the SF half of `tests/e2e/fixtures/live-briefing-payload.json`. The DA half is current (live, corrected data); the SF half predates the data fix, which is why the rendered ROI shows "534-825% of Chain A's decline". Needs one synthesis call once the account has credit.
+
+#### RETRACTED: the `_rank_options` clustering concern (measured 2026-08-09)
+
+**The claim, now withdrawn.** A live briefing showed two of three options with an identical Est. ROI and all three reading "Moderate Effort" / "Medium" risk, and this doc attributed that to `_rank_options` operating on LLM-assigned 0–1 scores that cluster — "the formula wraps that choice in the appearance of rigour". Measured against 18 captured SF payloads, **that is not what is happening.**
+
+| field | observed across runs | verdict |
+|---|---|---|
+| `cost` | 0.25 / 0.30 / 0.50 — wide | spread; **display** bucketed it away |
+| `risk` | 0.45 / 0.55 / 0.65 — wide | spread; collapsed to one label in **4 of 9** runs |
+| `expected_impact` | mean spread **0.159**, range 0.06–0.30 | genuinely differentiated |
+
+All three were **display** defects, not model behaviour. Three coarse bands (`≥0.7 / ≥0.4 / else`) destroyed differentiation the model had supplied. Fixed by widening to five bands and disclosing within-band order (`e9f7a39`). **No `_rank_options` change is warranted on this evidence.**
+
+Method note: the same instinct that produced this wrong diagnosis produced the correct one about slice validity — the difference was that the second was checked against data before being acted on. Both should have been.
+
+**What the measurement DID find, unremarked until now: a shared floor.**
+```
+baseline_1   18.5-31.2   18.5-26.3   18.5-28.0
+baseline_3   18.5-31.2   18.5-26.3   18.5-28.0
+moderator_5  18.5-31.2   18.5-28.0   18.5-26.3
+```
+The **low bound of `recovery_range` is identical across every option in 11 of 18 runs** — only the ceiling moves. So the ROI row looks differentiated while sharing a floor: every option is "18.5 to something". Not necessarily wrong (a floor could legitimately be the confirmed-recoverable amount, with options differing only in upside), but it is undocumented, nobody chose it, and it makes the apparent spread narrower than it reads. Worth a decision before the ranges are used for anything consequential — VA impact bounds in particular.
+
+Genuine full duplicates are rarer than the briefing suggested: **2 of 14** non-stub runs. The other four "identical" rows are heuristic-stub fallbacks carrying no range at all.
+
 #### Slice validity — found in production 2026-08-09, demo data FIXED, capability deliberately NOT built
 
 **What happened.** The Lubricants demo dataset attributed **all** COGS to a single customer while revenue spanned twenty. Gross margin by customer therefore read **−457.71%** for that one account and **exactly 100.00%** for the other nineteen. Every layer above behaved correctly on top of it: SA raised a breach, DA found the "concentration", three MBB personas diagnosed a base-oil pass-through, and the briefing recommended renegotiating a contract to correct an ETL defect. The enterprise figure (33.25%) was right throughout — which is exactly why it survived. **The error only exists once you slice.**
