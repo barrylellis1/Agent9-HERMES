@@ -27,12 +27,19 @@ const MAX_MONTHLY_RATE = 1.0 / 12
  * separate them — timeline, 30-60 days versus 12-18 months — sat alongside them
  * with no indication it was carrying the entire decision.
  *
- * The root cause is upstream: `expected_impact`, `cost` and `risk` are 0-1 values
- * the model assigns in the same call that writes the options, so they cluster,
- * and `_rank_options` then wraps that clustering in a weighted formula that looks
- * like rigour. Fixing that is a separate change. Until then the table should at
- * least not overstate itself — a criterion every option shares is a fact about
- * the analysis, and hiding it is what makes the exhibit misleading.
+ * CORRECTION (measured, 2026-08-09): the first diagnosis — that the model's
+ * scores cluster — was wrong for effort and risk. Across nine captured runs the
+ * underlying values were well spread (risk 0.45 / 0.55 / 0.65; cost 0.25 / 0.30 /
+ * 0.50); three coarse display bands collapsed them. The DISPLAY was destroying
+ * differentiation the model had supplied. Bands were widened to five and
+ * within-band order is now disclosed.
+ *
+ * Identical values are also not automatically a defect. Two options may genuinely
+ * deliver the same benefit, with time-to-value the real differentiator — a
+ * pricing action recovering in 30-60 days and a contract reset recovering the
+ * same points at renewal. The table's job is to show which criteria separate the
+ * options and which do not, so the reader can see what is actually carrying the
+ * decision; it is not to manufacture difference where none exists.
  */
 export function axisDiscrimination(values: Array<string | null | undefined>): {
   distinct: number
@@ -273,17 +280,43 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
     })
 
     // Map risk level from option scores
+    // Three coarse bands destroyed differentiation the model HAD supplied. Measured
+    // across nine captured runs: risk values of 0.45 / 0.55 / 0.65 all rendered
+    // "Medium", and cost of 0.25 / 0.30 / 0.50 collapsed to two labels. A reader saw
+    // Medium/Medium/Medium and concluded the options carried equal risk, when the
+    // underlying scores spanned 20 points.
+    //
+    // Five bands recover most of it. `relativeSuffix` recovers the rest: where two
+    // options still share a band, their order within it is disclosed rather than
+    // hidden. These are the model's 0-1 judgements, so a rank is honest where a
+    // decimal would imply precision that is not there.
     const riskLevelMap = (risk: number) => {
-      if (risk >= 0.7) return 'High'
+      if (risk >= 0.8) return 'Very High'
+      if (risk >= 0.6) return 'High'
       if (risk >= 0.4) return 'Medium'
-      return 'Low'
+      if (risk >= 0.2) return 'Low'
+      return 'Very Low'
     }
-    
+
     // Map investment effort from cost score (qualitative — avoids fake dollar amounts)
     const investmentMap = (cost: number) => {
-      if (cost >= 0.7) return 'High Effort'
+      if (cost >= 0.8) return 'Very High Effort'
+      if (cost >= 0.6) return 'High Effort'
       if (cost >= 0.4) return 'Moderate Effort'
-      return 'Low Effort'
+      if (cost >= 0.2) return 'Low Effort'
+      return 'Minimal Effort'
+    }
+
+    /** ' (least)' / ' (most)' when others share this band; '' when it stands alone. */
+    const relativeSuffix = (value: number, peers: number[], label: string,
+                            toLabel: (n: number) => string): string => {
+      const sameBand = peers.filter(v => toLabel(v) === label)
+      if (sameBand.length < 2) return ''
+      const lo = Math.min(...sameBand), hi = Math.max(...sameBand)
+      if (lo === hi) return ''                      // genuinely identical, say nothing
+      if (value === lo) return ' (least)'
+      if (value === hi) return ' (most)'
+      return ''
     }
 
     // Map impact potential from impact score (qualitative — avoids fake % projections)
@@ -430,9 +463,17 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       description: opt?.description || opt?.rationale || '',
       roi: formatImpactEstimate(opt, idx),
       impactBasis: opt?.impact_estimate?.basis || null,
-      investment: investmentMap(opt?.cost || 0.5),
+      investment: (() => {
+        const c = opt?.cost ?? 0.5
+        const peers = topOptions.map((o: any) => o?.cost ?? 0.5)
+        return investmentMap(c) + relativeSuffix(c, peers, investmentMap(c), investmentMap)
+      })(),
       timeline: opt?.time_to_value || '3-6 months',
-      riskLevel: riskLevelMap(opt?.risk || 0.5),
+      riskLevel: (() => {
+        const r = opt?.risk ?? 0.5
+        const peers = topOptions.map((o: any) => o?.risk ?? 0.5)
+        return riskLevelMap(r) + relativeSuffix(r, peers, riskLevelMap(r), riskLevelMap)
+      })(),
       reversibility: opt?.reversibility || 'medium',
       recommended: idx === 0 || ((sol?.recommendation?.id && opt?.id) ? sol.recommendation.id === opt.id : false),
       prosDetailed: Array.isArray(opt?.perspectives?.[0]?.arguments_for)

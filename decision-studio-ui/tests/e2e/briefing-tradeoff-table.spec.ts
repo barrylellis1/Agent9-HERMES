@@ -86,3 +86,49 @@ test.describe('axisDiscrimination', () => {
     expect(d.partial).toBe(false);
   });
 });
+
+/**
+ * Effort and risk banding.
+ *
+ * CORRECTION TO THE ORIGINAL DIAGNOSIS. The first read was that the model's
+ * scores clustered. Measured across nine captured SF runs, they do not:
+ *
+ *   risk  0.45 / 0.55 / 0.65   -> "Medium", "Medium", "Medium"
+ *   cost  0.25 / 0.30 / 0.50   -> "Low", "Low", "Moderate"
+ *
+ * A 20-point spread rendered identically, because the bands were
+ * >=0.7 High / >=0.4 Medium / else Low. The DISPLAY was destroying
+ * differentiation the model had supplied.
+ */
+test.describe('effort and risk banding preserves real differences', () => {
+  // Mirrors the five-band maps in buildExecutiveBriefing.
+  const risk = (r: number) =>
+    r >= 0.8 ? 'Very High' : r >= 0.6 ? 'High' : r >= 0.4 ? 'Medium' : r >= 0.2 ? 'Low' : 'Very Low';
+  const cost = (c: number) =>
+    c >= 0.8 ? 'Very High Effort' : c >= 0.6 ? 'High Effort' : c >= 0.4 ? 'Moderate Effort'
+      : c >= 0.2 ? 'Low Effort' : 'Minimal Effort';
+
+  test('the observed risk spread no longer collapses to one label', () => {
+    const labels = [0.45, 0.55, 0.65].map(risk);
+    expect(new Set(labels).size).toBeGreaterThan(1);
+    expect(axisDiscrimination(labels).uniform).toBe(false);
+  });
+
+  test('the observed cost spread stays separated', () => {
+    const labels = [0.25, 0.30, 0.50].map(cost);
+    expect(new Set(labels).size).toBeGreaterThan(1);
+  });
+
+  test('values genuinely close together still share a band — and that is correct', () => {
+    // 0.52 / 0.55 really are the same judgement. Splitting them would invent
+    // precision that a 0-1 model estimate does not carry.
+    expect(risk(0.52)).toBe(risk(0.55));
+    expect(axisDiscrimination([risk(0.52), risk(0.55)]).uniform).toBe(true);
+  });
+
+  test('band boundaries are ordered and total', () => {
+    const seen = [0, 0.19, 0.2, 0.39, 0.4, 0.59, 0.6, 0.79, 0.8, 1].map(risk);
+    expect(seen.every(Boolean)).toBe(true);
+    expect(new Set(seen).size).toBe(5);
+  });
+});
