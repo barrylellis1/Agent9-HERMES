@@ -1,3 +1,46 @@
+/** Cost-of-Inaction projection. Extracted from ExecutiveBriefing so the number a
+ *  CFO reads first is unit-testable rather than buried in JSX.
+ *
+ *  Two sign traps live here, both observed in a real briefing:
+ *
+ *  1. `percent_change` derived as delta/prev cancels for a declining segment
+ *     (both negative), yielding a POSITIVE rate that reads as recovery. Fixed at
+ *     the source in buildExecutiveBriefing by dividing by |prev|.
+ *  2. Projecting as `current * (1 + rate)` assumes a positive-valued KPI. For a
+ *     negative value it moves the number toward zero, rendering deterioration as
+ *     improvement. Scaling by |current| and ADDING keeps both signs correct.
+ *
+ *  Together those produced "Trend: Recovering" printed above -$58.3M -> -$59.5M.
+ */
+export const STABLE_MONTHLY_THRESHOLD = 0.0001
+const MAX_MONTHLY_RATE = 1.0 / 12
+
+export function projectKpiTrend(currentValue: number, percentChange: number | null | undefined, comparisonValue?: number | null) {
+  let monthlyRate = 0
+  if (percentChange != null && percentChange !== 0) {
+    // percent_change arrives as a fraction (-0.15) or as points (-15).
+    monthlyRate = (Math.abs(percentChange) > 1 ? percentChange / 100 : percentChange) / 12
+  } else if (comparisonValue != null && comparisonValue !== 0) {
+    // |comparison| for the same reason as above: preserve the numerator's sign.
+    monthlyRate = (currentValue - comparisonValue) / Math.abs(comparisonValue) / 12
+  }
+  // Cap at +/-100%/yr — percent_change is occasionally a raw delta rather than a
+  // true percentage, which would otherwise produce astronomical projections.
+  monthlyRate = Math.sign(monthlyRate) * Math.min(Math.abs(monthlyRate), MAX_MONTHLY_RATE)
+
+  const monthlyDelta = Math.abs(currentValue) * monthlyRate
+  const trend: 'deteriorating' | 'stable' | 'recovering' =
+    monthlyRate < -STABLE_MONTHLY_THRESHOLD ? 'deteriorating'
+      : monthlyRate > STABLE_MONTHLY_THRESHOLD ? 'recovering' : 'stable'
+
+  return {
+    monthlyRate,
+    projected30d: currentValue + monthlyDelta,
+    projected90d: currentValue + monthlyDelta * 3,
+    trend,
+  }
+}
+
 export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, marketSignals?: any[]) => {
     const kpiName = situation?.kpi_name || analysis?.kpi_name || sol?.problem_reframe?.situation || 'KPI'
     const kpiUnit: string = situation?.kpi_value?.unit || ''
@@ -445,16 +488,42 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
             kpi_name: `${kpiName} — ${formatDimLabel(worstDecliner.dimension)}: ${worstDecliner.key}`,
             current_value: curr as number,
             comparison_value: prev as number | null,
-            percent_change: (prev ? worstDecliner.delta / prev : null) as number | null,
+            // |prev| as the denominator, NOT prev.
+            //
+            // This line printed "Trend: Recovering" on a segment that was
+            // deteriorating. Both delta and prev are negative for a declining
+            // segment, so delta/prev cancels to a POSITIVE ratio, which the Cost
+            // of Inaction banner reads as improvement — while the projection
+            // multiplies a negative current value by (1 + rate) and drives it
+            // further negative. Reproduced exactly: -$58.3M at 30 days and
+            // -$59.5M at 90, labelled "Recovering".
+            //
+            // Dividing by the MAGNITUDE preserves the sign of the numerator,
+            // which is the actual direction of travel.
+            percent_change: (prev ? worstDecliner.delta / Math.abs(prev) : null) as number | null,
             unit: kpiUnit,
+            // Provenance for the segment slice. The backend stamps windows on the
+            // headline KPI (MeasurementContext); a change point is DA-derived and
+            // has none of its own, so we mark the scope explicitly rather than let
+            // a segment number pass as the enterprise KPI.
+            measurement_scope: 'segment' as const,
+            segment_label: String(worstDecliner.key ?? ''),
           }
         }
         return situation?.kpi_value?.value != null ? {
           kpi_name: kpiName,
           current_value: situation.kpi_value.value as number,
           comparison_value: (analysis?.aggregates?.comparison_value ?? analysis?.aggregates?.previous_value ?? null) as number | null,
+          // CONSUME the backend's typed value; never recompute it. SA already
+          // resolved this correctly (inverse_logic handling included) and stamps
+          // its provenance in KPIValue.context — re-deriving here is what put a
+          // wrong number in front of a decision maker in the first place.
           percent_change: (situation?.kpi_value?.percent_change ?? null) as number | null,
           unit: kpiUnit,
+          measurement_scope: 'enterprise' as const,
+          // Resolved window from the backend, when present — so the briefing can
+          // state the period it measured instead of implying one.
+          context: situation?.kpi_value?.context ?? null,
         } : null
       })(),
       principalId: situation?.principal_id || null,

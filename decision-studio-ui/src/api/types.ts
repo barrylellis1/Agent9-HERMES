@@ -11,6 +11,29 @@ export interface TopDriver {
   currency?: string;
 }
 
+/**
+ * Provenance for a measured value — mirrors `MeasurementContext` in
+ * `src/agents/models/situation_awareness_models.py`.
+ *
+ * Exists because a KPI reading previously carried only the timeframe TOKEN, so
+ * two values could disagree with nothing on either to say which window or data
+ * version it covered. Consumers should DISPLAY this rather than re-derive
+ * anything from it — re-derivation is what produced a "Recovering" label on a
+ * deteriorating segment.
+ */
+export interface MeasurementContext {
+  window_start?: string | null;
+  window_end?: string | null;
+  comparison_window_start?: string | null;
+  comparison_window_end?: string | null;
+  /** 'Actual' | 'Budget' | a plan version value — distinguishes same-named readings */
+  version?: string | null;
+  filters?: Record<string, unknown> | null;
+  source_system?: string | null;
+  data_product_id?: string | null;
+  sql_hash?: string | null;
+}
+
 export interface Situation {
   situation_id: string;
   kpi_name: string;
@@ -25,6 +48,15 @@ export interface Situation {
     threshold_value?: number | null;
     comparison_period?: string | null;
     comparison_type?: string | null;
+    /**
+     * What this reading actually measured — resolved, not requested. Mirrors
+     * MeasurementContext on the backend KPIValue.
+     *
+     * `timeframe` alone is a token ("year_to_date") that different code paths can
+     * resolve to different windows while both look correct. Absence means UNKNOWN
+     * provenance and must never be read as agreement with another value.
+     */
+    context?: MeasurementContext | null;
   };
   severity: 'low' | 'medium' | 'high' | 'critical';
   card_type?: 'problem' | 'opportunity';

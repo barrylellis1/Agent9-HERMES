@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { approveSolution, askBriefingQuestion, BriefingQAResponse, storeBriefingSnapshot, getBriefingSnapshot, getVASolution } from '../api/client'
 import { CostOfInactionBanner } from '../components/CostOfInactionBanner'
+import { projectKpiTrend } from '../utils/briefingUtils'
 import { ValueAssurancePanel } from '../components/ValueAssurancePanel'
 import { AttributionBreakdown } from '../components/AttributionBreakdown'
 import { BrandLogo } from '../components/BrandLogo'
@@ -657,32 +658,12 @@ export function ExecutiveBriefing() {
             {/* Cost of Inaction — shown pre-approval when KPI data is available */}
             {approveState !== 'approved' && data.kpiData?.current_value != null && (() => {
               const kd = data.kpiData
-              // Derive a monthly fractional decay rate from percent_change (YoY).
-              // percent_change may be stored as fraction (e.g. -0.15) or percent points (-15).
-              // Normalise to fraction then convert to monthly rate (÷12).
-              let monthlyRate = 0
-              if (kd.percent_change != null && kd.percent_change !== 0) {
-                const frac = Math.abs(kd.percent_change) > 1
-                  ? kd.percent_change / 100   // percent-points → fraction
-                  : kd.percent_change         // already fraction
-                monthlyRate = frac / 12
-              } else if (kd.comparison_value != null && kd.comparison_value !== 0) {
-                monthlyRate = (kd.current_value - kd.comparison_value) / kd.comparison_value / 12
-              }
-              // percent_change is sometimes a raw dollar delta rather than a true percentage.
-              // Cap at ±100%/year to prevent astronomical projections when input data is unreliable.
-              const MAX_MONTHLY_RATE = 1.0 / 12
-              monthlyRate = Math.sign(monthlyRate) * Math.min(Math.abs(monthlyRate), MAX_MONTHLY_RATE)
-              const projected30d = kd.current_value * (1 + monthlyRate)
-              const projected90d = kd.current_value * (1 + monthlyRate * 3)
-              // Threshold for "stable" must be small relative to modest-magnitude
-              // percentage KPIs — a DA-flagged change point (e.g. -0.97% YoY on
-              // Manual Gear Oil, ~-0.08%/month) is already material enough to have
-              // driven the recommendation; 0.001 (0.1%/month, ~1.2%/year) called
-              // that "Stable" right next to numbers that visibly decline each period.
-              const STABLE_THRESHOLD = 0.0001
-              const trendDir: 'deteriorating' | 'stable' | 'recovering' =
-                monthlyRate < -STABLE_THRESHOLD ? 'deteriorating' : monthlyRate > STABLE_THRESHOLD ? 'recovering' : 'stable'
+              // Projection + trend live in briefingUtils.projectKpiTrend so the
+              // number an executive reads first is unit-testable rather than
+              // buried in JSX. Two sign traps are handled there — see its
+              // docstring; both were live in a real briefing.
+              const { projected30d, projected90d, trend: trendDir } =
+                projectKpiTrend(kd.current_value, kd.percent_change, kd.comparison_value)
               const confidenceLevelMap: Record<string, 'HIGH' | 'MODERATE' | 'LOW'> = {
                 'Low': 'LOW', 'Medium': 'MODERATE', 'High': 'HIGH', 'Very High': 'HIGH',
               }
