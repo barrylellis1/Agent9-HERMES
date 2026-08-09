@@ -3,6 +3,16 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
     const kpiUnit: string = situation?.kpi_value?.unit || ''
     const topOptions = Array.isArray(sol?.options_ranked) ? sol.options_ranked : []
 
+    // Headline KPI movement — the denominator for an enterprise-scoped claim.
+    // Null when either side is missing, which suppresses the ratio rather than
+    // inventing a baseline to divide by.
+    const _kpiCurrent = situation?.kpi_value?.value
+    const _kpiPrior = analysis?.aggregates?.comparison_value ?? analysis?.aggregates?.previous_value ?? null
+    const enterpriseDelta: number | null =
+      (typeof _kpiCurrent === 'number' && typeof _kpiPrior === 'number' && _kpiPrior !== _kpiCurrent)
+        ? Math.abs(_kpiCurrent - _kpiPrior)
+        : null
+
     const urgency = situation?.severity ? String(situation.severity) : 'High Priority'
     
     // Build comprehensive executive summary
@@ -74,7 +84,12 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
           driver: String(item.key),
           dimension: formatDimLabel(item.dimension),
           evidence: evidenceStr,
-          impact: `Δ ${formatDelta(item?.delta)}`
+          impact: `Δ ${formatDelta(item?.delta)}`,
+          // Raw magnitude kept alongside the formatted string so recovery-range
+          // ratios are computed from the number, not re-parsed out of display
+          // text (which rounds, and rounding is what made three different
+          // estimates print as one identical figure).
+          deltaRaw: typeof item?.delta === 'number' ? Math.abs(item.delta) : null,
         })
       }
     })
@@ -134,9 +149,60 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
           // moved the whole business. Absent scope renders as unverified —
           // never silently assumed enterprise.
           const range = `${fmt(low)} to ${fmt(high)}`
-          if (ie.scope === 'segment' && ie.scope_label) return `${range} — ${ie.scope_label} only`
-          if (ie.scope === 'segment') return `${range} — single segment`
-          if (ie.scope === 'enterprise') return `${range} (enterprise)`
+
+          // RECOVERY SHARE — the fix for "why are all three ROIs the same?".
+          //
+          // An absolute range is meaningless without the loss it is recovering.
+          // A real briefing showed all three options as "+$3.2M to +$5.1M",
+          // which read as three equally attractive choices. Against their own
+          // targets those same numbers meant 50-80%, 59-94%, and 75-119% of the
+          // decline — the third claiming to recover MORE than the entire loss it
+          // addresses. The moderator had flagged two of the three; the reader
+          // could not see it because the headline figure hid the denominator.
+          //
+          // Rounding compounded it: opt_1's high was $5,127,423 and opt_3's was
+          // $5,114,511, and .toFixed(1) at millions scale printed both as $5.1M.
+          // The share disambiguates what rounding collapses.
+          const denominator: number | null =
+            ie.scope === 'enterprise'
+              ? enterpriseDelta
+              : (() => {
+                  const label = String(ie.scope_label || '').toLowerCase().trim()
+                  if (!label) return null
+                  const hits = rootCauses
+                    .filter((rc: any) => {
+                      const d = String(rc.driver || '').toLowerCase()
+                      return d && (label.includes(d) || d.includes(label))
+                    })
+                    .map((rc: any) => rc.deltaRaw)
+                    .filter((d: any) => typeof d === 'number' && d > 0)
+                  // Compound scopes take the LARGEST named segment, never the
+                  // sum: adding segment-level deltas across differently-weighted
+                  // segments is the arithmetic error this whole display exists
+                  // to surface, so it must not be committed here.
+                  return hits.length ? Math.max(...hits) : null
+                })()
+
+          let share = ''
+          if (denominator && denominator > 0 && high != null) {
+            const lowPct = Math.round((Math.abs(low) / denominator) * 100)
+            const highPct = Math.round((Math.abs(high) / denominator) * 100)
+            // Possessive of a name already ending in "s" takes a bare apostrophe
+            // ("Engine Oils' decline", not "Engine Oils's"). Segment names are
+            // frequently plural, and this sits on the line an executive reads first.
+            const label = String(ie.scope_label || '')
+            const possessive = /s$/i.test(label) ? `${label}'` : `${label}'s`
+            const of = ie.scope === 'enterprise' ? 'the enterprise decline' : `${possessive} decline`
+            share = ` · ${lowPct}-${highPct}% of ${of}`
+            // Claiming to recover more than was lost is not automatically wrong,
+            // but it is a stronger claim than "recovery" and must not pass
+            // silently in the one line an executive is most likely to read.
+            if (highPct > 100) share += ' ⚠ exceeds the loss'
+          }
+
+          if (ie.scope === 'segment' && ie.scope_label) return `${range} — ${ie.scope_label} only${share}`
+          if (ie.scope === 'segment') return `${range} — single segment${share}`
+          if (ie.scope === 'enterprise') return `${range} (enterprise)${share}`
           return `${range} (scope unverified)`
         }
       }
@@ -170,6 +236,12 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
     }
 
     const options = topOptions.slice(0, 3).map((opt: any, idx: number) => ({
+      // Carry the generation id. moderator_grades is keyed by it, and the
+      // briefing previously had no way to resolve a grade back to an option, so
+      // it printed raw "opt_1" / "opt_2" at the reader. Index position is NOT a
+      // substitute: topOptions is RANKED order, and the winner is frequently
+      // opt_2 or opt_3, so opt_N does not line up with position N.
+      id: opt?.id || null,
       title: opt?.title || 'Option',
       subtitle: opt?.time_to_value ? `Time to value: ${opt.time_to_value}` : 'Operational intervention',
       description: opt?.description || opt?.rationale || '',

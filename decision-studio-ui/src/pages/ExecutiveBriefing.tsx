@@ -619,7 +619,7 @@ export function ExecutiveBriefing() {
             {data.situation?.keyQuestion && (
               <div className="hidden print:block mb-6">
                 <div className="text-[9px] text-slate-500 uppercase tracking-wider font-mono mb-2 border-b border-slate-200 pb-1">
-                  Problem Statement &amp; Root Causes
+                  Problem Statement &amp; Largest Variance Contributors
                 </div>
                 <p className="text-xs font-semibold text-slate-800 mb-3 border-l-2 border-slate-400 pl-3">
                   Key Question: {data.situation.keyQuestion}
@@ -1093,7 +1093,14 @@ export function ExecutiveBriefing() {
                 {data.situation?.rootCauses?.length > 0 && (
                   <div className="bg-slate-800/60 border border-slate-700 text-white p-5 rounded-lg print:bg-slate-900">
                     <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
-                      <Zap className="w-4 h-4 text-amber-400" /> Root Cause Analysis
+                      {/* NOT "Root Cause Analysis". Deep Analysis produces a KT
+                          Is/Is-Not dimensional decomposition — it locates WHERE
+                          the variance concentrated, which is association, not an
+                          established cause. The theory layer is explicit that
+                          only VA's DiD/Granger testing reaches a causal claim,
+                          so the briefing must not promote a ranked delta list to
+                          "root cause" in front of an executive. */}
+                      <Zap className="w-4 h-4 text-amber-400" /> Largest Variance Contributors
                     </h3>
                     <div className="space-y-3">
                       {data.situation.rootCauses.map((cause: any, i: number) => (
@@ -1294,7 +1301,13 @@ export function ExecutiveBriefing() {
                   <div className="space-y-3">
                     {Object.entries((data as any).moderator_grades).map(([optId, g]: [string, any]) => (
                       <div key={optId} className="bg-slate-900 border border-slate-700 rounded-lg p-4 print:bg-slate-50 print:border-slate-200">
-                        <h4 className="font-bold text-slate-200 text-sm mb-2 print:text-slate-900">{optId}</h4>
+                        {/* Resolve the generation id to the option's real title.
+                            Printing raw "opt_1" asked the reader to hold a mapping
+                            the briefing never showed them. Matched by id, never by
+                            position: options here are RANKED, so opt_N != Nth. */}
+                        <h4 className="font-bold text-slate-200 text-sm mb-2 print:text-slate-900">
+                          {(data.options || []).find((o: any) => o?.id === optId)?.title || optId}
+                        </h4>
                         <div className="flex flex-wrap gap-2 mb-2 text-xs">
                           <span className={`px-2 py-0.5 rounded border ${g.constraint_survival === 'pass' ? 'text-emerald-400 border-emerald-700' : g.constraint_survival === 'fail' ? 'text-red-400 border-red-700' : 'text-amber-400 border-amber-700'}`}>
                             constraints: {g.constraint_survival ?? 'ungraded'}
@@ -1381,8 +1394,13 @@ export function ExecutiveBriefing() {
               </AccordionSection>
             )}
 
-            {/* [N] Blind Spots & Tensions */}
+            {/* [N] Blind Spots & Tensions — SCREEN ONLY.
+                The print-only appendix immediately below renders the same
+                content in a print-appropriate layout. Both were previously
+                visible when printing, so every exported briefing carried Blind
+                Spots and Unresolved Tensions twice, back to back on one page. */}
             {((data.blind_spots?.length > 0) || (data.unresolved_tensions?.length > 0)) && (
+              <div className="print:hidden">
               <AccordionSection id="blindspots" title="Considerations & Blind Spots" openSections={openSections} onToggle={toggleSection}
                 icon={<AlertTriangle className="w-4 h-4 text-amber-400" />}>
                 <div className="p-5">
@@ -1415,6 +1433,7 @@ export function ExecutiveBriefing() {
                   </div>
                 </div>
               </AccordionSection>
+              </div>
             )}
 
             {/* Print-only: Appendix — Blind Spots & Unresolved Tensions */}
