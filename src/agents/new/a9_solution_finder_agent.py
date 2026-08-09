@@ -2481,6 +2481,10 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     self.logger.info(f"LLM debate path failed, falling back to heuristic: {le}\n{_tb_debug.format_exc()}")
                     audit_log.append({"event": "llm_debate_error", "error": str(le)})
 
+            # Bound before the branch that sets it: read unconditionally below, and
+            # a definition nested in the fallback would NameError on every good run.
+            _degraded_reason = None
+
             # Heuristic fallback or augmentation if LLM didn't yield options
             if not options:
                 # LOUD. This branch has now silently degraded a live run twice: once
@@ -2541,6 +2545,12 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                 # Preserve Stage 1 hypotheses so progressive reveal still works even in fallback
                 if stage_1_hyps_dict and not stage_1_hypotheses_final:
                     stage_1_hypotheses_final = stage_1_hyps_dict
+                # Carry the degradation on the RESPONSE, not only in audit_log.
+                # A flag buried in an audit payload is a smoke alarm wired to a
+                # notepad: it was present and correct on 2026-08-09 while the
+                # briefing still rendered "Tighten spend controls" to a reader as
+                # a finished recommendation.
+                _degraded_reason = "llm_unavailable" if _had_llm_error else "llm_yielded_no_options"
                 options = [
                     SolutionOption(id="opt1", title="Tighten spend controls", expected_impact=0.6, cost=0.3, risk=0.3),
                     SolutionOption(id="opt2", title="Optimize pricing", expected_impact=0.7, cost=0.5, risk=0.4),
@@ -2631,6 +2641,8 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
             # Single HITL event required per PRD
             return SolutionFinderResponse.success(
                 request_id=req_id,
+                analysis_degraded=_degraded_reason is not None,
+                degraded_reason=_degraded_reason,
                 options_ranked=options_payload,
                 tradeoff_matrix=matrix_payload,
                 recommendation=recommendation_payload,

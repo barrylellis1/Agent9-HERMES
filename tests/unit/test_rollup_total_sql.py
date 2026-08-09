@@ -110,3 +110,39 @@ class TestTotalRowIdentification:
         assert "\x00" in _ROLLUP_TOTAL_KEY, "sentinel must be unrepresentable as data"
         for realistic in ("None", "Total", "NULL", "", "All", "Unallocated"):
             assert realistic != _ROLLUP_TOTAL_KEY
+
+
+class TestComparisonPeriodHonouredOnEveryBackend:
+    """The scalar (non-breakdown) path ignored `comparison_period`.
+
+    A caller asking for the PRIOR value silently received the CURRENT one, so a
+    delta computed from the pair was 0.0 — a confident "no change" on a KPI that
+    had moved -4.49pp. Found live on BigQuery; the identical defect was present in
+    the Snowflake, SQL Server and Databricks builders, which are what Apex and
+    Hess actually run on. Fixing one backend and leaving three is how a bug comes
+    back wearing a different client's name.
+    """
+
+    BUILDERS = [
+        ("_build_bq_dimensional_sql", "bigquery"),
+        ("_build_sf_dimensional_sql", "snowflake"),
+        ("_build_ss_dimensional_sql", "sqlserver"),
+        ("_build_databricks_dimensional_sql", "databricks"),
+    ]
+
+    @pytest.mark.parametrize("method,dialect", BUILDERS)
+    def test_prior_scalar_differs_from_current(self, agent, method, dialect):
+        import logging
+        agent.logger = logging.getLogger("test")
+        build = getattr(agent, method)
+        common = dict(raw_sql=RATIO_SQL, kpi_definition=_KPI(RATIO_SQL),
+                      timeframe="year_to_date", topn=None, breakdown=False,
+                      override_group_by=None, time_spec=None)
+        cur = build(**common, comparison_period=False)
+        prev = build(**common, comparison_period=True)
+        assert cur and prev, f"{method} produced no SQL"
+        assert cur != prev, (
+            f"{dialect}: comparison_period is being dropped — the prior-period query "
+            f"is byte-identical to the current one, so any delta computed from the "
+            f"pair is 0.0"
+        )

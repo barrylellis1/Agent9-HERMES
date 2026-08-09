@@ -122,3 +122,57 @@ test.describe('Executive Briefing — live payload end to end', () => {
     }
   });
 });
+
+/**
+ * Degraded-analysis banner.
+ *
+ * On 2026-08-09 an exhausted API quota made every LLM call fail. The workflow
+ * returned state=completed / error=None with two generic placeholder options
+ * ("Tighten spend controls" / "Optimize pricing"), and nothing the reader could
+ * see said the analysis had not run.
+ */
+test.describe('degraded analysis is visible to the reader', () => {
+  async function openWith(page: any, extra: Record<string, unknown>) {
+    const built: any = buildExecutiveBriefing(
+      raw.situation, raw.analysis, { ...raw.solutions, ...extra });
+    await page.addInitScript(
+      ([id, payload]: [string, string]) => window.localStorage.setItem(`briefing_${id}`, payload),
+      [SITUATION_ID, JSON.stringify(built)]);
+    await loginAsDemo(page);
+    await page.goto(`/briefing/${SITUATION_ID}`);
+    return built;
+  }
+
+  test('a healthy payload shows no warning at all', async ({ page }) => {
+    // The banner must stay rare, or readers learn to scroll past it.
+    const built = await openWith(page, {});
+    expect(built.analysis_degraded).toBe(false);
+    await expect(page.getByText(/strategic options/i).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/were not produced by the analysis/i)).toHaveCount(0);
+  });
+
+  test('an LLM outage is stated plainly, not softened', async ({ page }) => {
+    await openWith(page, { analysis_degraded: true, degraded_reason: 'llm_unavailable' });
+    await expect(page.getByText(/were not produced by the analysis/i)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/language model was unavailable/i)).toBeVisible();
+    await expect(page.getByText(/do not act on them/i)).toBeVisible();
+  });
+
+  test('truncation gets its own wording, not the outage wording', async ({ page }) => {
+    // Different cause, different remedy. Telling a user the model was down when
+    // it answered but overran would send them to fix the wrong thing.
+    await openWith(page, { analysis_degraded: true, degraded_reason: 'llm_yielded_no_options' });
+    await expect(page.getByText(/were not produced by the analysis/i)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/could not be read as a set of options/i)).toBeVisible();
+    await expect(page.getByText(/language model was unavailable/i)).toHaveCount(0);
+  });
+
+  test('the flag is read straight through, never inferred', async ({ page }) => {
+    // Deriving it (e.g. from stub-looking titles) would recreate the guesswork
+    // this replaced. Absent means healthy.
+    const built: any = buildExecutiveBriefing(raw.situation, raw.analysis,
+      { ...raw.solutions, analysis_degraded: undefined, degraded_reason: undefined });
+    expect(built.analysis_degraded).toBe(false);
+    expect(built.degraded_reason).toBeNull();
+  });
+});

@@ -187,6 +187,29 @@ class SolutionFinderRequest(A9AgentBaseRequest):
 
 class SolutionFinderResponse(A9AgentBaseResponse):
     """Ranked options, recommendation, and HITL context."""
+    analysis_degraded: bool = Field(
+        False,
+        description=(
+            "True when these options are the generic heuristic stub rather than model "
+            "output. The stub ('Tighten spend controls' / 'Optimize pricing') is "
+            "indistinguishable from a real recommendation to a reader, and worse than a "
+            "wrong number because a wrong number can at least be argued with. Observed "
+            "live 2026-08-09: the Anthropic account hit zero credit, EVERY LLM call "
+            "failed, and the workflow returned state=completed with two plausible "
+            "generic options and no signal. Consumers MUST surface this to the reader, "
+            "not merely log it."
+        ),
+    )
+    degraded_reason: Optional[Literal["llm_unavailable", "llm_yielded_no_options"]] = Field(
+        None,
+        description=(
+            "'llm_unavailable' — the LLM calls themselves errored (outage, no credit, "
+            "auth). No analysis happened at all; treat the run as failed. "
+            "'llm_yielded_no_options' — the LLM responded but the synthesis could not be "
+            "parsed into options, typically max_tokens truncation. Partial signal may "
+            "still exist (Stage 1 hypotheses survive), so this degrades rather than fails."
+        ),
+    )
     options_ranked: List[SolutionOption] = Field(default_factory=list)
     tradeoff_matrix: Optional[TradeOffMatrix] = None
     recommendation: Optional[SolutionOption] = None

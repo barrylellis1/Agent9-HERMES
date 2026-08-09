@@ -1300,7 +1300,26 @@ async def _run_solution_workflow(request_id: str, runtime: AgentRuntime, request
         
         status = "failed" if response.status == "error" else "completed"
         error_msg = response.message if response.status == "error" else None
-        
+
+        # An agent that never reached the LLM has not produced a recommendation, no
+        # matter what it returns. Observed live 2026-08-09: the Anthropic account hit
+        # zero credit, every call failed, and this reported state=completed /
+        # error=None alongside two generic stub options ("Tighten spend controls").
+        # A reader cannot tell that from real output — so the run must not claim
+        # success.
+        #
+        # Deliberately narrow: only `llm_unavailable` fails. `llm_yielded_no_options`
+        # means the model DID respond and the synthesis was unparseable (usually
+        # truncation); Stage 1 hypotheses survive that, so it degrades and stays
+        # visible rather than discarding partial work.
+        if getattr(response, "degraded_reason", None) == "llm_unavailable":
+            status = "failed"
+            error_msg = (
+                "Solution analysis did not run: the language model was unavailable "
+                "(outage, credentials, or exhausted quota). No recommendation was "
+                "produced — the options that would otherwise appear are placeholders."
+            )
+
         if status == "failed":
             await _update_record(request_id, state="failed", error=error_msg)
         else:

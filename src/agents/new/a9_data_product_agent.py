@@ -4884,7 +4884,17 @@ class A9_Data_Product_Agent(DataProductProtocol):
             _spec = time_spec or {"type": "date", "column": "transaction_date"}
 
             if not breakdown or not override_group_by:
-                cond = TimeFilter.current_condition(_spec, timeframe, dialect="snowflake")
+                # comparison_period was ignored on this path, so a caller asking for
+                # the PRIOR scalar silently received the CURRENT one — delta 0.0, a
+                # confident "no change" on a KPI that had moved. Fixed for BigQuery
+                # first after a live run exposed it; the same defect was present in
+                # every other backend builder, including the ones Apex (Snowflake)
+                # and Hess (SQL Server) run on.
+                cond = (
+                    TimeFilter.previous_condition(_spec, timeframe, dialect="snowflake")
+                    if comparison_period
+                    else TimeFilter.current_condition(_spec, timeframe, dialect="snowflake")
+                )
                 return TimeFilter.append_condition(raw_sql, cond)
 
             dim = override_group_by[0]
@@ -4961,7 +4971,17 @@ class A9_Data_Product_Agent(DataProductProtocol):
             _spec = time_spec or {"type": "date", "column": "transaction_date"}
 
             if not breakdown or not override_group_by:
-                cond = TimeFilter.current_condition(_spec, timeframe, dialect="sqlserver")
+                # comparison_period was ignored on this path, so a caller asking for
+                # the PRIOR scalar silently received the CURRENT one — delta 0.0, a
+                # confident "no change" on a KPI that had moved. Fixed for BigQuery
+                # first after a live run exposed it; the same defect was present in
+                # every other backend builder, including the ones Apex (Snowflake)
+                # and Hess (SQL Server) run on.
+                cond = (
+                    TimeFilter.previous_condition(_spec, timeframe, dialect="sqlserver")
+                    if comparison_period
+                    else TimeFilter.current_condition(_spec, timeframe, dialect="sqlserver")
+                )
                 return TimeFilter.append_condition(raw_sql, cond)
 
             dim = override_group_by[0]
@@ -5029,7 +5049,17 @@ class A9_Data_Product_Agent(DataProductProtocol):
             _spec = time_spec or {"type": "date", "column": "transaction_date"}
 
             if not breakdown or not override_group_by:
-                cond = TimeFilter.current_condition(_spec, timeframe, dialect="databricks")
+                # comparison_period was ignored on this path, so a caller asking for
+                # the PRIOR scalar silently received the CURRENT one — delta 0.0, a
+                # confident "no change" on a KPI that had moved. Fixed for BigQuery
+                # first after a live run exposed it; the same defect was present in
+                # every other backend builder, including the ones Apex (Snowflake)
+                # and Hess (SQL Server) run on.
+                cond = (
+                    TimeFilter.previous_condition(_spec, timeframe, dialect="databricks")
+                    if comparison_period
+                    else TimeFilter.current_condition(_spec, timeframe, dialect="databricks")
+                )
                 return TimeFilter.append_condition(raw_sql, cond)
 
             dim = override_group_by[0]

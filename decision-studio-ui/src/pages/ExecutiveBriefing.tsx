@@ -593,6 +593,37 @@ export function ExecutiveBriefing() {
                 measurements disagree, and which one is measured. Suppressing the
                 sentence outright would be worse still: it would leave a gap with
                 no explanation. */}
+            {/* Analysis did not actually run. RED, not amber, and above the
+                narrative warning: this is not "treat the prose with caution", it is
+                "these are not recommendations at all".
+
+                The generic stub ("Tighten spend controls" / "Optimize pricing") is
+                indistinguishable from real model output to a reader, and its very
+                blandness is what a sceptic expects a weak AI tool to produce — so it
+                discredits the product precisely when it is not working. Observed live
+                2026-08-09 with an exhausted API quota: state=completed, error=None,
+                two plausible options, no signal anywhere the reader could see. */}
+            {(data as any).analysis_degraded && (
+              <div className="mb-6 rounded-lg border-2 border-red-500/60 bg-red-950/30 p-4 print:bg-red-50 print:border-red-400">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5 print:text-red-700" />
+                  <div>
+                    <p className="text-sm font-bold text-red-300 mb-1 print:text-red-900">
+                      These options were not produced by the analysis
+                    </p>
+                    <p className="text-xs text-red-200/90 print:text-red-800">
+                      {(data as any).degraded_reason === 'llm_unavailable'
+                        ? 'The language model was unavailable for this run — an outage, a credentials problem, or an exhausted quota. No analysis took place.'
+                        : 'The model responded but its output could not be read as a set of options, most often because the response was cut short.'}
+                      {' '}The options shown below are generic placeholders. Do not act on them, and do not
+                      read the absence of a specific recommendation as a finding. Re-run once the
+                      underlying problem is resolved.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {Array.isArray((data as any).narrative_warnings) && (data as any).narrative_warnings.length > 0 && (
               <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-950/20 p-4 print:bg-amber-50 print:border-amber-300">
                 <div className="flex items-start gap-2">

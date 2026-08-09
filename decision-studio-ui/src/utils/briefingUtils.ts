@@ -649,6 +649,11 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       // stops a detected error from shipping SILENTLY. A flag that only reaches
       // an audit payload nobody opens is a smoke alarm wired to a notepad —
       // arguably worse than no check, because it implies the guard is working.
+      // Carried from the SF response so the reader is told when these options are
+      // placeholders rather than analysis. Read straight through — deriving or
+      // defaulting this would recreate the failure it exists to expose.
+      analysis_degraded: sol?.analysis_degraded === true,
+      degraded_reason: sol?.degraded_reason ?? null,
       narrative_warnings: (() => {
         const ev = (sol?.audit_log || []).find((e: any) => e?.event === 'narrative_claim_mismatch')
         return ev?.findings?.length ? ev.findings : null
