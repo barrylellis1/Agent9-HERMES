@@ -123,9 +123,14 @@ test.describe('ROI recovery share', () => {
     expect(roi).not.toContain('% of');
   });
 
-  test('unstated scope still renders as unverified, with no share', async () => {
+  test('unstated scope is called out as unstated, with no share', async () => {
+    // Wording changed 2026-08-09: "(scope unverified)" read to a buyer as "we do
+    // not trust our own number". What is actually missing is the model's
+    // DECLARATION of whether the figure is enterprise-wide or one segment — which
+    // changes its size by an order of magnitude. The figure itself is not in doubt.
     const [roi] = roiFor([option('opt_1', null, 3_200_000, 5_100_000, null)]);
-    expect(roi).toContain('scope unverified');
+    expect(roi).toContain('scope not stated');
+    expect(roi).not.toContain('unverified');
     expect(roi).not.toContain('% of');
   });
 

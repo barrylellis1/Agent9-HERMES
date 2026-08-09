@@ -1,0 +1,53 @@
+{
+  "_comment": "PRE-FIX Lubricants profile. COGS was pinned to one customer/channel/segment while revenue spanned all of them. Frozen as a regression case for the slice-validity probe; do NOT regenerate from live data.",
+  "captured": "2026-08-09",
+  "source_view": "agent9-465818.LubricantsBusiness.LubricantsStarSchemaView",
+  "dimension_coverage": {
+    "customer_name": {
+      "revenue": 20,
+      "cogs": 1
+    },
+    "product_name": {
+      "revenue": 15,
+      "cogs": 6
+    },
+    "product_line": {
+      "revenue": 6,
+      "cogs": 2
+    },
+    "profit_center_name": {
+      "revenue": 4,
+      "cogs": 3
+    },
+    "channel_name": {
+      "revenue": 5,
+      "cogs": 1
+    },
+    "customer_segment": {
+      "revenue": 5,
+      "cogs": 1
+    }
+  },
+  "gross_margin_pct_by_customer": {
+    "National Auto Parts Chain A": -457.71,
+    "National Auto Parts Chain B": 100.0,
+    "Mass Retailer Group": 100.0,
+    "Hardware & Home Chain": 100.0,
+    "Regional Auto Parts Distributor": 100.0,
+    "Quick Lube Franchise Network": 100.0,
+    "Dealer Service Network": 100.0,
+    "Independent Service Centers": 100.0,
+    "Fleet Customer A": 100.0,
+    "Fleet Customer B": 100.0,
+    "Fleet Customer C": 100.0,
+    "Mining & Construction Corp": 100.0,
+    "Agriculture Coop": 100.0,
+    "Manufacturing Plant Group": 100.0,
+    "Power Generation Utility": 100.0,
+    "Marine Operations Co": 100.0,
+    "European Distributor": 100.0,
+    "Asia-Pacific Distributor": 100.0,
+    "Latin America Distributor": 100.0,
+    "Middle East Distributor": 100.0
+  }
+}

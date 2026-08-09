@@ -15,6 +15,49 @@
 export const STABLE_MONTHLY_THRESHOLD = 0.0001
 const MAX_MONTHLY_RATE = 1.0 / 12
 
+// Duration phrases, longest/most specific first — "30-60 days" must win over "60 days".
+const _DURATION_PATTERNS: RegExp[] = [
+  /\b\d+\s*[-–—]\s*\d+\s*(?:day|week|month|quarter|year)s?\b/i,
+  /\bwithin\s+(?:one|two|three|a|the)\s+(?:fiscal\s+)?(?:day|week|month|quarter|year)s?\b/i,
+  /\b(?:one|two|three|four|six|twelve)\s+(?:fiscal\s+)?(?:day|week|month|quarter|year)s?\b/i,
+  /\b\d+\s*(?:day|week|month|quarter|year)s?\b/i,
+  /\bQ[1-4](?:\s*[-–—]\s*Q[1-4])?\b/,
+  /\b(?:immediate|immediately|next\s+quarter|this\s+quarter)\b/i,
+]
+
+/**
+ * Condense `time_to_value` for the 4-across metric tile.
+ *
+ * The model writes this as free prose and is frequently expansive — one live
+ * briefing rendered "Interim cost-offset actions deliverable in 30-60 days; full
+ * escalation clause activation and quarter-end price reset achievable within one
+ * fiscal quarter, aligning with..." into a quarter-width card, which overflowed
+ * and read as unfinished. The tile wants the duration; the full sentence stays
+ * available as a tooltip.
+ *
+ * Returns the input unchanged when it is already tile-sized, so a well-behaved
+ * "3-6 months" is never mangled.
+ */
+export function condenseTimeToValue(raw: string | null | undefined, maxLen = 28): string {
+  const s = String(raw ?? '').trim()
+  if (!s) return '—'
+  if (s.length <= maxLen) return s
+
+  for (const re of _DURATION_PATTERNS) {
+    const m = s.match(re)
+    if (m) {
+      const phrase = m[0].trim()
+      // Capitalise only when it starts the value, so "30-60 days" stays lowercase-safe
+      return phrase.charAt(0).toUpperCase() + phrase.slice(1)
+    }
+  }
+
+  // No recognisable duration — truncate on a word boundary rather than mid-word.
+  const cut = s.slice(0, maxLen)
+  const lastSpace = cut.lastIndexOf(' ')
+  return `${(lastSpace > maxLen * 0.5 ? cut.slice(0, lastSpace) : cut).replace(/[,;:.]$/, '')}…`
+}
+
 export function projectKpiTrend(currentValue: number, percentChange: number | null | undefined, comparisonValue?: number | null) {
   let monthlyRate = 0
   if (percentChange != null && percentChange !== 0) {
@@ -246,7 +289,12 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
           if (ie.scope === 'segment' && ie.scope_label) return `${range} — ${ie.scope_label} only${share}`
           if (ie.scope === 'segment') return `${range} — single segment${share}`
           if (ie.scope === 'enterprise') return `${range} (enterprise)${share}`
-          return `${range} (scope unverified)`
+          // The figure itself is the model's; what is missing is the DECLARATION of
+          // whether it applies enterprise-wide or to one segment — which changes its
+          // size by an order of magnitude. "(scope unverified)" read to a buyer as
+          // "we don't trust our own number"; this attributes the gap to the missing
+          // statement instead, which is what actually happened.
+          return `${range} — scope not stated`
         }
       }
       // Last-resort fallback: attempt rough estimate from primary root cause delta

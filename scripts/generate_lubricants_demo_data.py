@@ -78,6 +78,50 @@ PRODUCTS = [
     {"product_id": "P-CH-02", "product_name": "Oil Treatment Additive",         "product_line": "Chemicals & Additives",      "product_category": "Specialty"},
 ]
 
+# Per-product cost economics — the reason margin differs by customer.
+#
+#   cogs_ratio        COGS as a share of revenue for this product. Weighted across the
+#                     actual sales mix this lands enterprise gross margin near 33%.
+#   base_oil_share    Share of THAT product's COGS which is base oil, i.e. the portion
+#                     exposed to the Q4-2025 base-oil spike. Synthetic Blend is the most
+#                     exposed: heavy base-oil content at mid-range pricing, so it has the
+#                     least room to absorb a raw-material move. Coolants and chemicals are
+#                     glycol/additive based and barely feel it.
+#
+# These two numbers are what make margin-by-customer a REAL slice: a customer weighted
+# toward Synthetic Blend takes a genuine, explainable margin hit when base oil spikes,
+# while a Full-Synthetic-weighted customer does not.
+PRODUCT_ECONOMICS = {
+    "P-EO-FS": {"cogs_ratio": 0.60, "base_oil_share": 0.35},  # Full Synthetic  — PAO/additive heavy
+    "P-EO-SB": {"cogs_ratio": 0.72, "base_oil_share": 0.55},  # Synthetic Blend — MOST exposed
+    "P-EO-CV": {"cogs_ratio": 0.74, "base_oil_share": 0.50},  # Conventional
+    "P-EO-HM": {"cogs_ratio": 0.62, "base_oil_share": 0.42},  # High Mileage
+    "P-TF-01": {"cogs_ratio": 0.66, "base_oil_share": 0.45},  # ATF
+    "P-TF-02": {"cogs_ratio": 0.72, "base_oil_share": 0.45},  # Manual Gear Oil
+    "P-IL-HY": {"cogs_ratio": 0.68, "base_oil_share": 0.48},  # Hydraulic
+    "P-IL-CO": {"cogs_ratio": 0.66, "base_oil_share": 0.48},  # Compressor
+    "P-IL-TB": {"cogs_ratio": 0.63, "base_oil_share": 0.44},  # Turbine
+    "P-GR-01": {"cogs_ratio": 0.61, "base_oil_share": 0.30},  # Multi-Purpose Grease
+    "P-GR-02": {"cogs_ratio": 0.58, "base_oil_share": 0.28},  # High-Temp Grease
+    "P-CL-01": {"cogs_ratio": 0.67, "base_oil_share": 0.15},  # Extended Life Coolant
+    "P-CL-02": {"cogs_ratio": 0.69, "base_oil_share": 0.15},  # Heavy-Duty Coolant
+    "P-CH-01": {"cogs_ratio": 0.55, "base_oil_share": 0.20},  # Fuel System Cleaner
+    "P-CH-02": {"cogs_ratio": 0.56, "base_oil_share": 0.20},  # Oil Treatment Additive
+}
+
+# Non-base-oil COGS accounts and their relative weights (they split whatever is left
+# after base oil takes its product-specific share).
+_NON_BASE_OIL_COGS = [
+    ("GL-C200", 0.50),  # Blending & Manufacturing
+    ("GL-C300", 0.20),  # Packaging
+    ("GL-C400", 0.30),  # Distribution & Freight
+]
+
+# Production schedules are smoothed against retail demand, so recognised cost does not
+# track revenue month-for-month. Damped so the resulting margin wobble stays realistic
+# (~±7%) rather than swinging on the full seasonal gap.
+PROD_SMOOTHING = 0.35
+
 CUSTOMERS = [
     # Retail Partners
     {"customer_id": "C-RP-01", "customer_name": "National Auto Parts Chain A",     "customer_segment": "Retail Partners",     "customer_region": "North America"},
@@ -174,6 +218,30 @@ CHANNEL_CUSTOMERS = {
 }
 
 
+# Per-customer product mix skew — multiplies that customer's weight on a product.
+#
+# Without this every customer ends up with essentially the same mix, so a base-oil
+# shock hits all of them equally and there is no concentration to diagnose. Real
+# accounts are not mix-neutral: a value-positioned retail chain sells mid-range
+# product, a premium service network sells full synthetic.
+#
+# This is what makes National Auto Parts Chain A a GENUINE concentration rather than
+# an artefact — it is weighted into Synthetic Blend and Conventional, the two products
+# most exposed to base oil, so it takes real margin damage a Full-Synthetic-weighted
+# account does not. The causal chain Deep Analysis should find is
+# customer -> product mix -> base oil, and every link in it is true in the data.
+CUSTOMER_PRODUCT_BIAS = {
+    # Value-positioned national chain: mid-range and conventional heavy.
+    "C-RP-01": {"P-EO-SB": 3.2, "P-EO-CV": 2.4, "P-EO-FS": 0.35, "P-EO-HM": 0.6},
+    # Premium-positioned chain: skews the other way, so it holds margin.
+    "C-RP-02": {"P-EO-FS": 2.4, "P-EO-HM": 1.8, "P-EO-SB": 0.45, "P-EO-CV": 0.4},
+    # Mass retailer: heavy conventional but big chemicals attach (high margin).
+    "C-RP-03": {"P-EO-CV": 1.9, "P-CH-01": 1.8, "P-CH-02": 1.7, "P-EO-FS": 0.6},
+    # Quick-lube franchise: mid-range workhorse.
+    "C-SC-02": {"P-EO-SB": 1.8, "P-TF-01": 1.4, "P-EO-FS": 0.7},
+}
+
+
 def _quarter(m: int) -> int:
     return (m - 1) // 3 + 1
 
@@ -247,6 +315,14 @@ def generate_transactions() -> List[Dict]:
 
         monthly_revenue_base = base_monthly_revenue * yoy_growth * season
 
+        # Revenue basis for COGS allocation, keyed by the full dimension tuple.
+        # COGS is derived FROM this rather than generated top-down, which is what
+        # keeps customer / channel / product attribution consistent between the two
+        # sides of the margin ratio. Generating them independently is what produced
+        # every COGS row landing on one customer and eleven customers at exactly
+        # 100% margin.
+        month_revenue_basis: Dict[tuple, float] = {}
+
         # ────────────────────────────────────────────────────────
         # REVENUE  (per channel -> customer -> product -> 1-3 txns)
         # ────────────────────────────────────────────────────────
@@ -275,8 +351,14 @@ def generate_transactions() -> List[Dict]:
             n_prods = len(prod_pool)
             total_combos = n_custs * n_prods
 
-            # Random weights for each combo
+            # Random weights for each combo, then skewed by the customer's product mix.
             combo_weights = [random.uniform(0.5, 1.5) for _ in range(total_combos)]
+            for _ci, _cust in enumerate(cust_pool):
+                _bias = CUSTOMER_PRODUCT_BIAS.get(_cust)
+                if not _bias:
+                    continue
+                for _pi, _prod in enumerate(prod_pool):
+                    combo_weights[_ci * n_prods + _pi] *= _bias.get(_prod, 1.0)
             combo_total_w = sum(combo_weights)
 
             idx = 0
@@ -299,48 +381,55 @@ def generate_transactions() -> List[Dict]:
                             yr=yr, mo=mo, amt=amt,
                         ))
 
+                    # Record the basis at full dimensional grain for COGS allocation.
+                    _key = (cust_id, prod_id, pc_id, channel_id)
+                    month_revenue_basis[_key] = month_revenue_basis.get(_key, 0.0) + combo_share
+
         # ────────────────────────────────────────────────────────
         # COGS  (decoupled from revenue seasonality)
         # Uses COST_SEASONAL for production-schedule smoothing
         # ────────────────────────────────────────────────────────
-        cogs_accounts = [
-            ("GL-C100", 0.40),  # Base Oil & Additives
-            ("GL-C200", 0.30),  # Blending & Manufacturing
-            ("GL-C300", 0.12),  # Packaging
-            ("GL-C400", 0.18),  # Distribution
-        ]
-        # Base COGS = annual revenue * 0.65 / 12, with mild cost seasonality
-        annual_revenue = base_monthly_revenue * yoy_growth * sum(CHANNEL_REVENUE_WEIGHTS.values()) * 12
-        monthly_cogs_base = (annual_revenue * 0.65 / 12) * cost_season
+        # Production smoothing: recognised cost does not track demand month-for-month.
+        # Damped so this shows up as realistic margin wobble, not a wild swing.
+        _smooth = 1.0 + PROD_SMOOTHING * ((cost_season / season) - 1.0)
 
-        cost_pcs = ["PC-RP", "PC-SC", "PC-CI"]
-        cost_prods = [p["product_id"] for p in PRODUCTS[:6]]  # Engine oils + transmission
+        # Base-oil spike multiplier — applied ONLY to the base-oil portion of each
+        # product's cost, so exposure is proportional to base_oil_share. This is what
+        # concentrates the margin damage in Synthetic-Blend-weighted customers instead
+        # of hitting everyone equally.
+        if yr == 2025 and qtr == 4:
+            base_oil_mult = 1.22          # SCENARIO 1: +22% spike
+        elif yr == 2026:
+            base_oil_mult = 1.18          # Elevated but easing
+        else:
+            base_oil_mult = 1.0
 
-        for gl_id, cogs_pct in cogs_accounts:
-            cogs_amount = monthly_cogs_base * cogs_pct
+        # Normal inflation on non-base-oil cost from 2025
+        other_mult = 1.02 if yr >= 2025 else 1.0
 
-            # ── SCENARIO 1: Base Oil cost spike Q4 2025 + Q1 2026 ──
-            if gl_id == "GL-C100":
-                if yr == 2025 and qtr == 4:
-                    cogs_amount *= 1.22  # +22% spike
-                elif yr == 2026:
-                    cogs_amount *= 1.18  # Elevated but easing
+        for (cust_id, prod_id, pc_id, channel_id), rev in month_revenue_basis.items():
+            econ = PRODUCT_ECONOMICS.get(prod_id)
+            if econ is None or rev <= 0:
+                continue
 
-            # Normal +2% inflation on other COGS in 2025+
-            if gl_id != "GL-C100" and yr >= 2025:
-                cogs_amount *= 1.02
+            total_cogs = rev * econ["cogs_ratio"] * _smooth
+            bo_share = econ["base_oil_share"]
 
-            # Distribute across profit centers and products
-            n_splits = len(cost_pcs) * 3  # ~9 txns per COGS account
-            splits = _random_splits(n_splits, cogs_amount)
-            for i, amt in enumerate(splits):
+            # Base Oil & Additives — carries the spike, scaled by product exposure.
+            base_oil_cost = total_cogs * bo_share * base_oil_mult
+            rows.append(_make_txn(
+                gl_id="GL-C100", prod_id=prod_id, cust_id=cust_id,
+                pc_id=pc_id, ch_id=channel_id,
+                yr=yr, mo=mo, amt=-base_oil_cost,
+            ))
+
+            # Blending / Packaging / Distribution split the remainder.
+            remainder = total_cogs * (1.0 - bo_share) * other_mult
+            for gl_id, w in _NON_BASE_OIL_COGS:
                 rows.append(_make_txn(
-                    gl_id=gl_id,
-                    prod_id=cost_prods[i % len(cost_prods)],
-                    cust_id="C-RP-01",
-                    pc_id=cost_pcs[i % len(cost_pcs)],
-                    ch_id="CH-DIY",
-                    yr=yr, mo=mo, amt=-amt,
+                    gl_id=gl_id, prod_id=prod_id, cust_id=cust_id,
+                    pc_id=pc_id, ch_id=channel_id,
+                    yr=yr, mo=mo, amt=-(remainder * w),
                 ))
 
         # ────────────────────────────────────────────────────────
@@ -395,20 +484,45 @@ def generate_transactions() -> List[Dict]:
         # ────────────────────────────────────────────────────────
         budget_monthly = base_monthly_revenue * (1.05 if yr >= 2025 else 1.0) * season
 
-        # Budget revenue lines
-        for gl_id, pct in [("GL-R100", 0.87), ("GL-R200", 0.13)]:
-            rows.append(_make_txn(
-                gl_id=gl_id, prod_id="P-EO-FS", cust_id="C-RP-01",
-                pc_id="PC-RP" if gl_id == "GL-R100" else "PC-SC",
-                ch_id="CH-DIY", yr=yr, mo=mo,
-                amt=budget_monthly * pct, version="Budget",
-            ))
-        # Budget COGS (stable base oil assumed)
-        rows.append(_make_txn(
-            gl_id="GL-C100", prod_id="P-EO-FS", cust_id="C-RP-01",
-            pc_id="PC-RP", ch_id="CH-DIY", yr=yr, mo=mo,
-            amt=-(budget_monthly * 0.65 * 0.40), version="Budget",
-        ))
+        # Budget revenue + COGS, distributed across the SAME dimensional grain as actuals.
+        #
+        # Previously both were single rows pinned to C-RP-01 / P-EO-FS / CH-DIY, which
+        # broke plan-variance the same way COGS broke gross margin: every customer except
+        # one had budget revenue of zero. Budget COGS also used only the base-oil share
+        # (0.65 * 0.40 = 26% of revenue), implying a 74% budget margin against a ~33%
+        # actual — a colossal fake variance on every plan comparison.
+        #
+        # Budget assumes NO base-oil spike, so it uses each product's cogs_ratio flat.
+        # That is what makes the 2025/26 plan variance real and attributable.
+        _basis_total = sum(month_revenue_basis.values())
+        if _basis_total > 0:
+            for (cust_id, prod_id, pc_id, channel_id), rev in month_revenue_basis.items():
+                econ = PRODUCT_ECONOMICS.get(prod_id)
+                if econ is None or rev <= 0:
+                    continue
+                share = rev / _basis_total
+                bud_rev = budget_monthly * share
+                bud_gl = "GL-R200" if channel_id == "CH-DIFM" else "GL-R100"
+
+                rows.append(_make_txn(
+                    gl_id=bud_gl, prod_id=prod_id, cust_id=cust_id,
+                    pc_id=pc_id, ch_id=channel_id, yr=yr, mo=mo,
+                    amt=bud_rev, version="Budget",
+                ))
+
+                bud_cogs = bud_rev * econ["cogs_ratio"]
+                rows.append(_make_txn(
+                    gl_id="GL-C100", prod_id=prod_id, cust_id=cust_id,
+                    pc_id=pc_id, ch_id=channel_id, yr=yr, mo=mo,
+                    amt=-(bud_cogs * econ["base_oil_share"]), version="Budget",
+                ))
+                _bud_remainder = bud_cogs * (1.0 - econ["base_oil_share"])
+                for gl_id, w in _NON_BASE_OIL_COGS:
+                    rows.append(_make_txn(
+                        gl_id=gl_id, prod_id=prod_id, cust_id=cust_id,
+                        pc_id=pc_id, ch_id=channel_id, yr=yr, mo=mo,
+                        amt=-(_bud_remainder * w), version="Budget",
+                    ))
         # Budget SG&A
         rows.append(_make_txn(
             gl_id="GL-S100", prod_id="P-EO-FS", cust_id="C-RP-01",

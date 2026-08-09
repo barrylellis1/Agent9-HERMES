@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { approveSolution, askBriefingQuestion, BriefingQAResponse, storeBriefingSnapshot, getBriefingSnapshot, getVASolution } from '../api/client'
 import { CostOfInactionBanner } from '../components/CostOfInactionBanner'
-import { projectKpiTrend } from '../utils/briefingUtils'
+import { projectKpiTrend, condenseTimeToValue } from '../utils/briefingUtils'
 import { ValueAssurancePanel } from '../components/ValueAssurancePanel'
 import { AttributionBreakdown } from '../components/AttributionBreakdown'
 import { BrandLogo } from '../components/BrandLogo'
@@ -757,9 +757,13 @@ export function ExecutiveBriefing() {
                         <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Est. ROI</p>
                         <p className="text-sm font-bold text-emerald-400">{formatROI(roi)}</p>
                       </div>
-                      <div className="bg-slate-800/60 rounded-lg p-3">
+                      <div className="bg-slate-800/60 rounded-lg p-3 min-w-0">
                         <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Time to Value</p>
-                        <p className="text-sm font-bold text-amber-400">{timeline}</p>
+                        {/* The model writes time_to_value as prose and is often expansive;
+                            condense for the tile, keep the full text on hover. */}
+                        <p className="text-sm font-bold text-amber-400 break-words" title={timeline}>
+                          {condenseTimeToValue(timeline)}
+                        </p>
                       </div>
                       <div className="bg-slate-800/60 rounded-lg p-3">
                         <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Investment</p>
