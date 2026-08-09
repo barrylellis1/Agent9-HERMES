@@ -23,6 +23,17 @@ export interface KTIsIsNotData {
   what_is_not?: any[]
   when_is?: any[]
   when_is_not?: any[]
+  /**
+   * True only when Deep Analysis ran its ratio bridge for EVERY dimension, making
+   * each `delta` a revenue-weighted contribution to the KPI's overall movement.
+   * Only then may these deltas be summed.
+   *
+   * A ratio's raw per-segment changes are NOT additive. This header summed them
+   * unconditionally and printed -53pp for a KPI whose enterprise move was about
+   * -5pp; summing the margin LEVELS the same way gives 452.95% against a true
+   * 29.43%, overstated 15.4x. Absent or false means show no total.
+   */
+  deltas_are_contributions?: boolean
 }
 
 interface IsIsNotExhibitProps {
@@ -66,6 +77,18 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
   const isMixed = analysisMode === 'mixed'
   const [expandedDimensions, setExpandedDimensions] = useState<Set<string>>(new Set())
 
+  // Additivity is asserted by the backend or not at all. `=== true` deliberately,
+  // so undefined (an older payload, or a partial bridge run) is NOT summable.
+  const summable = data?.deltas_are_contributions === true
+
+  // A ratio KPI's deltas are percentage POINTS, not currency. formatExecutive
+  // defaults to a '$' prefix, which is how "-7.86pp" reached a CFO as "-$7".
+  const isRatioKpi = /%|percent|margin|rate|ratio|yield/i.test(kpiName || '')
+  const fmtDelta = (v: number): string =>
+    isRatioKpi
+      ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}pp`
+      : formatExecutive(v, '$', true)
+
   const toggleDimension = (dim: string) => {
     setExpandedDimensions(prev => {
       const next = new Set(prev)
@@ -80,7 +103,11 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
     dimension: string
     is: IsIsNotItem[]
     isNot: IsIsNotItem[]
-    netIsVariance: number
+    /** Null when the deltas are not additive — show no total rather than a wrong one. */
+    netIsVariance: number | null
+    /** Most extreme single member delta. Meaningful whether or not deltas are
+     *  additive, so ordering never depends on a sum we may not be allowed to take. */
+    sortKey: number
   }
 
   const processedData: ProcessedDimension[] = useMemo(() => {
@@ -134,25 +161,38 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
 
       const result: ProcessedDimension[] = []
       dimensionMap.forEach((items, dimension) => {
-        const netIsVariance = items.is.reduce((sum, i) => sum + (i.delta || 0), 0)
+        // Summable ONLY when the backend states these deltas are weighted
+        // contributions. Never inferred, never defaulted to true — an unmarked
+        // payload carries raw per-segment changes, and adding those together is
+        // the arithmetic that produced -53pp against a ~-5pp enterprise move.
+        const netIsVariance = summable
+          ? items.is.reduce((sum, i) => sum + (i.delta || 0), 0)
+          : null
+        const deltas = items.is.map(i => i.delta || 0)
+        const sortKey = deltas.length
+          ? (isOpportunity ? Math.max(...deltas) : Math.min(...deltas))
+          : 0
         result.push({
           dimension,
           is: items.is,
           isNot: items.isNot,
           netIsVariance,
+          sortKey,
         })
       })
 
-      // Sort: opportunity mode → most positive first; problem/mixed → most negative first
+      // Sort: opportunity mode → most positive first; problem/mixed → most negative
+      // first. Keyed on the most extreme MEMBER, not on a sum — ordering must not
+      // depend on an addition that is invalid for a ratio KPI.
       result.sort((a, b) => isOpportunity
-        ? b.netIsVariance - a.netIsVariance
-        : a.netIsVariance - b.netIsVariance)
+        ? b.sortKey - a.sortKey
+        : a.sortKey - b.sortKey)
       return result
     } catch (e) {
       console.error('IsIsNotExhibit: Error processing data', e)
       return []
     }
-  }, [data, isOpportunity])
+  }, [data, isOpportunity, summable])
 
   // Global max delta for bar scaling within expanded sections
   const maxDelta = useMemo(() => {
@@ -251,18 +291,26 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                   {dim.dimension}
                 </span>
 
-                {/* Net IS variance */}
-                <span className={`w-24 flex-shrink-0 text-right font-mono text-xs ${
-                  hasProblem
-                    ? isMixed
-                      ? (dim.netIsVariance < 0 ? 'text-red-400' : 'text-emerald-400')
-                      : isOpportunity ? 'text-emerald-400' : 'text-red-400'
-                    : 'text-slate-600'
-                }`}>
-                  {hasProblem
-                    ? dim.netIsVariance.toLocaleString(undefined, { maximumFractionDigits: 0 })
-                    : '—'
+                {/* Net IS variance — shown only when the deltas are additive. */}
+                <span
+                  className={`w-24 flex-shrink-0 text-right font-mono text-xs ${
+                    hasProblem && dim.netIsVariance != null
+                      ? isMixed
+                        ? (dim.netIsVariance < 0 ? 'text-red-400' : 'text-emerald-400')
+                        : isOpportunity ? 'text-emerald-400' : 'text-red-400'
+                      : 'text-slate-600'
+                  }`}
+                  title={
+                    dim.netIsVariance == null
+                      ? "No total: these are each segment's own change, which cannot be added together for this KPI. Expand to see the segments."
+                      : undefined
                   }
+                >
+                  {!hasProblem
+                    ? '—'
+                    : dim.netIsVariance == null
+                      ? '—'
+                      : fmtDelta(dim.netIsVariance)}
                 </span>
 
                 {/* IS count badges */}
@@ -323,12 +371,12 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                           />
                         </div>
                         <span className={`w-20 flex-shrink-0 text-right font-mono text-xs ${isOppItem ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {formatExecutive(item.delta || 0)}
+                          {fmtDelta(item.delta || 0)}
                         </span>
                         {matrixRan && (
                           <>
                             <span className="w-20 flex-shrink-0 text-right font-mono text-[11px] text-slate-400" title={basisLabel(comparatorSecondary)}>
-                              {item.secondary_delta != null ? formatExecutive(item.secondary_delta) : '—'}
+                              {item.secondary_delta != null ? fmtDelta(item.secondary_delta) : '—'}
                             </span>
                             <span className="w-16 flex-shrink-0"><TierChip tier={item.basis_agreement} /></span>
                           </>
@@ -345,8 +393,8 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                       ? Math.max(4, Math.abs(item.current) / maxDelta * 100)
                       : Math.max(4, absDelta / maxDelta * 100)
                     const displayVal = showCurrent
-                      ? formatExecutive(item.current || 0, '$', false)
-                      : formatExecutive(item.delta || 0)
+                      ? (isRatioKpi ? `${(item.current || 0).toFixed(2)}%` : formatExecutive(item.current || 0, '$', false))
+                      : fmtDelta(item.delta || 0)
 
                     return (
                       <div key={`isnot-${item.key}-${i}`} className="flex items-center gap-3">
@@ -365,7 +413,7 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                         {matrixRan && (
                           <>
                             <span className="w-20 flex-shrink-0 text-right font-mono text-[11px] text-slate-500" title={basisLabel(comparatorSecondary)}>
-                              {item.secondary_delta != null ? formatExecutive(item.secondary_delta) : '—'}
+                              {item.secondary_delta != null ? fmtDelta(item.secondary_delta) : '—'}
                             </span>
                             <span className="w-16 flex-shrink-0"><TierChip tier={item.basis_agreement} /></span>
                           </>

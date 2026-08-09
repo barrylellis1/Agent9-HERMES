@@ -292,7 +292,28 @@ KPIS: List[Dict[str, Any]] = [
         "tags": ["finance", "margin", "gross-margin", "lubricants"],
         "owner_role": "CFO",
         "stakeholder_roles": ["CEO", "Finance Manager"],
-        "metadata": {"line": "bottom", "altitude": "strategic", "positive_trend_is_good": "true"},
+        # kpi_type='ratio' + the two bridge queries switch Deep Analysis onto its
+        # ratio-aware path (`_maps_for_level`). Without them DA falls through to the
+        # generic path, where a segment's `delta` is its own raw pp change — and raw
+        # pp changes are NOT additive across segments. The Variance Breakdown header
+        # summed them anyway and reported -53pp against an enterprise move of ~-5pp.
+        #
+        # On the bridge path DA fetches gross profit and revenue SEPARATELY per
+        # segment, computes each segment's margin, and reports `delta` as a
+        # REVENUE-WEIGHTED contribution (rev_share x rate_change). Those DO sum to
+        # the enterprise change, which is what makes a variance decomposition
+        # legitimate rather than decorative.
+        #
+        # Both must be full SELECT ... FROM statements: the DPA lifts the expression
+        # between SELECT and FROM and re-hosts it under its own GROUP BY.
+        "metadata": {
+            "line": "bottom",
+            "altitude": "strategic",
+            "positive_trend_is_good": "true",
+            "kpi_type": "ratio",
+            "bridge_numerator_sql": f"SELECT SUM(CASE WHEN account_type IN ('Revenue', 'COGS') THEN amount ELSE 0 END) AS value FROM {_BQ_PREFIX} WHERE version = 'Actual'",
+            "bridge_denominator_sql": f"SELECT SUM(CASE WHEN account_type = 'Revenue' THEN amount ELSE 0 END) AS value FROM {_BQ_PREFIX} WHERE version = 'Actual'",
+        },
     },
     {
         "id": "operating_income",

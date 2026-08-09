@@ -15,6 +15,42 @@
 export const STABLE_MONTHLY_THRESHOLD = 0.0001
 const MAX_MONTHLY_RATE = 1.0 / 12
 
+/**
+ * Truncate prose for a summary block without cutting mid-word.
+ *
+ * The Flash Briefing — the first paragraph an executive reads — used raw
+ * `slice(0, 200)` and `slice(0, 120)`, which shipped "the business overall also
+ * underperform…" and "Option 1 is the right first move because it…." to a live
+ * print view. Reading like unfinished work in the hero summary costs more
+ * credibility than the omitted words were worth.
+ *
+ * Prefers a complete sentence, then a word boundary, and never both truncates
+ * and leaves a trailing separator that a caller's own period would double up.
+ */
+export function truncateProse(text: string | null | undefined, maxLen: number): string {
+  const s = String(text ?? '').trim()
+  if (!s) return ''
+  if (s.length <= maxLen) return s
+
+  const window = s.slice(0, maxLen)
+
+  // A complete sentence is the best cut — no ellipsis needed, so no risk of the
+  // caller appending a period onto one.
+  const lastStop = Math.max(window.lastIndexOf('. '), window.lastIndexOf('! '), window.lastIndexOf('? '))
+  if (lastStop > maxLen * 0.5) return window.slice(0, lastStop + 1)
+
+  // Otherwise cut on a word and strip any dangling punctuation, so we never
+  // render ",…" or "…." — the four-dot artefact the old code produced.
+  const lastSpace = window.lastIndexOf(' ')
+  const kept = (lastSpace > maxLen * 0.5 ? window.slice(0, lastSpace) : window).replace(/[\s,;:.!?—-]+$/, '')
+  return `${kept}…`
+}
+
+/** True when the text already ends a sentence, so a caller must not add another period. */
+export function endsSentence(text: string): boolean {
+  return /[.!?…]$/.test(text.trim())
+}
+
 // Duration phrases, longest/most specific first — "30-60 days" must win over "60 days".
 const _DURATION_PATTERNS: RegExp[] = [
   /\b\d+\s*[-–—]\s*\d+\s*(?:day|week|month|quarter|year)s?\b/i,
@@ -130,9 +166,15 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
     const confidenceMap = ['Low', 'Medium', 'High', 'Very High']
     const confidence = confidenceMap[confidenceScore] || 'Medium'
     
-    // Decision deadline based on severity
+    // Decision deadline based on severity.
+    //
+    // 'critical' previously read "End of Day". On a briefing whose fastest option
+    // takes 30-60 days and whose slowest spans 12-18 months, a same-day deadline
+    // is manufactured urgency, and an executive who notices discounts the rest of
+    // the page with it. These are financial-performance decisions, not outages:
+    // urgent means days, not hours.
     const deadlineMap: Record<string, string> = {
-      'critical': 'End of Day',
+      'critical': 'Within 48 Hours',
       'high': 'This Week',
       'medium': 'This Month',
       'low': 'Next Quarter'
@@ -144,10 +186,22 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       String(dim || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 
     // Format a delta value at the appropriate scale (no unit assumption)
-    const formatDelta = (delta: number | undefined | null): string => {
+    // A ratio KPI's numbers are percentages, not counts. Without a unit the
+    // Largest Variance Contributors block rendered "Current: +27.64 | Prior:
+    // +32.62 | Impact: Δ -4.98" — three bare numbers a reader must guess at, on
+    // a KPI where the difference between "%" and "pp" is the whole point.
+    const _isRatioKpi = kpiUnit === '%' || /%|percent|margin|rate|ratio|yield/i.test(kpiName)
+
+    /**
+     * @param kind 'level' is a measured value (renders %); 'delta' is a change
+     *             between two levels (renders pp). Conflating them is how a
+     *             7.86 percentage-POINT fall gets read as a 7.86% fall.
+     */
+    const formatDelta = (delta: number | undefined | null, kind: 'level' | 'delta' = 'delta'): string => {
       if (delta == null || delta === 0) return 'Significant'
       const abs = Math.abs(delta)
       const sign = delta > 0 ? '+' : ''
+      if (_isRatioKpi) return `${sign}${delta.toFixed(2)}${kind === 'level' ? '%' : 'pp'}`
       if (abs >= 1_000_000) return `${sign}${(delta / 1_000_000).toFixed(1)}M`
       if (abs >= 1_000)     return `${sign}${(delta / 1_000).toFixed(1)}K`
       return `${sign}${delta.toFixed(2)}`
@@ -162,7 +216,7 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
         const currVal = item?.current ?? item?.current_value
         const prevVal = item?.previous ?? item?.previous_value
         const evidenceStr = currVal != null
-          ? `Current: ${formatDelta(currVal)}${prevVal != null ? ` | Prior: ${formatDelta(prevVal)}` : ''}`
+          ? `Current: ${formatDelta(currVal, 'level')}${prevVal != null ? ` | Prior: ${formatDelta(prevVal, 'level')}` : ''}`
           : (item?.text
               ? String(item.text).replace(/^[a-z][a-z0-9_]*:\s*/i, '').trim()
               : 'N/A')

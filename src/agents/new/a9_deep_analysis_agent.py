@@ -793,6 +793,17 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 pass
             kt = KTIsIsNot()
 
+            # Did EVERY dimension go through the ratio bridge? Only then are the
+            # per-segment deltas revenue-weighted contributions, and only then may a
+            # consumer sum them. Counted rather than flagged so a partial run (bridge on
+            # one dimension, generic fallback on another) resolves to "not summable"
+            # instead of silently claiming additivity.
+            #
+            # Declared HERE, not inside the DPA branch that populates it: it is read
+            # unconditionally at the end of this method, and a definition nested in a
+            # conditional would raise NameError on every path where no KPI resolves.
+            _bridge_stats = {"levels": 0, "bridged": 0}
+
             change_points: List[ChangePoint] = []
             queries_executed: int = 0
             when_started: Optional[str] = None
@@ -965,6 +976,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     # Helper: compute grouped maps for a level using DP Agent
                     async def _maps_for_level(level_label: str, comparator: str) -> List[Dict[str, Any]]:
                         groups: List[Dict[str, Any]] = []
+                        _bridge_stats["levels"] += 1
 
                         # --- Bridge analysis path for ratio KPIs ---
                         # Activated when kpi_def carries kpi_type='ratio' metadata with
@@ -1038,6 +1050,9 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                             "delta":        round(_contrib, 4),
                                             "ratio":        _ratio_i,
                                         })
+                                    # `delta` above is rev_share * rate_change — a weighted
+                                    # contribution, which IS additive across segments.
+                                    _bridge_stats["bridged"] += 1
                                     return groups
                         except Exception as _bridge_exc:
                             self.logger.debug(f"[bridge] skipped for {level_label}: {_bridge_exc}")
@@ -2079,7 +2094,18 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 kt.extent_is.append(dq_alert)
                 self.logger.warning(f"[DATA_QUALITY] {len(all_dq_issues)} items moved to data quality alerts")
             
-            self.logger.info(f"[FINAL] where_is={len(kt.where_is)} items, where_is_not={len(kt.where_is_not)} items, dq_issues={len(all_dq_issues)} after filtering")
+            # Only claim additivity when EVERY level went through the ratio bridge.
+            # A partial run means some deltas are weighted contributions and others are
+            # raw segment changes; mixing them in a total is worse than showing none.
+            kt.deltas_are_contributions = bool(
+                _bridge_stats["levels"] > 0 and _bridge_stats["bridged"] == _bridge_stats["levels"]
+            )
+            self.logger.info(
+                f"[FINAL] where_is={len(kt.where_is)} items, where_is_not={len(kt.where_is_not)} items, "
+                f"dq_issues={len(all_dq_issues)} after filtering, "
+                f"bridge={_bridge_stats['bridged']}/{_bridge_stats['levels']} "
+                f"deltas_are_contributions={kt.deltas_are_contributions}"
+            )
 
             return DeepAnalysisResponse.success(
                 request_id=req_id,

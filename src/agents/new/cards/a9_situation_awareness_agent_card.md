@@ -487,3 +487,19 @@ Called in `detect_situations()` after `_detect_compound_alerts()` and after the 
 
     Cross-agent window equality is therefore only meaningful **within** a basis — comparing a plan variance against a YoY would flag a difference that is correct by definition.
   - Every field optional — purely additive; absence means "unknown provenance" and must **never** be read as a match. `_build_measurement_context()` never raises: provenance is bookkeeping and must not be able to break a measurement. Tests: `tests/unit/test_measurement_context.py` (24).
+
+## Situation Description States the Window It Measured — `_window_suffix()` (Aug 2026)
+
+**Bug fixed:** a live 12-page executive briefing carried **three** different characterisations of "the KPI's decline" on adjacent pages, none of them labelled:
+
+| stated | source | actual window |
+|---|---|---|
+| "decreased by **12.9%** vs prior year" | SA situation description | one pair |
+| "32.63% → 29.94% (Δ **-2.69pp**, **-8.2%**)" | DA enterprise | FY2025 → YTD2026 |
+| "**-7.14pp**" (−25.7%) | DA anchor segment | a third pair |
+
+Checked against BigQuery, the windows genuinely differ, so the numbers are **not** in conflict — but nothing said so, and a reader sees a contradiction on page one. SA's description is a sentence with a number baked into it, and Solution Finder carries that sentence **verbatim** into the briefing's problem statement (`a9_solution_finder_agent.py`, "use situation_context.description as the PRIMARY problem statement"), so the unlabelled figure propagates untouched.
+
+**Fix:** `_window_suffix(kpi_value)` renders the resolved window from the `MeasurementContext` already stamped on the reading, appended to both threshold-path descriptions. Emitted **only** for `comparison_basis in ("temporal", "version")` — `peer`, `projection` and `series` have no comparison window, and a fabricated range is worse than none because something downstream can compare against it and "confirm" nothing. Returns `""` when context is absent or incomplete, so an unstamped value degrades to the previous wording rather than inventing dates.
+
+**Related, not fixed here:** the underlying pattern is prose *restating* a figure instead of referencing it. Token substitution (the LLM references `{{kpi.current}}` rather than restating the number, with a basis-aware vocabulary) is the structural fix — see `DEVELOPMENT_PLAN.md` → Phase 15.

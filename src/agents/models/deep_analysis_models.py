@@ -130,6 +130,19 @@ class KTIsIsNot(A9AgentBaseModel):
         default_factory=list,
         description="IS NOT items classified as control_group or internal_benchmark after analysis"
     )
+    deltas_are_contributions: bool = Field(
+        False,
+        description=(
+            "True when every dimension was analysed via the ratio bridge, so each item's "
+            "`delta` is a REVENUE-WEIGHTED contribution to the KPI's overall movement and "
+            "the deltas may legitimately be summed. False when `delta` is a segment's own "
+            "raw change — which must NEVER be summed across segments. A ratio's raw pp "
+            "changes are not additive: summing the Lubricants product breakdown gave -53pp "
+            "against an enterprise move of about -5pp, and summing the margin LEVELS gave "
+            "452.95% against a true 29.43%. Defaults False so an unmarked payload is never "
+            "summed by accident."
+        ),
+    )
 
 
 class ChangePoint(A9AgentBaseModel):

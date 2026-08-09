@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { approveSolution, askBriefingQuestion, BriefingQAResponse, storeBriefingSnapshot, getBriefingSnapshot, getVASolution } from '../api/client'
 import { CostOfInactionBanner } from '../components/CostOfInactionBanner'
-import { projectKpiTrend, condenseTimeToValue } from '../utils/briefingUtils'
+import { projectKpiTrend, condenseTimeToValue, truncateProse, endsSentence } from '../utils/briefingUtils'
 import { ValueAssurancePanel } from '../components/ValueAssurancePanel'
 import { AttributionBreakdown } from '../components/AttributionBreakdown'
 import { BrandLogo } from '../components/BrandLogo'
@@ -629,9 +629,17 @@ export function ExecutiveBriefing() {
               const roi = data.options?.find((o: any) => o.recommended)?.roi || ''
 
               const sentences: string[] = []
-              if (scqa) sentences.push(scqa.length > 200 ? scqa.slice(0, 200).trimEnd() + '…' : scqa)
+              // Boundary-aware: raw slice() shipped "...also underperform…" and
+              // "...because it…." to a live print view.
+              if (scqa) sentences.push(truncateProse(scqa, 200))
               if (topDrivers.length) sentences.push(`Primary drivers: ${topDrivers.join(' and ')}.`)
-              if (rec) sentences.push(`The council recommends ${rec}${rationale ? ': ' + (rationale.length > 120 ? rationale.slice(0, 120).trimEnd() + '…' : rationale) : ''}.`)
+              if (rec) {
+                const why = rationale ? `: ${truncateProse(rationale, 120)}` : ''
+                const line = `The council recommends ${rec}${why}`
+                // Only add a period when the text does not already end one —
+                // otherwise a truncated clause renders as "because it…."
+                sentences.push(endsSentence(line) ? line : `${line}.`)
+              }
               if (roi) sentences.push(`Expected return: ${formatROI(roi)}.`)
               if (sentences.length < 3) sentences.push('Review the full analysis below before making a decision.')
 

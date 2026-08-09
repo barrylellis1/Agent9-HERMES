@@ -3684,7 +3684,8 @@ class A9_Situation_Awareness_Agent:
                         kpi_definition,
                         kpi_value,
                         severity,
-                        f"{kpi_definition.name} {change_direction} by {abs(percent_change):.1f}% vs prior year",
+                        f"{kpi_definition.name} {change_direction} by {abs(percent_change):.1f}%"
+                        f" vs prior year{self._window_suffix(kpi_value)}",
                         principal_context
                     ))
                 # Green-band: KPI is performing within or better than threshold — not a problem.
@@ -3721,12 +3722,49 @@ class A9_Situation_Awareness_Agent:
                         kpi_definition,
                         kpi_value,
                         severity,
-                        f"{kpi_definition.name} {change_direction} by {abs(percent_change):.1f}% ({change_quality})",
+                        f"{kpi_definition.name} {change_direction} by {abs(percent_change):.1f}%"
+                        f" ({change_quality}){self._window_suffix(kpi_value)}",
                         principal_context
                     ))
         
         return situations
     
+    @staticmethod
+    def _window_suffix(kpi_value: Any) -> str:
+        """Render the window a number actually measured, for the description text.
+
+        WHY
+        ---
+        A situation description states a bare percentage ("decreased by 12.9%"),
+        and Solution Finder carries that sentence verbatim into the briefing's
+        problem statement. Deep Analysis independently reports its own movement
+        for the same KPI over its own window. One live briefing therefore stated
+        three different characterisations of "the KPI's decline" on adjacent
+        pages — 12.9%, -8.2% enterprise, and -25.7% for the anchor segment —
+        with nothing to tell a reader they were different measurements rather
+        than a contradiction.
+
+        The windows legitimately differ. The defect is that none of them said so.
+        `MeasurementContext` already resolved this at read time; this just
+        surfaces it. Returns '' when context is absent, so an unstamped value
+        degrades to today's wording rather than inventing a window.
+        """
+        ctx = getattr(kpi_value, "context", None)
+        if ctx is None:
+            return ""
+        basis = getattr(ctx, "comparison_basis", None)
+        # Only temporal and version comparisons HAVE a comparison window. For
+        # peer / projection / series a date range would be fabricated — and a
+        # fabricated range is worse than none, because something downstream can
+        # compare against it and "confirm" nothing.
+        if basis not in ("temporal", "version"):
+            return ""
+        cur_s, cur_e = getattr(ctx, "window_start", None), getattr(ctx, "window_end", None)
+        cmp_s, cmp_e = getattr(ctx, "comparison_window_start", None), getattr(ctx, "comparison_window_end", None)
+        if not (cur_s and cur_e and cmp_s and cmp_e):
+            return ""
+        return f" ({cur_s}–{cur_e} vs {cmp_s}–{cmp_e})"
+
     def _create_threshold_situation(
         self,
         kpi_definition: KPIDefinition,

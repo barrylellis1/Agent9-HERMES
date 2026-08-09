@@ -142,6 +142,15 @@ export interface KTIsIsNotData {
   when_is?: any[];
   when_is_not?: any[];
   benchmark_segments?: BenchmarkSegment[];
+  /**
+   * Mirrors `KTIsIsNot.deltas_are_contributions` on the backend. True only when
+   * Deep Analysis ran its ratio bridge for EVERY dimension, so each `delta` is a
+   * revenue-weighted contribution and the deltas may be summed. A ratio's raw
+   * per-segment changes are not additive — summing them produced a -53pp header
+   * for a KPI whose enterprise move was about -5pp. Optional, and consumers must
+   * treat absent as NOT summable.
+   */
+  deltas_are_contributions?: boolean;
 }
 
 export interface DeepAnalysisExecution {
