@@ -19,6 +19,7 @@ from src.agents.shared.a9_agent_base_model import A9AgentBaseModel
 from src.agents.agent_config_models import A9_Deep_Analysis_Agent_Config
 from src.agents.protocols.deep_analysis_protocol import DeepAnalysisProtocol
 from src.agents.models.deep_analysis_models import (
+    DimensionTotal,
     DeepAnalysisRequest,
     DeepAnalysisPlan,
     DeepAnalysisResponse,
@@ -36,6 +37,11 @@ from src.database.time_filter import TimeFilter
 
 
 logger = logging.getLogger(__name__)
+
+# Key under which a GROUP BY ROLLUP grand-total row is stashed in a grouped map.
+# The NUL byte guarantees it cannot collide with a real dimension value, so a
+# segment genuinely named "None" or "Total" is never mistaken for the total.
+_ROLLUP_TOTAL_KEY = "\x00__rollup_total__"
 
 _MIXED_MODE_PURITY_THRESHOLD = 0.80  # fraction of top-N items that must be one direction to be "pure"
 
@@ -804,6 +810,28 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             # conditional would raise NameError on every path where no KPI resolves.
             _bridge_stats = {"levels": 0, "bridged": 0}
 
+            # Per-dimension totals, as the WAREHOUSE computed them (GROUP BY ROLLUP).
+            # Never derived by summing members: for a ratio KPI that gives 452.95%
+            # where the truth is 29.43%. Declared here, not inside the DPA branch that
+            # fills it, because it is read unconditionally at the end of this method.
+            _dimension_totals: Dict[str, DimensionTotal] = {}
+
+            # (dimension, key) -> weighted contribution, populated only by the ratio
+            # bridge. Declared unconditionally so every consumer can look up without
+            # knowing whether the bridge ran; an empty dict yields None everywhere,
+            # which renders as "not computed" rather than "contributed nothing".
+            _contrib_by_key: Dict[tuple, float] = {}
+
+            def _record_dimension_total(dim: str, cur: Optional[float], prev: Optional[float]) -> None:
+                if cur is None and prev is None:
+                    return  # source supplied no total — record nothing rather than a zero
+                _dimension_totals[str(dim)] = DimensionTotal(
+                    current=cur,
+                    previous=prev,
+                    delta=(cur - prev) if (cur is not None and prev is not None) else None,
+                    source="rollup",
+                )
+
             change_points: List[ChangePoint] = []
             queries_executed: int = 0
             when_started: Optional[str] = None
@@ -878,18 +906,36 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                     if isinstance(r, dict):
                                         key_col = cols[key_idx]
                                         val_col = cols[val_idx]
-                                        key = str(r.get(key_col))
+                                        _raw_key = r.get(key_col)
                                         val_raw = r.get(val_col)
                                         val = float(val_raw) if val_raw is not None else 0.0
                                     else:
-                                        key = str(r[key_idx])
+                                        _raw_key = r[key_idx]
                                         val = float(r[val_idx]) if r[val_idx] is not None else 0.0
+                                    # A NULL dimension is GROUP BY ROLLUP's grand-total row.
+                                    # Tested on the raw value, not on str(...) == "None", so a
+                                    # segment legitimately named "None" is never mistaken for
+                                    # the total. Sentinel contains a NUL byte, which no
+                                    # dimension value can.
+                                    key = _ROLLUP_TOTAL_KEY if _raw_key is None else str(_raw_key)
                                     out[key] = val
                                 except Exception:
                                     continue
                             return out
                         except Exception:
                             return {}
+
+                    def _pop_total(m: Dict[str, float]) -> Optional[float]:
+                        """Remove and return the ROLLUP grand-total row from a grouped map.
+
+                        MUST be called on every map before iterating it. The total row
+                        has a NULL dimension, so left in place it becomes a phantom
+                        segment that outweighs every real one — and would be ranked as
+                        the top change point.
+                        """
+                        if _ROLLUP_TOTAL_KEY in m:
+                            return float(m.pop(_ROLLUP_TOTAL_KEY))
+                        return None
 
                     # Helper: read dimension hierarchies from contract (if provided)
                     def _hierarchies_from_contract() -> Dict[str, List[str]]:
@@ -1047,11 +1093,20 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                             "key":          _k,
                                             "current":      round(_gm_c, 4),
                                             "previous":     round(_gm_p, 4),
-                                            "delta":        round(_contrib, 4),
+                                            # `delta` is this segment's OWN rate change, always.
+                                            # It used to carry `_contrib` here and the raw change
+                                            # on the generic path — one field, two meanings ~8x
+                                            # apart, selected by whether a KPI happened to declare
+                                            # bridge metadata. change_points feed Solution Finder,
+                                            # so that made a config flag silently change what the
+                                            # personas reasoned about.
+                                            "delta":        round(_rate, 4),
+                                            # The weighted contribution keeps its own field. This
+                                            # one IS additive across segments; `delta` is not.
+                                            "contribution_pp": round(_contrib, 4),
                                             "ratio":        _ratio_i,
                                         })
-                                    # `delta` above is rev_share * rate_change — a weighted
-                                    # contribution, which IS additive across segments.
+                                        _contrib_by_key[(level_label, _k)] = round(_contrib, 4)
                                     _bridge_stats["bridged"] += 1
                                     return groups
                         except Exception as _bridge_exc:
@@ -1062,12 +1117,14 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         try:
                             # Current map
                             gen_cur = await self.data_product_agent.generate_sql_for_kpi(
-                                kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[level_label]
+                                kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[level_label],
+                                include_total=True,
                             )
                             if not gen_cur.get("success"):
                                 return []
                             cur_exec = await self.data_product_agent.execute_sql(gen_cur.get("sql"), data_product_id=dp_id)
                             m_cur = _as_map(cur_exec)
+                            _tot_cur = _pop_total(m_cur)
 
                             if comparator == "budget":
                                 # Budget map: same timeframe, version filter rewritten to Budget.
@@ -1080,10 +1137,12 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 if _bud_kpi is None:
                                     return []
                                 gen_act = await self.data_product_agent.generate_sql_for_kpi(
-                                    kpi_def, timeframe=cur_tf, filters=_base_f, breakdown=True, override_group_by=[level_label]
+                                    kpi_def, timeframe=cur_tf, filters=_base_f, breakdown=True, override_group_by=[level_label],
+                                    include_total=True,
                                 )
                                 gen_bud = await self.data_product_agent.generate_sql_for_kpi(
-                                    _bud_kpi, timeframe=cur_tf, filters=_base_f, breakdown=True, override_group_by=[level_label]
+                                    _bud_kpi, timeframe=cur_tf, filters=_base_f, breakdown=True, override_group_by=[level_label],
+                                    include_total=True,
                                 )
                                 if not (gen_act.get("success") and gen_bud.get("success")):
                                     return []
@@ -1091,6 +1150,9 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 bud_exec = await self.data_product_agent.execute_sql(gen_bud.get("sql"), data_product_id=dp_id)
                                 m_act = _as_map(act_exec)
                                 m_bud = _as_map(bud_exec)
+                                _tot_cur = _pop_total(m_act)
+                                _tot_prev = _pop_total(m_bud)
+                                _record_dimension_total(level_label, _tot_cur, _tot_prev)
                                 keys = set(m_act.keys()) | set(m_bud.keys())
                                 for k in keys:
                                     c = float(m_act.get(k, 0.0))
@@ -1108,12 +1170,14 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 if not prev_tf:
                                     return []
                                 gen_prev = await self.data_product_agent.generate_sql_for_kpi(
-                                    kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[level_label], comparison_period=True
+                                    kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[level_label], comparison_period=True, include_total=True
                                 )
                                 if not gen_prev.get("success"):
                                     return []
                                 prev_exec = await self.data_product_agent.execute_sql(gen_prev.get("sql"), data_product_id=dp_id)
                                 m_prev = _as_map(prev_exec)
+                                _tot_prev = _pop_total(m_prev)
+                                _record_dimension_total(level_label, _tot_cur, _tot_prev)
                                 keys = set(m_cur.keys()) | set(m_prev.keys())
                                 for k in keys:
                                     c = float(m_cur.get(k, 0.0))
@@ -1148,7 +1212,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 within.append(g)
                         return breaches, within
 
-                    def _format_where_entry(dimension: Any, key: Any, delta: Any, current: Any, previous: Any, note: Optional[str] = None, segment_type: Optional[str] = None) -> Dict[str, Any]:
+                    def _format_where_entry(dimension: Any, key: Any, delta: Any, current: Any, previous: Any, note: Optional[str] = None, segment_type: Optional[str] = None, contribution_pp: Any = None) -> Dict[str, Any]:
                         try:
                             delta_val = float(delta if delta is not None else 0.0)
                         except Exception:
@@ -1170,6 +1234,11 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                             entry["note"] = note
                         if segment_type is not None:
                             entry["segment_type"] = segment_type
+                        # Only present for ratio KPIs with bridge SQL configured. Absent
+                        # means "not computed" — never rendered as zero, which would read
+                        # as "this segment contributed nothing".
+                        if contribution_pp is not None:
+                            entry["contribution_pp"] = contribution_pp
                         return entry
 
                     def _format_when_entry(bucket: Any, delta: Any, current: Any, previous: Any, note: Optional[str] = None) -> Dict[str, Any]:
@@ -1356,9 +1425,9 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                     pass
                                 if breaches:
                                     for b in breaches:
-                                        entry_b = _format_where_entry(b.get("dimension"), b.get("key"), b.get("delta"), b.get("current"), b.get("previous"))
+                                        entry_b = _format_where_entry(b.get("dimension"), b.get("key"), b.get("delta"), b.get("current"), b.get("previous"), contribution_pp=b.get("contribution_pp"))
                                         kt.where_is.append(entry_b)
-                                        change_points.append(ChangePoint(dimension=b.get("dimension"), key=b.get("key"), current_value=b.get("current"), previous_value=b.get("previous"), delta=b.get("delta")))
+                                        change_points.append(ChangePoint(dimension=b.get("dimension"), key=b.get("key"), current_value=b.get("current"), previous_value=b.get("previous"), delta=b.get("delta"), contribution_pp=b.get("contribution_pp")))
                                     for w in within:
                                         entry_w = _format_where_entry(w.get("dimension"), w.get("key"), w.get("delta"), w.get("current"), w.get("previous"), note="Within threshold")
                                         kt.where_is_not.append(entry_w)
@@ -1471,9 +1540,10 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                     for key, c, p, d in where_is_items:
                                         dedup_key = (dim, key)
                                         if dedup_key not in added_where_is_keys:
-                                            entry_top = _format_where_entry(dim, key, d, c, p, segment_type="problem")
+                                            _contrib = _contrib_by_key.get((dim, key))
+                                            entry_top = _format_where_entry(dim, key, d, c, p, segment_type="problem", contribution_pp=_contrib)
                                             kt.where_is.append(entry_top)
-                                            change_points.append(ChangePoint(dimension=dim, key=key, current_value=c, previous_value=p, delta=d))
+                                            change_points.append(ChangePoint(dimension=dim, key=key, current_value=c, previous_value=p, delta=d, contribution_pp=_contrib))
                                             added_keys_topn.add(key)
                                             added_where_is_keys.add(dedup_key)
                                         else:
@@ -2094,17 +2164,38 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 kt.extent_is.append(dq_alert)
                 self.logger.warning(f"[DATA_QUALITY] {len(all_dq_issues)} items moved to data quality alerts")
             
-            # Only claim additivity when EVERY level went through the ratio bridge.
-            # A partial run means some deltas are weighted contributions and others are
-            # raw segment changes; mixing them in a total is worse than showing none.
-            kt.deltas_are_contributions = bool(
-                _bridge_stats["levels"] > 0 and _bridge_stats["bridged"] == _bridge_stats["levels"]
-            )
+            kt.dimension_totals = _dimension_totals
+
+            # Cross-check: where the ratio bridge ran, the WEIGHTED contributions should
+            # land on the warehouse-computed total. Two independent computations of the
+            # same quantity — SUM(gp)/SUM(rev) in SQL versus sum(rev_share * rate) in
+            # Python — so a divergence means one of them is wrong. Logged rather than
+            # raised: the total is authoritative and already correct on its own, and a
+            # bad decomposition must not take down an otherwise-good analysis.
+            for _dim, _tot in _dimension_totals.items():
+                if _tot.delta is None:
+                    continue
+                _contribs = [
+                    cp.contribution_pp for cp in change_points
+                    if cp.dimension == _dim and cp.contribution_pp is not None
+                ]
+                if not _contribs:
+                    continue
+                _sum_c = sum(_contribs)
+                # Members shown are top-N, so the sum is a subset of the whole and can
+                # only be checked for OVERSHOOT — exceeding the total it decomposes.
+                if abs(_sum_c) > abs(_tot.delta) * 1.15 + 0.01:
+                    self.logger.warning(
+                        f"[ROLLUP-CHECK] {_dim}: contributions sum to {_sum_c:.3f} but the "
+                        f"warehouse total moved {_tot.delta:.3f} — decomposition overshoots "
+                        f"the quantity it decomposes"
+                    )
+
             self.logger.info(
                 f"[FINAL] where_is={len(kt.where_is)} items, where_is_not={len(kt.where_is_not)} items, "
                 f"dq_issues={len(all_dq_issues)} after filtering, "
                 f"bridge={_bridge_stats['bridged']}/{_bridge_stats['levels']} "
-                f"deltas_are_contributions={kt.deltas_are_contributions}"
+                f"dimension_totals={len(_dimension_totals)}"
             )
 
             return DeepAnalysisResponse.success(

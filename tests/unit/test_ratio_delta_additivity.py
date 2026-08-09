@@ -16,16 +16,22 @@ the KPI carries `kpi_type='ratio'` plus bridge SQL in its metadata, and the
 Lubricants Gross Margin % KPI carried neither — so DA fell through to raw
 per-segment deltas and the UI added them up anyway.
 
-Two independent things are pinned here:
-  1. the arithmetic itself, so nobody "simplifies" the weighting away;
-  2. `deltas_are_contributions`, which must default False so an unmarked payload
-     is never summed by accident.
+The fix has two halves:
+  1. The TOTAL is re-aggregated by the warehouse (GROUP BY ROLLUP) using the KPI's
+     own registered expression, never derived by adding member rows. It arrives as
+     `KTIsIsNot.dimension_totals` and consumers read it rather than computing one.
+  2. `delta` on a segment ALWAYS means that segment's own change. It briefly
+     carried a weighted contribution when a KPI declared bridge metadata and a raw
+     change otherwise — one field, two meanings ~8x apart, chosen by config. Since
+     change_points feed Solution Finder, that let a metadata flag silently change
+     what the personas reasoned about. Contribution now has its own field,
+     `contribution_pp`, which is additive where `delta` is not.
 """
 from __future__ import annotations
 
 import pytest
 
-from src.agents.models.deep_analysis_models import KTIsIsNot
+from src.agents.models.deep_analysis_models import ChangePoint, DimensionTotal, KTIsIsNot
 
 # Gross Margin % by product, 2026, from BigQuery (GROUP BY ROLLUP).
 # (segment, margin_pct, revenue_millions)
@@ -86,25 +92,48 @@ class TestTheSummationFallacy:
         assert abs(raw_sum) > abs(weighted_sum) * 3
 
 
-class TestAdditivityFlagFailsSafe:
-    def test_defaults_to_false(self):
-        """An unmarked payload must never be summed.
+class TestTotalsComeFromTheWarehouse:
+    def test_absent_by_default_so_no_total_is_rendered(self):
+        """An older payload, or a source that supplied none, must show nothing.
 
-        Every older DA response, and every path where the bridge did not run,
-        arrives without this field. Defaulting True would silently restore the bug
-        for exactly those cases.
+        The alternative — falling back to a client-side sum — is precisely the
+        bug this replaced.
         """
-        assert KTIsIsNot().deltas_are_contributions is False
+        assert KTIsIsNot().dimension_totals == {}
 
-    def test_can_be_set_when_the_bridge_ran(self):
-        assert KTIsIsNot(deltas_are_contributions=True).deltas_are_contributions is True
+    def test_a_total_round_trips_and_is_marked_as_rollup(self):
+        kt = KTIsIsNot(dimension_totals={
+            "product_name": DimensionTotal(current=29.94, previous=32.63, delta=-2.69, source="rollup"),
+        })
+        t = kt.dimension_totals["product_name"]
+        assert t.delta == pytest.approx(-2.69)
+        assert t.source == "rollup"
 
-    def test_flag_is_independent_of_having_items(self):
-        # An empty IS list with the flag set must not imply a meaningful total;
-        # that judgement belongs to the consumer, but the flag must round-trip.
-        kt = KTIsIsNot(where_is=[], deltas_are_contributions=True)
-        assert kt.deltas_are_contributions is True
-        assert kt.where_is == []
+    def test_source_cannot_claim_the_total_was_summed(self):
+        """'sum' is not in the Literal. The type makes the bug unrepresentable."""
+        with pytest.raises(Exception):
+            DimensionTotal(current=1.0, previous=2.0, delta=-1.0, source="sum")
+
+    def test_unavailable_is_the_honest_default(self):
+        assert DimensionTotal().source == "unavailable"
+
+
+class TestDeltaMeaningIsStable:
+    def test_contribution_has_its_own_field_and_defaults_to_none(self):
+        """None means NOT COMPUTED. Zero would read as 'contributed nothing'."""
+        cp = ChangePoint(dimension="product_name", key="Synthetic Blend", delta=-7.86)
+        assert cp.delta == pytest.approx(-7.86)
+        assert cp.contribution_pp is None
+
+    def test_delta_and_contribution_coexist_without_overwriting(self):
+        """The regression: these two were once the same field, ~8x apart."""
+        cp = ChangePoint(
+            dimension="product_name", key="Synthetic Blend",
+            delta=-7.86, contribution_pp=-1.02,
+        )
+        assert cp.delta == pytest.approx(-7.86)          # the segment's own change
+        assert cp.contribution_pp == pytest.approx(-1.02)  # its weighted share
+        assert cp.delta != cp.contribution_pp
 
 
 class TestBridgeMetadataIsPresentOnTheSeed:

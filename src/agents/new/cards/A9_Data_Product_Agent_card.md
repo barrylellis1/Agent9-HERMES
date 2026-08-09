@@ -94,3 +94,17 @@ Uses `_contract_path()` method to resolve contract files from registry:
 - `TableColumnProfile.sample_values` (field existed, never populated) is now filled in by `_populate_categorical_sample_values`, called once from the shared `_profile_table` dispatcher after any backend's column metadata comes back — not duplicated per backend. `_is_categorical_candidate` selects text-typed columns that aren't primary/foreign keys or already tagged time/measure; `_sample_distinct_values` runs `SELECT DISTINCT ... LIMIT N` against the live source, with a small per-backend branch (identifier quoting, qualified table name, `LIMIT`/`TOP N` syntax) rather than a new duplicated profiling method per backend.
 - Rationale: without real sample values, KPI SQL generation only ever saw a column's name+type and had to guess WHERE-filter literals (e.g. `account_category = 'COGS'`) — a guess that doesn't match any real row doesn't error, it silently returns a NULL aggregate that still passes Query Validation as "success" (found live 2026-07-24 onboarding Brookshire Brothers, reusing Apex Lubricants' Snowflake schema — real convention is `account_type = 'COGS'`). `A9_KPI_Assistant_Agent._build_suggestion_user_prompt` now lists real sampled values per dimension and instructs the LLM to only use one of those literals.
 - Defense in depth: `_validate_single_kpi_query` now also flags a KPI whose `value` column is NULL across every returned row as `warning_message` (status stays `"success"` — a true zero-match result is plausible too) instead of a silent green checkmark. Rendered as an amber banner in `DataProductOnboardingNew.tsx`'s Query Validation step.
+
+## `include_total` → `GROUP BY ROLLUP` (Aug 2026)
+
+`generate_sql_for_kpi(..., include_total=True)` appends `GROUP BY ROLLUP(<dims>)` on the breakdown path, adding one row with a NULL dimension that carries the aggregate over all rows.
+
+**Why the DPA owns this.** A caller cannot get a dimension's total by adding the member rows. For a ratio KPI that is not merely imprecise — summing per-product gross margin gave **452.95%** against a true **29.43%**, and summing the pp deltas gave **-53pp** against an enterprise move of about **-5pp**. The total has to be re-aggregated from the underlying components (`SUM(gp)/SUM(rev)`), which only the query can do, and the KPI's registered expression is already the definition of that calculation. Doing it here keeps the arithmetic inside the curated data product instead of reimplementing it in an agent, and means a KPI nobody configured still yields a correct total.
+
+**Off by default** — purely additive, so no existing caller changes shape.
+
+**Never applied on the topn branch.** That path ends in `ORDER BY ... LIMIT n`; a LIMIT either clips the total row or keeps it and drops a real member, and the total sorts unpredictably against the members, so which is lost is not even stable.
+
+Backends: `ROLLUP` is standard across BigQuery, Snowflake, SQL Server, Postgres and DuckDB. Currently wired on the BigQuery builder (`_build_bq_dimensional_sql`); add the same one-line grouping switch to the other builders when a client needs it.
+
+Tests: `tests/unit/test_rollup_total_sql.py`.

@@ -143,14 +143,18 @@ export interface KTIsIsNotData {
   when_is_not?: any[];
   benchmark_segments?: BenchmarkSegment[];
   /**
-   * Mirrors `KTIsIsNot.deltas_are_contributions` on the backend. True only when
-   * Deep Analysis ran its ratio bridge for EVERY dimension, so each `delta` is a
-   * revenue-weighted contribution and the deltas may be summed. A ratio's raw
-   * per-segment changes are not additive — summing them produced a -53pp header
-   * for a KPI whose enterprise move was about -5pp. Optional, and consumers must
-   * treat absent as NOT summable.
+   * Mirrors `KTIsIsNot.dimension_totals`. Per-dimension overall movement as the
+   * WAREHOUSE computed it (GROUP BY ROLLUP), keyed by dimension name — never the
+   * sum of the member rows. A ratio's members cannot be added: summing gross
+   * margin per product gives 452.95% against a true 29.43%. Consumers must render
+   * nothing when absent rather than deriving a total.
    */
-  deltas_are_contributions?: boolean;
+  dimension_totals?: Record<string, {
+    current?: number | null;
+    previous?: number | null;
+    delta?: number | null;
+    source?: 'rollup' | 'unavailable';
+  }>;
 }
 
 export interface DeepAnalysisExecution {

@@ -4762,11 +4762,16 @@ class A9_Data_Product_Agent(DataProductProtocol):
         override_group_by: Optional[List[str]],
         comparison_period: bool = False,
         time_spec: Optional[dict] = None,
+        include_total: bool = False,
     ) -> Optional[str]:
         """
         Build a BigQuery-compatible SQL query for dimensional analysis.
         Uses TimeFilter with the data product's TimeDimensionSpec so fiscal
         year+period columns are handled correctly (no transaction_date assumption).
+
+        `include_total` appends GROUP BY ROLLUP, adding one row with a NULL
+        dimension that carries the aggregate over all rows. See the ROLLUP comment
+        at the grouping site for why this exists and why it is off on the topn path.
         """
         try:
             import re as _re
@@ -4826,7 +4831,22 @@ class A9_Data_Product_Agent(DataProductProtocol):
                     if comparison_period
                     else TimeFilter.current_condition(_spec, timeframe, dialect="bigquery")
                 )
-                return TimeFilter.append_condition(base, cond) + f" GROUP BY {dim_grp}"
+                # ROLLUP adds one extra row where the dimension is NULL, holding the
+                # aggregate over ALL rows — computed by the warehouse from the KPI's
+                # own registered expression.
+                #
+                # This matters most for RATIO KPIs. A caller cannot get the total by
+                # adding the member rows: summing gross margin per product gave 452.95%
+                # against a true 29.43%. ROLLUP re-aggregates the components
+                # (SUM(gp)/SUM(rev)) instead of adding the ratios, so the total is right
+                # for additive and non-additive KPIs alike, with no per-KPI
+                # configuration and no arithmetic in Agent9.
+                #
+                # Deliberately not applied on the topn branch above: that path ends in
+                # ORDER BY ... LIMIT n, which would clip the total row or, worse, keep
+                # it and drop a member.
+                grouping = f"ROLLUP({dim_grp})" if include_total else dim_grp
+                return TimeFilter.append_condition(base, cond) + f" GROUP BY {grouping}"
 
         except Exception as ex:
             self.logger.warning(f"_build_bq_dimensional_sql error: {ex}")
@@ -5054,7 +5074,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
             self.logger.warning(f"_build_databricks_dimensional_sql error: {ex}")
             return None
 
-    async def generate_sql_for_kpi(self, kpi_definition: Any, timeframe: Any = None, filters: Dict[str, Any] = None, topn: Any = None, breakdown: bool = False, override_group_by: Optional[List[str]] = None, comparison_period: bool = False) -> Dict[str, Any]:
+    async def generate_sql_for_kpi(self, kpi_definition: Any, timeframe: Any = None, filters: Dict[str, Any] = None, topn: Any = None, breakdown: bool = False, override_group_by: Optional[List[str]] = None, comparison_period: bool = False, include_total: bool = False) -> Dict[str, Any]:
         """
         Wrapper that generates SQL for a KPI definition using _generate_sql_for_kpi and returns
         a protocol-compliant response.
@@ -5094,7 +5114,7 @@ class A9_Data_Product_Agent(DataProductProtocol):
             if _source_system == 'bigquery':
                 bq_sql = self._build_bq_dimensional_sql(
                     _raw_sql, kpi_definition, timeframe, topn, breakdown, override_group_by,
-                    comparison_period, time_spec=_time_spec,
+                    comparison_period, time_spec=_time_spec, include_total=include_total,
                 )
                 if bq_sql:
                     self.logger.info(f"[TXN:{transaction_id}] [BQ path] SQL for '{kpi_name}': {bq_sql[:120]}")

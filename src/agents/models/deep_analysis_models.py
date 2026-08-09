@@ -116,6 +116,31 @@ class BenchmarkSegment(A9AgentBaseModel):
     )
 
 
+class DimensionTotal(A9AgentBaseModel):
+    """The overall movement for one dimension, as the warehouse computed it.
+
+    WHY THIS IS NOT A SUM
+    ---------------------
+    For an additive KPI (revenue, cost) the total happens to equal the sum of its
+    members. For a RATIO KPI it does not, and the gap is enormous — a live panel
+    added the per-product gross margins and printed 452.95% where the truth was
+    29.43%, and added the pp deltas to print -53pp where the enterprise moved
+    about -5pp.
+
+    So the total is always re-aggregated by the query (GROUP BY ROLLUP), using the
+    KPI's own registered expression, rather than derived in application code. That
+    keeps the calculation inside the curated data product where it is defined, and
+    means a KPI nobody configured still gets a correct total.
+    """
+    current: Optional[float] = Field(None, description="Overall value for the current window")
+    previous: Optional[float] = Field(None, description="Overall value for the comparison window")
+    delta: Optional[float] = Field(None, description="current - previous, in the KPI's own units")
+    source: Literal["rollup", "unavailable"] = Field(
+        "unavailable",
+        description="'rollup' means the warehouse computed it. Never 'sum' — that is the bug this exists to prevent.",
+    )
+
+
 class KTIsIsNot(A9AgentBaseModel):
     """Structured KT table representation."""
     what_is: List[Dict[str, Any]] = Field(default_factory=list)
@@ -130,17 +155,15 @@ class KTIsIsNot(A9AgentBaseModel):
         default_factory=list,
         description="IS NOT items classified as control_group or internal_benchmark after analysis"
     )
-    deltas_are_contributions: bool = Field(
-        False,
+    dimension_totals: Dict[str, "DimensionTotal"] = Field(
+        default_factory=dict,
         description=(
-            "True when every dimension was analysed via the ratio bridge, so each item's "
-            "`delta` is a REVENUE-WEIGHTED contribution to the KPI's overall movement and "
-            "the deltas may legitimately be summed. False when `delta` is a segment's own "
-            "raw change — which must NEVER be summed across segments. A ratio's raw pp "
-            "changes are not additive: summing the Lubricants product breakdown gave -53pp "
-            "against an enterprise move of about -5pp, and summing the margin LEVELS gave "
-            "452.95% against a true 29.43%. Defaults False so an unmarked payload is never "
-            "summed by accident."
+            "Per-dimension overall movement, keyed by dimension name — computed by the "
+            "WAREHOUSE via GROUP BY ROLLUP, never by summing the member rows. A ratio's "
+            "members cannot be added: summing gross margin per product gives 452.95% "
+            "against a true 29.43%, and summing the pp deltas gives -53pp against an "
+            "enterprise move of about -5pp. Empty when the source did not supply a total; "
+            "consumers must render nothing rather than deriving one."
         ),
     )
 
@@ -152,8 +175,23 @@ class ChangePoint(A9AgentBaseModel):
     timestamp: Optional[str] = None
     current_value: Optional[float] = None
     previous_value: Optional[float] = None
+    # `delta` ALWAYS means this segment's own change (current - previous), whatever
+    # the KPI and whatever is configured. It previously flipped meaning — carrying a
+    # revenue-weighted contribution when a KPI declared ratio-bridge metadata and a
+    # raw change otherwise, roughly 8x apart, same field name. Since change_points
+    # feed Solution Finder, that made a config flag silently alter what the LLM
+    # reasoned about. Contribution now lives in its own field below.
     delta: Optional[float] = None
     percent_growth: Optional[float] = None
+    contribution_pp: Optional[float] = Field(
+        None,
+        description=(
+            "This segment's WEIGHTED contribution to the KPI's overall movement "
+            "(share of denominator x its own rate change) — additive across segments, "
+            "unlike `delta`. Populated only for ratio KPIs configured with bridge SQL; "
+            "None means not computed, never zero."
+        ),
+    )
 
 
 class DeepAnalysisResponse(A9AgentBaseResponse):

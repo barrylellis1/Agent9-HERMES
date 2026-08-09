@@ -24,16 +24,16 @@ export interface KTIsIsNotData {
   when_is?: any[]
   when_is_not?: any[]
   /**
-   * True only when Deep Analysis ran its ratio bridge for EVERY dimension, making
-   * each `delta` a revenue-weighted contribution to the KPI's overall movement.
-   * Only then may these deltas be summed.
+   * Per-dimension overall movement as the WAREHOUSE computed it (GROUP BY ROLLUP),
+   * keyed by dimension name. Never derived here.
    *
-   * A ratio's raw per-segment changes are NOT additive. This header summed them
-   * unconditionally and printed -53pp for a KPI whose enterprise move was about
-   * -5pp; summing the margin LEVELS the same way gives 452.95% against a true
-   * 29.43%, overstated 15.4x. Absent or false means show no total.
+   * This header used to sum the member deltas, printing -53pp for a KPI whose
+   * enterprise move was about -5pp; summing the margin LEVELS the same way gives
+   * 452.95% against a true 29.43%. A ratio's members cannot be added — the total
+   * has to be re-aggregated from the components, which only the query can do.
+   * Absent means render no total rather than deriving one.
    */
-  deltas_are_contributions?: boolean
+  dimension_totals?: Record<string, { current?: number | null; previous?: number | null; delta?: number | null; source?: string }>
 }
 
 interface IsIsNotExhibitProps {
@@ -77,9 +77,9 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
   const isMixed = analysisMode === 'mixed'
   const [expandedDimensions, setExpandedDimensions] = useState<Set<string>>(new Set())
 
-  // Additivity is asserted by the backend or not at all. `=== true` deliberately,
-  // so undefined (an older payload, or a partial bridge run) is NOT summable.
-  const summable = data?.deltas_are_contributions === true
+  // The total comes from the backend or not at all. There is deliberately no
+  // client-side fallback: any arithmetic here would be the bug this replaced.
+  const totals = data?.dimension_totals ?? {}
 
   // A ratio KPI's deltas are percentage POINTS, not currency. formatExecutive
   // defaults to a '$' prefix, which is how "-7.86pp" reached a CFO as "-$7".
@@ -161,13 +161,10 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
 
       const result: ProcessedDimension[] = []
       dimensionMap.forEach((items, dimension) => {
-        // Summable ONLY when the backend states these deltas are weighted
-        // contributions. Never inferred, never defaulted to true — an unmarked
-        // payload carries raw per-segment changes, and adding those together is
-        // the arithmetic that produced -53pp against a ~-5pp enterprise move.
-        const netIsVariance = summable
-          ? items.is.reduce((sum, i) => sum + (i.delta || 0), 0)
-          : null
+        // Read, never computed. `items.is.reduce(...)` here is exactly what
+        // produced -53pp against a ~-5pp enterprise move.
+        const t = totals[dimension]
+        const netIsVariance = typeof t?.delta === 'number' ? t.delta : null
         const deltas = items.is.map(i => i.delta || 0)
         const sortKey = deltas.length
           ? (isOpportunity ? Math.max(...deltas) : Math.min(...deltas))
@@ -192,7 +189,7 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
       console.error('IsIsNotExhibit: Error processing data', e)
       return []
     }
-  }, [data, isOpportunity, summable])
+  }, [data, isOpportunity, totals])
 
   // Global max delta for bar scaling within expanded sections
   const maxDelta = useMemo(() => {
@@ -302,8 +299,8 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                   }`}
                   title={
                     dim.netIsVariance == null
-                      ? "No total: these are each segment's own change, which cannot be added together for this KPI. Expand to see the segments."
-                      : undefined
+                      ? 'No overall figure was supplied for this dimension. Segment changes are shown individually; for a ratio KPI they cannot be added together.'
+                      : `Overall movement for this dimension, computed across all segments (not the sum of the rows below).`
                   }
                 >
                   {!hasProblem
