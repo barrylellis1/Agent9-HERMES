@@ -2431,6 +2431,44 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             "blind_spots": blind_spots_list
                         })
 
+                        # Deterministically check the PROSE against numbers the
+                        # pipeline already computed. Every other guard here scores
+                        # the OPTIONS; the narrative leads page one of the briefing
+                        # and had no check at all. Two real errors shipped past
+                        # everything on 2026-08-08: a segment's -43.24pp presented
+                        # as "the headline KPI move" (true headline: 30.29%), and a
+                        # "140.4pp combined drag" whose three cited components sum
+                        # to 75.18. Both are arithmetic, so both are checkable
+                        # without a model — a model reviewer could make the same
+                        # slip and would render the check itself stochastic.
+                        try:
+                            from src.analysis.narrative_claims import (
+                                check_narrative, extract_narrative_fields,
+                            )
+                            _sm = situation_metadata or {}
+                            _hv = _sm.get("current_value")
+                            _cv = _sm.get("comparison_value")
+                            _nc = check_narrative(
+                                extract_narrative_fields({
+                                    "problem_reframe": problem_reframe,
+                                    "recommendation_rationale": rationale,
+                                }),
+                                headline_value=_hv if isinstance(_hv, (int, float)) else None,
+                                headline_delta=((_hv - _cv) if isinstance(_hv, (int, float))
+                                                and isinstance(_cv, (int, float)) else None),
+                            )
+                            _ev = _nc.as_audit_event()
+                            if _ev:
+                                audit_log.append(_ev)
+                                self.logger.warning(
+                                    "[SF] narrative asserts %d figure(s) that disagree with the "
+                                    "measured data: %s",
+                                    len(_nc.findings), "; ".join(str(f) for f in _nc.findings[:3]),
+                                )
+                        except Exception as _ne:
+                            # Observation must never break generation.
+                            self.logger.info(f"[SF] narrative check unavailable (non-fatal): {_ne}")
+
                     # Market signals flow in from DA → Problem Refinement → external_context
                     # (MA call removed — no longer duplicated here)
                     ma_response = None

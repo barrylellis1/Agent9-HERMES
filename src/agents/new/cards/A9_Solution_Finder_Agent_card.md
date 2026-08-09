@@ -125,6 +125,31 @@ selects the NEW arm of the PM-2 A/B on the synthesis call:
 - Frontend runs TWO dispatches (`stage1_only` → `synthesis`); the dead `hypothesis`/`cross_review`
   dispatches and the never-read `prior_transcript` are gone; `VITE_DEBATE_MODE` is retired.
 
+## Narrative Claim Validation (Aug 2026)
+Every other guard in SF scores the **options**. The **prose** — `problem_reframe` and
+`recommendation_rationale` — leads page one of the Executive Briefing, above the fold, and had
+no check at all. Two real errors shipped past everything (2026-08-08, live run):
+
+1. **Segment presented as the headline KPI** — *"headline KPI move recorded as a -43.24 point
+   deterioration to a current level of -445.01"*. Gross Margin % was **30.29%**; `-445.01` /
+   `-43.24` are Chain A's change-point `current_value` / `delta`. The model reached past the typed
+   `KPIValue` into the change points and promoted one customer's slice to the enterprise number.
+2. **Stated sum contradicting its own components** — *"-43.24pp … -16.76pp … -15.18pp … 140.4pp of
+   combined drag"*. Those three sum to **75.18**, not 140.4 — overstated 1.9×.
+
+Both are arithmetic, so `src/analysis/narrative_claims.py` checks them **without an LLM**: a model
+reviewer could make the same slip and would make the check itself stochastic. Findings append a
+`narrative_claim_mismatch` audit event (absent when clean — an event asserting "no problems" is
+indistinguishable from a check that never ran) and log a warning. Non-fatal by design.
+
+**False positives were the hard part.** A bare `/headline/` cue produced 4 false positives out of 6
+findings on the real payload, all from one sentence enumerating segments *beneath* the headline.
+Flags that cry wolf get ignored, which is worse than no flags. The cue now requires an assertion
+verb, rejects subordinating prepositions (`beneath|below|under|behind`), and only considers numbers
+within 90 chars of the cue. Result on the real payload: **exactly the 2 real errors, 0 false
+positives.** Tests: `tests/unit/test_narrative_claims.py` (20), several pinning the *absence* of
+those false positives.
+
 ## Stage 1 Attribution Fix (Aug 2026)
 Stage 1 results are keyed **positionally** from `asyncio.gather()` order — never by the LLM
 echoing `persona_id` back. The old keying silently discarded a successful call whose JSON

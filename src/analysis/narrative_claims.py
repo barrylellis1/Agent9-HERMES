@@ -1,0 +1,243 @@
+"""
+Deterministic validation of LLM-written narrative in SF output.
+
+WHY THIS EXISTS
+---------------
+The groundedness scorer checks each option's `impact_estimate` against observed
+magnitudes. It never looked at the PROSE — and the prose is what leads page one
+of the Executive Briefing, above the fold, where an executive reads it first.
+
+Two real errors from a single live run (2026-08-08), both in `problem_reframe`,
+both past every guard that existed:
+
+  1. SEGMENT SUBSTITUTED FOR THE HEADLINE KPI
+       prose : "headline KPI move recorded as a -43.24 point deterioration
+                to a current level of -445.01"
+       actual: Gross Margin % = 30.29%
+       -445.01 / -43.24 are Chain A's change-point current_value / delta.
+       The model reached past the typed KPIValue into the change points and
+       promoted one customer's slice to "the headline KPI".
+
+  2. STATED SUM DOES NOT MATCH THE COMPONENTS IN THE SAME SENTENCE
+       prose : "-43.24pp ... -16.76pp ... -15.18pp ... collectively dragging
+                margin down by 140.4pp of combined drag"
+       43.24 + 16.76 + 15.18 = 75.18, not 140.4 — overstated 1.9x.
+
+Both are arithmetic, so both are checkable without a model. That matters: a
+model-based reviewer would be as capable of the same slip, and would make the
+check itself stochastic.
+
+SCOPE / LIMITS
+--------------
+This is deliberately narrow. It does NOT attempt to judge whether prose is
+persuasive, well-framed, or true in any general sense — only whether the numbers
+it asserts agree with numbers the pipeline already computed. Claims it cannot
+tie to a known quantity are reported as UNVERIFIED, never as wrong: a flood of
+false positives would train readers to ignore the flags, which is worse than
+having none.
+"""
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Sequence
+
+# A headline claim is only worth checking when the sentence ASSERTS a value FOR
+# the headline. "Chain A fell 43.24pp" is a true segment statement, and so is
+# "performance beneath that headline number is mixed: Chain A (-43.24pp)..." —
+# the latter explicitly discusses what sits UNDER the headline.
+#
+# Tuned against the real payload: a cue of bare /headline/ produced 4 false
+# positives out of 6 findings, all from one sentence enumerating segments
+# beneath the headline. Flags that cry wolf get ignored, which is worse than no
+# flags, so the cue now requires an assertion and rejects subordinating prepositions.
+_HEADLINE_CUE = re.compile(
+    r"(?<!beneath\s)(?<!below\s)(?<!under\s)(?<!behind\s)"
+    r"(headline\s+kpi|headline\s+number|overall\s+kpi|the\s+kpi)"
+    r"\s*(?:move|movement|change|level)?\s*"
+    r"(?:is|was|of|at|recorded\s+as|stands\s+at|moved|declin\w*|fell|dropped|deteriorat\w*)",
+    re.IGNORECASE,
+)
+# Prepositions that make the sentence about what lies BENEATH the headline, not
+# about the headline's own value. Checked separately because Python's
+# fixed-width lookbehind cannot span "beneath that ".
+_SUBORDINATED = re.compile(r"\b(beneath|below|under|behind|excluding|apart\s+from)\b[^.]{0,30}headline", re.IGNORECASE)
+
+# How far after the cue a number can sit and still be the value being asserted.
+# Beyond this it is almost always a different clause enumerating something else.
+_HEADLINE_CLAIM_SPAN = 90
+
+# Numbers with an explicit unit. Bare integers are skipped on purpose — years,
+# counts and segment ordinals would generate noise with no signal.
+_NUMBER = re.compile(r"(-?\d+(?:\.\d+)?)\s*(pp|percentage\s+points?|%|\bpoints?\b)", re.IGNORECASE)
+_DOLLARS = re.compile(r"\$\s?(-?\d+(?:\.\d+)?)\s*([MK])?", re.IGNORECASE)
+
+_SUM_CUE = re.compile(
+    r"(combined|collectively|total|aggregate|together|sum(?:ming)?)\b[^.]{0,80}?"
+    r"(-?\d+(?:\.\d+)?)\s*(pp|percentage\s+points?|%)",
+    re.IGNORECASE,
+)
+
+# Tolerances. Generous on purpose — the point is to catch a segment standing in
+# for the enterprise (typically an order of magnitude out) and sums that are
+# plainly wrong (1.9x), not to police rounding.
+HEADLINE_TOLERANCE = 0.15   # 15% of the true headline magnitude
+SUM_TOLERANCE = 0.10        # 10% of the component sum
+
+
+@dataclass
+class NarrativeFinding:
+    kind: str                      # headline_substitution | sum_mismatch
+    field: str                     # which narrative field it came from
+    claimed: float
+    expected: Optional[float]
+    detail: str
+    excerpt: str
+
+    def __str__(self) -> str:      # readable in logs and audit payloads
+        return f"[{self.kind}] {self.field}: {self.detail}"
+
+
+@dataclass
+class NarrativeCheck:
+    findings: List[NarrativeFinding] = field(default_factory=list)
+    checked_fields: List[str] = field(default_factory=list)
+    unverified_claims: int = 0
+
+    @property
+    def ok(self) -> bool:
+        return not self.findings
+
+    def as_audit_event(self) -> Optional[Dict[str, Any]]:
+        """Audit entry, or None when clean — an event asserting 'no problems'
+        is indistinguishable from a check that never ran."""
+        if not self.findings:
+            return None
+        return {
+            "event": "narrative_claim_mismatch",
+            "count": len(self.findings),
+            "findings": [
+                {"kind": f.kind, "field": f.field, "claimed": f.claimed,
+                 "expected": f.expected, "detail": f.detail, "excerpt": f.excerpt[:200]}
+                for f in self.findings
+            ],
+        }
+
+
+def _scale(value: float, suffix: Optional[str]) -> float:
+    s = (suffix or "").upper()
+    return value * 1_000_000 if s == "M" else value * 1_000 if s == "K" else value
+
+
+def _sentences(text: str) -> List[str]:
+    return [s.strip() for s in re.split(r"(?<=[.;])\s+", text or "") if s.strip()]
+
+
+def check_headline_claims(
+    text: str, field_name: str, headline_value: Optional[float], headline_delta: Optional[float],
+) -> List[NarrativeFinding]:
+    """Flag prose that calls a number the headline KPI when it is not.
+
+    Only sentences that explicitly claim headline status are examined, so a
+    correct statement about a segment is never flagged.
+    """
+    out: List[NarrativeFinding] = []
+    if headline_value is None and headline_delta is None:
+        return out
+
+    for sentence in _sentences(text):
+        cue = _HEADLINE_CUE.search(sentence)
+        if not cue:
+            continue
+        # "beneath that headline number, three segments..." is ABOUT the segments.
+        if _SUBORDINATED.search(sentence):
+            continue
+
+        # Only numbers close after the cue are the value being asserted; a figure
+        # later in the sentence usually belongs to a different clause.
+        window = sentence[cue.end(): cue.end() + _HEADLINE_CLAIM_SPAN]
+        claims = [float(m.group(1)) for m in _NUMBER.finditer(window)]
+        claims += [_scale(float(m.group(1)), m.group(2)) for m in _DOLLARS.finditer(window)]
+        if not claims:
+            continue
+
+        # The sentence is a headline claim, so every magnitude in it should be
+        # reconcilable with the headline value or its movement.
+        targets = [t for t in (headline_value, headline_delta) if t is not None]
+        for claimed in claims:
+            if any(abs(abs(claimed) - abs(t)) <= max(abs(t) * HEADLINE_TOLERANCE, 0.01) for t in targets):
+                continue
+            expected = min(targets, key=lambda t: abs(abs(claimed) - abs(t)))
+            out.append(NarrativeFinding(
+                kind="headline_substitution", field=field_name, claimed=claimed, expected=expected,
+                detail=(f"prose presents {claimed:g} as the headline KPI, but the measured "
+                        f"headline is {expected:g} — likely a segment figure promoted to enterprise"),
+                excerpt=sentence,
+            ))
+    return out
+
+
+def check_stated_sums(text: str, field_name: str) -> List[NarrativeFinding]:
+    """Flag a stated total that disagrees with the components in the same sentence.
+
+    Deliberately self-contained: only components cited alongside the total are
+    used, so this needs no external data and cannot be fooled by a total drawn
+    from somewhere the sentence never mentions.
+    """
+    out: List[NarrativeFinding] = []
+    for sentence in _sentences(text):
+        m = _SUM_CUE.search(sentence)
+        if not m:
+            continue
+        stated = float(m.group(2))
+        components = [float(n.group(1)) for n in _NUMBER.finditer(sentence)
+                      if abs(float(n.group(1)) - stated) > 1e-9]
+        if len(components) < 2:
+            continue  # nothing to add up; not a claim we can check
+        actual = sum(abs(c) for c in components)
+        if abs(abs(stated) - actual) <= max(actual * SUM_TOLERANCE, 0.01):
+            continue
+        out.append(NarrativeFinding(
+            kind="sum_mismatch", field=field_name, claimed=stated, expected=actual,
+            detail=(f"states a combined {stated:g} but the {len(components)} figures cited "
+                    f"in the same sentence sum to {actual:g} ({abs(stated) / actual:.1f}x)"),
+            excerpt=sentence,
+        ))
+    return out
+
+
+def check_narrative(
+    narrative_fields: Dict[str, Optional[str]],
+    *,
+    headline_value: Optional[float] = None,
+    headline_delta: Optional[float] = None,
+) -> NarrativeCheck:
+    """Validate every narrative field against numbers the pipeline already knows.
+
+    `narrative_fields` maps a name (e.g. "problem_reframe.situation") to its text.
+    Never raises — a validation failure must not be able to break generation.
+    """
+    result = NarrativeCheck()
+    for name, text in (narrative_fields or {}).items():
+        if not text or not isinstance(text, str):
+            continue
+        result.checked_fields.append(name)
+        try:
+            result.findings.extend(check_headline_claims(text, name, headline_value, headline_delta))
+            result.findings.extend(check_stated_sums(text, name))
+        except Exception:
+            # Bookkeeping must never break the pipeline it observes.
+            continue
+    return result
+
+
+def extract_narrative_fields(solutions: Dict[str, Any]) -> Dict[str, Optional[str]]:
+    """Pull the prose an executive actually reads out of an SF payload."""
+    pr = (solutions or {}).get("problem_reframe") or {}
+    fields: Dict[str, Optional[str]] = {
+        "problem_reframe.situation": pr.get("situation"),
+        "problem_reframe.complication": pr.get("complication"),
+        "problem_reframe.question": pr.get("question"),
+        "recommendation_rationale": (solutions or {}).get("recommendation_rationale"),
+    }
+    return {k: v for k, v in fields.items() if isinstance(v, str) and v.strip()}
