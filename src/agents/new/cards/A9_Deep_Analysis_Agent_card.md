@@ -117,6 +117,7 @@ DA produces both problem segments AND opportunity segments from the same IS/IS N
 - `_prev_timeframe()` replaced: now delegates to `TimeFilter.previous_period_name(timeframe)` — consistent mapping for all timeframe strings including `year_to_date`.
 
 ## Recent Updates (Dec 2025)
+- **Aug 2026 — dropped segments now counted.** `except: continue` around the top-N diff coercion silently removed a SEGMENT from `diffs_topn`, which feeds top-N selection → `change_points` → the whole Is/Is-Not analysis: a real driver could vanish from the diagnosis with no signal. Drops are now counted and warned.
 - Contract path consolidated to single source of truth in `registry_references`
 - Added default timeframe (`current_quarter`) when none specified
 - Fixed dimension extraction from Data Governance fallback to properly extract field names from objects

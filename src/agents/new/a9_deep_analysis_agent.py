@@ -1402,6 +1402,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                     
                                     # Parse all rows into diffs list
                                     diffs_topn = []
+                                    _diff_dropped = 0  # segments lost to coercion — never silently
                                     for r in rows:
                                         try:
                                             if isinstance(r, dict):
@@ -1420,8 +1421,21 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                             if key:
                                                 diffs_topn.append((key, c, p, d))
                                         except Exception:
+                                            # Count, do not just skip. A row that fails
+                                            # coercion silently removes a SEGMENT from
+                                            # diffs_topn, which feeds top-N selection ->
+                                            # change_points -> the whole Is/Is-Not
+                                            # analysis. A real driver could disappear
+                                            # from the diagnosis with no signal at all.
+                                            _diff_dropped += 1
                                             continue
-                                    
+                                    if _diff_dropped:
+                                        self.logger.warning(
+                                            "[DA] %s: %d segment row(s) unparseable and excluded from "
+                                            "diffs_topn — Is/Is-Not is computed on the remainder",
+                                            plan.kpi_name, _diff_dropped,
+                                        )
+
                                     # Apply Hybrid Threshold + Adaptive N selection
                                     # Determine trend direction from KPI registry (inverse_logic)
                                     kpi_trend_positive = self._trend_positive(plan.kpi_name, kpi_def)

@@ -2845,6 +2845,7 @@ class A9_Situation_Awareness_Agent:
                         return None
                     raw_rows = result.get("rows") or result.get("data") or []
                     vals = []
+                    _dropped = 0   # rows that failed coercion — never silently lost
                     for row in raw_rows:
                         if isinstance(row, dict):
                             # Snowflake returns uppercase column names; normalize to lowercase
@@ -2860,7 +2861,21 @@ class A9_Situation_Awareness_Agent:
                             try:
                                 vals.append({"period": period, "value": float(val)})
                             except (ValueError, TypeError):
-                                pass
+                                # Count, do not just swallow. A silently shortened
+                                # series is not a cosmetic loss: _compute_acceleration
+                                # requires >=4 points, so dropping to 3 makes that
+                                # signal never fire — invisibly — and _project_trend
+                                # fits its regression over whatever survives, skewing
+                                # the projected-breach slope. "Got 9 monthly values"
+                                # previously reported the SURVIVING count as if it
+                                # were the queried count.
+                                _dropped += 1
+                    if _dropped:
+                        self.logger.warning(
+                            "[Monthly] %s: %d of %d monthly rows were unparseable and dropped — "
+                            "trend/acceleration signals are computed on the remainder",
+                            kpi_name, _dropped, len(vals) + _dropped,
+                        )
                     self.logger.info(f"[Monthly] Got {len(vals)} monthly values for {kpi_name}")
                     return vals or None
                 except Exception as _me:
