@@ -156,6 +156,60 @@ class KPIDefinition(BaseModel):
     plan_version_value: Optional[str] = Field(None, description="Version filter value for plan/budget SQL substitution")
     kpi_type: str = Field("operational", description="KPI classification: 'operational' | 'concentration' | 'covenant' | 'regulatory'")
 
+class MeasurementContext(BaseModel):
+    """What a number actually measured — resolved, not requested.
+
+    WHY THIS EXISTS
+    ---------------
+    `KPIValue.timeframe` records the *token* ("year_to_date"), which is an
+    instruction, not a fact. Two implementations can resolve the same token to
+    different windows and both look correct, because nothing on the value says
+    which dates it covered. SA resolves windows with its own
+    `_bq_get_period_dates`; the DPA uses the shared `TimeFilter`. They currently
+    agree — nothing enforces that they keep agreeing.
+
+    The same blindness produced a second confusion: an assessment logged
+    "Net Revenue = 94,271,804" and "Net Revenue = 107,769,900" seconds apart.
+    Both were correct — Actual and Budget — but nothing on either value recorded
+    which version it was, so the pair read as corruption.
+
+    Stamping the resolved context turns invisible drift into a testable
+    assertion: two agents reporting the same KPI can now be compared on the
+    window and version they actually used, rather than assumed to match.
+
+    Every field is optional so this is purely additive — an unpopulated context
+    degrades to "unknown provenance", which is honest, rather than blocking.
+    """
+    window_start: Optional[str] = Field(None, description="Resolved start of the measured period (YYYY-MM-DD)")
+    window_end: Optional[str] = Field(None, description="Resolved end of the measured period (YYYY-MM-DD)")
+    comparison_window_start: Optional[str] = Field(None, description="Resolved start of the comparison period")
+    comparison_window_end: Optional[str] = Field(None, description="Resolved end of the comparison period")
+    version: Optional[str] = Field(
+        None,
+        description="Data version this value came from: 'Actual', 'Budget', or a plan_version_value. "
+                    "Distinguishes otherwise-identical KPI readings (see class docstring)."
+    )
+    filters: Optional[Dict[str, Any]] = Field(None, description="Filters applied when measuring")
+    source_system: Optional[str] = Field(None, description="bigquery | snowflake | sqlserver | duckdb")
+    data_product_id: Optional[str] = Field(None, description="Data product the value was read from")
+    sql_hash: Optional[str] = Field(
+        None,
+        description="Short stable hash of the executed SQL. Identifies the exact query without "
+                    "carrying its text around; two values with the same hash measured the same thing."
+    )
+
+    def window(self) -> Optional[str]:
+        """Compact 'start..end' for logs and equality checks. None when unresolved."""
+        if self.window_start and self.window_end:
+            return f"{self.window_start}..{self.window_end}"
+        return None
+
+    def label(self) -> str:
+        """One-line provenance for log lines, so identically-named values are distinguishable."""
+        bits = [b for b in (self.version, self.window(), self.source_system) if b]
+        return " | ".join(bits) if bits else "unknown provenance"
+
+
 class KPIValue(BaseModel):
     """KPI value with context."""
     kpi_name: str = Field(description="Name of the KPI")
@@ -168,6 +222,11 @@ class KPIValue(BaseModel):
     percent_change: Optional[float] = Field(None, description="Percentage change vs comparison")
     monthly_values: Optional[List[Dict[str, Any]]] = Field(None, description="Monthly aggregated values for trend display. Each dict: {period: str, value: float}")
     inverse_logic: bool = Field(False, description="True for cost/expense KPIs where a positive change is bad (higher cost = worse)")
+    # What this number actually measured. Optional so existing callers/fixtures
+    # are unaffected; consumers must treat absence as unknown, never as a match.
+    context: Optional[MeasurementContext] = Field(
+        None, description="Resolved measurement provenance — window, version, filters, source (see MeasurementContext)"
+    )
 
 # Assignment models
 class AssignmentCandidate(BaseModel):

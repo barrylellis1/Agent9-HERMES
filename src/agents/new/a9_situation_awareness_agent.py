@@ -449,7 +449,16 @@ class A9_Situation_Awareness_Agent:
 
                     if kpi_value:
                         kpi_values.append(kpi_value)
-                        self.logger.info(f"Retrieved KPI value: {kpi_name} = {kpi_value.value}")
+                        # Provenance in the log line. Without it, an assessment that
+                        # legitimately reads the same KPI twice (Actual, then Budget via
+                        # _fetch_plan_value) prints two different numbers under one name
+                        # and reads as corruption — observed: "Net Revenue = 94,271,804"
+                        # and "Net Revenue = 107,769,900" seconds apart, both correct.
+                        _ctx = getattr(kpi_value, "context", None)
+                        self.logger.info(
+                            f"Retrieved KPI value: {kpi_name} = {kpi_value.value} "
+                            f"[{_ctx.label() if _ctx else 'unknown provenance'}]"
+                        )
 
                         # Detect problems based on thresholds, trends, etc.
                         detected_situations = self._detect_kpi_situations(
@@ -2382,6 +2391,57 @@ class A9_Situation_Awareness_Agent:
 
         return merged + passthrough
 
+    def _build_measurement_context(
+        self, *, timeframe, comparison_type, merged_filters, source_system,
+        data_product_id, base_sql, kpi_definition,
+    ):
+        """Stamp what this reading actually measured — resolved, not requested.
+
+        `timeframe` on its own is an instruction ("year_to_date") that different
+        code paths can resolve to different windows while both look correct. The
+        version matters for the same reason: an assessment can legitimately read
+        the same KPI twice, once Actual and once Budget (see `_fetch_plan_value`),
+        and without a version stamp the two readings are indistinguishable in
+        logs and downstream payloads.
+
+        Never raises — provenance must not be able to break measurement. A failure
+        yields no context, which consumers read as "unknown", never as a match.
+        """
+        try:
+            from src.agents.models.situation_awareness_models import MeasurementContext
+            import hashlib
+
+            cur = comp = (None, None)
+            try:
+                cur = self._bq_get_period_dates(timeframe, is_comparison=False)
+                if comparison_type:
+                    comp = self._bq_get_period_dates(
+                        timeframe, is_comparison=True, comparison_type=comparison_type
+                    )
+            except Exception:
+                pass
+
+            # Which data version produced this number. `calculation` is rewritten to
+            # the plan/budget variant by _fetch_plan_value, so the substituted
+            # version value is the reliable marker — the KPI name is not.
+            _plan_version = getattr(kpi_definition, "plan_version_value", None)
+            _sql = base_sql or ""
+            version = "Actual"
+            if _plan_version and f"'{_plan_version}'" in _sql:
+                version = str(_plan_version)
+
+            return MeasurementContext(
+                window_start=cur[0], window_end=cur[1],
+                comparison_window_start=comp[0], comparison_window_end=comp[1],
+                version=version,
+                filters=merged_filters or None,
+                source_system=source_system,
+                data_product_id=data_product_id,
+                sql_hash=hashlib.sha256(_sql.encode("utf-8")).hexdigest()[:12] if _sql else None,
+            )
+        except Exception:
+            return None
+
     async def _fetch_plan_value(self, kpi_def, timeframe, filters, principal_context):
         """Execute plan SQL and return the scalar plan value, or None on any error."""
         plan_version = getattr(kpi_def, 'plan_version_value', None)
@@ -2659,7 +2719,15 @@ class A9_Situation_Awareness_Agent:
                             current_value = float(v) if v is not None else None
                 if current_value is None:
                     current_value = 0.0
-                self.logger.info(f"Extracted KPI value for {kpi_name}: {current_value}")
+                # sql_hash identifies WHICH query produced this, so two readings of the
+                # same KPI name are separable in the log without dumping full SQL.
+                _pv = getattr(kpi_definition, "plan_version_value", None)
+                _ver = str(_pv) if (_pv and f"'{_pv}'" in (base_sql or "")) else "Actual"
+                import hashlib as _hl
+                _sh = _hl.sha256((base_sql or "").encode("utf-8")).hexdigest()[:12] if base_sql else "-"
+                self.logger.info(
+                    f"Extracted KPI value for {kpi_name}: {current_value} [{_ver} | sql:{_sh}]"
+                )
             except Exception as e:
                 self.logger.error(f"Error executing base SQL for {kpi_name}: {e}")
                 return None
@@ -2795,7 +2863,10 @@ class A9_Situation_Awareness_Agent:
                     _fetch_comparison(),
                 )
 
-            # For testing/MVP when comparison not available, return basic KPI value
+            # For testing/MVP when comparison not available, return basic KPI value.
+            # This is the branch _fetch_plan_value takes (it passes comparison_type=None),
+            # so the version stamp matters MOST here — it is what distinguishes the
+            # Budget reading from the Actual one when both carry the same KPI name.
             if not comparison_type:
                 return KPIValue(
                     kpi_name=kpi_name,
@@ -2806,7 +2877,13 @@ class A9_Situation_Awareness_Agent:
                     timeframe=timeframe,
                     dimensions=merged_filters,
                     percent_change=None,
-                    monthly_values=monthly_values
+                    monthly_values=monthly_values,
+                    context=self._build_measurement_context(
+                        timeframe=timeframe, comparison_type=None,
+                        merged_filters=merged_filters, source_system=_source_system,
+                        data_product_id=_gen_dp_id, base_sql=base_sql,
+                        kpi_definition=kpi_definition,
+                    ),
                 )
 
             comparison_value = None
@@ -2882,6 +2959,12 @@ class A9_Situation_Awareness_Agent:
                 percent_change=percent_change,
                 monthly_values=monthly_values,
                 inverse_logic=_inverse_logic,
+                context=self._build_measurement_context(
+                    timeframe=timeframe, comparison_type=comparison_type,
+                    merged_filters=merged_filters, source_system=_source_system,
+                    data_product_id=_gen_dp_id, base_sql=base_sql,
+                    kpi_definition=kpi_definition,
+                ),
             )
         except Exception as e:
             logger.error(f"Error getting KPI value for {kpi_name}: {e}")
