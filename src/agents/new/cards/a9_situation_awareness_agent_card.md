@@ -474,4 +474,15 @@ Called in `detect_situations()` after `_detect_compound_alerts()` and after the 
   - **What it fixed immediately:** an assessment legitimately reads the same KPI twice — Actual, then Budget via `_fetch_plan_value`, which rewrites `calculation` to the plan variant. With no version stamp, the log showed `Net Revenue = 94,271,804.70` and `Net Revenue = 107,769,900.00` one second apart under one name, which reads as corruption and cost real time to rule out. Log lines now carry `[Actual | 2026-01-01..2026-08-08 | bigquery]`.
   - **Version detection uses the SQL, not the KPI name** — `_fetch_plan_value` leaves the name unchanged, so the substituted `plan_version_value` appearing in the executed SQL is the only reliable marker.
   - **Why this before unifying the window implementations:** stamping converts an invisible risk into a testable assertion (`sa.context.window() == da.context.window()`), and tells us whether the riskier SA→`TimeFilter` refactor is needed rather than assuming it.
-  - Every field optional — purely additive; absence means "unknown provenance" and must **never** be read as a match. `_build_measurement_context()` never raises: provenance is bookkeeping and must not be able to break a measurement. Tests: `tests/unit/test_measurement_context.py` (15).
+  - **`comparison_basis` — not every KPI comparison is current-vs-prior.** The first cut asked `_bq_get_period_dates` for a comparison window regardless of type; that helper only understands PERIODS and falls back to *last month* for anything it does not recognise, so `budget_vs_actual`, `target_vs_actual` and `benchmark` were all stamped `2025-12-01..2025-12-31` — a real-looking range that means nothing. A fabricated window is worse than an absent one: something downstream can compare against it and "confirm" agreement never checked. Now:
+
+    | basis | comparison is | window stamped |
+    |---|---|---|
+    | `temporal` | prior window (YoY / QoQ / MoM) | prior period |
+    | `version` | **same window**, other version (`budget_vs_actual`, `target_vs_actual`) | = current window |
+    | `peer` | benchmark cohort, no time shift | **none** |
+    | `projection` | forecast vs a budget-derived floor (`floor = monthly_budget − |monthly_budget| × tol`), horizon in `periods_until_breach` | **none** |
+    | `series` | 2nd derivative over ≥4 monthly points (`_compute_acceleration`) | **none** |
+
+    Cross-agent window equality is therefore only meaningful **within** a basis — comparing a plan variance against a YoY would flag a difference that is correct by definition.
+  - Every field optional — purely additive; absence means "unknown provenance" and must **never** be read as a match. `_build_measurement_context()` never raises: provenance is bookkeeping and must not be able to break a measurement. Tests: `tests/unit/test_measurement_context.py` (24).

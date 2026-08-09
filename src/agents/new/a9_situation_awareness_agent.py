@@ -2412,12 +2412,35 @@ class A9_Situation_Awareness_Agent:
             import hashlib
 
             cur = comp = (None, None)
+            basis = None
             try:
                 cur = self._bq_get_period_dates(timeframe, is_comparison=False)
-                if comparison_type:
+
+                # NOT every KPI comparison is current-vs-prior. `_bq_get_period_dates`
+                # has no concept of that — asked for a comparison window it returns a
+                # prior PERIOD for anything, falling back to "last month" for types it
+                # does not recognise. Stamping that produced a confidently wrong window
+                # on budget_vs_actual / target_vs_actual / benchmark (all three got
+                # 2025-12-01..2025-12-31, which means nothing).
+                #
+                # A fabricated range is worse than an absent one: something downstream
+                # can compare against it and "confirm" agreement that was never checked.
+                _ct = getattr(comparison_type, "value", comparison_type)
+                if _ct in ("year_over_year", "quarter_over_quarter", "month_over_month"):
+                    basis = "temporal"
                     comp = self._bq_get_period_dates(
                         timeframe, is_comparison=True, comparison_type=comparison_type
                     )
+                elif _ct in ("budget_vs_actual", "target_vs_actual"):
+                    # Same window, different version — the plan is measured over the
+                    # SAME period, so the comparison window is the current one.
+                    basis = "version"
+                    comp = cur
+                elif _ct == "benchmark":
+                    # A peer cohort, not a time shift. No comparison window exists.
+                    basis = "peer"
+                elif comparison_type:
+                    basis = "unknown"
             except Exception:
                 pass
 
@@ -2432,6 +2455,7 @@ class A9_Situation_Awareness_Agent:
 
             return MeasurementContext(
                 window_start=cur[0], window_end=cur[1],
+                comparison_basis=basis,
                 comparison_window_start=comp[0], comparison_window_end=comp[1],
                 version=version,
                 filters=merged_filters or None,

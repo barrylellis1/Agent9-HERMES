@@ -182,8 +182,26 @@ class MeasurementContext(BaseModel):
     """
     window_start: Optional[str] = Field(None, description="Resolved start of the measured period (YYYY-MM-DD)")
     window_end: Optional[str] = Field(None, description="Resolved end of the measured period (YYYY-MM-DD)")
-    comparison_window_start: Optional[str] = Field(None, description="Resolved start of the comparison period")
-    comparison_window_end: Optional[str] = Field(None, description="Resolved end of the comparison period")
+    # WHAT the comparison is, not just when. Not every KPI comparison is
+    # current-vs-prior, and treating them all as temporal stamps a confidently
+    # wrong window on three of six ComparisonTypes:
+    #
+    #   temporal   prior window            YoY / QoQ / MoM
+    #   version    SAME window, other version   budget_vs_actual, target_vs_actual
+    #   peer       benchmark cohort, no time shift   benchmark
+    #   projection forecast vs a budget-derived floor over a horizon
+    #              (projected_breach: floor = monthly_budget - |monthly_budget| x tol)
+    #   series     multi-period trend, no single comparison window
+    #              (acceleration: 2nd derivative over >=4 monthly points)
+    #
+    # comparison_window_* is populated ONLY for 'temporal' and 'version'. For the
+    # rest it stays None, because a fabricated date range is worse than an absent
+    # one — something downstream could compare against it and "confirm" nothing.
+    comparison_basis: Optional[str] = Field(
+        None, description="temporal | version | peer | projection | series — what the comparison actually is"
+    )
+    comparison_window_start: Optional[str] = Field(None, description="Resolved start of the comparison period (temporal/version only)")
+    comparison_window_end: Optional[str] = Field(None, description="Resolved end of the comparison period (temporal/version only)")
     version: Optional[str] = Field(
         None,
         description="Data version this value came from: 'Actual', 'Budget', or a plan_version_value. "

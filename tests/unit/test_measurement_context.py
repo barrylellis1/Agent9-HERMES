@@ -165,3 +165,77 @@ class TestSABuildsContext:
         # Provenance is bookkeeping; it must not be able to fail a measurement.
         ctx = self._build(self._sa_cls(), timeframe=None, kpi_definition=None, base_sql=None)
         assert ctx is None or isinstance(ctx, MeasurementContext)
+
+
+class TestComparisonBasis:
+    """Not every KPI comparison is current-vs-prior.
+
+    REGRESSION. The first implementation asked `_bq_get_period_dates` for a
+    comparison window regardless of type. That helper only understands PERIODS
+    and falls back to "last month" for anything else, so three of six
+    ComparisonTypes were stamped with 2025-12-01..2025-12-31 — a real-looking
+    range that means nothing for a plan variance or a peer benchmark.
+
+    A fabricated window is worse than an absent one: something downstream can
+    compare against it and "confirm" agreement that was never checked.
+
+    The pipeline also has comparisons with no window at all:
+      projected_breach — a forecast against a budget-derived floor
+                         (floor = monthly_budget - |monthly_budget| x tol),
+                         carrying a horizon in periods_until_breach
+      acceleration     — 2nd derivative over >=4 monthly points, i.e. a series
+    """
+
+    def _ctx(self, comparison_type):
+        from src.agents.new.a9_situation_awareness_agent import A9_Situation_Awareness_Agent as SA
+        return SA._build_measurement_context(
+            SA, timeframe=TimeFrame.YEAR_TO_DATE, comparison_type=comparison_type,
+            merged_filters={}, source_system="bigquery", data_product_id="dp",
+            base_sql="SELECT 1", kpi_definition=type("K", (), {"plan_version_value": None})(),
+        )
+
+    @pytest.mark.parametrize("ct", [
+        ComparisonType.YEAR_OVER_YEAR,
+        ComparisonType.QUARTER_OVER_QUARTER,
+        ComparisonType.MONTH_OVER_MONTH,
+    ])
+    def test_temporal_comparisons_stamp_a_prior_window(self, ct):
+        c = self._ctx(ct)
+        assert c.comparison_basis == "temporal"
+        assert c.comparison_window_start and c.comparison_window_end
+        assert c.comparison_window_start < c.window_start, "prior window must precede the current one"
+
+    @pytest.mark.parametrize("ct", [ComparisonType.BUDGET_VS_ACTUAL, ComparisonType.TARGET_VS_ACTUAL])
+    def test_plan_variance_compares_the_SAME_window(self, ct):
+        # A plan variance is Actual vs Budget over the same period. Stamping a
+        # prior period (the old behaviour: last December) was simply wrong.
+        c = self._ctx(ct)
+        assert c.comparison_basis == "version"
+        assert (c.comparison_window_start, c.comparison_window_end) == (c.window_start, c.window_end)
+
+    def test_benchmark_has_no_comparison_window(self):
+        # A peer cohort is not a time shift. None is the honest answer.
+        c = self._ctx(ComparisonType.BENCHMARK)
+        assert c.comparison_basis == "peer"
+        assert c.comparison_window_start is None and c.comparison_window_end is None
+
+    def test_no_comparison_type_stamps_no_basis(self):
+        c = self._ctx(None)
+        assert c.comparison_basis is None
+        assert c.comparison_window_start is None
+
+    def test_current_window_is_always_stamped(self):
+        # Whatever the basis, the measured period itself is always known.
+        for ct in [None, ComparisonType.BUDGET_VS_ACTUAL, ComparisonType.BENCHMARK]:
+            assert self._ctx(ct).window() is not None
+
+    def test_window_equality_is_only_meaningful_within_a_basis(self):
+        """The assertion this model exists to enable must not compare apples to
+        oranges: a plan variance and a YoY both have windows, but comparing them
+        across bases would flag a difference that is correct by definition."""
+        yoy = self._ctx(ComparisonType.YEAR_OVER_YEAR)
+        plan = self._ctx(ComparisonType.BUDGET_VS_ACTUAL)
+        assert yoy.comparison_basis != plan.comparison_basis
+        assert yoy.comparison_window_start != plan.comparison_window_start
+        # Same measured period though — that IS comparable across agents.
+        assert yoy.window() == plan.window()
