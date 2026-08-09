@@ -108,3 +108,9 @@ Uses `_contract_path()` method to resolve contract files from registry:
 Backends: `ROLLUP` is standard across BigQuery, Snowflake, SQL Server, Postgres and DuckDB. Currently wired on the BigQuery builder (`_build_bq_dimensional_sql`); add the same one-line grouping switch to the other builders when a client needs it.
 
 Tests: `tests/unit/test_rollup_total_sql.py`.
+
+## `comparison_period` Was Ignored on the Non-Breakdown Path (Aug 2026)
+
+`_build_bq_dimensional_sql` hardcoded `TimeFilter.current_condition` in its non-breakdown early return, so a caller requesting the PRIOR scalar value silently received the CURRENT one. Found by a live run: an overall gross margin logged `current=29.94 previous=29.94 delta=0.0`, which would have rendered a confident "0.00pp" movement on a KPI that had actually moved -4.49pp.
+
+The breakdown branch had always honoured the flag. Only the scalar path did not, and nothing exercised it until Deep Analysis began fetching a path-independent overall figure. A parameter that is silently dropped is worse than one that errors — the caller gets a plausible number and no signal.

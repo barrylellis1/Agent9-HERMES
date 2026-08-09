@@ -135,9 +135,17 @@ class DimensionTotal(A9AgentBaseModel):
     current: Optional[float] = Field(None, description="Overall value for the current window")
     previous: Optional[float] = Field(None, description="Overall value for the comparison window")
     delta: Optional[float] = Field(None, description="current - previous, in the KPI's own units")
-    source: Literal["rollup", "unavailable"] = Field(
+    source: Literal["rollup", "scalar_query", "unavailable"] = Field(
         "unavailable",
-        description="'rollup' means the warehouse computed it. Never 'sum' — that is the bug this exists to prevent.",
+        description=(
+            "How the total was obtained. 'rollup' = a GROUP BY ROLLUP row on the same "
+            "grouped query as the members. 'scalar_query' = a separate ungrouped query "
+            "using the KPI's own expression (used when the dimensional path ends in "
+            "ORDER BY ... LIMIT and cannot carry a ROLLUP row). Both mean the WAREHOUSE "
+            "computed it. There is deliberately no 'sum' — deriving a ratio's total by "
+            "adding its members is the bug this field exists to prevent, and leaving it "
+            "unrepresentable means it cannot be reintroduced by accident."
+        ),
     )
 
 

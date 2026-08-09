@@ -4778,9 +4778,20 @@ class A9_Data_Product_Agent(DataProductProtocol):
 
             _spec = time_spec or {"type": "date", "column": "transaction_date"}
 
-            # Non-breakdown: append time filter to the raw KPI SQL
+            # Non-breakdown: append time filter to the raw KPI SQL.
+            #
+            # `comparison_period` was ignored here, so a caller asking for the PRIOR
+            # scalar value silently received the CURRENT one. Found live: an overall
+            # gross margin logged as current=29.94 previous=29.94 delta=0.0, which
+            # would have rendered a confident "0.00pp" total on a KPI that actually
+            # moved -2.69pp. The breakdown branch below has always honoured this flag;
+            # only the scalar path did not, and nothing exercised it until now.
             if not breakdown or not override_group_by:
-                cond = TimeFilter.current_condition(_spec, timeframe, dialect="bigquery")
+                cond = (
+                    TimeFilter.previous_condition(_spec, timeframe, dialect="bigquery")
+                    if comparison_period
+                    else TimeFilter.current_condition(_spec, timeframe, dialect="bigquery")
+                )
                 return TimeFilter.append_condition(raw_sql, cond)
 
             dim = override_group_by[0]

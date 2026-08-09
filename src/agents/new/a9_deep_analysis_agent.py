@@ -2164,6 +2164,66 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 kt.extent_is.append(dq_alert)
                 self.logger.warning(f"[DATA_QUALITY] {len(all_dq_issues)} items moved to data quality alerts")
             
+            # ── Overall movement, asked of the warehouse ────────────────────────
+            # The dimension breakdowns cover the SAME rows under the same filters, so
+            # the overall figure is identical for every dimension — one scalar pair,
+            # not per-dimension work.
+            #
+            # This runs regardless of which dimensional path executed. A live run
+            # proved that necessary: the ROLLUP wiring on `_maps_for_level` was inert
+            # because this KPI takes the topn/CTE path instead, which ends in
+            # ORDER BY ... LIMIT and cannot carry a ROLLUP row. `bridge=0/0
+            # dimension_totals=0` in the logs, on an otherwise successful analysis.
+            #
+            # Two ungrouped queries using the KPI's own registered expression. No
+            # arithmetic here beyond the subtraction of two values the warehouse
+            # computed — deriving the total from the member rows is the bug this
+            # replaced (452.95% against a true 29.43%).
+            if not _dimension_totals and self.data_product_agent is not None and kpi_def is not None:
+                try:
+                    _dims_present = {
+                        str(i.get("dimension")) for i in kt.where_is + kt.where_is_not
+                        if isinstance(i, dict) and i.get("dimension")
+                    }
+                    if _dims_present:
+                        async def _scalar(comparison: bool):
+                            g = await self.data_product_agent.generate_sql_for_kpi(
+                                kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None),
+                                breakdown=False, comparison_period=comparison,
+                            )
+                            if not g.get("success"):
+                                return None
+                            ex = await self.data_product_agent.execute_sql(g.get("sql"), data_product_id=dp_id)
+                            rows = (ex or {}).get("rows") or []
+                            if not rows:
+                                return None
+                            r = rows[0]
+                            v = list(r.values())[0] if isinstance(r, dict) else r[0]
+                            return float(v) if v is not None else None
+
+                        _ov_cur = await _scalar(False)
+                        _ov_prev = await _scalar(True) if prev_tf else None
+                        if _ov_cur is not None or _ov_prev is not None:
+                            _ov = DimensionTotal(
+                                current=_ov_cur, previous=_ov_prev,
+                                delta=(_ov_cur - _ov_prev) if (_ov_cur is not None and _ov_prev is not None) else None,
+                                # Two ungrouped queries, not a ROLLUP row — label it
+                                # accurately. Provenance that overstates how a number
+                                # was obtained is the failure mode this whole area of
+                                # work exists to remove.
+                                source="scalar_query",
+                            )
+                            for _d in _dims_present:
+                                _dimension_totals[_d] = _ov
+                            self.logger.info(
+                                f"[TOTAL] overall {plan.kpi_name}: current={_ov_cur} previous={_ov_prev} "
+                                f"delta={_ov.delta} applied to {len(_dims_present)} dimension(s)"
+                            )
+                except Exception as _tot_exc:
+                    # Non-fatal: an absent total renders as no total, which is the
+                    # honest outcome. It must never fall back to summing members.
+                    self.logger.warning(f"[TOTAL] overall figure unavailable: {_tot_exc}")
+
             kt.dimension_totals = _dimension_totals
 
             # Cross-check: where the ratio bridge ran, the WEIGHTED contributions should

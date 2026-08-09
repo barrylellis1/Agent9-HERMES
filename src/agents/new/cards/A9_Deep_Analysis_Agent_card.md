@@ -355,6 +355,16 @@ A ratio's members cannot be added, and the total cannot be recovered from them a
 
 **The bridge is now a decomposition, not a fallback.** It answers a different question from ROLLUP ("how much of the move came from this segment") and is not a backup for it. Where both run they **cross-check**: the sum of weighted contributions should land on the warehouse total. `[ROLLUP-CHECK]` logs a warning when the decomposition *overshoots* the quantity it decomposes (only overshoot is checkable — members are top-N, so their sum is a subset). Logged, not raised: the total is authoritative and correct on its own, and a bad decomposition must not take down a good analysis.
 
+**Live verification (2026-08-09) found the first cut inert, and then a second bug.**
+
+Run 1 on the real server logged `bridge=0/0 dimension_totals=0` on an otherwise successful analysis: this KPI takes the **topn/CTE path** (`topn={'type':'top','n':3}` → `WITH curr … ORDER BY delta_prev DESC LIMIT n`), not `_maps_for_level`, so `include_total` was never requested and the ROLLUP wiring never executed. Editing a code path proves nothing until a live run confirms that path is the one used.
+
+**Fix:** an overall figure is now fetched **path-independently** at the end of `execute_deep_analysis` — two ungrouped queries (current and `comparison_period=True`) using the KPI's own registered expression, applied to every dimension present. The dimensional breakdowns cover the same rows under the same filters, so the overall figure is identical for every dimension; one scalar pair, not per-dimension work. Non-fatal on failure: an absent total renders as no total, and must never fall back to summing members.
+
+Run 2 then exposed a second defect: **`_build_bq_dimensional_sql` ignored `comparison_period` on the non-breakdown path**, so the prior-period scalar silently returned the CURRENT value — `current=29.94 previous=29.94 delta=0.0`, which would have rendered a confident "0.00pp" on a KPI that had actually moved. The breakdown branch had always honoured the flag; only the scalar path did not, and nothing had exercised it. Fixed.
+
+Run 3 verified end to end and cross-checked independently against BigQuery: **YTD 2026 = 29.94%, YTD 2025 = 34.43%, delta = −4.49pp**, matching DA exactly; `dimension_totals` populated for all 5 dimensions; 34 members with **no phantom total row** leaked in. `source` is `"scalar_query"` on this path, not `"rollup"` — labelling it `rollup` would overstate how the number was obtained.
+
 **Design rule this encodes:** *any number requiring arithmetic is computed by the query, not by Agent9.* The agents decide what to ask and interpret what comes back; they do not aggregate. Tests: `tests/unit/test_rollup_total_sql.py`, `tests/unit/test_ratio_delta_additivity.py`.
 
 ## Known Defect — Hardcoded Dimension Selection (Aug 2026, fix planned)

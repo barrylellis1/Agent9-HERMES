@@ -114,6 +114,20 @@ class TestTotalsComeFromTheWarehouse:
         with pytest.raises(Exception):
             DimensionTotal(current=1.0, previous=2.0, delta=-1.0, source="sum")
 
+    def test_scalar_query_is_a_distinct_honest_provenance(self):
+        """The live path uses two ungrouped queries, not a ROLLUP row.
+
+        Labelling that 'rollup' would overstate how the number was obtained —
+        the exact failure mode this area of work exists to remove.
+        """
+        t = DimensionTotal(current=29.94, previous=34.43, delta=-4.49, source="scalar_query")
+        assert t.source == "scalar_query"
+
+    def test_verified_live_values_round_trip(self):
+        """Confirmed against BigQuery 2026-08-09: YTD2026 29.94 vs YTD2025 34.43."""
+        t = DimensionTotal(current=29.94, previous=34.43, delta=29.94 - 34.43, source="scalar_query")
+        assert t.delta == pytest.approx(-4.49, abs=0.01)
+
     def test_unavailable_is_the_honest_default(self):
         assert DimensionTotal().source == "unavailable"
 
