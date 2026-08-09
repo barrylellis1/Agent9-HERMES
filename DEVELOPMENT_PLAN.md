@@ -1909,6 +1909,47 @@ Final tally: baseline n=4 non-stub, moderator n=8 non-stub (4 original + 4 on cl
 
 ---
 
+#### Stage I — Persona-differentiated problem framing (designed 2026-08-09, not built)
+
+**The observation that started it.** Reading the Stage 1 hypotheses across 10 MBB runs: McKinsey, BCG and Bain produce *one analysis in three costumes*. Same causal claim (base-oil COGS pass-through colliding with a contractual price-lock at one customer), and two of three propose a near-verbatim identical intervention ("accelerate contract renewal negotiation"). Only Bain differs at all, and only in focus — the product line rather than the account.
+
+This is **not** evidence that real MBB frameworks converge. It is evidence that our pipeline has removed every point at which they could diverge, *before* the personas are invoked. Two such points were found in code, and they are the two halves of this stage.
+
+**Root cause 1 — the personas inherit an identical constraint set (the dominant one).**
+
+```
+ONE interviewer  →  FIXED five topics  →  ONE constraints list  →  top-5 truncation
+                                       →  the identical copy handed to all three personas
+```
+`_generate_refinement_question` (`a9_deep_analysis_agent.py:2981`) runs a single interview. `STYLE_GUIDANCE` (`:105`) *already contains* McKinsey / BCG / Bain framings — but it is keyed on the **principal's** `decision_style`, not on a firm, and it steers **tone only**: `REFINEMENT_TOPIC_SEQUENCE` (`:88`) walks the same five topics regardless. The resulting `constraints` list is truncated to five and copied to every Stage 1 persona (`a9_solution_finder_agent.py:1667`).
+
+Constraints bound the feasible answer set. Give three competent analysts the same bounds and they find the same move; the framework label can then only change how they *describe* the move they were always going to land on. **This is a better explanation of the convergence than any data-access theory** — and it matches how consulting actually differentiates: firms mostly share a data room, and diverge in the scoping conversation that decides what is fixed versus movable.
+
+**Design — one conversation, three questioners.** Three separate interviews is a non-starter (today's flow already runs up to 10 turns; no CFO sits through 30). Instead:
+- each persona contributes questions to a **shared** queue — the principal answers **once**, so human burden is unchanged;
+- `_extract_refinements_from_response` runs **per persona** with persona-specific extraction instructions, so each reads *its own* constraints out of the shared transcript;
+- each persona then solves under **its own** constraint set.
+
+**The failure mode this buys, stated plainly.** Constraints are mostly *facts*, not opinions — "the union agreement runs through Q3" is true regardless of who asks. A persona that never asks about it does not get a differently-valid answer; it gets a **wrong** one, and its option looks *better* precisely because it never learned what would kill it. This is tolerable (it is how a real bake-off works — the client discounts the naive proposal), but it makes the moderator and HITL **load-bearing** in a way they are not today: every option must be checkable against the **union** of constraints, not only the subset its author discovered. Treat that as a build requirement, not a caveat.
+
+**Root cause 2 — dimension selection is hardcoded, so the investigation is nobody's.**
+`_dims_from_contract` (`a9_deep_analysis_agent.py:273`) ranks by a static literal:
+```python
+preferred = ["profit_center_name", "customer_name", "product_name",
+             "product_line", "channel_name", "customer_segment", ...]
+```
+Same ordering for every KPI, client, and problem type. No framework, principal, or problem shape influences it. **Fix this regardless of the persona question** — choosing what to investigate based on the problem is an improvement with a single analyst and no council at all. Two steps, ascending cost:
+1. **Route the interview topics and the dimension ranking off the problem profile.** `src/analysis/problem_profile.py` already classifies concentrated-vs-distributed, control-group presence, and cross-KPI conflict *deterministically* — and neither the interview nor the planner consults it. A concentrated single-customer problem and a diffuse enterprise one deserve different cuts and different questions. Cheap, no LLM, helps every path.
+2. **Personas propose cuts** (only if step 1 leaves real headroom). The `plan_deep_analysis` → `DeepAnalysisPlan` → `execute_deep_analysis` split is already the injection point; `DeepAnalysisPlan.dimensions` is a plain list. Costs: 3× the fishing risk (each persona finds *something* in its preferred slice), more BigQuery spend and latency, and a moderator that must adjudicate claims resting on **different evidence bases** — which directly weakens G3, since arithmetic cannot be checked against data the moderator never saw.
+
+**Cheap test before committing to either (~$0.50).** Have each persona *propose* which cuts it wants; run DA **once** on the union; compare the three proposals. If all three ask for customer × product, the frameworks do not diverge even on what to investigate and the expensive version is settled without building it. If McKinsey asks for profit-centre structure, BCG for channel and growth, Bain for customer cost-to-serve, the divergence is real and the build is justified.
+
+**Sequencing.** Hold every live run until the `use_structured_output` flip lands (PM-4 — one variable per run). Then: problem-profile-driven topics + dimensions (deterministic, no experiment needed) → cheap proposal-comparison test → shared-interview build only if the test shows divergence. Measure the outcome with the Stage H instruments already built (mechanism fingerprint, groundedness, problem profile), comparing **within** problem type.
+
+**Open commercial question this raises.** If three MBB personas reliably yield one hypothesis, we are paying for three calls plus council machinery to obtain one idea — and presenting a "council" narrative that implies more independent scrutiny than occurred. That is a credibility exposure with a CFO who knows these firms. The earlier diverse-council run (McKinsey / KPMG / Accenture) *did* produce genuinely distinct archetypes — negotiate / govern / platformize — which appeared in none of the 10 MBB runs. Working hypothesis: **persona differentiation pays when the disciplines genuinely differ, and collapses when they do not.** Stage I tests whether framing-level differentiation can recover it within a single discipline; if it cannot, the honest options are one strategy persona plus genuinely different disciplines, or keeping three but no longer calling it a debate.
+
+---
+
 ### Phase 14+: Future (not scheduled)
 
 | Initiative | When |

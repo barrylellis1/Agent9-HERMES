@@ -654,6 +654,48 @@ _DP_CONTEXT_MAP: Dict[str, str] = {
 - User-customizable evaluation criteria and workflows
 - Agent learning from solution outcomes and user feedback
 
+## Phase 15 Stage I — Persona-Differentiated Problem Framing (designed Aug 2026, NOT built)
+
+**Status:** design only. Live runs gated behind the `use_structured_output` flip (PM-4: one variable per run).
+Full rationale, cost analysis, and sequencing: `DEVELOPMENT_PLAN.md` → Phase 15 → Stage I.
+
+### The defect this addresses
+
+Across 10 MBB runs on identical input, the three Stage 1 personas produce **one hypothesis in three costumes** — same causal claim, and two of three propose a near-verbatim identical intervention. The cause is architectural, not a prompt-quality problem: **every point at which the personas could diverge has been removed before they are invoked.**
+
+| Where firms actually differ | What the pipeline does today |
+|---|---|
+| The scoping conversation that decides what is fixed vs movable | **One** interview, **fixed** five-topic sequence (`REFINEMENT_TOPIC_SEQUENCE`), producing **one** constraints list, truncated to five and copied identically to all three personas (`a9_solution_finder_agent.py:1667`) |
+| Which cuts of the data to investigate | `_dims_from_contract` ranks by a **static literal preference list** — no framework, principal, or problem shape influences it |
+| Framework/tone | `STYLE_GUIDANCE` *does* carry McKinsey / BCG / Bain framings — but keyed on the **principal's** `decision_style`, not a firm, and it steers **tone only** |
+
+Constraints bound the feasible answer set. Three competent analysts given identical bounds find the same move; the framework label then only changes how they describe it.
+
+### Design: one conversation, three questioners
+
+Three separate interviews is a non-starter (current flow already runs to 10 turns). Instead:
+- personas contribute questions to a **shared** queue — the principal answers **once**, human burden unchanged;
+- `_extract_refinements_from_response` runs **per persona** with persona-specific extraction instructions;
+- each persona solves under **its own** constraint set.
+
+### Contract change (Stage 1 input)
+
+`refinement_compact_s1["constraints"]` becomes **per-persona** rather than a single shared list. The **union** of all personas' constraints must still be carried forward for adjudication — see below.
+
+### Load-bearing requirement, not a caveat
+
+Constraints are mostly **facts, not opinions**. A persona that never asks about a real constraint does not produce a differently-valid answer — it produces a **wrong** one, and its option scores *better* precisely because it never learned what would kill it. Therefore: **the moderator and HITL must check every option against the union of constraints, not only the subset its author discovered.** Without this, Stage I makes output worse, not more diverse.
+
+### Measurement
+
+Reuse the Stage H deterministic instruments (`src/analysis/`: mechanism fingerprint, groundedness G1–G6, problem profile). Compare **within** problem type. No LLM judge — a stochastic ruler cannot measure a stochastic process.
+
+### Companion fix (independent value)
+
+Route interview topics **and** dimension ranking off `src/analysis/problem_profile.py`, which already classifies concentrated-vs-distributed, control-group presence, and cross-KPI conflict deterministically — and which neither the interview nor `plan_deep_analysis` currently consults. This improves a single-analyst run with no council at all, and should land first.
+
+---
+
 ## Phase 11G — Mixed-Mode HITL Resolution Design (May 2026)
 
 When upstream Deep Analysis executes in `analysis_mode="mixed"`, the frontend intercepts before Solution Finder is invoked. A HITL resolution panel in `DeepFocusView` is displayed:

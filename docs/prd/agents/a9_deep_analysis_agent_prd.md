@@ -866,6 +866,29 @@ All LLM operations for the Deep Analysis Agent will be centralized through a ded
 
 ---
 
+## 9.9 Known Defect — Dimension Selection Is Hardcoded (identified Aug 2026, fix planned)
+
+**Symptom:** every KPI, client, and problem type is investigated along the same dimensions in the same order.
+
+`_dims_from_contract` (`a9_deep_analysis_agent.py:273`) ranks candidate dimensions against a static literal:
+
+```python
+preferred = ["profit_center_name", "customer_name", "product_name",
+             "product_line", "channel_name", "customer_segment", ...]
+```
+
+Contract dimensions not in this list are appended in whatever order the YAML happens to carry, then truncated to 15 candidates / 5 executed steps. **Nothing about the problem influences what gets investigated** — not the alert type, not the concentration of the variance, not whether a contrast group exists, not the principal, not the requesting persona.
+
+**Consequence beyond DA.** Because Solution Finder's personas all read one DA output, a fixed investigation is a fixed evidence base — which is one of two reasons the MBB personas converge on a single hypothesis (the dominant reason being an identical constraint set; see SF PRD → Phase 15 Stage I).
+
+**Planned fix, step 1 (cheap, deterministic, no LLM, no experiment required).** Route dimension ranking off `src/analysis/problem_profile.py`, which already classifies `mode`, `concentration` (concentrated vs distributed), `has_control_group`, `compound`, `cross_kpi`, and `market_conflict` — and which `plan_deep_analysis` does not currently consult. A concentrated single-customer breach and a diffuse enterprise-wide drift warrant different cuts. This improves every analysis path, including single-analyst runs with no council.
+
+**Planned fix, step 2 (gated on step 1 leaving real headroom).** Allow SF personas to propose dimensions. The injection point already exists — `plan_deep_analysis` → `DeepAnalysisPlan` → `execute_deep_analysis`, where `DeepAnalysisPlan.dimensions` is a plain list. Costs to weigh first: 3× multiple-comparisons risk (each persona finds *something* in its preferred slice), additional warehouse spend and latency, and a moderator forced to adjudicate claims resting on **different evidence bases** — which weakens groundedness check G3, since arithmetic cannot be verified against data the moderator never saw. A ~$0.50 test (personas *propose* cuts, DA runs once on the union, compare the proposals) settles whether step 2 is worth building.
+
+Tracking: `DEVELOPMENT_PLAN.md` → Phase 15 → Stage I.
+
+---
+
 ## 10. Deferred Analysis Capabilities (Not in Current Development Plan)
 
 ### 10.1 Dimension Hierarchy Analysis
