@@ -108,3 +108,43 @@ test.describe('Executive Briefing — moderator arm', () => {
     expect(errors, `uncaught page errors: ${errors.join(' | ')}`).toHaveLength(0);
   });
 });
+
+test.describe('Narrative accuracy caveat', () => {
+  // A detected error that reaches only an audit payload is a smoke alarm wired
+  // to a notepad. These pin that it reaches the READER instead.
+  const WARNINGS = [
+    { kind: 'headline_substitution',
+      detail: 'prose presents -43.24 as the headline KPI, but the measured headline is 30.29 — likely a segment figure promoted to enterprise' },
+    { kind: 'sum_mismatch',
+      detail: 'states a combined 140.4 but the 3 figures cited in the same sentence sum to 75.18 (1.9x)' },
+  ];
+
+  test('warns the reader when narrative figures contradict the data', async ({ page }) => {
+    await openBriefing(page, { ...MODERATOR_BRIEFING, narrative_warnings: WARNINGS });
+    await expect(page.getByText(/narrative figures disagree with the measured data/i)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/measured values are authoritative/i)).toBeVisible();
+    await expect(page.getByText(/segment figure promoted to enterprise/i)).toBeVisible();
+    await expect(page.getByText(/sum to 75\.18/i)).toBeVisible();
+  });
+
+  test('does NOT alter the prose it warns about', async ({ page }) => {
+    // Silent auto-correction would hide that the generator contradicted the data.
+    // The reader is entitled to see both and which one is measured.
+    await openBriefing(page, { ...MODERATOR_BRIEFING, narrative_warnings: WARNINGS });
+    await expect(page.getByRole('button', { name: /strategic options/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/narrative figures disagree/i)).toBeVisible();
+  });
+
+  test('no caveat when the narrative is clean', async ({ page }) => {
+    // Absence of the banner is meaningful — it must not appear by default.
+    await openBriefing(page, { ...MODERATOR_BRIEFING, narrative_warnings: null });
+    await expect(page.getByRole('button', { name: /strategic options/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/narrative figures disagree/i)).toHaveCount(0);
+  });
+
+  test('an empty warning list is treated as clean', async ({ page }) => {
+    await openBriefing(page, { ...MODERATOR_BRIEFING, narrative_warnings: [] });
+    await expect(page.getByRole('button', { name: /strategic options/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/narrative figures disagree/i)).toHaveCount(0);
+  });
+});

@@ -463,6 +463,15 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       stage_1_hypotheses: sol?.stage_1_hypotheses || null,
       cross_review: sol?.cross_review || null,
       moderator_grades: sol?.moderator_grades || null,
+      // Figures the narrative asserts that disagree with the measured data.
+      // The backend detects these deterministically; carrying them here is what
+      // stops a detected error from shipping SILENTLY. A flag that only reaches
+      // an audit payload nobody opens is a smoke alarm wired to a notepad —
+      // arguably worse than no check, because it implies the guard is working.
+      narrative_warnings: (() => {
+        const ev = (sol?.audit_log || []).find((e: any) => e?.event === 'narrative_claim_mismatch')
+        return ev?.findings?.length ? ev.findings : null
+      })(),
       blind_spots: sol?.blind_spots || [],
       unresolved_tensions: sol?.unresolved_tensions || [],
       // Market Intelligence from DA/MA agent

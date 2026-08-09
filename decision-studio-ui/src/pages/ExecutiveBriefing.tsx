@@ -583,6 +583,43 @@ export function ExecutiveBriefing() {
               })()}
             </div>
 
+            {/* ── Narrative accuracy caveat ─────────────────────────────────────
+                Renders ABOVE the flash briefing and on print, because it is a
+                caveat ON that prose and must travel with it.
+
+                Deliberately does NOT correct the text. A silent auto-correction
+                would hide that the generator produced a figure contradicting the
+                data — the reader is entitled to know the narrative and the
+                measurements disagree, and which one is measured. Suppressing the
+                sentence outright would be worse still: it would leave a gap with
+                no explanation. */}
+            {Array.isArray((data as any).narrative_warnings) && (data as any).narrative_warnings.length > 0 && (
+              <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-950/20 p-4 print:bg-amber-50 print:border-amber-300">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5 print:text-amber-700" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-300 mb-1 print:text-amber-900">
+                      Narrative figures disagree with the measured data
+                    </p>
+                    <p className="text-xs text-amber-200/80 mb-2 print:text-amber-800">
+                      The written summary below asserts {(data as any).narrative_warnings.length === 1 ? 'a figure that does' : 'figures that do'} not
+                      match what the pipeline measured. The measured values are authoritative; treat the prose with caution.
+                    </p>
+                    <ul className="space-y-1">
+                      {(data as any).narrative_warnings.map((w: any, i: number) => (
+                        <li key={i} className="text-xs text-amber-200/70 print:text-amber-800">
+                          <span className="font-mono text-[10px] uppercase tracking-wider text-amber-400/80 print:text-amber-700">
+                            {String(w?.kind || 'mismatch').replace(/_/g, ' ')}
+                          </span>
+                          {' — '}{w?.detail}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* ── Flash Briefing (print-only) ───────────────────────────────── */}
             {(() => {
               const scqa = data.executiveSummary || data.situation?.currentState || ''
