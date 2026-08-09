@@ -1,0 +1,1973 @@
+{
+ "situation": {
+  "situation_id": "sit_live_render_001",
+  "kpi_name": "Gross Margin %",
+  "severity": "critical",
+  "principal_id": "cfo_001",
+  "description": "Gross Margin % decreased by 12.9% vs prior year",
+  "kpi_value": {
+   "value": 29.94,
+   "unit": "%",
+   "percent_change": -0.129
+  }
+ },
+ "analysis": {
+  "status": "success",
+  "request_id": "18c4a412-b6cc-43e9-80b0-a6b4a45e7e8b",
+  "timestamp": "2026-08-09T20:16:48.603819",
+  "error_message": null,
+  "plan": {
+   "kpi_name": "gross_margin_pct",
+   "client_id": "lubricants",
+   "timeframe": "year_to_date",
+   "filters": {
+    "Fiscal Year": [
+     "2024",
+     "2025",
+     "2026"
+    ],
+    "Customer Segment": [
+     "Total"
+    ],
+    "Profit Center Name": [
+     "Total"
+    ]
+   },
+   "dimensions": [
+    "profit_center_name",
+    "customer_name",
+    "product_name",
+    "product_line",
+    "channel_name",
+    "customer_segment",
+    "product_category",
+    "customer_region",
+    "business_unit",
+    "channel_type",
+    "account_name",
+    "account_type",
+    "account_category",
+    "account_group",
+    "fiscal_year"
+   ],
+   "steps": [
+    {
+     "type": "group_compare",
+     "dimension": "profit_center_name",
+     "timeframe": "year_to_date",
+     "filters": {
+      "Fiscal Year": [
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "Customer Segment": [
+       "Total"
+      ],
+      "Profit Center Name": [
+       "Total"
+      ]
+     },
+     "comparison": "current_vs_previous"
+    },
+    {
+     "type": "group_compare",
+     "dimension": "customer_name",
+     "timeframe": "year_to_date",
+     "filters": {
+      "Fiscal Year": [
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "Customer Segment": [
+       "Total"
+      ],
+      "Profit Center Name": [
+       "Total"
+      ]
+     },
+     "comparison": "current_vs_previous"
+    },
+    {
+     "type": "group_compare",
+     "dimension": "product_name",
+     "timeframe": "year_to_date",
+     "filters": {
+      "Fiscal Year": [
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "Customer Segment": [
+       "Total"
+      ],
+      "Profit Center Name": [
+       "Total"
+      ]
+     },
+     "comparison": "current_vs_previous"
+    },
+    {
+     "type": "group_compare",
+     "dimension": "product_line",
+     "timeframe": "year_to_date",
+     "filters": {
+      "Fiscal Year": [
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "Customer Segment": [
+       "Total"
+      ],
+      "Profit Center Name": [
+       "Total"
+      ]
+     },
+     "comparison": "current_vs_previous"
+    },
+    {
+     "type": "group_compare",
+     "dimension": "channel_name",
+     "timeframe": "year_to_date",
+     "filters": {
+      "Fiscal Year": [
+       "2024",
+       "2025",
+       "2026"
+      ],
+      "Customer Segment": [
+       "Total"
+      ],
+      "Profit Center Name": [
+       "Total"
+      ]
+     },
+     "comparison": "current_vs_previous"
+    }
+   ],
+   "notes": "KT core with SCQA/MECE framing (auto-derived dimensions from data product contract).",
+   "analysis_mode": "problem",
+   "alert_type": null,
+   "compound_alert": false,
+   "compound_pattern": null,
+   "merged_alert_types": null,
+   "secondary_alert_facts": null,
+   "comparator_override": null
+  },
+  "dimensions_suggested": [
+   "profit_center_name",
+   "customer_name",
+   "product_name",
+   "product_line",
+   "channel_name",
+   "customer_segment",
+   "product_category",
+   "customer_region",
+   "business_unit",
+   "channel_type",
+   "account_name",
+   "account_type",
+   "account_category",
+   "account_group",
+   "fiscal_year"
+  ],
+  "scqa_summary": "Situation: gross_margin_pct is under-performing vs. yoy. Complication: The variance is concentrated in International Division, Commercial & Industrial Division, Service Centers Division, Retail Products Division, National Auto Parts Chain A, while remaining segments are within range. Key drivers: product_name=Synthetic Blend Engine Oil (-7.1); product_name=Conventional Engine Oil (-6.6); product_name=Compressor Oil (-5.9); product_line=Engine Oils (-5.8). Question: What actions can address the identified contributors?",
+  "kt_is_is_not": {
+   "what_is": [
+    {
+     "text": "gross_margin_pct is 29.94 vs last_year 32.63 (\u0394 -2.69, -8.2%)."
+    },
+    {
+     "text": "Issue observed during year_to_date compared against last_year."
+    },
+    {
+     "text": "Largest variance in product_name: Synthetic Blend Engine Oil (\u0394 -7.14)."
+    },
+    {
+     "text": "Analysis scoped by applied filters, limiting impact to selected context."
+    }
+   ],
+   "what_is_not": [
+    {
+     "text": "Unaffected timeframe buckets: Within threshold"
+    }
+   ],
+   "where_is": [
+    {
+     "dimension": "profit_center_name",
+     "key": "International Division",
+     "delta": -4.979999999999997,
+     "current": 27.64,
+     "previous": 32.62,
+     "text": "profit_center_name: International Division (\u0394 -4.98)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "profit_center_name",
+     "key": "Commercial & Industrial Division",
+     "delta": -4.709999999999997,
+     "current": 29.19,
+     "previous": 33.9,
+     "text": "profit_center_name: Commercial & Industrial Division (\u0394 -4.71)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "profit_center_name",
+     "key": "Service Centers Division",
+     "delta": -4.379999999999999,
+     "current": 29.95,
+     "previous": 34.33,
+     "text": "profit_center_name: Service Centers Division (\u0394 -4.38)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "profit_center_name",
+     "key": "Retail Products Division",
+     "delta": -4.259999999999998,
+     "current": 30.93,
+     "previous": 35.19,
+     "text": "profit_center_name: Retail Products Division (\u0394 -4.26)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "customer_name",
+     "key": "National Auto Parts Chain A",
+     "delta": -5.240000000000002,
+     "current": 28.18,
+     "previous": 33.42,
+     "text": "customer_name: National Auto Parts Chain A (\u0394 -5.24)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "customer_name",
+     "key": "Latin America Distributor",
+     "delta": -5.080000000000002,
+     "current": 27.69,
+     "previous": 32.77,
+     "text": "customer_name: Latin America Distributor (\u0394 -5.08)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "customer_name",
+     "key": "Middle East Distributor",
+     "delta": -5.039999999999999,
+     "current": 27.64,
+     "previous": 32.68,
+     "text": "customer_name: Middle East Distributor (\u0394 -5.04)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "customer_name",
+     "key": "Mining & Construction Corp",
+     "delta": -5.020000000000003,
+     "current": 29.08,
+     "previous": 34.1,
+     "text": "customer_name: Mining & Construction Corp (\u0394 -5.02)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "customer_name",
+     "key": "Fleet Customer A",
+     "delta": -5.0,
+     "current": 29.07,
+     "previous": 34.07,
+     "text": "customer_name: Fleet Customer A (\u0394 -5.00)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "customer_name",
+     "key": "Marine Operations Co",
+     "delta": -4.979999999999997,
+     "current": 29.1,
+     "previous": 34.08,
+     "text": "customer_name: Marine Operations Co (\u0394 -4.98)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "customer_name",
+     "key": "European Distributor",
+     "delta": -4.969999999999999,
+     "current": 27.53,
+     "previous": 32.5,
+     "text": "customer_name: European Distributor (\u0394 -4.97)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "customer_name",
+     "key": "Dealer Service Network",
+     "delta": -4.969999999999995,
+     "current": 28.94,
+     "previous": 33.91,
+     "text": "customer_name: Dealer Service Network (\u0394 -4.97)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "customer_name",
+     "key": "Asia-Pacific Distributor",
+     "delta": -4.799999999999997,
+     "current": 27.71,
+     "previous": 32.51,
+     "text": "customer_name: Asia-Pacific Distributor (\u0394 -4.80)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "customer_name",
+     "key": "Fleet Customer B",
+     "delta": -4.789999999999999,
+     "current": 29.21,
+     "previous": 34.0,
+     "text": "customer_name: Fleet Customer B (\u0394 -4.79)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "product_name",
+     "key": "Synthetic Blend Engine Oil",
+     "delta": -7.140000000000001,
+     "current": 20.64,
+     "previous": 27.78,
+     "text": "product_name: Synthetic Blend Engine Oil (\u0394 -7.14)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "product_name",
+     "key": "Conventional Engine Oil",
+     "delta": -6.609999999999999,
+     "current": 19.16,
+     "previous": 25.77,
+     "text": "product_name: Conventional Engine Oil (\u0394 -6.61)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "product_name",
+     "key": "Compressor Oil",
+     "delta": -5.859999999999999,
+     "current": 28.0,
+     "previous": 33.86,
+     "text": "product_name: Compressor Oil (\u0394 -5.86)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "product_name",
+     "key": "Hydraulic Oil",
+     "delta": -5.760000000000002,
+     "current": 25.83,
+     "previous": 31.59,
+     "text": "product_name: Hydraulic Oil (\u0394 -5.76)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "product_name",
+     "key": "Manual Gear Oil",
+     "delta": -5.740000000000002,
+     "current": 21.9,
+     "previous": 27.64,
+     "text": "product_name: Manual Gear Oil (\u0394 -5.74)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "product_name",
+     "key": "Automatic Transmission Fluid",
+     "delta": -5.290000000000003,
+     "current": 28.38,
+     "previous": 33.67,
+     "text": "product_name: Automatic Transmission Fluid (\u0394 -5.29)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "product_name",
+     "key": "Turbine Oil",
+     "delta": -4.93,
+     "current": 31.71,
+     "previous": 36.64,
+     "text": "product_name: Turbine Oil (\u0394 -4.93)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "product_name",
+     "key": "High Mileage Engine Oil",
+     "delta": -4.609999999999999,
+     "current": 33.0,
+     "previous": 37.61,
+     "text": "product_name: High Mileage Engine Oil (\u0394 -4.61)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "product_name",
+     "key": "Full Synthetic Engine Oil",
+     "delta": -3.8299999999999983,
+     "current": 35.82,
+     "previous": 39.65,
+     "text": "product_name: Full Synthetic Engine Oil (\u0394 -3.83)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "product_name",
+     "key": "Multi-Purpose Grease",
+     "delta": -3.259999999999998,
+     "current": 35.25,
+     "previous": 38.51,
+     "text": "product_name: Multi-Purpose Grease (\u0394 -3.26)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "product_line",
+     "key": "Engine Oils",
+     "delta": -5.799999999999997,
+     "current": 26.03,
+     "previous": 31.83,
+     "text": "product_line: Engine Oils (\u0394 -5.80)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "product_line",
+     "key": "Industrial Lubricants",
+     "delta": -5.470000000000002,
+     "current": 28.13,
+     "previous": 33.6,
+     "text": "product_line: Industrial Lubricants (\u0394 -5.47)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "product_line",
+     "key": "Transmission & Drivetrain",
+     "delta": -5.430000000000003,
+     "current": 26.77,
+     "previous": 32.2,
+     "text": "product_line: Transmission & Drivetrain (\u0394 -5.43)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "product_line",
+     "key": "Greases & Specialty",
+     "delta": -3.1400000000000006,
+     "current": 35.96,
+     "previous": 39.1,
+     "text": "product_line: Greases & Specialty (\u0394 -3.14)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "product_line",
+     "key": "Coolants & Antifreeze",
+     "delta": -1.9199999999999982,
+     "current": 29.57,
+     "previous": 31.49,
+     "text": "product_line: Coolants & Antifreeze (\u0394 -1.92)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "channel_name",
+     "key": "International Distribution",
+     "delta": -4.979999999999997,
+     "current": 27.64,
+     "previous": 32.62,
+     "text": "channel_name: International Distribution (\u0394 -4.98)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "channel_name",
+     "key": "B2B Direct Sales",
+     "delta": -4.709999999999997,
+     "current": 29.19,
+     "previous": 33.9,
+     "text": "channel_name: B2B Direct Sales (\u0394 -4.71)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "channel_name",
+     "key": "DIY Retail",
+     "delta": -4.5000000000000036,
+     "current": 30.45,
+     "previous": 34.95,
+     "text": "channel_name: DIY Retail (\u0394 -4.50)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "channel_name",
+     "key": "DIFM Service Centers",
+     "delta": -4.379999999999999,
+     "current": 29.95,
+     "previous": 34.33,
+     "text": "channel_name: DIFM Service Centers (\u0394 -4.38)",
+     "segment_type": "problem"
+    },
+    {
+     "dimension": "channel_name",
+     "key": "E-Commerce",
+     "delta": -3.2900000000000063,
+     "current": 32.91,
+     "previous": 36.2,
+     "text": "channel_name: E-Commerce (\u0394 -3.29)",
+     "segment_type": "problem"
+    }
+   ],
+   "where_is_not": [],
+   "when_is": [
+    {
+     "bucket": "2026-007",
+     "delta": 32.4,
+     "current": 32.4,
+     "previous": 0.0,
+     "text": "2026-007 (\u0394 +32.40)"
+    },
+    {
+     "bucket": "2026-006",
+     "delta": 32.37,
+     "current": 32.37,
+     "previous": 0.0,
+     "text": "2026-006 (\u0394 +32.37)"
+    },
+    {
+     "bucket": "2026-008",
+     "delta": 31.49,
+     "current": 31.49,
+     "previous": 0.0,
+     "text": "2026-008 (\u0394 +31.49)"
+    }
+   ],
+   "when_is_not": [
+    {
+     "bucket": "2026-007",
+     "delta": 32.4,
+     "current": 32.4,
+     "previous": 0.0,
+     "text": "2026-007 (\u0394 +32.40) \u2014 Within threshold",
+     "note": "Within threshold"
+    },
+    {
+     "bucket": "2026-006",
+     "delta": 32.37,
+     "current": 32.37,
+     "previous": 0.0,
+     "text": "2026-006 (\u0394 +32.37) \u2014 Within threshold",
+     "note": "Within threshold"
+    },
+    {
+     "bucket": "2026-008",
+     "delta": 31.49,
+     "current": 31.49,
+     "previous": 0.0,
+     "text": "2026-008 (\u0394 +31.49) \u2014 Within threshold",
+     "note": "Within threshold"
+    }
+   ],
+   "extent_is": [
+    {
+     "dimension": "profit_center_name",
+     "vector": "dimension",
+     "comparator": "previous",
+     "threshold": 0.0,
+     "inverse_logic": false,
+     "total_keys": 5,
+     "breach_count": 4,
+     "within_count": 1,
+     "histogram": [
+      {
+       "bin": "<-20%",
+       "count": 0
+      },
+      {
+       "bin": "-20% to -10%",
+       "count": 4
+      },
+      {
+       "bin": "-10% to 0%",
+       "count": 0
+      },
+      {
+       "bin": "0% to 10%",
+       "count": 1
+      },
+      {
+       "bin": "10% to 20%",
+       "count": 0
+      },
+      {
+       "bin": ">20%",
+       "count": 0
+      }
+     ],
+     "min_ratio": -0.15266707541385643,
+     "median_ratio": -0.12758520244683946,
+     "max_ratio": 0.0
+    },
+    {
+     "dimension": "customer_name",
+     "vector": "dimension",
+     "comparator": "previous",
+     "threshold": 0.0,
+     "inverse_logic": false,
+     "total_keys": 20,
+     "breach_count": 20,
+     "within_count": 0,
+     "histogram": [
+      {
+       "bin": "<-20%",
+       "count": 0
+      },
+      {
+       "bin": "-20% to -10%",
+       "count": 19
+      },
+      {
+       "bin": "-10% to 0%",
+       "count": 1
+      },
+      {
+       "bin": "0% to 10%",
+       "count": 0
+      },
+      {
+       "bin": "10% to 20%",
+       "count": 0
+      },
+      {
+       "bin": ">20%",
+       "count": 0
+      }
+     ],
+     "min_ratio": -0.15679233991621788,
+     "median_ratio": -0.13826032540675848,
+     "max_ratio": -0.09713024282560714
+    },
+    {
+     "dimension": "product_name",
+     "vector": "dimension",
+     "comparator": "previous",
+     "threshold": 0.0,
+     "inverse_logic": false,
+     "total_keys": 15,
+     "breach_count": 15,
+     "within_count": 0,
+     "histogram": [
+      {
+       "bin": "<-20%",
+       "count": 3
+      },
+      {
+       "bin": "-20% to -10%",
+       "count": 5
+      },
+      {
+       "bin": "-10% to 0%",
+       "count": 7
+      },
+      {
+       "bin": "0% to 10%",
+       "count": 0
+      },
+      {
+       "bin": "10% to 20%",
+       "count": 0
+      },
+      {
+       "bin": ">20%",
+       "count": 0
+      }
+     ],
+     "min_ratio": -0.2570194384449244,
+     "median_ratio": -0.12257378356819994,
+     "max_ratio": -0.04188245890565187
+    },
+    {
+     "dimension": "product_line",
+     "vector": "dimension",
+     "comparator": "previous",
+     "threshold": 0.0,
+     "inverse_logic": false,
+     "total_keys": 6,
+     "breach_count": 6,
+     "within_count": 0,
+     "histogram": [
+      {
+       "bin": "<-20%",
+       "count": 0
+      },
+      {
+       "bin": "-20% to -10%",
+       "count": 3
+      },
+      {
+       "bin": "-10% to 0%",
+       "count": 3
+      },
+      {
+       "bin": "0% to 10%",
+       "count": 0
+      },
+      {
+       "bin": "10% to 20%",
+       "count": 0
+      },
+      {
+       "bin": ">20%",
+       "count": 0
+      }
+     ],
+     "min_ratio": -0.18221803330191635,
+     "median_ratio": -0.12155226220923156,
+     "max_ratio": -0.04253867151956318
+    },
+    {
+     "dimension": "channel_name",
+     "vector": "dimension",
+     "comparator": "previous",
+     "threshold": 0.0,
+     "inverse_logic": false,
+     "total_keys": 5,
+     "breach_count": 5,
+     "within_count": 0,
+     "histogram": [
+      {
+       "bin": "<-20%",
+       "count": 0
+      },
+      {
+       "bin": "-20% to -10%",
+       "count": 4
+      },
+      {
+       "bin": "-10% to 0%",
+       "count": 1
+      },
+      {
+       "bin": "0% to 10%",
+       "count": 0
+      },
+      {
+       "bin": "10% to 20%",
+       "count": 0
+      },
+      {
+       "bin": ">20%",
+       "count": 0
+      }
+     ],
+     "min_ratio": -0.15266707541385643,
+     "median_ratio": -0.12875536480686706,
+     "max_ratio": -0.09088397790055265
+    },
+    {
+     "queries_planned": 7
+    }
+   ],
+   "extent_is_not": [],
+   "benchmark_segments": [],
+   "dimension_totals": {
+    "product_name": {
+     "current": 29.94,
+     "previous": 34.43,
+     "delta": -4.489999999999998,
+     "source": "rollup"
+    },
+    "product_line": {
+     "current": 29.94,
+     "previous": 34.43,
+     "delta": -4.489999999999998,
+     "source": "rollup"
+    },
+    "profit_center_name": {
+     "current": 29.94,
+     "previous": 34.43,
+     "delta": -4.489999999999998,
+     "source": "rollup"
+    },
+    "customer_name": {
+     "current": 29.94,
+     "previous": 34.43,
+     "delta": -4.489999999999998,
+     "source": "rollup"
+    },
+    "channel_name": {
+     "current": 29.94,
+     "previous": 34.43,
+     "delta": -4.489999999999998,
+     "source": "rollup"
+    }
+   }
+  },
+  "change_points": [
+   {
+    "dimension": "product_name",
+    "key": "Synthetic Blend Engine Oil",
+    "timestamp": null,
+    "current_value": 20.64,
+    "previous_value": 27.78,
+    "delta": -7.140000000000001,
+    "percent_growth": null,
+    "contribution_pp": null
+   },
+   {
+    "dimension": "product_name",
+    "key": "Conventional Engine Oil",
+    "timestamp": null,
+    "current_value": 19.16,
+    "previous_value": 25.77,
+    "delta": -6.609999999999999,
+    "percent_growth": null,
+    "contribution_pp": null
+   },
+   {
+    "dimension": "product_name",
+    "key": "Compressor Oil",
+    "timestamp": null,
+    "current_value": 28.0,
+    "previous_value": 33.86,
+    "delta": -5.859999999999999,
+    "percent_growth": null,
+    "contribution_pp": null
+   },
+   {
+    "dimension": "product_line",
+    "key": "Engine Oils",
+    "timestamp": null,
+    "current_value": 26.03,
+    "previous_value": 31.83,
+    "delta": -5.799999999999997,
+    "percent_growth": null,
+    "contribution_pp": null
+   },
+   {
+    "dimension": "product_name",
+    "key": "Hydraulic Oil",
+    "timestamp": null,
+    "current_value": 25.83,
+    "previous_value": 31.59,
+    "delta": -5.760000000000002,
+    "percent_growth": null,
+    "contribution_pp": null
+   }
+  ],
+  "timeframe_mapping": {
+   "current": "year_to_date",
+   "previous": "last_year"
+  },
+  "when_started": "2026-006",
+  "percent_growth_enabled": false,
+  "analysis_mode": "problem",
+  "mixed_framing": false,
+  "alert_type": null,
+  "comparator": "previous",
+  "merged_alert_types": null,
+  "comparator_secondary": null,
+  "matrix_ran": false,
+  "samples": null
+ },
+ "solutions": {
+  "status": "success",
+  "request_id": "solution_ad0290775747411eb5b37d644fe608c5",
+  "timestamp": "2026-08-07T01:32:23.648787",
+  "error_message": null,
+  "options_ranked": [
+   {
+    "id": "opt_2",
+    "title": "Indexed COGS Pass-Through Renegotiation with Chain A",
+    "description": "Initiate early renewal discussions with National Auto Parts Chain A (target: 30-45 days) to replace the static mid-quarter price-lock with a monthly or quarterly indexed COGS adjustment tied to published base oil spot prices, effective at contract renewal (not mid-quarter, honoring the price-lock constraint). In parallel, automate rebate accrual and margin reporting in the ERP to close the ~1-month reporting blind spot, giving Finance real-time visibility to trigger the next repricing conversation before margin erosion compounds.",
+    "expected_impact": 0.72,
+    "cost": 0.25,
+    "risk": 0.5,
+    "evidence": null,
+    "rationale": "Directly attacks the single largest and most confirmed driver of the margin collapse using the client-validated base-oil-to-COGS mechanism, at the lowest cost signal of the three options, and is structured to be fully compliant with the mid-quarter price-lock constraint by deferring the new formula to the renewal window.",
+    "time_to_value": "60-90 days to contract execution, 30 days to first indexed adjustment realization \u2014 fits within the CFO's current quarterly reporting cycle.",
+    "reversibility": "medium",
+    "perspectives": [
+     {
+      "lens": "Financial",
+      "arguments_for": [
+       "Directly targets the client-confirmed base-oil-to-COGS pass-through mechanism responsible for the -43.24pp Chain A delta, the single largest change point identified.",
+       "Lowest cost signal of the three options since it primarily requires contract redrafting and ERP integration rather than new headcount or cross-portfolio program spend."
+      ],
+      "arguments_against": [
+       "Recovery depends entirely on Chain A's willingness to accept an indexed clause, which is not guaranteed and could extend negotiation beyond 90 days.",
+       "Automating rebate accruals in parallel adds execution complexity that could delay the primary contractual fix if resourced from the same team."
+      ],
+      "key_questions": [
+       "What is Chain A's contractual renewal date, and how much lead time exists to negotiate the indexed clause before it?",
+       "Has Procurement/Legal pre-validated that an indexed clause will survive Chain A's own audit and governance review, as flagged by the principal?"
+      ]
+     },
+     {
+      "lens": "Customer/Commercial",
+      "arguments_for": [
+       "Preserves the Chain A relationship as a strategic anchor account, consistent with the explicit principal constraint against exiting the relationship."
+      ],
+      "arguments_against": [
+       "Introducing cost-indexed pricing may reduce Chain A's near-term price predictability, creating relationship friction even though it is contractually compliant."
+      ],
+      "key_questions": [
+       "Does Chain A's procurement team have precedent for accepting indexed clauses with other suppliers, and can that precedent be used to accelerate approval?"
+      ]
+     }
+    ],
+    "implementation_triggers": [
+     "Chain A renewal window confirmed and negotiation calendar locked within 15 days.",
+     "ERP-rebate integration technical feasibility confirmed by IT/Finance systems team."
+    ],
+    "prerequisites": [
+     "Requires escalation to the Chief Commercial Officer and Legal for contract governance sign-off, since customer contract terms exceed the CFO's unilateral authority.",
+     "Procurement must confirm the indexed formula will pass Chain A's internal audit/governance review, per the principal's stated compliance requirement."
+    ],
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "percentage points",
+     "recovery_range": {
+      "low": 28.0,
+      "high": 43.24
+     },
+     "basis": "Recovery is sized directly against Chain A's own confirmed segment delta (-43.24pp, current -445.01 vs prior -401.77); low end reflects partial/phased repricing acceptance, high end reflects full restoration of the pre-inflation margin on this single account \u2014 this is a segment-level, not enterprise-level, figure.",
+     "scope": "segment",
+     "scope_label": "National Auto Parts Chain A"
+    },
+    "key_assumptions": [
+     {
+      "assumption": "Base oil cost inflation will remain the dominant driver of Chain A's margin erosion through the renewal window.",
+      "validated_by": "sa_assessment",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": true,
+      "confidence": "moderate",
+      "provenance": "Client-confirmed mechanism: base oil price volatility passes through to COGS with a ~1-month lag (causal register, confirmed provenance)."
+     },
+     {
+      "assumption": "Chain A's procurement/legal function will accept an indexed COGS pass-through clause at renewal without extended negotiation delay.",
+      "validated_by": "human_confirmation",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "moderate",
+      "provenance": "Observe whether Chain A signs the indexed clause within 45-60 days of negotiation initiation."
+     },
+     {
+      "assumption": "Automating rebate accrual and margin reporting is achievable within the 90-day window without new headcount.",
+      "validated_by": "ma_query",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "low",
+      "provenance": "IT/Finance systems team confirms ERP-rebate integration feasibility timeline within two weeks of kickoff."
+     }
+    ],
+    "flagged_side_effects": [
+     "Indexed pricing may shift some cost-volatility risk perception onto Chain A, requiring careful account management to avoid relationship strain."
+    ]
+   },
+   {
+    "id": "opt_3",
+    "title": "Rapid Renewal Sprint with Automated Margin Monitoring",
+    "description": "A Bain-style, results-first 90-day sprint that deploys a dedicated cross-functional negotiation team (Finance, Sales, Legal) to compress the Chain A renewal timeline and land a quarterly cost-indexed repricing mechanism, paired with immediate automation of rebate accrual and realized-margin calculation in the ERP to eliminate the reporting lag. Named ownership and weekly milestone tracking (Decision Effectiveness discipline) prioritize speed of execution over the more deliberative negotiation approach in Option 2, accepting a moderately higher cost for faster time-to-value.",
+    "expected_impact": 0.6,
+    "cost": 0.5,
+    "risk": 0.55,
+    "evidence": null,
+    "rationale": "Prioritizes speed and named ownership to close the gap between cost inflation and repricing faster than a standard negotiation cycle, addressing the CFO's need for visible progress within the current fiscal year while still respecting the price-lock constraint by targeting the renewal window.",
+    "time_to_value": "45-90 days for negotiation sprint completion; automated monitoring live within 30 days \u2014 the fastest visible progress of the three options against the CFO's near-term reporting needs.",
+    "reversibility": "medium",
+    "perspectives": [
+     {
+      "lens": "Financial",
+      "arguments_for": [
+       "Fastest path to a signed indexed clause of the three options, converting the confirmed cogs-to-margin edge into cash recovery within a single quarter.",
+       "Automated margin monitoring directly closes the ~1-month ERP/rebate blind spot the principal flagged, enabling faster future course-correction."
+      ],
+      "arguments_against": [
+       "Compressed negotiation timeline raises execution risk of accepting a less favorable indexing formula than a more deliberate process would secure.",
+       "Higher cost signal than Option 2 due to dedicated sprint team resourcing across Finance, Sales, and Legal."
+      ],
+      "key_questions": [
+       "What specific milestones and decision rights will the sprint team have to avoid escalation bottlenecks each week?",
+       "Is the 38pp high-end recovery estimate contingent on Synthetic Blend Engine Oil's margin recovering in lockstep with Chain A's indexed clause?"
+      ]
+     },
+     {
+      "lens": "Customer/Commercial",
+      "arguments_for": [
+       "Named ownership and weekly tracking increase the probability of hitting the renewal window before further margin compounding, per the client's own urgency framing."
+      ],
+      "arguments_against": [
+       "Speed-over-thoroughness approach (a known Bain bias) may under-negotiate terms compared to a more patient process, leaving value on the table."
+      ],
+      "key_questions": [
+       "Does Chain A's team have bandwidth to match the sprint's compressed timeline, or will external pacing constraints negate the speed advantage?"
+      ]
+     }
+    ],
+    "implementation_triggers": [
+     "Sprint team named and chartered with weekly milestone cadence within 5 business days.",
+     "First indexed-formula term sheet drafted and reviewed by Legal within 30 days."
+    ],
+    "prerequisites": [
+     "Requires escalation to Chief Commercial Officer and Legal for sign-off, since the sprint touches customer contract terms beyond the CFO's unilateral authority.",
+     "Dedicated sprint team must be resourced without violating the no-layoffs/no-new-headcount posture \u2014 existing staff reallocation required."
+    ],
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "percentage points",
+     "recovery_range": {
+      "low": 28.5,
+      "high": 38.0
+     },
+     "basis": "Chain A's confirmed -43.24pp segment delta is the sizing base; the sprint recovers an estimated 65-88% of this swing by compressing the negotiation and monitoring timeline, deliberately more conservative on the high end than Option 2 to reflect the risk of a faster, less deliberative negotiation process \u2014 this is a segment-level, not enterprise-level, figure.",
+     "scope": "segment",
+     "scope_label": "National Auto Parts Chain A"
+    },
+    "key_assumptions": [
+     {
+      "assumption": "A dedicated cross-functional sprint team can compress the Chain A renewal timeline to under 90 days.",
+      "validated_by": "human_confirmation",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "moderate",
+      "provenance": "Observe whether a signed term sheet exists by day 60 of sprint kickoff."
+     },
+     {
+      "assumption": "Synthetic Blend Engine Oil's -16.76pp delta is materially explained by the same base-oil pass-through mechanism as Chain A.",
+      "validated_by": "sa_assessment",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": true,
+      "confidence": "moderate",
+      "provenance": "Confirmed causal edge: base oil price volatility passes to COGS with ~1-month lag (causal register, confirmed provenance); Synthetic Blend is identified as Chain A's core SKU in the change-point evidence."
+     },
+     {
+      "assumption": "Automated margin monitoring will not encounter data-quality obstacles beyond the known manual rebate spreadsheet gap.",
+      "validated_by": "ma_query",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "low",
+      "provenance": "ERP-rebate integration pilot surfaces no material reconciliation errors in the first month of operation."
+     }
+    ],
+    "flagged_side_effects": [
+     "Compressed negotiation pace may result in a less favorable indexing formula than a more deliberate process, partially offsetting the speed advantage."
+    ]
+   },
+   {
+    "id": "opt_1",
+    "title": "Structural Margin Governance & Best-Practice Replication Program",
+    "description": "A 3-12 month, McKinsey-style structural program using 7S and MECE problem structuring to diagnose and remediate the three confirmed laggard segments (National Auto Parts Chain A, Synthetic Blend Engine Oil, Service Centers Division, plus the secondary Full Synthetic Engine Oil and DIY Retail drags) as a coordinated portfolio, not isolated fires. It stands up a cross-functional (Finance, Procurement, Sales) governance council using the Influence Model to enforce rebate/discount discipline and contract compliance, and runs a rapid replication study to extract portable pricing, rebate, and cost-to-serve practices from the stable segments (International Division, Chain B, Mass Retailer Group) for application to the laggards \u2014 explicitly not proposing volume/mix shifts toward those segments, only practice transfer. No headcount additions (respects the no-layoffs constraint) and no exit from Chain A (respects the anchor-account constraint).",
+    "expected_impact": 0.5,
+    "cost": 0.8,
+    "risk": 0.7,
+    "evidence": null,
+    "rationale": "Addresses the fact that the margin problem is genuinely multi-segment (Chain A + Synthetic Blend + Service Centers), and that stable segments (International Division, Chain B, Mass Retailer Group) hold un-mined operational learnings; provides the highest-leverage, 80/20 structural fix McKinsey would prioritize once the immediate contractual fire is contained.",
+    "time_to_value": "3-12 months \u2014 beyond the CFO's immediate quarterly close but positions margin recovery ahead of the next two planning cycles.",
+    "reversibility": "low",
+    "perspectives": [
+     {
+      "lens": "Financial",
+      "arguments_for": [
+       "Targets 85%+ of the named change-point drag (Chain A, Synthetic Blend, Service Centers) in a single coordinated program rather than three disconnected fixes.",
+       "Replication of stable-segment practices offers margin upside with no incremental COGS exposure, since it reuses existing commercial terms rather than requiring new pricing."
+      ],
+      "arguments_against": [
+       "Longer time horizon (3-12 months) means the CFO sees limited P&L benefit in the current fiscal year, delaying visible recovery.",
+       "Highest cost and risk signal of the three options due to cross-functional scope and governance-council standup effort."
+      ],
+      "key_questions": [
+       "What specific, quantifiable practices from International Division and Chain B are transferable to Chain A's contract structure without requiring a separate renegotiation?",
+       "Can the governance council be resourced from existing Finance/Procurement FTEs without violating the no-new-hire posture implied by the no-layoffs commitment?"
+      ]
+     },
+     {
+      "lens": "Operational",
+      "arguments_for": [
+       "Uses MECE segmentation to ensure Service Centers Division and DIY Retail channel drags are not neglected while attention concentrates on Chain A."
+      ],
+      "arguments_against": [
+       "Risk of organizational overreach: a cross-portfolio council may be perceived as Finance encroaching on Sales-owned customer relationships."
+      ],
+      "key_questions": [
+       "Who owns the Service Centers Division cost diagnostic, and is its -15.18pp delta driven by the same base-oil mechanism or an independent cost category?"
+      ]
+     }
+    ],
+    "implementation_triggers": [
+     "Confirmed root-cause replication study identifies at least two portable practices from International Division or Chain B within 45 days.",
+     "Governance council charter signed by Finance, Procurement, and Sales leadership."
+    ],
+    "prerequisites": [
+     "Requires CEO/COO sponsorship since the program spans multiple profit centers beyond Finance's direct authority \u2014 flagged for escalation beyond CFO's unilateral decision scope.",
+     "Service Centers Division cost-category breakdown must be completed before remediation levers can be assigned."
+    ],
+    "impact_estimate": {
+     "metric": "Gross Margin %",
+     "unit": "percentage points",
+     "recovery_range": {
+      "low": 26.0,
+      "high": 47.0
+     },
+     "basis": "Sized against the combined confirmed drag of Chain A (-43.24pp), Synthetic Blend Engine Oil (-16.76pp) and Service Centers Division (-15.18pp), assuming a 3-12 month structural/replication program recovers roughly 35-63% of that combined variance; this is a multi-segment portfolio estimate rolling up toward the headline KPI, not a single-segment figure.",
+     "scope": "enterprise",
+     "scope_label": null
+    },
+    "key_assumptions": [
+     {
+      "assumption": "International Division, Chain B, and Mass Retailer Group's stable margins reflect replicable pricing/cost practices rather than structurally different market conditions.",
+      "validated_by": "sa_assessment",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "low",
+      "provenance": "Replication study finds two or more portable practices (pricing cadence, rebate structure, contract terms) transferable to Chain A/Service Centers within 90 days."
+     },
+     {
+      "assumption": "Service Centers Division's -15.18pp decline shares a common root cause (base-oil pass-through) with Chain A/Synthetic Blend rather than an independent driver.",
+      "validated_by": "ma_query",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "low",
+      "provenance": "Profit-center-level COGS breakdown attributes the majority of the Service Centers delta to base-oil-linked input costs versus labor/warranty categories."
+     },
+     {
+      "assumption": "A cross-functional governance council can be staffed from existing FTEs, consistent with the no-layoffs commitment.",
+      "validated_by": "human_confirmation",
+      "validated_at": null,
+      "revalidation_days": null,
+      "grounded": false,
+      "confidence": "moderate",
+      "provenance": "Governance council stood up using existing Finance/Procurement headcount within 30 days without new requisitions."
+     }
+    ],
+    "flagged_side_effects": [
+     "Cross-portfolio governance program may create perception of Finance overreach into Sales-owned customer relationships, risking internal channel friction."
+    ]
+   }
+  ],
+  "tradeoff_matrix": {
+   "criteria": [
+    {
+     "name": "impact",
+     "weight": 0.5
+    },
+    {
+     "name": "cost",
+     "weight": 0.25
+    },
+    {
+     "name": "risk",
+     "weight": 0.25
+    }
+   ],
+   "options": [
+    {
+     "id": "opt_2",
+     "title": "Indexed COGS Pass-Through Renegotiation with Chain A",
+     "description": "Initiate early renewal discussions with National Auto Parts Chain A (target: 30-45 days) to replace the static mid-quarter price-lock with a monthly or quarterly indexed COGS adjustment tied to published base oil spot prices, effective at contract renewal (not mid-quarter, honoring the price-lock constraint). In parallel, automate rebate accrual and margin reporting in the ERP to close the ~1-month reporting blind spot, giving Finance real-time visibility to trigger the next repricing conversation before margin erosion compounds.",
+     "expected_impact": 0.72,
+     "cost": 0.25,
+     "risk": 0.5,
+     "evidence": null,
+     "rationale": "Directly attacks the single largest and most confirmed driver of the margin collapse using the client-validated base-oil-to-COGS mechanism, at the lowest cost signal of the three options, and is structured to be fully compliant with the mid-quarter price-lock constraint by deferring the new formula to the renewal window.",
+     "time_to_value": "60-90 days to contract execution, 30 days to first indexed adjustment realization \u2014 fits within the CFO's current quarterly reporting cycle.",
+     "reversibility": "medium",
+     "perspectives": [
+      {
+       "lens": "Financial",
+       "arguments_for": [
+        "Directly targets the client-confirmed base-oil-to-COGS pass-through mechanism responsible for the -43.24pp Chain A delta, the single largest change point identified.",
+        "Lowest cost signal of the three options since it primarily requires contract redrafting and ERP integration rather than new headcount or cross-portfolio program spend."
+       ],
+       "arguments_against": [
+        "Recovery depends entirely on Chain A's willingness to accept an indexed clause, which is not guaranteed and could extend negotiation beyond 90 days.",
+        "Automating rebate accruals in parallel adds execution complexity that could delay the primary contractual fix if resourced from the same team."
+       ],
+       "key_questions": [
+        "What is Chain A's contractual renewal date, and how much lead time exists to negotiate the indexed clause before it?",
+        "Has Procurement/Legal pre-validated that an indexed clause will survive Chain A's own audit and governance review, as flagged by the principal?"
+       ]
+      },
+      {
+       "lens": "Customer/Commercial",
+       "arguments_for": [
+        "Preserves the Chain A relationship as a strategic anchor account, consistent with the explicit principal constraint against exiting the relationship."
+       ],
+       "arguments_against": [
+        "Introducing cost-indexed pricing may reduce Chain A's near-term price predictability, creating relationship friction even though it is contractually compliant."
+       ],
+       "key_questions": [
+        "Does Chain A's procurement team have precedent for accepting indexed clauses with other suppliers, and can that precedent be used to accelerate approval?"
+       ]
+      }
+     ],
+     "implementation_triggers": [
+      "Chain A renewal window confirmed and negotiation calendar locked within 15 days.",
+      "ERP-rebate integration technical feasibility confirmed by IT/Finance systems team."
+     ],
+     "prerequisites": [
+      "Requires escalation to the Chief Commercial Officer and Legal for contract governance sign-off, since customer contract terms exceed the CFO's unilateral authority.",
+      "Procurement must confirm the indexed formula will pass Chain A's internal audit/governance review, per the principal's stated compliance requirement."
+     ],
+     "impact_estimate": {
+      "metric": "Gross Margin %",
+      "unit": "percentage points",
+      "recovery_range": {
+       "low": 28.0,
+       "high": 43.24
+      },
+      "basis": "Recovery is sized directly against Chain A's own confirmed segment delta (-43.24pp, current -445.01 vs prior -401.77); low end reflects partial/phased repricing acceptance, high end reflects full restoration of the pre-inflation margin on this single account \u2014 this is a segment-level, not enterprise-level, figure.",
+      "scope": "segment",
+      "scope_label": "National Auto Parts Chain A"
+     },
+     "key_assumptions": [
+      {
+       "assumption": "Base oil cost inflation will remain the dominant driver of Chain A's margin erosion through the renewal window.",
+       "validated_by": "sa_assessment",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": true,
+       "confidence": "moderate",
+       "provenance": "Client-confirmed mechanism: base oil price volatility passes through to COGS with a ~1-month lag (causal register, confirmed provenance)."
+      },
+      {
+       "assumption": "Chain A's procurement/legal function will accept an indexed COGS pass-through clause at renewal without extended negotiation delay.",
+       "validated_by": "human_confirmation",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "moderate",
+       "provenance": "Observe whether Chain A signs the indexed clause within 45-60 days of negotiation initiation."
+      },
+      {
+       "assumption": "Automating rebate accrual and margin reporting is achievable within the 90-day window without new headcount.",
+       "validated_by": "ma_query",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "low",
+       "provenance": "IT/Finance systems team confirms ERP-rebate integration feasibility timeline within two weeks of kickoff."
+      }
+     ],
+     "flagged_side_effects": [
+      "Indexed pricing may shift some cost-volatility risk perception onto Chain A, requiring careful account management to avoid relationship strain."
+     ]
+    },
+    {
+     "id": "opt_3",
+     "title": "Rapid Renewal Sprint with Automated Margin Monitoring",
+     "description": "A Bain-style, results-first 90-day sprint that deploys a dedicated cross-functional negotiation team (Finance, Sales, Legal) to compress the Chain A renewal timeline and land a quarterly cost-indexed repricing mechanism, paired with immediate automation of rebate accrual and realized-margin calculation in the ERP to eliminate the reporting lag. Named ownership and weekly milestone tracking (Decision Effectiveness discipline) prioritize speed of execution over the more deliberative negotiation approach in Option 2, accepting a moderately higher cost for faster time-to-value.",
+     "expected_impact": 0.6,
+     "cost": 0.5,
+     "risk": 0.55,
+     "evidence": null,
+     "rationale": "Prioritizes speed and named ownership to close the gap between cost inflation and repricing faster than a standard negotiation cycle, addressing the CFO's need for visible progress within the current fiscal year while still respecting the price-lock constraint by targeting the renewal window.",
+     "time_to_value": "45-90 days for negotiation sprint completion; automated monitoring live within 30 days \u2014 the fastest visible progress of the three options against the CFO's near-term reporting needs.",
+     "reversibility": "medium",
+     "perspectives": [
+      {
+       "lens": "Financial",
+       "arguments_for": [
+        "Fastest path to a signed indexed clause of the three options, converting the confirmed cogs-to-margin edge into cash recovery within a single quarter.",
+        "Automated margin monitoring directly closes the ~1-month ERP/rebate blind spot the principal flagged, enabling faster future course-correction."
+       ],
+       "arguments_against": [
+        "Compressed negotiation timeline raises execution risk of accepting a less favorable indexing formula than a more deliberate process would secure.",
+        "Higher cost signal than Option 2 due to dedicated sprint team resourcing across Finance, Sales, and Legal."
+       ],
+       "key_questions": [
+        "What specific milestones and decision rights will the sprint team have to avoid escalation bottlenecks each week?",
+        "Is the 38pp high-end recovery estimate contingent on Synthetic Blend Engine Oil's margin recovering in lockstep with Chain A's indexed clause?"
+       ]
+      },
+      {
+       "lens": "Customer/Commercial",
+       "arguments_for": [
+        "Named ownership and weekly tracking increase the probability of hitting the renewal window before further margin compounding, per the client's own urgency framing."
+       ],
+       "arguments_against": [
+        "Speed-over-thoroughness approach (a known Bain bias) may under-negotiate terms compared to a more patient process, leaving value on the table."
+       ],
+       "key_questions": [
+        "Does Chain A's team have bandwidth to match the sprint's compressed timeline, or will external pacing constraints negate the speed advantage?"
+       ]
+      }
+     ],
+     "implementation_triggers": [
+      "Sprint team named and chartered with weekly milestone cadence within 5 business days.",
+      "First indexed-formula term sheet drafted and reviewed by Legal within 30 days."
+     ],
+     "prerequisites": [
+      "Requires escalation to Chief Commercial Officer and Legal for sign-off, since the sprint touches customer contract terms beyond the CFO's unilateral authority.",
+      "Dedicated sprint team must be resourced without violating the no-layoffs/no-new-headcount posture \u2014 existing staff reallocation required."
+     ],
+     "impact_estimate": {
+      "metric": "Gross Margin %",
+      "unit": "percentage points",
+      "recovery_range": {
+       "low": 28.5,
+       "high": 38.0
+      },
+      "basis": "Chain A's confirmed -43.24pp segment delta is the sizing base; the sprint recovers an estimated 65-88% of this swing by compressing the negotiation and monitoring timeline, deliberately more conservative on the high end than Option 2 to reflect the risk of a faster, less deliberative negotiation process \u2014 this is a segment-level, not enterprise-level, figure.",
+      "scope": "segment",
+      "scope_label": "National Auto Parts Chain A"
+     },
+     "key_assumptions": [
+      {
+       "assumption": "A dedicated cross-functional sprint team can compress the Chain A renewal timeline to under 90 days.",
+       "validated_by": "human_confirmation",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "moderate",
+       "provenance": "Observe whether a signed term sheet exists by day 60 of sprint kickoff."
+      },
+      {
+       "assumption": "Synthetic Blend Engine Oil's -16.76pp delta is materially explained by the same base-oil pass-through mechanism as Chain A.",
+       "validated_by": "sa_assessment",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": true,
+       "confidence": "moderate",
+       "provenance": "Confirmed causal edge: base oil price volatility passes to COGS with ~1-month lag (causal register, confirmed provenance); Synthetic Blend is identified as Chain A's core SKU in the change-point evidence."
+      },
+      {
+       "assumption": "Automated margin monitoring will not encounter data-quality obstacles beyond the known manual rebate spreadsheet gap.",
+       "validated_by": "ma_query",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "low",
+       "provenance": "ERP-rebate integration pilot surfaces no material reconciliation errors in the first month of operation."
+      }
+     ],
+     "flagged_side_effects": [
+      "Compressed negotiation pace may result in a less favorable indexing formula than a more deliberate process, partially offsetting the speed advantage."
+     ]
+    },
+    {
+     "id": "opt_1",
+     "title": "Structural Margin Governance & Best-Practice Replication Program",
+     "description": "A 3-12 month, McKinsey-style structural program using 7S and MECE problem structuring to diagnose and remediate the three confirmed laggard segments (National Auto Parts Chain A, Synthetic Blend Engine Oil, Service Centers Division, plus the secondary Full Synthetic Engine Oil and DIY Retail drags) as a coordinated portfolio, not isolated fires. It stands up a cross-functional (Finance, Procurement, Sales) governance council using the Influence Model to enforce rebate/discount discipline and contract compliance, and runs a rapid replication study to extract portable pricing, rebate, and cost-to-serve practices from the stable segments (International Division, Chain B, Mass Retailer Group) for application to the laggards \u2014 explicitly not proposing volume/mix shifts toward those segments, only practice transfer. No headcount additions (respects the no-layoffs constraint) and no exit from Chain A (respects the anchor-account constraint).",
+     "expected_impact": 0.5,
+     "cost": 0.8,
+     "risk": 0.7,
+     "evidence": null,
+     "rationale": "Addresses the fact that the margin problem is genuinely multi-segment (Chain A + Synthetic Blend + Service Centers), and that stable segments (International Division, Chain B, Mass Retailer Group) hold un-mined operational learnings; provides the highest-leverage, 80/20 structural fix McKinsey would prioritize once the immediate contractual fire is contained.",
+     "time_to_value": "3-12 months \u2014 beyond the CFO's immediate quarterly close but positions margin recovery ahead of the next two planning cycles.",
+     "reversibility": "low",
+     "perspectives": [
+      {
+       "lens": "Financial",
+       "arguments_for": [
+        "Targets 85%+ of the named change-point drag (Chain A, Synthetic Blend, Service Centers) in a single coordinated program rather than three disconnected fixes.",
+        "Replication of stable-segment practices offers margin upside with no incremental COGS exposure, since it reuses existing commercial terms rather than requiring new pricing."
+       ],
+       "arguments_against": [
+        "Longer time horizon (3-12 months) means the CFO sees limited P&L benefit in the current fiscal year, delaying visible recovery.",
+        "Highest cost and risk signal of the three options due to cross-functional scope and governance-council standup effort."
+       ],
+       "key_questions": [
+        "What specific, quantifiable practices from International Division and Chain B are transferable to Chain A's contract structure without requiring a separate renegotiation?",
+        "Can the governance council be resourced from existing Finance/Procurement FTEs without violating the no-new-hire posture implied by the no-layoffs commitment?"
+       ]
+      },
+      {
+       "lens": "Operational",
+       "arguments_for": [
+        "Uses MECE segmentation to ensure Service Centers Division and DIY Retail channel drags are not neglected while attention concentrates on Chain A."
+       ],
+       "arguments_against": [
+        "Risk of organizational overreach: a cross-portfolio council may be perceived as Finance encroaching on Sales-owned customer relationships."
+       ],
+       "key_questions": [
+        "Who owns the Service Centers Division cost diagnostic, and is its -15.18pp delta driven by the same base-oil mechanism or an independent cost category?"
+       ]
+      }
+     ],
+     "implementation_triggers": [
+      "Confirmed root-cause replication study identifies at least two portable practices from International Division or Chain B within 45 days.",
+      "Governance council charter signed by Finance, Procurement, and Sales leadership."
+     ],
+     "prerequisites": [
+      "Requires CEO/COO sponsorship since the program spans multiple profit centers beyond Finance's direct authority \u2014 flagged for escalation beyond CFO's unilateral decision scope.",
+      "Service Centers Division cost-category breakdown must be completed before remediation levers can be assigned."
+     ],
+     "impact_estimate": {
+      "metric": "Gross Margin %",
+      "unit": "percentage points",
+      "recovery_range": {
+       "low": 26.0,
+       "high": 47.0
+      },
+      "basis": "Sized against the combined confirmed drag of Chain A (-43.24pp), Synthetic Blend Engine Oil (-16.76pp) and Service Centers Division (-15.18pp), assuming a 3-12 month structural/replication program recovers roughly 35-63% of that combined variance; this is a multi-segment portfolio estimate rolling up toward the headline KPI, not a single-segment figure.",
+      "scope": "enterprise",
+      "scope_label": null
+     },
+     "key_assumptions": [
+      {
+       "assumption": "International Division, Chain B, and Mass Retailer Group's stable margins reflect replicable pricing/cost practices rather than structurally different market conditions.",
+       "validated_by": "sa_assessment",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "low",
+       "provenance": "Replication study finds two or more portable practices (pricing cadence, rebate structure, contract terms) transferable to Chain A/Service Centers within 90 days."
+      },
+      {
+       "assumption": "Service Centers Division's -15.18pp decline shares a common root cause (base-oil pass-through) with Chain A/Synthetic Blend rather than an independent driver.",
+       "validated_by": "ma_query",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "low",
+       "provenance": "Profit-center-level COGS breakdown attributes the majority of the Service Centers delta to base-oil-linked input costs versus labor/warranty categories."
+      },
+      {
+       "assumption": "A cross-functional governance council can be staffed from existing FTEs, consistent with the no-layoffs commitment.",
+       "validated_by": "human_confirmation",
+       "validated_at": null,
+       "revalidation_days": null,
+       "grounded": false,
+       "confidence": "moderate",
+       "provenance": "Governance council stood up using existing Finance/Procurement headcount within 30 days without new requisitions."
+      }
+     ],
+     "flagged_side_effects": [
+      "Cross-portfolio governance program may create perception of Finance overreach into Sales-owned customer relationships, risking internal channel friction."
+     ]
+    }
+   ]
+  },
+  "recommendation": {
+   "id": "opt_2",
+   "title": "Indexed COGS Pass-Through Renegotiation with Chain A",
+   "description": "Initiate early renewal discussions with National Auto Parts Chain A (target: 30-45 days) to replace the static mid-quarter price-lock with a monthly or quarterly indexed COGS adjustment tied to published base oil spot prices, effective at contract renewal (not mid-quarter, honoring the price-lock constraint). In parallel, automate rebate accrual and margin reporting in the ERP to close the ~1-month reporting blind spot, giving Finance real-time visibility to trigger the next repricing conversation before margin erosion compounds.",
+   "expected_impact": 0.72,
+   "cost": 0.25,
+   "risk": 0.5,
+   "evidence": null,
+   "rationale": "Directly attacks the single largest and most confirmed driver of the margin collapse using the client-validated base-oil-to-COGS mechanism, at the lowest cost signal of the three options, and is structured to be fully compliant with the mid-quarter price-lock constraint by deferring the new formula to the renewal window.",
+   "time_to_value": "60-90 days to contract execution, 30 days to first indexed adjustment realization \u2014 fits within the CFO's current quarterly reporting cycle.",
+   "reversibility": "medium",
+   "perspectives": [
+    {
+     "lens": "Financial",
+     "arguments_for": [
+      "Directly targets the client-confirmed base-oil-to-COGS pass-through mechanism responsible for the -43.24pp Chain A delta, the single largest change point identified.",
+      "Lowest cost signal of the three options since it primarily requires contract redrafting and ERP integration rather than new headcount or cross-portfolio program spend."
+     ],
+     "arguments_against": [
+      "Recovery depends entirely on Chain A's willingness to accept an indexed clause, which is not guaranteed and could extend negotiation beyond 90 days.",
+      "Automating rebate accruals in parallel adds execution complexity that could delay the primary contractual fix if resourced from the same team."
+     ],
+     "key_questions": [
+      "What is Chain A's contractual renewal date, and how much lead time exists to negotiate the indexed clause before it?",
+      "Has Procurement/Legal pre-validated that an indexed clause will survive Chain A's own audit and governance review, as flagged by the principal?"
+     ]
+    },
+    {
+     "lens": "Customer/Commercial",
+     "arguments_for": [
+      "Preserves the Chain A relationship as a strategic anchor account, consistent with the explicit principal constraint against exiting the relationship."
+     ],
+     "arguments_against": [
+      "Introducing cost-indexed pricing may reduce Chain A's near-term price predictability, creating relationship friction even though it is contractually compliant."
+     ],
+     "key_questions": [
+      "Does Chain A's procurement team have precedent for accepting indexed clauses with other suppliers, and can that precedent be used to accelerate approval?"
+     ]
+    }
+   ],
+   "implementation_triggers": [
+    "Chain A renewal window confirmed and negotiation calendar locked within 15 days.",
+    "ERP-rebate integration technical feasibility confirmed by IT/Finance systems team."
+   ],
+   "prerequisites": [
+    "Requires escalation to the Chief Commercial Officer and Legal for contract governance sign-off, since customer contract terms exceed the CFO's unilateral authority.",
+    "Procurement must confirm the indexed formula will pass Chain A's internal audit/governance review, per the principal's stated compliance requirement."
+   ],
+   "impact_estimate": {
+    "metric": "Gross Margin %",
+    "unit": "percentage points",
+    "recovery_range": {
+     "low": 28.0,
+     "high": 43.24
+    },
+    "basis": "Recovery is sized directly against Chain A's own confirmed segment delta (-43.24pp, current -445.01 vs prior -401.77); low end reflects partial/phased repricing acceptance, high end reflects full restoration of the pre-inflation margin on this single account \u2014 this is a segment-level, not enterprise-level, figure.",
+    "scope": "segment",
+    "scope_label": "National Auto Parts Chain A"
+   },
+   "key_assumptions": [
+    {
+     "assumption": "Base oil cost inflation will remain the dominant driver of Chain A's margin erosion through the renewal window.",
+     "validated_by": "sa_assessment",
+     "validated_at": null,
+     "revalidation_days": null,
+     "grounded": true,
+     "confidence": "moderate",
+     "provenance": "Client-confirmed mechanism: base oil price volatility passes through to COGS with a ~1-month lag (causal register, confirmed provenance)."
+    },
+    {
+     "assumption": "Chain A's procurement/legal function will accept an indexed COGS pass-through clause at renewal without extended negotiation delay.",
+     "validated_by": "human_confirmation",
+     "validated_at": null,
+     "revalidation_days": null,
+     "grounded": false,
+     "confidence": "moderate",
+     "provenance": "Observe whether Chain A signs the indexed clause within 45-60 days of negotiation initiation."
+    },
+    {
+     "assumption": "Automating rebate accrual and margin reporting is achievable within the 90-day window without new headcount.",
+     "validated_by": "ma_query",
+     "validated_at": null,
+     "revalidation_days": null,
+     "grounded": false,
+     "confidence": "low",
+     "provenance": "IT/Finance systems team confirms ERP-rebate integration feasibility timeline within two weeks of kickoff."
+    }
+   ],
+   "flagged_side_effects": [
+    "Indexed pricing may shift some cost-volatility risk perception onto Chain A, requiring careful account management to avoid relationship strain."
+   ]
+  },
+  "recommendation_rationale": "For a CFO focused on capital-efficient, low-risk margin recovery within the current planning cycle, Option 2 carries the lowest cost signal (Low/0.25) of the three options while directly pulling the only confirmed causal edge in the register \u2014 base oil cost passing through to COGS with a ~1-month lag \u2014 and can recover up to the full -43.24pp Chain A segment delta without violating the mid-quarter price-lock constraint, since the indexed formula takes effect only at contractual renewal. Option 3 offers faster visible progress at moderately higher cost and risk, and Option 1 addresses the broader multi-segment picture but on a longer, less certain timeline; both remain live options for the CFO to sequence alongside Option 2 rather than substitutes for it.",
+  "problem_reframe": {
+   "situation": "Gross Margin % has fallen sharply year-to-date, with the headline deterioration (a -43.24 point swing, current aggregated level of -445.01 vs -401.77 prior per the confirmed root-cause analysis) overwhelmingly concentrated in the National Auto Parts Chain A account and its core Synthetic Blend Engine Oil SKU (-16.76pp).",
+   "complication": "Performance is mixed, not uniform: alongside Chain A, Service Centers Division (-15.18pp), Full Synthetic Engine Oil (-12.10pp) and the DIY Retail channel (-11.57pp) are also degrading, while International Division, Chain B and Mass Retailer Group have held stable margins (within threshold) with no material upside to offset the losses. The client-confirmed mechanism is base oil cost inflation passing through to COGS with a ~1-month lag, colliding with Chain A's mid-quarter price-lock clause, and compounded by a ~1-month ERP reporting lag and manual rebate spreadsheets that obscure realized margin.",
+   "question": "How should the CFO sequence contractual, structural, and portfolio-level interventions to arrest Gross Margin % erosion in the confirmed laggard segments, while preserving the stability of unaffected segments and honoring the no-layoffs, no-Chain-A-exit, and mid-quarter price-lock constraints?",
+   "key_assumptions": [
+    "The base-oil-cost-to-COGS pass-through mechanism (client-confirmed) remains the dominant driver of Chain A and Synthetic Blend margin erosion through the next renewal cycle.",
+    "International Division, Chain B, and Mass Retailer Group's stability reflects replicable commercial practices rather than fundamentally different market or cost structures.",
+    "Contract counterparties (Chain A procurement/legal) will engage on indexed pricing mechanisms rather than resist any repricing formula change.",
+    "Service Centers Division's decline is linked to the same input-cost dynamics rather than an independent driver (e.g., labor, warranty, service mix) that would require a different fix."
+   ]
+  },
+  "unresolved_tensions": [
+   {
+    "tension": "Option 2's deliberate negotiation pace versus Option 3's compressed sprint approach both target the same Chain A contract and cannot both be run as the primary negotiation vehicle without confusing the counterparty.",
+    "options_affected": [
+     "opt_2",
+     "opt_3"
+    ],
+    "requires": "CFO and Chief Commercial Officer to jointly decide the single negotiation cadence (standard vs. sprint) for the Chain A renewal discussion by end of Week 1, before outreach to Chain A begins."
+   },
+   {
+    "tension": "Option 1's cross-portfolio governance program could compete for the same Finance and Procurement resources needed to execute Option 2/3's contract and ERP automation work in the near term.",
+    "options_affected": [
+     "opt_1",
+     "opt_2"
+    ],
+    "requires": "CFO to approve a resourcing sequence with Finance leadership specifying whether the Chain A renewal team or the governance-council standup gets priority access to Finance/Procurement staff for the next 90 days."
+   },
+   {
+    "tension": "Service Centers Division's -15.18pp decline has not been confirmed to share the same base-oil-driven root cause as Chain A and Synthetic Blend, so applying the same indexing fix there (implicit in Option 1) may be inappropriate.",
+    "options_affected": [
+     "opt_1"
+    ],
+    "requires": "VP Finance to complete a Service Centers Division cost-category breakdown isolating base-oil-linked costs from labor/warranty costs by Week 3."
+   }
+  ],
+  "blind_spots": [
+   "No visibility yet into Chain A's own willingness or contractual flexibility to accept an indexed clause \u2014 this is assumed favorable across Options 2 and 3 but not yet confirmed.",
+   "The relationship between the confirmed Chain A/Synthetic Blend drag and the separately declining Full Synthetic Engine Oil and DIY Retail channel is not established; these may share the base-oil mechanism or may have independent causes not addressed by any option as currently scoped.",
+   "The stable segments (International Division, Chain B, Mass Retailer Group) are assumed to hold replicable best practices, but no data confirms why they are stable \u2014 it could be structural (different contract types, different cost base) rather than practice-driven, which would limit Option 1's replication upside.",
+   "The apparent inconsistency between the headline Gross Margin % move (-1.67pp per the what_is_highlights) and the -43.24pp figure used in the problem statement and change points has not been reconciled, and all recovery ranges here are calibrated to the segment-level change-point figures, not a fully reconciled enterprise KPI figure."
+  ],
+  "next_steps": [
+   "CFO to confirm Chain A's exact contractual renewal date with Legal and Commercial teams by end of Week 1, to fix the negotiation window for Options 2 and 3.",
+   "VP Finance to commission a Service Centers Division cost-category breakdown isolating base-oil-linked input costs from labor/warranty costs by end of Week 3.",
+   "Chief Commercial Officer to decide and communicate the negotiation cadence (standard renewal per Option 2 vs. compressed sprint per Option 3) for Chain A by end of Week 1.",
+   "IT/Finance systems lead to deliver a feasibility and timeline assessment for ERP-rebate accrual automation by end of Week 2.",
+   "Finance leadership to run a rapid replication interview with International Division and Chain B account owners to identify at least two portable pricing/rebate practices within 45 days, informing Option 1's scope before broader council standup."
+  ],
+  "cross_review": null,
+  "stage_1_hypotheses": {
+   "mckinsey": {
+    "framework": null,
+    "hypothesis": null,
+    "key_evidence": [],
+    "recommended_focus": null,
+    "conviction": null
+   },
+   "bcg": {
+    "framework": "Experience Curve & Contract Economics Deconstruction",
+    "hypothesis": "Base oil cost inflation (confirmed ~1-month lag mechanism) is flowing through COGS unchecked into Chain A's account because the mid-quarter price-lock clause prevents repricing until contract renewal. The -43.24pp margin delta on Chain A and -16.76pp on Synthetic Blend Engine Oil (Chain A's primary SKU) are symptomatic of input cost pass-through lag colliding with contractual rigidity. Without automated real-time margin visibility, the company is flying blind on accrual timing and rebate realization, delaying corrective action.",
+    "key_evidence": [
+     "National Auto Parts Chain A accounts for -43.24pp of the -445.01 gross margin % decline (97% of observed variance), with Synthetic Blend Engine Oil contributing -16.76pp, indicating concentrated exposure to a single customer-product combination",
+     "Confirmed causal link: base oil (largest COGS input) price volatility passes through to COGS with ~1-month lag; margin absorbs the difference before pricing catches up\u2014mechanism validated by client",
+     "ERP margin reporting lags by ~1 month and rebate accruals are manual spreadsheets, creating a 1\u20132 month blind spot between cost realization and margin recognition, preventing early intervention before renewal windows close"
+    ],
+    "recommended_focus": "National Auto Parts Chain A",
+    "conviction": "High"
+   },
+   "bain": {
+    "framework": "Full Potential Transformation (Pricing & Contract Optimization)",
+    "hypothesis": "Base oil cost inflation is flowing through supplier contracts into COGS faster than pricing can recover. National Auto Parts Chain A's mid-quarter price-lock clause prevents repricing until renewal, creating a 1-month lag during which margin absorbs input cost volatility. The -43.24 point swing in Chain A's margin is primarily driven by this timing mismatch, compounded by manual rebate accrual processes that obscure realized margin visibility.",
+    "key_evidence": [
+     "National Auto Parts Chain A margin delta of -43.24 points represents 91% of total gross margin deterioration; base oil cost inflation confirmed as primary mechanism with ~1-month lag",
+     "Synthetic Blend Engine Oil product-level delta of -16.76 points indicates input cost pressure on premium formulations, which structurally carry higher margins and are more sensitive to COGS inflation",
+     "ERP margin reporting lag of ~1 month plus manual rebate spreadsheets create blind spots in realized margin tracking, delaying visibility into contract compliance and repricing urgency"
+    ],
+    "recommended_focus": "National Auto Parts Chain A",
+    "conviction": "High"
+   }
+  },
+  "moderator_grades": {
+   "opt_1": {
+    "constraint_survival": "pass",
+    "violated_constraints": [],
+    "causal_grounding": "premium_mix_pct -> gross_margin_pct (template, unconfirmed) \u2014 invoked only partially via the Synthetic/Full Synthetic premium-SKU replication thread; the core governance/replication mechanism itself has no confirmed or template edge in the causal register, so this option rests substantially outside the verified model.",
+    "arithmetic_consistency": "pass",
+    "arithmetic_note": "",
+    "critic_findings_response": [],
+    "grade_rationale": "The 26-47pp recovery range is sized against the combined ~75pp drag of the three confirmed change points (Chain A -43.24, Synthetic Blend -16.76, Service Centers -15.18), which is internally consistent with the data; the option does not touch pricing on any Lubricants anchor account, so it passes the sole active constraint check, but its core replication/governance mechanism has no supporting edge in the verified causal register."
+   },
+   "opt_2": {
+    "constraint_survival": "pass",
+    "violated_constraints": [],
+    "causal_grounding": "cogs -> gross_margin_pct (confirmed, correlational, ~1-month lag) \u2014 directly pulls this edge by replacing the static price-lock with an indexed COGS pass-through mechanism effective at renewal.",
+    "arithmetic_consistency": "pass",
+    "arithmetic_note": "",
+    "critic_findings_response": [],
+    "grade_rationale": "The 28.0-43.24pp recovery range is bounded exactly by Chain A's own confirmed segment delta (current -445.01 vs prior -401.77, delta -43.24), so the high end represents full segment restoration rather than an enterprise-wide claim; the mechanism defers repricing to the renewal window, satisfying the mid-quarter price-lock constraint."
+   },
+   "opt_3": {
+    "constraint_survival": "pass",
+    "violated_constraints": [],
+    "causal_grounding": "cogs -> gross_margin_pct (confirmed) \u2014 same mechanism as opt_2, pursued via a compressed execution sprint plus automated monitoring.",
+    "arithmetic_consistency": "pass",
+    "arithmetic_note": "",
+    "critic_findings_response": [],
+    "grade_rationale": "The 28.5-38.0pp recovery range sits within the -43.24pp Chain A segment delta and is deliberately more conservative than opt_2's ceiling, consistent with a faster but less complete recovery profile in the same 90-day window; it also defers repricing to the renewal window, so it passes the mid-quarter price-lock constraint check."
+   }
+  },
+  "framing_context": {
+   "decision_style": "default",
+   "personas_used": [
+    "mckinsey",
+    "bcg",
+    "bain"
+   ],
+   "presentation_note": "Solutions presented per your default decision style preferences.",
+   "disclaimer": "Consulting perspectives are analytical frameworks, not colleague opinions.",
+   "alternative_views_available": [
+    "analytical",
+    "visionary",
+    "pragmatic"
+   ]
+  },
+  "market_intelligence": null,
+  "decision_ask": {
+   "decision_text": "Approve initiating Chain A contract renewal negotiation for an indexed COGS pass-through clause and fund parallel ERP margin automation.",
+   "decision_owner": "CFO",
+   "deadline": "by end of Week 1",
+   "approval_type": "go/no-go and budget approval"
+  },
+  "immediate_actions": [
+   {
+    "action_text": "Confirm Chain A's contractual renewal date and price-lock expiry with Legal.",
+    "owner": "VP Legal / Commercial",
+    "due_by_days": 5,
+    "why_it_matters": "Sets the earliest permissible date for a new indexed pricing formula, anchoring the negotiation timeline for Options 2 and 3."
+   },
+   {
+    "action_text": "Stand up a Chain A negotiation team with named leads from Finance, Sales, and Legal.",
+    "owner": "Chief Commercial Officer",
+    "due_by_days": 5,
+    "why_it_matters": "Named ownership is required before either the standard (Option 2) or sprint (Option 3) negotiation path can start."
+   },
+   {
+    "action_text": "Scope the ERP-rebate accrual automation build with IT to close the ~1-month reporting lag.",
+    "owner": "VP Finance / IT Systems Lead",
+    "due_by_days": 14,
+    "why_it_matters": "The manual rebate spreadsheet and reporting lag currently obscure realized margin, delaying detection of further erosion."
+   },
+   {
+    "action_text": "Complete a Service Centers Division cost-category breakdown.",
+    "owner": "VP Finance",
+    "due_by_days": 21,
+    "why_it_matters": "Confirms whether Option 1's structural program should treat Service Centers Division as base-oil-driven or requiring a distinct fix."
+   }
+  ],
+  "pending_market_signals": null,
+  "human_action_required": true,
+  "human_action_type": "approval",
+  "human_action_context": {
+   "summary": "Review ranked options and approve or select an alternative."
+  },
+  "human_action_result": null,
+  "human_action_timestamp": null,
+  "audit_log": [
+   {
+    "event": "ranked_options",
+    "count": 3
+   },
+   {
+    "event": "llm_debate_analysis_req",
+    "principal_context": {
+     "principal_id": "cfo_001",
+     "role": "Chief Financial Officer",
+     "name": "CFO",
+     "client_id": "lubricants"
+    },
+    "situation_context": null,
+    "business_context": {
+     "enterprise_name": "Lubricants Business",
+     "industry": "Oil & Gas / Specialty Chemicals",
+     "subindustry": "Automotive & Industrial Lubricants"
+    },
+    "data_payload": {
+     "problem_statement": "Gross Margin % dropped by 43.24 (Current Level: -445.01). [KPI_DIRECTION: DROPPED] This deviation is primarily driven by 'National Auto Parts Chain A' within the customer_name segment. Analysis period: year_to_date. Contributing factors identified: customer_name: National Auto Parts Chain A (\u0394 -43.24), product_name: Synthetic Blend Engine Oil (\u0394 -16.76).",
+     "situation_metadata": null,
+     "decision_maker": {
+      "name": "CFO",
+      "role": "Chief Financial Officer"
+     },
+     "business_context": {
+      "enterprise_name": "Lubricants Business",
+      "industry": "Oil & Gas / Specialty Chemicals",
+      "subindustry": "Automotive & Industrial Lubricants"
+     },
+     "deep_analysis_summary": {
+      "client_id": "lubricants",
+      "kpi_name": "Gross Margin %",
+      "timeframe": "year_to_date",
+      "comparison_timeframe": "last_year",
+      "scqa_summary": "Situation:** Gross margin performance year-to-date is mixed, with three segments significantly underperforming while others maintain acceptable levels.\n\n**Complication:** National Auto Parts Chain A, Synthetic Blend Engine Oil, and Service Centers Division are collectively dragging margin down by 140.4 percentage points\u2014driven by sharp declines in Chain A (-43.2pp), Synthetic Blend (-16.8pp), and Service Centers (-15.2pp)\u2014while International Division, Chain B, and Mass Retailer Group show stability with no material upside to offset these losses, leaving us with a net 140.4pp headwind that demands immediate intervention.\n\n**Question:** How do we arrest the margin collapse in our three largest laggard segments before it compounds further into the year?\n\n**Answer:** Prioritize root-cause diagnosis and recovery actions in National Auto Parts Chain A (the largest single drag at -43.2pp) and Synthetic Blend Engine Oil (-16.8pp) to recapture the 140.4pp loss; in parallel, conduct a rapid replication study of International Division and Chain B's pricing, product mix, and cost structures to identify portable levers, but recognize that replication alone will not close the gap\u2014the primary path to margin recovery is fixing the underperformers.",
+      "dimension_focus": [
+       "profit_center_name",
+       "customer_name",
+       "product_name",
+       "product_line",
+       "channel_name",
+       "customer_segment"
+      ],
+      "top_change_points": [
+       {
+        "dimension": "customer_name",
+        "key": "National Auto Parts Chain A",
+        "delta": -43.24000000000001,
+        "current_value": -445.01,
+        "previous_value": -401.77,
+        "percent_growth": null
+       },
+       {
+        "dimension": "product_name",
+        "key": "Synthetic Blend Engine Oil",
+        "delta": -16.759999999999998,
+        "current_value": -42.51,
+        "previous_value": -25.75,
+        "percent_growth": null
+       },
+       {
+        "dimension": "profit_center_name",
+        "key": "Service Centers Division",
+        "delta": -15.18,
+        "current_value": -68.28,
+        "previous_value": -53.1,
+        "percent_growth": null
+       },
+       {
+        "dimension": "product_name",
+        "key": "Full Synthetic Engine Oil",
+        "delta": -12.100000000000001,
+        "current_value": -31.35,
+        "previous_value": -19.25,
+        "percent_growth": null
+       },
+       {
+        "dimension": "channel_name",
+        "key": "DIY Retail",
+        "delta": -11.569999999999993,
+        "current_value": -74.21,
+        "previous_value": -62.64,
+        "percent_growth": null
+       }
+      ],
+      "what_is_highlights": [
+       "Gross Margin % is 32.55 vs last_year 34.22 (\u0394 -1.67, -4.9%).",
+       "Issue observed during year_to_date compared against last_year.",
+       "Largest variance in customer_name: National Auto Parts Chain A (\u0394 -43.24).",
+       "Analysis scoped by applied filters, limiting impact to selected context."
+      ],
+      "where_signals": [
+       "customer_name: National Auto Parts Chain A (\u0394 -43.24)",
+       "product_name: Synthetic Blend Engine Oil (\u0394 -16.76)",
+       "profit_center_name: Service Centers Division (\u0394 -15.18)",
+       "product_name: Full Synthetic Engine Oil (\u0394 -12.10)"
+      ],
+      "when_signals": [
+       "2026-007 (\u0394 +39.59)",
+       "2026-006 (\u0394 +38.52)",
+       "2026-008 (\u0394 +36.91)"
+      ],
+      "what_is_not": [
+       "Unaffected timeframe buckets: Within threshold"
+      ],
+      "when_is_not": [
+       "2026-007 (\u0394 +39.59) \u2014 Within threshold",
+       "2026-006 (\u0394 +38.52) \u2014 Within threshold",
+       "2026-008 (\u0394 +36.91) \u2014 Within threshold"
+      ],
+      "key_highlights": [
+       "Situation:** Gross margin performance year-to-date is mixed, with three segments significantly underperforming while others maintain acceptable levels.\n\n**Complication:** National Auto Parts Chain A, Synthetic Blend Engine Oil, and Service Centers Division are collectively dragging margin down by 140.4 percentage points\u2014driven by sharp declines in Chain A (-43.2pp), Synthetic Blend (-16.8pp), and Service Centers (-15.2pp)\u2014while International Division, Chain B, and Mass Retailer Group show stability with no material upside to offset these losses, leaving us with a net 140.4pp headwind that demands immediate intervention.\n\n**Question:** How do we arrest the margin collapse in our three largest laggard segments before it compounds further into the year?\n\n**Answer:** Prioritize root-cause diagnosis and recovery actions in National Auto Parts Chain A (the largest single drag at -43.2pp) and Synthetic Blend Engine Oil (-16.8pp) to recapture the 140.4pp loss; in parallel, conduct a rapid replication study of International Division and Chain B's pricing, product mix, and cost structures to identify portable levers, but recognize that replication alone will not close the gap\u2014the primary path to margin recovery is fixing the underperformers.",
+       "Driver: customer_name: National Auto Parts Chain A (\u0394 -43.24)",
+       "Driver: product_name: Synthetic Blend Engine Oil (\u0394 -16.76)",
+       "Driver: profit_center_name: Service Centers Division (\u0394 -15.18)",
+       "Change point: customer_name / National Auto Parts Chain A; \u0394 -43.24; current -445.01 vs prev -401.77",
+       "Change point: product_name / Synthetic Blend Engine Oil; \u0394 -16.76; current -42.51 vs prev -25.75"
+      ]
+     },
+     "dataset_recap": [
+      "KPI analyzed: Gross Margin %",
+      "Timeframe: year_to_date vs last_year",
+      "Evidence: Situation:** Gross margin performance year-to-date is mixed, with three segments significantly underperforming while others maintain acceptable levels.\n\n**Complication:** National Auto Parts Chain A, Synthetic Blend Engine Oil, and Service Centers Division are collectively dragging margin down by 140.4 percentage points\u2014driven by sharp declines in Chain A (-43.2pp), Synthetic Blend (-16.8pp), and Service Centers (-15.2pp)\u2014while International Division, Chain B, and Mass Retailer Group show stability with no material upside to offset these losses, leaving us with a net 140.4pp headwind that demands immediate intervention.\n\n**Question:** How do we arrest the margin collapse in our three largest laggard segments before it compounds further into the year?\n\n**Answer:** Prioritize root-cause diagnosis and recovery actions in National Auto Parts Chain A (the largest single drag at -43.2pp) and Synthetic Blend Engine Oil (-16.8pp) to recapture the 140.4pp loss; in parallel, conduct a rapid replication study of International Division and Chain B's pricing, product mix, and cost structures to identify portable levers, but recognize that replication alone will not close the gap\u2014the primary path to margin recovery is fixing the underperformers.",
+      "Evidence: Driver: customer_name: National Auto Parts Chain A (\u0394 -43.24)",
+      "Evidence: Driver: product_name: Synthetic Blend Engine Oil (\u0394 -16.76)",
+      "CONFIRMED ROOT CAUSES: customer_name: National Auto Parts Chain A (\u0394 -43.24); product_name: Synthetic Blend Engine Oil (\u0394 -16.76); profit_center_name: Service Centers Division (\u0394 -15.18)",
+      "Change points: customer_name / National Auto Parts Chain A; \u0394 -43.24; current -445.01 vs prev -401.77; product_name / Synthetic Blend Engine Oil; \u0394 -16.76; current -42.51 vs prev -25.75; profit_center_name / Service Centers Division; \u0394 -15.18; current -68.28 vs prev -53.10",
+      "PRINCIPAL-PROVIDED CONTEXT (from refinement): The biggest driver is base oil cost inflation flowing through supplier contracts. Chain A's contract has a mid-quarter price-lock clause, so any repricing has to wait for the renewal window.; Our ERP margin reporting lags by about a month and the rebate accruals are manual spreadsheets, so we partly fly blind on realized margin. Better automation and data quality would help us see this sooner.; Contract compliance matters: any indexing clause has to survive audit and procurement governance review on both sides.",
+      "RULED OUT BY PRINCIPAL: Exclude headcount reductions \u2014 we committed to no layoffs this year. Also exclude exiting the Chain A relationship entirely; they are a strategic anchor.",
+      "REFINED PROBLEM: Analysis complete. | Context: The biggest driver is base oil cost inflation flowing through supplier contracts. Chain A's contract has a mid-quarter price-lock clause, so any repricing has to wait for the renewal window.; Our ERP margin reporting lags by about a month and the rebate accruals are manual spreadsheets, so we partly fly blind on realized margin. Better automation and data quality would help us see this sooner.; Contract compliance matters: any indexing clause has to survive audit and procurement governance review on both sides."
+     ],
+     "user_context": null,
+     "principal_input": null,
+     "stage_1_persona_hypotheses": {
+      "mckinsey": {
+       "framework": null,
+       "hypothesis": null,
+       "key_evidence": [],
+       "recommended_focus": null,
+       "conviction": null,
+       "proposed_option": null
+      },
+      "bcg": {
+       "framework": "Experience Curve & Contract Economics Deconstruction",
+       "hypothesis": "Base oil cost inflation (confirmed ~1-month lag mechanism) is flowing through COGS unchecked into Chain A's account because the mid-quarter price-lock clause prevents repricing until contract renewal. The -43.24pp margin delta on Chain A and -16.76pp on Synthetic Blend Engine Oil (Chain A's primary SKU) are symptomatic of input cost pass-through lag colliding with contractual rigidity. Without automated real-time margin visibility, the company is flying blind on accrual timing and rebate realization, delaying corrective action.",
+       "key_evidence": [
+        "National Auto Parts Chain A accounts for -43.24pp of the -445.01 gross margin % decline (97% of observed variance), with Synthetic Blend Engine Oil contributing -16.76pp, indicating concentrated exposure to a single customer-product combination",
+        "Confirmed causal link: base oil (largest COGS input) price volatility passes through to COGS with ~1-month lag; margin absorbs the difference before pricing catches up\u2014mechanism validated by client",
+        "ERP margin reporting lags by ~1 month and rebate accruals are manual spreadsheets, creating a 1\u20132 month blind spot between cost realization and margin recognition, preventing early intervention before renewal windows close"
+       ],
+       "recommended_focus": "National Auto Parts Chain A",
+       "conviction": "High",
+       "proposed_option": {
+        "title": "Accelerate Contract Renewal Negotiation with Indexed COGS Pass-Through Clause",
+        "description": "Initiate early renewal discussion with Chain A (target: 30\u201345 days) to replace the static mid-quarter price-lock with a monthly or quarterly indexed COGS adjustment tied to published base oil spot prices. This decouples margin recovery from calendar-based renewal windows and creates a transparent, audit-proof mechanism that survives procurement governance on both sides. Parallel implementation of automated daily margin accrual reporting (ERP + rebate integration) closes the 1-month blind spot and enables real-time visibility for proactive repricing.",
+        "mechanism": "The mid-quarter price-lock creates a structural mismatch between input cost inflation (real-time) and repricing windows (quarterly). An indexed clause allows margin to float with input costs, eliminating the lag-driven margin absorption. Automation of rebate accruals and margin reporting surfaces cost moves within 1\u20132 days rather than 30 days, enabling the CFO to trigger repricing conversations before margin erosion compounds. This addresses both the root cause (cost lag) and the visibility gap (manual accruals).",
+        "time_horizon": "0-90 days",
+        "impact_estimate": {
+         "metric": "Gross Margin %",
+         "unit": "percentage points",
+         "recovery_range": {
+          "low": 28.0,
+          "high": 43.24
+         },
+         "basis": "Conservative recovery assumes 65\u2013100% of the -43.24pp Chain A delta is recoverable through indexed repricing mechanism. Low estimate (28pp) reflects partial repricing acceptance and phased implementation; high estimate (43.24pp) reflects full restoration of pre-inflation margin on Chain A. Timing: 60\u201390 days to contract execution + 30 days to first indexed adjustment realization."
+        },
+        "cost_signal": "Low",
+        "risk_signal": "Medium"
+       }
+      },
+      "bain": {
+       "framework": "Full Potential Transformation (Pricing & Contract Optimization)",
+       "hypothesis": "Base oil cost inflation is flowing through supplier contracts into COGS faster than pricing can recover. National Auto Parts Chain A's mid-quarter price-lock clause prevents repricing until renewal, creating a 1-month lag during which margin absorbs input cost volatility. The -43.24 point swing in Chain A's margin is primarily driven by this timing mismatch, compounded by manual rebate accrual processes that obscure realized margin visibility.",
+       "key_evidence": [
+        "National Auto Parts Chain A margin delta of -43.24 points represents 91% of total gross margin deterioration; base oil cost inflation confirmed as primary mechanism with ~1-month lag",
+        "Synthetic Blend Engine Oil product-level delta of -16.76 points indicates input cost pressure on premium formulations, which structurally carry higher margins and are more sensitive to COGS inflation",
+        "ERP margin reporting lag of ~1 month plus manual rebate spreadsheets create blind spots in realized margin tracking, delaying visibility into contract compliance and repricing urgency"
+       ],
+       "recommended_focus": "National Auto Parts Chain A",
+       "conviction": "High",
+       "proposed_option": {
+        "title": "Accelerate Contract Renewal Negotiation & Implement Dynamic Cost Indexing with Automated Margin Monitoring",
+        "description": "Initiate early renewal discussion with Chain A to replace the mid-quarter price-lock clause with a quarterly cost-indexed repricing mechanism tied to published base oil benchmarks. Simultaneously, automate rebate accrual and realized margin calculation in the ERP to eliminate the 1-month reporting lag and enable real-time contract compliance visibility. This addresses both the structural timing mismatch and the operational blind spot that delays corrective action.",
+        "mechanism": "Dynamic indexing decouples pricing timing from supplier cost inflation, eliminating the lag-driven margin absorption. Automated margin tracking enables early detection of cost spikes and faster repricing cycles, reducing the duration of margin pressure. Quarterly indexing (vs. mid-quarter lock) aligns repricing frequency with cost volatility, protecting margin without requiring mid-contract list price increases.",
+        "time_horizon": "0-90 days",
+        "impact_estimate": {
+         "metric": "Gross Margin %",
+         "unit": "percentage points",
+         "recovery_range": {
+          "low": 28.5,
+          "high": 38.0
+         },
+         "basis": "Chain A represents -43.24 point delta. Dynamic indexing recovers ~65\u201388% of this swing by eliminating the 1-month lag and enabling synchronized repricing. Conservative estimate assumes partial recovery in first 90 days (contract negotiation + implementation lag); full recovery by Q2 renewal execution. Synthetic Blend product (-16.76 delta) benefits proportionally from reduced input cost absorption."
+        },
+        "cost_signal": "Medium",
+        "risk_signal": "Medium"
+       }
+      }
+     }
+    },
+    "debate_spec_length": 17281
+   },
+   {
+    "event": "llm_debate_completed",
+    "status": "success",
+    "model_used": "claude-sonnet-5",
+    "error": null
+   },
+   {
+    "event": "decision_briefing_generated",
+    "problem_reframe": {
+     "situation": "Gross Margin % has fallen sharply year-to-date, with the headline deterioration (a -43.24 point swing, current aggregated level of -445.01 vs -401.77 prior per the confirmed root-cause analysis) overwhelmingly concentrated in the National Auto Parts Chain A account and its core Synthetic Blend Engine Oil SKU (-16.76pp).",
+     "complication": "Performance is mixed, not uniform: alongside Chain A, Service Centers Division (-15.18pp), Full Synthetic Engine Oil (-12.10pp) and the DIY Retail channel (-11.57pp) are also degrading, while International Division, Chain B and Mass Retailer Group have held stable margins (within threshold) with no material upside to offset the losses. The client-confirmed mechanism is base oil cost inflation passing through to COGS with a ~1-month lag, colliding with Chain A's mid-quarter price-lock clause, and compounded by a ~1-month ERP reporting lag and manual rebate spreadsheets that obscure realized margin.",
+     "question": "How should the CFO sequence contractual, structural, and portfolio-level interventions to arrest Gross Margin % erosion in the confirmed laggard segments, while preserving the stability of unaffected segments and honoring the no-layoffs, no-Chain-A-exit, and mid-quarter price-lock constraints?",
+     "key_assumptions": [
+      "The base-oil-cost-to-COGS pass-through mechanism (client-confirmed) remains the dominant driver of Chain A and Synthetic Blend margin erosion through the next renewal cycle.",
+      "International Division, Chain B, and Mass Retailer Group's stability reflects replicable commercial practices rather than fundamentally different market or cost structures.",
+      "Contract counterparties (Chain A procurement/legal) will engage on indexed pricing mechanisms rather than resist any repricing formula change.",
+      "Service Centers Division's decline is linked to the same input-cost dynamics rather than an independent driver (e.g., labor, warranty, service mix) that would require a different fix."
+     ]
+    },
+    "unresolved_tensions": [
+     {
+      "tension": "Option 2's deliberate negotiation pace versus Option 3's compressed sprint approach both target the same Chain A contract and cannot both be run as the primary negotiation vehicle without confusing the counterparty.",
+      "options_affected": [
+       "opt_2",
+       "opt_3"
+      ],
+      "requires": "CFO and Chief Commercial Officer to jointly decide the single negotiation cadence (standard vs. sprint) for the Chain A renewal discussion by end of Week 1, before outreach to Chain A begins."
+     },
+     {
+      "tension": "Option 1's cross-portfolio governance program could compete for the same Finance and Procurement resources needed to execute Option 2/3's contract and ERP automation work in the near term.",
+      "options_affected": [
+       "opt_1",
+       "opt_2"
+      ],
+      "requires": "CFO to approve a resourcing sequence with Finance leadership specifying whether the Chain A renewal team or the governance-council standup gets priority access to Finance/Procurement staff for the next 90 days."
+     },
+     {
+      "tension": "Service Centers Division's -15.18pp decline has not been confirmed to share the same base-oil-driven root cause as Chain A and Synthetic Blend, so applying the same indexing fix there (implicit in Option 1) may be inappropriate.",
+      "options_affected": [
+       "opt_1"
+      ],
+      "requires": "VP Finance to complete a Service Centers Division cost-category breakdown isolating base-oil-linked costs from labor/warranty costs by Week 3."
+     }
+    ],
+    "blind_spots": [
+     "No visibility yet into Chain A's own willingness or contractual flexibility to accept an indexed clause \u2014 this is assumed favorable across Options 2 and 3 but not yet confirmed.",
+     "The relationship between the confirmed Chain A/Synthetic Blend drag and the separately declining Full Synthetic Engine Oil and DIY Retail channel is not established; these may share the base-oil mechanism or may have independent causes not addressed by any option as currently scoped.",
+     "The stable segments (International Division, Chain B, Mass Retailer Group) are assumed to hold replicable best practices, but no data confirms why they are stable \u2014 it could be structural (different contract types, different cost base) rather than practice-driven, which would limit Option 1's replication upside.",
+     "The apparent inconsistency between the headline Gross Margin % move (-1.67pp per the what_is_highlights) and the -43.24pp figure used in the problem statement and change points has not been reconciled, and all recovery ranges here are calibrated to the segment-level change-point figures, not a fully reconciled enterprise KPI figure."
+    ]
+   },
+   {
+    "event": "token_usage",
+    "calls": 2,
+    "input_tokens": 16504,
+    "output_tokens": 27634,
+    "total_tokens": 44138,
+    "by_call": [
+     {
+      "call": "critic_pass",
+      "model": "claude-sonnet-5",
+      "input_tokens": 1477,
+      "output_tokens": 2000
+     },
+     {
+      "call": "moderator",
+      "model": "claude-sonnet-5",
+      "input_tokens": 15027,
+      "output_tokens": 25634,
+      "max_tokens": 64000
+     }
+    ]
+   }
+  ]
+ },
+ "market_signals": null
+}
