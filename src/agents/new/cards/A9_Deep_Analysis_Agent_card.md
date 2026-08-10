@@ -387,3 +387,9 @@ Verified against BigQuery: YTD-2025 = 34.43%, FY-2025 = 32.63%.
 **Fix:** `comparison_period=True` on the current timeframe, so the headline shares the dimensional basis. `comparator_label` changed with it — it read `"last_year"` while describing a year-to-date window, and **a label naming a different period than the number is how this stayed invisible for so long.**
 
 **Rule:** every figure in one analysis must be measured against the same basis, and the label must name the window actually measured. Related: `MeasurementContext.comparison_basis` on the SA side, and `_window_suffix` on situation descriptions.
+
+**Enforced, not just fixed.** The trap that produced this still sits in `TimeFilter.previous_period_name`, which maps every `*_to_date` token to a FULL prior period (`year_to_date` → `last_year`, `quarter_to_date` → `last_quarter`). Its name invites the misuse. It is now used **only** as an availability guard — "does a prior period exist" — and its docstring says so with the production numbers attached.
+
+`tests/unit/test_equal_duration_comparison.py` fails the build if any DA query is built from a previous-timeframe token (`timeframe=prev_tf`). An equality assertion on one call site would not have caught the original bug: the wrong call was one of several and the others were correct, so what matters is that the **shape** is unrepresentable. The same file pins that labels derive from the current timeframe — the headline read `"last_year"` while measuring prior year-to-date, and both label and figure looked reasonable in isolation.
+
+**The rule, stated plainly:** two Actual periods are comparable only when they are the same length. YTD compares against prior YTD. Version comparisons (budget/plan) are the separate case — same window, different version, `comparison_basis="version"`.

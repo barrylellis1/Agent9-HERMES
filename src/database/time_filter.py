@@ -416,7 +416,30 @@ class TimeFilter:
 
     @classmethod
     def previous_period_name(cls, timeframe) -> Optional[str]:
-        """Return the canonical previous-period timeframe string, for DA _prev_timeframe."""
+        """Return the canonical previous-period timeframe NAME. Availability only.
+
+        DO NOT BUILD A QUERY FROM THIS VALUE FOR AN ACTUALS COMPARISON.
+
+        Every `*_to_date` token maps to a FULL prior period — `year_to_date` ->
+        `last_year`, `quarter_to_date` -> `last_quarter`. Passing that as a
+        timeframe compares a partial period against a whole one: eight months of
+        trading against twelve, with the difference reported as performance.
+
+        That happened. A production briefing carried two baselines for the same
+        KPI — 29.94 vs 32.63 (full FY-2025, -8.2%) in the headline and 29.94 vs
+        34.43 (prior YTD, -13.1%) in the segments — because the overall summary
+        was built from this value while the dimensional queries used
+        `comparison_period=True`. The mismatched pair understated the decline by
+        about 40%.
+
+        For an Actuals comparison call `previous_condition` (or pass
+        `comparison_period=True` to the DPA) on the CURRENT timeframe: same span,
+        shifted back one period. Use this function only to ask WHETHER a prior
+        period exists, and to derive a display label — never as a query input.
+
+        Version comparisons (budget/plan) are a different case: they hold the
+        window fixed and vary the version.
+        """
         tf = cls._normalize(timeframe)
         prev_map = {
             "current_quarter": "last_quarter",

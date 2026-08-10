@@ -2145,9 +2145,14 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             prev_tf_val = self._prev_timeframe(cur_tf_val)
             tf_mapping = None
             if cur_tf_val:
+                # For ACTUALS the comparison is always the SAME timeframe shifted back
+                # one period — YTD vs prior YTD, Q3 vs prior-year Q3 — so durations
+                # match and the delta is meaningful. Labelling it with a different
+                # token ("last_year") described a full prior year while the query
+                # measured prior year-to-date, which is how the two-baseline bug hid.
                 tf_mapping = {
-                    "current": str(cur_tf_val), 
-                    "previous": str(prev_tf_val) if prev_tf_val else "previous period"
+                    "current": str(cur_tf_val),
+                    "previous": f"prior {cur_tf_val}",
                 }
 
             # Use DataQualityFilter utility to handle data anomalies
