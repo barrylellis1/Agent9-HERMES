@@ -29,6 +29,8 @@ Two distinctions this pins:
 """
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from src.agents.models.solution_finder_models import SolutionFinderResponse
@@ -92,3 +94,41 @@ class TestWorkflowStateRules:
 
     def test_a_healthy_run_completes(self):
         assert self._state_for(None) == "completed"
+
+
+class TestHealthzReportsFeatureState:
+    """A decision to enable something is not the same as it being enabled.
+
+    The Stage H A/B concluded "adopt the theory-guided moderator". The flag was
+    set locally, the conclusion was treated as shipped, and there was no way
+    short of the hosting dashboard to check whether production agreed. /healthz
+    returned {"status": "ok"} and nothing else.
+    """
+
+    @staticmethod
+    def _client():
+        from fastapi.testclient import TestClient  # noqa: PLC0415
+        from src.api.main import app  # noqa: PLC0415
+        return TestClient(app)
+
+    def test_reports_each_gated_feature(self, monkeypatch):
+        monkeypatch.setenv("SF_ENABLE_THEORY_MODERATOR", "true")
+        monkeypatch.setenv("SF_ENABLE_CRITIC_PASS", "false")
+        body = json.loads(self._client().get("/healthz").content)
+        assert body["status"] == "ok"
+        assert body["features"]["enable_theory_moderator"] is True
+        assert body["features"]["enable_critic_pass"] is False
+
+    def test_an_unset_flag_reads_false_not_missing(self, monkeypatch):
+        """Absent must mean off, explicitly. A missing key would leave a reader
+        unable to distinguish 'off' from 'this build predates the flag'."""
+        monkeypatch.delenv("SF_ENABLE_CAUSAL_GROUNDING", raising=False)
+        body = json.loads(self._client().get("/healthz").content)
+        assert body["features"]["enable_causal_grounding"] is False
+
+    def test_values_are_booleans_never_the_raw_setting(self, monkeypatch):
+        """Booleans only — this endpoint is public, so it must be incapable of
+        leaking a credential even if someone adds the wrong variable name."""
+        monkeypatch.setenv("SF_ENABLE_THEORY_MODERATOR", "true")
+        body = json.loads(self._client().get("/healthz").content)
+        assert all(isinstance(v, bool) for v in body["features"].values())

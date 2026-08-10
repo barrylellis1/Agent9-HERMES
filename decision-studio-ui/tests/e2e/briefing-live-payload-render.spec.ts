@@ -87,13 +87,33 @@ test.describe('Executive Briefing — live payload end to end', () => {
     await expect(page.getByRole('cell', { name: /^Reversibility/i })).toBeVisible();
   });
 
-  test('a criterion every option shares is called out, not left implying a choice', async ({ page }) => {
+  test('a fully discriminating payload shows NO markers', async ({ page }) => {
+    // The refreshed fixture (post data-fix) separates on every criterion:
+    // cost 0.3/0.55/0.8, risk 0.3/0.5/0.65, reversibility high/medium/low.
+    // Markers must stay rare or readers learn to ignore them.
     await openBuiltBriefing(page);
     await expect(page.getByText(/strategic options/i).first()).toBeVisible({ timeout: 20_000 });
-    // Either marker is acceptable — which appears depends on the payload. What
-    // must NOT happen is identical values presented as a silent comparison.
-    const markers = page.getByText(/same for all|of \d+ distinct/i);
-    expect(await markers.count()).toBeGreaterThan(0);
+    await expect(page.getByText(/same for all/i)).toHaveCount(0);
+  });
+
+  test('identical values ARE called out, not left implying a choice', async ({ page }) => {
+    // Constructed rather than relying on the fixture happening to contain ties.
+    // The previous version of this test asserted a marker was present and broke
+    // when the data was corrected — the same trap as pinning a test to one
+    // dataset's narrative.
+    const tied = {
+      ...raw.solutions,
+      options_ranked: (raw.solutions.options_ranked as any[]).slice(0, 3)
+        .map(o => ({ ...o, cost: 0.5, risk: 0.5, reversibility: 'medium' })),
+    };
+    const built = buildExecutiveBriefing(raw.situation, raw.analysis, tied);
+    await page.addInitScript(
+      ([id, payload]: [string, string]) => window.localStorage.setItem(`briefing_${id}`, payload),
+      [SITUATION_ID, JSON.stringify(built)]);
+    await loginAsDemo(page);
+    await page.goto(`/briefing/${SITUATION_ID}`);
+    await expect(page.getByText(/strategic options/i).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/same for all/i).first()).toBeVisible();
   });
 
   test('percentage KPI never renders a currency symbol on its deltas', async ({ page }) => {

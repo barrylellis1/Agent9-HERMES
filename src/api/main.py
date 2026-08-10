@@ -91,9 +91,41 @@ async def startup_event() -> None:
         logging.getLogger(__name__).exception("Failed to initialize AgentRuntime during startup")
 
 
+# Feature flags whose state is worth knowing from outside the box. Booleans only —
+# never a value, so this can never leak a credential.
+_REPORTED_FLAGS = (
+    "SF_ENABLE_THEORY_MODERATOR",
+    "SF_ENABLE_CRITIC_PASS",
+    "SF_ENABLE_CAUSAL_GROUNDING",
+    "SF_USE_STRUCTURED_OUTPUT",
+)
+
+
 @app.get("/healthz")
 async def healthz():
-    return JSONResponse({"status": "ok"})
+    """Liveness, plus which gated features this deployment actually has on.
+
+    WHY THE FLAGS ARE HERE
+    ----------------------
+    A decision to enable something is not the same as it being enabled, and we
+    had no way to tell the two apart from outside. The Stage H A/B concluded
+    "adopt the theory-guided moderator"; the flag was set locally and the
+    conclusion was treated as shipped, with no way short of the hosting
+    dashboard to check whether production agreed. The same blindness cost real
+    time earlier the same day, when a code path was fixed, tested, and shipped
+    before a live run showed it was never the path being executed.
+
+    Booleans only. Reading the environment directly rather than an agent's
+    resolved config is deliberate: this must answer "what did this container
+    start with", and stay answerable even if agent bootstrap failed.
+    """
+    return JSONResponse({
+        "status": "ok",
+        "features": {
+            name.lower().removeprefix("sf_"): os.getenv(name, "false").lower() == "true"
+            for name in _REPORTED_FLAGS
+        },
+    })
 
 
 @app.get("/")
