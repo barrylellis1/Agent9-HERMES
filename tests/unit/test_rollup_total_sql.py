@@ -146,3 +146,39 @@ class TestComparisonPeriodHonouredOnEveryBackend:
             f"is byte-identical to the current one, so any delta computed from the "
             f"pair is 0.0"
         )
+
+    @pytest.mark.parametrize("method,dialect", BUILDERS)
+    def test_the_two_windows_are_equal_duration_and_shifted_one_year(self, agent, method, dialect):
+        """Stronger than "the strings differ".
+
+        Two queries can differ and still compare unequal spans — which is the
+        original bug, where YTD was measured against a FULL prior year. This
+        asserts the emitted predicates cover the same number of days, one year
+        apart.
+
+        Short of a live warehouse this is the strongest available check for
+        Snowflake / SQL Server / Databricks, which no test executes against.
+        """
+        import datetime as _dt
+        import logging
+        import re
+        agent.logger = logging.getLogger("test")
+        build = getattr(agent, method)
+        kw = dict(raw_sql=RATIO_SQL, kpi_definition=_KPI(RATIO_SQL), timeframe="year_to_date",
+                  topn=None, breakdown=False, override_group_by=None, time_spec=None)
+        cur, prev = build(**kw, comparison_period=False), build(**kw, comparison_period=True)
+
+        def span(sql):
+            d = re.findall(r"'(\d{4}-\d{2}-\d{2})'", sql or "")
+            if len(d) < 2:
+                pytest.skip(f"{dialect}: predicate is not a literal date range")
+            a, b = _dt.date.fromisoformat(d[-2]), _dt.date.fromisoformat(d[-1])
+            return a, b, (b - a).days
+
+        c0, c1, cdays = span(cur)
+        p0, p1, pdays = span(prev)
+        assert cdays == pdays, (
+            f"{dialect}: current window spans {cdays} days but the comparison spans "
+            f"{pdays} — unequal durations are the original defect, not a variation of it")
+        assert c0.year - p0.year == 1 and (c0.month, c0.day) == (p0.month, p0.day), (
+            f"{dialect}: comparison window starts {p0}, expected exactly one year before {c0}")
