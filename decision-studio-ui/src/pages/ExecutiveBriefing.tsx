@@ -662,10 +662,13 @@ export function ExecutiveBriefing() {
               const sentences: string[] = []
               // Boundary-aware: raw slice() shipped "...also underperform…" and
               // "...because it…." to a live print view.
-              if (scqa) sentences.push(truncateProse(scqa, 200))
+              // 200 chars clipped this pipeline's prose mid-clause, because it is
+              // written as long em-dash-joined sentences. Wider budget + the
+              // clause-boundary fallback lets the opening thought finish.
+              if (scqa) sentences.push(truncateProse(scqa, 320))
               if (topDrivers.length) sentences.push(`Primary drivers: ${topDrivers.join(' and ')}.`)
               if (rec) {
-                const why = rationale ? `: ${truncateProse(rationale, 120)}` : ''
+                const why = rationale ? `: ${truncateProse(rationale, 180)}` : ''
                 const line = `The council recommends ${rec}${why}`
                 // Only add a period when the text does not already end one —
                 // otherwise a truncated clause renders as "because it…."
@@ -915,7 +918,11 @@ export function ExecutiveBriefing() {
                 <div className="space-y-6">
                   {data.options?.map((option: any, i: number) => (
                     <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                      className={`rounded-xl overflow-hidden border ${option.recommended ? 'border-slate-600 border-l-4 border-l-emerald-500 bg-slate-900' : 'border-slate-700 bg-slate-900'} print:bg-white print:border-slate-200 ${option.recommended ? 'print:border-l-slate-800' : ''}`}>
+                      // print:overflow-visible only — NOT break-inside-avoid. These
+                      // cards are frequently taller than a page, and forbidding a break
+                      // would push the whole card past the page end and clip more, not
+                      // less. Releasing overflow lets the content flow across pages.
+                      className={`rounded-xl overflow-hidden border print:overflow-visible ${option.recommended ? 'border-slate-600 border-l-4 border-l-emerald-500 bg-slate-900' : 'border-slate-700 bg-slate-900'} print:bg-white print:border-slate-200 ${option.recommended ? 'print:border-l-slate-800' : ''}`}>
                       {option.recommended && (
                         <div className="bg-emerald-900/40 text-emerald-300 px-4 py-1.5 text-xs font-semibold flex items-center gap-2 print:bg-slate-800 print:text-white">
                           <CheckCircle className="w-3.5 h-3.5" /> RECOMMENDED
@@ -1262,13 +1269,19 @@ export function ExecutiveBriefing() {
                 icon={<Users className="w-4 h-4 text-slate-400" />}>
                 <div className="p-5">
                   <p className="text-slate-400 text-sm mb-4 print:text-slate-600">Each firm independently analyzed the problem and proposed an intervention using their signature framework.</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 print:block print:space-y-4">
                     {Object.entries(data.stage_1_hypotheses).map(([firmId, hyp]: [string, any]) => {
                       const s = FIRM_STYLES[firmId] ?? defaultFirmStyle
                       const conviction = hyp.conviction || 'High'
                       const displayName = FIRM_DISPLAY_NAMES[firmId.toLowerCase()] ?? (firmId.charAt(0).toUpperCase() + firmId.slice(1).replace(/_/g, ' '))
                       return (
-                        <div key={firmId} className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden flex flex-col print:bg-white print:border-slate-200 print:shadow-sm">
+                        // print:break-inside-avoid — a persona card that straddles a page
+                        // boundary was CLIPPED rather than flowed, because `overflow-hidden`
+                        // (needed on screen for the rounded top bar) truncates at the card
+                        // edge in print. A live briefing lost "Primary Focus: Synthetic Blend
+                        // Engine Oil" mid-line that way. Overflow is released in print, where
+                        // there is no rounded-corner clipping to preserve.
+                        <div key={firmId} className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden flex flex-col print:bg-white print:border-slate-200 print:shadow-sm print:overflow-visible print:break-inside-avoid">
                           <div className={`h-1.5 w-full ${s.bar}`} />
                           <div className="p-4 flex flex-col flex-1">
                             <div className="flex items-start justify-between mb-2">

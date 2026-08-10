@@ -92,3 +92,69 @@ test.describe('endsSentence — prevents the four-dot artefact', () => {
     }
   });
 });
+
+/**
+ * Abbreviation handling.
+ *
+ * `lastIndexOf('. ')` treats an abbreviation as a sentence end. Real prose from
+ * this pipeline reads "29.94% vs. 34.43% prior YTD", where the first ". " sits
+ * at position 76 — inside "vs.". Cutting there ends the summary mid-comparison,
+ * on the very number it exists to state.
+ */
+test.describe('truncateProse — abbreviations and clauses', () => {
+  test('does not treat "vs." as a sentence end', () => {
+    const s = 'Gross margin declined 4.49 points year-to-date (29.94% vs. 34.43% prior YTD) '
+            + 'across the portfolio, with no offsetting segment anywhere in the book.';
+    const out = truncateProse(s, 90);
+    expect(out).not.toBe('Gross margin declined 4.49 points year-to-date (29.94% vs.');
+    expect(out).not.toMatch(/vs\.$/);
+  });
+
+  test('does not treat a decimal point as a sentence end', () => {
+    const s = 'Margin fell to 29.94 percent this period and the decline was concentrated '
+            + 'in a small number of product lines rather than spread evenly.';
+    const out = truncateProse(s, 60);
+    expect(out).not.toMatch(/\d\.$/);
+  });
+
+  test('falls back to a clause boundary when there is no sentence end', () => {
+    // This pipeline writes long em-dash-joined sentences; a clause boundary ends
+    // a thought instead of interrupting one.
+    const s = 'Gross Margin % has contracted 4.49 points year-to-date, from 34.43% to 29.94% '
+            + '— an enterprise-wide erosion with no fully offsetting segment — and the decline '
+            + 'is concentrated in Engine Oils.';
+    const out = truncateProse(s, 130);
+    expect(out.endsWith('…')).toBe(true);
+    expect(out).not.toMatch(/[—-]…$/);
+    expect(out.length).toBeLessThanOrEqual(131);
+  });
+
+  test('a sentence end past the floor is preferred, and needs no ellipsis', () => {
+    const s = 'A base-oil cost spike is the confirmed driver of the decline. Contractual '
+            + 'locks — anchor accounts — prevent recovery until renewal.';
+    const out = truncateProse(s, 90);
+    expect(out).toBe('A base-oil cost spike is the confirmed driver of the decline.');
+    expect(out).not.toContain('…');
+  });
+
+  test('a very early sentence end does not waste the budget', () => {
+    // "Margin fell sharply." ends at char 19 of a 60-char budget. Cutting there
+    // would throw away two-thirds of the space available; the clause cut carries
+    // more and still ends a thought rather than interrupting one.
+    const s = 'Margin fell sharply. A base-oil cost spike — confirmed — is the driver and '
+            + 'contractual locks prevent recovery until renewal.';
+    const out = truncateProse(s, 60);
+    expect(out.length).toBeGreaterThan('Margin fell sharply.'.length);
+    expect(out.endsWith('…')).toBe(true);
+    expect(out).not.toMatch(/[—-]…$/);
+  });
+
+  test('abbreviations mid-text never produce a bare fragment', () => {
+    for (const abbr of ['vs.', 'approx.', 'e.g.', 'etc.', 'Q3.']) {
+      const s = `The comparison uses ${abbr} the prior period and shows a material decline `
+              + 'across every division measured in the current window.';
+      const out = truncateProse(s, 70);
+      expect(out.trim().length, `empty for ${abbr}`).toBeGreaterThan(10);
+    }
+  });
+});

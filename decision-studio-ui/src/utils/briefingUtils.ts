@@ -86,6 +86,28 @@ export function axisDiscrimination(values: Array<string | null | undefined>): {
   }
 }
 
+// Abbreviations that end in a period and are NOT sentence ends. Without this,
+// "29.94% vs. 34.43%" reads as two sentences and a summary can be cut in half of
+// a comparison.
+const _ABBREVIATIONS = ['vs', 'approx', 'est', 'no', 'inc', 'ltd', 'co', 'e.g', 'i.e', 'etc', 'fig', 'q1', 'q2', 'q3', 'q4']
+
+/** Index of the last real sentence terminator in `text`, or -1. */
+function _lastSentenceEnd(text: string): number {
+  for (let i = text.length - 2; i >= 0; i--) {
+    const ch = text[i]
+    if (ch !== '.' && ch !== '!' && ch !== '?') continue
+    if (text[i + 1] !== ' ') continue
+    if (ch === '.') {
+      // A digit either side means a decimal that happens to precede a space.
+      if (/\d/.test(text[i - 1] || '')) continue
+      const word = (text.slice(Math.max(0, i - 12), i).match(/[A-Za-z.]+$/) || [''])[0].toLowerCase()
+      if (_ABBREVIATIONS.includes(word)) continue
+    }
+    return i
+  }
+  return -1
+}
+
 /**
  * Truncate prose for a summary block without cutting mid-word.
  *
@@ -107,8 +129,19 @@ export function truncateProse(text: string | null | undefined, maxLen: number): 
 
   // A complete sentence is the best cut — no ellipsis needed, so no risk of the
   // caller appending a period onto one.
-  const lastStop = Math.max(window.lastIndexOf('. '), window.lastIndexOf('! '), window.lastIndexOf('? '))
-  if (lastStop > maxLen * 0.5) return window.slice(0, lastStop + 1)
+  //
+  // `lastIndexOf('. ')` alone treats ABBREVIATIONS as sentence ends. Real text
+  // from this pipeline reads "29.94% vs. 34.43% prior YTD", where the first ". "
+  // sits at position 76 — inside "vs.". Cutting there would end the summary
+  // mid-comparison, on the very number it exists to state.
+  const lastStop = _lastSentenceEnd(window)
+  if (lastStop > maxLen * 0.4) return window.slice(0, lastStop + 1)
+
+  // No sentence end. This pipeline's prose is built from em-dash clauses, so a
+  // clause boundary is the next-best honest stopping point — it ends a thought
+  // rather than interrupting one.
+  const lastClause = Math.max(window.lastIndexOf(' — '), window.lastIndexOf('; '))
+  if (lastClause > maxLen * 0.5) return `${window.slice(0, lastClause).replace(/[\s,;:—-]+$/, '')}…`
 
   // Otherwise cut on a word and strip any dangling punctuation, so we never
   // render ",…" or "…." — the four-dot artefact the old code produced.
