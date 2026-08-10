@@ -166,3 +166,64 @@ class TestBehaviourContract:
     def test_empty_and_non_string_fields_are_skipped(self):
         fields = extract_narrative_fields({"problem_reframe": {"situation": "", "complication": None}})
         assert fields == {}
+
+
+class TestReversedTransitionDirection:
+    """"A -> B" written backwards, alongside a correctly-signed delta.
+
+    A live production briefing stated, twice:
+
+        "enterprise headline Gross Margin % move (-2.69 points, 29.94%->32.63%)"
+
+    which reads as RISING from 29.94 to 32.63 while labelled -2.69 points. Every
+    existing check passed: each number was individually correct and the sums
+    balanced. Only the ORDER of the endpoints was wrong, and nothing compared the
+    direction they imply against the direction claimed beside them.
+    """
+
+    def test_catches_the_production_sentence(self):
+        from src.analysis.narrative_claims import check_transition_direction
+        text = ("The enterprise headline Gross Margin % move (-2.69 points, "
+                "29.94%->32.63%) is smaller than the Engine Oils-specific decline.")
+        f = check_transition_direction(text, "risk_register")
+        assert len(f) == 1
+        assert f[0].kind == "direction_mismatch"
+        assert "reversed" in f[0].detail
+
+    def test_silent_on_a_correctly_ordered_fall(self):
+        from src.analysis.narrative_claims import check_transition_direction
+        assert check_transition_direction(
+            "Gross Margin % fell from 32.63% to 29.94%, a -2.69 point move.", "x") == []
+
+    def test_silent_on_a_genuine_rise(self):
+        from src.analysis.narrative_claims import check_transition_direction
+        assert check_transition_direction(
+            "Margin improved from 29.94% to 32.63%, a +2.69 point move.", "x") == []
+
+    def test_needs_both_signals_in_one_sentence(self):
+        """Narrow on purpose.
+
+        Prose that merely mentions two figures, with no signed move beside them,
+        is not evidence of anything. A check that cries wolf gets ignored — the
+        lesson from tuning the headline cue after four false positives in six.
+        """
+        from src.analysis.narrative_claims import check_transition_direction
+        assert check_transition_direction("Margin went from 32.63% to 29.94%.", "x") == []
+        assert check_transition_direction("The move was -2.69 points.", "x") == []
+
+    def test_arrow_and_prose_forms_both_parse(self):
+        from src.analysis.narrative_claims import check_transition_direction
+        for t in ("move (-2.69 points, 29.94% -> 32.63%) noted",
+                  "move (-2.69 points, from 29.94% to 32.63%) noted"):
+            assert check_transition_direction(t, "x"), f"missed: {t}"
+
+    def test_identical_endpoints_are_not_a_direction(self):
+        from src.analysis.narrative_claims import check_transition_direction
+        assert check_transition_direction("flat from 29.94% to 29.94%, a -0.0 point move", "x") == []
+
+    def test_runs_inside_check_narrative(self):
+        """A checker that is written but never wired is not a checker — the
+        exact gap that let the Stage H moderator panel ship unexecuted."""
+        from src.analysis.narrative_claims import check_narrative
+        res = check_narrative({"f": "move (-2.69 points, 29.94%->32.63%) observed"})
+        assert any(x.kind == "direction_mismatch" for x in res.findings)

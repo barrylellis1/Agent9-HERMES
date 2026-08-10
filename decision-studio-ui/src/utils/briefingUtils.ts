@@ -41,6 +41,22 @@ const MAX_MONTHLY_RATE = 1.0 / 12
  * options and which do not, so the reader can see what is actually carrying the
  * decision; it is not to manufacture difference where none exists.
  */
+/**
+ * Numeric core of a display string, for comparing criteria that carry a label.
+ *
+ * Est. ROI renders as "+2.8pp to +4.2pp — Engine Oils product line". Two options
+ * showed IDENTICAL ranges with different scope labels, so a whole-string
+ * comparison called them distinct while the numbers an executive actually
+ * compares were the same. Production briefing, 2026-08-09.
+ *
+ * Returns null when there are no numbers, so a purely textual criterion falls
+ * back to comparing the text.
+ */
+export function numericSignature(value: string | null | undefined): string | null {
+  const nums = String(value ?? '').match(/-?\d+(?:\.\d+)?/g)
+  return nums && nums.length ? nums.join('|') : null
+}
+
 export function axisDiscrimination(values: Array<string | null | undefined>): {
   distinct: number
   total: number
@@ -49,7 +65,17 @@ export function axisDiscrimination(values: Array<string | null | undefined>): {
   /** True when some but not all options tie. */
   partial: boolean
 } {
-  const cleaned = values.map(v => String(v ?? '').trim().toLowerCase()).filter(Boolean)
+  const present = values.filter(v => String(v ?? '').trim())
+  // Compare NUMBERS where a criterion has them. "+2.8pp to +4.2pp — Engine Oils
+  // product line" and "+2.8pp to +4.2pp — non-contracted channels" differ as
+  // strings and are identical as a claim; the reader is comparing the claim.
+  // Only used when every value has numbers, so a mixed or textual criterion
+  // still compares its text.
+  const sigs = present.map(numericSignature)
+  const useNumeric = sigs.length > 0 && sigs.every(x => x !== null)
+  const cleaned = useNumeric
+    ? (sigs as string[])
+    : present.map(v => String(v).trim().toLowerCase())
   const distinct = new Set(cleaned).size
   const total = cleaned.length
   return {

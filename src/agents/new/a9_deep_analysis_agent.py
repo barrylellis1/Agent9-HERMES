@@ -1309,8 +1309,25 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 gen_cur_tot = await self.data_product_agent.generate_sql_for_kpi(
                                     kpi_def, timeframe=cur_tf, filters=base_filters
                                 )
+                                # comparison_period=True on the CURRENT timeframe, not a
+                                # separate prev_tf token.
+                                #
+                                # prev_tf for year_to_date is "last_year", which resolves to
+                                # the FULL prior year — while every dimensional query in this
+                                # method uses cur_tf + comparison_period=True, i.e. prior
+                                # YEAR-TO-DATE. That put two comparison bases in one payload,
+                                # both labelled year-over-year: the headline read "29.94 vs
+                                # last_year 32.63 (-8.2%)" while the segments and
+                                # dimension_totals were computed against 34.43 (-13.1%).
+                                #
+                                # A live production briefing surfaced it: the model noticed the
+                                # two baselines, could not choose between them, and wrote a
+                                # next step asking the CFO to "reconcile the two reported
+                                # baselines into a single authoritative figure" — escalating
+                                # our inconsistency to the reader as a finding.
                                 gen_prev_tot = await self.data_product_agent.generate_sql_for_kpi(
-                                    kpi_def, timeframe=prev_tf, filters=base_filters
+                                    kpi_def, timeframe=cur_tf, filters=base_filters,
+                                    comparison_period=True,
                                 )
                                 if not (gen_cur_tot.get("success") and gen_prev_tot.get("success")):
                                     return None
@@ -1935,7 +1952,14 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
 
                     # Compose KT What/What Not narratives based on results
                     try:
-                        comparator_label = "Budget" if comparator_main == "budget" else (prev_tf or "previous period")
+                        # The label must describe what was actually measured. It said
+                        # "last_year" while the figure is now the prior YEAR-TO-DATE
+                        # window — a label naming a different period than the number
+                        # is how the wrong baseline stayed invisible in the first place.
+                        comparator_label = (
+                            "Budget" if comparator_main == "budget"
+                            else (f"prior {cur_tf}" if cur_tf else "prior period")
+                        )
                         new_what_is: List[str] = []
                         new_what_is_not: List[str] = []
                         if overall_summary:

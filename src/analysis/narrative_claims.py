@@ -87,7 +87,7 @@ SUM_TOLERANCE = 0.10        # 10% of the component sum
 
 @dataclass
 class NarrativeFinding:
-    kind: str                      # headline_substitution | sum_mismatch
+    kind: str                      # headline_substitution | sum_mismatch | direction_mismatch
     field: str                     # which narrative field it came from
     claimed: float
     expected: Optional[float]
@@ -206,6 +206,68 @@ def check_stated_sums(text: str, field_name: str) -> List[NarrativeFinding]:
     return out
 
 
+# "32.63% -> 29.94%", "from 32.63% to 29.94%". Captures both endpoints so the
+# direction they describe can be compared with the direction claimed alongside.
+_TRANSITION = re.compile(
+    r"(?:from\s+)?(-?\d+(?:\.\d+)?)\s*%?\s*(?:->|→|–>|to)\s*(-?\d+(?:\.\d+)?)\s*%",
+    re.IGNORECASE,
+)
+# A signed movement stated in the same sentence, e.g. "(-2.69 points" or "-8.2%".
+_SIGNED_MOVE = re.compile(r"([+-]\d+(?:\.\d+)?)\s*(?:pp|percentage\s+points?|points?|%)", re.IGNORECASE)
+
+
+def check_transition_direction(text: str, field_name: str) -> List[NarrativeFinding]:
+    """Flag "A -> B" whose direction contradicts a signed delta in the same sentence.
+
+    A live production briefing stated, twice:
+
+        "enterprise headline Gross Margin % move (-2.69 points, 29.94%->32.63%)"
+
+    which reads as RISING from 29.94 to 32.63 while labelled -2.69 points. The
+    endpoints were simply written in the wrong order. Nothing caught it: the
+    numbers were individually correct and the sums balanced, so every existing
+    check passed.
+
+    Deliberately narrow. It fires only when BOTH a transition and a signed move
+    appear in the same sentence and they disagree — enough to catch a reversed
+    arrow without guessing at prose that merely mentions two figures.
+    """
+    findings: List[NarrativeFinding] = []
+    for sentence in _sentences(text):
+        m = _TRANSITION.search(sentence)
+        if not m:
+            continue
+        try:
+            start, end = float(m.group(1)), float(m.group(2))
+        except ValueError:
+            continue
+        if start == end:
+            continue
+        moves = [float(x) for x in _SIGNED_MOVE.findall(sentence)]
+        if not moves:
+            continue
+        stated_dir = 1.0 if (end - start) > 0 else -1.0
+        # Any signed move that contradicts the endpoints is a contradiction; a
+        # sentence carrying several is judged on the one that disagrees.
+        for mv in moves:
+            if mv == 0:
+                continue
+            if (1.0 if mv > 0 else -1.0) != stated_dir:
+                findings.append(NarrativeFinding(
+                    kind="direction_mismatch",
+                    field=field_name,
+                    claimed=end,
+                    expected=start,
+                    detail=(
+                        f"states {start:g} -> {end:g} (a {'rise' if stated_dir > 0 else 'fall'}) "
+                        f"alongside a stated move of {mv:+g} — the endpoints appear reversed"
+                    ),
+                    excerpt=sentence.strip()[:160],
+                ))
+                break
+    return findings
+
+
 def check_narrative(
     narrative_fields: Dict[str, Optional[str]],
     *,
@@ -225,6 +287,7 @@ def check_narrative(
         try:
             result.findings.extend(check_headline_claims(text, name, headline_value, headline_delta))
             result.findings.extend(check_stated_sums(text, name))
+            result.findings.extend(check_transition_direction(text, name))
         except Exception:
             # Bookkeeping must never break the pipeline it observes.
             continue

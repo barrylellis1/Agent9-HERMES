@@ -370,3 +370,20 @@ Run 3 verified end to end and cross-checked independently against BigQuery: **YT
 ## Known Defect — Hardcoded Dimension Selection (Aug 2026, fix planned)
 
 `_dims_from_contract` ranks candidate dimensions against a static literal preference list, so every KPI, client and problem type is investigated along the same dimensions in the same order. Nothing about the problem influences what gets investigated — not the alert type, not the concentration of the variance, not whether a contrast group exists, not the requesting persona. Because Solution Finder's personas all read one DA output, a fixed investigation is a fixed evidence base. See `docs/prd/agents/a9_deep_analysis_agent_prd.md` §9.9 and `DEVELOPMENT_PLAN.md` → Phase 15 → Stage I.
+
+## One Comparison Basis Per Analysis — `_compute_overall_summary` (Aug 2026)
+
+**Bug fixed:** the overall/headline summary asked the DPA for `timeframe=prev_tf`, and `prev_tf` for `year_to_date` is `"last_year"` — the **full prior year**. Every dimensional query in the same method uses `cur_tf` with `comparison_period=True`, i.e. prior **year-to-date**. One payload therefore carried two comparison bases, both labelled year-over-year:
+
+| surface | baseline | movement |
+|---|---|---|
+| `kt_is_is_not.what_is[0]` (headline) | 32.63 (FY-2025) | −2.69pp / −8.2% |
+| `dimension_totals`, segments, SA | 34.43 (YTD-2025) | −4.49pp / −13.1% |
+
+Verified against BigQuery: YTD-2025 = 34.43%, FY-2025 = 32.63%.
+
+**How it surfaced.** A live production briefing. The model noticed both baselines, could not choose, and wrote them into `key_assumptions`, raised an `unresolved_tension`, and produced a next step asking the CFO to *"reconcile the two reported baselines into a single authoritative figure"*. It escalated our inconsistency to the reader as a finding — the briefing was internally consistent about being inconsistent. Worth remembering as a detection channel: when the LLM asks the reader to reconcile two of our own numbers, that is a bug report.
+
+**Fix:** `comparison_period=True` on the current timeframe, so the headline shares the dimensional basis. `comparator_label` changed with it — it read `"last_year"` while describing a year-to-date window, and **a label naming a different period than the number is how this stayed invisible for so long.**
+
+**Rule:** every figure in one analysis must be measured against the same basis, and the label must name the window actually measured. Related: `MeasurementContext.comparison_basis` on the SA side, and `_window_suffix` on situation descriptions.
