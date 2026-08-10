@@ -954,6 +954,16 @@ class A9_Orchestrator_Agent:
                     # Same env-var pattern; requires SF_ENABLE_CAUSAL_GROUNDING too
                     # (enforced inside the agent, not silently inferred here).
                     "enable_theory_moderator": os.getenv("SF_ENABLE_THEORY_MODERATOR", "false").lower() == "true",
+                    # Stage A: forced tool-use structured output for the synthesis call.
+                    #
+                    # The config field and both call sites in the agent already existed,
+                    # but NOTHING set it here — so it was permanently pinned to its
+                    # Pydantic default of False and no deployment could turn it on.
+                    # /healthz was reporting SF_USE_STRUCTURED_OUTPUT as though it
+                    # controlled something, which would have shown "true" for a flag the
+                    # agent never read: the precise false-confidence gap that endpoint
+                    # exists to eliminate.
+                    "use_structured_output": os.getenv("SF_USE_STRUCTURED_OUTPUT", "false").lower() == "true",
                 },
             )
             # Also fixes a real, separate wiring gap: A9_Solution_Finder_Agent.create()

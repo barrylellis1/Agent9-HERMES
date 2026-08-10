@@ -243,3 +243,13 @@ Practical consequence: an agent that is not registered by
 `initialize_agent_registry()` does not exist as far as the orchestrator is
 concerned. There is no longer a second, filesystem-scanning path that might
 pick it up.
+
+## Feature Flags Must Be Wired, Not Just Declared (Aug 2026)
+
+`use_structured_output` (Stage A, forced tool-use synthesis) had a config field on `A9_Solution_Finder_Agent_Config` and two consuming call sites in the agent — but the orchestrator's SF config block never populated it. It sat pinned to its Pydantic default of `False`, and **no deployment could turn it on**.
+
+This surfaced only when `/healthz` began reporting `SF_USE_STRUCTURED_OUTPUT`. Setting that variable would have displayed `true` for a flag the agent never read, reintroducing the exact false confidence the endpoint exists to remove — with the endpoint itself as the source. A reader trusts `/healthz` precisely because it is meant to describe the running system rather than an intention.
+
+**Rule:** any flag reported by `/healthz` must be read here and threaded into the owning agent's config, and must default to `"false"` so a gated feature is opt-in rather than enabled wherever the variable happens to be absent. `tests/unit/test_feature_flag_wiring.py` enforces both, parametrised over `_REPORTED_FLAGS` in `src/api/main.py`, so adding a reported flag without wiring it fails the build.
+
+Found while setting up the PM-2 A/B for the structured-output flip — the experiment could not have run at all, since both arms would have executed identical code.
