@@ -196,3 +196,66 @@ test.describe('degraded analysis is visible to the reader', () => {
     expect(built.degraded_reason).toBeNull();
   });
 });
+
+/**
+ * Largest Variance Contributors — mixed dimensions.
+ *
+ * A live briefing ranked four profit centres and one CUSTOMER in a single list
+ * with no dimension shown:
+ *
+ *   1. International Division          Impact: -4.98pp
+ *   ...
+ *   5. National Auto Parts Chain A     Impact: -5.24pp
+ *
+ * Two problems. "National Auto Parts Chain A" reads as a sixth division. And the
+ * entries are not disjoint — that customer's revenue sits inside one of those
+ * divisions, so the same margin loss is counted twice and the list cannot be read
+ * as a ranking.
+ */
+test.describe('variance contributors disclose their dimension', () => {
+  async function openWith(page: any, rootCauses: any[]) {
+    const built: any = buildExecutiveBriefing(raw.situation, raw.analysis, raw.solutions);
+    built.situation = { ...built.situation, rootCauses };
+    await page.addInitScript(
+      ([id, payload]: [string, string]) => window.localStorage.setItem(`briefing_${id}`, payload),
+      [SITUATION_ID, JSON.stringify(built)]);
+    await loginAsDemo(page);
+    await page.goto(`/briefing/${SITUATION_ID}`);
+    // This section lives inside a collapsed accordion; without expanding, the
+    // assertions would pass or fail on visibility rather than on content.
+    const expandAll = page.getByRole('button', { name: /expand all/i });
+    await expandAll.first().waitFor({ timeout: 20_000 });
+    await expandAll.first().click();
+  }
+
+  const MIXED = [
+    { driver: 'International Division', dimension: 'Profit Center Name', evidence: 'e', impact: 'Δ -4.98pp' },
+    { driver: 'National Auto Parts Chain A', dimension: 'Customer Name', evidence: 'e', impact: 'Δ -5.24pp' },
+  ];
+  const SINGLE = [
+    { driver: 'International Division', dimension: 'Profit Center Name', evidence: 'e', impact: 'Δ -4.98pp' },
+    { driver: 'Retail Products Division', dimension: 'Profit Center Name', evidence: 'e', impact: 'Δ -4.26pp' },
+  ];
+
+  test('each contributor names the dimension it belongs to', async ({ page }) => {
+    await openWith(page, MIXED);
+    await expect(page.getByRole('heading', { name: /largest variance contributors/i })).toBeVisible({ timeout: 20_000 });
+    // The briefing renders this list TWICE — a `hidden print:block` version and
+    // the on-screen one, which comes later in the DOM. `.first()` resolves to the
+    // print copy and is always hidden.
+    await expect(page.getByText('Customer Name').last()).toBeVisible();
+    await expect(page.getByText('Profit Center Name').last()).toBeVisible();
+  });
+
+  test('a mixed list warns that the entries overlap', async ({ page }) => {
+    await openWith(page, MIXED);
+    await expect(page.getByText(/already counted inside its division/i)).toBeVisible({ timeout: 20_000 });
+  });
+
+  test('a single-dimension list carries NO caveat', async ({ page }) => {
+    // A warning that always appears is a warning nobody reads.
+    await openWith(page, SINGLE);
+    await expect(page.getByRole('heading', { name: /largest variance contributors/i })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/already counted inside its division/i)).toHaveCount(0);
+  });
+});

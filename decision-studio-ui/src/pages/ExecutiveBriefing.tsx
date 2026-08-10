@@ -709,6 +709,9 @@ export function ExecutiveBriefing() {
                     {data.situation.rootCauses.map((cause: any, i: number) => (
                       <li key={i} className="text-xs text-slate-700">
                         <span className="font-semibold">{i + 1}. {cause.driver}</span>
+                        {cause.dimension && (
+                          <span className="text-slate-500 ml-1">({cause.dimension})</span>
+                        )}
                         {cause.evidence && <span className="text-slate-500 ml-1">— {cause.evidence}</span>}
                       </li>
                     ))}
@@ -1195,12 +1198,37 @@ export function ExecutiveBriefing() {
                           "root cause" in front of an executive. */}
                       <Zap className="w-4 h-4 text-amber-400" /> Largest Variance Contributors
                     </h3>
+                    {/* Segments from DIFFERENT dimensions are not disjoint, so they
+                        cannot be read as a single ranking. A live briefing listed four
+                        profit centres and one CUSTOMER together; that customer's revenue
+                        sits inside one of those divisions, so the same margin loss appears
+                        twice and the entries are not comparable, let alone additive.
+                        Stated only when it applies — a single-dimension list needs no
+                        caveat, and a caveat that always shows gets ignored. */}
+                    {new Set((data.situation.rootCauses as any[])
+                      .map(c => c?.dimension).filter(Boolean)).size > 1 && (
+                      <p className="text-[11px] text-amber-400/80 mb-3 print:text-amber-700">
+                        These come from different dimensions and overlap — a customer's result is
+                        already counted inside its division. Compare within a dimension, not down the list.
+                      </p>
+                    )}
                     <div className="space-y-3">
                       {data.situation.rootCauses.map((cause: any, i: number) => (
                         <div key={i} className="flex items-start gap-3">
                           <div className="w-5 h-5 bg-amber-500 text-slate-900 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">{i + 1}</div>
                           <div>
-                            <p className="font-medium text-white text-sm">{cause.driver}</p>
+                            {/* The dimension is NOT decoration. This list mixes
+                                dimensions -- four profit centres and one customer in the
+                                live briefing -- and without a label "National Auto Parts
+                                Chain A" reads as a sixth division. */}
+                            <p className="font-medium text-white text-sm">
+                              {cause.driver}
+                              {cause.dimension && (
+                                <span className="ml-2 text-[10px] font-normal uppercase tracking-wider text-slate-500 print:text-slate-500">
+                                  {cause.dimension}
+                                </span>
+                              )}
+                            </p>
                             <p className="text-slate-400 text-xs">{cause.evidence}</p>
                             <p className="text-amber-400 text-xs font-medium mt-0.5">Impact: {cause.impact}</p>
                           </div>
