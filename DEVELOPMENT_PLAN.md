@@ -1905,6 +1905,33 @@ Final tally: baseline n=4 non-stub, moderator n=8 non-stub (4 original + 4 on cl
 - **Harness hardened before the final batch:** non-destructive run numbering (an earlier batch silently overwrote `ab_raw/moderator_1..2.json`; metrics survived in `ab_results.jsonl`, raw payloads did not), git-HEAD build stamping per run, and stub-vs-arm-mismatch disentangled — the old check reported a false `ARM MISMATCH` on every stub and buried the real cause.
 - **Next per PM-2:** keep the baseline prompt path for one more cycle as the control for the `use_structured_output` flip, then delete it.
 
+**🏁 Stage A `use_structured_output` A/B CLOSED (2026-08-09) — dead heat; adopt on failure-mode removal, not on measured gain.**
+
+**The flag was never wired.** Before any run: the config field existed on `A9_Solution_Finder_Agent_Config` with two consuming call sites in the agent, but the orchestrator never populated it. It was pinned to its Pydantic default of `False`. **The experiment could not have run at all — both arms would have executed identical code**, and the result would have been a confident "no difference detected" from a test that never varied anything. Fixed (`347c87a`) plus `tests/unit/test_feature_flag_wiring.py`, which requires every flag `/healthz` reports to be read by the orchestrator and to default to `"false"`.
+
+Design: 3 runs per arm, byte-identical input, server-side flag state verified via `/healthz` **before** spending on either arm.
+
+| metric | control (prose) | structured (forced tool-use) |
+|---|---|---|
+| stub fallbacks | **0** | **0** |
+| `impact_estimate.scope` | 9/9 | 9/9 |
+| typed `recovery_range` | 9/9 | 9/9 |
+| impact basis stated | 9/9 | 9/9 |
+| reversibility | 9/9 | 9/9 |
+| `key_assumptions` attached | 9/9 | 9/9 |
+| `scope_label` | 5/9 | 6/9 |
+| distinct recommendations | 3/3 | 3/3 |
+
+**A dead heat.** The only difference — `scope_label` 5/9 vs 6/9 — is noise at n=3.
+
+**Why that was foreseeable, and why the test still had value.** The control arm scored **perfectly** on every conformance measure, so structured output had no room to improve; the best available outcome was a tie. The result therefore does NOT say structured output is useless. It says that on this input, with a healthy model and a clean build, the prose path is already conformant. The case for structured output rests on conditions this test does not reproduce: unusually long or awkward payloads, truncation pressure, model drift, a future model version.
+
+**Recommendation: adopt — but the argument is failure-mode removal, not measured gain.** Same output quality at no observed cost, and the parse-failure path becomes structurally impossible rather than merely unobserved. That is materially weaker evidence than the moderator adoption (27/27 vs 0/12 on scope elicitation) and should not be described the same way. Per PM-2, if adopted, **delete the prose path** rather than carrying two.
+
+**Unchanged by this:** recommendation instability. 3 distinct winners from 3 runs in BOTH arms — as expected, since structured output governs the FORMAT of an answer, not the choice of one.
+
+**Method note:** the first comparison reported `assumptions attached: 0/9` in both arms, which read as a Stage B/F deliverable producing nothing. The field is `key_assumptions`; the script looked for `assumptions`. Checked before reporting — a measurement error dressed as a product gap would have sent real work in the wrong direction.
+
 - **Parked behind this A/B (PM-4, one variable per live run):** (a) **token substitution** — the LLM references `{{kpi.current}}` rather than restating the figure, so misquoting becomes structurally impossible; vocabulary must be **basis-aware** (`{{kpi.prior}}` is meaningless for a plan variance, and would have resolved to *last December* had this been built before `comparison_basis`). (b) **KPI Semantic Contract** — `docs/architecture/kpi_semantic_contract.md`: DGA-declared `additive_across_dimensions`, `unit_class`, `sign_convention`, `scope_eligible`. Turns `groundedness`'s `cross_segment_summation` heuristic into a declared fact — **an LLM that sums three segment percentages *correctly* currently passes every check we have.** Both are the same idea (the registry states what a number means; consumers reference rather than re-derive) and should land together.
 
 ---
