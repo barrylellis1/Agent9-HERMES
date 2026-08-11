@@ -2283,7 +2283,29 @@ That distinction — **what we know versus what we assumed** — is the differen
 
 After **Phase 16** (T1 is a hard prerequisite) and alongside or after **assumption grading step 2** (T3). T2 and T4 are new models that can be built in parallel once T1 lands. Section 3 can be prototyped against Lubricants at any point to prove the rendering, but must not ship until the density gate passes.
 
-**Open question:** whether the Core Spine should be *derived* from the decomposition model or *authored* per client. Derivation is cheaper and stays correct as KPIs change; authoring gives a better-looking tree. Worth deciding before T2 is built, because it changes what the model has to store.
+#### RESOLVED: derive the structure, author the presentation
+
+The Core Spine's **graph** — what decomposes into what — is **derived** from the decomposition model. Its **layout** — which branches to show, collapse, emphasise, and in what order — is **authored**. Facts are derived; judgement is declared and labelled as judgement. Same separation as `comparison_basis`, `measure_semantics`, and confirmed-vs-template provenance.
+
+**Why structure must be derived:**
+- **The arithmetic already exists.** `gross_margin_pct` is `100 * SUM(rev + cogs) / SUM(rev)`; the decomposition is sitting in the KPI definition. Authoring restates a fact written down elsewhere, and a restated fact drifts — the failure mode Phase 16 exists to close.
+- **A stale diagram is worse than a stale table.** Change a KPI formula and an authored tree goes quietly wrong. A picture carries more authority than a row of numbers: people argue with a table and believe a diagram.
+- **Derived structure is testable.** Assert that children reconcile to their parent — if `gross_profit`'s children do not sum to `gross_profit`, either the tree or the KPI is wrong, and it surfaces at build time rather than in front of a CFO. An authored tree is an assertion with nothing to check it against.
+- **It generalises.** A new client gets a tree from onboarding. Authoring adds a manual step, and Phase 16 established the wizard does not reliably collect the semantics it already needs.
+
+**What authoring genuinely buys, and is therefore kept for presentation:** DuPont's canonical shape is what a CFO recognises; emphasis is editorial (collapse SG&A to one node, explode COGS into five); and not every KPI belongs on a spine.
+
+**Storage consequence for T2** — this is the decision's practical output:
+| layer | holds | required? |
+|---|---|---|
+| decomposition model | arithmetic parentage only: parent, children, operation | yes |
+| presentation layer | collapse / emphasis / order / exclusions, per client | optional |
+
+Absent a presentation layer you get a plain derived tree — **correct by default, pretty by choice.**
+
+**The failure mode this design forbids: authoring the STRUCTURE.** A hand-drawn "gross margin comes from these three things" that disagrees with the KPI formula produces a diagram contradicting the numbers printed beside it — the two-baseline briefing in picture form, and harder to catch because nobody re-derives a tree by eye.
+
+**The argument that settles it:** the decomposition model earns its keep beyond this exhibit. Arithmetic parentage is what tells you what a segment-level recovery claim does to the enterprise KPI — groundedness check **G3 done properly rather than heuristically** — and it is what `scope_eligible` would lean on. Derivation is not merely cheaper; **it unlocks checks authoring cannot provide.** Authoring buys appearance and nothing else, and that asymmetry decides it.
 
 ---
 
