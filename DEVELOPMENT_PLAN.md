@@ -2204,7 +2204,15 @@ Counts across the onboarding models and routes: `dimension_semantic` 0, `sign_co
 
   **The KPIs that DO return numbers are the greater risk.** `upstream_revenue` = 3,766,365,690 is simply `SUM(Revenue)` over lubricants data, presented under an oil & gas name. NULL is visibly broken; a plausible wrong number is not.
 
-  Two options, and this is a product decision rather than a fix:
+  **SCOPING DECISION (2026-08-10): data realism is explicitly NOT in scope for Apex or Hess.** They exist to demonstrate that Agent9 works technically against Snowflake and SQL Server, and for that purpose the underlying data does not need to be a faithful E&P or distributor P&L. Both remain useful as backend-connectivity proof. This closes the "generate real E&P data" option below unless the positioning changes.
+
+  **What still matters under that framing, and why it is narrower than it looks:**
+  - **The sign error is still worth fixing** — not for realism, but because it produces a *visibly impossible* number. A demo intended to prove "Agent9 runs on SQL Server" is undermined by a gross margin of 165.57%, and by a KPI whose direction is inverted. A technical proof still has to produce plausible output. It is also fixed *generically* by Phase 16 step 2 (`measure_semantics` + the negation validator), so it costs nothing extra once that lands.
+  - **The five NULL KPIs can stay or go** — they weaken nothing technically. Removing them is tidier; leaving them is honest about the dataset being partial. Low priority either way.
+  - **The relabelling does not matter** — `asset_name` holding motor oils is irrelevant to a connectivity demo.
+  - **The one real constraint:** neither client should be presented as an industry case study, and no briefing from them should be shown as a customer example. `upstream_revenue` is lubricants revenue under an oil & gas name — fine as plumbing, misleading as a narrative.
+
+  Options retained for the record, should positioning change:
   1. **Generate real Hess E&P data** — E&P account categories (lifting, exploration, capex, operating CF) and real assets. Makes all sixteen KPIs meaningful and gives a genuinely different second industry.
   2. **Accept Hess as a dimensional demo** — remove the KPIs the data cannot support, and rename the rest so they do not claim to be upstream figures.
 
