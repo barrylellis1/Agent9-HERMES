@@ -1926,7 +1926,9 @@ Design: 3 runs per arm, byte-identical input, server-side flag state verified vi
 
 **Why that was foreseeable, and why the test still had value.** The control arm scored **perfectly** on every conformance measure, so structured output had no room to improve; the best available outcome was a tie. The result therefore does NOT say structured output is useless. It says that on this input, with a healthy model and a clean build, the prose path is already conformant. The case for structured output rests on conditions this test does not reproduce: unusually long or awkward payloads, truncation pressure, model drift, a future model version.
 
-**Recommendation: adopt — but the argument is failure-mode removal, not measured gain.** Same output quality at no observed cost, and the parse-failure path becomes structurally impossible rather than merely unobserved. That is materially weaker evidence than the moderator adoption (27/27 vs 0/12 on scope elicitation) and should not be described the same way. Per PM-2, if adopted, **delete the prose path** rather than carrying two.
+**DECISION DEFERRED (2026-08-10): revisit after Stage I closes.** The evidence here is a tie, so nothing is lost by waiting, and Stage I changes the shape of the synthesis call (per-persona constraint sets, a shared question queue) — which is exactly the kind of longer, more awkward payload where structured output would show a difference this test could not produce. Deciding now would fix the answer against the easy case.
+
+**Recommendation when it is revisited: adopt — but the argument is failure-mode removal, not measured gain.** Same output quality at no observed cost, and the parse-failure path becomes structurally impossible rather than merely unobserved. That is materially weaker evidence than the moderator adoption (27/27 vs 0/12 on scope elicitation) and should not be described the same way. Per PM-2, if adopted, **delete the prose path** rather than carrying two.
 
 **Unchanged by this:** recommendation instability. 3 distinct winners from 3 runs in BOTH arms — as expected, since structured output governs the FORMAT of an answer, not the choice of one.
 
@@ -2196,7 +2198,17 @@ Counts across the onboarding models and routes: `dimension_semantic` 0, `sign_co
 
 #### Open questions
 
-- **The five NULL Hess KPIs** — define them against the account types that actually exist, or remove them? They currently render as blank rather than wrong, which is safer but still a broken KPI set. A decision, not a fix.
+- **Hess is not a validated dataset** (established 2026-08-10). `HessStarSchemaView` is a *partially relabelled lubricants dataset*, living in the `agent9_lubricants` database alongside `LubricantsStarSchemaView`. Two dimensions were genuinely converted — `segment_name` (E&P, Midstream) and `basin_name` (Bakken, Gulf of Mexico, Guyana, Southeast Asia) are real Hess geography. The rest were not: `asset_name` holds **Automatic Transmission Fluid, Compressor Oil, Conventional Engine Oil**; `business_unit` holds **Retail Products, Service Centers**; `country` and `region` hold identical region values. An E&P asset is a field or a platform, not a motor oil.
+
+  The five NULL KPIs — `lifting_cost`, `exploration_expense`, `capital_expenditure`, `operating_cash_flow`, `free_cash_flow` — are **correctly defined for an E&P company** and return nothing because the data is a lubricants P&L (`account_category` = Base Oil & Additives, Packaging, Distribution…). They are not the problem; they are the symptom.
+
+  **The KPIs that DO return numbers are the greater risk.** `upstream_revenue` = 3,766,365,690 is simply `SUM(Revenue)` over lubricants data, presented under an oil & gas name. NULL is visibly broken; a plausible wrong number is not.
+
+  Two options, and this is a product decision rather than a fix:
+  1. **Generate real Hess E&P data** — E&P account categories (lifting, exploration, capex, operating CF) and real assets. Makes all sixteen KPIs meaningful and gives a genuinely different second industry.
+  2. **Accept Hess as a dimensional demo** — remove the KPIs the data cannot support, and rename the rest so they do not claim to be upstream figures.
+
+  Doing neither leaves a seeded client whose working KPIs describe the wrong business.
 - **Apex's remaining KPIs** — only `gross_margin_pct` was validated there. The same sign audit should run across its full set before anyone reads an Apex briefing.
 - **Does any client legitimately store expenses positive?** The design assumes a per-data-product declaration precisely so the answer can differ; worth confirming none currently does, so the validator's default is the safe one.
 
