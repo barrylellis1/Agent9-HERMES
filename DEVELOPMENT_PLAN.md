@@ -2302,6 +2302,52 @@ The decomposition model is filed under Phase 17 because the VDT needs it, but it
 - **Few observations make weak elasticities**, and the provenance ladder must apply here too. A *computed* impact carries more authority than a guessed one, so a badly-grounded elasticity is more dangerous than a badly-grounded guess.
 - **Bounding the option space excludes the reframe.** Sometimes the right answer is not a leaf on the tree — it is that the tree is the wrong tree.
 
+#### Acceptance demo: cold KPI vs matured KPI — does grounding produce more trustable proposals?
+
+The demo that proves the thesis, and the missing demonstration behind the pricing/NRR claim that **year two beats year one**. Accretion is invisible by nature; this makes it visible.
+
+**Run it as a real experiment BEFORE it is ever a demo.** If the matured arm is not better, that is the most valuable thing this could tell us and we want to know privately. The Stage A structured-output A/B is the precedent — a tie, honestly recorded, was a useful result.
+
+##### Design
+
+**Same KPI, two grounding states — NOT two KPIs.** Two different KPIs differ in data quality, decomposability and problem type, so any difference would be unattributable: we would be doing to ourselves exactly what the two-baseline briefing did to its reader. Run one KPI twice, with the theory layer suppressed and then live, so grounding is a **feature flag** rather than a change of subject. `problem_profile` is available if the result later needs generalising across problem types.
+
+| arm | state |
+|---|---|
+| **cold** | no decomposition, no confirmed edges, no graded assumptions, no confirmed constraints |
+| **matured** | arithmetic parentage available, causal edges at `intervention_tested`, assumptions graded against outcomes, constraints confirmed through HITL |
+
+##### The trap: the cold arm will look fine
+
+⚠️ **This is the most likely way the demo fails.** Ungrounded runs today already produce three well-formed options with scope stated, typed recovery ranges and plausible prose — measured conformance was **9/9 on every axis** in both arms of the Stage A A/B. A naive side-by-side shows two arms that read about equally well, and the exhibit falls flat.
+
+**The difference is not how the recommendation READS. It is what can be CHECKED.**
+
+| | cold | matured |
+|---|---|---|
+| impact | asserted; nobody can tell whether it is achievable | **computed** from the client's own arithmetic |
+| causal claim | plausible mechanism, unverifiable | edge confirmed by DiD on their data |
+| assumptions | listed | graded — this one held, that one broke |
+| constraints | inferred from prose | confirmed by their team |
+
+The exhibit must therefore make **verifiability** visible, not merely place two narratives side by side. Otherwise the demo undersells the thing it exists to prove.
+
+##### Scoring — instruments, not eyeballs
+
+"Trustable" is not eyeballable, and a demo scored by the demoer proves what the demoer wants. Score with the deterministic instruments already built: groundedness G1–G6, scope conformance, mechanism fingerprint, the narrative validator, and — once T2 lands — whether impact was **computed or asserted**.
+
+**Pre-register the KPI and the claims before running.** Choosing the KPI where accretion happened to help most is cherry-picking with extra steps.
+
+##### Lead time — start accreting now, not at demo time
+
+The matured arm needs genuinely accreted content: confirmed edges, graded assumptions, observed elasticities. That does **not** arrive with the feature; it arrives with *use*, and with VA verdicts in particular.
+
+So begin accreting on the Lubricants scenario from the moment the mechanisms exist — running the HITL loop for real and letting confirmations accumulate, so there is genuine theory to show when the time comes.
+
+**The line that keeps it honest, and also what makes it persuasive:** a confirmed edge must be confirmed by **actual DiD**, never by someone typing it in. An `intervention_tested` badge means something precisely because it cannot be granted by hand. Hand-seeding the matured arm would produce a demo that wins the room and cannot survive a pilot.
+
+---
+
 #### Sequencing against the rest of the plan
 
 After **Phase 16** (T1 is a hard prerequisite) and alongside or after **assumption grading step 2** (T3). T2 and T4 are new models that can be built in parallel once T1 lands. Section 3 can be prototyped against Lubricants at any point to prove the rendering, but must not ship until the density gate passes.
