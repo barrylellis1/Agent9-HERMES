@@ -356,3 +356,83 @@ This is the most executive-natural frame. It is also the most actionable: the le
 - Don't claim perfect causal attribution — claim honest, transparent, confidence-scored attribution
 - Don't claim AI autonomy — emphasize human-in-the-loop and principal control
 - Don't claim universality — KT requires structured dimensional data; not all problems fit
+
+---
+
+## 10. "Isn't This Old Thinking?" — Intellectual Lineage and How to Position It
+
+**Added 2026-08-10.** The theory layer and Value Driver Tree (Phase 17) rest on well-established ideas. This section states the objection fairly, records the lineage honestly, and settles the framing — so the argument is made once rather than re-litigated per conversation.
+
+### 10.1 The objection, stated fairly
+
+Agent9's analytical substrate is not new. DuPont decomposition dates to ~1912; value driver trees are 1990s value-based-management practice; system dynamics is 1961. A buyer — particularly a younger, data-native one — could read the whole thing as dressed-up management accounting, at a moment when the market narrative is agents and LLMs.
+
+### 10.2 The lineage, honestly
+
+| Component | Origin | Maturity |
+|---|---|---|
+| Arithmetic spine (DuPont / ROIC decomposition) | Donaldson Brown, DuPont ~1912, then GM. Modern reference: Koller/Goedhart/Wessels, *Valuation* | **Perfected.** ~100 years |
+| Value driver trees as management practice | 1990s value-based management — Stern Stewart (EVA), Marakon | Mature |
+| Dynamics: stocks/flows, delays, feedback loops | Jay Forrester, *Industrial Dynamics* (1961); John Sterman, *Business Dynamics* (2000) | Mature. Sterman on misperception of feedback and delays maps directly to `theory_layer_design.md` §2.2–2.4 |
+| Causal formalism | Judea Pearl, *Causality* (2000), *The Book of Why* (2018) — already encoded as `causal_rung` | Mature |
+| Input vs output metric discipline | Amazon's weekly business review; Bryar & Carr, *Working Backwards*. Earlier: Grove, *High Output Management* | Practised, lightly theorised |
+| Root-cause practice | Kepner-Tregoe (in use); Toyota A3, Ishikawa | Mature, qualitative |
+| Nearest analogue to accreting transfer functions | Marketing Mix Modeling — elasticities with adstock/carryover, re-estimated on a cadence | Mature but narrow, top-down, not tree-structured |
+
+**What appears to have no canonical published treatment:** an arithmetic driver tree annotated with empirically-validated causal edges, lags and elasticities that **accrete from routine operation** rather than from a modelling project. System dynamics is closest in spirit, but SD models are hand-built by a modeller for a study and then set aside — they do not accumulate from a company's ordinary weekly use.
+
+*Honesty caveat: absence from a literature review is weak evidence of absence, and this may exist as unpublished internal practice. Do not present novelty of the synthesis as established fact.*
+
+### 10.3 Why age is a feature for the spine
+
+Nobody dismisses double-entry bookkeeping as old thinking. Ideas become foundational because they were settled early and stayed correct. A CFO looking at a ROIC decomposition thinks *"I know what I'm looking at"* — and that familiarity is an adoption asset that would otherwise have to be bought with explanation.
+
+### 10.4 The framing rule: the spine is familiar, the annotation is the product
+
+Identical substrate, two framings:
+
+- **Wrong:** *"We build value driver trees for your business."* → sounds like 1998.
+- **Right:** *"We keep a causal model of your business that records what we've tested versus what we've assumed, and grades it against what actually happened."* → sounds like now.
+
+Lead with the recognisable object; spend the explanation on **why the edges carry provenance**. Do not spend it explaining the tree — the audience already knows the tree, and explaining it risks implying DuPont is our idea.
+
+### 10.5 The stronger counter-argument
+
+The live concern among serious buyers is not *"is your framework modern"* — it is **"can I trust what the AI told me."** Every buyer has now watched a confident LLM be wrong.
+
+The provenance ladder, the confirmed-versus-template distinction and the narrative validator answer the question people are actually asking. **The driver tree is not a nostalgic choice; it is the substrate that makes the AI's claims checkable.** Without an arithmetic skeleton there is nothing to check an impact estimate against — which is precisely how a seeded client produced a 165% gross margin, and how Solution Finder anchored every recovery range to an arbitrary 18.5.
+
+Line to use: *the discipline isn't old-fashioned; it's what makes the AI accountable.* The "modern" alternative — hand everything to a model and trust the prose — is the thing already failing publicly.
+
+### 10.6 The category risk that actually matters: "another BI tool"
+
+"Old thinking" is a manageable framing problem. Being categorised as BI is a **pricing** problem: BI competes at a fraction of the price, and the buyer has already bought some. A driver tree is exactly the artifact that can trigger that read, since Anaplan, Pigment and Cube all render decomposition trees.
+
+What separates Agent9 is not the tree but the **decision → bet → verdict loop**: propose an intervention, record what it bets on, return to say whether the bet held. No BI tool does this, and it is a *behaviour* rather than a framework claim.
+
+See `docs/strategy/decision_intelligence_dashboard_coexistence.md` for the complementary angle — that document covers *coexisting* with dashboards; this section covers not being *mistaken* for one.
+
+### 10.7 Development implication
+
+The **visualization is the least differentiated part** of the theory-layer work. The picture is a presentation artifact; the accretion loop is the product. Two invisible items outrank it:
+
+- **Branch coverage forcing option diversity** (Phase 17, "What a mature decomposition model does for Solution Finding", point 5) — structural diversity without persona theatre
+- **VA grading the mechanism rather than the outcome** — distinguishing "the lever worked but was offset" from "the lever didn't work"
+
+Building these first also reduces the old-thinking exposure, since they are the parts nobody else has.
+
+### 10.8 What an MBA-trained buyer already knows
+
+Useful for deciding what needs explaining and what lands unaided.
+
+- **Will recognise:** DuPont/ROIC decomposition, driver trees, EVA, leading vs lagging indicators (Kaplan & Norton), fishbone and 5 Whys
+- **Depends on programme:** system dynamics — MIT Sloan yes; elsewhere likely the Beer Game as an exercise, without Forrester's name or the underlying discipline
+- **Probably not:** Pearl's ladder of causation, Granger causality, do-calculus — these are statistics and computer science, not core MBA
+
+The spine therefore lands unaided; the annotation layer is what needs the explanation. Plan the demo accordingly.
+
+### 10.9 What NOT to claim
+
+- Don't claim to have invented driver trees, causal inference or system dynamics — it invites someone to point at Sterman or Pearl
+- Don't claim the synthesis is definitively novel — claim it is uncommon, and that accretion-from-operation is the distinctive property
+- Don't lead with the tree — lead with the trust question it answers
