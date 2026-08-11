@@ -2222,6 +2222,71 @@ Counts across the onboarding models and routes: `dimension_semantic` 0, `sign_co
 
 ---
 
+### Phase 17: Theory Layer Visualization — the Value Driver Tree as a causal object
+
+**The deliverable is one exhibit with four sections:**
+
+| # | Section | Content |
+|---|---|---|
+| 1 | **Core Spine** | DuPont-style financial layout — the arithmetic skeleton |
+| 2 | **External Ports** | Where outside forces enter: commodities, interest rates |
+| 3 | **Causal Edges** | Cross-branch links *active in this situation* |
+| 4 | **Assumptions** | Markers showing which theories are holding or breaking |
+
+**Framing, from `theory_layer_design.md` §2.4:** *"Every driver tree bottoms out in accounting atoms; causality keeps going. This is the known limitation of the Value Driver Tree as an arithmetic skeleton — the theory layer is what annotates it into a causal object."* The spine is the skeleton; sections 2–4 are the annotation. That is the whole point of the exhibit, and it is why a spine-only version is not a partial delivery of it.
+
+---
+
+#### Readiness, audited 2026-08-10 — two of four are data models that do not exist
+
+| Section | Needs | State |
+|---|---|---|
+| **Causal Edges** | `KPIRelationship` | **Mechanism READY.** Already carries `mechanism`, `lag_periods`, `conflict_direction`, `relationship_type`, and `causal_rung` — Pearl's ladder: `correlational` \| `intervention_hypothesized` \| `intervention_tested`. That field alone gives the confirmed-vs-assumed encoding. **Gated on content density, not build.** |
+| **Assumptions** | a graded outcome per assumption | **HALF built.** `SolutionAssumption` carries `validated_by`, `grounded`, `confidence`, `provenance` — *what was assumed*. There is **no** graded/outcome/verdict field anywhere in `src/`. "Holding or breaking" is unrenderable today. |
+| **Core Spine** | KPI arithmetic decomposition | **NOT built.** No `parent_kpi` / `contributes_to` / driver-tree model exists. `kpi_relationships` is peer-to-peer *causal* linkage, not arithmetic parentage — a DuPont spine needs Revenue → Gross Profit → Operating Income → ROIC as a tree. |
+| **External Ports** | a structured port model | **NOT built.** Market signals exist as *prose* from the MA agent. `theory_layer_design.md` §2.3 enumerates the ports — input costs, demand volume, price realization, capital cost, talent supply, regulatory constraint — each with a characteristic **lag** and **buffer**. None of that is modelled. |
+
+**So "when do we add the visualization" is mostly the wrong question.** Rendering is the last stretch; the spine and the ports are the work.
+
+---
+
+#### Dependency chain (shortest path first)
+
+| # | Prerequisite | Why it must precede the exhibit |
+|---|---|---|
+| **T1** | **Phase 16 step 2** — `measure_semantics`, `additive_across_dimensions` | Without it the spine can silently mis-add. That is the −53pp header bug rendered as a tree, and **a wrong number in a diagram is harder to challenge than one in a table** — the picture carries authority the arithmetic has not earned. Hard prerequisite. |
+| **T2** | **KPI decomposition model** — arithmetic parentage | New. Useful well beyond this exhibit: it is also what would let impact claims roll up correctly, and what a `scope_eligible` check would lean on. |
+| **T3** | **Assumption grading (step 2)** — the write-back that marks an assumption held or broken | The holding/breaking marker *is* section 4. Without it that panel is a list, not a verdict. Already designed and gated on VA outcome data (see the assumption-grading notes). |
+| **T4** | **Port model** — external drivers with lag and buffer | Conceptually the smallest of the four, but nothing exists. Turns MA prose into structured entries the exhibit can attach to a branch. |
+
+**Density gate for section 3:** a causal map with one confirmed edge and three template priors does not demonstrate a theory layer — it advertises that there is not one yet. Suggested bar: **confirmed (`intervention_tested`) edges outnumber template/unconfirmed ones for that client.** Lubricants currently has ≈1 confirmed edge. Reach the bar through the accretion paths already designed (SA HITL comment mining, SF rejections, VA verdicts) rather than by building the viewer and hoping it fills.
+
+---
+
+#### Delivery rule
+
+**Do not ship a partial four-panel layout.** Three empty panels beside one populated one reads as a product that does not work — worse than not showing the exhibit at all. Either all four sections carry content for the client being demonstrated, or the exhibit stays off.
+
+This is a real risk with this particular feature: **it demos beautifully and gates poorly.** The pull to build the spine early — because a DuPont tree is easy and looks impressive — is exactly what would produce an empty causal map in front of someone.
+
+---
+
+#### Interim, available now and honest
+
+**Provenance styling on the exhibits that already exist.** `causal_rung` and the confirmed/template distinction are already reaching briefings as text — a live production briefing carried *"causal: gross_margin_pct ↔ COGS (confirmed provenance, high confidence)"* alongside *"premium_mix_pct → gross_margin_pct (template provenance, moderate confidence)"*, and the risk register flagged that the unconfirmed template edge drove 30–50% of every option's projected recovery.
+
+That distinction — **what we know versus what we assumed** — is the differentiating idea, and it needs neither the spine, the ports, nor the grading. Making it visual on the moderator verdicts and the assumptions panel is cheap, ships now, and does not promise a causal map that is not populated.
+
+---
+
+#### Sequencing against the rest of the plan
+
+After **Phase 16** (T1 is a hard prerequisite) and alongside or after **assumption grading step 2** (T3). T2 and T4 are new models that can be built in parallel once T1 lands. Section 3 can be prototyped against Lubricants at any point to prove the rendering, but must not ship until the density gate passes.
+
+**Open question:** whether the Core Spine should be *derived* from the decomposition model or *authored* per client. Derivation is cheaper and stays correct as KPIs change; authoring gives a better-looking tree. Worth deciding before T2 is built, because it changes what the model has to store.
+
+---
+
 ### Phase 14+: Future (not scheduled)
 
 | Initiative | When |
