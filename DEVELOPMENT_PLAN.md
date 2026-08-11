@@ -2040,6 +2040,118 @@ Root cause was in the generator, not the warehouse: COGS rows were distributed a
 
 ---
 
+### Phase 16: Data Product Contract Consolidation — finish the YAML → registry migration
+
+> **Numbering note:** Phase 15 is the LLM-trust spine; Phase 14+ remains the reserved unscheduled Future bucket. This takes the next free number, 16.
+
+**Goal:** one place where a data product's contract lives. Today it lives in two, with the same key name holding different shapes in each, and three agents reading whichever they happen to reach.
+
+**Why this is a phase and not a chore.** Every number defect fixed in Phase 15 had the same root: a fact that existed in two places, or in none. The two-baseline briefing (FY-2025 headline vs YTD-2025 segments), the COGS attributed to one customer, the KPI whose sign was assumed rather than declared. A split contract store is that failure mode institutionalised — and it is *already* producing wrong output in a seeded client (see the Hess findings below).
+
+---
+
+#### The finding (audited 2026-08-10)
+
+An attempt was made to move contract definitions into the Supabase registry and retire the YAML. **The migration is incomplete, so the YAML keeps resurfacing.** Six contract sections were never moved. Measured against `hess_financials.yaml`:
+
+| section | Hess | lives in |
+|---|---|---|
+| `views[].llm_profile.dimension_semantics` | 10 entries | **YAML only** — and this is what Deep Analysis analyses by |
+| `fallback_group_by_dimensions` | 3 | YAML only |
+| `business_terms` | 7 | YAML only |
+| `column_aliases` | 4 | YAML only |
+| `supported_business_processes` | — | YAML only |
+| `connection` | — | YAML only |
+
+**`views` exists in BOTH stores under the same key with different shapes** — YAML holds `[{llm_profile, sql}]`, the registry record holds `{columns}`. Same name, different content. A naive merge is ambiguous, not merely incomplete, which is probably why the migration stalled here.
+
+**12 contract YAML files remain on disk** at `src/registry_references/data_product_registry/data_products/`, including `hess_financials.yaml`, `lubricants_snowflake.yaml`, `lubricants_sqlserver.yaml`.
+
+**Live reads, by agent:**
+
+| agent | `yaml.safe_load` calls | status |
+|---|---|---|
+| `a9_deep_analysis_agent` | 3 | **LIVE** — `_dims_from_contract`; a real run logged `dims_from_contract=15` |
+| `a9_data_product_agent` | 8 | 1 live, rest target absent files |
+| `a9_data_governance_agent` | 3 | 1 live, rest target absent files |
+
+This violates the standing rule in `CLAUDE.md` ("NEVER use `yaml.safe_load()` in agent files to load KPIs, principals, data products, or business processes"). The dead reads — `data_product_registry.yaml`, `consulting_personas_registry.yaml` — point at files that no longer exist; harmless, but they make the live ones harder to spot.
+
+**Deleting the YAML today would break dimension selection for every client** and drop DA back to the bicycle `fi_star_schema.yaml` default — the cross-tenant contamination fixed in Jul 2026 (`_lookup_kpi_scoped`). The files cannot simply be removed; the content has to move first.
+
+---
+
+#### What triggered the audit: Hess KPI definitions are wrong (validated live 2026-08-10)
+
+Manual validation of Apex (Snowflake) and Hess (SQL Server), one KPI each, executing generated SQL against the real databases.
+
+**Apex — passes.** Connects via key-pair auth (password auth is blocked by account MFA). Generated SQL executes; equal-duration windows confirmed: `fiscal_year = 2026 AND fiscal_period <= 8` → **32.55%**, prior year → **37.03%**.
+
+**Hess — SQL plumbing correct, KPI definitions wrong.** Time filtering, dialect quoting and the equal-duration comparison all behave. The seeded formulas do not:
+
+| KPI | reported | actual |
+|---|---|---|
+| `gross_margin_pct` | 165.57% | **34.43%** |
+| `gross_profit` | 6,236M | **1,297M** (4.8×) |
+| `operating_income` | 6,816M | **717M** (9.5×) |
+| `return_on_capital` | 301.63% | — |
+| `lifting_cost`, `exploration_expense`, `capital_expenditure`, `operating_cash_flow`, `free_cash_flow` | **NULL** | reference `CapEx` / `OperatingCF`, which do not exist in the data |
+
+COGS, SGA and Other are stored **negative** in `HessStarSchemaView` (as in BigQuery and Snowflake). Three KPIs negate them again (`WHEN 'COGS' THEN -[amount]`, `ELSE -[amount]`), which **adds** cost to revenue.
+
+**The magnitude is not the worst property — the direction is.** Reported gross margin *rose* +2.66pp year-on-year while the true margin *fell* 2.66pp. Situation Awareness would see improvement and raise no alert on a declining business. A margin above 100% would eventually be spotted by eye; an inverted trend would not.
+
+Roughly a third of Hess's KPI set is unusable: 3 wrong, 5 NULL, 1 impossible. **Not yet fixed** — deliberately, because the fix belongs in the contract, not in six hand-edited f-strings in `scripts/clients/hess.py`.
+
+---
+
+#### Design: `measure_semantics` on the data product
+
+Sign convention is a **fact about the data**, so it is declared once on the data product record — a sibling of `time_dimensions`, which already works exactly this way:
+
+```python
+"measure_semantics": {
+    "type_column": "account_type",
+    "amount_column": "amount",
+    "stored_sign": {"Revenue": "positive", "COGS": "negative",
+                    "SGA": "negative", "Other": "negative"},
+}
+```
+
+Properties this must have, and the reasons:
+- **In the contract**, not embedded in each KPI's SQL string — otherwise every new KPI re-derives the convention and can get it wrong privately.
+- **Not client-specific** — a field on the shared `DataProduct` model, so BigQuery, Snowflake and SQL Server all read one declaration.
+- **Enforced, not documented** — a validator that fails any KPI whose SQL negates a measure the contract states is already negative. That is what would have caught Hess automatically instead of by hand, and it catches the next client without anyone remembering to look.
+
+This is the same idea as the parked **KPI Semantic Contract** (`additive_across_dimensions`, `unit_class`, `sign_convention`, `scope_eligible`) — the registry states what a number means; consumers reference rather than re-derive. They should land together.
+
+---
+
+#### Sequence (order matters)
+
+| # | Work | Why in this order |
+|---|---|---|
+| **1** | Move `dimension_semantics` + `fallback_group_by_dimensions` onto the registry record; repoint `_dims_from_contract` | The only live contract read. Also the fix for the **hardcoded dimension preference list** in Phase 15 Stage I — same change, two problems |
+| **2** | Add `measure_semantics` + the negation validator | Sign convention and dimensions then come from one place |
+| **3** | Correct the Hess KPIs against the declared convention; re-validate live | Fixes real wrong output, now expressed as data rather than code |
+| **4** | Move `business_terms`, `column_aliases`, `supported_business_processes`, `connection` | The remaining sections; lower risk once the pattern exists |
+| **5** | Resolve the `views` shape collision, delete the 12 YAML files and all `yaml.safe_load` calls in agent files | Only safe once nothing reads them |
+| **6** | Architecture test: no `yaml.safe_load` in `src/agents/**` | Makes the rule in CLAUDE.md enforceable rather than aspirational |
+
+**Do NOT do 2 before 1.** Adding `measure_semantics` to the registry while dimensions still come from disk leaves DA reading two halves of one contract from two stores — the exact shape that produced the two-baseline briefing.
+
+**Verification for each step:** a live Deep Analysis per client per backend, checked against a direct query. Today gave three separate cases where code was correct and was not the code being executed; string tests do not close that.
+
+---
+
+#### Open questions
+
+- **The five NULL Hess KPIs** — define them against the account types that actually exist, or remove them? They currently render as blank rather than wrong, which is safer but still a broken KPI set. A decision, not a fix.
+- **Apex's remaining KPIs** — only `gross_margin_pct` was validated there. The same sign audit should run across its full set before anyone reads an Apex briefing.
+- **Does any client legitimately store expenses positive?** The design assumes a per-data-product declaration precisely so the answer can differ; worth confirming none currently does, so the validator's default is the safe one.
+
+---
+
 ### Phase 14+: Future (not scheduled)
 
 | Initiative | When |
