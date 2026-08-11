@@ -182,3 +182,72 @@ class TestComparisonPeriodHonouredOnEveryBackend:
             f"{pdays} — unequal durations are the original defect, not a variation of it")
         assert c0.year - p0.year == 1 and (c0.month, c0.day) == (p0.month, p0.day), (
             f"{dialect}: comparison window starts {p0}, expected exactly one year before {c0}")
+
+
+class TestFiscalYearPeriodShapeIsAlsoEqualDuration:
+    """The `date` shape is not the one most clients use.
+
+    TimeDimensionSpec has THREE shapes — `date`, `fiscal_year_period`, and
+    `fiscal_year` — and they filter completely differently: the fiscal shapes
+    emit `fiscal_year = Y AND fiscal_period <= P` fragments with no date
+    arithmetic at all. Three of four seeded clients (lubricants, apex_lubricants,
+    hess) declare `fiscal_year_period`; only bicycle uses `date`.
+
+    The cross-backend checks above pass `time_spec=None`, which defaults to the
+    `date` shape — so they verified the shape almost nobody runs. This covers the
+    one they do.
+    """
+
+    FYP_SPEC = {
+        "type": "fiscal_year_period",
+        "year_column": "fiscal_year",
+        "period_column": "fiscal_period",
+        "period_column_type": "string",   # as the Lubricants BigQuery view stores it
+        "fiscal_year_start_month": 1,
+    }
+
+    BUILDERS = [
+        ("_build_bq_dimensional_sql", "bigquery"),
+        ("_build_sf_dimensional_sql", "snowflake"),
+        ("_build_ss_dimensional_sql", "sqlserver"),
+        ("_build_databricks_dimensional_sql", "databricks"),
+    ]
+
+    @pytest.mark.parametrize("method,dialect", BUILDERS)
+    def test_prior_holds_the_period_range_and_steps_the_year_back(self, agent, method, dialect):
+        import logging
+        import re
+        agent.logger = logging.getLogger("test")
+        build = getattr(agent, method)
+        kw = dict(raw_sql=RATIO_SQL, kpi_definition=_KPI(RATIO_SQL), timeframe="year_to_date",
+                  topn=None, breakdown=False, override_group_by=None, time_spec=self.FYP_SPEC)
+        cur = build(**kw, comparison_period=False)
+        prev = build(**kw, comparison_period=True)
+        assert cur and prev, f"{dialect}: builder returned nothing for the fiscal shape"
+        assert cur != prev, f"{dialect}: comparison_period dropped on the fiscal shape"
+
+        def year_of(sql):
+            m = re.search(r"fiscal_year\s*=\s*(\d{4})", sql)
+            assert m, f"{dialect}: no fiscal_year predicate in {sql[-140:]}"
+            return int(m.group(1))
+
+        # Exactly one year back — not a different span, not two years.
+        assert year_of(cur) - year_of(prev) == 1, (
+            f"{dialect}: current year {year_of(cur)} vs comparison {year_of(prev)}")
+
+        # The period bound must be PRESENT on the comparison. Its absence would mean
+        # the whole prior fiscal year — the original defect, in fiscal clothing.
+        assert re.search(r"fiscal_period", prev), (
+            f"{dialect}: comparison window has no period bound, so it covers the FULL "
+            f"prior year rather than the same year-to-date span: {prev[-160:]}")
+
+    def test_the_shape_most_clients_use_is_not_the_default(self):
+        """Guards the assumption that made the earlier check weaker than it looked.
+
+        `time_spec=None` resolves to the `date` shape. If that ever silently
+        becomes the fiscal shape (or vice versa), tests that pass None would
+        change meaning without changing text.
+        """
+        from src.registry.models.data_product import TimeDimensionSpec  # noqa: PLC0415
+        assert TimeDimensionSpec().type == "date"
+        assert TimeDimensionSpec(type="fiscal_year_period").period_column == "fiscal_period"
