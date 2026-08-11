@@ -2279,6 +2279,29 @@ That distinction — **what we know versus what we assumed** — is the differen
 
 ---
 
+#### What a MATURE decomposition model does for Solution Finding
+
+The decomposition model is filed under Phase 17 because the VDT needs it, but its larger value is to SF. A tree that accretes lags, elasticities and realisation rates from actual use changes what SF can do:
+
+1. **Impact stops being asserted and becomes computed.** Today a `recovery_range` is a guess sized against the observed decline — the A/B measured the shape of it: **the LOW bound was identical (18.5) across every option in 11 of 18 runs**, i.e. the model anchors to a fraction of the loss rather than computing anything. With parentage, the LLM proposes the *operational* change ("3–5% list increase on ~35–45% of volume") and the system computes the KPI effect. Same move as the ROLLUP fix: the number requiring arithmetic is computed, not narrated. It also repairs the moderator's weakest check, which verifies an option against its own stated inputs rather than against the data.
+
+2. **The option space becomes bounded by reachability.** The tree names which leaves feed the breached KPI. An option touching none of them is not a weak solution — it is structurally not a solution to *that* problem, and nothing checks this today.
+
+3. **Accretion adds transfer functions.** The static tree says margin depends on base-oil cost. It cannot say **lag** (how long before the parent moves), **elasticity** (how much per unit), **realisation rate** ("we captured 60% of list the last two times"), or **controllability** ("we have never moved base-oil cost inside a quarter"). VA verdicts accrete exactly these, converting a decomposition into a **lever map with observed transfer functions** — what a long consulting relationship builds and a first engagement lacks.
+
+4. **Scope translation comes free.** Parentage carries weight, so "+2.8pp on Engine Oils" becomes "+0.9pp enterprise at 32% revenue share" automatically, stated at both levels. This is the ambiguity the v3 production briefing had to flag in its own risk register.
+
+5. **Structural option diversity — possibly a better mechanism than persona differentiation.** ⚠️ **Scope interaction with Stage I.** Stage I exists because three MBB personas converge on one hypothesis. But enumerating the leaves under a breached KPI and requiring options to span *different branches* (one cost-side, one price-side, one mix-side) produces diversity **by construction**, without depending on personas differing at all. On the evidence gathered so far — same-discipline personas converge, cross-discipline ones diverge — branch coverage may be the more reliable forcing function, and it is cheaper. **Evaluate this before Stage I is scoped**, not after: it could reduce Stage I's scope substantially, or replace part of it.
+
+6. **VA can grade the MECHANISM, not only the outcome.** Today VA asks "did margin recover?". With decomposition it can ask "did COGS actually fall?" separately — distinguishing *the lever worked but was offset* from *the lever did not work*. Those are indistinguishable today, which makes every verdict noisy and the learning weak. This is what actually closes the accretion loop; without it VA returns roughly one bit per solution.
+
+7. **It compounds, and does not transfer.** Each engagement adds observed elasticities and lags to that client's tree. It improves with use and cannot be copied by a competitor — the concrete mechanism behind "year two beats year one", which the pricing/NRR work assumes but does not currently supply.
+
+**Three limits, stated so they are not discovered later:**
+- **Arithmetic decomposition is not causal explanation.** `theory_layer_design.md` §2.4 is explicit: every driver tree bottoms out in accounting atoms and causality keeps going. `gross_profit = revenue + cogs` says nothing about *why* COGS rose.
+- **Few observations make weak elasticities**, and the provenance ladder must apply here too. A *computed* impact carries more authority than a guessed one, so a badly-grounded elasticity is more dangerous than a badly-grounded guess.
+- **Bounding the option space excludes the reframe.** Sometimes the right answer is not a leaf on the tree — it is that the tree is the wrong tree.
+
 #### Sequencing against the rest of the plan
 
 After **Phase 16** (T1 is a hard prerequisite) and alongside or after **assumption grading step 2** (T3). T2 and T4 are new models that can be built in parallel once T1 lands. Section 3 can be prototyped against Lubricants at any point to prove the rendering, but must not ship until the density gate passes.
