@@ -2127,6 +2127,54 @@ This is the same idea as the parked **KPI Semantic Contract** (`additive_across_
 
 ---
 
+#### Onboarding scope: the wizard cannot express a working contract (audited 2026-08-10)
+
+This is not only a migration. **The onboarding workflow does not collect the contract facts the analysis pipeline requires**, which is why every existing client was seeded through `scripts/clients/*.py` rather than through the wizard, and why the YAML keeps coming back.
+
+**What `_build_contract_dict` emits** (`a9_data_product_agent.py`), the whole of it:
+
+```
+metadata {id, name, domain}
+tables   [{name, columns[{name, data_type, semantic_tags}]}]
+views    []            <-- always empty
+kpis     [...]
+```
+
+**What it never emits, and what breaks without each:**
+
+| missing | consequence |
+|---|---|
+| `time_dimensions` | DPA falls back to `{"type": "date", "column": "transaction_date"}`. **Three of four seeded clients use `fiscal_year_period`** — a wizard-onboarded fiscal dataset gets the wrong filter shape and silently returns wrong windows |
+| `views[].llm_profile.dimension_semantics` | `_dims_from_contract` returns `[]`, so Deep Analysis has no dimensions to analyse and falls back to the KPI registry — or, historically, to the bicycle default contract |
+| `measure_semantics` (proposed) | KPI SQL is hand-written per client with the sign convention assumed. This is exactly how Hess's three KPIs came to add cost to revenue |
+
+Counts across the onboarding models and routes: `dimension_semantic` 0, `sign_convention` 0, `measure_semantic` 0, `account_type` 0, `fiscal` 0, `time_dimension` 1.
+
+**The wizard's 5 steps** (Connection → Schema Discovery → Data Product Selection → Metadata Analysis → KPI Definition) collect schema and KPIs, and nothing about how time or measures behave. Those are not schema facts — no column type reveals that `amount` is negative for COGS, or that `fiscal_period` is a period rather than a date.
+
+**Consequence to state plainly:** a data product onboarded through the current wizard produces contracts that are *structurally incomplete for the pipeline they feed*. It looks successful — the steps pass, the product registers — and the failure appears later as an empty Is/Is-Not, a wrong comparison window, or an inverted KPI. Every failure mode found this week, arriving by the front door.
+
+**`contract_yaml` is a carrier, not a file.** `generate_contract_yaml` explicitly does not persist to disk ("Supabase is the canonical registry backend"), so the wizard is not writing the 12 files found on disk. But it serialises to YAML text and passes `contract_yaml: str` between steps, which keeps the YAML shape as the wizard's working model and makes the registry record a lossy projection of it.
+
+##### Onboarding work implied by this phase
+
+| # | Work | Note |
+|---|---|---|
+| **O1** | Emit `time_dimensions` from the wizard — detected where possible, confirmed by the user | Detection is a reasonable default (a `fiscal_year` + `fiscal_period` column pair is a strong signal), but it must be **confirmed**, not assumed; the cost of getting it wrong is silent wrong windows |
+| **O2** | Collect `measure_semantics` — the sign of each measure/account type | Detectable by inspection: if every COGS row is negative, propose "negative" and ask. One question, once, replacing a per-KPI assumption |
+| **O3** | Emit `dimension_semantics` / `fallback_group_by_dimensions` | The candidate analysis dimensions. Related to Phase 15 Stage I's problem-profile-driven selection — the wizard should propose, the profile should rank |
+| **O4** | Replace `contract_yaml: str` with the typed contract object | Removes the last reason for the wizard to think in YAML at all |
+| **O5** | Completeness gate before "register" | Refuse to register a data product missing time semantics or measure semantics. **The onboarding wizard is where a bad contract is cheapest to stop**; every other guard in this plan catches it downstream, after it has already produced a number |
+| **O6** | Re-onboard one existing client through the fixed wizard | The only real proof. If lubricants cannot be reproduced through the UI, the wizard still cannot express a working contract |
+
+**Ordering:** O1–O3 depend on the registry record gaining those fields (Phase 16 steps 1–2), so the wizard has somewhere to write them. O5 depends on O1–O3 existing to check. O6 is the acceptance test for the whole phase.
+
+**Relationship to the existing Data Onboarding Refinement track** (below): that track is UI and workflow polish — chooser screen, wizard foundation, templates. This is a *content* gap in what the wizard produces, and it should be sequenced ahead of the polish. A better-looking wizard that still emits an incomplete contract is a faster way to a wrong briefing.
+
+**Reframes the "1-day onboarding" claim.** The wizard completing is not the same as a usable data product. Until O5 exists, "onboarded" means the steps passed — not that the pipeline can analyse it correctly.
+
+---
+
 #### Sequence (order matters)
 
 | # | Work | Why in this order |
@@ -2137,6 +2185,8 @@ This is the same idea as the parked **KPI Semantic Contract** (`additive_across_
 | **4** | Move `business_terms`, `column_aliases`, `supported_business_processes`, `connection` | The remaining sections; lower risk once the pattern exists |
 | **5** | Resolve the `views` shape collision, delete the 12 YAML files and all `yaml.safe_load` calls in agent files | Only safe once nothing reads them |
 | **6** | Architecture test: no `yaml.safe_load` in `src/agents/**` | Makes the rule in CLAUDE.md enforceable rather than aspirational |
+
+**Onboarding (O1–O6 above) interleaves here:** O1–O3 land with steps 1–2, since the wizard needs somewhere to write those fields; O5's completeness gate lands with step 4; O6 — re-onboarding an existing client through the wizard — is the acceptance test for the phase.
 
 **Do NOT do 2 before 1.** Adding `measure_semantics` to the registry while dimensions still come from disk leaves DA reading two halves of one contract from two stores — the exact shape that produced the two-baseline briefing.
 
