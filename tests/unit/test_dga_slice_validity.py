@@ -1,27 +1,31 @@
 # arch-allow-direct-agent-construction
 """A9_Data_Governance_Agent.check_slice_validity() — docs/architecture/kpi_semantic_contract.md §4.
 
-THREE THINGS UNDER TEST
-------------------------
-1. The DGA<->DPA wiring: check_slice_validity is non-fatal (returns status="error",
-   never raises) when A9_Data_Product_Agent isn't wired, and a live-run
-   regression that execute_sql is always called WITH data_product_id — the
-   Tier-1 routing engagement. Without it, Snowflake/DuckDB queries (unquoted
-   by src/analysis/slice_validity.py's convention) would fall through to
-   execute_sql's Tier-2 regex fallback, which only recognises backtick
-   (BigQuery) or bracket (SQL Server) quoting and would misroute both.
+THINGS UNDER TEST
+------------------
+1. The DGA<->DPA wiring: non-fatal (returns status="error", never raises)
+   when A9_Data_Product_Agent isn't wired, and a live-run regression that
+   execute_sql is always called WITH data_product_id — the Tier-1 routing
+   engagement.
 2. Tenant isolation: a KPI record belonging to a different client must be
    treated as not-found, not silently used.
-3. The persist-failure distinction: if the check ran but the write-back
-   failed, the response must report status="error" and checked_at=None —
-   NOT status="success" with a timestamp that reverts to stale on the next
-   read. This is the same false-confidence failure shape as the KT-summary
-   "(0.0% of variance)" bug found earlier in this codebase, moved one step
-   earlier in the pipeline.
+3. The persist-failure distinction: a write-back failure must report
+   status="error" and checked_at=None, never status="success" with a
+   timestamp that reverts to stale on the next read.
+4. TWO INDEPENDENT CHECKS (added 2026-08-16, after "why are single-component
+   KPIs excluded" turned out to be a real gap, not a design choice):
+   completeness (does every row have a non-NULL value for this dimension —
+   applies to EVERY KPI, one component or many) always runs; cross-component
+   coverage (do 2+ components reach the same dimension values) only runs
+   when there ARE 2+ components — nothing to compare with fewer. components
+   auto-derive from the KPI's own sql_query when not given explicitly,
+   required to run this against a plain single-component sum without a
+   caller having to know and specify its components by hand.
 
-Backend-quoting coverage lives in tests/unit/test_slice_validity.py's
-sibling — see test_slice_validity_dialects.py for the four source_system
-assertions.
+Backend-quoting coverage: tests/unit/test_slice_validity_dialects.py.
+check_completeness()/extract_components() unit coverage:
+tests/unit/test_slice_validity_completeness.py,
+tests/unit/test_slice_validity_extract_components.py.
 """
 import pytest
 from unittest.mock import AsyncMock, MagicMock
@@ -29,6 +33,16 @@ from unittest.mock import AsyncMock, MagicMock
 from src.agents.new.a9_data_governance_agent import A9_Data_Governance_Agent
 from src.agents.models.data_governance_models import SliceValidityCheckRequest
 from src.registry.models.kpi import KPI, KPIDimension
+
+_MARGIN_SQL = (
+    "SELECT ROUND(100.0 * SUM(CASE WHEN account_type IN ('Revenue', 'COGS') "
+    "THEN amount ELSE 0 END), 2) AS value FROM `agent9-465818.LubricantsBusiness."
+    "LubricantsStarSchemaView` WHERE version = 'Actual'"
+)
+_SINGLE_COMPONENT_SQL = (
+    "SELECT SUM(amount) AS value FROM `agent9-465818.LubricantsBusiness."
+    "LubricantsStarSchemaView` WHERE account_type = 'Revenue' AND version = 'Actual'"
+)
 
 
 def _kpi(**overrides) -> KPI:
@@ -39,6 +53,7 @@ def _kpi(**overrides) -> KPI:
         domain="Finance",
         data_product_id="lubricants_financial_analytics",
         view_name="LubricantsStarSchemaView",
+        sql_query=_MARGIN_SQL,
         dimensions=[
             KPIDimension(name="Customer", field="customer_name"),
             KPIDimension(name="Product", field="product_name"),
@@ -65,21 +80,30 @@ def _request(**overrides) -> SliceValidityCheckRequest:
     return SliceValidityCheckRequest(**defaults)
 
 
-def _fake_dpa(counts_by_dimension: dict) -> MagicMock:
-    """A DPA stand-in whose execute_sql answers per-dimension COUNT(DISTINCT) queries.
+def _fake_dpa(counts_by_dimension: dict, *, completeness_by_dimension: dict = None) -> MagicMock:
+    """A DPA stand-in answering BOTH check shapes.
 
-    `counts_by_dimension` = {dimension: {component: count}}. Reads the target
-    dimension out of the SQL text (`COUNT(DISTINCT <dim>)`) rather than
-    tracking call order, so the fake stays correct regardless of dimension
-    iteration order.
+    `counts_by_dimension` = {dim: {component: count}} for the cross-component
+    GROUP BY query. `completeness_by_dimension` = {dim: (total_rows,
+    complete_rows)} for the completeness query — defaults to no fixture for
+    any dimension, so (matching profile()'s existing "skip silently on an
+    unrecognised query" behaviour) completeness is simply absent from the
+    result for a dimension no test declared it for, rather than silently
+    injecting an unrequested "ok"/"INVALID" verdict into not_sliceable_by.
     """
     dpa = MagicMock()
+    completeness_by_dimension = completeness_by_dimension or {}
 
     async def _execute_sql(sql, data_product_id=None, **kw):
+        if "COUNT(*) AS total_rows" in sql:
+            for dim, (total, complete) in completeness_by_dimension.items():
+                if f"COUNT({dim}) AS complete_rows" in sql:
+                    return {"success": True, "rows": [{"total_rows": total, "complete_rows": complete}]}
+            return {"success": False, "message": f"no completeness fixture for query: {sql}"}
         for dim, counts in counts_by_dimension.items():
             if f"COUNT(DISTINCT {dim})" in sql:
                 rows = [{"component": c, "n": n} for c, n in counts.items()]
-                return {"success": True, "rows": rows, "columns": ["component", "n"]}
+                return {"success": True, "rows": rows}
         return {"success": False, "message": f"no fixture for query: {sql}"}
 
     dpa.execute_sql = AsyncMock(side_effect=_execute_sql)
@@ -198,8 +222,27 @@ async def test_no_dimensions_available_is_reported_not_raised():
 
 
 @pytest.mark.asyncio
+async def test_no_components_derivable_is_reported_not_raised():
+    """New failure mode once components auto-derive: a sql_query that
+    doesn't filter by account_type at all, and none given explicitly."""
+    agent = _dga(kpi=_kpi(sql_query="SELECT 1"), dpa=_fake_dpa({}))
+
+    resp = await agent.check_slice_validity(_request(dimensions=["customer_name"]))
+
+    assert resp.status == "error"
+    assert "components" in resp.error_message.lower()
+
+
+@pytest.mark.asyncio
 async def test_unresolvable_view_is_reported_not_raised():
-    agent = _dga(kpi=_kpi(view_name=None), dpa=_fake_dpa({}))
+    # No fully-qualified BQ reference here (unlike _SINGLE_COMPONENT_SQL) —
+    # isolates "view genuinely can't be resolved" from the BigQuery-
+    # reference-extraction fallback, which would otherwise recover a valid
+    # view from sql_query even with view_name=None (see the test above).
+    agent = _dga(
+        kpi=_kpi(view_name=None, sql_query="SELECT SUM(amount) AS value WHERE account_type = 'Revenue'"),
+        dpa=_fake_dpa({}),
+    )
 
     resp = await agent.check_slice_validity(_request())
 
@@ -226,36 +269,40 @@ async def test_verdicts_match_assess_and_populate_not_sliceable_by():
     ))
 
     assert resp.status == "success"
-    verdicts = {r.dimension: r.verdict for r in resp.results}
+    verdicts = {r.dimension: r.verdict for r in resp.cross_component_results}
     assert verdicts["customer_name"] == "INVALID"
     assert verdicts["product_name"] == "ok"
     assert resp.not_sliceable_by == ["customer_name"]
     assert resp.checked_at is not None
+    assert resp.components_used == ["Revenue", "COGS"]
 
 
 @pytest.mark.asyncio
 async def test_execute_sql_is_always_called_with_data_product_id():
     """Regression for the Tier-1-routing gap found while designing this check.
 
-    Snowflake/DuckDB queries are unquoted by convention (src/analysis/
-    slice_validity.py's _quote_view), so execute_sql's Tier-2 regex fallback
-    (backtick -> BigQuery, bracket -> SQL Server) cannot recognise them.
-    data_product_id MUST be passed explicitly on every call so Tier-1
-    registry-based routing engages regardless of query text shape.
+    Every call, completeness and cross-component alike, must carry
+    data_product_id — Snowflake/DuckDB queries are unquoted by convention
+    (src/analysis/slice_validity.py's _quote_view), so execute_sql's Tier-2
+    regex fallback (backtick -> BigQuery, bracket -> SQL Server) cannot
+    recognise them.
     """
     dpa = _fake_dpa({"customer_name": {"Revenue": 5, "COGS": 5}})
     agent = _dga(kpi=_kpi(data_product_id="lubricants_financial_analytics"), dpa=dpa)
 
     await agent.check_slice_validity(_request(dimensions=["customer_name"]))
 
-    dpa.execute_sql.assert_awaited_once()
-    _, kwargs = dpa.execute_sql.call_args
-    assert kwargs.get("data_product_id") == "lubricants_financial_analytics"
+    assert dpa.execute_sql.await_count >= 1
+    for call in dpa.execute_sql.call_args_list:
+        assert call.kwargs.get("data_product_id") == "lubricants_financial_analytics"
 
 
 @pytest.mark.asyncio
-async def test_result_is_persisted_via_upsert_with_all_three_fields():
-    dpa = _fake_dpa({"customer_name": {"Revenue": 20, "COGS": 1}})
+async def test_result_is_persisted_via_upsert_with_both_check_types():
+    dpa = _fake_dpa(
+        {"customer_name": {"Revenue": 20, "COGS": 1}},
+        completeness_by_dimension={"customer_name": (100, 100)},
+    )
     kpi = _kpi()
     agent = _dga(kpi=kpi, dpa=dpa)
 
@@ -264,7 +311,9 @@ async def test_result_is_persisted_via_upsert_with_all_three_fields():
     agent.kpi_provider.upsert.assert_awaited_once()
     (persisted,), _ = agent.kpi_provider.upsert.call_args
     assert persisted.not_sliceable_by == ["customer_name"]
-    assert persisted.slice_validity_details["customer_name"]["verdict"] == "INVALID"
+    detail = persisted.slice_validity_details["customer_name"]
+    assert detail["cross_component"]["verdict"] == "INVALID"
+    assert detail["completeness"]["verdict"] == "ok"
     assert persisted.slice_validity_checked_at is not None
     # The rest of the KPI record must survive model_copy(update=...) untouched.
     assert persisted.id == kpi.id
@@ -284,7 +333,7 @@ async def test_persist_failure_reports_error_not_a_reverting_success():
     assert resp.checked_at is None
     # But what the check actually found is still surfaced, not discarded.
     assert resp.not_sliceable_by == ["customer_name"]
-    assert len(resp.results) == 1
+    assert len(resp.cross_component_results) == 1
 
 
 @pytest.mark.asyncio
@@ -323,7 +372,7 @@ async def test_defaults_to_the_kpis_own_declared_dimensions():
 
     resp = await agent.check_slice_validity(_request(dimensions=None))
 
-    assert {r.dimension for r in resp.results} == {"customer_name", "product_name"}
+    assert {r.dimension for r in resp.cross_component_results} == {"customer_name", "product_name"}
 
 
 @pytest.mark.asyncio
@@ -334,10 +383,11 @@ async def test_source_system_resolved_from_data_product_when_available():
 
     await agent.check_slice_validity(_request(dimensions=["customer_name"]))
 
-    sql = dpa.execute_sql.call_args.args[0]
-    # Snowflake convention is unquoted — no backticks or brackets in the FROM clause.
-    assert "`" not in sql
-    assert "[" not in sql
+    for call in dpa.execute_sql.call_args_list:
+        sql = call.args[0]
+        # Snowflake convention is unquoted — no backticks or brackets in the FROM clause.
+        assert "`" not in sql
+        assert "[" not in sql
 
 
 @pytest.mark.asyncio
@@ -351,9 +401,8 @@ async def test_data_product_from_a_different_tenant_is_not_trusted_for_source_sy
 
     await agent.check_slice_validity(_request(dimensions=["customer_name"]))
 
-    sql = dpa.execute_sql.call_args.args[0]
     # Falls back to the bigquery default rather than trusting hess's source_system.
-    assert "`" in sql
+    assert all("`" in call.args[0] for call in dpa.execute_sql.call_args_list)
 
 
 # ---------------------------------------------------------------------------
@@ -375,35 +424,145 @@ async def test_bigquery_uses_the_fully_qualified_reference_from_sql_query():
     """
     dpa = _fake_dpa({"customer_name": {"Revenue": 5, "COGS": 5}})
     data_product = MagicMock(source_system="bigquery", client_id="lubricants")
-    kpi = _kpi(
-        view_name="LubricantsStarSchemaView",  # bare — what the registry actually stores
-        sql_query=(
-            "SELECT ROUND(100.0 * SUM(CASE WHEN account_type IN ('Revenue', 'COGS') "
-            "THEN amount ELSE 0 END), 2) AS value "
-            "FROM `agent9-465818.LubricantsBusiness.LubricantsStarSchemaView` "
-            "WHERE version = 'Actual'"
-        ),
-    )
+    kpi = _kpi(view_name="LubricantsStarSchemaView", sql_query=_MARGIN_SQL)
     agent = _dga(kpi=kpi, dpa=dpa, data_product=data_product)
 
     await agent.check_slice_validity(_request(dimensions=["customer_name"]))
 
-    sql = dpa.execute_sql.call_args.args[0]
-    assert "FROM `agent9-465818.LubricantsBusiness.LubricantsStarSchemaView`" in sql
-    assert "FROM `LubricantsStarSchemaView`" not in sql  # the bug: bare name, still backtick-wrapped
+    assert any(
+        "FROM `agent9-465818.LubricantsBusiness.LubricantsStarSchemaView`" in call.args[0]
+        for call in dpa.execute_sql.call_args_list
+    )
+    assert not any("FROM `LubricantsStarSchemaView`" in call.args[0] for call in dpa.execute_sql.call_args_list)
 
 
 @pytest.mark.asyncio
 async def test_bigquery_falls_back_to_bare_view_name_when_sql_query_has_no_reference():
     """Degrades to the old (buggy but not worse) behaviour rather than
-    crashing when sql_query doesn't contain the expected pattern — still
-    surfaces as a skipped-dimension result via profile(), not an exception."""
+    crashing when sql_query doesn't contain the expected fully-qualified
+    pattern — still surfaces as a skipped-dimension result, not an
+    exception. components explicit here so this test isolates the view-
+    reference concern from the (separately tested) components-derivation
+    concern — sql_query has no fully-qualified BQ reference AND no
+    account_type filter, so components must be given explicitly.
+    """
     dpa = _fake_dpa({})  # no fixture matches -> every dimension gets skipped, not raised
     data_product = MagicMock(source_system="bigquery", client_id="lubricants")
-    kpi = _kpi(view_name="LubricantsStarSchemaView", sql_query="SELECT 1")  # no backtick reference
+    kpi = _kpi(view_name="LubricantsStarSchemaView", sql_query="SELECT 1")
     agent = _dga(kpi=kpi, dpa=dpa, data_product=data_product)
+
+    resp = await agent.check_slice_validity(_request(
+        dimensions=["customer_name"], components=["Revenue", "COGS"],
+    ))
+
+    assert resp.status == "success"  # ran; just found nothing checkable
+    assert resp.cross_component_results == []
+    assert resp.completeness_results == []
+
+
+# ---------------------------------------------------------------------------
+# The two-check design itself
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_components_auto_derive_from_the_kpis_own_sql_query():
+    """The point of this whole extension: a caller doesn't have to know or
+    specify what a KPI is built from — it's already encoded in sql_query."""
+    dpa = _fake_dpa({"customer_name": {"Revenue": 20, "COGS": 1}})
+    kpi = _kpi(sql_query=_MARGIN_SQL)  # IN ('Revenue', 'COGS')
+    agent = _dga(kpi=kpi, dpa=dpa)
 
     resp = await agent.check_slice_validity(_request(dimensions=["customer_name"]))
 
-    assert resp.status == "success"  # ran; just found nothing checkable
-    assert resp.results == []
+    assert resp.status == "success"
+    assert resp.components_used == ["Revenue", "COGS"]
+
+
+@pytest.mark.asyncio
+async def test_measure_column_falls_back_to_account_category_end_to_end():
+    """Regression for a real bug found live 2026-08-16: four real KPIs
+    (product_sales_revenue, service_revenue, base_oil_cost,
+    distribution_cost, on BOTH BigQuery and Snowflake) filter on
+    account_category, not account_type, and every one of them failed with
+    "could not determine components" before this fallback existed. This
+    test exercises the fallback all the way through check_slice_validity,
+    not just extract_components() in isolation — the DGA method must
+    actually USE the auto-detected measure_column ("account_category" here),
+    not silently keep querying with the wrong column.
+    """
+    dpa = _fake_dpa(
+        {},  # single component — nothing to cross-compare
+        completeness_by_dimension={"customer_name": (100, 100)},
+    )
+    kpi = _kpi(sql_query=(
+        "SELECT SUM(amount) AS value FROM `x` WHERE account_category = 'Product Sales' "
+        "AND version = 'Actual'"
+    ))
+    agent = _dga(kpi=kpi, dpa=dpa)
+
+    resp = await agent.check_slice_validity(_request(dimensions=["customer_name"]))
+
+    assert resp.status == "success"
+    assert resp.components_used == ["Product Sales"]
+    sql = dpa.execute_sql.call_args.args[0]
+    assert "account_category IN ('Product Sales')" in sql
+
+
+@pytest.mark.asyncio
+async def test_explicit_components_override_auto_derivation():
+    dpa = _fake_dpa({"customer_name": {"Revenue": 5, "SGA": 5}})
+    agent = _dga(kpi=_kpi(sql_query=_MARGIN_SQL), dpa=dpa)  # would auto-derive Revenue/COGS
+
+    resp = await agent.check_slice_validity(_request(
+        dimensions=["customer_name"], components=["Revenue", "SGA"],
+    ))
+
+    assert resp.status == "success"
+    assert resp.components_used == ["Revenue", "SGA"]
+
+
+@pytest.mark.asyncio
+async def test_completeness_runs_for_a_single_component_kpi_where_cross_component_cannot():
+    """The actual gap this extension closes: a plain SUM(amount) KPI
+    (net_revenue-shaped — 26 of 42 KPIs across the seeded clients) has
+    exactly one component, so cross-component coverage has nothing to
+    compare — but completeness is still fully meaningful."""
+    dpa = _fake_dpa(
+        {},  # no cross-component fixture — there's only one component, nothing to compare
+        completeness_by_dimension={"customer_name": (100, 80)},  # 20% of rows have no customer_name
+    )
+    kpi = _kpi(sql_query=_SINGLE_COMPONENT_SQL)  # account_type = 'Revenue' only
+    agent = _dga(kpi=kpi, dpa=dpa)
+
+    resp = await agent.check_slice_validity(_request(dimensions=["customer_name"]))
+
+    assert resp.status == "success"
+    assert resp.components_used == ["Revenue"]
+    assert resp.cross_component_results == []  # nothing to compare with 1 component
+    assert len(resp.completeness_results) == 1
+    assert resp.completeness_results[0].verdict == "degraded"  # 0.8 >= INVALID_BELOW (0.25) but < 1.0
+    assert resp.not_sliceable_by == []  # degraded isn't INVALID — doesn't land in not_sliceable_by
+
+
+@pytest.mark.asyncio
+async def test_not_sliceable_by_is_the_union_of_both_checks():
+    """A dimension can fail EITHER check and still land in not_sliceable_by
+    — "don't trust a slice of this KPI by X" shouldn't depend on which of
+    the two questions happened to be the one that caught it."""
+    dpa = _fake_dpa(
+        {
+            "customer_name": {"Revenue": 5, "COGS": 5},   # cross-component: ok
+            "product_name": {"Revenue": 5, "COGS": 5},    # cross-component: ok
+        },
+        completeness_by_dimension={
+            "customer_name": (100, 100),   # completeness: ok
+            "product_name": (100, 5),      # completeness: INVALID (5% coverage)
+        },
+    )
+    agent = _dga(kpi=_kpi(), dpa=dpa)
+
+    resp = await agent.check_slice_validity(_request(dimensions=["customer_name", "product_name"]))
+
+    # product_name is fine by cross-component but fails completeness — still unsafe overall.
+    assert resp.not_sliceable_by == ["product_name"]

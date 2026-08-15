@@ -211,11 +211,19 @@ class KPIViewNameResponse(BaseModel):
 
 
 class SliceValidityCheckRequest(BaseModel):
-    """Request to run a slice-validity check for one ratio KPI.
+    """Request to run a slice-validity check for one KPI — compound or not.
 
     docs/architecture/kpi_semantic_contract.md §4. Advisory only — the check
     itself never gates anything; it writes not_sliceable_by/details/checked_at
     onto the KPI record for a human to read in the onboarding or admin panel.
+
+    Runs TWO independent checks per dimension (src/analysis/slice_validity.py
+    has the full reasoning): cross-component coverage (do 2+ components
+    reach the same dimension values — only meaningful when there are 2+
+    components) and completeness (of this KPI's own rows, what fraction have
+    a non-NULL value for this dimension — meaningful for every KPI,
+    including a plain single-component sum, which cross-component coverage
+    cannot check at all since there's nothing to compare it against).
     """
     kpi_id: str = Field(..., description="KPI to check (client-scoped lookup)")
     client_id: str = Field(..., description="Tenant — strict scope for the KPI lookup, mandatory per CLAUDE.md")
@@ -223,12 +231,28 @@ class SliceValidityCheckRequest(BaseModel):
         None,
         description="Dimensions to check. Defaults to the KPI's own declared dimensions if omitted.",
     )
-    measure_column: str = Field(
-        "account_type", description="Column separating the ratio's components"
+    measure_column: Optional[str] = Field(
+        None,
+        description=(
+            "Column separating the KPI's component measures. Defaults to "
+            "whichever column the KPI's own sql_query actually filters on — "
+            "extract_components() tries account_type first, then "
+            "account_category (a real, distinct discriminator a subset of "
+            "single-component KPIs use instead, e.g. product_sales_revenue: "
+            "account_category = 'Product Sales', no account_type filter at all)."
+        ),
     )
-    components: List[str] = Field(
-        default_factory=lambda: ["Revenue", "COGS"],
-        description="Component measures of the ratio",
+    components: Optional[List[str]] = Field(
+        None,
+        description=(
+            "Component measures this KPI is built from. Defaults to whatever "
+            "the KPI's own sql_query actually filters on (extract_components() "
+            "in src/analysis/slice_validity.py) — may resolve to a single "
+            "value for a plain sum. Explicit override still accepted."
+        ),
+    )
+    value_column: str = Field(
+        "amount", description="Column summed by this KPI, used by the completeness check"
     )
     version_filter: Optional[str] = Field(
         "Actual", description="version filter, or None to disable"
@@ -236,31 +260,45 @@ class SliceValidityCheckRequest(BaseModel):
 
 
 class SliceValidityDimensionResult(BaseModel):
-    """One dimension's verdict from a slice-validity run."""
+    """One dimension's verdict from ONE of the two checks.
+
+    `counts` means different things depending on which check produced this
+    result — component name -> distinct dimension values reached (cross-
+    component), or {"total_rows", "complete_rows"} (completeness). Not
+    unified into one shape on purpose: collapsing them would hide which
+    question was actually being asked.
+    """
     dimension: str = Field(..., description="Dimension checked")
-    counts: Dict[str, int] = Field(
-        default_factory=dict, description="Distinct-value count per component measure"
-    )
-    coverage: float = Field(..., description="Weakest component's count / richest component's count")
+    counts: Dict[str, int] = Field(default_factory=dict)
+    coverage: float = Field(..., description="This check's coverage ratio — see class docstring for what it means per check type")
     verdict: str = Field(..., description="'ok' | 'degraded' | 'INVALID' | 'unknown'")
 
 
 class SliceValidityCheckResponse(BaseModel):
     """Response for a slice-validity check.
 
-    `not_sliceable_by` mirrors what was written onto the KPI record
-    (verdict == 'INVALID') so a caller doesn't have to re-derive it from
-    `results`. Non-fatal by design: a resolution failure (KPI not found, no
-    view, DPA not wired) returns status='error' with error_message rather
-    than raising — this is a diagnostic the caller displays, not a workflow
-    step anything else depends on.
+    `not_sliceable_by` is the UNION of dimensions where EITHER check landed
+    on 'INVALID' — from a human's perspective, "don't trust a slice of this
+    KPI by X" should mean don't trust it for any reason, whether that's
+    component-grain mismatch or rows silently missing the dimension.
+    Non-fatal by design: a resolution failure (KPI not found, no view, DPA
+    not wired) returns status='error' with error_message rather than
+    raising — this is a diagnostic the caller displays, not a workflow step
+    anything else depends on.
     """
     kpi_id: str = Field(..., description="KPI checked")
     client_id: str = Field(..., description="Tenant scope")
     status: str = Field("success", description="'success' | 'error' | 'skipped'")
     error_message: Optional[str] = Field(None, description="Set when status != 'success'")
-    results: List[SliceValidityDimensionResult] = Field(default_factory=list)
+    cross_component_results: List[SliceValidityDimensionResult] = Field(
+        default_factory=list,
+        description="Empty when the KPI has fewer than 2 components — nothing to compare.",
+    )
+    completeness_results: List[SliceValidityDimensionResult] = Field(default_factory=list)
+    components_used: List[str] = Field(
+        default_factory=list, description="The components actually checked (explicit or auto-derived)"
+    )
     not_sliceable_by: List[str] = Field(
-        default_factory=list, description="Dimensions with verdict == 'INVALID'"
+        default_factory=list, description="Dimensions where EITHER check landed on 'INVALID'"
     )
     checked_at: Optional[datetime] = Field(None, description="When this run completed")

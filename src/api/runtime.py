@@ -322,7 +322,8 @@ class AgentRuntime:
         """
         empty = {
             "status": "not_probed", "kpi_id": kpi_id, "client_id": client_id,
-            "results": [], "not_sliceable_by": [], "checked_at": None,
+            "completeness_results": [], "cross_component_results": [],
+            "not_sliceable_by": [], "checked_at": None,
         }
         if not self._registry_factory:
             return empty
@@ -351,12 +352,23 @@ class AgentRuntime:
 
         checked_at = getattr(kpi, "slice_validity_checked_at", None)
         details = getattr(kpi, "slice_validity_details", None) or {}
-        results = [{"dimension": dim, **info} for dim, info in details.items()]
+        # Two checks persisted per dimension since the completeness check
+        # was added (2026-08-16) — {dim: {"completeness": {...}, "cross_component":
+        # {...} | absent}}. Unpack back into the two separate lists the
+        # response model and UI expect, mirroring what check_slice_validity()
+        # itself returns on a fresh run, so GET and POST read identically.
+        completeness_results, cross_component_results = [], []
+        for dim, info in details.items():
+            if isinstance(info, dict) and "completeness" in info:
+                completeness_results.append({"dimension": dim, **info["completeness"]})
+                if "cross_component" in info:
+                    cross_component_results.append({"dimension": dim, **info["cross_component"]})
         return {
             "status": "checked" if checked_at else "not_probed",
             "kpi_id": kpi_id,
             "client_id": client_id,
-            "results": results,
+            "completeness_results": completeness_results,
+            "cross_component_results": cross_component_results,
             "not_sliceable_by": list(getattr(kpi, "not_sliceable_by", None) or []),
             "checked_at": checked_at.isoformat() if hasattr(checked_at, "isoformat") else checked_at,
         }

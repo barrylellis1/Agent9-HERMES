@@ -54,7 +54,7 @@ def test_get_requires_kpi_id_and_client_id():
 def test_get_returns_not_probed_when_never_checked():
     result = {
         "status": "not_probed", "kpi_id": "gross_margin_pct", "client_id": "lubricants",
-        "results": [], "not_sliceable_by": [], "checked_at": None,
+        "completeness_results": [], "cross_component_results": [], "not_sliceable_by": [], "checked_at": None,
     }
     app = _make_app(get_result=result)
     client = TestClient(app, raise_server_exceptions=False)
@@ -66,10 +66,14 @@ def test_get_returns_not_probed_when_never_checked():
 
 
 def test_get_surfaces_a_persisted_invalid_verdict():
+    """Two checks, one dimension each — the union (not_sliceable_by) reflects
+    both, matching how check_slice_validity() actually persists (2026-08-16)."""
     result = {
         "status": "checked", "kpi_id": "gross_margin_pct", "client_id": "lubricants",
-        "results": [{"dimension": "customer_name", "verdict": "INVALID", "coverage": 0.05,
-                      "counts": {"Revenue": 20, "COGS": 1}}],
+        "cross_component_results": [{"dimension": "customer_name", "verdict": "INVALID", "coverage": 0.05,
+                                      "counts": {"Revenue": 20, "COGS": 1}}],
+        "completeness_results": [{"dimension": "customer_name", "verdict": "ok", "coverage": 1.0,
+                                   "counts": {"total_rows": 20, "complete_rows": 20}}],
         "not_sliceable_by": ["customer_name"],
         "checked_at": "2026-08-15T00:00:00+00:00",
     }
@@ -79,12 +83,14 @@ def test_get_surfaces_a_persisted_invalid_verdict():
     body = json.loads(resp.content)
     assert body["data"]["not_sliceable_by"] == ["customer_name"]
     assert body["data"]["checked_at"] is not None
+    assert body["data"]["cross_component_results"][0]["verdict"] == "INVALID"
+    assert body["data"]["completeness_results"][0]["verdict"] == "ok"
 
 
 def test_post_triggers_a_fresh_check_and_returns_its_result():
     result = {
         "status": "success", "kpi_id": "gross_margin_pct", "client_id": "lubricants",
-        "results": [], "not_sliceable_by": [], "checked_at": "2026-08-15T00:00:00+00:00",
+        "completeness_results": [], "cross_component_results": [], "not_sliceable_by": [], "checked_at": "2026-08-15T00:00:00+00:00",
     }
     app = _make_app(test_result=result)
     client = TestClient(app, raise_server_exceptions=False)
@@ -159,7 +165,14 @@ def test_get_reads_the_database_not_process_memory():
     rt = AgentRuntime()
     kpi = _kpi_stub(
         not_sliceable_by=["customer_name"],
-        slice_validity_details={"customer_name": {"verdict": "INVALID", "coverage": 0.05, "counts": {}}},
+        # Nested shape check_slice_validity() actually persists (2026-08-16):
+        # {dim: {"completeness": {...}, "cross_component": {...} | absent}}.
+        slice_validity_details={
+            "customer_name": {
+                "completeness": {"verdict": "ok", "coverage": 1.0, "counts": {"total_rows": 20, "complete_rows": 20}},
+                "cross_component": {"verdict": "INVALID", "coverage": 0.05, "counts": {"Revenue": 20, "COGS": 1}},
+            },
+        },
         slice_validity_checked_at=MagicMock(isoformat=lambda: "2026-08-15T00:00:00+00:00"),
     )
     provider = MagicMock()
@@ -172,6 +185,8 @@ def test_get_reads_the_database_not_process_memory():
     assert result["status"] == "checked"
     assert result["not_sliceable_by"] == ["customer_name"]
     assert result["checked_at"] == "2026-08-15T00:00:00+00:00"
+    assert result["cross_component_results"][0]["verdict"] == "INVALID"
+    assert result["completeness_results"][0]["verdict"] == "ok"
 
 
 def test_get_returns_not_probed_for_a_kpi_that_was_never_checked():

@@ -152,11 +152,11 @@ class KPI(BaseModel):
     # that is a decision to make consciously, not one to drift into.
     not_sliceable_by: List[str] = Field(
         default_factory=list,
-        description="Dimensions this ratio KPI must NOT be sliced by — populated by check_slice_validity, advisory only, never enforced."
+        description="Dimensions this KPI (single-component sum or multi-component ratio) must NOT be sliced by — the UNION of two checks (completeness + cross-component), advisory only, never enforced."
     )
     slice_validity_details: Optional[Dict[str, Any]] = Field(
         None,
-        description="Last check_slice_validity run's raw per-dimension coverage — {dimension: {counts, coverage, verdict}} — so a human can see WHY a dimension is denied, not just that it is."
+        description="Last check_slice_validity run's raw per-dimension result — {dimension: {'completeness': {counts,coverage,verdict}, 'cross_component': {...} | absent}} — so a human can see WHICH check failed and why, not just that one did. cross_component is absent when the KPI has fewer than 2 components (nothing to compare); completeness always runs."
     )
     slice_validity_checked_at: Optional[datetime] = Field(
         None,

@@ -57,7 +57,11 @@ from src.agents.models.data_product_onboarding_models import (
 )
 from src.registry.models.kpi import KPI as RegistryKPI
 from src.registry.models.business_process import BusinessProcess
-from src.analysis.slice_validity import profile as _slice_validity_profile
+from src.analysis.slice_validity import (
+    check_completeness as _slice_validity_check_completeness,
+    extract_components,
+    profile as _slice_validity_profile,
+)
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -814,15 +818,18 @@ class A9_Data_Governance_Agent:
         kpi_id = request.kpi_id
         client_id = request.client_id
 
-        def _error(msg: str, results=None, not_sliceable_by=None) -> SliceValidityCheckResponse:
+        def _error(msg: str, cross_component_results=None, completeness_results=None,
+                   not_sliceable_by=None, components_used=None) -> SliceValidityCheckResponse:
             self.logger.error(f"[check_slice_validity] {kpi_id}/{client_id}: {msg}")
             return SliceValidityCheckResponse(
                 kpi_id=kpi_id,
                 client_id=client_id,
                 status="error",
                 error_message=msg,
-                results=results or [],
+                cross_component_results=cross_component_results or [],
+                completeness_results=completeness_results or [],
                 not_sliceable_by=not_sliceable_by or [],
+                components_used=components_used or [],
             )
 
         if not self.data_product_agent:
@@ -861,6 +868,31 @@ class A9_Data_Governance_Agent:
             return _error(
                 f"No dimensions to check for '{kpi_id}' — pass request.dimensions "
                 "or set KPI.dimensions in the registry"
+            )
+
+        # Auto-derive from the KPI's own sql_query when not given explicitly —
+        # required to run this against every KPI (42 across the three seeded
+        # clients, 26 of them a plain single-component sum) rather than only
+        # the compound ones a caller happened to specify components for by
+        # hand. The query already encodes the answer correctly by
+        # construction; extracting it is more reliable than asking twice.
+        # extract_components() also resolves WHICH column — a real subset of
+        # KPIs (product_sales_revenue, service_revenue, base_oil_cost,
+        # distribution_cost — found live 2026-08-15) filter on
+        # account_category, not account_type, and have no account_type
+        # filter anywhere in their sql_query.
+        if request.components:
+            components = request.components
+            measure_column = request.measure_column or "account_type"
+        else:
+            measure_column, components = extract_components(kpi.sql_query)
+            if request.measure_column:
+                measure_column = request.measure_column
+        if not components:
+            return _error(
+                f"Could not determine which components '{kpi_id}' is built from — "
+                "its sql_query doesn't filter by account_type or account_category, "
+                "and none were given explicitly"
             )
 
         data_product_id = self._get_data_product_id_for_kpi(kpi)
@@ -911,25 +943,53 @@ class A9_Data_Governance_Agent:
                 raise RuntimeError((result or {}).get("message") or "execute_sql failed")
             return result.get("rows") or []
 
+        # Completeness applies to every KPI, one component or many — always run
+        # it. Cross-component coverage only means something with 2+ components
+        # to compare; a single-component KPI (26 of 42 across the seeded
+        # clients) has nothing on the other side of that comparison, so
+        # skipping it isn't a shortcut, it's the check correctly not claiming
+        # to measure something it structurally can't.
         try:
-            verdicts = await _slice_validity_profile(
-                _run_query, view, request.measure_column, request.components,
-                dimensions, request.version_filter, source_system,
+            completeness_verdicts = await _slice_validity_check_completeness(
+                _run_query, view, measure_column, components, dimensions,
+                request.value_column, request.version_filter, source_system,
             )
+            cross_component_verdicts = []
+            if len(components) >= 2:
+                cross_component_verdicts = await _slice_validity_profile(
+                    _run_query, view, measure_column, components,
+                    dimensions, request.version_filter, source_system,
+                )
         except Exception as exc:
-            return _error(f"Slice-validity profiling failed: {exc}")
+            return _error(f"Slice-validity profiling failed: {exc}", components_used=components)
 
-        results = [
-            SliceValidityDimensionResult(
-                dimension=v.dimension, counts=v.counts, coverage=v.coverage, verdict=v.verdict,
-            )
-            for v in verdicts
+        completeness_results = [
+            SliceValidityDimensionResult(dimension=v.dimension, counts=v.counts, coverage=v.coverage, verdict=v.verdict)
+            for v in completeness_verdicts
         ]
-        not_sliceable_by = [v.dimension for v in verdicts if v.verdict == "INVALID"]
-        details = {
-            v.dimension: {"counts": v.counts, "coverage": v.coverage, "verdict": v.verdict}
-            for v in verdicts
-        }
+        cross_component_results = [
+            SliceValidityDimensionResult(dimension=v.dimension, counts=v.counts, coverage=v.coverage, verdict=v.verdict)
+            for v in cross_component_verdicts
+        ]
+        # UNION of dimensions failing EITHER check — "not sliceable by X"
+        # should mean don't trust it for any reason, not just the reason the
+        # first check happened to look for.
+        not_sliceable_by = sorted({
+            v.dimension for v in (completeness_verdicts + cross_component_verdicts)
+            if v.verdict == "INVALID"
+        })
+        # Persisted per dimension, both sub-checks side by side so a human
+        # reading the record later can see WHICH question failed, not just
+        # that one did.
+        details: Dict[str, Any] = {}
+        for v in completeness_verdicts:
+            details.setdefault(v.dimension, {})["completeness"] = {
+                "counts": v.counts, "coverage": v.coverage, "verdict": v.verdict,
+            }
+        for v in cross_component_verdicts:
+            details.setdefault(v.dimension, {})["cross_component"] = {
+                "counts": v.counts, "coverage": v.coverage, "verdict": v.verdict,
+            }
         checked_at = datetime.now(timezone.utc)
 
         try:
@@ -957,14 +1017,20 @@ class A9_Data_Governance_Agent:
             # failure mode this feature exists to avoid, just moved one step
             # earlier.
             return _error(
-                f"Check ran but failed to persist: {exc}", results=results, not_sliceable_by=not_sliceable_by,
+                f"Check ran but failed to persist: {exc}",
+                cross_component_results=cross_component_results,
+                completeness_results=completeness_results,
+                not_sliceable_by=not_sliceable_by,
+                components_used=components,
             )
 
         return SliceValidityCheckResponse(
             kpi_id=kpi_id,
             client_id=client_id,
             status="success",
-            results=results,
+            cross_component_results=cross_component_results,
+            completeness_results=completeness_results,
+            components_used=components,
             not_sliceable_by=not_sliceable_by,
             checked_at=checked_at,
         )

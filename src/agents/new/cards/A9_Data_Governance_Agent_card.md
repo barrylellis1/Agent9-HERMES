@@ -15,7 +15,7 @@ The `A9_Data_Governance_Agent` handles business term resolution, KPI-to-data-pro
 | `validate_data_access` | `async def validate_data_access(request: DataAccessValidationRequest) -> DataAccessValidationResponse` | allowed: bool + reason + policy_id |
 | `get_view_name_for_kpi` | `async def get_view_name_for_kpi(request: KPIViewNameRequest) -> KPIViewNameResponse` | view_name (or "unknown" if not found) |
 | `map_business_process` | `async def map_business_process(request: BusinessProcessMappingRequest) -> BusinessProcessMappingResponse` | mapped process + ownership + KPIs |
-| `check_slice_validity` | `async def check_slice_validity(request: SliceValidityCheckRequest) -> SliceValidityCheckResponse` | per-dimension coverage verdicts + not_sliceable_by (persisted to the KPI record) |
+| `check_slice_validity` | `async def check_slice_validity(request: SliceValidityCheckRequest) -> SliceValidityCheckResponse` | per-dimension completeness + cross-component verdicts + not_sliceable_by (persisted to the KPI record) |
 
 **All methods are async. All returns use Pydantic models.**
 
@@ -101,7 +101,8 @@ kpi_id: str                         # KPI to check (client-scoped lookup)
 client_id: str                      # Tenant — strict scope, mandatory
 dimensions: Optional[List[str]]     # Defaults to the KPI's own declared dimensions
 measure_column: str = "account_type"
-components: List[str] = ["Revenue", "COGS"]
+components: Optional[List[str]]     # Defaults to extract_components(kpi.sql_query) — may resolve to ONE value
+value_column: str = "amount"        # used by the completeness check
 version_filter: Optional[str] = "Actual"
 ```
 
@@ -111,10 +112,18 @@ kpi_id: str
 client_id: str
 status: str                         # "success" | "error" | "skipped"
 error_message: Optional[str]
-results: List[SliceValidityDimensionResult]   # {dimension, counts, coverage, verdict}
-not_sliceable_by: List[str]         # dimensions with verdict == "INVALID"
+cross_component_results: List[SliceValidityDimensionResult]   # [] when < 2 components — nothing to compare
+completeness_results: List[SliceValidityDimensionResult]      # runs for EVERY KPI, 1 component or many
+components_used: List[str]          # explicit or auto-derived
+not_sliceable_by: List[str]         # UNION of dimensions where EITHER check landed on "INVALID"
 checked_at: Optional[datetime]      # None unless the write-back actually persisted
 ```
+
+**Two independent checks per dimension**, not one — `src/analysis/slice_validity.py`'s module docstring has the full reasoning:
+- **Cross-component** (`profile()`): do 2+ components (e.g. Revenue vs COGS) reach the same dimension values? Only runs when the KPI has 2+ components — nothing to compare for a plain sum.
+- **Completeness** (`check_completeness()`, added 2026-08-16): of THIS KPI's own rows, what fraction have a non-NULL value for this dimension? Runs for every KPI regardless of component count — the check that closes the gap where 26 of 42 KPIs across the seeded clients (every plain single-component sum) were previously unchecked entirely, because cross-component coverage structurally cannot apply to them.
+
+`components` auto-derives from the KPI's own `sql_query` via `extract_components()` (regex over `account_type = 'X'` / `account_type IN (...)`, including multiple matches inside a `CASE WHEN` expression) — required to run this against every KPI without a caller having to know and specify each one's components by hand.
 
 ## Error Behaviour
 
@@ -165,5 +174,12 @@ On ambiguity (e.g., "Margin" could be gross_margin or net_margin), `human_action
 - Pure profiling logic lives in `src/analysis/slice_validity.py` (moved from the script, which now re-exports it) — backend-aware, not BigQuery-only: identifier quoting is chosen per `source_system` (BigQuery backtick-wraps the whole fully-qualified name; SQL Server brackets each dot-separated segment; Snowflake and DuckDB are unquoted), matching conventions already live elsewhere in this codebase, not invented here.
 - New reverse dependency: `data_product_agent`, wired post-bootstrap alongside the existing DGA-into-DPA/DA/SA wiring in `runtime._wire_governance_dependencies()`. `execute_sql()` is always called with `data_product_id` set explicitly, engaging Tier-1 registry-based backend routing — Snowflake/DuckDB queries are unquoted by this check's own convention, so `execute_sql`'s Tier-2 regex fallback (backtick → BigQuery, bracket → SQL Server) would not recognise them and would misroute silently.
 - Non-fatal throughout, matching this agent's established convention (`get_view_name_for_kpi` returns `"unknown"` rather than raising): DPA not wired, KPI not found or cross-tenant, no dimensions, unresolvable view, and write-back failure all return `status="error"` with a message, never an exception.
-- Tenant-safe by construction, not by assumption: fetches the KPI bare (`provider.get(kpi_id)`, no `client_id` kwarg — the plain in-memory `KPIProvider` doesn't accept one, only the Supabase-backed `DatabaseRegistryProvider` does) and enforces `client_id` STRICT MATCH itself, so the check is safe regardless of which concrete provider class is live.
+- Tenant-safe by construction, not by assumption: passes `client_id` to `provider.get()` (falling back to a bare call only on `TypeError`, for the plain in-memory `KPIProvider`, which doesn't accept the kwarg) and enforces `client_id` STRICT MATCH itself regardless, so the check is safe whichever concrete provider class is live. **Not a theoretical concern** — found live 2026-08-15: two real clients (`lubricants`, `brookshire_brothers`) share the KPI id `gross_margin_pct`, and the original bare-lookup version returned the wrong tenant's record.
 - Regression coverage: `tests/unit/test_dga_slice_validity.py` (wiring, tenant isolation, persistence, the Tier-1-routing regression), `tests/unit/test_slice_validity_dialects.py` (one assertion per `source_system`), `tests/unit/test_slice_validity.py` (unchanged — `assess()`'s own logic, now imported from `src/analysis/slice_validity.py`).
+
+## Slice validity — completeness check + auto-derived components (Aug 2026)
+- **The gap:** the original `check_slice_validity()` ran exactly one check — cross-component coverage — which structurally cannot apply to a single-component KPI (a plain `SUM(amount)` like `net_revenue`, 26 of 42 KPIs across the three seeded clients). A user pushed back on this directly: a single-component KPI can still be wrong when sliced — some rows might have no value for the dimension at all, silently dropping out of "revenue by customer" rather than corrupting one customer's number, and nothing checked for that at all.
+- New `check_completeness()` in `src/analysis/slice_validity.py`: for every dimension, what fraction of this KPI's own rows have a non-NULL value for it (`COUNT(dim)` vs `COUNT(*)`, filtered to the KPI's own components/version). Applies to every KPI, 1 component or many — shares `assess()`/`DimensionVerdict`/`_quote_view()` with the pre-existing cross-component check, differing only in what `counts` means (`{"total_rows","complete_rows"}` vs component-name → value-count).
+- `check_slice_validity()` now runs BOTH per dimension: completeness always; cross-component only when there are 2+ components. `not_sliceable_by` is the UNION of dimensions where EITHER check landed on `INVALID` — persisted per-dimension detail keeps both sub-verdicts distinguishable (`slice_validity_details[dim] = {"completeness": {...}, "cross_component": {...} | absent}`).
+- New `extract_components()` (regex over `account_type = 'X'` / `IN (...)`, including multiple matches inside a `CASE WHEN` expression) auto-derives a KPI's components from its own `sql_query` — required to run this against every KPI without a caller specifying components by hand for each one; `SliceValidityCheckRequest.components` is now `Optional`, explicit values still override.
+- Regression coverage: `tests/unit/test_slice_validity_completeness.py`, `tests/unit/test_slice_validity_extract_components.py` (against real `sql_query` strings read live off KPI records across all three backends, not synthesized), `tests/unit/test_dga_slice_validity.py` (the two-check merge, auto-derivation, the union `not_sliceable_by`).
