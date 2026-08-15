@@ -1028,8 +1028,24 @@ class A9_Value_Assurance_Agent:
                 self.name, request.request_id, request.principal_id,
             )
 
-        # Load from Supabase if in-memory store is empty (e.g., after restart)
-        if not self._solutions_store and self._va_store and self._va_store.enabled:
+        # Refresh the requested (principal, client) scope from Supabase on every call.
+        #
+        # This was previously gated on `not self._solutions_store` — "load only if the
+        # in-memory store is empty". That made the store a process-lifetime cache that
+        # could never be corrected: one register_solution call, or one portfolio read for
+        # a different tenant, populated it and every subsequent read served that snapshot
+        # until the process restarted. Rows written by anything other than this process —
+        # a seed/backfill script, a second Railway replica, the assessment pipeline —
+        # stayed invisible indefinitely.
+        #
+        # It also interacted badly with the tenant filter below: the initial load is
+        # scoped to ONE (principal, client) pair but the cache it fills is global, so a
+        # first call without client_id would satisfy the emptiness check and leave a
+        # later client-scoped call filtering a cache that predated the tenant it asked
+        # for. Supabase is the source of truth; read it per request and merge, keeping
+        # the store as a write-through cache for register/evaluate rather than the
+        # authority for reads.
+        if self._va_store and self._va_store.enabled:
             try:
                 rows = await self._va_store.get_solutions_by_principal(
                     request.principal_id, client_id=getattr(request, "client_id", None)

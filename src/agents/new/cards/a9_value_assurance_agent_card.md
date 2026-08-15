@@ -108,6 +108,16 @@ Migrations:
 Persistence layer: `src/database/va_solutions_store.py` (follows `SituationsStore` pattern).
 On `connect()`, loads all solutions from Supabase into memory. Falls back gracefully when Supabase is unavailable.
 
+**Supabase is the read authority; `_solutions_store` is a write-through cache, not a snapshot.**
+`get_portfolio_summary()` re-reads the requested `(principal_id, client_id)` scope from Supabase on
+every call and merges the rows in. Do not re-gate that read on "load only if the in-memory store is
+empty" — that turns the store into a process-lifetime cache that can never be corrected, so rows
+written by any other process (seed/backfill scripts, a second Railway replica, the assessment
+pipeline) stay invisible until restart. It also breaks the tenant filter below it: the load is
+scoped to one `(principal, client)` pair but fills a global dict, so a first unscoped call satisfies
+the emptiness check and leaves later client-scoped calls filtering a cache that predates the tenant
+they asked for. See the Aug 2026 entry under Change History.
+
 ## Compliance
 
 - A2A Pydantic I/O for all requests/responses
@@ -228,6 +238,14 @@ SA (detect) → DA (Is/Is Not) → MA (market signals) → SF (solutions + HITL)
 ```
 
 - May 2026: `get_portfolio_summary` — added client_id + principal_id isolation filter on in-memory store so cross-tenant solutions never appear in a client-scoped portfolio summary.
+- Aug 2026: `get_portfolio_summary` — the Supabase load is no longer gated on an empty
+  `_solutions_store`; it refreshes the requested scope per call and merges. Found via the
+  Solutions-in-Progress tracker rendering nothing for lubricants in production while the
+  production DB held the correct seven rows: the live Railway process was serving an
+  in-memory snapshot taken before a backfill and would never have re-read it. Two of the
+  three defects behind that symptom were outside this agent — see the note on 11I-C bug 2
+  below, and `scripts/seed_va_demo_data.py` (was hardcoded to local Supabase, so production
+  still carried a pre-migration row generation with `client_id` unset and prefixed `kpi_id`s).
 
 ## Phase 11I-C: Plan/Budget Trajectory + Compliance Severity (Jul 2026)
 
@@ -247,6 +265,13 @@ SA (detect) → DA (Is/Is Not) → MA (market signals) → SF (solutions + HITL)
 **Two pre-existing bugs found and fixed by the SA→DA→MA→SF→VA E2E test** (`tests/regression/test_plan_variance_e2e.py`, `tests/regression/_plan_variance_runner.py`) while validating this phase — both predate 11I-C and affected every real HITL approval, not just plan-variance ones:
 1. **`kpi_id` was always empty string at registration.** `workflows.py`'s approve handler read `da_output.get("kpi_name")`, but `DeepAnalysisResponse` has no top-level `kpi_name` field (only nested under `plan`). Every real (non-test-stub) HITL approval registered its VA solution with `kpi_id=""`, silently breaking the covenant/regulatory check, the strategy-snapshot threshold lookup, and any KPI-scoped query. Fixed by sourcing `kpi_id` from the originating SA `Situation.kpi_id` (looked up once via `SituationsStore.get_situation(situation_id)` — the same lookup now also used for `plan_value_at_approval`), falling back to `Situation.kpi_name` then DA's nested `plan.kpi_name`.
 2. **`client_id` was never passed to `RegisterSolutionRequest`.** Every VA solution registered via the real HITL flow had `client_id=None`, invisible to client-scoped `get_portfolio_summary()` queries and a genuine multi-tenant isolation gap (CLAUDE.md Protocol #7). Fixed by threading `wf_payload.get("client_id")` through.
+   ⚠️ **This fix was only half the path, and the symptom persisted until Aug 2026.** Threading
+   `wf_payload["client_id"]` cannot help when the workflow was *started* without one, and the
+   route the UI actually navigates to — `CouncilDebatePage` — passed `principalContext?.client_id`
+   to `runSolutionFinder`, while `DecisionStudio.tsx` built that `principalContext` object without
+   a `client_id` key at all. So real approvals kept writing `client_id=NULL`. When auditing a
+   tenant-scoped write, verify the tenant is resolved at the *entry point* of the flow, not just
+   at the last hop before the insert.
 
 Also confirmed while building the test: the legacy `GET /value-assurance/solutions/{solution_id}` route reads a **module-level dict in `value_assurance.py`** that the real `register_solution` flow never writes to (it writes to the VA agent singleton's own `_solutions_store` via `AgentRegistry`). That route 404s for anything registered through the real HITL path — use `GET /portfolio/{principal_id}` (which correctly resolves the singleton via `_get_va_agent()`) instead, until the legacy route is rewired or removed.
 

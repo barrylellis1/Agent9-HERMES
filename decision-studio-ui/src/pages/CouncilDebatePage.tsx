@@ -229,6 +229,17 @@ export const CouncilDebatePage: React.FC = () => {
 
       let lastRequestId: string | null = null;
 
+      // Tenant for this run. principalContext is the primary carrier, but this page
+      // can also be entered by refresh/deep-link where that object was cached before
+      // it carried client_id — fall back to the session client rather than send the
+      // run untenanted, which silently registers the approved VA solution with
+      // client_id=NULL and hides it from every tenant-scoped read.
+      const runClientId =
+        principalContext?.client_id ||
+        situation.client_id ||
+        localStorage.getItem('a9_active_client_id') ||
+        undefined;
+
       // Stage H collapse (2026-08-04): two dispatches, not four. The audited
       // `hypothesis` and `cross_review` stages were IDENTICAL requests to
       // synthesis (debate_stage only gates Stage-1 skipping; prior_transcript
@@ -242,7 +253,7 @@ export const CouncilDebatePage: React.FC = () => {
         situation.principal_id || 'default',
         { ...preferencesBase, debate_stage: 'stage1_only' },
         principalContext || {}, situation.situation_id,
-        principalContext?.client_id
+        runClientId
       );
       lastRequestId = s1Result.request_id;
       const hyps = s1Result.result?.solutions?.stage_1_hypotheses || null;
@@ -260,7 +271,7 @@ export const CouncilDebatePage: React.FC = () => {
           prior_stage1_hypotheses: hyps,
         },
         principalContext || {}, situation.situation_id,
-        principalContext?.client_id
+        runClientId
       );
       lastRequestId = s4Result.request_id;
       const finalSol = s4Result.result?.solutions || s1Result.result?.solutions;

@@ -102,6 +102,12 @@ export function DecisionStudio() {
         initialMarketConflict={marketConflict}
         principalContext={{
             principal_id: selectedPrincipal,
+            // CouncilDebatePage reads this object back (router state / localStorage) and
+            // uses principalContext.client_id as the tenant for the SF workflow run. Without
+            // it the run — and therefore the VA solution registered on HITL approval — is
+            // written with client_id=NULL and is invisible to every tenant-scoped read,
+            // including the Solutions-in-Progress tracker on this dashboard.
+            client_id: selectedClientId,
             role: currentPrincipal.title,
             decision_style: currentPrincipal.decision_style,
             name: currentPrincipal.name,

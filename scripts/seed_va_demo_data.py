@@ -1,20 +1,44 @@
 """
 Seed VA solutions with various lifecycle phases for demo/testing.
+
 Run: .venv/Scripts/python scripts/seed_va_demo_data.py
+     .venv/Scripts/python scripts/seed_va_demo_data.py --env production --dry-run
+     .venv/Scripts/python scripts/seed_va_demo_data.py --env production
+
+Rows carry fixed UUIDs and are written with resolution=merge-duplicates, so a
+re-run upserts the same seven rows in place rather than duplicating them.
+
+This script was local-only (hardcoded 127.0.0.1) until 2026-08-14, which is why
+production still carried a pre-migration generation of these rows: client_id
+unset and kpi_id values still prefixed (lub_gross_margin_pct). Both broke the
+tenant-scoped VA reads — the Solutions-in-Progress tracker on the SA dashboard
+queries ?client_id=lubricants and matched nothing.
 """
+import argparse
 import httpx
 import json
+import os
 import sys
+from pathlib import Path
 
-SUPA_URL = "http://127.0.0.1:54321/rest/v1/value_assurance_solutions"
-SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-HEADERS = {
-    "apikey": SUPA_KEY,
-    "Authorization": f"Bearer {SUPA_KEY}",
-    "Content-Type": "application/json",
-    "Prefer": "resolution=merge-duplicates,return=minimal",
-}
+
+def _load_env_file(path: str) -> None:
+    """Load KEY=VALUE pairs from a .env file into os.environ (stdlib only)."""
+    try:
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = value
+    except FileNotFoundError:
+        pass
 
 STRAT = {
     "captured_at": "2026-03-15T10:00:00Z",
@@ -202,10 +226,60 @@ SOLUTIONS = [
 
 
 def main():
-    print(f"Seeding {len(SOLUTIONS)} VA solutions...")
-    with httpx.Client() as client:
+    parser = argparse.ArgumentParser(description="Seed VA demo solutions.")
+    parser.add_argument(
+        "--env",
+        choices=["local", "production"],
+        default="local",
+        help="Load .env (local, default) or .env.production (production)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print what would be seeded without writing",
+    )
+    args = parser.parse_args()
+
+    env_file = str(_PROJECT_ROOT / (".env.production" if args.env == "production" else ".env"))
+    _load_env_file(env_file)
+
+    base_url = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+    service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    if not base_url:
+        print(f"ERROR: SUPABASE_URL not set. Check {env_file}")
+        sys.exit(1)
+    if not service_key:
+        print(f"ERROR: SUPABASE_SERVICE_ROLE_KEY not set. Check {env_file}")
+        sys.exit(1)
+
+    supa_url = f"{base_url}/rest/v1/value_assurance_solutions"
+    headers = {
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates,return=minimal",
+    }
+
+    if args.dry_run:
+        print(f"DRY RUN — would upsert {len(SOLUTIONS)} VA solutions into {supa_url}")
         for sol in SOLUTIONS:
-            resp = client.post(SUPA_URL, headers=HEADERS, json=sol)
+            print(
+                f"  {sol['id']} | client={sol['client_id']} | {sol['kpi_id']} | "
+                f"{sol['phase']} / {sol['status']}"
+            )
+        return
+
+    if args.env == "production":
+        print("WARNING: You are about to write to PRODUCTION Supabase.")
+        print(f"  URL: {base_url}")
+        if input("  Type 'yes' to continue: ").strip().lower() != "yes":
+            print("Aborted.")
+            sys.exit(0)
+
+    print(f"Seeding {len(SOLUTIONS)} VA solutions into {base_url}...")
+    with httpx.Client(timeout=30.0) as client:
+        for sol in SOLUTIONS:
+            resp = client.post(supa_url, headers=headers, json=sol)
             phase = sol["phase"]
             status = sol["status"]
             kpi = sol["kpi_id"]
