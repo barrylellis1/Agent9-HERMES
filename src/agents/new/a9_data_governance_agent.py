@@ -14,6 +14,8 @@ import os
 import asyncio
 import json
 import logging
+import re
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any, Set, Tuple, Union
 import yaml
 
@@ -43,6 +45,9 @@ from src.agents.models.data_governance_models import (
     DataAssetPathResponse,
     KPIViewNameRequest,
     KPIViewNameResponse,
+    SliceValidityCheckRequest,
+    SliceValidityCheckResponse,
+    SliceValidityDimensionResult,
 )
 from src.agents.models.data_product_onboarding_models import (
     KPIRegistryUpdateRequest,
@@ -52,6 +57,7 @@ from src.agents.models.data_product_onboarding_models import (
 )
 from src.registry.models.kpi import KPI as RegistryKPI
 from src.registry.models.business_process import BusinessProcess
+from src.analysis.slice_validity import profile as _slice_validity_profile
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -84,7 +90,8 @@ class A9_Data_Governance_Agent:
         self.business_glossary_provider = None
         self.kpi_provider = None
         self.data_product_provider = None
-        
+        self.data_product_agent = None  # Wired post-bootstrap by runtime._wire_governance_dependencies() — needed for check_slice_validity's multi-backend SQL execution.
+
         # Setup logging
         self.logger = logging.getLogger(self.__class__.__name__)
         
@@ -776,6 +783,191 @@ class A9_Data_Governance_Agent:
             metadata['positive_trend_is_good'] = kpi.positive_trend_is_good
         
         return metadata
+
+    # --- Slice validity (docs/architecture/kpi_semantic_contract.md §4) ---
+    async def check_slice_validity(
+        self, request: SliceValidityCheckRequest
+    ) -> SliceValidityCheckResponse:
+        """Run the slice-validity check for one ratio KPI, persist the result.
+
+        Triggered by a human — the onboarding Day 6 panel or Settings ->
+        Maintenance -> Slice Validity — never automatically. Advisory only:
+        nothing downstream reads the persisted not_sliceable_by to gate
+        anything (see that field's docstring on src.registry.models.kpi.KPI);
+        this method's only effect is writing three fields a human can read.
+
+        Non-fatal by design, matching this agent's established convention —
+        get_view_name_for_kpi returns "unknown" rather than raising,
+        register_kpi_metadata returns .error() rather than raising. A
+        resolution failure here is a diagnostic result to display, not a
+        workflow step anything else depends on.
+
+        Routes the profiling query through A9_Data_Product_Agent.execute_sql()
+        (multi-backend) rather than a BigQuery-only client, and passes
+        data_product_id explicitly so execute_sql's Tier-1 registry-based
+        routing engages regardless of whether the query text itself is
+        backend-detectable — Snowflake and DuckDB queries are unquoted by
+        convention (src/analysis/slice_validity.py's _quote_view), so
+        execute_sql's Tier-2 regex fallback (backtick -> BigQuery,
+        bracket -> SQL Server) would not recognise them.
+        """
+        kpi_id = request.kpi_id
+        client_id = request.client_id
+
+        def _error(msg: str, results=None, not_sliceable_by=None) -> SliceValidityCheckResponse:
+            self.logger.error(f"[check_slice_validity] {kpi_id}/{client_id}: {msg}")
+            return SliceValidityCheckResponse(
+                kpi_id=kpi_id,
+                client_id=client_id,
+                status="error",
+                error_message=msg,
+                results=results or [],
+                not_sliceable_by=not_sliceable_by or [],
+            )
+
+        if not self.data_product_agent:
+            return _error(
+                "A9_Data_Product_Agent not wired — check runtime._wire_governance_dependencies()"
+            )
+
+        provider = self.kpi_provider or self._get_kpi_provider()
+        if not provider:
+            return _error("KPI provider unavailable")
+
+        # Found live (2026-08-15): a bare provider.get(kpi_id) is genuinely
+        # unsafe, not just theoretically so — two real clients (lubricants,
+        # brookshire_brothers) both use the id "gross_margin_pct", and a bare
+        # lookup returned brookshire_brothers' record for a lubricants
+        # request. DatabaseRegistryProvider.get()'s own docstring says
+        # exactly this: "a bare-id linear scan... matches the first cached
+        # item with the given id regardless of tenant... callers that need a
+        # specific tenant's record MUST pass client_id." Pass it. The
+        # TypeError fallback covers the plain in-memory KPIProvider (used in
+        # some dev/test contexts), whose .get() signature doesn't accept the
+        # kwarg — the STRICT MATCH re-check below still applies either way,
+        # so an unscoped result can never leak through.
+        try:
+            try:
+                kpi = provider.get(kpi_id, client_id=client_id)
+            except TypeError:
+                kpi = provider.get(kpi_id)
+        except Exception as exc:
+            return _error(f"KPI lookup failed: {exc}")
+        if kpi is None or getattr(kpi, "client_id", None) != client_id:
+            return _error(f"KPI '{kpi_id}' not found for client '{client_id}'")
+
+        dimensions = request.dimensions or [d.field for d in (kpi.dimensions or [])]
+        if not dimensions:
+            return _error(
+                f"No dimensions to check for '{kpi_id}' — pass request.dimensions "
+                "or set KPI.dimensions in the registry"
+            )
+
+        data_product_id = self._get_data_product_id_for_kpi(kpi)
+        source_system = "bigquery"
+        if self.data_product_provider and data_product_id:
+            try:
+                try:
+                    dp = self.data_product_provider.get(data_product_id, client_id=client_id)
+                except TypeError:
+                    dp = self.data_product_provider.get(data_product_id)
+                if dp is not None and getattr(dp, "client_id", None) == client_id:
+                    source_system = getattr(dp, "source_system", None) or "bigquery"
+            except Exception:
+                pass  # keep the bigquery default rather than fail the whole check
+
+        # Found live (2026-08-15): _get_view_name_for_kpi() returns the bare
+        # KPI.view_name ("LubricantsStarSchemaView"), not the fully-qualified
+        # `project.dataset.view` reference. execute_sql()'s BigQuery routing
+        # is Tier-2 REGEX detection of that exact fully-qualified, backtick-
+        # quoted shape in the SQL text — unlike Snowflake, which genuinely
+        # gets Tier-1 data_product_id-based routing inside execute_sql, BOTH
+        # BigQuery and SQL Server routing there fall back to pattern-matching
+        # the query text itself (CLAUDE.md's Tier-1/Tier-2 description is the
+        # intended design; the live execute_sql code only implements it for
+        # Snowflake). A backtick-wrapped BARE name has no dots, never matches
+        # the pattern, and the query silently fell through to the DuckDB
+        # manager, which doesn't understand backtick quoting at all —
+        # confirmed live via a DuckDB "Parser Error: syntax error at or near
+        # backtick" on every dimension, each one silently skipped by
+        # profile()'s per-dimension error handling rather than surfacing.
+        #
+        # Fix: for bigquery specifically, pull the ALREADY-CORRECT
+        # fully-qualified reference straight out of the KPI's own sql_query —
+        # the exact same regex execute_sql/generate_sql_for_kpi use to detect
+        # it, reusing rather than re-deriving. Guaranteed correct by
+        # construction: it's copied from a query already proven to run.
+        view = self._get_view_name_for_kpi(kpi)
+        if source_system == "bigquery":
+            _bq_ref = re.search(r'`[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_.-]+`', kpi.sql_query or "")
+            if _bq_ref:
+                view = _bq_ref.group(0).strip("`")
+        if not view or view == "unknown":
+            return _error(f"Could not resolve a view for KPI '{kpi_id}' — no view_name set")
+
+        async def _run_query(sql: str) -> List[Dict[str, Any]]:
+            result = await self.data_product_agent.execute_sql(sql, data_product_id=data_product_id)
+            if not isinstance(result, dict) or not result.get("success"):
+                raise RuntimeError((result or {}).get("message") or "execute_sql failed")
+            return result.get("rows") or []
+
+        try:
+            verdicts = await _slice_validity_profile(
+                _run_query, view, request.measure_column, request.components,
+                dimensions, request.version_filter, source_system,
+            )
+        except Exception as exc:
+            return _error(f"Slice-validity profiling failed: {exc}")
+
+        results = [
+            SliceValidityDimensionResult(
+                dimension=v.dimension, counts=v.counts, coverage=v.coverage, verdict=v.verdict,
+            )
+            for v in verdicts
+        ]
+        not_sliceable_by = [v.dimension for v in verdicts if v.verdict == "INVALID"]
+        details = {
+            v.dimension: {"counts": v.counts, "coverage": v.coverage, "verdict": v.verdict}
+            for v in verdicts
+        }
+        checked_at = datetime.now(timezone.utc)
+
+        try:
+            updated_kpi = kpi.model_copy(update={
+                "not_sliceable_by": not_sliceable_by,
+                "slice_validity_details": details,
+                "slice_validity_checked_at": checked_at,
+            })
+            # DatabaseRegistryProvider.upsert()/register() logs a DB failure
+            # and returns False rather than raising — found live 2026-08-15,
+            # where a serialization bug (now fixed in database_provider.py)
+            # failed the write and this method still returned status="success"
+            # because no exception ever surfaced. `is False` specifically:
+            # some provider stand-ins (tests, alternate implementations) may
+            # legitimately return None for "no boolean signal available",
+            # which must not be treated as a failure.
+            persisted = await provider.upsert(updated_kpi)
+            if persisted is False:
+                raise RuntimeError("registry write reported failure (see provider logs)")
+        except Exception as exc:
+            # The check DID run — return what it found, but status=error and no
+            # checked_at, because nothing durable was recorded. Returning
+            # status=success here would show a fresh timestamp that reverts to
+            # stale on the next page load, which is the exact false-confidence
+            # failure mode this feature exists to avoid, just moved one step
+            # earlier.
+            return _error(
+                f"Check ran but failed to persist: {exc}", results=results, not_sliceable_by=not_sliceable_by,
+            )
+
+        return SliceValidityCheckResponse(
+            kpi_id=kpi_id,
+            client_id=client_id,
+            status="success",
+            results=results,
+            not_sliceable_by=not_sliceable_by,
+            checked_at=checked_at,
+        )
 
     # --- Registry Integrity Validation (per PRD) ---
     def _contract_path(self) -> str:

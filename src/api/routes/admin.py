@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 
@@ -93,4 +93,63 @@ async def test_connection_health(
     logger.info("Connection health probe triggered (client_id=%s)", client_id)
     result = await runtime.probe_connection_health(client_id=client_id)
     logger.info("Connection health probe complete: status=%s, %d data products", result.get("status"), len(result.get("results", [])))
+    return {"status": result["status"], "data": result}
+
+
+@router.get(
+    "/slice-validity",
+    summary="Return a KPI's last slice-validity check, straight off the KPI record",
+    description=(
+        "docs/architecture/kpi_semantic_contract.md §4. Returns the persisted "
+        "not_sliceable_by / per-dimension coverage / last-checked timestamp for "
+        "one KPI — this is a database read, not a cache, so it is correct across "
+        "restarts and multiple server instances. If the KPI has never been "
+        "checked, returns status='not_probed' with empty results. "
+        "Use POST /slice-validity/test to run a fresh check. "
+        "Advisory only — nothing reads not_sliceable_by to gate any workflow. "
+        "No auth required (read-only). Will move to Supabase session auth in Infra B."
+    ),
+)
+async def get_slice_validity(
+    kpi_id: str = Query(..., description="KPI to look up"),
+    client_id: str = Query(..., description="Tenant — strict scope, required"),
+    runtime: AgentRuntime = Depends(get_agent_runtime),
+):
+    result = runtime.get_cached_slice_validity(kpi_id=kpi_id, client_id=client_id)
+    return {"status": result["status"], "data": result}
+
+
+@router.post(
+    "/slice-validity/test",
+    summary="Run the slice-validity check for one KPI",
+    description=(
+        "docs/architecture/kpi_semantic_contract.md §4. Counts, per dimension, "
+        "how many distinct values each component measure (default Revenue/COGS) "
+        "reaches — a dimension only one component reaches produces a confident, "
+        "plausible, wrong ratio when sliced by it. Result is persisted onto the "
+        "KPI record (not_sliceable_by / slice_validity_details / "
+        "slice_validity_checked_at) and also returned here. "
+        "Scoped to one caller-chosen KPI, not a scan of every KPI in the "
+        "registry — this is a human-triggered diagnostic, run it again after a "
+        "client's data model changes, not an automatic batch job. "
+        "Advisory only — nothing reads the result to gate any workflow; "
+        "enforcement was designed and explicitly rejected as scope creep at "
+        "demo stage (DEVELOPMENT_PLAN.md -> Phase 15 -> Stage I). "
+        "No auth required for MVP. Will move to Supabase session auth in Infra B."
+    ),
+)
+async def test_slice_validity(
+    kpi_id: str = Query(..., description="KPI to check"),
+    client_id: str = Query(..., description="Tenant — strict scope, required"),
+    dimensions: Optional[List[str]] = Query(
+        None, description="Dimensions to check; defaults to the KPI's own declared dimensions"
+    ),
+    runtime: AgentRuntime = Depends(get_agent_runtime),
+):
+    logger.info("Slice-validity check triggered (kpi_id=%s, client_id=%s)", kpi_id, client_id)
+    result = await runtime.run_slice_validity_check(kpi_id=kpi_id, client_id=client_id, dimensions=dimensions)
+    logger.info(
+        "Slice-validity check complete: status=%s, not_sliceable_by=%s",
+        result.get("status"), result.get("not_sliceable_by"),
+    )
     return {"status": result["status"], "data": result}

@@ -168,6 +168,16 @@ class AgentRuntime:
 
         logger.info(f"Data Governance Agent wired into: {', '.join(wired)}")
 
+        # Reverse direction: DGA.check_slice_validity() needs DPA.execute_sql()
+        # for multi-backend query execution (BigQuery/Snowflake/SQL
+        # Server/DuckDB) rather than a single-backend client of its own.
+        dpa = self._agents.get("A9_Data_Product_Agent")
+        if dpa:
+            dga.data_product_agent = dpa
+            logger.info("Data Product Agent wired into: A9_Data_Governance_Agent")
+        else:
+            logger.warning("Data Product Agent not found — check_slice_validity will be unavailable")
+
     async def _refresh_agent_index(self) -> None:
         from src.agents.new.a9_orchestrator_agent import agent_registry
 
@@ -296,6 +306,84 @@ class AgentRuntime:
         result = {"status": overall, "probed_at": now.isoformat(), "results": probe_results}
         self._last_health_probe: Dict[str, object] = result
         return result
+
+    def get_cached_slice_validity(self, kpi_id: str, client_id: str) -> Dict[str, object]:
+        """Read a KPI's last slice-validity result straight off its registry record.
+
+        Infra: used by GET /api/v1/admin/slice-validity. Deliberately NOT an
+        in-memory cache like _last_health_probe above — connection probes have
+        no natural persisted home, but slice-validity results ARE durably
+        stored (not_sliceable_by / slice_validity_details /
+        slice_validity_checked_at on the KPI record itself, since
+        check_slice_validity() writes them there). Reading the database
+        instead of process memory means this is correct across restarts and
+        multiple server instances, and the "last checked" timestamp a caller
+        sees is never stale relative to what's actually persisted.
+        """
+        empty = {
+            "status": "not_probed", "kpi_id": kpi_id, "client_id": client_id,
+            "results": [], "not_sliceable_by": [], "checked_at": None,
+        }
+        if not self._registry_factory:
+            return empty
+        try:
+            provider = self._registry_factory.get_provider("kpi")
+            if provider is None:
+                kpi = None
+            else:
+                # Same fix as A9_Data_Governance_Agent.check_slice_validity —
+                # a bare provider.get(kpi_id) genuinely returned the wrong
+                # tenant's record live (two real clients share the id
+                # "gross_margin_pct"). Pass client_id; TypeError fallback
+                # covers the plain in-memory KPIProvider, and the STRICT
+                # MATCH re-check below still applies either way.
+                try:
+                    kpi = provider.get(kpi_id, client_id=client_id)
+                except TypeError:
+                    kpi = provider.get(kpi_id)
+        except Exception as exc:
+            self._logger.warning("Slice-validity cache read failed for %s/%s: %s", client_id, kpi_id, exc)
+            return empty
+        # STRICT MATCH — a bare id lookup can resolve to another tenant's
+        # record of the same id; never trust it without checking client_id.
+        if kpi is None or getattr(kpi, "client_id", None) != client_id:
+            return empty
+
+        checked_at = getattr(kpi, "slice_validity_checked_at", None)
+        details = getattr(kpi, "slice_validity_details", None) or {}
+        results = [{"dimension": dim, **info} for dim, info in details.items()]
+        return {
+            "status": "checked" if checked_at else "not_probed",
+            "kpi_id": kpi_id,
+            "client_id": client_id,
+            "results": results,
+            "not_sliceable_by": list(getattr(kpi, "not_sliceable_by", None) or []),
+            "checked_at": checked_at.isoformat() if hasattr(checked_at, "isoformat") else checked_at,
+        }
+
+    async def run_slice_validity_check(
+        self, kpi_id: str, client_id: str, dimensions: List[str] | None = None,
+    ) -> Dict[str, object]:
+        """Run A9_Data_Governance_Agent.check_slice_validity() for one KPI.
+
+        Infra: used by POST /api/v1/admin/slice-validity/test. Scoped to one
+        caller-chosen KPI, not a scan of every KPI in the registry —
+        deliberately human-triggered per KPI, not an automatic batch job
+        (docs/architecture/kpi_semantic_contract.md §4 / DEVELOPMENT_PLAN.md
+        -> Phase 15 -> Stage I).
+        """
+        dga = self._agents.get("A9_Data_Governance_Agent")
+        if dga is None:
+            return {
+                "status": "error", "error_message": "Data Governance Agent not loaded",
+                "kpi_id": kpi_id, "client_id": client_id,
+                "results": [], "not_sliceable_by": [], "checked_at": None,
+            }
+        from src.agents.models.data_governance_models import SliceValidityCheckRequest
+
+        request = SliceValidityCheckRequest(kpi_id=kpi_id, client_id=client_id, dimensions=dimensions)
+        response = await dga.check_slice_validity(request)
+        return response.model_dump(mode="json")
 
     async def reload_registry(self) -> Dict[str, object]:
         """Force a registry refresh on SA, PCA, and DPA without a service restart.

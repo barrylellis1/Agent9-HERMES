@@ -6,8 +6,9 @@ This replaces the enum-based approach with a flexible, data-driven model.
 """
 
 import os
+from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, Field
 
 
@@ -130,6 +131,36 @@ class KPI(BaseModel):
     kpi_type: str = Field(
         "operational",
         description="KPI classification: 'operational' | 'concentration' | 'covenant' | 'regulatory'"
+    )
+    # docs/architecture/kpi_semantic_contract.md §4 — sliceability. Safe to store
+    # as a flat list here (not a per-data-product mapping) because data_product_id
+    # above is a scalar: one KPI record, for one client, always resolves to
+    # exactly one data product, so there is never an ambiguity about which
+    # schema/grain a not_sliceable_by entry refers to.
+    #
+    # A DENY list, not an allow list, deliberately — defaults to "every
+    # dimension is fine to slice by" until check_slice_validity finds otherwise.
+    # An allow list decays silently (a new column never gets analysed and
+    # nobody notices); a deny list fails loud (an unexpected verdict is visible
+    # immediately). Populated only by
+    # A9_Data_Governance_Agent.check_slice_validity() — never authored by hand.
+    #
+    # Advisory only. Nothing reads this field to gate Deep Analysis's dimension
+    # selection or block onboarding — that was designed and explicitly rejected
+    # as scope creep at demo stage (DEVELOPMENT_PLAN.md -> Phase 15 -> Stage I).
+    # If a future change makes this field load-bearing rather than advisory,
+    # that is a decision to make consciously, not one to drift into.
+    not_sliceable_by: List[str] = Field(
+        default_factory=list,
+        description="Dimensions this ratio KPI must NOT be sliced by — populated by check_slice_validity, advisory only, never enforced."
+    )
+    slice_validity_details: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Last check_slice_validity run's raw per-dimension coverage — {dimension: {counts, coverage, verdict}} — so a human can see WHY a dimension is denied, not just that it is."
+    )
+    slice_validity_checked_at: Optional[datetime] = Field(
+        None,
+        description="When check_slice_validity last ran for this KPI. Displayed prominently wherever not_sliceable_by is shown — staleness must be visible, not silent."
     )
 
     @classmethod

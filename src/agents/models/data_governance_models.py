@@ -6,6 +6,7 @@ These models are used for business-to-technical term translation, data access va
 data quality checks, data lineage tracking, and KPI to data product mapping.
 """
 
+from datetime import datetime
 from typing import Dict, List, Optional, Any, Set, Union
 from pydantic import BaseModel, Field
 
@@ -207,3 +208,59 @@ class KPIViewNameResponse(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(
         None, description="Additional metadata for the view"
     )
+
+
+class SliceValidityCheckRequest(BaseModel):
+    """Request to run a slice-validity check for one ratio KPI.
+
+    docs/architecture/kpi_semantic_contract.md §4. Advisory only — the check
+    itself never gates anything; it writes not_sliceable_by/details/checked_at
+    onto the KPI record for a human to read in the onboarding or admin panel.
+    """
+    kpi_id: str = Field(..., description="KPI to check (client-scoped lookup)")
+    client_id: str = Field(..., description="Tenant — strict scope for the KPI lookup, mandatory per CLAUDE.md")
+    dimensions: Optional[List[str]] = Field(
+        None,
+        description="Dimensions to check. Defaults to the KPI's own declared dimensions if omitted.",
+    )
+    measure_column: str = Field(
+        "account_type", description="Column separating the ratio's components"
+    )
+    components: List[str] = Field(
+        default_factory=lambda: ["Revenue", "COGS"],
+        description="Component measures of the ratio",
+    )
+    version_filter: Optional[str] = Field(
+        "Actual", description="version filter, or None to disable"
+    )
+
+
+class SliceValidityDimensionResult(BaseModel):
+    """One dimension's verdict from a slice-validity run."""
+    dimension: str = Field(..., description="Dimension checked")
+    counts: Dict[str, int] = Field(
+        default_factory=dict, description="Distinct-value count per component measure"
+    )
+    coverage: float = Field(..., description="Weakest component's count / richest component's count")
+    verdict: str = Field(..., description="'ok' | 'degraded' | 'INVALID' | 'unknown'")
+
+
+class SliceValidityCheckResponse(BaseModel):
+    """Response for a slice-validity check.
+
+    `not_sliceable_by` mirrors what was written onto the KPI record
+    (verdict == 'INVALID') so a caller doesn't have to re-derive it from
+    `results`. Non-fatal by design: a resolution failure (KPI not found, no
+    view, DPA not wired) returns status='error' with error_message rather
+    than raising — this is a diagnostic the caller displays, not a workflow
+    step anything else depends on.
+    """
+    kpi_id: str = Field(..., description="KPI checked")
+    client_id: str = Field(..., description="Tenant scope")
+    status: str = Field("success", description="'success' | 'error' | 'skipped'")
+    error_message: Optional[str] = Field(None, description="Set when status != 'success'")
+    results: List[SliceValidityDimensionResult] = Field(default_factory=list)
+    not_sliceable_by: List[str] = Field(
+        default_factory=list, description="Dimensions with verdict == 'INVALID'"
+    )
+    checked_at: Optional[datetime] = Field(None, description="When this run completed")
