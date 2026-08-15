@@ -59,6 +59,32 @@ LEVER_PATTERNS: List[Tuple[str, List[str]]] = [
         r"account economics reset",
         r"full[-\s]potential",
     ]),
+    # Buy the input forward rather than repricing the output. Added 2026-08-15
+    # after DQ scoring found `hedging` options falling through to `unclassified`
+    # (real: "Base Oil Forward-Buy Hedge Paired with Q3-Aligned Price Reset",
+    # which the description fallback had been mislabelling as `governance`).
+    # Placed high because these terms are never incidental — an option that says
+    # "hedge" is proposing one.
+    ("hedging", [
+        r"hedg(?:e|ing)",
+        r"forward[-\s]buy",
+        r"forward contract",
+        r"\bfutures\b",
+    ]),
+    # Change WHAT is sold rather than what it costs or what it is priced at.
+    # Added 2026-08-15 with `hedging`: mix-shift was the single most common
+    # unclassified lever in the corpus, appearing in 6 of 11 arms across BOTH
+    # MBB and lens rosters. Its absence made link 2 (creative alternatives)
+    # unreadable wherever it occurred.
+    ("mix_shift", [
+        r"mix[-\s]shift",
+        r"premium[-\s]mix",
+        r"mix optimi[sz]",
+        r"reallocat\w*[^.]{0,40}mix",
+        r"sku rationali[sz]",
+        r"rebalanc",
+        r"assortment",
+    ]),
     # Contractual mechanism that ties price to an input-cost index. Distinct from
     # a plain price increase: the lever is the CLAUSE, not the level.
     ("indexation", [

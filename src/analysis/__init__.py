@@ -12,9 +12,15 @@ process noise indistinguishable from measurement noise. A stochastic ruler
 cannot measure a stochastic process.
 
 Modules:
-- `mechanism`      — lever taxonomy + deterministic mechanism fingerprint
-- `groundedness`   — G1-G6 per-option scoring against data + theory layer
-- `problem_profile`— deterministic problem-type classification from DA output
+- `mechanism`       — lever taxonomy + deterministic mechanism fingerprint
+- `groundedness`    — G1-G6 per-option scoring against data + theory layer
+- `problem_profile` — deterministic problem-type classification from DA output
+- `narrative_claims`— arithmetic validation of reader-facing prose
+- `decision_quality`— six-link Decision Quality chain, scored per RUN
+
+`decision_quality` is the OUTCOME measure the others lack: mechanism, groundedness
+and divergence are all proxies chosen for measurability, and optimising a proxy is
+not optimising the objective. See `docs/architecture/decision_quality_rubric.md`.
 
 See `DEVELOPMENT_PLAN.md` Phase 15 Stage H notes for the measurement design and
 the findings that motivated it.
