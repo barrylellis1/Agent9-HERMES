@@ -8,7 +8,8 @@ and the full object definition can be stored in a generic JSON/Text column.
 
 import logging
 import json
-from typing import Any, Dict, List, Optional, Type, TypeVar, Generic
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Type, TypeVar, Generic, get_args
 
 from pydantic import BaseModel
 
@@ -162,7 +163,30 @@ class DatabaseRegistryProvider(RegistryProvider[T]):
         """
         model_dump = item.model_dump(mode="json")
         columns = await self._get_columns()
-        return {k: v for k, v in model_dump.items() if k in columns}
+        record = {k: v for k, v in model_dump.items() if k in columns}
+
+        # model_dump(mode="json") stringifies datetime fields (ISO 8601) —
+        # needed so nested models/enums serialize JSON-safely for jsonb
+        # columns — but asyncpg needs a native datetime object for a
+        # timestamptz column, not a string. Re-hydrate just the
+        # datetime-typed fields. Found live 2026-08-15 via KPI's
+        # slice_validity_checked_at, the first native datetime field ever
+        # added to a registry model: the write failed with "expected a
+        # datetime.date or datetime.datetime instance, got 'str'", and
+        # because register() below logs and returns False rather than
+        # raising, the caller saw no exception at all — a silent failure
+        # that would have read as success upstream.
+        for name, field in type(item).model_fields.items():
+            if name not in record or not isinstance(record[name], str):
+                continue
+            annotation_args = get_args(field.annotation) or (field.annotation,)
+            if datetime in annotation_args:
+                try:
+                    record[name] = datetime.fromisoformat(record[name].replace("Z", "+00:00"))
+                except ValueError:
+                    pass  # leave as-is; the DB write will surface the real error
+
+        return record
 
     def _cache_item(self, item: T) -> None:
         """Add item to internal cache, keyed by composite (client_id:id) when client_id is present."""

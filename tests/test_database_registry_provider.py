@@ -1,7 +1,8 @@
 
 import pytest
 import asyncio
-from typing import Dict, Any, List
+from datetime import datetime, timezone
+from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 
 from src.database.duckdb_manager import DuckDBManager
@@ -12,6 +13,14 @@ class TestModel(BaseModel):
     name: str
     value: int
     tags: List[str] = Field(default_factory=list)
+
+
+class TimestampedModel(BaseModel):
+    """Fully columnar shape (no `definition` blob) — matches how kpis,
+    principal_profiles, data_products etc. actually look, per
+    DatabaseRegistryProvider._serialize_item's own docstring."""
+    id: str
+    checked_at: Optional[datetime] = None
 
 @pytest.mark.asyncio
 async def test_database_registry_provider_crud():
@@ -86,6 +95,89 @@ async def test_database_registry_provider_crud():
     
     # Cleanup
     await db_manager.disconnect()
+
+@pytest.mark.asyncio
+async def test_datetime_field_round_trips_through_a_real_write_and_read():
+    """Regression for a real bug found live (2026-08-15): _serialize_item
+    used model_dump(mode="json"), which stringifies datetime fields to ISO
+    text — needed for nested models/enums to serialize JSON-safely, but
+    wrong for a native timestamptz column. KPI.slice_validity_checked_at
+    (the first native datetime field ever added to a registry model) failed
+    to write with "expected a datetime.date or datetime.datetime instance,
+    got 'str'" — and because register()/upsert() logs the failure and
+    returns False rather than raising, the caller saw no exception at all.
+
+    This is a REAL DuckDB write + read-back, not a mock — a mocked
+    db_manager can't catch a genuine type-mismatch the driver itself raises.
+    """
+    db_manager = DuckDBManager({"database_path": ":memory:"})
+    await db_manager.connect()
+    await db_manager.execute_query(
+        "CREATE TABLE timestamped_items (id VARCHAR PRIMARY KEY, checked_at TIMESTAMP)"
+    )
+
+    provider = DatabaseRegistryProvider(
+        db_manager=db_manager,
+        table_name="timestamped_items",
+        model_class=TimestampedModel,
+        key_fields=["id"],
+    )
+
+    now = datetime.now(timezone.utc)
+    item = TimestampedModel(id="k1", checked_at=now)
+    success = await provider.register(item)
+    assert success is True, "upsert reported failure — the datetime serialization bug regressed"
+
+    provider._items.clear()
+    await provider.load()
+    loaded = provider.get("k1")
+    assert loaded is not None
+    assert loaded.checked_at is not None
+    # Round-trips to within a second (DuckDB TIMESTAMP precision), not
+    # necessarily microsecond-identical.
+    assert abs((loaded.checked_at.replace(tzinfo=timezone.utc) - now).total_seconds()) < 1
+
+    await db_manager.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_none_datetime_field_does_not_break_serialization():
+    """A field that's genuinely unset must stay None (not raise) on write.
+
+    KNOWN DuckDB-ONLY LIMITATION, not fixed here: DuckDB's Python API
+    surfaces a NULL TIMESTAMP as pandas' `NaT` sentinel on load(), not `None`
+    — confirmed live against the ACTUAL production backend
+    (Supabase/Postgres via asyncpg) that a never-checked KPI's
+    slice_validity_checked_at correctly deserializes to `None`; this is a
+    DuckDB-registry-specific quirk, and DuckDB is explicitly not the
+    production registry backend (CLAUDE.md: "Supabase is the SOLE registry
+    backend"). Asserting `pd.isna(...)` here rather than `is None` so this
+    test reflects DuckDB's real behaviour honestly instead of either hiding
+    the quirk or blocking on a fix to a backend nothing in production uses
+    for registry data.
+    """
+    import pandas as pd
+
+    db_manager = DuckDBManager({"database_path": ":memory:"})
+    await db_manager.connect()
+    await db_manager.execute_query(
+        "CREATE TABLE timestamped_items (id VARCHAR PRIMARY KEY, checked_at TIMESTAMP)"
+    )
+    provider = DatabaseRegistryProvider(
+        db_manager=db_manager, table_name="timestamped_items",
+        model_class=TimestampedModel, key_fields=["id"],
+    )
+
+    success = await provider.register(TimestampedModel(id="k2", checked_at=None))
+    assert success is True, "the write itself must succeed regardless of the load-side quirk"
+
+    provider._items.clear()
+    await provider.load()
+    loaded_value = provider.get("k2").checked_at
+    assert loaded_value is None or pd.isna(loaded_value)
+
+    await db_manager.disconnect()
+
 
 if __name__ == "__main__":
     asyncio.run(test_database_registry_provider_crud())
