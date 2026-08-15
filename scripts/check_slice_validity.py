@@ -45,88 +45,34 @@ USAGE
     python scripts/check_slice_validity.py --view <fq_view> --measure-column account_type \
         --components Revenue COGS --dimensions customer_name product_name channel_name
 
-Requires GOOGLE_APPLICATION_CREDENTIALS (BigQuery only for now — the analysis is
-backend-agnostic but the executor is not; add a branch when a client needs it).
+Requires GOOGLE_APPLICATION_CREDENTIALS. The underlying analysis
+(src/analysis/slice_validity.py) is backend-aware — this CLI's own executor
+is still BigQuery-only; A9_Data_Governance_Agent.check_slice_validity()
+routes the other three backends through DPA.execute_sql() instead.
 """
 from __future__ import annotations
 
 import argparse
+import asyncio
 import os
 import sys
-from dataclasses import dataclass
-from typing import Callable, Dict, List, Sequence
+from typing import Sequence
 
-# Coverage below this fraction of the richest component = the dimension cannot
-# carry the ratio at all. INVALID_BELOW is judgement, not science — set from two
-# datasets, revisit as more are profiled.
-INVALID_BELOW = 0.25
-
-# "ok" requires FULL coverage, deliberately. If a component misses even one value
-# of the dimension, that value's ratio is fabricated — 19 of 20 customers covered
-# means one customer shows a confident wrong number. Partial coverage is the case
-# most likely to be believed, so it never reads clean.
-DEGRADED_BELOW = 1.0
-
-
-@dataclass
-class DimensionVerdict:
-    dimension: str
-    counts: Dict[str, int]          # component -> distinct dimension values
-    coverage: float                 # weakest component / richest component
-    verdict: str                    # "ok" | "degraded" | "INVALID"
-
-    @property
-    def weakest(self) -> str:
-        return min(self.counts, key=lambda k: self.counts[k])
-
-
-def assess(counts: Dict[str, int]) -> str:
-    """Verdict for one dimension from its per-component distinct-value counts.
-
-    Pure function, no I/O — this is the part worth testing and reusing.
-    """
-    richest = max(counts.values()) if counts else 0
-    if richest == 0:
-        return "unknown"
-    ratio = min(counts.values()) / richest
-    if ratio < INVALID_BELOW:
-        return "INVALID"
-    if ratio < DEGRADED_BELOW:
-        return "degraded"
-    return "ok"
-
-
-def profile(
-    run_query: Callable[[str], Sequence[dict]],
-    view: str,
-    measure_column: str,
-    components: Sequence[str],
-    dimensions: Sequence[str],
-    version_filter: str | None = "Actual",
-) -> List[DimensionVerdict]:
-    """Count distinct values of each dimension, per component measure."""
-    where = f"{measure_column} IN ({', '.join(repr(c) for c in components)})"
-    if version_filter:
-        where += f" AND version = {version_filter!r}"
-
-    out: List[DimensionVerdict] = []
-    for dim in dimensions:
-        sql = (
-            f"SELECT {measure_column} AS component, COUNT(DISTINCT {dim}) AS n "
-            f"FROM `{view}` WHERE {where} GROUP BY component"
-        )
-        try:
-            rows = run_query(sql)
-        except Exception as exc:  # dimension absent from this view
-            print(f"  {dim:24s} skipped — {str(exc).splitlines()[0][:70]}", file=sys.stderr)
-            continue
-        counts = {r["component"]: int(r["n"]) for r in rows}
-        for c in components:            # a component with zero rows still counts
-            counts.setdefault(c, 0)
-        richest = max(counts.values()) if counts else 0
-        coverage = (min(counts.values()) / richest) if richest else 0.0
-        out.append(DimensionVerdict(dim, counts, coverage, assess(counts)))
-    return out
+# Pure logic moved to src/analysis/slice_validity.py (2026-08-15) so
+# A9_Data_Governance_Agent.check_slice_validity() can call the exact same
+# assess()/profile() this CLI uses, with no duplication — also where the
+# backend-aware query building lives now, since a query hardcoded to
+# BigQuery's backtick-quoting was a syntax error on every other backend
+# regardless of which database connection routed it there. Re-exported here
+# so this CLI's own usage and tests/unit/test_slice_validity.py (which
+# imports from THIS module) keep working unchanged.
+from src.analysis.slice_validity import (  # noqa: F401
+    DEGRADED_BELOW,
+    INVALID_BELOW,
+    DimensionVerdict,
+    assess,
+    profile,
+)
 
 
 def _bigquery_executor(project: str | None):
@@ -160,10 +106,10 @@ def main() -> int:
         return 2
 
     project = args.project or args.view.split(".")[0]
-    verdicts = profile(
+    verdicts = asyncio.run(profile(
         _bigquery_executor(project), args.view, args.measure_column,
         args.components, args.dimensions, args.version or None,
-    )
+    ))
 
     print(f"\nSlice validity — {args.view}")
     print(f"components: {' / '.join(args.components)}\n")
