@@ -1,13 +1,33 @@
 """Slice-validity profiling — deterministic, pure, backend-aware.
 
-WHAT THIS ANSWERS
-------------------
-"If a ratio KPI is sliced by this dimension, does every component measure
-reach that dimension at the same grain?" A ratio KPI (gross margin %,
-cost-to-serve, yield) is built from two or more component measures. If those
-components are recorded at DIFFERENT dimensional grain, slicing the ratio by
-a dimension only one component reaches produces a confident, plausible,
-completely wrong number.
+TWO INDEPENDENT CHECKS, NOT ONE
+--------------------------------
+`profile()` answers one question: "if a ratio KPI is sliced by this
+dimension, does every component measure reach it at the same grain?" A
+ratio KPI (gross margin %, cost-to-serve, yield) is built from two or more
+component measures; if those components are recorded at DIFFERENT
+dimensional grain, slicing the ratio by a dimension only one component
+reaches produces a confident, plausible, completely wrong number. This
+check only applies where there are 2+ components to compare — it says
+nothing about a single-component KPI (`net_revenue`, a plain `SUM(amount)`),
+because there is nothing on the other side of the comparison.
+
+`check_completeness()` (added 2026-08-16, after shipping `profile()` without
+it was called out as a real gap — see git history) answers a DIFFERENT
+question that applies to EVERY KPI, one component or many: "of the rows
+this KPI actually sums, what fraction have a non-NULL value for this
+dimension at all?" A single-component KPI can be wrong when sliced even
+though the enterprise total is right — some revenue rows might have no
+`customer_name`, so `SUM(net_revenue) GROUP BY customer_name` silently
+drops that revenue rather than misattributing it, and the per-customer
+numbers no longer reconstruct the total. `profile()` cannot see this
+failure at all, because it never looks at a KPI with only one component.
+
+Both checks share `assess()`/`DimensionVerdict`/`_quote_view()` — they
+differ only in what `counts` means (component name -> distinct dimension
+values reached, vs `total_rows`/`complete_rows`), and a caller (currently
+A9_Data_Governance_Agent.check_slice_validity()) is expected to run BOTH
+per dimension and treat a dimension as unsafe to slice by if EITHER fails.
 
 WHY THIS EXISTS
 ----------------
@@ -63,6 +83,7 @@ precedent's own stated exception.
 from __future__ import annotations
 
 import inspect
+import re
 import sys
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Sequence
@@ -132,6 +153,65 @@ def _quote_view(view: str, source_system: str) -> str:
     return f"`{view}`"
 
 
+def _filter_pattern(column: str) -> re.Pattern:
+    """`<column> = 'X'` or `<column> IN ('X', 'Y', ...)`, bracket-quoting
+    (`[column]`) optional so it matches every backend's convention this
+    codebase actually writes — SQL Server bracket-quotes, everything else
+    doesn't."""
+    return re.compile(rf"\[?{column}\]?\s*(?:=\s*'([^']+)'|IN\s*\(([^)]+)\))", re.IGNORECASE)
+
+
+# Tried in order. account_type is the discriminator for every ratio/composite
+# KPI in this codebase (Revenue vs COGS vs SGA); account_category is a SECOND,
+# finer-grained discriminator a real subset of single-component KPIs filter
+# on instead — found live 2026-08-15 running this against every KPI, not
+# assumed: product_sales_revenue ("account_category = 'Product Sales'"),
+# service_revenue, base_oil_cost, distribution_cost all have NO account_type
+# filter anywhere in their sql_query, only account_category. Confirmed on
+# both BigQuery and Snowflake twins of these four.
+_COMPONENT_COLUMN_PATTERNS = [
+    ("account_type", _filter_pattern("account_type")),
+    ("account_category", _filter_pattern("account_category")),
+]
+
+
+def extract_components(sql_query: Optional[str]) -> tuple[str, List[str]]:
+    """Pull the column and distinct values a KPI's own sql_query filters its
+    components on. Returns (measure_column, components).
+
+    Both check_completeness() and profile() need to know which components a
+    KPI is actually built from, and requiring a caller to specify that by
+    hand doesn't scale to "every KPI" (42 across the three seeded clients,
+    26 of them single-component). The KPI's sql_query already encodes the
+    answer correctly by construction — extract it rather than ask twice.
+
+    Matches every shape this codebase's KPI definitions actually use,
+    confirmed by reading real examples, not assumed: a bare `= 'Revenue'`
+    filter, an `IN (...)` list, multiple separate matches inside a
+    `CASE WHEN account_type = 'Revenue' THEN ... WHEN account_type = 'COGS'
+    THEN ...` expression (each WHEN is its own match), and the
+    account_category fallback above.
+
+    Returns `("account_type", [])` when NEITHER column matches anything —
+    the caller decides what "no components found" means for that KPI, but
+    account_type stays the reported column since it's the more common case,
+    not a real signal either way when nothing matched at all.
+    """
+    for column, pattern in _COMPONENT_COLUMN_PATTERNS:
+        values: set = set()
+        for m in pattern.finditer(sql_query or ""):
+            if m.group(1):
+                values.add(m.group(1))
+            elif m.group(2):
+                values.update(re.findall(r"'([^']+)'", m.group(2)))
+        if values:
+            # Revenue first when present — it's the reference component in
+            # every example this codebase has (the "richest" reach every cost
+            # component is compared against); alphabetical after that.
+            return column, sorted(values, key=lambda v: (v != "Revenue", v))
+    return "account_type", []
+
+
 async def profile(
     run_query: Callable[[str], Any],
     view: str,
@@ -191,5 +271,63 @@ async def profile(
             counts.setdefault(c, 0)
         richest = max(counts.values()) if counts else 0
         coverage = (min(counts.values()) / richest) if richest else 0.0
+        out.append(DimensionVerdict(dim, counts, coverage, assess(counts)))
+    return out
+
+
+async def check_completeness(
+    run_query: Callable[[str], Any],
+    view: str,
+    measure_column: str,
+    components: Sequence[str],
+    dimensions: Sequence[str],
+    value_column: str = "amount",
+    version_filter: Optional[str] = "Actual",
+    source_system: str = "bigquery",
+) -> List[DimensionVerdict]:
+    """For each dimension, what fraction of this KPI's own rows have a
+    non-NULL value for that dimension?
+
+    Applies to EVERY KPI — `components` may be a single value (a plain sum
+    like `net_revenue` filtered to `account_type = 'Revenue'`) or several (a
+    composite like `gross_margin_pct`). Unlike `profile()`, this never has
+    "nothing to compare" — a lone component still has rows, and those rows
+    either carry the dimension or don't.
+
+    `counts` here means `{"total_rows": N, "complete_rows": M}` (M <= N
+    always), NOT component-name -> value-count like `profile()`'s
+    `DimensionVerdict.counts` — same dataclass, different meaning by
+    construction, documented here so a caller doesn't conflate the two.
+
+    `COUNT(dim)` in SQL already excludes NULLs by definition, so
+    `complete_rows` is exactly "rows where this dimension is populated" —
+    no CASE WHEN needed. `value_column` is accepted but not summed by this
+    check (row-count is the coverage unit, matching profile()'s own
+    DISTINCT-count philosophy rather than mixing in a dollar-weighted
+    measure with its own sign/magnitude questions); kept as a parameter so a
+    future caller can request a value-weighted variant without a signature
+    change if row-count coverage ever proves too coarse.
+    """
+    where = f"{measure_column} IN ({', '.join(repr(c) for c in components)})"
+    if version_filter:
+        where += f" AND version = {version_filter!r}"
+
+    quoted_view = _quote_view(view, source_system)
+
+    out: List[DimensionVerdict] = []
+    for dim in dimensions:
+        sql = (
+            f"SELECT COUNT(*) AS total_rows, COUNT({dim}) AS complete_rows "
+            f"FROM {quoted_view} WHERE {where}"
+        )
+        try:
+            result = run_query(sql)
+            rows = await result if inspect.isawaitable(result) else result
+            row = {str(k).lower(): v for k, v in rows[0].items()}
+            counts = {"total_rows": int(row["total_rows"]), "complete_rows": int(row["complete_rows"])}
+        except Exception as exc:  # dimension absent from this view, or a row-shape surprise
+            print(f"  {dim:24s} skipped (completeness) — {str(exc).splitlines()[0][:70]}", file=sys.stderr)
+            continue
+        coverage = (counts["complete_rows"] / counts["total_rows"]) if counts["total_rows"] else 0.0
         out.append(DimensionVerdict(dim, counts, coverage, assess(counts)))
     return out
