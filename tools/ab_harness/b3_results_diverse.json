@@ -1,0 +1,125 @@
+{
+  "model": "claude-sonnet-5",
+  "council_mode": "diverse",
+  "personas": [
+    "mckinsey",
+    "pwc_strategy",
+    "accenture",
+    "kpmg"
+  ],
+  "results": {
+    "mckinsey": [
+      {
+        "question": "When the margin decline began in June 2026, was this coincident with a specific pricing action, cost increase from suppliers, or contractual change affecting Synthetic Blend and Conventional Engine Oil specifically, or do you believe this reflects a broader input cost/market shift?",
+        "topic": "hypothesis_validation"
+      },
+      {
+        "question": "Is the year-over-year comparison being made against a 'normal' prior year baseline, or was last year itself anomalous (e.g., unusually high margins, one-time favorable cost events) that could be inflating the perceived shortfall?",
+        "topic": "comparison_baseline"
+      },
+      {
+        "question": "Should we treat all five product lines as one systemic issue, or do you already suspect the Engine Oil lines (Synthetic Blend, Conventional) and the industrial lines (Compressor, Hydraulic, Manual Gear Oil) have distinct root causes requiring separate workstreams?",
+        "topic": "segment_specific_causation"
+      },
+      {
+        "question": "Are there external market factors \u2014 competitor pricing moves, base oil/additive commodity price swings, or customer mix shifts toward the Value category \u2014 that you already know are pressuring these specific product lines?",
+        "topic": "external_context"
+      },
+      {
+        "question": "What margin recovery target and timeline are you committing to the board, and is the goal full restoration to prior-year levels or stabilization at a new, sustainable margin floor?",
+        "topic": "success_criteria"
+      },
+      {
+        "question": "What actions are off the table \u2014 for example, price increases that risk volume/share loss, renegotiating supplier contracts, or exiting the Value segment \u2014 so we can bound the solution space before we build recommendations?",
+        "topic": "constraints"
+      }
+    ],
+    "pwc_strategy": [
+      {
+        "question": "Which specific capabilities\u2014pricing governance, procurement/input-cost management, product costing, or trade promotion management\u2014do you believe are most broken and driving these five product lines' margin erosion, versus this being a market-wide price/cost squeeze?",
+        "topic": "hypothesis_validation"
+      },
+      {
+        "question": "Is the margin decline concentrated in specific customer segments, channels, or geographies within these five product lines, or is it broad-based across the entire book of business for these SKUs?",
+        "topic": "segment_specific_causation"
+      },
+      {
+        "question": "Since this issue started in period 2026-006, was there a specific triggering event\u2014input cost spike, competitive price action, contract renegotiation, or internal pricing/system change\u2014that coincides with that timing?",
+        "topic": "external_context"
+      },
+      {
+        "question": "Are there other product lines or business units with similar cost structures or customer bases that are NOT experiencing this margin decline, which we could use to isolate root cause?",
+        "topic": "comparison_baseline"
+      },
+      {
+        "question": "What operating constraints\u2014contractual pricing commitments, regulatory pricing limits, or capacity/capital limitations\u2014would restrict our ability to redesign pricing or cost-to-serve capabilities for these product lines?",
+        "topic": "constraints"
+      },
+      {
+        "question": "If we must trade off between margin recovery speed and volume/share retention in the Value category, where is your pain threshold\u2014how much volume or share are you willing to sacrifice to restore target margins, and over what timeframe?",
+        "topic": "tradeoff_tolerance"
+      }
+    ],
+    "accenture": [
+      {
+        "question": "Since June 2026, have we changed pricing, discounting, or rebate structures on these five product lines, or has procurement seen input cost/freight inflation that hasn't been passed through?",
+        "topic": "hypothesis_validation"
+      },
+      {
+        "question": "Is the margin erosion concentrated in specific channels, customer segments, or geographies, or is it broad-based across the entire book of business for these five lines?",
+        "topic": "segment_specific_causation"
+      },
+      {
+        "question": "What is the target gross margin baseline we're measuring against\u2014last year's actual, this year's budget, or a board-committed number\u2014and how firm is that target?",
+        "topic": "comparison_baseline"
+      },
+      {
+        "question": "Are there technology, data, or ERP/pricing-system constraints today that limit our ability to instrument granular margin visibility at the SKU/transaction level in near real time?",
+        "topic": "constraints"
+      },
+      {
+        "question": "What magnitude of margin recovery must we deliver by which date for this to be considered resolved, and is a partial recovery with volume growth acceptable versus a full percentage-point recapture?",
+        "topic": "success_criteria"
+      },
+      {
+        "question": "Do we see similar margin compression patterns emerging in adjacent product lines or categories beyond these five, suggesting a systemic root cause we should get ahead of at scale?",
+        "topic": "replication_potential"
+      },
+      {
+        "question": "If closing this margin gap requires repricing or portfolio actions that risk volume or customer relationships in the Value category, how much revenue or share erosion are you willing to accept to protect margin?",
+        "topic": "tradeoff_tolerance"
+      }
+    ],
+    "kpmg": [
+      {
+        "question": "At 2026-006, was there a specific pricing, cost, or contractual change (e.g., input cost pass-through failure, rebate restructuring, or discount policy shift) applied to Synthetic Blend and Conventional Engine Oil that could explain the sudden margin compression, and was it approved through a formal governance/change-control process?",
+        "topic": "hypothesis_validation"
+      },
+      {
+        "question": "Should this margin investigation be bounded to these five product lines and the Value category, or do you suspect the underlying cost/pricing control gaps extend to other product lines or categories not yet flagged by the variance threshold?",
+        "topic": "scope_boundaries"
+      },
+      {
+        "question": "Are there external factors \u2014 supplier base oil cost inflation, competitor pricing actions, or regulatory/environmental compliance costs (e.g., additive reformulation) \u2014 affecting these five lines that are outside management's direct control?",
+        "topic": "external_context"
+      },
+      {
+        "question": "What is the target gross margin recovery timeline and floor threshold below which you would consider escalating to a formal remediation or pricing governance intervention, and are there constraints (contractual pricing locks, customer commitments) limiting how quickly corrective pricing or cost actions can be implemented?",
+        "topic": "constraints"
+      },
+      {
+        "question": "What specific gross margin percentage and dollar recovery would constitute a successful resolution of this issue, and over what reporting period should that be measured and audited?",
+        "topic": "success_criteria"
+      },
+      {
+        "question": "Is the margin erosion pattern seen in Synthetic Blend and Conventional Engine Oil replicated in other Value-category or adjacent product lines that haven't yet crossed the variance threshold, suggesting a systemic pricing or cost-control weakness rather than five isolated incidents?",
+        "topic": "segment_specific_causation"
+      }
+    ]
+  },
+  "topic_jaccard_mean": 0.603835978835979,
+  "lexical_jaccard_mean": 0.1624350663148143,
+  "diverges": true,
+  "tokens_in": 3574,
+  "tokens_out": 2232
+}

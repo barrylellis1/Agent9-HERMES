@@ -80,3 +80,8 @@ playwright-results/
 # payloads with client business context.
 playwright-report-live/
 playwright-results-live/
+
+# A/B harness outputs (the instrument and its fixture are committed; results are not)
+tools/ab_harness/ab_results.jsonl
+tools/ab_harness/ab_raw/
+

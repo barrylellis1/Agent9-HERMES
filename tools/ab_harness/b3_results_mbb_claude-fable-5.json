@@ -1,0 +1,98 @@
+{
+  "model": "claude-fable-5",
+  "council_mode": "mbb",
+  "personas": [
+    "mckinsey",
+    "bcg",
+    "bain"
+  ],
+  "results": {
+    "mckinsey": [
+      {
+        "question": "Our hypothesis is that this margin erosion is driven by input cost inflation in base oils that you chose not to pass through in the Value category\u2014is that consistent with pricing decisions made around period 2026-006, or was there a deliberate strategy shift?",
+        "topic": "hypothesis_validation"
+      },
+      {
+        "question": "Should we bound this engagement to the five underperforming product lines and the Value category, or do you want us to examine the full portfolio including lines currently masking the problem?",
+        "topic": "scope_boundaries"
+      },
+      {
+        "question": "What has changed competitively in the past two quarters\u2014have discounters or private-label entrants forced price concessions in Value-tier engine oils, or are customers trading down due to macro pressure?",
+        "topic": "external_context"
+      },
+      {
+        "question": "What levers are off the table\u2014are there contractual pricing commitments, customer relationships, or capacity/supply agreements that constrain how aggressively we can reprice or rationalize these lines?",
+        "topic": "constraints"
+      },
+      {
+        "question": "What does success look like and by when\u2014full recovery of the year-over-year margin gap, or a target margin floor for these lines, and what is the timeline the Board expects?",
+        "topic": "success_criteria"
+      },
+      {
+        "question": "If restoring margin requires sacrificing volume or share in the Value segment, how much revenue contraction are you willing to accept to defend gross margin percentage?",
+        "topic": "tradeoff_tolerance"
+      }
+    ],
+    "bcg": [
+      {
+        "question": "Our data shows the margin erosion concentrated in the Value category starting 2026-06 \u2014 do you believe this reflects a deliberate pricing action, competitive price pressure, or input cost inflation you were unable to pass through, and what evidence supports your view?",
+        "topic": "hypothesis_validation"
+      },
+      {
+        "question": "Should we bound this analysis to the five underperforming lubricant lines and the Value category, or do you see early warning signs that Premium and industrial lines could face the same margin dynamics within the planning horizon?",
+        "topic": "scope_boundaries"
+      },
+      {
+        "question": "What has changed in the competitive and supply environment since mid-2026 \u2014 base oil and additive costs, competitor pricing moves, or channel consolidation among distributors \u2014 that isn't visible in our internal margin data?",
+        "topic": "external_context"
+      },
+      {
+        "question": "What constraints do we face in responding \u2014 existing customer price contracts, supplier lock-ins, plant capacity commitments, or regulatory requirements \u2014 that would limit repricing, reformulation, or portfolio rationalization of these lines?",
+        "topic": "constraints"
+      },
+      {
+        "question": "What does success look like and by when \u2014 full recovery of the ~7-point margin decline on these lines, hitting the blended gross margin target, or a strategic repositioning of the Value portfolio even at lower revenue?",
+        "topic": "success_criteria"
+      },
+      {
+        "question": "If defending these Value-category lines requires sacrificing volume or market share \u2014 for example, walking away from low-margin accounts or exiting Conventional Engine Oil \u2014 how much growth are you willing to trade for margin restoration?",
+        "topic": "tradeoff_tolerance"
+      }
+    ],
+    "bain": [
+      {
+        "question": "Our working hypothesis is that the Value category margin erosion is driven by input cost inflation we haven't passed through in price\u2014does that match what you're seeing, or do you believe mix shift or competitive discounting is the bigger culprit?",
+        "topic": "hypothesis_validation"
+      },
+      {
+        "question": "What changed in the market around mid-2026 when this started\u2014did a competitor move on price, did base oil or additive costs spike, or did a major distributor renegotiate terms?",
+        "topic": "external_context"
+      },
+      {
+        "question": "Are there any constraints we must work within\u2014customer contracts, pricing commitments, capacity, or union agreements\u2014that would limit our ability to reprice, rationalize SKUs, or shift production in the next two quarters?",
+        "topic": "constraints"
+      },
+      {
+        "question": "What does success look like and by when\u2014do you need full recovery to target gross margin this fiscal year, or is a phased recovery acceptable, and what's the minimum result the board will accept?",
+        "topic": "success_criteria"
+      },
+      {
+        "question": "How much volume or market share are you willing to sacrifice in the Value category to restore margin\u2014would you accept walking away from unprofitable accounts or product lines?",
+        "topic": "tradeoff_tolerance"
+      },
+      {
+        "question": "For the two biggest decliners, Synthetic Blend and Conventional Engine Oil, is the margin pressure concentrated in specific customers, channels, or regions, or is it broad-based across the book?",
+        "topic": "segment_specific_causation"
+      }
+    ]
+  },
+  "topic_jaccard_mean": 0.8095238095238096,
+  "lexical_jaccard_mean": 0.25693587734388784,
+  "null_mean": 0.512404365079365,
+  "null_p05": 0.3888888888888889,
+  "null_p95": 0.6428571428571429,
+  "verdict": "CONVERGE (significantly more aligned than chance) -> stop; close Stage I at B-2",
+  "diverges": false,
+  "tokens_in": 2658,
+  "tokens_out": 1521
+}

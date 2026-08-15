@@ -1,0 +1,853 @@
+{
+  "model": "claude-sonnet-5",
+  "effort": "medium",
+  "inputs": {
+    "A_diagnosis": "Summary: Situation: Year-to-date gross margin percentage is underperforming against target when measured year-over-year, with five product lines driving the shortfall: Synthetic Blend Engine Oil, Conventional Engine Oil, Compressor Oil, Hydraulic Oil, and Manual Gear Oil.\n\nComplication: Synthetic Blend Engine Oil has declined 7.1 percentage points and Conventional Engine Oil has declined 6.6 percentage points year-over-year, while the Value product category has contracted 6.4 percentage points, indicatin\n\nTop Drivers (WHERE IS):\n- Synthetic Blend Engine Oil: $-7 (0.0% of variance)\n- Conventional Engine Oil: $-7 (0.0% of variance)\n- Compressor Oil: $-6 (0.0% of variance)\n- Hydraulic Oil: $-6 (0.0% of variance)\n- Manual Gear Oil: $-6 (0.0% of variance)\n\nIssue started: 2026-006",
+    "D_framed_full": "Summary: Situation: Year-to-date gross margin percentage is underperforming against target when measured year-over-year, with five product lines driving the shortfall: Synthetic Blend Engine Oil, Conventional Engine Oil, Compressor Oil, Hydraulic Oil, and Manual Gear Oil.\n\nComplication: Synthetic Blend Engine Oil has declined 7.1 percentage points and Conventional Engine Oil has declined 6.6 percentage points year-over-year, while the Value product category has contracted 6.4 percentage points, indicatin\n\nSegment movements, largest first:\n  product_name = Synthetic Blend Engine Oil: -7.14\n  product_name = Conventional Engine Oil: -6.61\n  product_category = Value: -6.42\n  product_name = Compressor Oil: -5.86\n  product_line = Engine Oils: -5.80\n  product_name = Hydraulic Oil: -5.76\n  product_name = Manual Gear Oil: -5.74\n  product_line = Industrial Lubricants: -5.47\n  product_category = Mid-Range: -5.44\n  product_line = Transmission & Drivetrain: -5.43\n  product_name = Automatic Transmission Fluid: -5.29\n  customer_name = National Auto Parts Chain A: -5.24\n  customer_name = Latin America Distributor: -5.08\n  customer_region = Latin America: -5.08\n  customer_name = Middle East Distributor: -5.04\n  customer_region = Middle East: -5.04\n  customer_name = Mining & Construction Corp: -5.02\n  customer_name = Fleet Customer A: -5.00\n  customer_name = Marine Operations Co: -4.98\n  customer_segment = International Distributors: -4.98\n  customer_region = International: -4.98\n  profit_center_name = International Division: -4.98\n  business_unit = International: -4.98\n  channel_name = International Distribution: -4.98\n  channel_type = International: -4.98\n  customer_name = European Distributor: -4.97\n  customer_region = Europe: -4.97\n  customer_name = Dealer Service Network: -4.97\n  product_name = Turbine Oil: -4.93\n  customer_name = Asia-Pacific Distributor: -4.80\n  customer_region = Asia-Pacific: -4.80\n  customer_name = Fleet Customer B: -4.79\n  customer_segment = Commercial Fleet: -4.72\n  profit_center_name = Commercial & Industrial Division: -4.71\n  business_unit = Commercial & Industrial: -4.71\n  channel_name = B2B Direct Sales: -4.71\n  channel_type = Direct: -4.71\n  customer_segment = Industrial: -4.70\n  product_name = High Mileage Engine Oil: -4.61\n  channel_name = DIY Retail: -4.50\n  channel_type = Retail: -4.50\n  product_category = Industrial: -4.46\n  customer_region = North America: -4.39\n  customer_segment = Service Centers: -4.38\n  profit_center_name = Service Centers Division: -4.38\n  business_unit = Service Centers: -4.38\n  channel_name = DIFM Service Centers: -4.38\n  channel_type = Service: -4.38\n  customer_segment = Retail Partners: -4.26\n  profit_center_name = Retail Products Division: -4.26\n  business_unit = Retail Products: -4.26\n  product_name = Full Synthetic Engine Oil: -3.83\n  product_category = Premium: -3.61\n  channel_name = E-Commerce: -3.29\n  channel_type = Digital: -3.29\n  product_name = Multi-Purpose Grease: -3.26\n  product_line = Greases & Specialty: -3.14\n  product_category = Specialty: -2.95\n  product_line = Coolants & Antifreeze: -1.92",
+    "B_evidence": "KPI: gross_margin_pct\nComparison: year-to-date vs prior year-to-date. Units are percentage points.\n\nSegment movements, largest first:\n  product_name = Synthetic Blend Engine Oil: -7.14\n  product_name = Conventional Engine Oil: -6.61\n  product_category = Value: -6.42\n  product_name = Compressor Oil: -5.86\n  product_line = Engine Oils: -5.80\n  product_name = Hydraulic Oil: -5.76\n  product_name = Manual Gear Oil: -5.74\n  product_line = Industrial Lubricants: -5.47\n  product_category = Mid-Range: -5.44\n  product_line = Transmission & Drivetrain: -5.43\n  product_name = Automatic Transmission Fluid: -5.29\n  customer_name = National Auto Parts Chain A: -5.24\n  customer_name = Latin America Distributor: -5.08\n  customer_region = Latin America: -5.08\n  customer_name = Middle East Distributor: -5.04\n  customer_region = Middle East: -5.04\n  customer_name = Mining & Construction Corp: -5.02\n  customer_name = Fleet Customer A: -5.00\n  customer_name = Marine Operations Co: -4.98\n  customer_segment = International Distributors: -4.98\n  customer_region = International: -4.98\n  profit_center_name = International Division: -4.98\n  business_unit = International: -4.98\n  channel_name = International Distribution: -4.98\n  channel_type = International: -4.98\n  customer_name = European Distributor: -4.97\n  customer_region = Europe: -4.97\n  customer_name = Dealer Service Network: -4.97\n  product_name = Turbine Oil: -4.93\n  customer_name = Asia-Pacific Distributor: -4.80\n  customer_region = Asia-Pacific: -4.80\n  customer_name = Fleet Customer B: -4.79\n  customer_segment = Commercial Fleet: -4.72\n  profit_center_name = Commercial & Industrial Division: -4.71\n  business_unit = Commercial & Industrial: -4.71\n  channel_name = B2B Direct Sales: -4.71\n  channel_type = Direct: -4.71\n  customer_segment = Industrial: -4.70\n  product_name = High Mileage Engine Oil: -4.61\n  channel_name = DIY Retail: -4.50\n  channel_type = Retail: -4.50\n  product_category = Industrial: -4.46\n  customer_region = North America: -4.39\n  customer_segment = Service Centers: -4.38\n  profit_center_name = Service Centers Division: -4.38\n  business_unit = Service Centers: -4.38\n  channel_name = DIFM Service Centers: -4.38\n  channel_type = Service: -4.38\n  customer_segment = Retail Partners: -4.26\n  profit_center_name = Retail Products Division: -4.26\n  business_unit = Retail Products: -4.26\n  product_name = Full Synthetic Engine Oil: -3.83\n  product_category = Premium: -3.61\n  channel_name = E-Commerce: -3.29\n  channel_type = Digital: -3.29\n  product_name = Multi-Purpose Grease: -3.26\n  product_line = Greases & Specialty: -3.14\n  product_category = Specialty: -2.95\n  product_line = Coolants & Antifreeze: -1.92",
+    "C_raw": "KPI: gross_margin_pct\nComparison: year-to-date vs prior year-to-date. Units are percentage points.\n\nMeasured values by segment:\n  business_unit = Commercial & Industrial: -4.71\n  business_unit = International: -4.98\n  business_unit = Retail Products: -4.26\n  business_unit = Service Centers: -4.38\n  channel_name = B2B Direct Sales: -4.71\n  channel_name = DIFM Service Centers: -4.38\n  channel_name = DIY Retail: -4.50\n  channel_name = E-Commerce: -3.29\n  channel_name = International Distribution: -4.98\n  channel_type = Digital: -3.29\n  channel_type = Direct: -4.71\n  channel_type = International: -4.98\n  channel_type = Retail: -4.50\n  channel_type = Service: -4.38\n  customer_name = Asia-Pacific Distributor: -4.80\n  customer_name = Dealer Service Network: -4.97\n  customer_name = European Distributor: -4.97\n  customer_name = Fleet Customer A: -5.00\n  customer_name = Fleet Customer B: -4.79\n  customer_name = Latin America Distributor: -5.08\n  customer_name = Marine Operations Co: -4.98\n  customer_name = Middle East Distributor: -5.04\n  customer_name = Mining & Construction Corp: -5.02\n  customer_name = National Auto Parts Chain A: -5.24\n  customer_region = Asia-Pacific: -4.80\n  customer_region = Europe: -4.97\n  customer_region = International: -4.98\n  customer_region = Latin America: -5.08\n  customer_region = Middle East: -5.04\n  customer_region = North America: -4.39\n  customer_segment = Commercial Fleet: -4.72\n  customer_segment = Industrial: -4.70\n  customer_segment = International Distributors: -4.98\n  customer_segment = Retail Partners: -4.26\n  customer_segment = Service Centers: -4.38\n  product_category = Industrial: -4.46\n  product_category = Mid-Range: -5.44\n  product_category = Premium: -3.61\n  product_category = Specialty: -2.95\n  product_category = Value: -6.42\n  product_line = Coolants & Antifreeze: -1.92\n  product_line = Engine Oils: -5.80\n  product_line = Greases & Specialty: -3.14\n  product_line = Industrial Lubricants: -5.47\n  product_line = Transmission & Drivetrain: -5.43\n  product_name = Automatic Transmission Fluid: -5.29\n  product_name = Compressor Oil: -5.86\n  product_name = Conventional Engine Oil: -6.61\n  product_name = Full Synthetic Engine Oil: -3.83\n  product_name = High Mileage Engine Oil: -4.61\n  product_name = Hydraulic Oil: -5.76\n  product_name = Manual Gear Oil: -5.74\n  product_name = Multi-Purpose Grease: -3.26\n  product_name = Synthetic Blend Engine Oil: -7.14\n  product_name = Turbine Oil: -4.93\n  profit_center_name = Commercial & Industrial Division: -4.71\n  profit_center_name = International Division: -4.98\n  profit_center_name = Retail Products Division: -4.26\n  profit_center_name = Service Centers Division: -4.38"
+  },
+  "results": {
+    "A_diagnosis": {
+      "buffett": {
+        "opening": {
+          "question": "Setting aside this year's margin dip, do these five product lines - especially Synthetic Blend and Conventional Engine Oil - still enjoy a durable cost or brand advantage over competitors, or has something structural changed in the moat itself, like input costs or private-label competition eroding pricing power permanently?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If the margin compression turns out to be a temporary raw material cost spike rather than permanent pricing erosion, are we willing to hold price and protect market share through the cycle rather than chase short-term margin recovery by cutting into product quality or customer relationships?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "munger": {
+        "opening": {
+          "question": "Before we chase five product lines at once \u2014 is there one single root cause (say, a raw material cost spike or a specific pricing decision made in June 2026) that could mechanically explain the margin decline across all five, or are we actually looking at several unrelated problems that happen to be showing up at the same time?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Inverting this: if margins had NOT declined, what would have had to be true this year that wasn't \u2014 did we fail to pass through a cost increase, or did we actively choose to hold price to protect volume/share against a competitor?",
+          "topic": "external_context"
+        }
+      },
+      "bezos": {
+        "opening": {
+          "question": "Working backwards from the customer: did we make a deliberate decision in June 2026 to hold or cut prices on these five oil lines to defend market share or customer trust, or is the margin erosion happening to us via input cost inflation we haven't passed through?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If this was a deliberate customer-facing pricing decision, what customer or market signal justified accepting a 6-7 point margin hit rather than raising prices \u2014 and is that a one-time, single-threaded call or a durable policy we're now locked into for these product lines?",
+          "topic": "constraints"
+        }
+      },
+      "musk": {
+        "opening": {
+          "question": "Strip this back to first principles: for these five lines, is the margin compression coming from an actual increase in physical input costs (base oil, additives, freight) or from a pricing/discounting decision we made ourselves? Those are two completely different problems with different fixes.",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If it's input costs, have we re-examined the bill of materials and supplier contracts from scratch to see if there's a cheaper or vertically-integrated path, rather than just accepting the raw material price as fixed and passing it through?",
+          "topic": "constraints"
+        }
+      },
+      "ohno": {
+        "opening": {
+          "question": "If you went to the actual production and fulfillment process for Synthetic Blend and Conventional Engine Oil since June 2026 and asked 'why' the margin dropped five times over\u2014was the root cause a change in the process itself (input cost, waste, rework, freight) or a change imposed externally (pricing decision, discounting)? What did you see with your own eyes at the source?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Since all five product lines broke down in the same month, was there a single common upstream trigger\u2014one supplier, one plant, one pricing policy change, or one system cutover\u2014that touches all of them, or are these five independent failures that merely coincide in time?",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "deming": {
+        "opening": {
+          "question": "When you look at the month-by-month margin trend for these five product lines since 2026-006, does the decline show up as a sudden step-change at a specific point, or as a gradual drift across many months? I want to know whether we're dealing with a single assignable cause disrupting a stable process, or a shift in the underlying system itself.",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Before we chase explanations line-by-line, has anything changed in the common system all five lines share around that time \u2014 supplier base, formulation costs, pricing policy, freight contracts, or how costs are allocated across products? A shock hitting the shared process would explain why unrelated product lines moved together.",
+          "topic": "external_context"
+        }
+      },
+      "porter": {
+        "opening": {
+          "question": "Across these five product lines, is the margin erosion coming primarily from price concessions we're granting to hold share, or from rising input/supplier costs we're absorbing rather than passing through\u2014and does that pattern differ between the Value category and the rest of the portfolio?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If a competitor has driven this dynamic\u2014undercutting price or forcing us to match in Value-tier engine and industrial oils\u2014do we have a defensible cost or differentiation advantage in those specific lines, or are we structurally worse positioned there than in the lines not showing decline?",
+          "topic": "external_context"
+        }
+      },
+      "christensen": {
+        "opening": {
+          "question": "For the customers buying Synthetic Blend and Conventional Engine Oil who've driven this margin decline, what 'job' were they hiring our product to do, and is there evidence they've switched to a competitor or a lower-cost alternative that does that job 'well enough' now?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Since this margin erosion started in June 2026 and concentrates in the Value category, did we or a competitor change something in the low-end offering around that time\u2014like a new entrant undershooting on price/performance\u2014that would explain customers migrating away from what we previously sold them?",
+          "topic": "external_context"
+        }
+      },
+      "drucker": {
+        "opening": {
+          "question": "Before we chase the margin decline further: what business are these five product lines actually in for our customers today\u2014commodity fluids bought on price, or performance products bought on trust\u2014and has that customer reality shifted while our cost and pricing structure stayed the same?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Given that shift, is restoring the old margin percentage even the right objective, or should we now define success as the mix and price position we want these lines to hold two years from now?",
+          "topic": "success_criteria"
+        }
+      },
+      "grove": {
+        "opening": {
+          "question": "2026-006 is the inflection point across all five product lines simultaneously \u2014 engine oils, compressor, hydraulic, and gear oil. That's too broad and too synchronized to be five separate stories. What single upstream event \u2014 a base oil or additive cost shock, a supplier change, a formulation shift, or a pricing decision \u2014 hit your input costs or price realization at that exact point in time?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Was the June pricing/cost position a deliberate strategic call \u2014 for instance, holding price to protect Value-segment volume or share against a competitor move \u2014 or did it happen to you as an unplanned cost pass-through failure? I need to know whether this is a tradeoff you're willing to defend or a problem you want reversed.",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "rockefeller": {
+        "opening": {
+          "question": "Before we chase five product lines at once, tell me which one\u2014if we traced its cost ledger back to the refinery input, freight terms, and blending ratio\u2014would reveal the root cause common to the others: is this a raw material cost increase we absorbed instead of passing through, or a pricing concession we granted to hold volume?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Of these five, which single line represents the largest dollar exposure if left uncorrected through year-end, and would you accept a price increase there even at the risk of losing volume to competitors, or must we protect volume at any margin cost?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "carnegie": {
+        "opening": {
+          "question": "Before we chase the margin erosion further, tell me: what is the true cost of manufacture and distribution per unit on Synthetic Blend and Conventional Engine Oil today versus 2026-006, stripped of allocated overhead\u2014are we actually paying more to make the same barrel, or are we simply giving away more on the invoice?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Of these five lines, which ones sit on capacity we already own and control end-to-end versus which depend on a supplier or distributor whose costs we cannot influence directly?",
+          "topic": "scope_boundaries"
+        }
+      },
+      "walton": {
+        "opening": {
+          "question": "Have you walked the stores or talked with the store managers and department associates in the regions where these oil lines are getting hit hardest to hear directly from them why customers are trading down or walking away\u2014before we trust what the spreadsheet is telling us?",
+          "topic": "external_context"
+        },
+        "followup": {
+          "question": "If we found that a competitor down the street is undercutting us specifically on Synthetic Blend and Conventional Engine Oil, would you rather protect margin and let volume go, or match price to keep the customer walking through our door for everything else they buy?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "kamprad": {
+        "opening": {
+          "question": "Before we chase these five oil lines, what's the real cost here to the end customer's wallet \u2014 have we let input cost inflation quietly creep into our price without asking whether the person filling their own crankcase can still afford it?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Of the margin we've given away since June, how much was a deliberate choice to keep prices low for our customers versus money simply lost to waste, rebates, or supplier costs we haven't fought hard enough against?",
+          "topic": "constraints"
+        }
+      },
+      "arnault": {
+        "opening": {
+          "question": "Across these five lines, is the margin decline coming from us cutting price to defend volume in the Value tier, or from input cost inflation we're absorbing rather than passing through \u2014 because those imply two very different remedies for brand positioning versus procurement?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If defending share in Value-tier oils means training customers to expect discounting, are you prepared to let volume slip on Synthetic Blend and Conventional Engine Oil in order to protect price integrity, or is share defense the non-negotiable priority here?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "dell": {
+        "opening": {
+          "question": "For the two hardest-hit lines, Synthetic Blend and Conventional Engine Oil, are we selling through the same direct/build-to-order channels we use elsewhere, or are these going through distributors and retail intermediaries who are compressing our margin?",
+          "topic": "segment_specific_causation"
+        },
+        "followup": {
+          "question": "If distributors are the culprit, could we cut them out and sell these lines direct to the fleet and industrial accounts driving this volume, the way we do with our core business, even if it means a slower ramp initially?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "kelleher": {
+        "opening": {
+          "question": "Before we chase five product lines at once - who on the front line, our people actually pricing and selling this oil day to day, told you why margins are slipping? Have we asked them, or are we just reading it off a spreadsheet?",
+          "topic": "external_context"
+        },
+        "followup": {
+          "question": "If we have to choose, would you rather protect the people and customer relationships in the Value category even if it costs us more margin short-term, or are you willing to let volume slip in Synthetic Blend and Conventional Oil to hold the line on price?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "dalio": {
+        "opening": {
+          "question": "Before we diagnose further: is this margin compression a case of reality not matching your plan (meaning the target/expectation was wrong), or a genuine breakdown in how these five product lines are priced and costed? Which is it, and how do you know?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Since the decline started in month 2026-006 and clusters in Value-category and engine/industrial oils together, was there a specific triggering event that month\u2014input cost shock, a pricing decision, a customer mix shift, or a competitor move\u2014that you're aware of, versus this being a slow-building trend you'd have expected to already show up in earlier months?",
+          "topic": "external_context"
+        }
+      },
+      "levitt": {
+        "opening": {
+          "question": "When customers buy Synthetic Blend and Conventional Engine Oil from us, are they buying 'oil' as a commodity, or are they buying an outcome\u2014equipment protection, warranty compliance, uptime? If it's the former, are we discounting to hold volume in a category we've let become a commodity in the customer's mind?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Have we tried augmenting these five lines with services, guarantees, or bundled expertise that differentiate them from a generic drum of oil\u2014or have we been competing purely on price because that's the only lever we've defined for ourselves?",
+          "topic": "external_context"
+        }
+      },
+      "sloan": {
+        "opening": {
+          "question": "Each of these five product lines rolls up to a specific operating division with its own P&L accountability \u2014 is this margin erosion isolated to one division's management decisions (pricing, mix, or cost absorption), or is it appearing uniformly across divisions that otherwise operate independently?",
+          "topic": "segment_specific_causation"
+        },
+        "followup": {
+          "question": "Was the margin compression in these lines a deliberate, sanctioned tradeoff by division management \u2014 for instance, holding price to defend volume or share against a competitor \u2014 or is it an unplanned erosion that current divisional controls failed to flag before it reached this magnitude?",
+          "topic": "hypothesis_validation"
+        }
+      }
+    },
+    "D_framed_full": {
+      "buffett": {
+        "opening": {
+          "question": "Since this margin erosion is broad-based across Value and Mid-Range oil products but much milder in Premium and Specialty lines, is the root cause rising base oil/additive input costs that we haven't passed through in price, or are we actively cutting prices to defend volume against competitors in the commodity-grade segments?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If it's the former, do we have the pricing power to pass those input costs through to customers without losing meaningful volume in Value and Mid-Range lines, or has that pricing power already eroded structurally?",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "munger": {
+        "opening": {
+          "question": "Almost every segment you gave me \u2014 products, regions, channels, business units \u2014 is down in a tight band around 4.5 to 7 points, which looks less like five separate product problems and more like one common underlying force hitting nearly the whole P&L at once. Before we chase five different stories, is there a single systemic driver \u2014 a base oil or additive cost spike, a freight/logistics cost surge, an FX move, or a costing/allocation methodology change \u2014 that hit around the same time and would mechanically show up in gross margin across almost every line simultaneously?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Coolants & Antifreeze is the one clear outlier, down only 1.9 points versus the 5-7 point declines everywhere else. What is genuinely different about that product's inputs, pricing, or contracts that let it dodge whatever hit everything else \u2014 and could that difference be the lever we deliberately pull elsewhere?",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "bezos": {
+        "opening": {
+          "question": "Is the margin decline in Value-category products like Synthetic Blend and Conventional Engine Oil a deliberate outcome of a pricing or investment decision we made to serve price-sensitive customers, or is it an unplanned cost/mix erosion we haven't diagnosed yet?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Given that International Distribution and Latin America/Middle East customers are showing the same ~5-point decline as the core product shortfall, do we believe there's a single upstream root cause (e.g., input costs, FX, freight) hitting both product and geography simultaneously, or are these two independent problems compounding each other?",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "musk": {
+        "opening": {
+          "question": "Strip this back to first principles: is the margin compression coming from rising input costs (base oil, additives) that we're failing to pass through in price, or from deliberate discounting/mix-shift toward lower-margin Value SKUs? These have completely different fixes and I don't want to solve a pricing problem with a procurement fix.",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If it's cost-driven, what's the actual physics of our cost stack per unit for Synthetic Blend and Conventional Engine Oil today versus a year ago \u2014 raw material cost per liter, freight, and any supplier contract changes \u2014 so we can see exactly where the 7 points evaporated instead of inferring it from category labels?",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "ohno": {
+        "opening": {
+          "question": "Before we look at more numbers: has anyone actually gone to where the margin is being set for Synthetic Blend and Conventional Engine Oil \u2014 sat with the pricing desk or sales team during a real customer negotiation \u2014 to see with their own eyes whether the erosion comes from list price cuts, discounting at the point of sale, or rising input cost that isn't being passed through?",
+          "topic": "segment_specific_causation"
+        },
+        "followup": {
+          "question": "If we traced one actual order from the Value category, Engine Oils line, through International Distribution end-to-end \u2014 quote, discount approval, freight, rebate \u2014 at which single step would you bet the margin is actually leaking, versus just showing up as leaked in the aggregate report?",
+          "topic": "hypothesis_validation"
+        }
+      },
+      "deming": {
+        "opening": {
+          "question": "Nearly every segment in this business\u2014products, regions, channels, divisions\u2014shows the same 4 to 7 point margin erosion, with almost no variation in magnitude. Before we chase individual product lines, can you confirm whether a system-wide change occurred in this period\u2014such as a uniform cost increase, currency shift, or pricing/discounting policy applied company-wide?",
+          "topic": "external_context"
+        },
+        "followup": {
+          "question": "If the cause is common to the whole system rather than specific to Synthetic Blend or Conventional Oil, then treating those five product lines as the 'problem' would be tampering with the system rather than fixing it. What management decision or process was applied uniformly across all product lines and customers during this period that could explain a shared shift of this size?",
+          "topic": "hypothesis_validation"
+        }
+      },
+      "porter": {
+        "opening": {
+          "question": "Is the margin erosion in Value-category products like Conventional and Synthetic Blend Engine Oil primarily a price-competitiveness response to lower-cost rivals eroding our differentiated position, or is it a deliberate volume/share-defense move we chose to make in that segment?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Given that the pain is concentrated in Value-tier, commodity-like products and International distributor channels rather than Premium or Direct/Digital channels, are we prepared to accept ceding margin (or share) in the lowest-differentiation segments in order to protect profitability where we still hold a distinct cost or differentiation advantage?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "christensen": {
+        "opening": {
+          "question": "When you look at the Value category and the Synthetic Blend/Conventional Engine Oil lines that are leading the margin decline, is this happening because a lower-cost competitor is now 'good enough' to do the job customers were hiring these products for\u2014winning share from below\u2014or is it that we ourselves cut price/terms to defend volume against that threat?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "For the International Distributor and Commercial Fleet segments showing similar margin erosion\u2014are these customers asking us for the same stripped-down 'just gets the job done' performance as the Value line, or are we still bundling premium service, packaging, and support they don't actually value and won't pay for, forcing discounts to close deals?",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "drucker": {
+        "opening": {
+          "question": "Before we treat this margin decline as a problem to solve, help me understand intent: did we consciously decide to hold or cut prices on the Value category and Engine Oils lines to defend volume and market position against competitors, or has this erosion happened to us without a corresponding strategic decision?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If you were deciding today, with fresh eyes and no sunk history, which of these five underperforming lines - Synthetic Blend, Conventional, Compressor, Hydraulic, or Manual Gear Oil - would you still choose to fund and grow, and which would you consider phasing out because they no longer serve the results this business needs?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "grove": {
+        "opening": {
+          "question": "Since virtually every line and region is down by a near-uniform 4.5-7 points, this smells like a single systemic 'production process' variable\u2014likely base oil or additive input costs, or a pricing/discount policy change\u2014hitting everything roughly equally rather than five independent problems. Which is it: did input costs spike broadly, or did we make a pricing/discounting decision that applied across the board?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If it is input costs: at what point in the quarter did the cost increase actually hit, and did we attempt a price pass-through at that inflection point\u2014because the size of the gap between when costs rose and when (or whether) prices moved will tell us if this is a temporary lag we're already correcting or a structural margin reset we need to plan around going forward.",
+          "topic": "external_context"
+        }
+      },
+      "rockefeller": {
+        "opening": {
+          "question": "For Synthetic Blend and Conventional Engine Oil, the two steepest decliners, is the margin erosion coming from a rise in our raw material and refining cost per barrel, or from price concessions we've granted to move volume \u2014 and do we have the unit cost ledger to prove which one it is?",
+          "topic": "segment_specific_causation"
+        },
+        "followup": {
+          "question": "If it is a cost-side problem, are all our plants buying base oil and additives on the same terms, or is one plant paying more per unit than another for the identical input \u2014 and if it's pricing, which accounts received the discount and who approved it?",
+          "topic": "constraints"
+        }
+      },
+      "carnegie": {
+        "opening": {
+          "question": "Before we discuss remedies, I want the precise cost of production: for Synthetic Blend and Conventional Engine Oil, how much of that 7-point and 6.6-point margin erosion is rising input cost \u2014 base oil, additives, packaging \u2014 versus price concessions we granted to hold volume?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "And what is our plant and blending capacity utilization running at versus a year ago? If volume has softened, fixed manufacturing overhead is being spread over fewer barrels, and that hidden cost creep will masquerade as a pricing problem when it is really an idle-capacity problem.",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "walton": {
+        "opening": {
+          "question": "Have you actually talked to the sales reps and branch managers handling the Value category and the Engine Oils line to hear directly why they're cutting price or losing margin on those accounts\u2014are we discounting to keep volume against a competitor, or are our supplier costs quietly rising while we hold the shelf price?",
+          "topic": "external_context"
+        },
+        "followup": {
+          "question": "If it's competitive discounting, are we still winning the customer's overall basket at a fair margin elsewhere, or are we buying volume on Value products at a real loss just to keep the account happy?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "kamprad": {
+        "opening": {
+          "question": "Before we chase this across five product lines, tell me plainly: has the cost of goods for our Value-tier oils risen faster than we've raised shelf prices, or have we been quietly discounting to hold volume against competitors? These are two very different diseases and I don't want us treating the wrong one.",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If it turns out we've been protecting low prices for the ordinary customer at the expense of margin \u2014 is that a deliberate choice you're prepared to stand behind, or a drift we didn't intend and now need to correct?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "arnault": {
+        "opening": {
+          "question": "Looking at Synthetic Blend and Conventional Engine Oil, both Value-category products, taking the steepest margin hits while Premium products held far more ground \u2014 is this decline the result of us discounting to defend volume against competitors, or of raw material and input cost inflation we haven't passed through in price? These have very different implications for what we protect going forward.",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If defending share in the Value segment means continuing to erode margin and, by extension, the brand's pricing credibility across the line, how much volume or revenue are you willing to sacrifice in Value and Industrial products to hold price discipline and protect the integrity of the Premium and Mid-Range portfolio instead?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "dell": {
+        "opening": {
+          "question": "Nearly every hard-hit segment here runs through a distributor layer\u2014Latin America, Middle East, Europe, and International Distribution broadly are all down roughly 5 points. Are we selling directly to these regions anywhere, or is 100% of that volume going through independent distributor intermediaries who set their own resale pricing?",
+          "topic": "scope_boundaries"
+        },
+        "followup": {
+          "question": "If we compared the margin trajectory of accounts we sell to directly versus those we reach only through distributors, would we see the same erosion\u2014or is this specifically a cost-of-intermediation problem we could fix by shortening the channel?",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "kelleher": {
+        "opening": {
+          "question": "Since nearly every line, region, and channel is down about the same 4-7 points\u2014not just one rogue product\u2014was this the result of a conscious call we made, like holding prices steady to protect volume and customer relationships while costs rose, or did it just happen to us without anyone deciding it?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If it was deliberate, what's the floor\u2014how many points of margin are we willing to keep giving up to keep our people selling and our customers loyal before we say enough and change the approach?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "dalio": {
+        "opening": {
+          "question": "Before we dig further into the segment cuts: is this margin compression something you believe is a structural, permanent shift (e.g., input cost inflation, competitive pricing pressure) or a temporary, cyclical dip (e.g., FX swings, one-time freight/logistics costs) \u2014 and what evidence led you to that belief?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Given that the Value category and Engine Oils line are both concentrated in International/Latin America and Middle East distributor accounts, do you know whether those distributors were hit by a specific pricing or cost event (e.g., base oil cost spike, currency devaluation, forced discounting to hold volume), or is this an unexplained drift you'd want us to independently verify against ground-truth data before acting?",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "levitt": {
+        "opening": {
+          "question": "The margin erosion is remarkably uniform\u2014roughly 5 to 7 points\u2014across nearly every product line, customer segment, and region simultaneously. That pattern looks less like a handful of isolated pricing mistakes and more like the whole lubricants business being redefined by customers as an undifferentiated commodity. Do you believe customers still see meaningful differentiation in what we sell, or have they come to view Synthetic Blend, Conventional, Hydraulic, and Gear Oils as interchangeable barrels of fluid to be bought on price alone?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If customers now buy on price, what are they actually buying the oil *for*\u2014uptime, equipment protection, warranty compliance? Are our competitors winning share by repackaging the same fluid around that outcome (service contracts, monitoring, guarantees) while we keep selling it as a product, and is that reframing something you'd want us to test before we treat this purely as a pricing problem?",
+          "topic": "external_context"
+        }
+      },
+      "sloan": {
+        "opening": {
+          "question": "Across the Value category and the Engine Oils line, is this margin compression the result of a deliberate pricing or mix decision made by division management to defend volume and share against competitive pressure, or is it unplanned cost inflation eroding margins beneath a pricing structure that hasn't changed?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Which divisional general managers own the P&L for the Commercial & Industrial and International businesses driving this shortfall, and had they already flagged this margin erosion against their own budgeted return targets before this analysis surfaced it centrally?",
+          "topic": "segment_specific_causation"
+        }
+      }
+    },
+    "B_evidence": {
+      "buffett": {
+        "opening": {
+          "question": "Since this margin erosion is broad-based across nearly every product and region alike, it looks like a pricing-power problem rather than an execution problem in any one segment\u2014can you tell me whether base oil and additive input costs rose industry-wide, and if competitors have been able to raise prices to customers while we have not?",
+          "topic": "external_context"
+        },
+        "followup": {
+          "question": "If we tried to pass these higher input costs through in price, which customer relationships\u2014by contract structure or competitive alternatives available to them\u2014would we actually lose, and is that loss of volume something we'd accept to protect the margin?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "munger": {
+        "opening": {
+          "question": "Since almost every segment\u2014from Synthetic Blend Oil to Coolants, from Latin America to E-Commerce\u2014shows nearly the same 3-7pp margin decline, doesn't that pattern itself rule out segment-specific explanations and point instead to one systemic cause, like a rise in base oil or additive input costs that wasn't passed through in price? What was the year-over-year change in your key raw material costs?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If input costs did spike broadly, were you contractually or competitively unable to raise prices in step\u2014say, due to fixed-price distributor agreements or a strategic decision to hold price for share\u2014and if so, which contracts or policies locked you in?",
+          "topic": "constraints"
+        }
+      },
+      "bezos": {
+        "opening": {
+          "question": "Working backward from the customer: since every segment is down 3-7 points with no single pocket untouched, this smells like a company-wide input cost or pricing decision rather than a demand-side problem in any one line. Was there a deliberate, top-down pricing or cost-absorption decision this year (e.g., base oil cost spike not passed through, or a strategic price hold to defend volume/share) that would mechanically compress margin everywhere at once?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If that's the root cause, what's the customer or long-term-share outcome we were protecting by absorbing this margin hit instead of raising prices \u2014 and do we have evidence (retention, volume, share data) that the trade-off is actually paying off?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "musk": {
+        "opening": {
+          "question": "Almost every segment shows a near-uniform ~5pp margin decline, whether it's engine oil, industrial, or international distribution. That pattern doesn't look like scattered demand or mix problems\u2014it looks like a single systemic input cost shock, like base oil/crude feedstock, hitting everything at once. Is that the actual root cause, and if so, what's the raw cost delta driving it?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If this is fundamentally a cost pass-through problem, why hasn't pricing moved to offset it yet\u2014are we locked into fixed-price contracts with distributors, or is this a deliberate choice to hold price and eat margin for competitive reasons?",
+          "topic": "constraints"
+        }
+      },
+      "ohno": {
+        "opening": {
+          "question": "Since nearly every product, customer, and channel shows the same 4-7 point margin decline, this looks like one root cause hitting the whole business rather than many separate problems. What single upstream event \u2014 a base oil cost increase, a costing method change, or a pricing freeze \u2014 happened company-wide right at the start of this fiscal year?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Have you gone to the actual purchasing and pricing records to confirm whether input cost increases were passed through to customers on the same schedule everywhere, or did the pass-through lag in some places \u2014 is this truly one cause, or are we looking at two overlapping causes that happen to produce similar-looking numbers?",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "deming": {
+        "opening": {
+          "question": "Since almost every product, customer, and channel segment shows a similar decline of roughly 3 to 7 points, this looks like the signature of a common cause acting on the entire system\u2014such as an input cost shift, a costing methodology change, or a pricing policy\u2014rather than special causes in any particular segment. Before we hunt segment by segment, what system-wide changes occurred this year (supplier pricing, freight, currency, standard cost updates, accounting method) that would touch every part of the business simultaneously?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If we strip out that common-cause effect, are there any segments whose decline is meaningfully larger or smaller than the system average\u2014and if so, what is different about how those specific segments are managed, priced, or supplied, that isn't true of the rest of the system?",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "porter": {
+        "opening": {
+          "question": "Margin compression is broad-based across nearly every product line, channel, and region\u2014but Value/Mid-Range categories and Engine Oils fell furthest while Specialty and Coolants held up relatively well. Is this uniform erosion the result of an industry-wide input cost shock hitting all segments similarly, or are we losing pricing power specifically in the commodity-like segments where we lack differentiation?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "In the segments where margin held up best\u2014Specialty, Coolants, E-Commerce\u2014what distinct source of competitive advantage (cost position, differentiation, or switching costs) allowed us to defend margin there, and could that same advantage be deliberately extended to the eroding commodity lines rather than competing on price?",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "christensen": {
+        "opening": {
+          "question": "Since every segment shows margin erosion but the decline is smallest in Specialty and Coolants (jobs like 'protect my equipment year-round') and largest in commoditized Value/Mid-Range engine and industrial oils (jobs like 'keep costs down, meet spec'), are customers in those low-end tiers hiring a cheaper alternative instead of your product, or are you still winning the sale but at a lower price to defend share?",
+          "topic": "segment_specific_causation"
+        },
+        "followup": {
+          "question": "When you look at the Value and Conventional Engine Oil lines specifically, is this margin compression something you chose as a deliberate low-end strategy to keep out a low-cost entrant, or is it happening to you as customers and competitors force price concessions you didn't plan for?",
+          "topic": "hypothesis_validation"
+        }
+      },
+      "drucker": {
+        "opening": {
+          "question": "Since this margin erosion appears almost uniformly across every product, customer, and channel rather than concentrated in one segment, is this the result of a deliberate pricing or sourcing decision the business made this year, or has margin simply been allowed to erode as costs rose unaddressed?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Whatever the cause, what result should we actually be managing toward here\u2014restoring the prior gross margin percentage, or protecting absolute profit dollars and market position even if the percentage stays lower?",
+          "topic": "success_criteria"
+        }
+      },
+      "grove": {
+        "opening": {
+          "question": "Since gross margin compressed almost uniformly across every product, customer, and channel cut we can construct - from -1.9 to -7.1 points - this doesn't look like a mix or execution problem in any one segment. It looks like a single systemic shock hit the whole P&L. Did we experience a company-wide input cost spike (e.g., base oil/feedstock) or a pricing action that wasn't passed through, and when did that hit?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If it's a cost pass-through delay, that's a signal we should have caught the inflection point earlier - what's our current lag between raw material cost movement and price list updates, and is that lag itself the real problem we need to fix going forward?",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "rockefeller": {
+        "opening": {
+          "question": "Every single line of this business is bleeding margin in near-uniform fashion, from Engine Oils down to Coolants \u2014 which tells me this is not a product or customer problem but a cost problem sitting upstream, in our crude, base oil, or additive procurement. Before we chase individual segments, tell me plainly: has the cost of our raw material inputs risen industry-wide over this period, and are our competitors absorbing that same shock?",
+          "topic": "external_context"
+        },
+        "followup": {
+          "question": "If the input cost rise is common to the whole trade, then the real question is one of control, not diagnosis: do we hold long-term contracts or vertical integration into refining and transport that our competitors lack, and if so, why has that advantage not shown up as a smaller margin decline in our own numbers relative to theirs?",
+          "topic": "comparison_baseline"
+        }
+      },
+      "carnegie": {
+        "opening": {
+          "question": "Since nearly every product line, region, and channel shows a compression of roughly 4 to 7 points with no segment spared, does this pattern point to a single upstream cost driver \u2014 such as base oil or additive input costs rising faster than price increases were pushed through \u2014 rather than any localized competitive or operational failure?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If input costs are indeed the root cause, what is our actual cost of production trend for base oils and key additives over this same period, and were price increases to customers delayed, capped, or simply not executed to keep pace?",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "walton": {
+        "opening": {
+          "question": "Since almost every product line and customer segment is down a similar 4 to 7 points, this smells like a company-wide decision rather than something happening in one corner of the business - did we make a deliberate call this year to hold or cut prices to defend volume and stay competitive on the shelf, or did our supplier costs simply climb and we passed it straight to margin without a fight?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If it was a price move to protect volume, did unit sales actually grow enough to make up for the margin we gave away - are we selling more oil to more customers, or did we just hand back margin and get nothing for it?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "kamprad": {
+        "opening": {
+          "question": "Since almost every product line, region, and channel shows nearly the same 4-7 point margin drop, this looks less like a segment problem and more like a cost we let creep in everywhere at once\u2014likely raw materials or freight. Before we cut anything, can you confirm: is this a company-wide input cost increase that we simply absorbed instead of passing to the shelf price?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If we did choose to eat the cost rather than raise prices, was that a deliberate decision to protect volume and keep our price promise to the customer\u2014and how much further margin are you willing to sacrifice before we'd rather redesign the product or find a cheaper input than raise prices?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "arnault": {
+        "opening": {
+          "question": "Premium and Specialty categories lost roughly half the margin of Value and Mid-Range this year \u2014 is that gap the result of deliberate pricing discipline and brand positioning we've maintained on the premium lines, or has the market simply been kinder to us there by coincidence?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If premium positioning is indeed what's protecting margin, are you prepared to reallocate volume ambition, marketing spend, and even shelf/channel priority away from the Value segment and toward Premium and Specialty, even if that means accepting lower near-term revenue?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "dell": {
+        "opening": {
+          "question": "Since nearly every product line, region, and channel is down between 2 and 7 points, this smells like a cost-side problem rather than a mix or execution problem \u2014 have base oil, additive, or freight input costs risen broadly, and have we passed that through in price, or absorbed it to protect volume and share?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Where we've chosen to absorb cost increases rather than raise price, was that a deliberate call to defend share or shelf position, or has pricing simply lagged operationally \u2014 and how much further margin erosion are you willing to tolerate before we push price even at the risk of losing volume?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "kelleher": {
+        "opening": {
+          "question": "Every single segment is down together, from Latin America to DIY Retail to our best-selling oils \u2014 that's not a customer problem or a category problem, that's something we did to ourselves across the whole airline, so to speak. Did we make a conscious call to hold the line on prices for our people on the front line and our customers while our costs climbed, or did this just happen to us?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If it was a deliberate trade \u2014 protecting relationships and volume instead of chasing margin \u2014 how much further are we willing to let it slide before we say enough, and who besides you gets to make that call?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "dalio": {
+        "opening": {
+          "question": "Since nearly every segment is down 3-7pp with no clear outlier, this looks like a single systemic driver rather than many independent problems\u2014what changed company-wide this year (input costs, FX, a pricing freeze, a costing methodology shift) that could mechanically compress margin across the board?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Which of those root causes, if any, is within your control to correct this year versus something you have to plan around as a new permanent baseline?",
+          "topic": "constraints"
+        }
+      },
+      "levitt": {
+        "opening": {
+          "question": "Since gross margin has compressed almost uniformly across every product, region, and channel\u2014from Synthetic Blend Engine Oil at -7.1pts down to Coolants at -1.9pts\u2014this looks less like a set of isolated problems and more like the whole business is being redefined by customers as 'commodity lubricant' rather than a differentiated product or service. Do you see this as us losing pricing power because customers no longer perceive any functional or service difference between our oils and generic alternatives?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Setting aside the numbers we've already found \u2014 are there any customer segments where you know from direct relationships that we're still being bought for a genuine need beyond the oil itself (equipment uptime guarantees, technical support, certified compatibility) rather than being bought purely on price per liter? That would tell us where we still actually have a business worth defending, versus where we're just competing as a fungible commodity.",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "sloan": {
+        "opening": {
+          "question": "Every division and product line is down roughly 4 to 7 points in near-lockstep \u2014 that pattern looks less like divisional mismanagement and more like a common input cost or pricing decision imposed company-wide. Was there a raw material cost increase or a corporate pricing policy that divisional general managers were not free to offset locally?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Given that each division operates as its own profit center, which general managers had the authority to raise prices or cut costs in response, and did any division actually exercise that discretion rather than simply absorbing the hit uniformly?",
+          "topic": "segment_specific_causation"
+        }
+      }
+    },
+    "C_raw": {
+      "buffett": {
+        "opening": {
+          "question": "Margin compression is broad-based across every segment, but Value products fell -6.42 points versus Specialty at only -2.95 and Coolants at -1.92 \u2014 is this a durable erosion of pricing power in the commodity end of the line, or a temporary cost pass-through lag from raw material inflation that will correct as we reprice contracts?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "On the Value and Conventional/Synthetic Blend Engine Oil lines that are bleeding the most margin, do we still hold a genuine cost or brand advantage over competitors there, or are we simply defending unprofitable volume in a category we shouldn't be fighting to keep?",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "munger": {
+        "opening": {
+          "question": "Since almost every segment shows a decline in the same 3-7 point range, before we go hunting segment by segment, what single systemic factor\u2014like a base oil or additive cost spike not yet passed through in price\u2014do you think is doing most of the work here?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Synthetic Blend Engine Oil (-7.14) and Value category (-6.42) are the extreme outliers against Coolants (-1.92) and Specialty (-2.95)\u2014is there something specific to those products, like a fixed-price contract or a raw material they uniquely depend on, that would explain why they're bleeding margin so much faster than the rest?",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "bezos": {
+        "opening": {
+          "question": "Value and Mid-Range product categories are seeing margin erosion nearly double that of Premium and Specialty (-6.42 and -5.44 vs -3.61 and -2.95 points) \u2014 is this the result of a deliberate customer-obsession trade-off, such as absorbing input cost inflation on entry-level SKUs to protect price points for cost-sensitive fleet and distributor customers, or is it unmanaged cost pass-through failure?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If this margin compression on Value/Mid-Range lines is a strategic bet to defend volume and long-term customer lifetime value in Commercial Fleet and International Distributor segments, what specific customer retention or share-of-wallet metric are we tracking to prove that trade-off is paying off \u2014 and what threshold of further margin decline would cause us to reverse the bet?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "musk": {
+        "opening": {
+          "question": "Since margin is compressing everywhere but Conventional Engine Oil (-6.61) and Synthetic Blend Engine Oil (-7.14) are the worst offenders while Coolants (-1.92) barely moved, what's the actual first-principles cost driver here \u2014 is this raw material input cost (base oil/crude-linked), a pricing decision we made, or a mix shift toward lower-margin SKUs? I don't want a plausible story, I want the physics of the cost stack.",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If it's input costs, why hasn't pricing been adjusted yet \u2014 is there a contractual lag, a competitive pricing constraint, or are we just being slow? Give me the actual blocker so we can decide whether to fix it this quarter or accept it as structural.",
+          "topic": "constraints"
+        }
+      },
+      "ohno": {
+        "opening": {
+          "question": "When you go to the actual point of margin erosion\u2014Synthetic Blend Engine Oil at -7.14pts and Conventional Engine Oil at -6.61pts\u2014has anyone traced whether the root cause is a supplier cost increase, a scrap/waste issue in blending, a pricing decision, or a mix shift in what's being sold? I want to know which single cause you've confirmed by walking the actual process, not inferred from the numbers.",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Given that Coolants & Antifreeze only lost -1.92pts while sitting in the same plants and customer base as Engine Oils, what is genuinely different in that process or contract structure\u2014and could that difference be deliberately transplanted into the Engine Oils line rather than treated as a separate problem to solve?",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "deming": {
+        "opening": {
+          "question": "Every single segment\u2014every business unit, channel, region, and customer\u2014shows a decline of roughly 4 to 5 percentage points, with almost no segment escaping this pattern. Was there a system-wide change in this period\u2014an input cost increase, a supplier price pass-through, a costing methodology revision, or an accounting policy shift\u2014that would touch the entire business simultaneously, rather than something specific to how any one segment is managed?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "The product-line and product-name figures show far more spread than anything above them (Coolants at -1.92 versus Synthetic Blend Engine Oil at -7.14), even though business units and channels look nearly uniform. Is the cost or margin measurement system applied consistently across product lines, or could differences in how costs are allocated to specific products be creating apparent 'special cause' variation that isn't real?",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "porter": {
+        "opening": {
+          "question": "The margin erosion is steepest in Value and Mid-Range product categories (-6.42 and -5.44 points) while Specialty and Premium held up far better (-2.95 and -3.61) \u2014 is this pattern consistent with an industry-wide commodity price war compressing low-differentiation segments, or is it evidence that our own differentiated positioning in Specialty/Premium is what's actually protecting margin there?",
+          "topic": "external_context"
+        },
+        "followup": {
+          "question": "Given that, are we deliberately choosing to compete on cost in the Value/Mid-Range tiers, or should we be reallocating investment away from those low-differentiation lines toward the Specialty and Premium positions where we're clearly defending a distinct competitive advantage?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "christensen": {
+        "opening": {
+          "question": "The margin erosion is steepest in Value (-6.42pts) and Mid-Range (-5.44pts) products, while Premium (-3.61) and Specialty (-2.95) are far more resilient \u2014 that's the signature of a low-end competitor entering with a 'good enough' offering. Are you seeing new entrants or private-label alternatives winning the jobs your Value and Mid-Range lubricants used to be hired for, and are we responding by discounting to defend share rather than migrating those customers up or exiting that fight?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If Value and Mid-Range are being commoditized, is the organization currently allocating its best talent, R&D, and sales attention to defend that shrinking-margin business, or to the Premium/Specialty lines where the data shows real pricing power \u2014 and who inside the company has the authority to actually reallocate resources away from the legacy volume rather than just reporting the decline?",
+          "topic": "constraints"
+        }
+      },
+      "drucker": {
+        "opening": {
+          "question": "Before we chase the margin decline itself: looking at the spread from Value products at -6.42 points down to Specialty at -2.95, which of these product lines and customer segments represent the business you intend to build the future on, and which are legacy volume you've been carrying out of habit rather than strategic choice?",
+          "topic": "scope_boundaries"
+        },
+        "followup": {
+          "question": "For the customers driving the steepest erosion - National Auto Parts Chain A, the Fleet accounts, the international distributors - is the margin concession something you deliberately accepted to keep that revenue and relationship, or has it crept in without a conscious decision on what you're willing to trade for it?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "grove": {
+        "opening": {
+          "question": "The margin erosion is concentrated at a single node: Value and Mid-Range product categories, especially Conventional and Synthetic Blend Engine Oil, are down 6-7 points while Specialty and Coolants are barely touched. Before we treat this as a company-wide problem, walk me through what actually changed in production or procurement for those specific SKUs \u2014 is this a raw material cost spike hitting base oils, a pricing/discounting decision, or a shift in production mix toward lower-margin formulations?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If it's input cost inflation on base oil, that's a factor common to the whole plant \u2014 so why aren't Full Synthetic and Specialty lines showing the same hit? What's the limiting factor that's letting some lines pass costs through and others absorb them?",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "rockefeller": {
+        "opening": {
+          "question": "Before we chase the margin erosion across every segment, tell me plainly: is this decline the result of a deliberate pricing or cost decision we made ourselves \u2014 such as a raw material contract, a discount program, or a mix shift we sanctioned \u2014 or is it happening to us from outside forces we did not choose?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "Synthetic Blend Engine Oil is bleeding margin at more than double the rate of Coolants & Antifreeze, and Value/Mid-Range categories are down far worse than Premium and Specialty \u2014 is this because our input costs for base oils rose disproportionately for those specific formulations, or because we have been discounting the value tier to hold volume against a competitor? I want to know which lever is actually broken before we touch a single price sheet.",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "carnegie": {
+        "opening": {
+          "question": "The Value product category is bleeding 6.42 points and Synthetic Blend Engine Oil alone has lost 7.14 points \u2014 far worse than the 4-5 point erosion seen elsewhere. Before we discuss remedies: is this driven by rising raw material and input costs on those specific lines, or by pricing concessions and discounting to hold volume?",
+          "topic": "segment_specific_causation"
+        },
+        "followup": {
+          "question": "If the cause is cost of production rather than pricing, what is our current unit cost structure on Synthetic Blend and Conventional Engine Oil versus a year ago, and how much of that increase can be engineered out through supplier renegotiation, process efficiency, or plant consolidation rather than simply passed through in price?",
+          "topic": "constraints"
+        }
+      },
+      "walton": {
+        "opening": {
+          "question": "When you or your regional managers walked the floor with the Value category and Synthetic Blend Engine Oil line this year, did you hear pricing pressure from customers, or is this margin erosion something we've built ourselves through cost creep or a deliberate low-price play to defend share against a competitor?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If it's a deliberate decision to hold the line on everyday low prices in Value and Mid-Range to keep customers loyal and volume up, how much margin are we willing to keep giving up there before we say enough - and is that a decision we've actually made on purpose, or one that's just happened to us?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "kamprad": {
+        "opening": {
+          "question": "The Value and Mid-Range lines are bleeding margin worse than Premium or Specialty\u2014synthetic blend oil down over 7 points. Is this because our costs to produce and distribute the cheap, high-volume goods have crept up, or because we cut price to defend volume? We must know which, because one is waste we can cut and the other is a strategy we chose.",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If it is rising cost-to-serve on our lowest-price products, where exactly is the money leaking\u2014materials, freight, or overhead allocated without discipline? A low price for the many people only works if we are relentless about removing cost from our own side, not just squeezing suppliers.",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "arnault": {
+        "opening": {
+          "question": "Value and Mid-Range categories are bleeding margin fastest (-6.42 and -5.44 points) while Specialty and Coolants barely move\u2014is this the deliberate cost of chasing volume in commoditized lines, or has pricing power quietly eroded on products that should still command a premium?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If we let the Value and Conventional/Synthetic Blend Engine Oil lines continue to dilute overall margin, are we prepared to reposition or exit them entirely rather than let them drag down the brand's premium economics?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "dell": {
+        "opening": {
+          "question": "The Value and Mid-Range product categories are absorbing the worst margin erosion (-6.42 and -5.44 points), while Specialty and Premium are far more resilient (-2.95 and -3.61). Is this margin compression concentrated in a few input-cost-sensitive SKUs like Synthetic Blend and Conventional Engine Oil, and do we have direct visibility into whether it's raw material cost, freight, or pricing discipline driving it?",
+          "topic": "segment_specific_causation"
+        },
+        "followup": {
+          "question": "Given that International Distribution and the distributor-heavy customer accounts (Latin America, Middle East, National Auto Parts Chain A) show the deepest erosion, are these low-margin intermediary relationships we could restructure or sell direct to end customers, the way we've historically cut out the middle layer to protect margin?",
+          "topic": "constraints"
+        }
+      },
+      "kelleher": {
+        "opening": {
+          "question": "Before we chase the numbers further - Synthetic Blend Engine Oil is down 7 points and Conventional Engine Oil down 6.6, while Coolants barely moved. Did our own people on the ground - the sales reps, the plant managers - see this coming, and if so, why didn't anyone flag it before it hit the P&L this hard?",
+          "topic": "external_context"
+        },
+        "followup": {
+          "question": "If holding these margins meant raising prices to fleet and distributor customers and risking some volume, would you rather protect the relationship and eat the margin hit, or protect the margin and let the sales team walk away from some of these accounts?",
+          "topic": "tradeoff_tolerance"
+        }
+      },
+      "dalio": {
+        "opening": {
+          "question": "Since this margin compression shows up almost uniformly across every business unit, channel, and region, but varies enormously by product\u2014Value (-6.42) and Conventional Engine Oil (-6.61) versus Specialty (-2.95) and Coolants (-1.92)\u2014my working hypothesis is that this is a single root cause: rising input/raw material costs that haven't been passed through in price, hitting commodity-grade products hardest because they have the least pricing power. Is that the actual mechanism you're seeing, or is something else driving it, like deliberate mix-shift or discounting to defend volume?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If it is a pass-through failure, what's actually preventing price increases on the hardest-hit products\u2014are these locked in by multi-year contracts with distributors like Latin America and Middle East, competitive price-matching pressure, or an internal decision to hold price and sacrifice margin to protect share?",
+          "topic": "constraints"
+        }
+      },
+      "levitt": {
+        "opening": {
+          "question": "The steepest margin erosion is concentrated in Value/Mid-Range categories and commodity-like products such as Conventional and Synthetic Blend Engine Oil, while Specialty and Coolants held up far better. Is the business consciously competing on price in those commodity lines, or has the sales organization slid into treating differentiated lubricants as interchangeable commodities in the customer's eyes?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "What is actually different about how Specialty and Premium products are marketed and sold to customers versus Value and Mid-Range \u2014 is it a genuine product/service augmentation the customer values, or simply a different customer base that hasn't yet been offered the same discounting?",
+          "topic": "segment_specific_causation"
+        }
+      },
+      "sloan": {
+        "opening": {
+          "question": "Every business unit and product line shows a margin decline this year, with the sharpest drag concentrated in the Value and Mid-Range categories rather than Premium or Specialty \u2014 was this the result of a coordinated corporate decision on pricing, input costs, or mix strategy applied across divisions, or is each division absorbing this margin loss independently through its own local decisions?",
+          "topic": "hypothesis_validation"
+        },
+        "followup": {
+          "question": "If the Value category's -6.42 point decline (and Synthetic Blend Engine Oil's -7.14) was a planned trade of margin for volume or market share, what return on incremental investment or share gain was budgeted to justify that sacrifice, and which division general manager is accountable for delivering it?",
+          "topic": "success_criteria"
+        }
+      }
+    }
+  },
+  "summary": [
+    {
+      "arm": "A_diagnosis",
+      "topic_jaccard": 0.3807017543859649,
+      "lexical_jaccard": 0.0891275394971931,
+      "terms": 461
+    },
+    {
+      "arm": "D_framed_full",
+      "topic_jaccard": 0.45789473684210524,
+      "lexical_jaccard": 0.08975884793198242,
+      "terms": 518
+    },
+    {
+      "arm": "B_evidence",
+      "topic_jaccard": 0.4421052631578947,
+      "lexical_jaccard": 0.11798384349485529,
+      "terms": 469
+    },
+    {
+      "arm": "C_raw",
+      "topic_jaccard": 0.3719298245614035,
+      "lexical_jaccard": 0.10946252655445553,
+      "terms": 493
+    }
+  ],
+  "null": {
+    "mean": 0.15744780701754385,
+    "p05": 0.13684210526315788,
+    "p95": 0.18596491228070175
+  },
+  "tokens_in": 147068,
+  "tokens_out": 31048
+}

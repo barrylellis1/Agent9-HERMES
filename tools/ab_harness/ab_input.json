@@ -1,0 +1,1482 @@
+{
+  "situation_id": "ab_ae18dbf2",
+  "da_result": {
+    "plan": {
+      "kpi_name": "Gross Margin %",
+      "client_id": "lubricants",
+      "timeframe": "year_to_date",
+      "filters": {
+        "Fiscal Year": [
+          "2024",
+          "2025",
+          "2026"
+        ],
+        "Customer Segment": [
+          "Total"
+        ],
+        "Profit Center Name": [
+          "Total"
+        ]
+      },
+      "dimensions": [
+        "profit_center_name",
+        "customer_name",
+        "product_name",
+        "product_line",
+        "channel_name",
+        "customer_segment",
+        "product_category",
+        "customer_region",
+        "business_unit",
+        "channel_type",
+        "account_name",
+        "account_type",
+        "account_category",
+        "account_group",
+        "fiscal_year"
+      ],
+      "steps": [
+        {
+          "type": "group_compare",
+          "dimension": "profit_center_name",
+          "timeframe": "year_to_date",
+          "filters": {
+            "Fiscal Year": [
+              "2024",
+              "2025",
+              "2026"
+            ],
+            "Customer Segment": [
+              "Total"
+            ],
+            "Profit Center Name": [
+              "Total"
+            ]
+          },
+          "comparison": "current_vs_previous"
+        },
+        {
+          "type": "group_compare",
+          "dimension": "customer_name",
+          "timeframe": "year_to_date",
+          "filters": {
+            "Fiscal Year": [
+              "2024",
+              "2025",
+              "2026"
+            ],
+            "Customer Segment": [
+              "Total"
+            ],
+            "Profit Center Name": [
+              "Total"
+            ]
+          },
+          "comparison": "current_vs_previous"
+        },
+        {
+          "type": "group_compare",
+          "dimension": "product_name",
+          "timeframe": "year_to_date",
+          "filters": {
+            "Fiscal Year": [
+              "2024",
+              "2025",
+              "2026"
+            ],
+            "Customer Segment": [
+              "Total"
+            ],
+            "Profit Center Name": [
+              "Total"
+            ]
+          },
+          "comparison": "current_vs_previous"
+        },
+        {
+          "type": "group_compare",
+          "dimension": "product_line",
+          "timeframe": "year_to_date",
+          "filters": {
+            "Fiscal Year": [
+              "2024",
+              "2025",
+              "2026"
+            ],
+            "Customer Segment": [
+              "Total"
+            ],
+            "Profit Center Name": [
+              "Total"
+            ]
+          },
+          "comparison": "current_vs_previous"
+        },
+        {
+          "type": "group_compare",
+          "dimension": "channel_name",
+          "timeframe": "year_to_date",
+          "filters": {
+            "Fiscal Year": [
+              "2024",
+              "2025",
+              "2026"
+            ],
+            "Customer Segment": [
+              "Total"
+            ],
+            "Profit Center Name": [
+              "Total"
+            ]
+          },
+          "comparison": "current_vs_previous"
+        }
+      ],
+      "notes": "KT core with SCQA/MECE framing (auto-derived dimensions from data product contract).",
+      "analysis_mode": "mixed",
+      "alert_type": null,
+      "compound_alert": false,
+      "compound_pattern": null,
+      "merged_alert_types": null,
+      "secondary_alert_facts": null,
+      "comparator_override": null
+    },
+    "execution": {
+      "status": "success",
+      "request_id": "490655a3-c012-4151-b4e7-d9400cc03032",
+      "timestamp": "2026-08-04T22:26:50.886244",
+      "error_message": null,
+      "plan": {
+        "kpi_name": "Gross Margin %",
+        "client_id": "lubricants",
+        "timeframe": "year_to_date",
+        "filters": {
+          "Fiscal Year": [
+            "2024",
+            "2025",
+            "2026"
+          ],
+          "Customer Segment": [
+            "Total"
+          ],
+          "Profit Center Name": [
+            "Total"
+          ]
+        },
+        "dimensions": [
+          "profit_center_name",
+          "customer_name",
+          "product_name",
+          "product_line",
+          "channel_name",
+          "customer_segment",
+          "product_category",
+          "customer_region",
+          "business_unit",
+          "channel_type",
+          "account_name",
+          "account_type",
+          "account_category",
+          "account_group",
+          "fiscal_year"
+        ],
+        "steps": [
+          {
+            "type": "group_compare",
+            "dimension": "profit_center_name",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "customer_name",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "product_name",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "product_line",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "channel_name",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          }
+        ],
+        "notes": "KT core with SCQA/MECE framing (auto-derived dimensions from data product contract).",
+        "analysis_mode": "mixed",
+        "alert_type": null,
+        "compound_alert": false,
+        "compound_pattern": null,
+        "merged_alert_types": null,
+        "secondary_alert_facts": null,
+        "comparator_override": null
+      },
+      "dimensions_suggested": [
+        "profit_center_name",
+        "customer_name",
+        "product_name",
+        "product_line",
+        "channel_name",
+        "customer_segment",
+        "product_category",
+        "customer_region",
+        "business_unit",
+        "channel_type",
+        "account_name",
+        "account_type",
+        "account_category",
+        "account_group",
+        "fiscal_year"
+      ],
+      "scqa_summary": "Situation:** Gross margin performance year-to-date is mixed, with three segments significantly underperforming while others maintain acceptable levels.\n\n**Complication:** National Auto Parts Chain A, Synthetic Blend Engine Oil, and Service Centers Division are collectively dragging margin down by 140.4 percentage points\u2014driven by sharp declines in Chain A (-43.2pp), Synthetic Blend (-16.8pp), and Service Centers (-15.2pp)\u2014while International Division, Chain B, and Mass Retailer Group show stability with no material upside to offset these losses, leaving us with a net 140.4pp headwind that demands immediate intervention.\n\n**Question:** How do we arrest the margin collapse in our three largest laggard segments before it compounds further into the year?\n\n**Answer:** Prioritize root-cause diagnosis and recovery actions in National Auto Parts Chain A (the largest single drag at -43.2pp) and Synthetic Blend Engine Oil (-16.8pp) to recapture the 140.4pp loss; in parallel, conduct a rapid replication study of International Division and Chain B's pricing, product mix, and cost structures to identify portable levers, but recognize that replication alone will not close the gap\u2014the primary path to margin recovery is fixing the underperformers.",
+      "kt_is_is_not": {
+        "what_is": [
+          {
+            "text": "Gross Margin % is 32.55 vs last_year 34.22 (\u0394 -1.67, -4.9%)."
+          },
+          {
+            "text": "Issue observed during year_to_date compared against last_year."
+          },
+          {
+            "text": "Largest variance in customer_name: National Auto Parts Chain A (\u0394 -43.24)."
+          },
+          {
+            "text": "Analysis scoped by applied filters, limiting impact to selected context."
+          }
+        ],
+        "what_is_not": [
+          {
+            "text": "Unaffected timeframe buckets: Within threshold"
+          }
+        ],
+        "where_is": [
+          {
+            "dimension": "customer_name",
+            "key": "National Auto Parts Chain A",
+            "delta": -43.24000000000001,
+            "current": -445.01,
+            "previous": -401.77,
+            "text": "customer_name: National Auto Parts Chain A (\u0394 -43.24)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Synthetic Blend Engine Oil",
+            "delta": -16.759999999999998,
+            "current": -42.51,
+            "previous": -25.75,
+            "text": "product_name: Synthetic Blend Engine Oil (\u0394 -16.76)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "profit_center_name",
+            "key": "Service Centers Division",
+            "delta": -15.18,
+            "current": -68.28,
+            "previous": -53.1,
+            "text": "profit_center_name: Service Centers Division (\u0394 -15.18)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Full Synthetic Engine Oil",
+            "delta": -12.100000000000001,
+            "current": -31.35,
+            "previous": -19.25,
+            "text": "product_name: Full Synthetic Engine Oil (\u0394 -12.10)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "channel_name",
+            "key": "DIY Retail",
+            "delta": -11.569999999999993,
+            "current": -74.21,
+            "previous": -62.64,
+            "text": "channel_name: DIY Retail (\u0394 -11.57)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Automatic Transmission Fluid",
+            "delta": -10.099999999999998,
+            "current": 23.63,
+            "previous": 33.73,
+            "text": "product_name: Automatic Transmission Fluid (\u0394 -10.10)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_line",
+            "key": "Engine Oils",
+            "delta": -9.869999999999997,
+            "current": -33.83,
+            "previous": -23.96,
+            "text": "product_line: Engine Oils (\u0394 -9.87)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_line",
+            "key": "Transmission & Drivetrain",
+            "delta": -7.880000000000001,
+            "current": -3.65,
+            "previous": 4.23,
+            "text": "product_line: Transmission & Drivetrain (\u0394 -7.88)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Conventional Engine Oil",
+            "delta": -7.009999999999998,
+            "current": -44.51,
+            "previous": -37.5,
+            "text": "product_name: Conventional Engine Oil (\u0394 -7.01)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "profit_center_name",
+            "key": "Commercial & Industrial Division",
+            "delta": -3.8699999999999974,
+            "current": 17.92,
+            "previous": 21.79,
+            "text": "profit_center_name: Commercial & Industrial Division (\u0394 -3.87)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "profit_center_name",
+            "key": "Retail Products Division",
+            "delta": -2.8399999999999963,
+            "current": 52.49,
+            "previous": 55.33,
+            "text": "profit_center_name: Retail Products Division (\u0394 -2.84)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "profit_center_name",
+            "key": "International Division",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "profit_center_name: International Division (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "National Auto Parts Chain B",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "customer_name: National Auto Parts Chain B (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Mass Retailer Group",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "customer_name: Mass Retailer Group (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Hardware & Home Chain",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "customer_name: Hardware & Home Chain (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Regional Auto Parts Distributor",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "customer_name: Regional Auto Parts Distributor (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Quick Lube Franchise Network",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "customer_name: Quick Lube Franchise Network (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Dealer Service Network",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "customer_name: Dealer Service Network (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Independent Service Centers",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "customer_name: Independent Service Centers (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Fleet Customer A",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "customer_name: Fleet Customer A (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Fleet Customer B",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "customer_name: Fleet Customer B (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Fleet Customer C",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "customer_name: Fleet Customer C (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Extended Life Coolant",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "product_name: Extended Life Coolant (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Fuel System Cleaner",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "product_name: Fuel System Cleaner (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Oil Treatment Additive",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "product_name: Oil Treatment Additive (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Multi-Purpose Grease",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "product_name: Multi-Purpose Grease (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Hydraulic Oil",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "product_name: Hydraulic Oil (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Compressor Oil",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "product_name: Compressor Oil (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Turbine Oil",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "product_name: Turbine Oil (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_name",
+            "key": "High-Temp Bearing Grease",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "product_name: High-Temp Bearing Grease (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Heavy-Duty Coolant",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "product_name: Heavy-Duty Coolant (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_line",
+            "key": "Coolants & Antifreeze",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "product_line: Coolants & Antifreeze (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_line",
+            "key": "Chemicals & Additives",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "product_line: Chemicals & Additives (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_line",
+            "key": "Greases & Specialty",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "product_line: Greases & Specialty (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_line",
+            "key": "Industrial Lubricants",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "product_line: Industrial Lubricants (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "channel_name",
+            "key": "DIFM Service Centers",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "channel_name: DIFM Service Centers (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "channel_name",
+            "key": "B2B Direct Sales",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "channel_name: B2B Direct Sales (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "channel_name",
+            "key": "E-Commerce",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "channel_name: E-Commerce (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "channel_name",
+            "key": "International Distribution",
+            "delta": 0.0,
+            "current": 100.0,
+            "previous": 100.0,
+            "text": "channel_name: International Distribution (\u0394 +0.00) \u2014 Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          }
+        ],
+        "where_is_not": [],
+        "when_is": [
+          {
+            "bucket": "2026-007",
+            "delta": 39.59,
+            "current": 39.59,
+            "previous": 0.0,
+            "text": "2026-007 (\u0394 +39.59)"
+          },
+          {
+            "bucket": "2026-006",
+            "delta": 38.52,
+            "current": 38.52,
+            "previous": 0.0,
+            "text": "2026-006 (\u0394 +38.52)"
+          },
+          {
+            "bucket": "2026-008",
+            "delta": 36.91,
+            "current": 36.91,
+            "previous": 0.0,
+            "text": "2026-008 (\u0394 +36.91)"
+          }
+        ],
+        "when_is_not": [
+          {
+            "bucket": "2026-007",
+            "delta": 39.59,
+            "current": 39.59,
+            "previous": 0.0,
+            "text": "2026-007 (\u0394 +39.59) \u2014 Within threshold",
+            "note": "Within threshold"
+          },
+          {
+            "bucket": "2026-006",
+            "delta": 38.52,
+            "current": 38.52,
+            "previous": 0.0,
+            "text": "2026-006 (\u0394 +38.52) \u2014 Within threshold",
+            "note": "Within threshold"
+          },
+          {
+            "bucket": "2026-008",
+            "delta": 36.91,
+            "current": 36.91,
+            "previous": 0.0,
+            "text": "2026-008 (\u0394 +36.91) \u2014 Within threshold",
+            "note": "Within threshold"
+          }
+        ],
+        "extent_is": [
+          {
+            "dimension": "profit_center_name",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 0.0,
+            "inverse_logic": false,
+            "total_keys": 5,
+            "breach_count": 3,
+            "within_count": 2,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 1
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 1
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 1
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 2
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": -0.2858757062146893,
+            "median_ratio": -0.05132839327670335,
+            "max_ratio": 0.0
+          },
+          {
+            "dimension": "customer_name",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 0.0,
+            "inverse_logic": false,
+            "total_keys": 20,
+            "breach_count": 1,
+            "within_count": 19,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 1
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 0
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 19
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": -0.10762376484058046,
+            "median_ratio": 0.0,
+            "max_ratio": 0.0
+          },
+          {
+            "dimension": "product_name",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 0.0,
+            "inverse_logic": false,
+            "total_keys": 15,
+            "breach_count": 6,
+            "within_count": 9,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 3
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 1
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 2
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 9
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": -0.6508737864077669,
+            "median_ratio": 0.0,
+            "max_ratio": 0.0
+          },
+          {
+            "dimension": "product_line",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 0.0,
+            "inverse_logic": false,
+            "total_keys": 6,
+            "breach_count": 2,
+            "within_count": 4,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 2
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 0
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 0
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 4
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": -1.8628841607565012,
+            "median_ratio": 0.0,
+            "max_ratio": 0.0
+          },
+          {
+            "dimension": "channel_name",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 0.0,
+            "inverse_logic": false,
+            "total_keys": 5,
+            "breach_count": 1,
+            "within_count": 4,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 1
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 0
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 4
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": -0.18470625798211995,
+            "median_ratio": 0.0,
+            "max_ratio": 0.0
+          },
+          {
+            "queries_planned": 7
+          }
+        ],
+        "extent_is_not": [],
+        "benchmark_segments": [
+          {
+            "dimension": "profit_center_name",
+            "key": "International Division",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "customer_name",
+            "key": "National Auto Parts Chain B",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Mass Retailer Group",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Hardware & Home Chain",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Regional Auto Parts Distributor",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Quick Lube Franchise Network",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Dealer Service Network",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Independent Service Centers",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Fleet Customer A",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Fleet Customer B",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Fleet Customer C",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_name",
+            "key": "Extended Life Coolant",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_name",
+            "key": "Fuel System Cleaner",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_name",
+            "key": "Oil Treatment Additive",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_name",
+            "key": "Multi-Purpose Grease",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_name",
+            "key": "Hydraulic Oil",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_name",
+            "key": "Compressor Oil",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_name",
+            "key": "Turbine Oil",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_name",
+            "key": "High-Temp Bearing Grease",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_name",
+            "key": "Heavy-Duty Coolant",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_line",
+            "key": "Coolants & Antifreeze",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_line",
+            "key": "Chemicals & Additives",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_line",
+            "key": "Greases & Specialty",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_line",
+            "key": "Industrial Lubricants",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "channel_name",
+            "key": "DIFM Service Centers",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "channel_name",
+            "key": "B2B Direct Sales",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "channel_name",
+            "key": "E-Commerce",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          },
+          {
+            "dimension": "channel_name",
+            "key": "International Distribution",
+            "current_value": 100.0,
+            "previous_value": 100.0,
+            "delta": 0.0,
+            "delta_pct": 0.0,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0,
+            "is_outlier": false
+          }
+        ]
+      },
+      "change_points": [
+        {
+          "dimension": "customer_name",
+          "key": "National Auto Parts Chain A",
+          "timestamp": null,
+          "current_value": -445.01,
+          "previous_value": -401.77,
+          "delta": -43.24000000000001,
+          "percent_growth": null
+        },
+        {
+          "dimension": "product_name",
+          "key": "Synthetic Blend Engine Oil",
+          "timestamp": null,
+          "current_value": -42.51,
+          "previous_value": -25.75,
+          "delta": -16.759999999999998,
+          "percent_growth": null
+        },
+        {
+          "dimension": "profit_center_name",
+          "key": "Service Centers Division",
+          "timestamp": null,
+          "current_value": -68.28,
+          "previous_value": -53.1,
+          "delta": -15.18,
+          "percent_growth": null
+        },
+        {
+          "dimension": "product_name",
+          "key": "Full Synthetic Engine Oil",
+          "timestamp": null,
+          "current_value": -31.35,
+          "previous_value": -19.25,
+          "delta": -12.100000000000001,
+          "percent_growth": null
+        },
+        {
+          "dimension": "channel_name",
+          "key": "DIY Retail",
+          "timestamp": null,
+          "current_value": -74.21,
+          "previous_value": -62.64,
+          "delta": -11.569999999999993,
+          "percent_growth": null
+        }
+      ],
+      "timeframe_mapping": {
+        "current": "year_to_date",
+        "previous": "last_year"
+      },
+      "when_started": "2026-006",
+      "percent_growth_enabled": false,
+      "analysis_mode": "mixed",
+      "mixed_framing": true,
+      "alert_type": null,
+      "comparator": "previous",
+      "merged_alert_types": null,
+      "comparator_secondary": null,
+      "matrix_ran": false,
+      "samples": null
+    },
+    "market_signals": [
+      {
+        "source": "llm_knowledge",
+        "title": "Base oil Group III supply tightening pushes input costs higher",
+        "summary": "Group III base oil prices (key input for Synthetic Blend and Full Synthetic Engine Oil) have risen amid tight Asian export supply and refinery turnarounds, pressuring lubricant blender margins unless offset by price increases.",
+        "relevance_score": 0.87,
+        "published_at": null,
+        "url": null
+      },
+      {
+        "source": "llm_knowledge",
+        "title": "Crude oil price volatility affecting feedstock costs",
+        "summary": "Fluctuating crude benchmarks (Brent/WTI) directly impact base oil and additive feedstock pricing, creating margin uncertainty for engine oil product lines when spot cost swings outpace contracted customer pricing at Service Centers Division.",
+        "relevance_score": 0.75,
+        "published_at": null,
+        "url": null
+      },
+      {
+        "source": "llm_knowledge",
+        "title": "National retail auto parts chains leveraging scale for price concessions",
+        "summary": "Large format retailers like National Auto Parts Chain A continue to exert pricing pressure on branded lubricant suppliers via private-label competition and volume-based rebate demands, compressing gross margin % on channel sales.",
+        "relevance_score": 0.82,
+        "published_at": null,
+        "url": null
+      },
+      {
+        "source": "llm_knowledge",
+        "title": "Extended oil-change intervals and EV adoption softening long-term demand growth",
+        "summary": "Longer OEM-recommended synthetic oil change intervals (10,000-15,000 miles) and rising EV penetration are gradually slowing volume growth in Full Synthetic Engine Oil, though this is partly offset by premiumization trends supporting per-unit margins.",
+        "relevance_score": 0.7,
+        "published_at": null,
+        "url": null
+      }
+    ],
+    "market_conflict": null
+  },
+  "hypotheses": {
+    "mckinsey": {
+      "framework": "3-Horizon Problem Decomposition with MECE Structuring",
+      "hypothesis": "Gross margin collapse at National Auto Parts Chain A is driven by a combination of base oil COGS inflation (confirmed lag mechanism) compressing input costs faster than contractual pricing allows adjustment, compounded by unfavorable product mix shift toward Synthetic Blend Engine Oil\u2014a nominally higher-margin SKU that is being discounted or sold at constrained list prices to retain the anchor account.",
+      "key_evidence": [
+        "National Auto Parts Chain A accounts for 100% of the -43.24pp margin delta; current margin is -445.01%, indicating severe structural loss position or contract pricing below cost",
+        "Synthetic Blend Engine Oil delta of -16.76pp (53% of total product-level deterioration) coincides with the customer deterioration, suggesting this SKU is the primary vehicle of margin destruction within the account",
+        "Service Centers Division margin declined -15.18pp in parallel, indicating the problem is not isolated to direct sales but extends to fulfillment/operations cost structure"
+      ],
+      "recommended_focus": "National Auto Parts Chain A",
+      "conviction": "High",
+      "proposed_option": {
+        "title": "Renegotiate Synthetic Blend Pricing Corridor and Trigger COGS Pass-Through Mechanism",
+        "description": "Initiate a structured commercial review with National Auto Parts Chain A to establish a dynamic pricing mechanism for Synthetic Blend Engine Oil that permits quarterly (not mid-quarter) list price adjustments tied to published base oil indices. This preserves the contractual price-lock for the current quarter while creating a sustainable margin recovery path for H2. Simultaneously, audit the Service Centers Division fulfillment cost structure to identify whether logistics or warehousing costs for this account have drifted above standard.",
+        "mechanism": "The confirmed COGS-margin lag mechanism (1-month lag on base oil pass-through) combined with contractual pricing rigidity creates a margin trap when input costs spike. By decoupling the Synthetic Blend SKU from the anchor account's blanket price-lock clause (which applies to conventional grades) and introducing index-linked quarterly resets, we restore margin sensitivity to input cost movements. The Service Centers cost audit addresses the secondary -15.18pp deterioration and may reveal operational inefficiencies (e.g., dedicated inventory holding, expedited logistics) that inflate true COGS for this customer.",
+        "time_horizon": "0-90 days",
+        "impact_estimate": {
+          "metric": "Gross Margin %",
+          "unit": "percentage points (pp)",
+          "recovery_range": {
+            "low": 18.5,
+            "high": 28.0
+          },
+          "basis": "Synthetic Blend Engine Oil contributes -16.76pp of the -43.24pp total delta. Assuming 60\u201370% of this deterioration is attributable to base oil COGS lag and pricing rigidity (vs. true demand discounting), a renegotiated pricing mechanism targeting the Synthetic Blend SKU alone could recover 10\u201312pp. Adding Service Centers operational efficiency gains (e.g., 1\u20132pp from cost structure optimization) yields a 11\u201314pp recovery on the product level. Scaling to the full account impact (Synthetic Blend is ~39% of the customer delta), total recovery potential is 18.5\u201328.0pp, which is proportional to the observed variance and respects the constraint that mid-quarter pricing changes are contractually prohibited."
+        },
+        "cost_signal": "Medium",
+        "risk_signal": "Medium"
+      }
+    },
+    "bcg": {
+      "framework": "Growth-Share Matrix & Experience Curve Analysis with Deconstruction",
+      "hypothesis": "Base oil COGS price volatility (confirmed lag mechanism: ~1 month) has passed through to gross margin with a lag, while contractual price-lock clauses prevent immediate list price recovery on the National Auto Parts Chain A anchor account. The 43.24pp margin deterioration is driven by unrecovered input cost inflation absorbed in COGS, compounded by unfavorable product mix shift toward Synthetic Blend Engine Oil (lower-margin exposure within this customer). This is a timing mismatch between cost realization and pricing power recovery.",
+      "key_evidence": [
+        "National Auto Parts Chain A accounts for -43.24pp of the -43.24pp total margin decline (100% attribution), indicating customer-specific pricing or cost absorption dynamic rather than portfolio-wide pressure",
+        "Synthetic Blend Engine Oil contributes -16.76pp decline within this customer segment, suggesting either volume shift toward lower-margin SKUs or discounting pressure on premium formulations that should carry structural margin benefit",
+        "Service Centers Division shows -15.18pp deterioration (third-order impact), indicating the margin pressure propagates across distribution channels, consistent with upstream COGS pass-through rather than localized customer issue"
+      ],
+      "recommended_focus": "National Auto Parts Chain A",
+      "conviction": "High",
+      "proposed_option": {
+        "title": "Accelerate Contract Renewal Negotiation with Price Adjustment Clause for Base Oil Volatility",
+        "description": "Initiate early renegotiation of the National Auto Parts Chain A supply agreement to introduce a base oil cost indexing mechanism or trigger-based price adjustment clause that activates when WTI crude or base oil spot prices move beyond a defined band. This unlocks pricing flexibility post-lock-period while demonstrating partnership through transparent cost-sharing rather than unilateral price hikes. Execute within 30\u201345 days to align with next contractual review window and capture Q2\u2013Q3 margin recovery.",
+        "mechanism": "The confirmed causal relationship (COGS \u2194 base oil price volatility, ~1-month lag, high confidence) shows that margin compression is a cost-pass-through timing issue, not demand or mix destruction. By establishing a forward-looking indexing clause, you decouple future margin recovery from the rigid price-lock constraint, allowing gross margin to normalize as base oil prices stabilize or reverse. This addresses the root mechanism (unrecovered input cost) rather than masking it via volume or discount tactics.",
+        "time_horizon": "0-90 days",
+        "impact_estimate": {
+          "metric": "Gross Margin %",
+          "unit": "percentage points (pp)",
+          "recovery_range": {
+            "low": 18.5,
+            "high": 31.2
+          },
+          "basis": "Conservative recovery assumes 43\u201373% of the 43.24pp National Auto Parts Chain A deterioration is recoverable via cost indexing mechanism (18.5\u201331.2pp recovery). The remaining 12\u201325pp may reflect mix shift or competitive discounting that requires separate volume/SKU actions. Timing: margin recovery lags contract execution by ~1 month, aligning with confirmed base oil cost lag."
+        },
+        "cost_signal": "Low",
+        "risk_signal": "Medium"
+      }
+    },
+    "bain": {
+      "framework": "Net Promoter System + Full Potential Transformation (margin recovery through customer-level economics)",
+      "hypothesis": "National Auto Parts Chain A's gross margin collapse (-43.24pp) is driven by a combination of contractually-locked pricing on Synthetic Blend Engine Oil (the highest-margin product line, now at -42.51% margin) amid rising base oil COGS. The customer's volume concentration and price-lock clause prevent mid-quarter repricing, forcing margin absorption. Synthetic Blend's -16.76pp deterioration signals input cost pass-through lag compressing premium-product economics specifically at this anchor account.",
+      "key_evidence": [
+        "National Auto Parts Chain A accounts for -43.24pp of the total -43.24pp gross margin variance year-to-date, representing 100% of the KPI deterioration (customer_name dimension)",
+        "Synthetic Blend Engine Oil margin fell -16.76pp to -42.51% current, indicating structural pricing misalignment with base oil cost inflation (product_name dimension with confirmed COGS lag mechanism)",
+        "Service Centers Division (likely fulfillment hub for National Auto Parts Chain A) deteriorated -15.18pp, suggesting operational or allocation cost absorption within this profit center"
+      ],
+      "recommended_focus": "Synthetic Blend Engine Oil",
+      "conviction": "High",
+      "proposed_option": {
+        "title": "Accelerate Contract Renewal Negotiation with National Auto Parts Chain A to Reset Pricing on Synthetic Blend SKUs",
+        "description": "Initiate early renewal discussions with National Auto Parts Chain A to lock in pricing adjustments on Synthetic Blend Engine Oil before the current price-lock clause resets. Propose a tiered volume-for-margin swap: modest volume growth commitment in exchange for 8\u201312pp price recovery on Synthetic Blend, funded by documented base oil cost inflation over the last 1\u20132 months. Conduct this in parallel with a competitive win/loss analysis to establish walk-away economics.",
+        "mechanism": "The confirmed COGS\u2013margin lag mechanism shows base oil price volatility passes through with ~1-month lag. By renegotiating the anchor account contract during the renewal window, you unlock pricing flexibility currently blocked by mid-quarter lock clauses. This directly addresses the -16.76pp Synthetic Blend margin gap by resetting the price floor to reflect current input costs, while the volume upside mitigates customer pushback and protects NPS.",
+        "time_horizon": "0-90 days",
+        "impact_estimate": {
+          "metric": "Gross Margin %",
+          "unit": "%",
+          "recovery_range": {
+            "low": 18.5,
+            "high": 26.3
+          },
+          "basis": "Synthetic Blend represents -16.76pp of deterioration; a 6\u20138pp pricing recovery on this SKU (achievable via contract reset + volume trade) recovers ~18.5pp at the customer level. If combined with 1\u20132pp operational efficiency in Service Centers Division fulfillment, total recovery reaches 20\u201326pp, offsetting 46\u201360% of the -43.24pp customer-level variance."
+        },
+        "cost_signal": "Low",
+        "risk_signal": "Medium"
+      }
+    }
+  }
+}

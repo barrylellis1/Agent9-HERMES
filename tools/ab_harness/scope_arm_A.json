@@ -1,0 +1,3028 @@
+{
+  "request_id": "solution_92ab19d6a8a24d2486e1e9229766e56b",
+  "workflow_type": "solutions",
+  "state": "completed",
+  "payload": {
+    "principal_id": "cfo_001",
+    "situation_id": null,
+    "analysis_request_id": null,
+    "deep_analysis_output": {
+      "plan": {
+        "kpi_name": "gross_margin_pct",
+        "client_id": "lubricants",
+        "timeframe": "year_to_date",
+        "filters": {
+          "Fiscal Year": [
+            "2024",
+            "2025",
+            "2026"
+          ],
+          "Customer Segment": [
+            "Total"
+          ],
+          "Profit Center Name": [
+            "Total"
+          ]
+        },
+        "dimensions": [
+          "product_name",
+          "product_line",
+          "product_category",
+          "customer_name",
+          "customer_segment",
+          "customer_region",
+          "profit_center_name",
+          "business_unit",
+          "channel_name",
+          "channel_type",
+          "account_name",
+          "account_type",
+          "account_category",
+          "account_group",
+          "fiscal_year"
+        ],
+        "steps": [
+          {
+            "type": "group_compare",
+            "dimension": "product_name",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "product_line",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "product_category",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "customer_name",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "customer_segment",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "customer_region",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "profit_center_name",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "business_unit",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "channel_name",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "channel_type",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          }
+        ],
+        "notes": "KT core with SCQA/MECE framing (auto-derived dimensions from data product contract).",
+        "dimensions_considered": [
+          "product_name",
+          "product_line",
+          "product_category",
+          "customer_name",
+          "customer_segment",
+          "customer_region",
+          "profit_center_name",
+          "business_unit",
+          "channel_name",
+          "channel_type",
+          "account_name",
+          "account_type",
+          "account_category",
+          "account_group",
+          "fiscal_year"
+        ],
+        "dimension_rank_source": "contract_semantics",
+        "analysis_mode": "problem",
+        "alert_type": null,
+        "compound_alert": false,
+        "compound_pattern": null,
+        "merged_alert_types": null,
+        "secondary_alert_facts": null,
+        "comparator_override": null
+      },
+      "execution": {
+        "status": "success",
+        "request_id": "b633a7ad-907a-41e5-9eb5-e7ca5663cfe2",
+        "timestamp": "2026-08-11T16:30:49.355810",
+        "error_message": null,
+        "plan": {
+          "kpi_name": "gross_margin_pct",
+          "client_id": "lubricants",
+          "timeframe": "year_to_date",
+          "filters": {
+            "Fiscal Year": [
+              "2024",
+              "2025",
+              "2026"
+            ],
+            "Customer Segment": [
+              "Total"
+            ],
+            "Profit Center Name": [
+              "Total"
+            ]
+          },
+          "dimensions": [
+            "product_name",
+            "product_line",
+            "product_category",
+            "customer_name",
+            "customer_segment",
+            "customer_region",
+            "profit_center_name",
+            "business_unit",
+            "channel_name",
+            "channel_type",
+            "account_name",
+            "account_type",
+            "account_category",
+            "account_group",
+            "fiscal_year"
+          ],
+          "steps": [
+            {
+              "type": "group_compare",
+              "dimension": "product_name",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ],
+                "Customer Segment": [
+                  "Total"
+                ],
+                "Profit Center Name": [
+                  "Total"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "product_line",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ],
+                "Customer Segment": [
+                  "Total"
+                ],
+                "Profit Center Name": [
+                  "Total"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "product_category",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ],
+                "Customer Segment": [
+                  "Total"
+                ],
+                "Profit Center Name": [
+                  "Total"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "customer_name",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ],
+                "Customer Segment": [
+                  "Total"
+                ],
+                "Profit Center Name": [
+                  "Total"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "customer_segment",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ],
+                "Customer Segment": [
+                  "Total"
+                ],
+                "Profit Center Name": [
+                  "Total"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "customer_region",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ],
+                "Customer Segment": [
+                  "Total"
+                ],
+                "Profit Center Name": [
+                  "Total"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "profit_center_name",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ],
+                "Customer Segment": [
+                  "Total"
+                ],
+                "Profit Center Name": [
+                  "Total"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "business_unit",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ],
+                "Customer Segment": [
+                  "Total"
+                ],
+                "Profit Center Name": [
+                  "Total"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "channel_name",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ],
+                "Customer Segment": [
+                  "Total"
+                ],
+                "Profit Center Name": [
+                  "Total"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "channel_type",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ],
+                "Customer Segment": [
+                  "Total"
+                ],
+                "Profit Center Name": [
+                  "Total"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            }
+          ],
+          "notes": "KT core with SCQA/MECE framing (auto-derived dimensions from data product contract).",
+          "dimensions_considered": [
+            "product_name",
+            "product_line",
+            "product_category",
+            "customer_name",
+            "customer_segment",
+            "customer_region",
+            "profit_center_name",
+            "business_unit",
+            "channel_name",
+            "channel_type",
+            "account_name",
+            "account_type",
+            "account_category",
+            "account_group",
+            "fiscal_year"
+          ],
+          "dimension_rank_source": "contract_semantics",
+          "analysis_mode": "problem",
+          "alert_type": null,
+          "compound_alert": false,
+          "compound_pattern": null,
+          "merged_alert_types": null,
+          "secondary_alert_facts": null,
+          "comparator_override": null
+        },
+        "dimensions_suggested": [
+          "product_name",
+          "product_line",
+          "product_category",
+          "customer_name",
+          "customer_segment",
+          "customer_region",
+          "profit_center_name",
+          "business_unit",
+          "channel_name",
+          "channel_type",
+          "account_name",
+          "account_type",
+          "account_category",
+          "account_group",
+          "fiscal_year"
+        ],
+        "dimensions_analyzed": [
+          "product_name",
+          "product_line",
+          "product_category",
+          "customer_name",
+          "customer_segment",
+          "customer_region",
+          "profit_center_name",
+          "business_unit",
+          "channel_name",
+          "channel_type"
+        ],
+        "scqa_summary": "Situation: Year-to-date gross margin percentage is underperforming against target when measured year-over-year, with five product lines driving the shortfall: Synthetic Blend Engine Oil, Conventional Engine Oil, Compressor Oil, Hydraulic Oil, and Manual Gear Oil.\n\nComplication: Synthetic Blend Engine Oil has declined 7.1 percentage points and Conventional Engine Oil has declined 6.6 percentage points year-over-year, while the Value product category has contracted 6.4 percentage points, indicating margin pressure is concentrated in high-volume commodity segments rather than distributed across the portfolio.\n\nQuestion: What is causing margin compression in these five core product lines, and is the decline driven by pricing actions, input cost inflation, unfavorable product mix shift, or competitive pressure?\n\nAnswer: The data identifies where margin is eroding but does not reveal root cause; a forensic review of cost of goods sold, selling prices, and unit volume trends within these five segments is required to determine whether intervention should target pricing strategy, procurement, manufacturing efficiency, or portfolio rebalancing.",
+        "kt_is_is_not": {
+          "what_is": [
+            {
+              "text": "gross_margin_pct is 29.94 vs prior year_to_date 34.43 (\u0394 -4.49, -13.0%)."
+            },
+            {
+              "text": "Issue observed during year_to_date compared against prior year_to_date."
+            },
+            {
+              "text": "Largest variance in product_name: Synthetic Blend Engine Oil (\u0394 -7.14)."
+            },
+            {
+              "text": "Analysis scoped by applied filters, limiting impact to selected context."
+            }
+          ],
+          "what_is_not": [
+            {
+              "text": "Unaffected timeframe buckets: Within threshold"
+            }
+          ],
+          "where_is": [
+            {
+              "dimension": "product_name",
+              "key": "Synthetic Blend Engine Oil",
+              "delta": -7.140000000000001,
+              "current": 20.64,
+              "previous": 27.78,
+              "text": "product_name: Synthetic Blend Engine Oil (\u0394 -7.14)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "product_name",
+              "key": "Conventional Engine Oil",
+              "delta": -6.609999999999999,
+              "current": 19.16,
+              "previous": 25.77,
+              "text": "product_name: Conventional Engine Oil (\u0394 -6.61)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "product_name",
+              "key": "Compressor Oil",
+              "delta": -5.859999999999999,
+              "current": 28.0,
+              "previous": 33.86,
+              "text": "product_name: Compressor Oil (\u0394 -5.86)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "product_name",
+              "key": "Hydraulic Oil",
+              "delta": -5.760000000000002,
+              "current": 25.83,
+              "previous": 31.59,
+              "text": "product_name: Hydraulic Oil (\u0394 -5.76)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "product_name",
+              "key": "Manual Gear Oil",
+              "delta": -5.740000000000002,
+              "current": 21.9,
+              "previous": 27.64,
+              "text": "product_name: Manual Gear Oil (\u0394 -5.74)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "product_name",
+              "key": "Automatic Transmission Fluid",
+              "delta": -5.290000000000003,
+              "current": 28.38,
+              "previous": 33.67,
+              "text": "product_name: Automatic Transmission Fluid (\u0394 -5.29)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "product_name",
+              "key": "Turbine Oil",
+              "delta": -4.93,
+              "current": 31.71,
+              "previous": 36.64,
+              "text": "product_name: Turbine Oil (\u0394 -4.93)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "product_name",
+              "key": "High Mileage Engine Oil",
+              "delta": -4.609999999999999,
+              "current": 33.0,
+              "previous": 37.61,
+              "text": "product_name: High Mileage Engine Oil (\u0394 -4.61)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "product_name",
+              "key": "Full Synthetic Engine Oil",
+              "delta": -3.8299999999999983,
+              "current": 35.82,
+              "previous": 39.65,
+              "text": "product_name: Full Synthetic Engine Oil (\u0394 -3.83)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "product_name",
+              "key": "Multi-Purpose Grease",
+              "delta": -3.259999999999998,
+              "current": 35.25,
+              "previous": 38.51,
+              "text": "product_name: Multi-Purpose Grease (\u0394 -3.26)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "product_line",
+              "key": "Engine Oils",
+              "delta": -5.799999999999997,
+              "current": 26.03,
+              "previous": 31.83,
+              "text": "product_line: Engine Oils (\u0394 -5.80)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "product_line",
+              "key": "Industrial Lubricants",
+              "delta": -5.470000000000002,
+              "current": 28.13,
+              "previous": 33.6,
+              "text": "product_line: Industrial Lubricants (\u0394 -5.47)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "product_line",
+              "key": "Transmission & Drivetrain",
+              "delta": -5.430000000000003,
+              "current": 26.77,
+              "previous": 32.2,
+              "text": "product_line: Transmission & Drivetrain (\u0394 -5.43)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "product_line",
+              "key": "Greases & Specialty",
+              "delta": -3.1400000000000006,
+              "current": 35.96,
+              "previous": 39.1,
+              "text": "product_line: Greases & Specialty (\u0394 -3.14)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "product_line",
+              "key": "Coolants & Antifreeze",
+              "delta": -1.9199999999999982,
+              "current": 29.57,
+              "previous": 31.49,
+              "text": "product_line: Coolants & Antifreeze (\u0394 -1.92)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "product_category",
+              "key": "Value",
+              "delta": -6.419999999999998,
+              "current": 19.82,
+              "previous": 26.24,
+              "text": "product_category: Value (\u0394 -6.42)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "product_category",
+              "key": "Mid-Range",
+              "delta": -5.440000000000001,
+              "current": 25.33,
+              "previous": 30.77,
+              "text": "product_category: Mid-Range (\u0394 -5.44)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "product_category",
+              "key": "Industrial",
+              "delta": -4.460000000000001,
+              "current": 28.21,
+              "previous": 32.67,
+              "text": "product_category: Industrial (\u0394 -4.46)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "product_category",
+              "key": "Premium",
+              "delta": -3.6099999999999994,
+              "current": 36.37,
+              "previous": 39.98,
+              "text": "product_category: Premium (\u0394 -3.61)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "product_category",
+              "key": "Specialty",
+              "delta": -2.950000000000003,
+              "current": 37.79,
+              "previous": 40.74,
+              "text": "product_category: Specialty (\u0394 -2.95)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_name",
+              "key": "National Auto Parts Chain A",
+              "delta": -5.240000000000002,
+              "current": 28.18,
+              "previous": 33.42,
+              "text": "customer_name: National Auto Parts Chain A (\u0394 -5.24)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_name",
+              "key": "Latin America Distributor",
+              "delta": -5.080000000000002,
+              "current": 27.69,
+              "previous": 32.77,
+              "text": "customer_name: Latin America Distributor (\u0394 -5.08)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_name",
+              "key": "Middle East Distributor",
+              "delta": -5.039999999999999,
+              "current": 27.64,
+              "previous": 32.68,
+              "text": "customer_name: Middle East Distributor (\u0394 -5.04)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_name",
+              "key": "Mining & Construction Corp",
+              "delta": -5.020000000000003,
+              "current": 29.08,
+              "previous": 34.1,
+              "text": "customer_name: Mining & Construction Corp (\u0394 -5.02)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_name",
+              "key": "Fleet Customer A",
+              "delta": -5.0,
+              "current": 29.07,
+              "previous": 34.07,
+              "text": "customer_name: Fleet Customer A (\u0394 -5.00)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_name",
+              "key": "Marine Operations Co",
+              "delta": -4.979999999999997,
+              "current": 29.1,
+              "previous": 34.08,
+              "text": "customer_name: Marine Operations Co (\u0394 -4.98)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_name",
+              "key": "European Distributor",
+              "delta": -4.969999999999999,
+              "current": 27.53,
+              "previous": 32.5,
+              "text": "customer_name: European Distributor (\u0394 -4.97)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_name",
+              "key": "Dealer Service Network",
+              "delta": -4.969999999999995,
+              "current": 28.94,
+              "previous": 33.91,
+              "text": "customer_name: Dealer Service Network (\u0394 -4.97)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_name",
+              "key": "Asia-Pacific Distributor",
+              "delta": -4.799999999999997,
+              "current": 27.71,
+              "previous": 32.51,
+              "text": "customer_name: Asia-Pacific Distributor (\u0394 -4.80)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_name",
+              "key": "Fleet Customer B",
+              "delta": -4.789999999999999,
+              "current": 29.21,
+              "previous": 34.0,
+              "text": "customer_name: Fleet Customer B (\u0394 -4.79)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_segment",
+              "key": "International Distributors",
+              "delta": -4.979999999999997,
+              "current": 27.64,
+              "previous": 32.62,
+              "text": "customer_segment: International Distributors (\u0394 -4.98)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_segment",
+              "key": "Commercial Fleet",
+              "delta": -4.719999999999995,
+              "current": 29.19,
+              "previous": 33.91,
+              "text": "customer_segment: Commercial Fleet (\u0394 -4.72)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_segment",
+              "key": "Industrial",
+              "delta": -4.699999999999999,
+              "current": 29.19,
+              "previous": 33.89,
+              "text": "customer_segment: Industrial (\u0394 -4.70)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_segment",
+              "key": "Service Centers",
+              "delta": -4.379999999999999,
+              "current": 29.95,
+              "previous": 34.33,
+              "text": "customer_segment: Service Centers (\u0394 -4.38)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_segment",
+              "key": "Retail Partners",
+              "delta": -4.259999999999998,
+              "current": 30.93,
+              "previous": 35.19,
+              "text": "customer_segment: Retail Partners (\u0394 -4.26)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_region",
+              "key": "Latin America",
+              "delta": -5.080000000000002,
+              "current": 27.69,
+              "previous": 32.77,
+              "text": "customer_region: Latin America (\u0394 -5.08)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_region",
+              "key": "Middle East",
+              "delta": -5.039999999999999,
+              "current": 27.64,
+              "previous": 32.68,
+              "text": "customer_region: Middle East (\u0394 -5.04)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_region",
+              "key": "International",
+              "delta": -4.979999999999997,
+              "current": 29.1,
+              "previous": 34.08,
+              "text": "customer_region: International (\u0394 -4.98)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_region",
+              "key": "Europe",
+              "delta": -4.969999999999999,
+              "current": 27.53,
+              "previous": 32.5,
+              "text": "customer_region: Europe (\u0394 -4.97)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_region",
+              "key": "Asia-Pacific",
+              "delta": -4.799999999999997,
+              "current": 27.71,
+              "previous": 32.51,
+              "text": "customer_region: Asia-Pacific (\u0394 -4.80)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "customer_region",
+              "key": "North America",
+              "delta": -4.390000000000004,
+              "current": 30.31,
+              "previous": 34.7,
+              "text": "customer_region: North America (\u0394 -4.39)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "profit_center_name",
+              "key": "International Division",
+              "delta": -4.979999999999997,
+              "current": 27.64,
+              "previous": 32.62,
+              "text": "profit_center_name: International Division (\u0394 -4.98)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "profit_center_name",
+              "key": "Commercial & Industrial Division",
+              "delta": -4.709999999999997,
+              "current": 29.19,
+              "previous": 33.9,
+              "text": "profit_center_name: Commercial & Industrial Division (\u0394 -4.71)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "profit_center_name",
+              "key": "Service Centers Division",
+              "delta": -4.379999999999999,
+              "current": 29.95,
+              "previous": 34.33,
+              "text": "profit_center_name: Service Centers Division (\u0394 -4.38)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "profit_center_name",
+              "key": "Retail Products Division",
+              "delta": -4.259999999999998,
+              "current": 30.93,
+              "previous": 35.19,
+              "text": "profit_center_name: Retail Products Division (\u0394 -4.26)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "business_unit",
+              "key": "International",
+              "delta": -4.979999999999997,
+              "current": 27.64,
+              "previous": 32.62,
+              "text": "business_unit: International (\u0394 -4.98)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "business_unit",
+              "key": "Commercial & Industrial",
+              "delta": -4.709999999999997,
+              "current": 29.19,
+              "previous": 33.9,
+              "text": "business_unit: Commercial & Industrial (\u0394 -4.71)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "business_unit",
+              "key": "Service Centers",
+              "delta": -4.379999999999999,
+              "current": 29.95,
+              "previous": 34.33,
+              "text": "business_unit: Service Centers (\u0394 -4.38)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "business_unit",
+              "key": "Retail Products",
+              "delta": -4.259999999999998,
+              "current": 30.93,
+              "previous": 35.19,
+              "text": "business_unit: Retail Products (\u0394 -4.26)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "channel_name",
+              "key": "International Distribution",
+              "delta": -4.979999999999997,
+              "current": 27.64,
+              "previous": 32.62,
+              "text": "channel_name: International Distribution (\u0394 -4.98)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "channel_name",
+              "key": "B2B Direct Sales",
+              "delta": -4.709999999999997,
+              "current": 29.19,
+              "previous": 33.9,
+              "text": "channel_name: B2B Direct Sales (\u0394 -4.71)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "channel_name",
+              "key": "DIY Retail",
+              "delta": -4.5000000000000036,
+              "current": 30.45,
+              "previous": 34.95,
+              "text": "channel_name: DIY Retail (\u0394 -4.50)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "channel_name",
+              "key": "DIFM Service Centers",
+              "delta": -4.379999999999999,
+              "current": 29.95,
+              "previous": 34.33,
+              "text": "channel_name: DIFM Service Centers (\u0394 -4.38)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "channel_name",
+              "key": "E-Commerce",
+              "delta": -3.2900000000000063,
+              "current": 32.91,
+              "previous": 36.2,
+              "text": "channel_name: E-Commerce (\u0394 -3.29)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "channel_type",
+              "key": "International",
+              "delta": -4.979999999999997,
+              "current": 27.64,
+              "previous": 32.62,
+              "text": "channel_type: International (\u0394 -4.98)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "channel_type",
+              "key": "Direct",
+              "delta": -4.709999999999997,
+              "current": 29.19,
+              "previous": 33.9,
+              "text": "channel_type: Direct (\u0394 -4.71)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "channel_type",
+              "key": "Retail",
+              "delta": -4.5000000000000036,
+              "current": 30.45,
+              "previous": 34.95,
+              "text": "channel_type: Retail (\u0394 -4.50)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "channel_type",
+              "key": "Service",
+              "delta": -4.379999999999999,
+              "current": 29.95,
+              "previous": 34.33,
+              "text": "channel_type: Service (\u0394 -4.38)",
+              "segment_type": "problem"
+            },
+            {
+              "dimension": "channel_type",
+              "key": "Digital",
+              "delta": -3.2900000000000063,
+              "current": 32.91,
+              "previous": 36.2,
+              "text": "channel_type: Digital (\u0394 -3.29)",
+              "segment_type": "problem"
+            }
+          ],
+          "where_is_not": [],
+          "when_is": [
+            {
+              "bucket": "2026-007",
+              "delta": 32.4,
+              "current": 32.4,
+              "previous": 0.0,
+              "text": "2026-007 (\u0394 +32.40)"
+            },
+            {
+              "bucket": "2026-006",
+              "delta": 32.37,
+              "current": 32.37,
+              "previous": 0.0,
+              "text": "2026-006 (\u0394 +32.37)"
+            },
+            {
+              "bucket": "2026-008",
+              "delta": 31.49,
+              "current": 31.49,
+              "previous": 0.0,
+              "text": "2026-008 (\u0394 +31.49)"
+            }
+          ],
+          "when_is_not": [
+            {
+              "bucket": "2026-007",
+              "delta": 32.4,
+              "current": 32.4,
+              "previous": 0.0,
+              "text": "2026-007 (\u0394 +32.40) \u2014 Within threshold",
+              "note": "Within threshold"
+            },
+            {
+              "bucket": "2026-006",
+              "delta": 32.37,
+              "current": 32.37,
+              "previous": 0.0,
+              "text": "2026-006 (\u0394 +32.37) \u2014 Within threshold",
+              "note": "Within threshold"
+            },
+            {
+              "bucket": "2026-008",
+              "delta": 31.49,
+              "current": 31.49,
+              "previous": 0.0,
+              "text": "2026-008 (\u0394 +31.49) \u2014 Within threshold",
+              "note": "Within threshold"
+            }
+          ],
+          "extent_is": [
+            {
+              "dimension": "product_name",
+              "vector": "dimension",
+              "comparator": "previous",
+              "threshold": 0.0,
+              "inverse_logic": false,
+              "total_keys": 15,
+              "breach_count": 15,
+              "within_count": 0,
+              "histogram": [
+                {
+                  "bin": "<-20%",
+                  "count": 3
+                },
+                {
+                  "bin": "-20% to -10%",
+                  "count": 5
+                },
+                {
+                  "bin": "-10% to 0%",
+                  "count": 7
+                },
+                {
+                  "bin": "0% to 10%",
+                  "count": 0
+                },
+                {
+                  "bin": "10% to 20%",
+                  "count": 0
+                },
+                {
+                  "bin": ">20%",
+                  "count": 0
+                }
+              ],
+              "min_ratio": -0.2570194384449244,
+              "median_ratio": -0.12257378356819994,
+              "max_ratio": -0.04188245890565187
+            },
+            {
+              "dimension": "product_line",
+              "vector": "dimension",
+              "comparator": "previous",
+              "threshold": 0.0,
+              "inverse_logic": false,
+              "total_keys": 6,
+              "breach_count": 6,
+              "within_count": 0,
+              "histogram": [
+                {
+                  "bin": "<-20%",
+                  "count": 0
+                },
+                {
+                  "bin": "-20% to -10%",
+                  "count": 3
+                },
+                {
+                  "bin": "-10% to 0%",
+                  "count": 3
+                },
+                {
+                  "bin": "0% to 10%",
+                  "count": 0
+                },
+                {
+                  "bin": "10% to 20%",
+                  "count": 0
+                },
+                {
+                  "bin": ">20%",
+                  "count": 0
+                }
+              ],
+              "min_ratio": -0.18221803330191635,
+              "median_ratio": -0.12155226220923156,
+              "max_ratio": -0.04253867151956318
+            },
+            {
+              "dimension": "product_category",
+              "vector": "dimension",
+              "comparator": "previous",
+              "threshold": 0.0,
+              "inverse_logic": false,
+              "total_keys": 5,
+              "breach_count": 5,
+              "within_count": 0,
+              "histogram": [
+                {
+                  "bin": "<-20%",
+                  "count": 1
+                },
+                {
+                  "bin": "-20% to -10%",
+                  "count": 2
+                },
+                {
+                  "bin": "-10% to 0%",
+                  "count": 2
+                },
+                {
+                  "bin": "0% to 10%",
+                  "count": 0
+                },
+                {
+                  "bin": "10% to 20%",
+                  "count": 0
+                },
+                {
+                  "bin": ">20%",
+                  "count": 0
+                }
+              ],
+              "min_ratio": -0.2446646341463414,
+              "median_ratio": -0.13651668197122743,
+              "max_ratio": -0.07241040746195392
+            },
+            {
+              "dimension": "customer_name",
+              "vector": "dimension",
+              "comparator": "previous",
+              "threshold": 0.0,
+              "inverse_logic": false,
+              "total_keys": 20,
+              "breach_count": 20,
+              "within_count": 0,
+              "histogram": [
+                {
+                  "bin": "<-20%",
+                  "count": 0
+                },
+                {
+                  "bin": "-20% to -10%",
+                  "count": 19
+                },
+                {
+                  "bin": "-10% to 0%",
+                  "count": 1
+                },
+                {
+                  "bin": "0% to 10%",
+                  "count": 0
+                },
+                {
+                  "bin": "10% to 20%",
+                  "count": 0
+                },
+                {
+                  "bin": ">20%",
+                  "count": 0
+                }
+              ],
+              "min_ratio": -0.15679233991621788,
+              "median_ratio": -0.13826032540675848,
+              "max_ratio": -0.09713024282560714
+            },
+            {
+              "dimension": "customer_segment",
+              "vector": "dimension",
+              "comparator": "previous",
+              "threshold": 0.0,
+              "inverse_logic": false,
+              "total_keys": 5,
+              "breach_count": 5,
+              "within_count": 0,
+              "histogram": [
+                {
+                  "bin": "<-20%",
+                  "count": 0
+                },
+                {
+                  "bin": "-20% to -10%",
+                  "count": 5
+                },
+                {
+                  "bin": "-10% to 0%",
+                  "count": 0
+                },
+                {
+                  "bin": "0% to 10%",
+                  "count": 0
+                },
+                {
+                  "bin": "10% to 20%",
+                  "count": 0
+                },
+                {
+                  "bin": ">20%",
+                  "count": 0
+                }
+              ],
+              "min_ratio": -0.15266707541385643,
+              "median_ratio": -0.13868397757450573,
+              "max_ratio": -0.1210571184995737
+            },
+            {
+              "dimension": "customer_region",
+              "vector": "dimension",
+              "comparator": "previous",
+              "threshold": 0.0,
+              "inverse_logic": false,
+              "total_keys": 6,
+              "breach_count": 6,
+              "within_count": 0,
+              "histogram": [
+                {
+                  "bin": "<-20%",
+                  "count": 0
+                },
+                {
+                  "bin": "-20% to -10%",
+                  "count": 6
+                },
+                {
+                  "bin": "-10% to 0%",
+                  "count": 0
+                },
+                {
+                  "bin": "0% to 10%",
+                  "count": 0
+                },
+                {
+                  "bin": "10% to 20%",
+                  "count": 0
+                },
+                {
+                  "bin": ">20%",
+                  "count": 0
+                }
+              ],
+              "min_ratio": -0.15501983521513585,
+              "median_ratio": -0.15028497740340246,
+              "max_ratio": -0.12651296829971193
+            },
+            {
+              "dimension": "profit_center_name",
+              "vector": "dimension",
+              "comparator": "previous",
+              "threshold": 0.0,
+              "inverse_logic": false,
+              "total_keys": 5,
+              "breach_count": 4,
+              "within_count": 1,
+              "histogram": [
+                {
+                  "bin": "<-20%",
+                  "count": 0
+                },
+                {
+                  "bin": "-20% to -10%",
+                  "count": 4
+                },
+                {
+                  "bin": "-10% to 0%",
+                  "count": 0
+                },
+                {
+                  "bin": "0% to 10%",
+                  "count": 1
+                },
+                {
+                  "bin": "10% to 20%",
+                  "count": 0
+                },
+                {
+                  "bin": ">20%",
+                  "count": 0
+                }
+              ],
+              "min_ratio": -0.15266707541385643,
+              "median_ratio": -0.12758520244683946,
+              "max_ratio": 0.0
+            },
+            {
+              "dimension": "business_unit",
+              "vector": "dimension",
+              "comparator": "previous",
+              "threshold": 0.0,
+              "inverse_logic": false,
+              "total_keys": 5,
+              "breach_count": 4,
+              "within_count": 1,
+              "histogram": [
+                {
+                  "bin": "<-20%",
+                  "count": 0
+                },
+                {
+                  "bin": "-20% to -10%",
+                  "count": 4
+                },
+                {
+                  "bin": "-10% to 0%",
+                  "count": 0
+                },
+                {
+                  "bin": "0% to 10%",
+                  "count": 1
+                },
+                {
+                  "bin": "10% to 20%",
+                  "count": 0
+                },
+                {
+                  "bin": ">20%",
+                  "count": 0
+                }
+              ],
+              "min_ratio": -0.15266707541385643,
+              "median_ratio": -0.12758520244683946,
+              "max_ratio": 0.0
+            },
+            {
+              "dimension": "channel_name",
+              "vector": "dimension",
+              "comparator": "previous",
+              "threshold": 0.0,
+              "inverse_logic": false,
+              "total_keys": 5,
+              "breach_count": 5,
+              "within_count": 0,
+              "histogram": [
+                {
+                  "bin": "<-20%",
+                  "count": 0
+                },
+                {
+                  "bin": "-20% to -10%",
+                  "count": 4
+                },
+                {
+                  "bin": "-10% to 0%",
+                  "count": 1
+                },
+                {
+                  "bin": "0% to 10%",
+                  "count": 0
+                },
+                {
+                  "bin": "10% to 20%",
+                  "count": 0
+                },
+                {
+                  "bin": ">20%",
+                  "count": 0
+                }
+              ],
+              "min_ratio": -0.15266707541385643,
+              "median_ratio": -0.12875536480686706,
+              "max_ratio": -0.09088397790055265
+            },
+            {
+              "dimension": "channel_type",
+              "vector": "dimension",
+              "comparator": "previous",
+              "threshold": 0.0,
+              "inverse_logic": false,
+              "total_keys": 5,
+              "breach_count": 5,
+              "within_count": 0,
+              "histogram": [
+                {
+                  "bin": "<-20%",
+                  "count": 0
+                },
+                {
+                  "bin": "-20% to -10%",
+                  "count": 4
+                },
+                {
+                  "bin": "-10% to 0%",
+                  "count": 1
+                },
+                {
+                  "bin": "0% to 10%",
+                  "count": 0
+                },
+                {
+                  "bin": "10% to 20%",
+                  "count": 0
+                },
+                {
+                  "bin": ">20%",
+                  "count": 0
+                }
+              ],
+              "min_ratio": -0.15266707541385643,
+              "median_ratio": -0.12875536480686706,
+              "max_ratio": -0.09088397790055265
+            },
+            {
+              "queries_planned": 12
+            }
+          ],
+          "extent_is_not": [],
+          "benchmark_segments": [],
+          "dimension_totals": {
+            "customer_name": {
+              "current": 29.94,
+              "previous": 34.43,
+              "delta": -4.489999999999998,
+              "source": "scalar_query"
+            },
+            "profit_center_name": {
+              "current": 29.94,
+              "previous": 34.43,
+              "delta": -4.489999999999998,
+              "source": "scalar_query"
+            },
+            "channel_name": {
+              "current": 29.94,
+              "previous": 34.43,
+              "delta": -4.489999999999998,
+              "source": "scalar_query"
+            },
+            "channel_type": {
+              "current": 29.94,
+              "previous": 34.43,
+              "delta": -4.489999999999998,
+              "source": "scalar_query"
+            },
+            "customer_region": {
+              "current": 29.94,
+              "previous": 34.43,
+              "delta": -4.489999999999998,
+              "source": "scalar_query"
+            },
+            "product_category": {
+              "current": 29.94,
+              "previous": 34.43,
+              "delta": -4.489999999999998,
+              "source": "scalar_query"
+            },
+            "business_unit": {
+              "current": 29.94,
+              "previous": 34.43,
+              "delta": -4.489999999999998,
+              "source": "scalar_query"
+            },
+            "product_name": {
+              "current": 29.94,
+              "previous": 34.43,
+              "delta": -4.489999999999998,
+              "source": "scalar_query"
+            },
+            "product_line": {
+              "current": 29.94,
+              "previous": 34.43,
+              "delta": -4.489999999999998,
+              "source": "scalar_query"
+            },
+            "customer_segment": {
+              "current": 29.94,
+              "previous": 34.43,
+              "delta": -4.489999999999998,
+              "source": "scalar_query"
+            }
+          }
+        },
+        "change_points": [
+          {
+            "dimension": "product_name",
+            "key": "Synthetic Blend Engine Oil",
+            "timestamp": null,
+            "current_value": 20.64,
+            "previous_value": 27.78,
+            "delta": -7.140000000000001,
+            "percent_growth": null,
+            "contribution_pp": null
+          },
+          {
+            "dimension": "product_name",
+            "key": "Conventional Engine Oil",
+            "timestamp": null,
+            "current_value": 19.16,
+            "previous_value": 25.77,
+            "delta": -6.609999999999999,
+            "percent_growth": null,
+            "contribution_pp": null
+          },
+          {
+            "dimension": "product_category",
+            "key": "Value",
+            "timestamp": null,
+            "current_value": 19.82,
+            "previous_value": 26.24,
+            "delta": -6.419999999999998,
+            "percent_growth": null,
+            "contribution_pp": null
+          },
+          {
+            "dimension": "product_name",
+            "key": "Compressor Oil",
+            "timestamp": null,
+            "current_value": 28.0,
+            "previous_value": 33.86,
+            "delta": -5.859999999999999,
+            "percent_growth": null,
+            "contribution_pp": null
+          },
+          {
+            "dimension": "product_line",
+            "key": "Engine Oils",
+            "timestamp": null,
+            "current_value": 26.03,
+            "previous_value": 31.83,
+            "delta": -5.799999999999997,
+            "percent_growth": null,
+            "contribution_pp": null
+          }
+        ],
+        "timeframe_mapping": {
+          "current": "year_to_date",
+          "previous": "prior year_to_date"
+        },
+        "when_started": "2026-006",
+        "percent_growth_enabled": false,
+        "analysis_mode": "problem",
+        "mixed_framing": false,
+        "alert_type": null,
+        "comparator": "previous",
+        "merged_alert_types": null,
+        "comparator_secondary": null,
+        "matrix_ran": false,
+        "samples": null
+      },
+      "market_conflict": {
+        "detected": false,
+        "type": null,
+        "confidence": 0.9,
+        "summary": "All four external signals (base oil cost inflation, crude volatility, private-label competition, and structural demand softening) point to margin headwinds that confirm rather than contradict the internal 'problem' classification."
+      }
+    },
+    "problem_statement": null,
+    "constraints": null,
+    "preferences": {
+      "consulting_personas": [
+        "mckinsey",
+        "bcg",
+        "bain"
+      ],
+      "council_preset": "recommended",
+      "analysis_mode": "problem"
+    },
+    "principal_context": null,
+    "refinement_result": {
+      "agent_message": "Thank you for the context. I have enough information to proceed to solution generation.",
+      "suggested_responses": [],
+      "exclusions": [],
+      "external_context": [
+        "Compare against our 2025 full-year margin, that is the board's reference point.",
+        "Nothing external beyond the base oil spike, no competitor or regulatory change we are aware of."
+      ],
+      "constraints": [
+        "We cannot raise prices on the anchor retail account before the contract renews in Q3."
+      ],
+      "validated_hypotheses": [
+        "Yes, the Synthetic Blend decline is real. Base oil costs jumped 18% in Q2 and we could not pass it through."
+      ],
+      "invalidated_hypotheses": [
+        "Exclude the International channel entirely, it is a reseller arrangement with different economics."
+      ],
+      "current_topic": "success_criteria",
+      "topic_complete": true,
+      "topics_completed": [
+        "scope_boundaries",
+        "hypothesis_validation",
+        "comparison_baseline",
+        "external_context",
+        "constraints",
+        "success_criteria"
+      ],
+      "ready_for_solutions": true,
+      "refined_problem_statement": "Analysis complete. | Context: Compare against our 2025 full-year margin, that is the board's reference point.; Nothing external beyond the base oil spike, no competitor or regulatory change we are aware of. | Constraints: We cannot raise prices on the anchor retail account before the contract renews in Q3. | Focus areas: Yes, the Synthetic Blend decline is real. Base oil costs jumped 18% in Q2 and we could not pass it through.",
+      "recommended_council_type": "financial",
+      "council_routing_rationale": "Principal role: CFO; Decision style: analytical; Matched keywords/rules for financial council",
+      "recommended_council_members": [
+        {
+          "category": "mbb",
+          "persona_id": "mckinsey",
+          "persona_name": "McKinsey & Company",
+          "rationale": "Matched: cost"
+        },
+        {
+          "category": "big4",
+          "persona_id": "ey_parthenon",
+          "persona_name": "EY-Parthenon",
+          "rationale": "Matched: ma"
+        },
+        {
+          "category": "technology",
+          "persona_id": "accenture",
+          "persona_name": "Accenture",
+          "rationale": "Matched: ai"
+        },
+        {
+          "category": "risk",
+          "persona_id": "kpmg",
+          "persona_name": "KPMG Advisory",
+          "rationale": "Matched: regulatory"
+        }
+      ],
+      "turn_count": 6,
+      "conversation_history": [
+        {
+          "role": "assistant",
+          "content": "Given that the margin erosion began in 2026-006 and spans five product lines (Synthetic Blend Engine Oil -7.1pp, Conventional Engine Oil -6.6pp, plus Compressor, Hydraulic, and Manual Gear Oil), should this analysis scope include all five lines uniformly, or should we exclude the industrial lines (Compressor, Hydraulic, Manual Gear Oil) if their margin decline stems from a distinct driver like customer-specific contract pricing rather than the base oil/private-label pressures affecting the automotive lines?"
+        },
+        {
+          "role": "user",
+          "content": "Exclude the International channel entirely, it is a reseller arrangement with different economics."
+        },
+        {
+          "role": "assistant",
+          "content": "With International excluded, the -7.1pp Synthetic Blend and -6.6pp Conventional Engine Oil declines starting 2026-006 \u2014 do you know of a domestic pricing action, input cost spike, or customer mix shift at that time that would explain these two lines, or should we treat them as unexplained and investigate further?"
+        },
+        {
+          "role": "user",
+          "content": "Yes, the Synthetic Blend decline is real. Base oil costs jumped 18% in Q2 and we could not pass it through."
+        },
+        {
+          "role": "assistant",
+          "content": "Since an 18% base oil cost spike is the confirmed driver for Synthetic Blend's -7.1pp decline, should we benchmark the -6.6pp Conventional Engine Oil decline against that same 18% cost inflation baseline, or does Conventional face a distinct cost structure (e.g., different base oil grade or supplier contract) that warrants a separate baseline?"
+        },
+        {
+          "role": "user",
+          "content": "Compare against our 2025 full-year margin, that is the board's reference point."
+        },
+        {
+          "role": "assistant",
+          "content": "Given the board benchmarks against 2025 full-year margin, was that baseline itself affected by any one-time favorable items (e.g., supplier rebates, inventory revaluation) that would inflate the 6.6-7.1pp gap we're now measuring against Synthetic Blend and Conventional Engine Oil?"
+        },
+        {
+          "role": "user",
+          "content": "Nothing external beyond the base oil spike, no competitor or regulatory change we are aware of."
+        },
+        {
+          "role": "assistant",
+          "content": "To recover margin on Synthetic Blend and Conventional Engine Oil, is a price increase to customers off the table given competitive dynamics, or can we test pass-through pricing on these two lines specifically?"
+        },
+        {
+          "role": "user",
+          "content": "We cannot raise prices on the anchor retail account before the contract renews in Q3."
+        },
+        {
+          "role": "assistant",
+          "content": "Given the anchor retail account pricing freeze until Q3, should 'solved' for the -7.1pp Synthetic Blend and -6.6pp Conventional Engine Oil gaps be defined as full recovery to the 2025 full-year margin baseline by Q4, or a partial recovery target (e.g., 50% of the gap) that accounts for the Q3 pricing lag?"
+        }
+      ],
+      "market_signals": null,
+      "replication_constraints": [],
+      "constraint_items": [
+        {
+          "id": "c_11571103",
+          "text": "We cannot raise prices on the anchor retail account before the contract renews in Q3.",
+          "source": "refinement",
+          "discovered_by": [],
+          "asked_by": null,
+          "turn_index": null
+        }
+      ],
+      "problem_profile_cell": "problem/distributed/no-control/single",
+      "topic_sequence": [
+        "scope_boundaries",
+        "hypothesis_validation",
+        "comparison_baseline",
+        "external_context",
+        "constraints",
+        "success_criteria"
+      ],
+      "topic_routing_rules_applied": [
+        "R2':distributed -> scope_boundaries leads",
+        "R3:no_control_group -> add comparison_baseline"
+      ]
+    },
+    "client_id": "lubricants"
+  },
+  "created_at": "2026-08-15T00:30:51.948030",
+  "updated_at": "2026-08-15T00:34:45.652180",
+  "result": {
+    "solutions": {
+      "status": "success",
+      "request_id": "solution_92ab19d6a8a24d2486e1e9229766e56b",
+      "timestamp": "2026-08-15T00:34:45.652180",
+      "error_message": null,
+      "analysis_degraded": false,
+      "degraded_reason": null,
+      "options_ranked": [
+        {
+          "id": "opt_1",
+          "title": "Staged Price Recovery & Premium-Mix Bridge (Immediate Operational Fix)",
+          "description": "Prepare a fact-based, cost-indexed price recovery proposal for the Q3 anchor account renewal quantifying the confirmed 18% base oil cost increase, while simultaneously promoting higher-margin premium formulations (e.g., High Mileage Engine Oil) in non-locked accounts to bridge the margin gap in the interim. Consistency check: because the causal register flags that premium mix can rise while margin still falls under input-cost pressure, Step 1 is to confirm via SKU-level margin data that premium formulations have not suffered the same base-oil erosion as Synthetic Blend before scaling promotion; if they have, the mix-shift benefit will be muted until the underlying cost pressure is addressed via Step 2 (indexed pricing).",
+          "expected_impact": 0.6,
+          "cost": 0.25,
+          "risk": 0.4,
+          "evidence": null,
+          "rationale": "This is the lowest-cost, highest-reversibility move: it requires no contract breach, uses only confirmed data (the 18% cost spike, per principal validation), and creates optionality before the Q3 deadline closes.",
+          "time_to_value": "0-90 days",
+          "reversibility": "high",
+          "perspectives": [
+            {
+              "lens": "Financial",
+              "arguments_for": [
+                "Directly targets the confirmed COGS-pass-through lag mechanism (cogs<->gross_margin_pct, confirmed provenance) without requiring any structural contract change before Q3.",
+                "Lowest cost signal of the three options, preserving capital for the structural and sourcing plays."
+              ],
+              "arguments_against": [
+                "The premium-mix bridge relies on an unconfirmed template causal prior (premium_mix_pct<->gross_margin_pct) that the causal register itself flags as potentially masked by input-cost pressure.",
+                "60-70% recovery assumption on price negotiation is not yet validated by any signed terms."
+              ],
+              "key_questions": [
+                "Has Finance confirmed that High Mileage Engine Oil margin has not compressed under the same base oil exposure as Synthetic Blend?",
+                "What negotiating leverage exists to secure 60-70% (rather than a lower percentage) of the cost increase at Q3 renewal?"
+              ]
+            }
+          ],
+          "implementation_triggers": [
+            "Confirmation from Finance that premium SKU margins remain intact despite base oil exposure",
+            "Base oil index benchmark (e.g., WTI-linked reference) agreed internally for use in the Q3 proposal"
+          ],
+          "prerequisites": [
+            "SKU-level margin validation for premium/High Mileage formulations completed before promotion scale-up",
+            "Cost-indexed proposal drafted and reviewed by Finance and Commercial teams ahead of Q3 renewal window"
+          ],
+          "impact_estimate": {
+            "metric": "gross_margin_pct",
+            "unit": "percentage points",
+            "recovery_range": {
+              "low": 4.2,
+              "high": 5.8
+            },
+            "basis": "Recovery assumes 60-70% of the 7.14-point Synthetic Blend decline (27.78%\u219220.64%) is recoverable through Q3 price adjustment, plus 0.2-0.8 points from premium mix-up in non-locked accounts; this sizes the Synthetic Blend segment specifically, not the full enterprise KPI.",
+            "scope": "segment",
+            "scope_label": "Synthetic Blend Engine Oil"
+          },
+          "key_assumptions": [
+            {
+              "assumption": "The 18% Q2 base oil cost spike is the primary driver of the Synthetic Blend and Conventional Engine Oil margin decline, with ~1 month COGS lag.",
+              "validated_by": "human_confirmation",
+              "validated_at": null,
+              "revalidation_days": null,
+              "grounded": true,
+              "confidence": "high",
+              "provenance": "Principal confirmed this directly in refinement ('Base oil costs jumped 18% in Q2 and we could not pass it through'); the cogs<->gross_margin_pct edge carries confirmed provenance in the causal register."
+            },
+            {
+              "assumption": "60-70% of the base oil cost increase can be recovered through Q3 price negotiation without triggering volume loss.",
+              "validated_by": "ma_query",
+              "validated_at": null,
+              "revalidation_days": null,
+              "grounded": false,
+              "confidence": "moderate",
+              "provenance": "Signed Q3 contract amendment showing the negotiated price increase percentage relative to the base oil index would confirm or falsify this."
+            },
+            {
+              "assumption": "Premium mix promotion in non-locked accounts generates 0.2-0.8 points of incremental margin uplift despite the broader input-cost pressure.",
+              "validated_by": "sa_assessment",
+              "validated_at": null,
+              "revalidation_days": null,
+              "grounded": false,
+              "confidence": "low",
+              "provenance": "Non-locked account blended margin trending upward alongside rising premium mix percentage (rather than diverging, as the causal register warns is possible) would confirm this."
+            }
+          ],
+          "flagged_side_effects": []
+        },
+        {
+          "id": "opt_2",
+          "title": "Indexed Pricing Mechanism & Q3 Structural Contract Renegotiation",
+          "description": "Initiate early engagement with the anchor retail account to pre-negotiate a Q3 price adjustment explicitly indexed to a transparent base oil benchmark (e.g., WTI or industry index), with a tiered surcharge mechanism for future volatility above a defined threshold. Negotiation and index design work begin immediately, but per legal review, no price change takes effect before the Q3 renewal date \u2014 this restriction is written into the negotiation mandate to remove the ambiguity the council flagged around 'accelerating' renegotiation timing versus the price-lock clause.",
+          "expected_impact": 0.68,
+          "cost": 0.5,
+          "risk": 0.5,
+          "evidence": null,
+          "rationale": "Building a durable, index-linked pricing mechanism converts a one-time crisis into structural resilience against future base oil volatility, addressing the confirmed COGS-margin divergence rather than just this quarter's gap.",
+          "time_to_value": "3-6 months to design and negotiate the indexed mechanism, with initial relief realized at the Q3 renewal window",
+          "reversibility": "medium",
+          "perspectives": [
+            {
+              "lens": "Financial",
+              "arguments_for": [
+                "Targets the same confirmed COGS-pass-through mechanism as opt_1 but builds a repeatable structural safeguard rather than a one-time fix.",
+                "Higher recovery ceiling (6.8 points) than opt_1 because it aims for near-full input-cost recovery, not a partial bridge."
+              ],
+              "arguments_against": [
+                "Requires the anchor account to accept a new indexed-pricing structure, which is a negotiating ask beyond a simple price increase and could extend timeline risk.",
+                "If negotiation activity strays into implementing surcharge terms before the Q3 effective date, it risks breaching the contractual price-lock clause."
+              ],
+              "key_questions": [
+                "Has Legal confirmed the earliest permissible effective date for any indexed surcharge under the existing contract?",
+                "What index (WTI vs. an industry-specific base oil benchmark) will the anchor account accept as fair and auditable?"
+              ]
+            }
+          ],
+          "implementation_triggers": [
+            "Legal confirmation that negotiation and index-design work can proceed without triggering the price-lock clause",
+            "Anchor account agreement in principle to discuss an indexed mechanism ahead of formal Q3 renewal"
+          ],
+          "prerequisites": [
+            "Legal team to confirm in writing that no price effective date may precede the Q3 renewal per the price-lock clause (directly resolves the council's flagged timing ambiguity)",
+            "Base oil index and surcharge trigger thresholds defined and validated internally before external negotiation begins"
+          ],
+          "impact_estimate": {
+            "metric": "gross_margin_pct",
+            "unit": "percentage points",
+            "recovery_range": {
+              "low": 4.5,
+              "high": 6.8
+            },
+            "basis": "Synthetic Blend's 7.14-point decline is treated as fully attributable to base oil pass-through failure; an indexed renegotiation targeting 60-95% recovery yields 4.5-6.8 points, sized to this segment rather than the full enterprise KPI.",
+            "scope": "segment",
+            "scope_label": "Synthetic Blend Engine Oil"
+          },
+          "key_assumptions": [
+            {
+              "assumption": "The anchor account will accept a transparent, index-linked pricing mechanism as a structural resolution rather than a one-time increase.",
+              "validated_by": "human_confirmation",
+              "validated_at": null,
+              "revalidation_days": null,
+              "grounded": false,
+              "confidence": "moderate",
+              "provenance": "A signed indexed-pricing clause in the renewed contract would confirm this; absence of agreement or account pushback would falsify it."
+            },
+            {
+              "assumption": "Base oil cost pass-through failure explains the full 7.14-point Synthetic Blend decline with no meaningful competitive or mix effect.",
+              "validated_by": "ma_query",
+              "validated_at": null,
+              "revalidation_days": null,
+              "grounded": true,
+              "confidence": "high",
+              "provenance": "Confirmed by the cogs<->gross_margin_pct causal edge (confirmed provenance) and the principal's explicit statement ruling out external competitive/regulatory factors."
+            },
+            {
+              "assumption": "Early negotiation engagement in Q2/Q3 will not itself trigger a mid-quarter price change that breaches the price-lock clause.",
+              "validated_by": "human_confirmation",
+              "validated_at": null,
+              "revalidation_days": null,
+              "grounded": true,
+              "confidence": "moderate",
+              "provenance": "Directly tied to the known constraint; legal confirmation of the effective-date restriction would validate this holds in practice."
+            }
+          ],
+          "flagged_side_effects": []
+        },
+        {
+          "id": "opt_3",
+          "title": "Full Potential Margin Recovery: Accelerated Renewal, Cost Reserve & Base Oil Sourcing Diversification",
+          "description": "Pursue a broader transformation: (1) begin renewal negotiation with the anchor account now so that any price adjustment takes effect no earlier than the Q3 renewal date \u2014 explicitly not before, to respect the price-lock clause; (2) stand up a 30-day SKU-level cost variance reserve to ring-fence the margin gap on Synthetic Blend and Conventional Engine Oil pending contract execution; (3) run a sourcing study for lower-cost, in-spec base oil alternatives for non-anchor channels to reduce structural exposure to future input cost spikes. Council review flagged that 'accelerating' the anchor account price adjustment could be read as moving the effective date earlier than Q3 in violation of the price-lock clause; this option's description has been revised to state explicitly that no price change occurs before the contractual renewal date, with acceleration limited strictly to negotiation preparation, legal review, and reserve/sourcing workstreams.",
+          "expected_impact": 0.55,
+          "cost": 0.58,
+          "risk": 0.62,
+          "evidence": null,
+          "rationale": "This is the broadest, highest-investment play, combining pricing, balance-sheet reserve, and procurement levers into a full-potential program; it carries the highest cost and risk of the three options because of its scope and the contractual ambiguity the council flagged, which is why it is sequenced as the longer-horizon structural complement to opt_1 and opt_2 rather than the first move.",
+          "time_to_value": "6-12 months for full implementation of the reserve mechanism, sourcing diversification, and renewal execution",
+          "reversibility": "low",
+          "perspectives": [
+            {
+              "lens": "Financial",
+              "arguments_for": [
+                "Addresses the root cause across three levers simultaneously \u2014 pricing, working-capital reserve, and procurement cost base \u2014 reducing dependence on any single mechanism.",
+                "Sourcing diversification, if successful, reduces future exposure to base oil volatility independent of contract renewal cycles."
+              ],
+              "arguments_against": [
+                "Highest cost and risk of the three options: reserve accounting, legal review, and a full sourcing RFP require more capital and coordination than opt_1 or opt_2.",
+                "The 'accelerated renewal' framing was flagged by council review as ambiguous against the price-lock clause and requires explicit legal guardrails to execute safely."
+              ],
+              "key_questions": [
+                "What is the earliest legally permissible effective date for a price adjustment under the anchor contract, per Legal's review?",
+                "Do qualified lower-cost base oil alternatives exist that meet product specifications without quality risk?"
+              ]
+            }
+          ],
+          "implementation_triggers": [
+            "Legal sign-off confirming no price effective date precedes Q3 renewal",
+            "Finance approval of the 30-day SKU-level reserve accounting treatment",
+            "Procurement RFP results identifying qualified alternative base oil suppliers"
+          ],
+          "prerequisites": [
+            "Legal confirmation in writing that any 'acceleration' is limited to negotiation, legal review, and reserve/sourcing workstreams with zero price change before Q3 renewal (directly resolves the council's high-severity flagged concern)",
+            "Finance sign-off on reserve accounting treatment and the 30-day exposure amount",
+            "Procurement sourcing study scoped and initiated for non-anchor channel base oil alternatives"
+          ],
+          "impact_estimate": {
+            "metric": "gross_margin_pct",
+            "unit": "percentage points",
+            "recovery_range": {
+              "low": 4.2,
+              "high": 6.8
+            },
+            "basis": "Synthetic Blend's 7.14-point decline is directly attributable to unrecovered base oil cost inflation; phased price realization on an estimated 60-75% of Synthetic Blend volume plus non-anchor sourcing optimization recovers 4.2-6.8 points, sized to this segment rather than the enterprise KPI as a whole.",
+            "scope": "segment",
+            "scope_label": "Synthetic Blend Engine Oil"
+          },
+          "key_assumptions": [
+            {
+              "assumption": "Contract renewal negotiation and preparatory workstreams can proceed now without any price effective date preceding Q3 renewal.",
+              "validated_by": "human_confirmation",
+              "validated_at": null,
+              "revalidation_days": null,
+              "grounded": false,
+              "confidence": "low",
+              "provenance": "Legal review of the contract's renewal/renegotiation clause confirming the earliest permissible effective date for a price change would confirm or falsify this; this is precisely the ambiguity the council flagged as high severity."
+            },
+            {
+              "assumption": "Lower-cost base oil alternatives exist for non-anchor channels without compromising product specifications.",
+              "validated_by": "ma_query",
+              "validated_at": null,
+              "revalidation_days": null,
+              "grounded": false,
+              "confidence": "low",
+              "provenance": "A procurement sourcing study identifying qualified alternative suppliers within spec and at lower cost would confirm this."
+            },
+            {
+              "assumption": "A 30-day SKU-level cost variance reserve can ring-fence the margin gap without materially distorting reported financials.",
+              "validated_by": "sa_assessment",
+              "validated_at": null,
+              "revalidation_days": null,
+              "grounded": false,
+              "confidence": "moderate",
+              "provenance": "Finance sign-off on the reserve accounting treatment and exposure amount would confirm this holds within accounting policy."
+            }
+          ],
+          "flagged_side_effects": [
+            "Framing the anchor account intervention as 'accelerating' the price adjustment risks being read as moving the effective date earlier than the Q3 renewal, which would breach the contractual price-lock clause; this option now requires explicit legal guardrails limiting acceleration to negotiation-only activity before execution proceeds."
+          ]
+        }
+      ],
+      "tradeoff_matrix": {
+        "criteria": [
+          {
+            "name": "impact",
+            "weight": 0.5
+          },
+          {
+            "name": "cost",
+            "weight": 0.25
+          },
+          {
+            "name": "risk",
+            "weight": 0.25
+          }
+        ],
+        "options": [
+          {
+            "id": "opt_1",
+            "title": "Staged Price Recovery & Premium-Mix Bridge (Immediate Operational Fix)",
+            "description": "Prepare a fact-based, cost-indexed price recovery proposal for the Q3 anchor account renewal quantifying the confirmed 18% base oil cost increase, while simultaneously promoting higher-margin premium formulations (e.g., High Mileage Engine Oil) in non-locked accounts to bridge the margin gap in the interim. Consistency check: because the causal register flags that premium mix can rise while margin still falls under input-cost pressure, Step 1 is to confirm via SKU-level margin data that premium formulations have not suffered the same base-oil erosion as Synthetic Blend before scaling promotion; if they have, the mix-shift benefit will be muted until the underlying cost pressure is addressed via Step 2 (indexed pricing).",
+            "expected_impact": 0.6,
+            "cost": 0.25,
+            "risk": 0.4,
+            "evidence": null,
+            "rationale": "This is the lowest-cost, highest-reversibility move: it requires no contract breach, uses only confirmed data (the 18% cost spike, per principal validation), and creates optionality before the Q3 deadline closes.",
+            "time_to_value": "0-90 days",
+            "reversibility": "high",
+            "perspectives": [
+              {
+                "lens": "Financial",
+                "arguments_for": [
+                  "Directly targets the confirmed COGS-pass-through lag mechanism (cogs<->gross_margin_pct, confirmed provenance) without requiring any structural contract change before Q3.",
+                  "Lowest cost signal of the three options, preserving capital for the structural and sourcing plays."
+                ],
+                "arguments_against": [
+                  "The premium-mix bridge relies on an unconfirmed template causal prior (premium_mix_pct<->gross_margin_pct) that the causal register itself flags as potentially masked by input-cost pressure.",
+                  "60-70% recovery assumption on price negotiation is not yet validated by any signed terms."
+                ],
+                "key_questions": [
+                  "Has Finance confirmed that High Mileage Engine Oil margin has not compressed under the same base oil exposure as Synthetic Blend?",
+                  "What negotiating leverage exists to secure 60-70% (rather than a lower percentage) of the cost increase at Q3 renewal?"
+                ]
+              }
+            ],
+            "implementation_triggers": [
+              "Confirmation from Finance that premium SKU margins remain intact despite base oil exposure",
+              "Base oil index benchmark (e.g., WTI-linked reference) agreed internally for use in the Q3 proposal"
+            ],
+            "prerequisites": [
+              "SKU-level margin validation for premium/High Mileage formulations completed before promotion scale-up",
+              "Cost-indexed proposal drafted and reviewed by Finance and Commercial teams ahead of Q3 renewal window"
+            ],
+            "impact_estimate": {
+              "metric": "gross_margin_pct",
+              "unit": "percentage points",
+              "recovery_range": {
+                "low": 4.2,
+                "high": 5.8
+              },
+              "basis": "Recovery assumes 60-70% of the 7.14-point Synthetic Blend decline (27.78%\u219220.64%) is recoverable through Q3 price adjustment, plus 0.2-0.8 points from premium mix-up in non-locked accounts; this sizes the Synthetic Blend segment specifically, not the full enterprise KPI.",
+              "scope": "segment",
+              "scope_label": "Synthetic Blend Engine Oil"
+            },
+            "key_assumptions": [
+              {
+                "assumption": "The 18% Q2 base oil cost spike is the primary driver of the Synthetic Blend and Conventional Engine Oil margin decline, with ~1 month COGS lag.",
+                "validated_by": "human_confirmation",
+                "validated_at": null,
+                "revalidation_days": null,
+                "grounded": true,
+                "confidence": "high",
+                "provenance": "Principal confirmed this directly in refinement ('Base oil costs jumped 18% in Q2 and we could not pass it through'); the cogs<->gross_margin_pct edge carries confirmed provenance in the causal register."
+              },
+              {
+                "assumption": "60-70% of the base oil cost increase can be recovered through Q3 price negotiation without triggering volume loss.",
+                "validated_by": "ma_query",
+                "validated_at": null,
+                "revalidation_days": null,
+                "grounded": false,
+                "confidence": "moderate",
+                "provenance": "Signed Q3 contract amendment showing the negotiated price increase percentage relative to the base oil index would confirm or falsify this."
+              },
+              {
+                "assumption": "Premium mix promotion in non-locked accounts generates 0.2-0.8 points of incremental margin uplift despite the broader input-cost pressure.",
+                "validated_by": "sa_assessment",
+                "validated_at": null,
+                "revalidation_days": null,
+                "grounded": false,
+                "confidence": "low",
+                "provenance": "Non-locked account blended margin trending upward alongside rising premium mix percentage (rather than diverging, as the causal register warns is possible) would confirm this."
+              }
+            ],
+            "flagged_side_effects": []
+          },
+          {
+            "id": "opt_2",
+            "title": "Indexed Pricing Mechanism & Q3 Structural Contract Renegotiation",
+            "description": "Initiate early engagement with the anchor retail account to pre-negotiate a Q3 price adjustment explicitly indexed to a transparent base oil benchmark (e.g., WTI or industry index), with a tiered surcharge mechanism for future volatility above a defined threshold. Negotiation and index design work begin immediately, but per legal review, no price change takes effect before the Q3 renewal date \u2014 this restriction is written into the negotiation mandate to remove the ambiguity the council flagged around 'accelerating' renegotiation timing versus the price-lock clause.",
+            "expected_impact": 0.68,
+            "cost": 0.5,
+            "risk": 0.5,
+            "evidence": null,
+            "rationale": "Building a durable, index-linked pricing mechanism converts a one-time crisis into structural resilience against future base oil volatility, addressing the confirmed COGS-margin divergence rather than just this quarter's gap.",
+            "time_to_value": "3-6 months to design and negotiate the indexed mechanism, with initial relief realized at the Q3 renewal window",
+            "reversibility": "medium",
+            "perspectives": [
+              {
+                "lens": "Financial",
+                "arguments_for": [
+                  "Targets the same confirmed COGS-pass-through mechanism as opt_1 but builds a repeatable structural safeguard rather than a one-time fix.",
+                  "Higher recovery ceiling (6.8 points) than opt_1 because it aims for near-full input-cost recovery, not a partial bridge."
+                ],
+                "arguments_against": [
+                  "Requires the anchor account to accept a new indexed-pricing structure, which is a negotiating ask beyond a simple price increase and could extend timeline risk.",
+                  "If negotiation activity strays into implementing surcharge terms before the Q3 effective date, it risks breaching the contractual price-lock clause."
+                ],
+                "key_questions": [
+                  "Has Legal confirmed the earliest permissible effective date for any indexed surcharge under the existing contract?",
+                  "What index (WTI vs. an industry-specific base oil benchmark) will the anchor account accept as fair and auditable?"
+                ]
+              }
+            ],
+            "implementation_triggers": [
+              "Legal confirmation that negotiation and index-design work can proceed without triggering the price-lock clause",
+              "Anchor account agreement in principle to discuss an indexed mechanism ahead of formal Q3 renewal"
+            ],
+            "prerequisites": [
+              "Legal team to confirm in writing that no price effective date may precede the Q3 renewal per the price-lock clause (directly resolves the council's flagged timing ambiguity)",
+              "Base oil index and surcharge trigger thresholds defined and validated internally before external negotiation begins"
+            ],
+            "impact_estimate": {
+              "metric": "gross_margin_pct",
+              "unit": "percentage points",
+              "recovery_range": {
+                "low": 4.5,
+                "high": 6.8
+              },
+              "basis": "Synthetic Blend's 7.14-point decline is treated as fully attributable to base oil pass-through failure; an indexed renegotiation targeting 60-95% recovery yields 4.5-6.8 points, sized to this segment rather than the full enterprise KPI.",
+              "scope": "segment",
+              "scope_label": "Synthetic Blend Engine Oil"
+            },
+            "key_assumptions": [
+              {
+                "assumption": "The anchor account will accept a transparent, index-linked pricing mechanism as a structural resolution rather than a one-time increase.",
+                "validated_by": "human_confirmation",
+                "validated_at": null,
+                "revalidation_days": null,
+                "grounded": false,
+                "confidence": "moderate",
+                "provenance": "A signed indexed-pricing clause in the renewed contract would confirm this; absence of agreement or account pushback would falsify it."
+              },
+              {
+                "assumption": "Base oil cost pass-through failure explains the full 7.14-point Synthetic Blend decline with no meaningful competitive or mix effect.",
+                "validated_by": "ma_query",
+                "validated_at": null,
+                "revalidation_days": null,
+                "grounded": true,
+                "confidence": "high",
+                "provenance": "Confirmed by the cogs<->gross_margin_pct causal edge (confirmed provenance) and the principal's explicit statement ruling out external competitive/regulatory factors."
+              },
+              {
+                "assumption": "Early negotiation engagement in Q2/Q3 will not itself trigger a mid-quarter price change that breaches the price-lock clause.",
+                "validated_by": "human_confirmation",
+                "validated_at": null,
+                "revalidation_days": null,
+                "grounded": true,
+                "confidence": "moderate",
+                "provenance": "Directly tied to the known constraint; legal confirmation of the effective-date restriction would validate this holds in practice."
+              }
+            ],
+            "flagged_side_effects": []
+          },
+          {
+            "id": "opt_3",
+            "title": "Full Potential Margin Recovery: Accelerated Renewal, Cost Reserve & Base Oil Sourcing Diversification",
+            "description": "Pursue a broader transformation: (1) begin renewal negotiation with the anchor account now so that any price adjustment takes effect no earlier than the Q3 renewal date \u2014 explicitly not before, to respect the price-lock clause; (2) stand up a 30-day SKU-level cost variance reserve to ring-fence the margin gap on Synthetic Blend and Conventional Engine Oil pending contract execution; (3) run a sourcing study for lower-cost, in-spec base oil alternatives for non-anchor channels to reduce structural exposure to future input cost spikes. Council review flagged that 'accelerating' the anchor account price adjustment could be read as moving the effective date earlier than Q3 in violation of the price-lock clause; this option's description has been revised to state explicitly that no price change occurs before the contractual renewal date, with acceleration limited strictly to negotiation preparation, legal review, and reserve/sourcing workstreams.",
+            "expected_impact": 0.55,
+            "cost": 0.58,
+            "risk": 0.62,
+            "evidence": null,
+            "rationale": "This is the broadest, highest-investment play, combining pricing, balance-sheet reserve, and procurement levers into a full-potential program; it carries the highest cost and risk of the three options because of its scope and the contractual ambiguity the council flagged, which is why it is sequenced as the longer-horizon structural complement to opt_1 and opt_2 rather than the first move.",
+            "time_to_value": "6-12 months for full implementation of the reserve mechanism, sourcing diversification, and renewal execution",
+            "reversibility": "low",
+            "perspectives": [
+              {
+                "lens": "Financial",
+                "arguments_for": [
+                  "Addresses the root cause across three levers simultaneously \u2014 pricing, working-capital reserve, and procurement cost base \u2014 reducing dependence on any single mechanism.",
+                  "Sourcing diversification, if successful, reduces future exposure to base oil volatility independent of contract renewal cycles."
+                ],
+                "arguments_against": [
+                  "Highest cost and risk of the three options: reserve accounting, legal review, and a full sourcing RFP require more capital and coordination than opt_1 or opt_2.",
+                  "The 'accelerated renewal' framing was flagged by council review as ambiguous against the price-lock clause and requires explicit legal guardrails to execute safely."
+                ],
+                "key_questions": [
+                  "What is the earliest legally permissible effective date for a price adjustment under the anchor contract, per Legal's review?",
+                  "Do qualified lower-cost base oil alternatives exist that meet product specifications without quality risk?"
+                ]
+              }
+            ],
+            "implementation_triggers": [
+              "Legal sign-off confirming no price effective date precedes Q3 renewal",
+              "Finance approval of the 30-day SKU-level reserve accounting treatment",
+              "Procurement RFP results identifying qualified alternative base oil suppliers"
+            ],
+            "prerequisites": [
+              "Legal confirmation in writing that any 'acceleration' is limited to negotiation, legal review, and reserve/sourcing workstreams with zero price change before Q3 renewal (directly resolves the council's high-severity flagged concern)",
+              "Finance sign-off on reserve accounting treatment and the 30-day exposure amount",
+              "Procurement sourcing study scoped and initiated for non-anchor channel base oil alternatives"
+            ],
+            "impact_estimate": {
+              "metric": "gross_margin_pct",
+              "unit": "percentage points",
+              "recovery_range": {
+                "low": 4.2,
+                "high": 6.8
+              },
+              "basis": "Synthetic Blend's 7.14-point decline is directly attributable to unrecovered base oil cost inflation; phased price realization on an estimated 60-75% of Synthetic Blend volume plus non-anchor sourcing optimization recovers 4.2-6.8 points, sized to this segment rather than the enterprise KPI as a whole.",
+              "scope": "segment",
+              "scope_label": "Synthetic Blend Engine Oil"
+            },
+            "key_assumptions": [
+              {
+                "assumption": "Contract renewal negotiation and preparatory workstreams can proceed now without any price effective date preceding Q3 renewal.",
+                "validated_by": "human_confirmation",
+                "validated_at": null,
+                "revalidation_days": null,
+                "grounded": false,
+                "confidence": "low",
+                "provenance": "Legal review of the contract's renewal/renegotiation clause confirming the earliest permissible effective date for a price change would confirm or falsify this; this is precisely the ambiguity the council flagged as high severity."
+              },
+              {
+                "assumption": "Lower-cost base oil alternatives exist for non-anchor channels without compromising product specifications.",
+                "validated_by": "ma_query",
+                "validated_at": null,
+                "revalidation_days": null,
+                "grounded": false,
+                "confidence": "low",
+                "provenance": "A procurement sourcing study identifying qualified alternative suppliers within spec and at lower cost would confirm this."
+              },
+              {
+                "assumption": "A 30-day SKU-level cost variance reserve can ring-fence the margin gap without materially distorting reported financials.",
+                "validated_by": "sa_assessment",
+                "validated_at": null,
+                "revalidation_days": null,
+                "grounded": false,
+                "confidence": "moderate",
+                "provenance": "Finance sign-off on the reserve accounting treatment and exposure amount would confirm this holds within accounting policy."
+              }
+            ],
+            "flagged_side_effects": [
+              "Framing the anchor account intervention as 'accelerating' the price adjustment risks being read as moving the effective date earlier than the Q3 renewal, which would breach the contractual price-lock clause; this option now requires explicit legal guardrails limiting acceleration to negotiation-only activity before execution proceeds."
+            ]
+          }
+        ]
+      },
+      "recommendation": {
+        "id": "opt_1",
+        "title": "Staged Price Recovery & Premium-Mix Bridge (Immediate Operational Fix)",
+        "description": "Prepare a fact-based, cost-indexed price recovery proposal for the Q3 anchor account renewal quantifying the confirmed 18% base oil cost increase, while simultaneously promoting higher-margin premium formulations (e.g., High Mileage Engine Oil) in non-locked accounts to bridge the margin gap in the interim. Consistency check: because the causal register flags that premium mix can rise while margin still falls under input-cost pressure, Step 1 is to confirm via SKU-level margin data that premium formulations have not suffered the same base-oil erosion as Synthetic Blend before scaling promotion; if they have, the mix-shift benefit will be muted until the underlying cost pressure is addressed via Step 2 (indexed pricing).",
+        "expected_impact": 0.6,
+        "cost": 0.25,
+        "risk": 0.4,
+        "evidence": null,
+        "rationale": "This is the lowest-cost, highest-reversibility move: it requires no contract breach, uses only confirmed data (the 18% cost spike, per principal validation), and creates optionality before the Q3 deadline closes.",
+        "time_to_value": "0-90 days",
+        "reversibility": "high",
+        "perspectives": [
+          {
+            "lens": "Financial",
+            "arguments_for": [
+              "Directly targets the confirmed COGS-pass-through lag mechanism (cogs<->gross_margin_pct, confirmed provenance) without requiring any structural contract change before Q3.",
+              "Lowest cost signal of the three options, preserving capital for the structural and sourcing plays."
+            ],
+            "arguments_against": [
+              "The premium-mix bridge relies on an unconfirmed template causal prior (premium_mix_pct<->gross_margin_pct) that the causal register itself flags as potentially masked by input-cost pressure.",
+              "60-70% recovery assumption on price negotiation is not yet validated by any signed terms."
+            ],
+            "key_questions": [
+              "Has Finance confirmed that High Mileage Engine Oil margin has not compressed under the same base oil exposure as Synthetic Blend?",
+              "What negotiating leverage exists to secure 60-70% (rather than a lower percentage) of the cost increase at Q3 renewal?"
+            ]
+          }
+        ],
+        "implementation_triggers": [
+          "Confirmation from Finance that premium SKU margins remain intact despite base oil exposure",
+          "Base oil index benchmark (e.g., WTI-linked reference) agreed internally for use in the Q3 proposal"
+        ],
+        "prerequisites": [
+          "SKU-level margin validation for premium/High Mileage formulations completed before promotion scale-up",
+          "Cost-indexed proposal drafted and reviewed by Finance and Commercial teams ahead of Q3 renewal window"
+        ],
+        "impact_estimate": {
+          "metric": "gross_margin_pct",
+          "unit": "percentage points",
+          "recovery_range": {
+            "low": 4.2,
+            "high": 5.8
+          },
+          "basis": "Recovery assumes 60-70% of the 7.14-point Synthetic Blend decline (27.78%\u219220.64%) is recoverable through Q3 price adjustment, plus 0.2-0.8 points from premium mix-up in non-locked accounts; this sizes the Synthetic Blend segment specifically, not the full enterprise KPI.",
+          "scope": "segment",
+          "scope_label": "Synthetic Blend Engine Oil"
+        },
+        "key_assumptions": [
+          {
+            "assumption": "The 18% Q2 base oil cost spike is the primary driver of the Synthetic Blend and Conventional Engine Oil margin decline, with ~1 month COGS lag.",
+            "validated_by": "human_confirmation",
+            "validated_at": null,
+            "revalidation_days": null,
+            "grounded": true,
+            "confidence": "high",
+            "provenance": "Principal confirmed this directly in refinement ('Base oil costs jumped 18% in Q2 and we could not pass it through'); the cogs<->gross_margin_pct edge carries confirmed provenance in the causal register."
+          },
+          {
+            "assumption": "60-70% of the base oil cost increase can be recovered through Q3 price negotiation without triggering volume loss.",
+            "validated_by": "ma_query",
+            "validated_at": null,
+            "revalidation_days": null,
+            "grounded": false,
+            "confidence": "moderate",
+            "provenance": "Signed Q3 contract amendment showing the negotiated price increase percentage relative to the base oil index would confirm or falsify this."
+          },
+          {
+            "assumption": "Premium mix promotion in non-locked accounts generates 0.2-0.8 points of incremental margin uplift despite the broader input-cost pressure.",
+            "validated_by": "sa_assessment",
+            "validated_at": null,
+            "revalidation_days": null,
+            "grounded": false,
+            "confidence": "low",
+            "provenance": "Non-locked account blended margin trending upward alongside rising premium mix percentage (rather than diverging, as the causal register warns is possible) would confirm this."
+          }
+        ],
+        "flagged_side_effects": []
+      },
+      "recommendation_rationale": "Opt_1 is the lowest-cost (0.25), highest-reversibility (high) option and requires no contract action before Q3, making it the safest first move against the single confirmed constraint (the anchor account price-lock clause) while still targeting 4.2-5.8 points of recovery on the Synthetic Blend Engine Oil segment that fell 7.14 points (27.78%\u219220.64%) due to the confirmed 18% Q2 base oil spike. It buys time and cash-flow relief while opt_2's indexed structural fix and opt_3's full-potential program are legally cleared and resourced in parallel, rather than betting the entire recovery on contract-dependent moves before Q3 renewal.",
+      "problem_reframe": {
+        "situation": "gross_margin_pct has deteriorated year-to-date versus prior year-to-date, with the headline change-point analysis attributing a 7.14-percentage-point decline (current level 20.64%) to Synthetic Blend Engine Oil, corroborated by an enterprise-level YTD contraction of 4.49 points (29.94% vs 34.43%, -13.0%) per the what_is analysis. Both framings point the same direction: gross_margin_pct is down and the deterioration is concentrated, not diffuse.",
+        "complication": "The decline is not uniform across the portfolio. Synthetic Blend Engine Oil (-7.14 pts), Conventional Engine Oil (-6.61 pts), the Value product category (-6.42 pts), Compressor Oil (-5.86 pts), and Engine Oils as a product line (-5.80 pts) are all compressed by the same root cause \u2014 an 18% Q2 base oil cost spike that could not be passed through to the anchor retail account under a contractual price-lock clause until Q3 renewal. No offsetting segment with structurally better margin performance was identified in this analysis to use as an internal benchmark, and the International channel has been explicitly excluded by the principal as a reseller arrangement with different economics. The mixed picture is therefore mixed in severity, not in cause: every flagged segment traces to the same COGS-pass-through lag, with the timeframe analysis (what_is_not / when_is_not) confirming no other period buckets are anomalous.",
+        "question": "Given a confirmed, single root cause (base-oil COGS pass-through lag against a price-locked anchor contract), what combination of immediate, structural, and portfolio-level interventions recovers the most gross_margin_pct within the Q3 renewal window without breaching the price-lock clause or the board's full-year 2025 reference point?",
+        "key_assumptions": [
+          "The 18% Q2 base oil cost spike, confirmed by the principal, is the sole material driver of the margin decline across Synthetic Blend, Conventional, and Compressor Oil \u2014 no competitive or regulatory factor is in play, per principal statement.",
+          "The anchor retail account's price-lock clause prevents any list price change before Q3 renewal, but does not prevent negotiation, index design, or reserve-accounting activity ahead of that date.",
+          "The board's 2025 full-year margin is the comparison baseline principal stakeholders will use to judge recovery success, which differs from the YTD-vs-prior-YTD baseline used in this analysis and requires separate reconciliation."
+        ]
+      },
+      "unresolved_tensions": [
+        {
+          "tension": "Opt_2 and opt_3 both involve pre-Q3 engagement with the anchor account, which the council flagged as ambiguous against the contractual price-lock clause prohibiting mid-quarter list price increases.",
+          "options_affected": [
+            "opt_2",
+            "opt_3"
+          ],
+          "requires": "General Counsel to issue written confirmation of the earliest permissible price-adjustment effective date under the anchor account contract before any negotiation activity begins (target: Week 1)."
+        },
+        {
+          "tension": "Opt_1's premium-mix bridge assumes premium formulations retain margin the causal register warns may not hold if input-cost pressure is universal across oil grades.",
+          "options_affected": [
+            "opt_1"
+          ],
+          "requires": "Finance team to complete SKU-level margin analysis for High Mileage Engine Oil and other premium formulations before scaling promotional spend (target: Week 2)."
+        },
+        {
+          "tension": "Limited near-term budget and management attention must be allocated across a fast bridge (opt_1), a structural indexed mechanism (opt_2), and a full-potential program (opt_3) \u2014 all three cannot be fully resourced simultaneously.",
+          "options_affected": [
+            "opt_1",
+            "opt_2",
+            "opt_3"
+          ],
+          "requires": "CFO to approve a sequenced funding plan prioritizing opt_1 immediately, with opt_2 design work funded in parallel and opt_3 gated on legal clearance (target: Week 1)."
+        }
+      ],
+      "blind_spots": [
+        "No named outperforming product or customer segment was identified in this analysis to serve as an internal benchmark for replicable best practices.",
+        "The premium-mix bridge in opt_1 rests on an unconfirmed template causal prior (premium_mix_pct<->gross_margin_pct) that the causal register itself warns can fail under input-cost pressure \u2014 exactly the current situation.",
+        "Customer-segment and region-level margin performance beyond the excluded International channel has not been reviewed; other regions may carry similar undisclosed base-oil exposure.",
+        "The board's stated reference point is full-year 2025 margin, not the YTD-vs-prior-YTD baseline used throughout this analysis; recovery-range figures will need separate reconciliation to that baseline before board reporting."
+      ],
+      "next_steps": [
+        "CFO to commission Finance team to complete SKU-level margin analysis for High Mileage Engine Oil and other premium formulations to confirm the mix-shift benefit is real (by end of Week 2).",
+        "General Counsel to review the anchor retail account contract and confirm in writing the earliest permissible effective date for any price adjustment relative to Q3 renewal (by end of Week 1).",
+        "VP Commercial/Sales to prepare the indexed cost-recovery negotiation package documenting the 18% Q2 base oil spike for the Q3 anchor account renewal (by end of Week 3).",
+        "VP Procurement to initiate a sourcing study for qualified lower-cost base oil alternatives for non-anchor channels (by end of Week 4).",
+        "Finance team to set up a 30-day SKU-level cost variance reserve tracking mechanism ring-fencing the Synthetic Blend and Conventional Engine Oil margin gap (by end of Week 2)."
+      ],
+      "cross_review": null,
+      "stage_1_hypotheses": {
+        "mckinsey": {
+          "framework": "Three Horizons with Cost Pass-Through Lag Analysis",
+          "hypothesis": "Gross margin compression of 7.14 percentage points is driven by an 18% base oil cost spike in Q2 that could not be passed through to the anchor retail account due to contractual price-lock restrictions, creating a temporary margin absorption cycle that will persist until Q3 contract renewal. This is a timing and contract structure issue, not a demand or competitive threat.",
+          "key_evidence": [
+            "Synthetic Blend Engine Oil margin declined 7.14 points (27.78% \u2192 20.64%) in direct correlation with confirmed 18% base oil cost increase in Q2, with ~1-month lag mechanism validated by client",
+            "Conventional Engine Oil margin declined 6.61 points (25.77% \u2192 19.16%), showing consistent pressure across oil grades proportional to input cost exposure, ruling out product-specific demand issues",
+            "Anchor retail account pricing locked contractually until Q3 renewal, preventing margin recovery despite confirmed cost pass-through inability\u2014this is a structural constraint, not an operational failure"
+          ],
+          "recommended_focus": "Synthetic Blend Engine Oil",
+          "conviction": "High"
+        },
+        "bcg": {
+          "framework": "Growth-Share Matrix with Experience Curve & Advantage Matrix overlay",
+          "hypothesis": "Synthetic Blend Engine Oil and Conventional Engine Oil margins collapsed 7.14 and 6.61 percentage points respectively due to an 18% Q2 base oil cost spike that could not be passed through to the anchor retail account due to contractual price-lock constraints. This represents a temporary but material margin compression in the Value category (\u22126.42 ppts), which will persist until Q3 contract renewal enables price recovery.",
+          "key_evidence": [
+            "Synthetic Blend Engine Oil declined 7.14 ppts (27.78% \u2192 20.64%) in YTD period, directly coinciding with confirmed 18% base oil cost increase in Q2 with ~1-month COGS lag mechanism",
+            "Conventional Engine Oil declined 6.61 ppts (25.77% \u2192 19.16%), confirming broad-based input cost pressure across oil grades rather than mix or competitive dynamics",
+            "Value product category declined 6.42 ppts (26.24% \u2192 19.82%), indicating the margin compression is structural and tied to COGS absorption, not volume or premium mix shift"
+          ],
+          "recommended_focus": "Synthetic Blend Engine Oil",
+          "conviction": "High"
+        },
+        "bain": {
+          "framework": "Full Potential Transformation (Cost & Mix Optimization)",
+          "hypothesis": "Gross margin compression of 7.14 percentage points in Synthetic Blend Engine Oil is driven by a 18% base oil cost spike in Q2 that could not be passed through to the anchor retail account due to contractual price-lock clauses. This creates a 1-month lag between input cost inflation and pricing realization, compressing blended margin until Q3 contract renewal enables price recovery.",
+          "key_evidence": [
+            "Synthetic Blend Engine Oil margin declined 7.14 points (27.78% \u2192 20.64%) year-to-date, the largest single product contributor to overall margin erosion",
+            "Base oil costs jumped 18% in Q2 with confirmed inability to pass through to anchor retail account until Q3 contract renewal, creating a known timing gap",
+            "Conventional Engine Oil margin also declined 6.61 points (25.77% \u2192 19.16%), confirming the driver is input-cost pressure common across engine oil grades rather than product-specific demand or mix shift"
+          ],
+          "recommended_focus": "Synthetic Blend Engine Oil",
+          "conviction": "High"
+        }
+      },
+      "moderator_grades": {
+        "opt_1": {
+          "constraint_survival": "pass",
+          "violated_constraints": [],
+          "causal_grounding": "cogs -> gross_margin_pct (confirmed, ~1 month lag) for the price-recovery component; premium_mix_pct -> gross_margin_pct (template, unconfirmed) for the mix-up component, explicitly labeled lower-confidence.",
+          "arithmetic_consistency": "pass",
+          "arithmetic_note": "",
+          "critic_findings_response": [
+            {
+              "finding": "Mix-margin bridge relies on an unconfirmed template prior that may not materialize given current input-cost pressure.",
+              "disposition": "answered"
+            }
+          ],
+          "grade_rationale": "This option makes no price change before Q3, so it survives the single active constraint (price-lock clause). Its core mechanism pulls the confirmed cogs<->gross_margin_pct edge; the recovery range (4.2-5.8 points) stays within the 7.14-point Synthetic Blend variance, so it does not overstate recoverable magnitude. The critic's concern about the unconfirmed mix-margin prior is answered by adding an explicit SKU-level validation prerequisite before scaling."
+        },
+        "opt_2": {
+          "constraint_survival": "pass",
+          "violated_constraints": [],
+          "causal_grounding": "cogs -> gross_margin_pct (confirmed, ~1 month lag).",
+          "arithmetic_consistency": "pass",
+          "arithmetic_note": "",
+          "critic_findings_response": [
+            {
+              "finding": "Ambiguity on whether renegotiation or surcharge implementation timing could precede the Q3 renewal date, risking the price-lock clause.",
+              "disposition": "answered"
+            }
+          ],
+          "grade_rationale": "As revised, negotiation and index-design work are explicitly separated from the price effective date, which is fixed at no earlier than Q3 renewal, so this survives the one active constraint. The mechanism pulls the confirmed COGS-margin edge; recovery range (4.5-6.8 points) stays within the 7.14-point segment variance it claims to recover."
+        },
+        "opt_3": {
+          "constraint_survival": "pass",
+          "violated_constraints": [],
+          "causal_grounding": "cogs -> gross_margin_pct (confirmed) for the price-recovery component; the base oil sourcing diversification and cost-reserve mechanism are ungrounded \u2014 no listed causal edge in the register covers procurement substitution or reserve accounting.",
+          "arithmetic_consistency": "pass",
+          "arithmetic_note": "",
+          "critic_findings_response": [
+            {
+              "finding": "Framing the intervention as 'accelerating' the anchor account price adjustment directly conflicts with the price-lock clause unless strictly limited to negotiation timing.",
+              "disposition": "answered"
+            }
+          ],
+          "grade_rationale": "The description was revised to state explicitly that no price change occurs before Q3 renewal and to add a legal-guardrail prerequisite, which resolves the high-severity critic finding and allows the option to survive the single active constraint. Its recovery range (4.2-6.8 points) stays within the 7.14-point segment variance, but two of its three mechanisms (sourcing, reserve) rest outside the verified causal model and are labeled accordingly, and it carries the highest cost/risk of the three options given its scope."
+        }
+      },
+      "constraint_exposure": {
+        "union_size": 2,
+        "by_persona": {
+          "mckinsey": {
+            "seen": [
+              "c_11571103",
+              "c_3723d48a"
+            ],
+            "unseen": []
+          },
+          "bcg": {
+            "seen": [
+              "c_11571103",
+              "c_3723d48a"
+            ],
+            "unseen": []
+          },
+          "bain": {
+            "seen": [
+              "c_11571103",
+              "c_3723d48a"
+            ],
+            "unseen": []
+          }
+        },
+        "by_option": {
+          "opt_1": {
+            "originating_persona": null,
+            "constraints_seen": [
+              "c_11571103",
+              "c_3723d48a"
+            ],
+            "constraints_unseen": []
+          },
+          "opt_2": {
+            "originating_persona": null,
+            "constraints_seen": [
+              "c_11571103",
+              "c_3723d48a"
+            ],
+            "constraints_unseen": []
+          },
+          "opt_3": {
+            "originating_persona": null,
+            "constraints_seen": [
+              "c_11571103",
+              "c_3723d48a"
+            ],
+            "constraints_unseen": []
+          }
+        },
+        "moderator_checked": true
+      },
+      "framing_context": {
+        "decision_style": "default",
+        "personas_used": [
+          "mckinsey",
+          "bcg",
+          "bain"
+        ],
+        "presentation_note": "Solutions presented per your default decision style preferences.",
+        "disclaimer": "Consulting perspectives are analytical frameworks, not colleague opinions.",
+        "alternative_views_available": [
+          "analytical",
+          "visionary",
+          "pragmatic"
+        ]
+      },
+      "market_intelligence": null,
+      "decision_ask": {
+        "decision_text": "Approve immediate launch of the staged price-recovery and premium-mix bridge (opt_1) as the first-move intervention.",
+        "decision_owner": "CFO",
+        "deadline": "by end of Week 1",
+        "approval_type": "budget and go/no-go approval"
+      },
+      "immediate_actions": [
+        {
+          "action_text": "Assemble a cost-indexed pricing proposal documenting the confirmed 18% Q2 base oil spike for the Q3 anchor account renewal.",
+          "owner": "VP Commercial/Sales",
+          "due_by_days": 14,
+          "why_it_matters": "Creates the fact base needed to defend a price increase at the Q3 renewal without breaching the price-lock clause."
+        },
+        {
+          "action_text": "Validate SKU-level margin performance of premium formulations (e.g., High Mileage Engine Oil) before scaling promotion.",
+          "owner": "Finance / FP&A",
+          "due_by_days": 10,
+          "why_it_matters": "Prevents over-reliance on an unconfirmed mix-margin assumption that could leave a funding gap before Q3, as the causal register itself warns is possible."
+        },
+        {
+          "action_text": "Obtain legal confirmation on the earliest permissible price-adjustment effective date under the anchor account contract.",
+          "owner": "General Counsel",
+          "due_by_days": 7,
+          "why_it_matters": "Removes the ambiguity flagged by council review that could otherwise risk a contract breach under opt_2 or opt_3."
+        },
+        {
+          "action_text": "Launch a base oil alternative-sourcing RFP for non-anchor channels.",
+          "owner": "VP Procurement",
+          "due_by_days": 30,
+          "why_it_matters": "Builds a structural cost buffer independent of pricing negotiations, reducing future exposure to base oil volatility."
+        }
+      ],
+      "pending_market_signals": null,
+      "human_action_required": true,
+      "human_action_type": "approval",
+      "human_action_context": {
+        "summary": "Review ranked options and approve or select an alternative. The recommended option was graded against all 2 captured constraint(s).",
+        "constraint_union": [
+          {
+            "id": "c_11571103",
+            "text": "We cannot raise prices on the anchor retail account before the contract renews in Q3.",
+            "source": "refinement"
+          },
+          {
+            "id": "c_3723d48a",
+            "text": "Cannot raise list prices on Lubricants anchor accounts mid-quarter (contractual price-lock clause)",
+            "source": "assumption_register"
+          }
+        ],
+        "recommended_option_unseen_constraints": [],
+        "constraint_check_performed": true
+      },
+      "human_action_result": null,
+      "human_action_timestamp": null,
+      "audit_log": [
+        {
+          "event": "ranked_options",
+          "count": 3
+        },
+        {
+          "event": "causal_context",
+          "kpi_id": "gross_margin_pct",
+          "max_hops": 1,
+          "edges": 3,
+          "direct": 3,
+          "indirect": 0,
+          "constraints": 0,
+          "market_signals": 0
+        },
+        {
+          "event": "stage1_calls_complete",
+          "personas": [
+            "mckinsey",
+            "bcg",
+            "bain"
+          ],
+          "dropped_personas": []
+        },
+        {
+          "event": "critic_pass_findings",
+          "count": 3,
+          "findings": [
+            {
+              "persona_id": "mckinsey",
+              "title_ref": "Staged Price Recovery and Mix-Up Strategy",
+              "concern": "The plan leans on 'capturing mix-margin gains in non-constrained channels' to bridge the gap until Q3, but the premium_mix_pct <-> gross_margin_pct link is an unconfirmed template prior, not a validated relationship. The causal context itself flags that margin can fall even as premium mix rises when input-cost pressure is present \u2014 exactly the current situation \u2014 so the assumed mix-driven bridge may not materialize as expected, leaving a funding gap before Q3 renewal.",
+              "affected_kpi": "gross_margin_pct",
+              "severity": "moderate"
+            },
+            {
+              "persona_id": "bcg",
+              "concern": "The recommendation to 'accelerate Q3 contract renegotiation' is ambiguous as to timing \u2014 if renegotiation or surcharge implementation is pursued ahead of the actual Q3 renewal date, it risks violating the known constraint that list prices on Lubricants anchor accounts cannot be raised mid-quarter under the existing price-lock clause.",
+              "affected_kpi": null,
+              "severity": "high"
+            },
+            {
+              "persona_id": "bain",
+              "concern": "The option explicitly frames the intervention as 'accelerating' the anchor account price adjustment, which directly conflicts with the known constraint prohibiting mid-quarter list price increases on Lubricants anchor accounts under the contractual price-lock clause, unless 'acceleration' is strictly limited to negotiation timing with no price change before contract renewal.",
+              "affected_kpi": null,
+              "severity": "high"
+            }
+          ]
+        },
+        {
+          "event": "llm_debate_analysis_req",
+          "principal_context": null,
+          "situation_context": null,
+          "business_context": {
+            "enterprise_name": "Lubricants Business",
+            "industry": "Oil & Gas / Specialty Chemicals",
+            "subindustry": "Automotive & Industrial Lubricants"
+          },
+          "data_payload": {
+            "problem_statement": "gross_margin_pct dropped by 7.14 (Current Level: 20.64). [KPI_DIRECTION: DROPPED] This deviation is primarily driven by 'Synthetic Blend Engine Oil' within the product_name segment. Analysis period: year_to_date. Contributing factors identified: product_name: Synthetic Blend Engine Oil (\u0394 -7.14), product_name: Conventional Engine Oil (\u0394 -6.61).",
+            "situation_metadata": null,
+            "decision_maker": null,
+            "business_context": {
+              "enterprise_name": "Lubricants Business",
+              "industry": "Oil & Gas / Specialty Chemicals",
+              "subindustry": "Automotive & Industrial Lubricants"
+            },
+            "deep_analysis_summary": {
+              "client_id": "lubricants",
+              "kpi_name": "gross_margin_pct",
+              "timeframe": "year_to_date",
+              "comparison_timeframe": "prior year_to_date",
+              "scqa_summary": "Situation: Year-to-date gross margin percentage is underperforming against target when measured year-over-year, with five product lines driving the shortfall: Synthetic Blend Engine Oil, Conventional Engine Oil, Compressor Oil, Hydraulic Oil, and Manual Gear Oil.\n\nComplication: Synthetic Blend Engine Oil has declined 7.1 percentage points and Conventional Engine Oil has declined 6.6 percentage points year-over-year, while the Value product category has contracted 6.4 percentage points, indicating margin pressure is concentrated in high-volume commodity segments rather than distributed across the portfolio.\n\nQuestion: What is causing margin compression in these five core product lines, and is the decline driven by pricing actions, input cost inflation, unfavorable product mix shift, or competitive pressure?\n\nAnswer: The data identifies where margin is eroding but does not reveal root cause; a forensic review of cost of goods sold, selling prices, and unit volume trends within these five segments is required to determine whether intervention should target pricing strategy, procurement, manufacturing efficiency, or portfolio rebalancing.",
+              "dimension_focus": [
+                "product_name",
+                "product_line",
+                "product_category",
+                "customer_name",
+                "customer_segment",
+                "customer_region"
+              ],
+              "top_change_points": [
+                {
+                  "dimension": "product_name",
+                  "key": "Synthetic Blend Engine Oil",
+                  "delta": -7.140000000000001,
+                  "current_value": 20.64,
+                  "previous_value": 27.78,
+                  "percent_growth": null
+                },
+                {
+                  "dimension": "product_name",
+                  "key": "Conventional Engine Oil",
+                  "delta": -6.609999999999999,
+                  "current_value": 19.16,
+                  "previous_value": 25.77,
+                  "percent_growth": null
+                },
+                {
+                  "dimension": "product_category",
+                  "key": "Value",
+                  "delta": -6.419999999999998,
+                  "current_value": 19.82,
+                  "previous_value": 26.24,
+                  "percent_growth": null
+                },
+                {
+                  "dimension": "product_name",
+                  "key": "Compressor Oil",
+                  "delta": -5.859999999999999,
+                  "current_value": 28.0,
+                  "previous_value": 33.86,
+                  "percent_growth": null
+                },
+                {
+                  "dimension": "product_line",
+                  "key": "Engine Oils",
+                  "delta": -5.799999999999997,
+                  "current_value": 26.03,
+                  "previous_value": 31.83,
+                  "percent_growth": null
+                }
+              ],
+              "what_is_highlights": [
+                "gross_margin_pct is 29.94 vs prior year_to_date 34.43 (\u0394 -4.49, -13.0%).",
+                "Issue observed during year_to_date compared against prior year_to_date.",
+                "Largest variance in product_name: Synthetic Blend Engine Oil (\u0394 -7.14).",
+                "Analysis scoped by applied filters, limiting impact to selected context."
+              ],
+              "where_signals": [
+                "product_name: Synthetic Blend Engine Oil (\u0394 -7.14)",
+                "product_name: Conventional Engine Oil (\u0394 -6.61)",
+                "product_name: Compressor Oil (\u0394 -5.86)",
+                "product_name: Hydraulic Oil (\u0394 -5.76)"
+              ],
+              "when_signals": [
+                "2026-007 (\u0394 +32.40)",
+                "2026-006 (\u0394 +32.37)",
+                "2026-008 (\u0394 +31.49)"
+              ],
+              "what_is_not": [
+                "Unaffected timeframe buckets: Within threshold"
+              ],
+              "when_is_not": [
+                "2026-007 (\u0394 +32.40) \u2014 Within threshold",
+                "2026-006 (\u0394 +32.37) \u2014 Within threshold",
+                "2026-008 (\u0394 +31.49) \u2014 Within threshold"
+              ],
+              "key_highlights": [
+                "Situation: Year-to-date gross margin percentage is underperforming against target when measured year-over-year, with five product lines driving the shortfall: Synthetic Blend Engine Oil, Conventional Engine Oil, Compressor Oil, Hydraulic Oil, and Manual Gear Oil.\n\nComplication: Synthetic Blend Engine Oil has declined 7.1 percentage points and Conventional Engine Oil has declined 6.6 percentage points year-over-year, while the Value product category has contracted 6.4 percentage points, indicating margin pressure is concentrated in high-volume commodity segments rather than distributed across the portfolio.\n\nQuestion: What is causing margin compression in these five core product lines, and is the decline driven by pricing actions, input cost inflation, unfavorable product mix shift, or competitive pressure?\n\nAnswer: The data identifies where margin is eroding but does not reveal root cause; a forensic review of cost of goods sold, selling prices, and unit volume trends within these five segments is required to determine whether intervention should target pricing strategy, procurement, manufacturing efficiency, or portfolio rebalancing.",
+                "Driver: product_name: Synthetic Blend Engine Oil (\u0394 -7.14)",
+                "Driver: product_name: Conventional Engine Oil (\u0394 -6.61)",
+                "Driver: product_name: Compressor Oil (\u0394 -5.86)",
+                "Change point: product_name / Synthetic Blend Engine Oil; \u0394 -7.14; current 20.64 vs prev 27.78",
+                "Change point: product_name / Conventional Engine Oil; \u0394 -6.61; current 19.16 vs prev 25.77"
+              ]
+            },
+            "dataset_recap": [
+              "KPI analyzed: gross_margin_pct",
+              "Timeframe: year_to_date vs prior year_to_date",
+              "Evidence: Situation: Year-to-date gross margin percentage is underperforming against target when measured year-over-year, with five product lines driving the shortfall: Synthetic Blend Engine Oil, Conventional Engine Oil, Compressor Oil, Hydraulic Oil, and Manual Gear Oil.\n\nComplication: Synthetic Blend Engine Oil has declined 7.1 percentage points and Conventional Engine Oil has declined 6.6 percentage points year-over-year, while the Value product category has contracted 6.4 percentage points, indicating margin pressure is concentrated in high-volume commodity segments rather than distributed across the portfolio.\n\nQuestion: What is causing margin compression in these five core product lines, and is the decline driven by pricing actions, input cost inflation, unfavorable product mix shift, or competitive pressure?\n\nAnswer: The data identifies where margin is eroding but does not reveal root cause; a forensic review of cost of goods sold, selling prices, and unit volume trends within these five segments is required to determine whether intervention should target pricing strategy, procurement, manufacturing efficiency, or portfolio rebalancing.",
+              "Evidence: Driver: product_name: Synthetic Blend Engine Oil (\u0394 -7.14)",
+              "Evidence: Driver: product_name: Conventional Engine Oil (\u0394 -6.61)",
+              "CONFIRMED ROOT CAUSES: product_name: Synthetic Blend Engine Oil (\u0394 -7.14); product_name: Conventional Engine Oil (\u0394 -6.61); product_name: Compressor Oil (\u0394 -5.86)",
+              "Change points: product_name / Synthetic Blend Engine Oil; \u0394 -7.14; current 20.64 vs prev 27.78; product_name / Conventional Engine Oil; \u0394 -6.61; current 19.16 vs prev 25.77; product_category / Value; \u0394 -6.42; current 19.82 vs prev 26.24",
+              "PRINCIPAL-PROVIDED CONTEXT (from refinement): Compare against our 2025 full-year margin, that is the board's reference point.; Nothing external beyond the base oil spike, no competitor or regulatory change we are aware of.",
+              "CONSTRAINTS: We cannot raise prices on the anchor retail account before the contract renews in Q3.",
+              "VALIDATED BY PRINCIPAL: Yes, the Synthetic Blend decline is real. Base oil costs jumped 18% in Q2 and we could not pass it through.",
+              "RULED OUT BY PRINCIPAL: Exclude the International channel entirely, it is a reseller arrangement with different economics.",
+              "REFINED PROBLEM: Analysis complete. | Context: Compare against our 2025 full-year margin, that is the board's reference point.; Nothing external beyond the base oil spike, no competitor or regulatory change we are aware of. | Constraints: We cannot raise prices on the anchor retail account before the contract renews in Q3. | Focus areas: Yes, the Synthetic Blend decline is real. Base oil costs jumped 18% in Q2 and we could not pass it through."
+            ],
+            "user_context": null,
+            "principal_input": null,
+            "stage_1_persona_hypotheses": {
+              "mckinsey": {
+                "framework": "Three Horizons with Cost Pass-Through Lag Analysis",
+                "hypothesis": "Gross margin compression of 7.14 percentage points is driven by an 18% base oil cost spike in Q2 that could not be passed through to the anchor retail account due to contractual price-lock restrictions, creating a temporary margin absorption cycle that will persist until Q3 contract renewal. This is a timing and contract structure issue, not a demand or competitive threat.",
+                "key_evidence": [
+                  "Synthetic Blend Engine Oil margin declined 7.14 points (27.78% \u2192 20.64%) in direct correlation with confirmed 18% base oil cost increase in Q2, with ~1-month lag mechanism validated by client",
+                  "Conventional Engine Oil margin declined 6.61 points (25.77% \u2192 19.16%), showing consistent pressure across oil grades proportional to input cost exposure, ruling out product-specific demand issues",
+                  "Anchor retail account pricing locked contractually until Q3 renewal, preventing margin recovery despite confirmed cost pass-through inability\u2014this is a structural constraint, not an operational failure"
+                ],
+                "recommended_focus": "Synthetic Blend Engine Oil",
+                "conviction": "High",
+                "proposed_option": {
+                  "title": "Staged Price Recovery and Mix-Up Strategy for Q3 Anchor Account Renewal",
+                  "description": "Execute a two-part intervention: (1) prepare a fact-based cost recovery proposal for the Q3 anchor retail contract renewal that quantifies the 18% base oil cost increase and margin impact, positioning a tiered price increase tied to input cost indices; (2) simultaneously accelerate promotion of higher-margin premium formulations (High Mileage Engine Oil) within non-locked accounts to capture mix uplift and offset margin pressure in Horizon 1. This addresses the root cause (cost pass-through lag) while creating optionality before the contract renewal window closes.",
+                  "mechanism": "The 18% base oil cost spike created a one-time margin absorption that is contractually locked until Q3. Rather than absorb the full 7.14-point decline, use the renewal as a hard deadline to recover ~60\u201370% of the cost increase through a defensible price adjustment (supported by indexed cost data), while capturing mix-margin gains in non-constrained channels to bridge the gap in the interim. This respects the constraint while creating a clear path to recovery.",
+                  "time_horizon": "0-90 days",
+                  "impact_estimate": {
+                    "metric": "gross_margin_pct",
+                    "unit": "percentage points",
+                    "recovery_range": {
+                      "low": 4.2,
+                      "high": 5.8
+                    },
+                    "basis": "Conservative recovery assumes 60\u201370% of the 7.14-point Synthetic Blend decline is recoverable through Q3 price adjustment (4.3\u20135.0 points) plus 0.2\u20130.8 points from mix-up in non-locked accounts. Full 7.14-point recovery is not modeled due to competitive/customer elasticity risk on price increase, but the cost-indexed justification makes 4.2\u20135.8 points achievable within the contract renewal window."
+                  },
+                  "cost_signal": "Low",
+                  "risk_signal": "Medium"
+                }
+              },
+              "bcg": {
+                "framework": "Growth-Share Matrix with Experience Curve & Advantage Matrix overlay",
+                "hypothesis": "Synthetic Blend Engine Oil and Conventional Engine Oil margins collapsed 7.14 and 6.61 percentage points respectively due to an 18% Q2 base oil cost spike that could not be passed through to the anchor retail account due to contractual price-lock constraints. This represents a temporary but material margin compression in the Value category (\u22126.42 ppts), which will persist until Q3 contract renewal enables price recovery.",
+                "key_evidence": [
+                  "Synthetic Blend Engine Oil declined 7.14 ppts (27.78% \u2192 20.64%) in YTD period, directly coinciding with confirmed 18% base oil cost increase in Q2 with ~1-month COGS lag mechanism",
+                  "Conventional Engine Oil declined 6.61 ppts (25.77% \u2192 19.16%), confirming broad-based input cost pressure across oil grades rather than mix or competitive dynamics",
+                  "Value product category declined 6.42 ppts (26.24% \u2192 19.82%), indicating the margin compression is structural and tied to COGS absorption, not volume or premium mix shift"
+                ],
+                "recommended_focus": "Synthetic Blend Engine Oil",
+                "conviction": "High",
+                "proposed_option": {
+                  "title": "Accelerate Q3 Contract Renegotiation with Anchor Retail Account & Implement Tiered Surcharge on Base Oil Input Volatility",
+                  "description": "Initiate early engagement with the anchor retail account in Q2 to pre-negotiate a Q3 price adjustment tied explicitly to base oil cost pass-through, with a tiered surcharge mechanism for future volatility above a defined threshold. This unlocks pricing relief for Synthetic Blend and Conventional grades while positioning the account as a strategic partner in margin protection rather than adversary.",
+                  "mechanism": "The 18% base oil spike created a 1-month lag before COGS impact reached P&L; contractual price-lock prevents mid-quarter relief. By anchoring the Q3 renewal to a transparent base oil index (e.g., WTI or industry benchmark), we recover the 7.14 ppt margin gap on Synthetic Blend while building structural resilience against future commodity volatility. This directly addresses the COGS\u2013margin divergence documented in the causal model.",
+                  "time_horizon": "0-90 days",
+                  "impact_estimate": {
+                    "metric": "gross_margin_pct",
+                    "unit": "percentage points",
+                    "recovery_range": {
+                      "low": 4.5,
+                      "high": 6.8
+                    },
+                    "basis": "Synthetic Blend decline of 7.14 ppts is fully attributable to base oil cost pass-through failure. Renegotiation targeting 60\u201395% recovery of the input cost delta yields 4.5\u20136.8 ppt uplift. Conservative estimate assumes 15% of the 18% cost increase remains unrecovered due to competitive negotiation; optimistic assumes 95% recovery net of minor mix/volume effects."
+                  },
+                  "cost_signal": "Medium",
+                  "risk_signal": "Medium"
+                }
+              },
+              "bain": {
+                "framework": "Full Potential Transformation (Cost & Mix Optimization)",
+                "hypothesis": "Gross margin compression of 7.14 percentage points in Synthetic Blend Engine Oil is driven by a 18% base oil cost spike in Q2 that could not be passed through to the anchor retail account due to contractual price-lock clauses. This creates a 1-month lag between input cost inflation and pricing realization, compressing blended margin until Q3 contract renewal enables price recovery.",
+                "key_evidence": [
+                  "Synthetic Blend Engine Oil margin declined 7.14 points (27.78% \u2192 20.64%) year-to-date, the largest single product contributor to overall margin erosion",
+                  "Base oil costs jumped 18% in Q2 with confirmed inability to pass through to anchor retail account until Q3 contract renewal, creating a known timing gap",
+                  "Conventional Engine Oil margin also declined 6.61 points (25.77% \u2192 19.16%), confirming the driver is input-cost pressure common across engine oil grades rather than product-specific demand or mix shift"
+                ],
+                "recommended_focus": "Synthetic Blend Engine Oil",
+                "conviction": "High",
+                "proposed_option": {
+                  "title": "Accelerate Anchor Account Price Adjustment via Q3 Contract Renewal Acceleration",
+                  "description": "Initiate early renegotiation with the anchor retail account to front-load the contractual price increase to Q3 (or earliest permissible date), capturing the 18% base oil cost inflation pass-through before end of Q2/Q3 margin reporting cycle. Simultaneously, implement a 30-day SKU-level cost variance reserve to ring-fence the margin gap pending contract execution, and identify lower-cost base oil alternatives for non-anchor channels to restore mix economics.",
+                  "mechanism": "This intervention directly addresses the root cause: the lag between input cost inflation (18% base oil spike in Q2) and pricing realization (locked until Q3 renewal). By accelerating contract renewal negotiation and implementing interim cost-recovery mechanisms on non-anchor SKUs, we restore gross margin contribution before the full-year 2025 board reference point is finalized. The mechanism relies on contractual optionality (early renewal clause review) and product-level cost substitution to decouple margin recovery from anchor account dependency.",
+                  "time_horizon": "0-90 days",
+                  "impact_estimate": {
+                    "metric": "gross_margin_pct",
+                    "unit": "percentage points",
+                    "recovery_range": {
+                      "low": 4.2,
+                      "high": 6.8
+                    },
+                    "basis": "Synthetic Blend margin decline of 7.14 pp is directly attributable to unrecovered 18% base oil cost inflation. Accelerated price realization on anchor account (estimated 60\u201375% of Synthetic Blend volume) recovers 4.2\u20136.8 pp of the 7.14 pp gap, with partial recovery reflecting phased implementation and non-anchor channel optimization. Residual 0.3\u20132.9 pp gap absorbs timing slippage and competitive elasticity on renewal terms."
+                  },
+                  "cost_signal": "Medium",
+                  "risk_signal": "Medium"
+                }
+              }
+            }
+          },
+          "debate_spec_length": 17283
+        },
+        {
+          "event": "llm_debate_completed",
+          "status": "success",
+          "model_used": "claude-sonnet-5",
+          "error": null
+        },
+        {
+          "event": "decision_briefing_generated",
+          "problem_reframe": {
+            "situation": "gross_margin_pct has deteriorated year-to-date versus prior year-to-date, with the headline change-point analysis attributing a 7.14-percentage-point decline (current level 20.64%) to Synthetic Blend Engine Oil, corroborated by an enterprise-level YTD contraction of 4.49 points (29.94% vs 34.43%, -13.0%) per the what_is analysis. Both framings point the same direction: gross_margin_pct is down and the deterioration is concentrated, not diffuse.",
+            "complication": "The decline is not uniform across the portfolio. Synthetic Blend Engine Oil (-7.14 pts), Conventional Engine Oil (-6.61 pts), the Value product category (-6.42 pts), Compressor Oil (-5.86 pts), and Engine Oils as a product line (-5.80 pts) are all compressed by the same root cause \u2014 an 18% Q2 base oil cost spike that could not be passed through to the anchor retail account under a contractual price-lock clause until Q3 renewal. No offsetting segment with structurally better margin performance was identified in this analysis to use as an internal benchmark, and the International channel has been explicitly excluded by the principal as a reseller arrangement with different economics. The mixed picture is therefore mixed in severity, not in cause: every flagged segment traces to the same COGS-pass-through lag, with the timeframe analysis (what_is_not / when_is_not) confirming no other period buckets are anomalous.",
+            "question": "Given a confirmed, single root cause (base-oil COGS pass-through lag against a price-locked anchor contract), what combination of immediate, structural, and portfolio-level interventions recovers the most gross_margin_pct within the Q3 renewal window without breaching the price-lock clause or the board's full-year 2025 reference point?",
+            "key_assumptions": [
+              "The 18% Q2 base oil cost spike, confirmed by the principal, is the sole material driver of the margin decline across Synthetic Blend, Conventional, and Compressor Oil \u2014 no competitive or regulatory factor is in play, per principal statement.",
+              "The anchor retail account's price-lock clause prevents any list price change before Q3 renewal, but does not prevent negotiation, index design, or reserve-accounting activity ahead of that date.",
+              "The board's 2025 full-year margin is the comparison baseline principal stakeholders will use to judge recovery success, which differs from the YTD-vs-prior-YTD baseline used in this analysis and requires separate reconciliation."
+            ]
+          },
+          "unresolved_tensions": [
+            {
+              "tension": "Opt_2 and opt_3 both involve pre-Q3 engagement with the anchor account, which the council flagged as ambiguous against the contractual price-lock clause prohibiting mid-quarter list price increases.",
+              "options_affected": [
+                "opt_2",
+                "opt_3"
+              ],
+              "requires": "General Counsel to issue written confirmation of the earliest permissible price-adjustment effective date under the anchor account contract before any negotiation activity begins (target: Week 1)."
+            },
+            {
+              "tension": "Opt_1's premium-mix bridge assumes premium formulations retain margin the causal register warns may not hold if input-cost pressure is universal across oil grades.",
+              "options_affected": [
+                "opt_1"
+              ],
+              "requires": "Finance team to complete SKU-level margin analysis for High Mileage Engine Oil and other premium formulations before scaling promotional spend (target: Week 2)."
+            },
+            {
+              "tension": "Limited near-term budget and management attention must be allocated across a fast bridge (opt_1), a structural indexed mechanism (opt_2), and a full-potential program (opt_3) \u2014 all three cannot be fully resourced simultaneously.",
+              "options_affected": [
+                "opt_1",
+                "opt_2",
+                "opt_3"
+              ],
+              "requires": "CFO to approve a sequenced funding plan prioritizing opt_1 immediately, with opt_2 design work funded in parallel and opt_3 gated on legal clearance (target: Week 1)."
+            }
+          ],
+          "blind_spots": [
+            "No named outperforming product or customer segment was identified in this analysis to serve as an internal benchmark for replicable best practices.",
+            "The premium-mix bridge in opt_1 rests on an unconfirmed template causal prior (premium_mix_pct<->gross_margin_pct) that the causal register itself warns can fail under input-cost pressure \u2014 exactly the current situation.",
+            "Customer-segment and region-level margin performance beyond the excluded International channel has not been reviewed; other regions may carry similar undisclosed base-oil exposure.",
+            "The board's stated reference point is full-year 2025 margin, not the YTD-vs-prior-YTD baseline used throughout this analysis; recovery-range figures will need separate reconciliation to that baseline before board reporting."
+          ]
+        },
+        {
+          "event": "token_usage",
+          "calls": 5,
+          "input_tokens": 23575,
+          "output_tokens": 25819,
+          "total_tokens": 49394,
+          "by_call": [
+            {
+              "call": "stage1_bcg",
+              "model": "claude-haiku-4-5-20251001",
+              "input_tokens": 1884,
+              "output_tokens": 777
+            },
+            {
+              "call": "stage1_mckinsey",
+              "model": "claude-haiku-4-5-20251001",
+              "input_tokens": 1901,
+              "output_tokens": 788
+            },
+            {
+              "call": "stage1_bain",
+              "model": "claude-haiku-4-5-20251001",
+              "input_tokens": 1900,
+              "output_tokens": 782
+            },
+            {
+              "call": "critic_pass",
+              "model": "claude-sonnet-5",
+              "input_tokens": 1729,
+              "output_tokens": 1696
+            },
+            {
+              "call": "moderator",
+              "model": "claude-sonnet-5",
+              "input_tokens": 16161,
+              "output_tokens": 21776,
+              "max_tokens": 64000
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "error": null,
+  "annotations": [],
+  "actions": []
+}

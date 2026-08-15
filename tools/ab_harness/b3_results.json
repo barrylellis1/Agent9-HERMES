@@ -1,0 +1,88 @@
+{
+  "model": "claude-sonnet-5",
+  "results": {
+    "mckinsey": [
+      {
+        "question": "Since June 2026, did we implement any pricing, discounting, or cost-input changes (e.g., base oil, additive, or freight cost pass-through) specifically affecting the Synthetic Blend, Conventional Engine Oil, Compressor, Hydraulic, or Manual Gear Oil lines that could explain the timing of this margin decline?",
+        "topic": "hypothesis_validation"
+      },
+      {
+        "question": "Is the margin target we are measuring against a static budget set pre-2026, or has it been refreshed for known input cost inflation and competitive pricing shifts\u2014i.e., are we comparing against a realistic baseline?",
+        "topic": "comparison_baseline"
+      },
+      {
+        "question": "Are there customer, channel, or contract-level dynamics (e.g., a large Value-segment account renegotiation or distributor mix shift) concentrated in these five lines that we should isolate before treating this as a portfolio-wide margin issue?",
+        "topic": "segment_specific_causation"
+      },
+      {
+        "question": "Should we bound this diagnostic to the five flagged product lines and the Value category, or do you suspect adjacent lines/categories are masking similar erosion that hasn't yet crossed the variance threshold?",
+        "topic": "scope_boundaries"
+      },
+      {
+        "question": "What is the non-negotiable floor for gross margin recovery this fiscal year, and are you willing to accept volume or share loss in the Value segment as a lever to defend margin?",
+        "topic": "tradeoff_tolerance"
+      },
+      {
+        "question": "Are there external market factors\u2014competitor price wars in Value-tier lubricants, base oil commodity swings, or regulatory/input supply shocks\u2014since mid-2026 that you believe are structural versus temporary?",
+        "topic": "external_context"
+      }
+    ],
+    "bcg": [
+      {
+        "question": "Since June 2026, have we taken any pricing actions (list price changes, discount/rebate increases, or contract renegotiations) on Synthetic Blend, Conventional Engine Oil, Compressor, Hydraulic, or Manual Gear Oil, or is this margin erosion purely a cost-side (input/freight) phenomenon?",
+        "topic": "hypothesis_validation"
+      },
+      {
+        "question": "Have input costs (base oil, additives, packaging) for these five lines moved differently than for the rest of the portfolio, and have we passed through or absorbed those increases?",
+        "topic": "segment_specific_causation"
+      },
+      {
+        "question": "Is the 6-7 point margin decline concentrated in specific customers, channels, or geographies, or is it broad-based across the entire book of business for these five lines?",
+        "topic": "scope_boundaries"
+      },
+      {
+        "question": "What was the competitive/pricing environment in these categories starting mid-2026 \u2014 did a competitor initiate price aggression or did we lose share we're now trying to buy back?",
+        "topic": "external_context"
+      },
+      {
+        "question": "If restoring margin requires raising prices or exiting low-margin volume in these lines, how much revenue or unit-volume erosion are you willing to accept to get back to target margin?",
+        "topic": "tradeoff_tolerance"
+      },
+      {
+        "question": "Is the year-over-year target margin itself still realistic given current input cost inflation, or should we reset the baseline before we chase the historical number?",
+        "topic": "comparison_baseline"
+      }
+    ],
+    "bain": [
+      {
+        "question": "When we say margin is 'underperforming target,' is that target a static budget set pre-2026-006, and has anyone re-validated whether the target itself still reflects current input cost realities (e.g., base oil/feedstock prices)?",
+        "topic": "hypothesis_validation"
+      },
+      {
+        "question": "Did anything specific happen in June 2026 \u2014 a price list change, a customer contract renewal, a cost pass-through decision, or a competitive move \u2014 that lines up with when this decline started?",
+        "topic": "external_context"
+      },
+      {
+        "question": "Of the five product lines, do you believe this is one root cause hitting multiple lines (e.g., a company-wide pricing/discounting policy) or five separate, unrelated causes we need to diagnose independently?",
+        "topic": "segment_specific_causation"
+      },
+      {
+        "question": "Are there other product lines or customer segments outside these five that show early signs of the same margin erosion, which would tell us if this is spreading or contained?",
+        "topic": "replication_potential"
+      },
+      {
+        "question": "If fixing this requires re-pricing or renegotiating with key customers on these five lines, how much near-term volume or revenue risk are you willing to accept to restore margin \u2014 and who has authority to approve that trade-off?",
+        "topic": "tradeoff_tolerance"
+      },
+      {
+        "question": "What specific margin percentage, by which product line and by which month, would you consider 'fixed' \u2014 is it full recovery to last year's level, or closing the gap to budget?",
+        "topic": "success_criteria"
+      }
+    ]
+  },
+  "topic_jaccard_mean": 0.6666666666666666,
+  "lexical_jaccard_mean": 0.2011651402854123,
+  "diverges": true,
+  "tokens_in": 2691,
+  "tokens_out": 1603
+}

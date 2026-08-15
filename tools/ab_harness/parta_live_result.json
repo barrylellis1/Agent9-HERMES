@@ -1,0 +1,1737 @@
+{
+  "request_id": "deep_analysis_2f84ba452a384088aa5c52e2966c44db",
+  "workflow_type": "deep_analysis",
+  "state": "completed",
+  "payload": {
+    "principal_id": "cfo_001",
+    "situation_id": null,
+    "scope": {
+      "kpi_id": "gross_margin_pct",
+      "time_range": null,
+      "timeframe": "year_to_date"
+    },
+    "hypotheses": null,
+    "include_supporting_evidence": true,
+    "analysis_mode": "problem",
+    "client_id": "lubricants",
+    "comparator_override": null
+  },
+  "created_at": "2026-08-15T16:50:28.832831",
+  "updated_at": "2026-08-15T16:51:37.242140",
+  "result": {
+    "plan": {
+      "kpi_name": "gross_margin_pct",
+      "client_id": "lubricants",
+      "timeframe": "year_to_date",
+      "filters": {
+        "Fiscal Year": [
+          "2024",
+          "2025",
+          "2026"
+        ],
+        "Customer Segment": [
+          "Total"
+        ],
+        "Profit Center Name": [
+          "Total"
+        ]
+      },
+      "dimensions": [
+        "product_name",
+        "product_line",
+        "product_category",
+        "customer_name",
+        "customer_segment",
+        "customer_region",
+        "profit_center_name",
+        "business_unit",
+        "channel_name",
+        "channel_type",
+        "account_name",
+        "account_type",
+        "account_category",
+        "account_group",
+        "fiscal_year"
+      ],
+      "steps": [
+        {
+          "type": "group_compare",
+          "dimension": "product_name",
+          "timeframe": "year_to_date",
+          "filters": {
+            "Fiscal Year": [
+              "2024",
+              "2025",
+              "2026"
+            ],
+            "Customer Segment": [
+              "Total"
+            ],
+            "Profit Center Name": [
+              "Total"
+            ]
+          },
+          "comparison": "current_vs_previous"
+        },
+        {
+          "type": "group_compare",
+          "dimension": "product_line",
+          "timeframe": "year_to_date",
+          "filters": {
+            "Fiscal Year": [
+              "2024",
+              "2025",
+              "2026"
+            ],
+            "Customer Segment": [
+              "Total"
+            ],
+            "Profit Center Name": [
+              "Total"
+            ]
+          },
+          "comparison": "current_vs_previous"
+        },
+        {
+          "type": "group_compare",
+          "dimension": "product_category",
+          "timeframe": "year_to_date",
+          "filters": {
+            "Fiscal Year": [
+              "2024",
+              "2025",
+              "2026"
+            ],
+            "Customer Segment": [
+              "Total"
+            ],
+            "Profit Center Name": [
+              "Total"
+            ]
+          },
+          "comparison": "current_vs_previous"
+        },
+        {
+          "type": "group_compare",
+          "dimension": "customer_name",
+          "timeframe": "year_to_date",
+          "filters": {
+            "Fiscal Year": [
+              "2024",
+              "2025",
+              "2026"
+            ],
+            "Customer Segment": [
+              "Total"
+            ],
+            "Profit Center Name": [
+              "Total"
+            ]
+          },
+          "comparison": "current_vs_previous"
+        },
+        {
+          "type": "group_compare",
+          "dimension": "customer_segment",
+          "timeframe": "year_to_date",
+          "filters": {
+            "Fiscal Year": [
+              "2024",
+              "2025",
+              "2026"
+            ],
+            "Customer Segment": [
+              "Total"
+            ],
+            "Profit Center Name": [
+              "Total"
+            ]
+          },
+          "comparison": "current_vs_previous"
+        },
+        {
+          "type": "group_compare",
+          "dimension": "customer_region",
+          "timeframe": "year_to_date",
+          "filters": {
+            "Fiscal Year": [
+              "2024",
+              "2025",
+              "2026"
+            ],
+            "Customer Segment": [
+              "Total"
+            ],
+            "Profit Center Name": [
+              "Total"
+            ]
+          },
+          "comparison": "current_vs_previous"
+        },
+        {
+          "type": "group_compare",
+          "dimension": "profit_center_name",
+          "timeframe": "year_to_date",
+          "filters": {
+            "Fiscal Year": [
+              "2024",
+              "2025",
+              "2026"
+            ],
+            "Customer Segment": [
+              "Total"
+            ],
+            "Profit Center Name": [
+              "Total"
+            ]
+          },
+          "comparison": "current_vs_previous"
+        },
+        {
+          "type": "group_compare",
+          "dimension": "business_unit",
+          "timeframe": "year_to_date",
+          "filters": {
+            "Fiscal Year": [
+              "2024",
+              "2025",
+              "2026"
+            ],
+            "Customer Segment": [
+              "Total"
+            ],
+            "Profit Center Name": [
+              "Total"
+            ]
+          },
+          "comparison": "current_vs_previous"
+        },
+        {
+          "type": "group_compare",
+          "dimension": "channel_name",
+          "timeframe": "year_to_date",
+          "filters": {
+            "Fiscal Year": [
+              "2024",
+              "2025",
+              "2026"
+            ],
+            "Customer Segment": [
+              "Total"
+            ],
+            "Profit Center Name": [
+              "Total"
+            ]
+          },
+          "comparison": "current_vs_previous"
+        },
+        {
+          "type": "group_compare",
+          "dimension": "channel_type",
+          "timeframe": "year_to_date",
+          "filters": {
+            "Fiscal Year": [
+              "2024",
+              "2025",
+              "2026"
+            ],
+            "Customer Segment": [
+              "Total"
+            ],
+            "Profit Center Name": [
+              "Total"
+            ]
+          },
+          "comparison": "current_vs_previous"
+        }
+      ],
+      "notes": "KT core with SCQA/MECE framing (auto-derived dimensions from data product contract).",
+      "dimensions_considered": [
+        "product_name",
+        "product_line",
+        "product_category",
+        "customer_name",
+        "customer_segment",
+        "customer_region",
+        "profit_center_name",
+        "business_unit",
+        "channel_name",
+        "channel_type",
+        "account_name",
+        "account_type",
+        "account_category",
+        "account_group",
+        "fiscal_year"
+      ],
+      "dimension_rank_source": "contract_semantics",
+      "analysis_mode": "problem",
+      "alert_type": null,
+      "compound_alert": false,
+      "compound_pattern": null,
+      "merged_alert_types": null,
+      "secondary_alert_facts": null,
+      "comparator_override": null
+    },
+    "execution": {
+      "status": "success",
+      "request_id": "ae4484a0-265d-4970-8bbe-0f7d644ead67",
+      "timestamp": "2026-08-15T16:51:18.751368",
+      "error_message": null,
+      "plan": {
+        "kpi_name": "gross_margin_pct",
+        "client_id": "lubricants",
+        "timeframe": "year_to_date",
+        "filters": {
+          "Fiscal Year": [
+            "2024",
+            "2025",
+            "2026"
+          ],
+          "Customer Segment": [
+            "Total"
+          ],
+          "Profit Center Name": [
+            "Total"
+          ]
+        },
+        "dimensions": [
+          "product_name",
+          "product_line",
+          "product_category",
+          "customer_name",
+          "customer_segment",
+          "customer_region",
+          "profit_center_name",
+          "business_unit",
+          "channel_name",
+          "channel_type",
+          "account_name",
+          "account_type",
+          "account_category",
+          "account_group",
+          "fiscal_year"
+        ],
+        "steps": [
+          {
+            "type": "group_compare",
+            "dimension": "product_name",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "product_line",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "product_category",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "customer_name",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "customer_segment",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "customer_region",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "profit_center_name",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "business_unit",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "channel_name",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "channel_type",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ],
+              "Customer Segment": [
+                "Total"
+              ],
+              "Profit Center Name": [
+                "Total"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          }
+        ],
+        "notes": "KT core with SCQA/MECE framing (auto-derived dimensions from data product contract).",
+        "dimensions_considered": [
+          "product_name",
+          "product_line",
+          "product_category",
+          "customer_name",
+          "customer_segment",
+          "customer_region",
+          "profit_center_name",
+          "business_unit",
+          "channel_name",
+          "channel_type",
+          "account_name",
+          "account_type",
+          "account_category",
+          "account_group",
+          "fiscal_year"
+        ],
+        "dimension_rank_source": "contract_semantics",
+        "analysis_mode": "problem",
+        "alert_type": null,
+        "compound_alert": false,
+        "compound_pattern": null,
+        "merged_alert_types": null,
+        "secondary_alert_facts": null,
+        "comparator_override": null
+      },
+      "dimensions_suggested": [
+        "product_name",
+        "product_line",
+        "product_category",
+        "customer_name",
+        "customer_segment",
+        "customer_region",
+        "profit_center_name",
+        "business_unit",
+        "channel_name",
+        "channel_type",
+        "account_name",
+        "account_type",
+        "account_category",
+        "account_group",
+        "fiscal_year"
+      ],
+      "dimensions_analyzed": [
+        "product_name",
+        "product_line",
+        "product_category",
+        "customer_name",
+        "customer_segment",
+        "customer_region",
+        "profit_center_name",
+        "business_unit",
+        "channel_name",
+        "channel_type"
+      ],
+      "scqa_summary": "Situation: Year-to-date gross margin percentage is underperforming against target on a year-over-year basis, with five product lines driving the shortfall: Synthetic Blend Engine Oil, Conventional Engine Oil, Compressor Oil, Hydraulic Oil, and Manual Gear Oil.\n\nComplication: Synthetic Blend Engine Oil has declined 7.1 percentage points and Conventional Engine Oil has declined 6.6 percentage points year-over-year, while the Value product category has contracted 6.4 percentage points, indicating margin pressure is concentrated in high-volume commodity segments rather than distributed across the portfolio.\n\nQuestion: What is driving the margin compression in these five segments, and is the deterioration attributable to pricing, product mix shift, or cost inflation?\n\nAnswer: The data identifies the specific segments and magnitude of underperformance but does not contain information on pricing changes, cost structure, or volume mix; a deeper analysis of unit economics, competitive pricing, and input costs within these five product lines is required to determine root cause and remediation options.",
+      "kt_is_is_not": {
+        "what_is": [
+          {
+            "text": "gross_margin_pct is 29.94 vs prior year_to_date 34.43 (\u0394 -4.49, -13.0%)."
+          },
+          {
+            "text": "Issue observed during year_to_date compared against prior year_to_date."
+          },
+          {
+            "text": "Largest variance in product_name: Synthetic Blend Engine Oil (\u0394 -7.14)."
+          },
+          {
+            "text": "Analysis scoped by applied filters, limiting impact to selected context."
+          }
+        ],
+        "what_is_not": [
+          {
+            "text": "Unaffected timeframe buckets: Within threshold"
+          }
+        ],
+        "where_is": [
+          {
+            "dimension": "product_name",
+            "key": "Synthetic Blend Engine Oil",
+            "delta": -7.140000000000001,
+            "current": 20.64,
+            "previous": 27.78,
+            "text": "product_name: Synthetic Blend Engine Oil (\u0394 -7.14)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Conventional Engine Oil",
+            "delta": -6.609999999999999,
+            "current": 19.16,
+            "previous": 25.77,
+            "text": "product_name: Conventional Engine Oil (\u0394 -6.61)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Compressor Oil",
+            "delta": -5.859999999999999,
+            "current": 28.0,
+            "previous": 33.86,
+            "text": "product_name: Compressor Oil (\u0394 -5.86)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Hydraulic Oil",
+            "delta": -5.760000000000002,
+            "current": 25.83,
+            "previous": 31.59,
+            "text": "product_name: Hydraulic Oil (\u0394 -5.76)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Manual Gear Oil",
+            "delta": -5.740000000000002,
+            "current": 21.9,
+            "previous": 27.64,
+            "text": "product_name: Manual Gear Oil (\u0394 -5.74)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Automatic Transmission Fluid",
+            "delta": -5.290000000000003,
+            "current": 28.38,
+            "previous": 33.67,
+            "text": "product_name: Automatic Transmission Fluid (\u0394 -5.29)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Turbine Oil",
+            "delta": -4.93,
+            "current": 31.71,
+            "previous": 36.64,
+            "text": "product_name: Turbine Oil (\u0394 -4.93)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_name",
+            "key": "High Mileage Engine Oil",
+            "delta": -4.609999999999999,
+            "current": 33.0,
+            "previous": 37.61,
+            "text": "product_name: High Mileage Engine Oil (\u0394 -4.61)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Full Synthetic Engine Oil",
+            "delta": -3.8299999999999983,
+            "current": 35.82,
+            "previous": 39.65,
+            "text": "product_name: Full Synthetic Engine Oil (\u0394 -3.83)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Multi-Purpose Grease",
+            "delta": -3.259999999999998,
+            "current": 35.25,
+            "previous": 38.51,
+            "text": "product_name: Multi-Purpose Grease (\u0394 -3.26)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_line",
+            "key": "Engine Oils",
+            "delta": -5.799999999999997,
+            "current": 26.03,
+            "previous": 31.83,
+            "text": "product_line: Engine Oils (\u0394 -5.80)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_line",
+            "key": "Industrial Lubricants",
+            "delta": -5.470000000000002,
+            "current": 28.13,
+            "previous": 33.6,
+            "text": "product_line: Industrial Lubricants (\u0394 -5.47)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_line",
+            "key": "Transmission & Drivetrain",
+            "delta": -5.430000000000003,
+            "current": 26.77,
+            "previous": 32.2,
+            "text": "product_line: Transmission & Drivetrain (\u0394 -5.43)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_line",
+            "key": "Greases & Specialty",
+            "delta": -3.1400000000000006,
+            "current": 35.96,
+            "previous": 39.1,
+            "text": "product_line: Greases & Specialty (\u0394 -3.14)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_line",
+            "key": "Coolants & Antifreeze",
+            "delta": -1.9199999999999982,
+            "current": 29.57,
+            "previous": 31.49,
+            "text": "product_line: Coolants & Antifreeze (\u0394 -1.92)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_category",
+            "key": "Value",
+            "delta": -6.419999999999998,
+            "current": 19.82,
+            "previous": 26.24,
+            "text": "product_category: Value (\u0394 -6.42)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_category",
+            "key": "Mid-Range",
+            "delta": -5.440000000000001,
+            "current": 25.33,
+            "previous": 30.77,
+            "text": "product_category: Mid-Range (\u0394 -5.44)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_category",
+            "key": "Industrial",
+            "delta": -4.460000000000001,
+            "current": 28.21,
+            "previous": 32.67,
+            "text": "product_category: Industrial (\u0394 -4.46)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_category",
+            "key": "Premium",
+            "delta": -3.6099999999999994,
+            "current": 36.37,
+            "previous": 39.98,
+            "text": "product_category: Premium (\u0394 -3.61)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_category",
+            "key": "Specialty",
+            "delta": -2.950000000000003,
+            "current": 37.79,
+            "previous": 40.74,
+            "text": "product_category: Specialty (\u0394 -2.95)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "National Auto Parts Chain A",
+            "delta": -5.240000000000002,
+            "current": 28.18,
+            "previous": 33.42,
+            "text": "customer_name: National Auto Parts Chain A (\u0394 -5.24)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Latin America Distributor",
+            "delta": -5.080000000000002,
+            "current": 27.69,
+            "previous": 32.77,
+            "text": "customer_name: Latin America Distributor (\u0394 -5.08)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Middle East Distributor",
+            "delta": -5.039999999999999,
+            "current": 27.64,
+            "previous": 32.68,
+            "text": "customer_name: Middle East Distributor (\u0394 -5.04)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Mining & Construction Corp",
+            "delta": -5.020000000000003,
+            "current": 29.08,
+            "previous": 34.1,
+            "text": "customer_name: Mining & Construction Corp (\u0394 -5.02)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Fleet Customer A",
+            "delta": -5.0,
+            "current": 29.07,
+            "previous": 34.07,
+            "text": "customer_name: Fleet Customer A (\u0394 -5.00)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Marine Operations Co",
+            "delta": -4.979999999999997,
+            "current": 29.1,
+            "previous": 34.08,
+            "text": "customer_name: Marine Operations Co (\u0394 -4.98)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "European Distributor",
+            "delta": -4.969999999999999,
+            "current": 27.53,
+            "previous": 32.5,
+            "text": "customer_name: European Distributor (\u0394 -4.97)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Dealer Service Network",
+            "delta": -4.969999999999995,
+            "current": 28.94,
+            "previous": 33.91,
+            "text": "customer_name: Dealer Service Network (\u0394 -4.97)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Asia-Pacific Distributor",
+            "delta": -4.799999999999997,
+            "current": 27.71,
+            "previous": 32.51,
+            "text": "customer_name: Asia-Pacific Distributor (\u0394 -4.80)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "Fleet Customer B",
+            "delta": -4.789999999999999,
+            "current": 29.21,
+            "previous": 34.0,
+            "text": "customer_name: Fleet Customer B (\u0394 -4.79)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_segment",
+            "key": "International Distributors",
+            "delta": -4.979999999999997,
+            "current": 27.64,
+            "previous": 32.62,
+            "text": "customer_segment: International Distributors (\u0394 -4.98)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_segment",
+            "key": "Commercial Fleet",
+            "delta": -4.719999999999995,
+            "current": 29.19,
+            "previous": 33.91,
+            "text": "customer_segment: Commercial Fleet (\u0394 -4.72)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_segment",
+            "key": "Industrial",
+            "delta": -4.699999999999999,
+            "current": 29.19,
+            "previous": 33.89,
+            "text": "customer_segment: Industrial (\u0394 -4.70)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_segment",
+            "key": "Service Centers",
+            "delta": -4.379999999999999,
+            "current": 29.95,
+            "previous": 34.33,
+            "text": "customer_segment: Service Centers (\u0394 -4.38)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_segment",
+            "key": "Retail Partners",
+            "delta": -4.259999999999998,
+            "current": 30.93,
+            "previous": 35.19,
+            "text": "customer_segment: Retail Partners (\u0394 -4.26)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_region",
+            "key": "Latin America",
+            "delta": -5.080000000000002,
+            "current": 27.69,
+            "previous": 32.77,
+            "text": "customer_region: Latin America (\u0394 -5.08)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_region",
+            "key": "Middle East",
+            "delta": -5.039999999999999,
+            "current": 27.64,
+            "previous": 32.68,
+            "text": "customer_region: Middle East (\u0394 -5.04)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_region",
+            "key": "International",
+            "delta": -4.979999999999997,
+            "current": 29.1,
+            "previous": 34.08,
+            "text": "customer_region: International (\u0394 -4.98)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_region",
+            "key": "Europe",
+            "delta": -4.969999999999999,
+            "current": 27.53,
+            "previous": 32.5,
+            "text": "customer_region: Europe (\u0394 -4.97)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_region",
+            "key": "Asia-Pacific",
+            "delta": -4.799999999999997,
+            "current": 27.71,
+            "previous": 32.51,
+            "text": "customer_region: Asia-Pacific (\u0394 -4.80)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_region",
+            "key": "North America",
+            "delta": -4.390000000000004,
+            "current": 30.31,
+            "previous": 34.7,
+            "text": "customer_region: North America (\u0394 -4.39)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "profit_center_name",
+            "key": "International Division",
+            "delta": -4.979999999999997,
+            "current": 27.64,
+            "previous": 32.62,
+            "text": "profit_center_name: International Division (\u0394 -4.98)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "profit_center_name",
+            "key": "Commercial & Industrial Division",
+            "delta": -4.709999999999997,
+            "current": 29.19,
+            "previous": 33.9,
+            "text": "profit_center_name: Commercial & Industrial Division (\u0394 -4.71)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "profit_center_name",
+            "key": "Service Centers Division",
+            "delta": -4.379999999999999,
+            "current": 29.95,
+            "previous": 34.33,
+            "text": "profit_center_name: Service Centers Division (\u0394 -4.38)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "profit_center_name",
+            "key": "Retail Products Division",
+            "delta": -4.259999999999998,
+            "current": 30.93,
+            "previous": 35.19,
+            "text": "profit_center_name: Retail Products Division (\u0394 -4.26)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "business_unit",
+            "key": "International",
+            "delta": -4.979999999999997,
+            "current": 27.64,
+            "previous": 32.62,
+            "text": "business_unit: International (\u0394 -4.98)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "business_unit",
+            "key": "Commercial & Industrial",
+            "delta": -4.709999999999997,
+            "current": 29.19,
+            "previous": 33.9,
+            "text": "business_unit: Commercial & Industrial (\u0394 -4.71)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "business_unit",
+            "key": "Service Centers",
+            "delta": -4.379999999999999,
+            "current": 29.95,
+            "previous": 34.33,
+            "text": "business_unit: Service Centers (\u0394 -4.38)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "business_unit",
+            "key": "Retail Products",
+            "delta": -4.259999999999998,
+            "current": 30.93,
+            "previous": 35.19,
+            "text": "business_unit: Retail Products (\u0394 -4.26)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "channel_name",
+            "key": "International Distribution",
+            "delta": -4.979999999999997,
+            "current": 27.64,
+            "previous": 32.62,
+            "text": "channel_name: International Distribution (\u0394 -4.98)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "channel_name",
+            "key": "B2B Direct Sales",
+            "delta": -4.709999999999997,
+            "current": 29.19,
+            "previous": 33.9,
+            "text": "channel_name: B2B Direct Sales (\u0394 -4.71)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "channel_name",
+            "key": "DIY Retail",
+            "delta": -4.5000000000000036,
+            "current": 30.45,
+            "previous": 34.95,
+            "text": "channel_name: DIY Retail (\u0394 -4.50)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "channel_name",
+            "key": "DIFM Service Centers",
+            "delta": -4.379999999999999,
+            "current": 29.95,
+            "previous": 34.33,
+            "text": "channel_name: DIFM Service Centers (\u0394 -4.38)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "channel_name",
+            "key": "E-Commerce",
+            "delta": -3.2900000000000063,
+            "current": 32.91,
+            "previous": 36.2,
+            "text": "channel_name: E-Commerce (\u0394 -3.29)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "channel_type",
+            "key": "International",
+            "delta": -4.979999999999997,
+            "current": 27.64,
+            "previous": 32.62,
+            "text": "channel_type: International (\u0394 -4.98)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "channel_type",
+            "key": "Direct",
+            "delta": -4.709999999999997,
+            "current": 29.19,
+            "previous": 33.9,
+            "text": "channel_type: Direct (\u0394 -4.71)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "channel_type",
+            "key": "Retail",
+            "delta": -4.5000000000000036,
+            "current": 30.45,
+            "previous": 34.95,
+            "text": "channel_type: Retail (\u0394 -4.50)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "channel_type",
+            "key": "Service",
+            "delta": -4.379999999999999,
+            "current": 29.95,
+            "previous": 34.33,
+            "text": "channel_type: Service (\u0394 -4.38)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "channel_type",
+            "key": "Digital",
+            "delta": -3.2900000000000063,
+            "current": 32.91,
+            "previous": 36.2,
+            "text": "channel_type: Digital (\u0394 -3.29)",
+            "segment_type": "problem"
+          }
+        ],
+        "where_is_not": [],
+        "when_is": [
+          {
+            "bucket": "2026-007",
+            "delta": 32.4,
+            "current": 32.4,
+            "previous": 0.0,
+            "text": "2026-007 (\u0394 +32.40)"
+          },
+          {
+            "bucket": "2026-006",
+            "delta": 32.37,
+            "current": 32.37,
+            "previous": 0.0,
+            "text": "2026-006 (\u0394 +32.37)"
+          },
+          {
+            "bucket": "2026-008",
+            "delta": 31.49,
+            "current": 31.49,
+            "previous": 0.0,
+            "text": "2026-008 (\u0394 +31.49)"
+          }
+        ],
+        "when_is_not": [
+          {
+            "bucket": "2026-007",
+            "delta": 32.4,
+            "current": 32.4,
+            "previous": 0.0,
+            "text": "2026-007 (\u0394 +32.40) \u2014 Within threshold",
+            "note": "Within threshold"
+          },
+          {
+            "bucket": "2026-006",
+            "delta": 32.37,
+            "current": 32.37,
+            "previous": 0.0,
+            "text": "2026-006 (\u0394 +32.37) \u2014 Within threshold",
+            "note": "Within threshold"
+          },
+          {
+            "bucket": "2026-008",
+            "delta": 31.49,
+            "current": 31.49,
+            "previous": 0.0,
+            "text": "2026-008 (\u0394 +31.49) \u2014 Within threshold",
+            "note": "Within threshold"
+          }
+        ],
+        "extent_is": [
+          {
+            "dimension": "product_name",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 0.0,
+            "inverse_logic": false,
+            "total_keys": 15,
+            "breach_count": 15,
+            "within_count": 0,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 3
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 5
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 7
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 0
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": -0.2570194384449244,
+            "median_ratio": -0.12257378356819994,
+            "max_ratio": -0.04188245890565187
+          },
+          {
+            "dimension": "product_line",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 0.0,
+            "inverse_logic": false,
+            "total_keys": 6,
+            "breach_count": 6,
+            "within_count": 0,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 3
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 3
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 0
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": -0.18221803330191635,
+            "median_ratio": -0.12155226220923156,
+            "max_ratio": -0.04253867151956318
+          },
+          {
+            "dimension": "product_category",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 0.0,
+            "inverse_logic": false,
+            "total_keys": 5,
+            "breach_count": 5,
+            "within_count": 0,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 1
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 2
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 2
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 0
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": -0.2446646341463414,
+            "median_ratio": -0.13651668197122743,
+            "max_ratio": -0.07241040746195392
+          },
+          {
+            "dimension": "customer_name",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 0.0,
+            "inverse_logic": false,
+            "total_keys": 20,
+            "breach_count": 20,
+            "within_count": 0,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 19
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 1
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 0
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": -0.15679233991621788,
+            "median_ratio": -0.13826032540675848,
+            "max_ratio": -0.09713024282560714
+          },
+          {
+            "dimension": "customer_segment",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 0.0,
+            "inverse_logic": false,
+            "total_keys": 5,
+            "breach_count": 5,
+            "within_count": 0,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 5
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 0
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 0
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": -0.15266707541385643,
+            "median_ratio": -0.13868397757450573,
+            "max_ratio": -0.1210571184995737
+          },
+          {
+            "dimension": "customer_region",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 0.0,
+            "inverse_logic": false,
+            "total_keys": 6,
+            "breach_count": 6,
+            "within_count": 0,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 6
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 0
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 0
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": -0.15501983521513585,
+            "median_ratio": -0.15028497740340246,
+            "max_ratio": -0.12651296829971193
+          },
+          {
+            "dimension": "profit_center_name",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 0.0,
+            "inverse_logic": false,
+            "total_keys": 5,
+            "breach_count": 4,
+            "within_count": 1,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 4
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 0
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 1
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": -0.15266707541385643,
+            "median_ratio": -0.12758520244683946,
+            "max_ratio": 0.0
+          },
+          {
+            "dimension": "business_unit",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 0.0,
+            "inverse_logic": false,
+            "total_keys": 5,
+            "breach_count": 4,
+            "within_count": 1,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 4
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 0
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 1
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": -0.15266707541385643,
+            "median_ratio": -0.12758520244683946,
+            "max_ratio": 0.0
+          },
+          {
+            "dimension": "channel_name",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 0.0,
+            "inverse_logic": false,
+            "total_keys": 5,
+            "breach_count": 5,
+            "within_count": 0,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 4
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 1
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 0
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": -0.15266707541385643,
+            "median_ratio": -0.12875536480686706,
+            "max_ratio": -0.09088397790055265
+          },
+          {
+            "dimension": "channel_type",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 0.0,
+            "inverse_logic": false,
+            "total_keys": 5,
+            "breach_count": 5,
+            "within_count": 0,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 4
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 1
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 0
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": -0.15266707541385643,
+            "median_ratio": -0.12875536480686706,
+            "max_ratio": -0.09088397790055265
+          },
+          {
+            "queries_planned": 12
+          }
+        ],
+        "extent_is_not": [],
+        "benchmark_segments": [],
+        "dimension_totals": {
+          "product_name": {
+            "current": 29.94,
+            "previous": 34.43,
+            "delta": -4.489999999999998,
+            "source": "scalar_query"
+          },
+          "product_category": {
+            "current": 29.94,
+            "previous": 34.43,
+            "delta": -4.489999999999998,
+            "source": "scalar_query"
+          },
+          "business_unit": {
+            "current": 29.94,
+            "previous": 34.43,
+            "delta": -4.489999999999998,
+            "source": "scalar_query"
+          },
+          "customer_region": {
+            "current": 29.94,
+            "previous": 34.43,
+            "delta": -4.489999999999998,
+            "source": "scalar_query"
+          },
+          "customer_segment": {
+            "current": 29.94,
+            "previous": 34.43,
+            "delta": -4.489999999999998,
+            "source": "scalar_query"
+          },
+          "product_line": {
+            "current": 29.94,
+            "previous": 34.43,
+            "delta": -4.489999999999998,
+            "source": "scalar_query"
+          },
+          "channel_type": {
+            "current": 29.94,
+            "previous": 34.43,
+            "delta": -4.489999999999998,
+            "source": "scalar_query"
+          },
+          "profit_center_name": {
+            "current": 29.94,
+            "previous": 34.43,
+            "delta": -4.489999999999998,
+            "source": "scalar_query"
+          },
+          "customer_name": {
+            "current": 29.94,
+            "previous": 34.43,
+            "delta": -4.489999999999998,
+            "source": "scalar_query"
+          },
+          "channel_name": {
+            "current": 29.94,
+            "previous": 34.43,
+            "delta": -4.489999999999998,
+            "source": "scalar_query"
+          }
+        }
+      },
+      "change_points": [
+        {
+          "dimension": "product_name",
+          "key": "Synthetic Blend Engine Oil",
+          "timestamp": null,
+          "current_value": 20.64,
+          "previous_value": 27.78,
+          "delta": -7.140000000000001,
+          "percent_growth": null,
+          "contribution_pp": null
+        },
+        {
+          "dimension": "product_name",
+          "key": "Conventional Engine Oil",
+          "timestamp": null,
+          "current_value": 19.16,
+          "previous_value": 25.77,
+          "delta": -6.609999999999999,
+          "percent_growth": null,
+          "contribution_pp": null
+        },
+        {
+          "dimension": "product_category",
+          "key": "Value",
+          "timestamp": null,
+          "current_value": 19.82,
+          "previous_value": 26.24,
+          "delta": -6.419999999999998,
+          "percent_growth": null,
+          "contribution_pp": null
+        },
+        {
+          "dimension": "product_name",
+          "key": "Compressor Oil",
+          "timestamp": null,
+          "current_value": 28.0,
+          "previous_value": 33.86,
+          "delta": -5.859999999999999,
+          "percent_growth": null,
+          "contribution_pp": null
+        },
+        {
+          "dimension": "product_line",
+          "key": "Engine Oils",
+          "timestamp": null,
+          "current_value": 26.03,
+          "previous_value": 31.83,
+          "delta": -5.799999999999997,
+          "percent_growth": null,
+          "contribution_pp": null
+        }
+      ],
+      "timeframe_mapping": {
+        "current": "year_to_date",
+        "previous": "prior year_to_date"
+      },
+      "when_started": "2026-006",
+      "percent_growth_enabled": false,
+      "analysis_mode": "problem",
+      "mixed_framing": false,
+      "alert_type": null,
+      "comparator": "previous",
+      "merged_alert_types": null,
+      "comparator_secondary": null,
+      "matrix_ran": false,
+      "samples": null
+    },
+    "market_signals": [
+      {
+        "source": "llm_knowledge",
+        "title": "Base oil Group II/III prices firm on tight US Gulf Coast supply",
+        "summary": "Group II/III base oil prices have remained elevated due to refinery turnarounds and steady export demand to Latin America, pressuring input costs for Synthetic Blend and Conventional Engine Oil formulations and squeezing gross margins unless passed through via price increases.",
+        "relevance_score": 0.88,
+        "published_at": null,
+        "url": null
+      },
+      {
+        "source": "llm_knowledge",
+        "title": "Crude oil price volatility feeding into lubricant feedstock costs",
+        "summary": "Brent crude fluctuations (mid-$70s to $80s/bbl range) continue to drive base stock and additive package cost variability, creating margin unpredictability for blenders who cannot immediately reprice contracts with Value-segment and industrial customers.",
+        "relevance_score": 0.8,
+        "published_at": null,
+        "url": null
+      },
+      {
+        "source": "llm_knowledge",
+        "title": "Growing demand for synthetic blends from extended drain interval trends",
+        "summary": "OEM-recommended longer oil change intervals and rising consumer preference for synthetic blend engine oils are supporting a favorable mix shift toward higher-margin Synthetic Blend Engine Oil products, offsetting some cost pressure from conventional oil commoditization.",
+        "relevance_score": 0.75,
+        "published_at": null,
+        "url": null
+      },
+      {
+        "source": "llm_knowledge",
+        "title": "Intensifying private-label and Value-segment price competition",
+        "summary": "Retail and industrial distribution channels are seeing increased competition from private-label conventional and value-tier lubricant offerings, compressing achievable price premiums and creating downward pressure on gross margin for Conventional Engine Oil and Value segment products.",
+        "relevance_score": 0.82,
+        "published_at": null,
+        "url": null
+      }
+    ],
+    "market_conflict": {
+      "detected": false,
+      "type": null,
+      "confidence": 0.78,
+      "summary": "External signals (base oil cost inflation, crude volatility, private-label competition) predominantly confirm the internal margin-decline problem, with only a minor offsetting tailwind from synthetic blend mix-shift demand that does not reverse the overall negative trajectory."
+    }
+  },
+  "error": null,
+  "annotations": [],
+  "actions": []
+}
