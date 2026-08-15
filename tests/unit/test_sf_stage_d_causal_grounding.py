@@ -245,7 +245,7 @@ async def test_flag_on_with_provider_exception_degrades_safely(monkeypatch):
     sf, stub = await _build_sf(monkeypatch, enable_causal_grounding=True)
     with _patched_provider_for_e2e(), \
          patch("src.registry.providers.kpi_relationship_provider.KPIRelationshipProvider") as MockKR:
-        MockKR.return_value.get_relationships_for_kpi = AsyncMock(side_effect=RuntimeError("relation does not exist"))
+        MockKR.return_value.get_causal_neighbourhood = AsyncMock(side_effect=RuntimeError("relation does not exist"))
         resp = await sf.recommend_actions(_sf_request())
     assert resp.status == "success"
     assert "CAUSAL CONTEXT" not in _synthesis_prompt(stub)  # degraded, not crashed
@@ -257,8 +257,8 @@ async def test_flag_on_with_data_injects_provenance_aware_context(monkeypatch):
     with _patched_provider_for_e2e(), \
          patch("src.registry.providers.kpi_relationship_provider.KPIRelationshipProvider") as MockKR, \
          patch("src.registry.providers.assumption_provider.AssumptionProvider") as MockAP:
-        MockKR.return_value.get_relationships_for_kpi = AsyncMock(return_value=[
-            _relationship(provenance="va_validated", mechanism="pricing pass-through", lag_periods=1)
+        MockKR.return_value.get_causal_neighbourhood = AsyncMock(return_value=[
+            (_relationship(provenance="va_validated", mechanism="pricing pass-through", lag_periods=1), 1)
         ])
         MockAP.return_value.get_active_constraints = AsyncMock(return_value=[_constraint()])
         resp = await sf.recommend_actions(_sf_request())
@@ -284,8 +284,8 @@ async def test_stage1_personas_also_receive_causal_context_and_constraints(monke
     with _patched_provider_for_e2e(), \
          patch("src.registry.providers.kpi_relationship_provider.KPIRelationshipProvider") as MockKR, \
          patch("src.registry.providers.assumption_provider.AssumptionProvider") as MockAP:
-        MockKR.return_value.get_relationships_for_kpi = AsyncMock(return_value=[
-            _relationship(provenance="va_validated", mechanism="pricing pass-through", lag_periods=1)
+        MockKR.return_value.get_causal_neighbourhood = AsyncMock(return_value=[
+            (_relationship(provenance="va_validated", mechanism="pricing pass-through", lag_periods=1), 1)
         ])
         MockAP.return_value.get_active_constraints = AsyncMock(return_value=[_constraint()])
         resp = await sf.recommend_actions(_sf_request())

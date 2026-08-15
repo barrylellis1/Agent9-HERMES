@@ -389,7 +389,15 @@ class A9_Deep_Analysis_Agent_Config(BaseModel):
         False, description="HITL disabled for Deep Analysis (per PRD; narrative only via LLM)."
     )
     max_dimensions: int = Field(
-        5, description="Maximum number of dimensions to enumerate in analysis planning"
+        10,
+        description=(
+            "How many dimensions to QUERY — search width, not report width. Raised 5->10 "
+            "(Stage I Part A). The funnel downstream is bounded separately: change_points "
+            "is globally sorted by |delta| and cut to the top 5, and where_is[:5] feeds "
+            "SCQA, so a wider search yields a better-selected top 5 rather than more of "
+            "them. Solution Finder's evidence base is unchanged. Cost is ~1 extra query "
+            "per added dimension, run sequentially."
+        ),
     )
     max_groups_per_dim: int = Field(
         10, description="Maximum groups per dimension to materialize for summaries"
@@ -420,6 +428,33 @@ class A9_Solution_Finder_Agent_Config(BaseModel):
     )
     enable_llm_debate: bool = Field(
         False, description="Enable LLM-driven expert persona debate and consensus synthesis"
+    )
+    causal_max_hops: int = Field(
+        2,
+        description=(
+            "How far to walk the causal graph from the analysed KPI when assembling "
+            "causal context. 1 = only edges touching this KPI (the pre-Aug-2026 "
+            "behaviour, which hid base_oil_cost -> cogs -> gross_margin_pct — the "
+            "upstream cause of the margin problem being analysed). 2 reaches the "
+            "upstream cause without pulling in the whole client graph. Each extra hop "
+            "widens the prompt and lengthens the inferential chain, so the average "
+            "edge is weaker evidence."
+        ),
+    )
+    stage1_allow_frame_challenge: bool = Field(
+        False,
+        description=(
+            "EXPERIMENTAL (2026-08-14 evidence-scope test, step 1). The Stage 1 task "
+            "statement hardcodes 'primary driver of THIS KPI situation' and requires "
+            "recovery_range to be non-zero and 'proportional to the observed variance' "
+            "— which structurally forbids any option that doesn't recover the analysed "
+            "KPI, e.g. a portfolio/exit move. Baseline: 21 real-run options across 7 "
+            "arms, 0 challenged the frame, 61% concentrated in indexation + "
+            "pricing_corridor. Default False = unchanged production behaviour. When "
+            "True, permits (does not require) an option to name a frame assumption "
+            "instead of a KPI recovery. One-variable A/B; do not flip without recording "
+            "the comparison in docs/architecture/persona_council_experiments.md."
+        ),
     )
     expert_personas: List[str] = Field(
         [

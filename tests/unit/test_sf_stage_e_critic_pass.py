@@ -149,7 +149,7 @@ async def test_critic_pass_off_never_calls_critic_even_with_data(monkeypatch):
     with _patched_provider_for_e2e(), \
          patch("src.registry.providers.kpi_relationship_provider.KPIRelationshipProvider") as MockKR, \
          patch("src.registry.providers.assumption_provider.AssumptionProvider") as MockAP:
-        MockKR.return_value.get_relationships_for_kpi = AsyncMock(return_value=[_relationship(provenance="va_validated")])
+        MockKR.return_value.get_causal_neighbourhood = AsyncMock(return_value=[(_relationship(provenance="va_validated"), 1)])
         MockAP.return_value.get_active_constraints = AsyncMock(return_value=[])
         resp = await sf.recommend_actions(_sf_request())
     assert resp.status == "success"
@@ -177,7 +177,7 @@ async def test_critic_pass_skipped_when_no_causal_data_to_critique(monkeypatch):
     with _patched_provider_for_e2e(), \
          patch("src.registry.providers.kpi_relationship_provider.KPIRelationshipProvider") as MockKR, \
          patch("src.registry.providers.assumption_provider.AssumptionProvider") as MockAP:
-        MockKR.return_value.get_relationships_for_kpi = AsyncMock(return_value=[])
+        MockKR.return_value.get_causal_neighbourhood = AsyncMock(return_value=[])
         MockAP.return_value.get_active_constraints = AsyncMock(return_value=[])
         resp = await sf.recommend_actions(_sf_request())
     assert resp.status == "success"
@@ -197,8 +197,8 @@ async def test_critic_pass_fires_and_findings_reach_synthesis(monkeypatch):
     with _patched_provider_for_e2e(), \
          patch("src.registry.providers.kpi_relationship_provider.KPIRelationshipProvider") as MockKR, \
          patch("src.registry.providers.assumption_provider.AssumptionProvider") as MockAP:
-        MockKR.return_value.get_relationships_for_kpi = AsyncMock(return_value=[
-            _relationship(provenance="va_validated", mechanism="supplier lead time", causal_rung="intervention_tested")
+        MockKR.return_value.get_causal_neighbourhood = AsyncMock(return_value=[
+            (_relationship(provenance="va_validated", mechanism="supplier lead time", causal_rung="intervention_tested"), 1)
         ])
         MockAP.return_value.get_active_constraints = AsyncMock(return_value=[_constraint()])
         resp = await sf.recommend_actions(_sf_request())
@@ -230,7 +230,7 @@ async def test_critic_pass_finds_nothing_produces_no_section(monkeypatch):
     with _patched_provider_for_e2e(), \
          patch("src.registry.providers.kpi_relationship_provider.KPIRelationshipProvider") as MockKR, \
          patch("src.registry.providers.assumption_provider.AssumptionProvider") as MockAP:
-        MockKR.return_value.get_relationships_for_kpi = AsyncMock(return_value=[_relationship(provenance="va_validated")])
+        MockKR.return_value.get_causal_neighbourhood = AsyncMock(return_value=[(_relationship(provenance="va_validated"), 1)])
         MockAP.return_value.get_active_constraints = AsyncMock(return_value=[])
         resp = await sf.recommend_actions(_sf_request())
     assert resp.status == "success"
@@ -253,7 +253,7 @@ async def test_critic_pass_call_failure_degrades_safely(monkeypatch):
     with _patched_provider_for_e2e(), \
          patch("src.registry.providers.kpi_relationship_provider.KPIRelationshipProvider") as MockKR, \
          patch("src.registry.providers.assumption_provider.AssumptionProvider") as MockAP:
-        MockKR.return_value.get_relationships_for_kpi = AsyncMock(return_value=[_relationship(provenance="va_validated")])
+        MockKR.return_value.get_causal_neighbourhood = AsyncMock(return_value=[(_relationship(provenance="va_validated"), 1)])
         MockAP.return_value.get_active_constraints = AsyncMock(return_value=[])
         resp = await sf.recommend_actions(_sf_request())
     # Must still complete successfully -- a critic failure must never break solution generation

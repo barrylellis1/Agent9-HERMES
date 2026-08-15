@@ -171,7 +171,10 @@ async def _run(sf, stub, relationships, constraints):
     with _patched_provider_for_e2e(), \
          patch("src.registry.providers.kpi_relationship_provider.KPIRelationshipProvider") as MockKR, \
          patch("src.registry.providers.assumption_provider.AssumptionProvider") as MockAP:
-        MockKR.return_value.get_relationships_for_kpi = AsyncMock(return_value=relationships)
+        # SF traverses the causal neighbourhood now; entries are (relationship, hops).
+        MockKR.return_value.get_causal_neighbourhood = AsyncMock(
+            return_value=[(r, 1) for r in relationships]
+        )
         MockAP.return_value.get_active_constraints = AsyncMock(return_value=constraints)
         return await sf.recommend_actions(_sf_request())
 

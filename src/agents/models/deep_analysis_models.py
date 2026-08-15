@@ -60,6 +60,18 @@ class DeepAnalysisPlan(A9AgentBaseModel):
     dimensions: List[str] = Field(default_factory=list, description="Candidate dimensions to analyze (MECE-guided)")
     steps: List[Dict[str, Any]] = Field(default_factory=list, description="Ordered execution steps for DPA (grouped/timeframe comparisons)")
     notes: Optional[str] = None
+    # Stage I Part A — make the dimension choice auditable. Ranking is by DECLARED
+    # order (contract, then KPI registry, then DGA); recording which declaration won
+    # is what turns a badly-authored contract into a visible data-quality finding
+    # rather than a silently odd investigation.
+    dimensions_considered: List[str] = Field(
+        default_factory=list,
+        description="Full candidate set from the winning source, before max_dimensions truncation."
+    )
+    dimension_rank_source: Optional[Literal["contract_semantics", "kpi_registry", "dga_metadata", "hierarchy_vectors", "none"]] = Field(
+        None,
+        description="Which declaration decided the dimension order. 'none' means no source produced any candidates."
+    )
     analysis_mode: Literal["problem", "opportunity", "mixed"] = Field(
         default="problem",
         description="Propagated from DeepAnalysisRequest — controls IS/IS NOT framing and SCQA narrative direction."
@@ -207,6 +219,14 @@ class DeepAnalysisResponse(A9AgentBaseResponse):
     # Planning outputs
     plan: Optional[DeepAnalysisPlan] = None
     dimensions_suggested: List[str] = Field(default_factory=list)
+    dimensions_analyzed: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Dimensions actually queried, after the max_dimensions cut. Distinct from "
+            "dimensions_suggested: a run can suggest 15 and analyze 10, and before this "
+            "field existed nothing recorded which 10."
+        ),
+    )
 
     # Analysis outputs
     scqa_summary: Optional[str] = None
@@ -266,6 +286,50 @@ class RefinementExclusion(A9AgentBaseModel):
     reason: Optional[str] = Field(None, description="Principal's reason for exclusion")
 
 
+def constraint_id(text: str) -> str:
+    """Stable id for a constraint, derived from its normalized text.
+
+    The dedup key across turns, personas and sources. Normalization is
+    deliberately crude — lowercase and whitespace-collapse only — because the
+    goal is catching the same sentence arriving twice, not semantic matching,
+    and anything cleverer would silently merge two genuinely different
+    constraints.
+    """
+    import hashlib
+    import re as _re
+
+    normalized = _re.sub(r"\s+", " ", str(text or "")).strip().lower()
+    return "c_" + hashlib.sha1(normalized.encode("utf-8")).hexdigest()[:8]
+
+
+class ConstraintItem(A9AgentBaseModel):
+    """A constraint plus where it came from and who knows about it.
+
+    Constraints previously travelled as bare strings, so nothing recorded
+    whether one came from the principal's interview or the assumption register.
+    That distinction is load-bearing twice over: register constraints must reach
+    every persona regardless of who asked, and adjudication has to grade options
+    against constraints their author may never have seen.
+    """
+    id: str = Field(..., description="Stable id from constraint_id(text) — the dedup key")
+    text: str = Field(..., description="The constraint as stated")
+    source: Literal["refinement", "assumption_register", "kpi_relationship"] = Field(
+        ..., description="Where this constraint came from. Only 'refinement' constraints are persona-specific."
+    )
+    discovered_by: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Persona ids whose extractor surfaced this. Empty means every persona has it — "
+            "either it is not a refinement constraint, or per-persona extraction is not enabled."
+        ),
+    )
+    asked_by: Optional[str] = Field(
+        None,
+        description="Persona whose question elicited the turn. Known deterministically by the agent, never inferred from LLM output."
+    )
+    turn_index: Optional[int] = Field(None, description="Refinement turn that produced this")
+
+
 class ProblemRefinementInput(A9AgentBaseModel):
     """Input for problem refinement chat."""
     deep_analysis_output: Dict[str, Any] = Field(..., description="KT IS/IS-NOT results from execute_deep_analysis")
@@ -274,6 +338,36 @@ class ProblemRefinementInput(A9AgentBaseModel):
     user_message: Optional[str] = Field(None, description="Latest principal response")
     current_topic: Optional[str] = Field(None, description="Current topic in sequence (auto-managed)")
     turn_count: int = Field(0, description="Current turn number (auto-managed)")
+    # Stage I B-1 — client-held conversation state, round-tripped rather than
+    # re-derived server-side. The refinement endpoint is deliberately stateless;
+    # the client already holds both of these and previously just never sent them.
+    topics_completed: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Topics already covered, echoed back from the previous result. Replaces "
+            "server-side recovery by pattern-matching LLM prose, which never worked."
+        ),
+    )
+    turns_on_current_topic: int = Field(
+        0,
+        description=(
+            "Turns spent on `current_topic`, reset by the client whenever the topic "
+            "changes. Distinct from turn_count: completion is judged per topic, and "
+            "counting all turns auto-completed every topic from turn 3 onward."
+        ),
+    )
+    prior_constraint_items: List[ConstraintItem] = Field(
+        default_factory=list,
+        description=(
+            "Typed constraints captured on earlier turns, echoed back by the client. "
+            "Without this the agent re-derives prior turns heuristically from raw "
+            "message text, discarding provenance and losing exclusions entirely."
+        ),
+    )
+    prior_exclusions: List[RefinementExclusion] = Field(
+        default_factory=list,
+        description="Exclusions captured on earlier turns. The keyword replay path never produced these, so they were lost permanently."
+    )
     # Market Analysis signals pre-fetched by the endpoint on turn 0.
     # These are injected into accumulated.external_context so the refinement LLM references
     # specific market signals in its questions rather than asking generic open-ended questions.
@@ -291,6 +385,9 @@ class ExtractedRefinements(A9AgentBaseModel):
     validated_hypotheses: List[str] = Field(default_factory=list)
     invalidated_hypotheses: List[str] = Field(default_factory=list)
     replication_constraints: List[str] = Field(default_factory=list)
+    # `constraints` stays as the plain-string list every existing consumer reads.
+    # constraint_items carries the same content with provenance attached.
+    constraint_items: List[ConstraintItem] = Field(default_factory=list)
 
 
 class ProblemRefinementResult(A9AgentBaseModel):
@@ -339,4 +436,27 @@ class ProblemRefinementResult(A9AgentBaseModel):
     replication_constraints: List[str] = Field(
         default_factory=list,
         description="Structural barriers preventing replication of internal benchmark segments."
+    )
+
+    # Stage I B-1 — why this interview asked what it asked. Without these the
+    # routing is invisible: a differently-routed conversation is indistinguishable
+    # from the fixed sequence unless the decision is reported.
+    constraint_items: List[ConstraintItem] = Field(
+        default_factory=list,
+        description=(
+            "Accumulated constraints with provenance. `constraints` above remains the "
+            "full flat union of texts, so every existing consumer is unaffected."
+        ),
+    )
+    problem_profile_cell: Optional[str] = Field(
+        None,
+        description="ProblemProfile.cell_key() for this analysis, e.g. 'problem/concentrated/no-control/single'. None if classification failed."
+    )
+    topic_sequence: List[str] = Field(
+        default_factory=list,
+        description="The routed topic sequence for this problem. Equals REFINEMENT_TOPIC_SEQUENCE when no rule fired."
+    )
+    topic_routing_rules_applied: List[str] = Field(
+        default_factory=list,
+        description="Which routing rules fired and what each did. Empty means the default sequence was used."
     )

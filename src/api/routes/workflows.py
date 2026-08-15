@@ -202,6 +202,16 @@ class ProblemRefinementRequest(BaseModel):
     user_message: Optional[str] = Field(None, description="Latest principal response (None for first turn)")
     current_topic: Optional[str] = Field(None, description="Current topic in sequence (auto-managed)")
     turn_count: int = Field(0, description="Current turn number")
+    # Client-held conversation state echoed back each turn (Stage I B-1). The
+    # refinement endpoint is stateless by design; these default empty/0 so an
+    # older client keeps working, it just loses topic-progress accuracy.
+    topics_completed: List[str] = Field(default_factory=list, description="Topics already covered, echoed from the previous response")
+    turns_on_current_topic: int = Field(0, description="Turns spent on current_topic; client resets this when the topic changes")
+    # Typed refinement state from prior turns (Stage I B-2). Without these the
+    # agent re-derives earlier turns with a keyword extractor, which discards
+    # provenance and drops exclusions entirely.
+    prior_constraint_items: List[Dict[str, Any]] = Field(default_factory=list, description="Constraints captured on earlier turns, echoed from the previous response")
+    prior_exclusions: List[Dict[str, Any]] = Field(default_factory=list, description="Exclusions captured on earlier turns, echoed from the previous response")
 
 
 class AnnotationRequest(BaseModel):
@@ -339,6 +349,10 @@ async def refine_deep_analysis(
                 user_message=request.user_message,
                 current_topic=request.current_topic,
                 turn_count=request.turn_count,
+                topics_completed=request.topics_completed,
+                turns_on_current_topic=request.turns_on_current_topic,
+                prior_constraint_items=request.prior_constraint_items,
+                prior_exclusions=request.prior_exclusions,
                 initial_external_context=initial_external_context,
             )
         else:
@@ -349,6 +363,10 @@ async def refine_deep_analysis(
                 user_message=request.user_message,
                 current_topic=request.current_topic,
                 turn_count=request.turn_count,
+                topics_completed=request.topics_completed,
+                turns_on_current_topic=request.turns_on_current_topic,
+                prior_constraint_items=request.prior_constraint_items,
+                prior_exclusions=request.prior_exclusions,
             )
 
         # Call the Deep Analysis Agent's refine_analysis method
@@ -381,7 +399,10 @@ async def refine_deep_analysis(
             "suggested_responses": ["Continue", "Skip this topic", "Proceed to solutions"],
             "current_topic": request.current_topic or "hypothesis_validation",
             "topic_complete": False,
-            "topics_completed": [],
+            # Echo the client's progress back rather than []. Returning an empty
+            # list told the client it had covered nothing, so one transient error
+            # silently reset the interview's progress and re-asked answered topics.
+            "topics_completed": request.topics_completed,
             "ready_for_solutions": False,
             "turn_count": request.turn_count + 1,
             "conversation_history": request.conversation_history,
@@ -909,6 +930,21 @@ async def _record_solution_action(
             # was always an empty stub with nothing threading real data into it.
             bets_on_assumptions = matched.get("key_assumptions") or None
 
+            # A solution written without a tenant is not a degraded record — it is an
+            # invisible one. Every VA read (portfolio tracker, covenant check, ROI
+            # rollup) filters on client_id, so a NULL here silently drops the approval
+            # out of the product while the approval itself reports success. RLS cannot
+            # catch this: the row is written by a path that never resolved a tenant at
+            # all. Log it loudly so the missing upstream client_id is findable.
+            _va_client_id = wf_payload.get("client_id")
+            if not _va_client_id:
+                _va_log.error(
+                    "[VA] Registering solution with NO client_id (principal=%s kpi=%s situation=%s) — "
+                    "this row will be invisible to every tenant-scoped VA read. The solutions "
+                    "workflow was started without client_id in its payload.",
+                    wf_payload.get("principal_id", ""), kpi_id, situation_id,
+                )
+
             va_req = RegisterSolutionRequest(
                 request_id=str(uuid.uuid4()),
                 principal_id=wf_payload.get("principal_id", ""),
@@ -922,7 +958,7 @@ async def _record_solution_action(
                 pre_approval_kpi_value=pre_approval_kpi_value,
                 ma_market_signals=ma_signals,
                 plan_value_at_approval=plan_value_at_approval,
-                client_id=wf_payload.get("client_id"),
+                client_id=_va_client_id,
                 bets_on_assumptions=bets_on_assumptions,
             )
 
@@ -1287,6 +1323,17 @@ async def _run_solution_workflow(request_id: str, runtime: AgentRuntime, request
             "constraints": request.constraints or {},
             "preferences": request.preferences or {},
         }
+        # `refinement_result` is documented as a top-level request field but Solution
+        # Finder only ever reads `preferences["refinement_result"]` — so a caller using
+        # the documented field got no constraints, no exclusions, and no error. Same
+        # failure class as the never-wired use_structured_output flag: a field that
+        # looks connected and isn't. Fold it in, without clobbering an explicit
+        # preferences entry.
+        if request.refinement_result and not solution_request_payload["preferences"].get("refinement_result"):
+            solution_request_payload["preferences"] = {
+                **solution_request_payload["preferences"],
+                "refinement_result": request.refinement_result,
+            }
         # Add principal_context if provided (for Principal-driven approach with decision_style)
         if request.principal_context:
             solution_request_payload["principal_context"] = request.principal_context

@@ -75,6 +75,80 @@ class KPIRelationshipProvider:
             )
         return [_row_to_model(r) for r in rows]
 
+    async def get_causal_neighbourhood(
+        self,
+        kpi_id: str,
+        client_id: str,
+        max_hops: int = 2,
+        max_edges: int = 25,
+    ) -> List[tuple]:
+        """Walk outward from `kpi_id`, returning [(KPIRelationship, hops), ...].
+
+        WHY THIS EXISTS
+        ---------------
+        `get_relationships_for_kpi` returns only edges that TOUCH the KPI. That is
+        correct for SA's compound-alert detection (two KPIs breaching together are
+        directly related) and for the registry API, but it is one hop short for
+        Solution Finding.
+
+        Measured on the lubricants seed (2026-08-12): of six edges, only three
+        touch `gross_margin_pct`. The invisible three include
+        `base_oil_cost -> cogs` — the "11F anchor scenario", carrying the single
+        most important causal fact for that client (base oil is ~41% of COGS and
+        passes through with a one-month inventory-buffered lag). The real chain is
+        `base_oil_cost -> cogs -> gross_margin_pct`: two hops. A margin analysis
+        could never see the cause of its own margin problem.
+
+        Edges are undirected for traversal (the schema is bidirectional for
+        detection purposes), and `hops` is the shortest distance found — so a
+        consumer can weight a 2-hop inference below a direct one. Prompts MUST
+        surface that distance rather than flattening it: a two-hop chain is
+        weaker evidence, and presenting it as equivalent would manufacture
+        confidence the graph does not support.
+
+        Bounded twice: `max_hops` (default 2) and `max_edges` (default 25), so a
+        dense graph cannot flood a prompt. Cycles are handled — a KPI is expanded
+        at most once, at its shortest distance.
+        """
+        edges = await self.get_all(client_id)
+        if not edges:
+            return []
+
+        adjacency: Dict[str, List[KPIRelationship]] = {}
+        for e in edges:
+            adjacency.setdefault(e.kpi_id, []).append(e)
+            adjacency.setdefault(e.related_kpi_id, []).append(e)
+
+        out: List[tuple] = []
+        seen_edges: set = set()
+        visited: set = {kpi_id}
+        frontier = [kpi_id]
+
+        for hop in range(1, max_hops + 1):
+            next_frontier: List[str] = []
+            for node in frontier:
+                for e in adjacency.get(node, []):
+                    key = (e.kpi_id, e.related_kpi_id, e.relationship_type)
+                    if key in seen_edges:
+                        continue
+                    seen_edges.add(key)
+                    out.append((e, hop))
+                    if len(out) >= max_edges:
+                        logger.info(
+                            "Causal neighbourhood for '%s' truncated at %d edges (max_hops=%d)",
+                            kpi_id, max_edges, max_hops,
+                        )
+                        return out
+                    for other in (e.kpi_id, e.related_kpi_id):
+                        if other not in visited:
+                            visited.add(other)
+                            next_frontier.append(other)
+            frontier = next_frontier
+            if not frontier:
+                break
+
+        return out
+
     async def get_all(self, client_id: str) -> List[KPIRelationship]:
         """Return all relationships for a client (strict match, RLS-scoped)."""
         async with tenant_scope(self._pool(), client_id) as conn:

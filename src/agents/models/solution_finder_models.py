@@ -230,6 +230,13 @@ class SolutionFinderResponse(A9AgentBaseResponse):
     # model lands with the structured-output flip (PM-4: one variable per run).
     moderator_grades: Optional[Dict[str, Any]] = None
 
+    # Stage I B-2 — deterministic constraint exposure. Computed in Python on every
+    # run, independent of enable_theory_moderator, because safety must not depend
+    # on an optional LLM pass. Reports WHO SAW WHAT, never whether an option
+    # violates a constraint — that is a semantic judgement no regex makes honestly.
+    # Shape: {union_size, by_persona{seen,unseen}, by_option{...}, moderator_checked}
+    constraint_exposure: Optional[Dict[str, Any]] = None
+
     # Principal-Driven Framing Context (per PRD guardrails)
     framing_context: Optional[Dict[str, Any]] = None  # decision_style, personas_used, presentation_note, disclaimer
 

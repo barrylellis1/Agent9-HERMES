@@ -12,7 +12,7 @@ import logging
 import uuid
 import os
 import re
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 import yaml
 
 from src.agents.shared.a9_agent_base_model import A9AgentBaseModel
@@ -30,6 +30,8 @@ from src.agents.models.deep_analysis_models import (
     ProblemRefinementResult,
     RefinementExclusion,
     ExtractedRefinements,
+    ConstraintItem,
+    constraint_id,
 )
 from src.agents.models.data_governance_models import KPIDataProductMappingRequest
 from src.agents.utils.data_quality_filter import DataQualityFilter, filter_anomalies
@@ -106,7 +108,53 @@ TOPIC_OBJECTIVES = {
     "constraints": "Identify levers that are off-limits or actions that cannot be taken",
     "success_criteria": "Define what 'solved' looks like and how success will be measured",
     "replication_potential": "Assess whether internal benchmark segments can serve as replication templates and what structural barriers exist",
+    # Stage I B-1 — problem-shape-routed topics. Each is asked only when the
+    # problem's structure makes it the question worth spending a turn on.
+    "tradeoff_tolerance": "Establish which KPI the principal is willing to give ground on when two are in tension, and by how much",
+    "segment_specific_causation": "Probe why THIS segment specifically, when the variance is concentrated in one place the data has already identified",
+    "comparison_baseline": "Establish a contrast the data cannot supply — what this should be compared against when no IS-NOT control group exists",
 }
+
+# Topics that must survive sequence truncation. hypothesis_validation anchors the
+# interview; constraints and success_criteria are what Solution Finder consumes.
+# Losing `constraints` in particular means SF runs with an empty bound set.
+PROTECTED_TOPICS = {"hypothesis_validation", "constraints", "success_criteria"}
+
+# Upper bound on how many topics a routed sequence may contain. Matches the
+# pre-existing maximum (5 base + replication_potential).
+MAX_TOPICS_IN_SEQUENCE = 6
+
+# Turns needed per topic before the tail of the sequence starts getting starved.
+# Observed live: topics complete either on a content heuristic (1-2 turns) or on
+# MAX_TURNS_PER_TOPIC (3), so 2 is the realistic average.
+TURNS_PER_TOPIC_BUDGET = 2
+
+
+# Last-resort question when a topic has no authored default. Named rather than
+# inlined so the three sites that need it cannot drift apart.
+_GENERIC_QUESTION = (
+    "Please share any additional context that would help refine this analysis.",
+    ["Continue", "Skip this topic", "Proceed to solutions"],
+)
+
+
+def effective_turn_budget(topic_sequence: List[str]) -> int:
+    """Total turns allowed, scaled to the routed sequence length.
+
+    `PROTECTED_TOPICS` keeps `constraints` and `success_criteria` from being
+    TRUNCATED out of the sequence — it does nothing about them never being
+    REACHED. With a fixed MAX_TOTAL_TURNS of 10 and a 6-topic sequence at ~2
+    turns each, the interview needs ~12 turns and ends two topics short, so
+    Solution Finder receives no constraints. That is the same starvation the cap
+    was meant to prevent, arriving by a different route.
+
+    Found by a live run (2026-08-11): a `distributed/no-control/market-conflict`
+    problem routed to 6 topics and had reached topic 2 of 6 by turn 5.
+
+    MAX_TOTAL_TURNS remains the floor, so the default 5-topic sequence is
+    completely unchanged.
+    """
+    return max(MAX_TOTAL_TURNS, TURNS_PER_TOPIC_BUDGET * len(topic_sequence or []))
 
 STYLE_GUIDANCE = {
     "analytical": """McKinsey-style: hypothesis-driven, MECE decomposition, statistical confidence.
@@ -251,6 +299,23 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         return self._contract_path()
 
     def _dims_from_contract(self, limit: int, kpi_name: str = None, client_id: str = None) -> List[str]:
+        """Candidate dimensions in the order the data product contract declares them.
+
+        The contract's `dimension_semantics` order is the client's own statement of
+        what matters for this data product, and it is honoured verbatim.
+
+        Until Aug 2026 this re-ranked against a hardcoded `preferred` literal that
+        merged bicycle and lubricants field names — so every tenant was investigated
+        in an order nobody had chosen for them, and the literal silently overrode
+        each client's declared order. For lubricants it forced profit-centre first
+        against a contract that declares products first. Deleted; see
+        DEVELOPMENT_PLAN.md -> Phase 15 -> Stage I (Part A).
+
+        A client whose contract lists dimensions in ETL or alphabetical order now
+        gets that order. That is the correct failure mode: it surfaces as a
+        contract-authoring problem instead of being masked by a literal that
+        happened to name a few good dimensions for two clients.
+        """
         dims: List[str] = []
         try:
             cpath = self._contract_path_for_kpi(kpi_name, client_id=client_id)
@@ -275,16 +340,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                        "version", "fiscal ytd", "fiscal qtd", "fiscal mtd"]
                 return bool(lbl) and not any(t in s for t in ban)
             kept = [d for d in all_dims if _keep(str(d))]
-            # Preference order covers both bicycle (spaces) and lubricants (snake_case)
-            preferred = [
-                "profit_center_name", "customer_name", "product_name", "product_line",
-                "channel_name", "customer_segment",
-                "Profit Center Name", "Customer Type Name", "Customer Name", "Product Name",
-            ]
-            out: List[str] = [d for d in preferred if d in kept]
-            for d in kept:
-                if d not in out:
-                    out.append(d)
+            # Declared order, de-duplicated. No re-ranking: see the docstring.
+            out: List[str] = list(dict.fromkeys(kept))
             if isinstance(limit, int) and limit > 0:
                 out = out[:limit]
             dims = out
@@ -697,6 +754,9 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             except Exception:
                 target_count = 15
             dimensions: List[str] = self._dims_from_contract(limit=target_count, kpi_name=request.kpi_name, client_id=getattr(request, "client_id", None))
+            # Which declaration actually decided the investigation. Recorded on the
+            # plan so a run can be audited without re-deriving the resolution order.
+            dimension_rank_source: str = "contract_semantics" if dimensions else "none"
             try:
                 self.logger.info(f"plan_deep_analysis: kpi={request.kpi_name} timeframe={request.timeframe} dims_from_contract={len(dimensions)}")
             except Exception:
@@ -718,6 +778,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         ]
                         dimensions = [d for d in dimensions if d]
                         if dimensions:
+                            dimension_rank_source = "kpi_registry"
                             self.logger.info(f"plan_deep_analysis: using {len(dimensions)} dims from KPI registry for '{request.kpi_name}' (client={_req_client})")
                 except Exception as e:
                     self.logger.debug(f"plan_deep_analysis: KPI registry dim fallback failed: {e}")
@@ -752,6 +813,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                         dim_name = str(d)
                                     extracted_dims.append(dim_name)
                             dimensions = extracted_dims
+                            if dimensions:
+                                dimension_rank_source = "dga_metadata"
 
             # Create skeleton steps for grouped/timeframe comparisons (executed by DPA later)
             steps: List[Dict[str, Any]] = self._build_group_compare_steps(dimensions, request.timeframe, request.filters)
@@ -763,6 +826,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 timeframe=request.timeframe,
                 filters=request.filters,
                 dimensions=dimensions,
+                dimensions_considered=list(dimensions),
+                dimension_rank_source=dimension_rank_source,
                 steps=steps,
                 notes="KT core with SCQA/MECE framing (auto-derived dimensions from data product contract).",
                 analysis_mode=getattr(request, "analysis_mode", "problem"),
@@ -1357,6 +1422,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     # Primary path: hierarchical drill per vector if hierarchies present
                     hmap = _hierarchies_from_contract()
                     used_hierarchical = False
+                    # Set by whichever path runs; surfaced on the response.
+                    dimensions_analyzed: List[str] = []
                     spec_main = _pick_threshold_spec()
                     # 11I-D: comparator basis precedence — explicit drill override > alert-type-driven > registry default.
                     _registry_comparator = "budget" if str(spec_main.get("comparison_type", "")).lower() == "budget" else "previous"
@@ -1374,8 +1441,15 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         used_hierarchical = True
                         spec = spec_main
                         comparator = comparator_main
-                        # Default vector order
-                        vector_order = [k for k in ["customer", "product", "profit_center"] if k in hmap] or list(hmap.keys())
+                        # Declared vector order. Previously re-ranked against a
+                        # ["customer","product","profit_center"] literal — inert only
+                        # because no live contract happens to name a vector that way,
+                        # and a trap for the first one that does. Same defect as the
+                        # deleted `preferred` list in _dims_from_contract.
+                        vector_order = list(hmap.keys())
+                        dimensions_analyzed = [
+                            lvl for vec in vector_order for lvl in (hmap.get(vec) or [])
+                        ]
                         for vec in vector_order:
                             levels = hmap.get(vec, []) or []
                             for lvl in levels:
@@ -1471,6 +1545,10 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         added_where_is_keys: set = set()
                         added_where_is_not_keys: set = set()
                         dims_to_process = unique_dims[: max(1, min(len(unique_dims), self.config.max_dimensions))]
+                        # Which dimensions were ACTUALLY analyzed. Without this a run
+                        # reports N dimensions suggested, analyses max_dimensions of
+                        # them, and records nowhere which ones.
+                        dimensions_analyzed = list(dims_to_process)
                         self.logger.info(f"[LOOP] Will process {len(dims_to_process)} dimensions: {dims_to_process}")
                         for dim_idx, dim in enumerate(dims_to_process):
                             self.logger.info(f"[LOOP] Processing dimension {dim_idx+1}/{len(dims_to_process)}: {dim}")
@@ -2297,6 +2375,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 timeframe_mapping=tf_mapping,
                 when_started=when_started,
                 dimensions_suggested=getattr(plan, "dimensions", []),
+                dimensions_analyzed=dimensions_analyzed,
                 analysis_mode=getattr(plan, "analysis_mode", "problem"),
                 mixed_framing=(_effective_mode_final == "mixed"),
                 # 11I-D: surface which alert basis was diagnosed so SF/PIB can label it and the
@@ -2345,16 +2424,19 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             principal_role = principal_ctx.get("role", "")
             principal_id = principal_ctx.get("principal_id", "system")
 
-            # Compute dynamic topic sequence (may include replication_potential)
-            topic_sequence = self._get_topic_sequence(da_output)
+            # Route the topic sequence off the problem's measured structure
+            topic_sequence, problem_profile, routing_rules = self._get_topic_sequence(da_output)
+            profile_cell = problem_profile.cell_key() if problem_profile is not None else None
+            if routing_rules:
+                self.logger.info(
+                    f"[REFINE] profile={profile_cell} routed_sequence={topic_sequence} rules={routing_rules}"
+                )
 
-            # Determine current topic
+            # Determine current topic. topics_completed is round-tripped by the
+            # client (see the note where _extract_completed_topics was removed) —
+            # never re-derived from prose.
             current_topic = input_model.current_topic
-            topics_completed = []
-
-            # Parse topics_completed from history if not first turn
-            if history:
-                topics_completed = self._extract_completed_topics(history)
+            topics_completed = list(input_model.topics_completed or [])
 
             if not current_topic:
                 # First turn - start with first topic
@@ -2363,9 +2445,12 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             # Check for early exit commands
             if user_message and self._is_early_exit(user_message):
                 # Accumulate refinements before finalizing
-                accumulated = self._accumulate_refinements(history)
+                accumulated = self._accumulate_refinements(
+                    history, input_model.prior_constraint_items, input_model.prior_exclusions
+                )
                 return self._create_final_result(
-                    da_output, principal_ctx, history, topics_completed, turn_count, accumulated
+                    da_output, principal_ctx, history, topics_completed, turn_count, accumulated,
+                    profile_cell=profile_cell, topic_sequence=topic_sequence, routing_rules=routing_rules,
                 )
             
             # Check for skip command
@@ -2375,26 +2460,38 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 topics_completed.append(current_topic)
                 current_topic = self._get_next_topic(current_topic, topics_completed, topic_sequence)
 
-            # Check max turns
-            if turn_count >= MAX_TOTAL_TURNS:
-                self.logger.info(f"Max turns ({MAX_TOTAL_TURNS}) reached, finalizing refinement")
-                accumulated = self._accumulate_refinements(history)
+            # Check max turns — budget scales with the routed sequence length so a
+            # longer sequence cannot starve the topics Solution Finder consumes.
+            _turn_budget = effective_turn_budget(topic_sequence)
+            if turn_count >= _turn_budget:
+                self.logger.info(
+                    f"Max turns ({_turn_budget} for {len(topic_sequence)} topics) reached, finalizing refinement"
+                )
+                accumulated = self._accumulate_refinements(
+                    history, input_model.prior_constraint_items, input_model.prior_exclusions
+                )
                 return self._create_final_result(
-                    da_output, principal_ctx, history, topics_completed, turn_count, accumulated
+                    da_output, principal_ctx, history, topics_completed, turn_count, accumulated,
+                    profile_cell=profile_cell, topic_sequence=topic_sequence, routing_rules=routing_rules,
                 )
 
             # If all topics completed, finalize
             if current_topic is None or len(topics_completed) >= len(topic_sequence):
-                accumulated = self._accumulate_refinements(history)
+                accumulated = self._accumulate_refinements(
+                    history, input_model.prior_constraint_items, input_model.prior_exclusions
+                )
                 return self._create_final_result(
-                    da_output, principal_ctx, history, topics_completed, turn_count, accumulated
+                    da_output, principal_ctx, history, topics_completed, turn_count, accumulated,
+                    profile_cell=profile_cell, topic_sequence=topic_sequence, routing_rules=routing_rules,
                 )
             
             # Build KT summary for LLM context
             kt_summary = self._build_kt_summary(da_output)
             
             # Accumulate refinements from previous turns
-            accumulated = self._accumulate_refinements(history)
+            accumulated = self._accumulate_refinements(
+                history, input_model.prior_constraint_items, input_model.prior_exclusions
+            )
 
             # On turn 0, seed external_context with MA signals if provided
             if turn_count == 0 and input_model.initial_external_context:
@@ -2402,8 +2499,15 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     accumulated,
                     ExtractedRefinements(external_context=list(input_model.initial_external_context))
                 )
-                # Auto-skip external_context topic — MA signals already provide this
-                if "external_context" not in topics_completed:
+                # Auto-skip external_context topic — MA signals already provide this.
+                # R4: EXCEPT when the profile reports a market conflict. A detected
+                # disagreement between the market signal and the internal data is
+                # precisely the case where the seeded text is insufficient — it is
+                # the reason to ask, not a substitute for asking.
+                _market_conflict = bool(problem_profile is not None and problem_profile.market_conflict)
+                if _market_conflict:
+                    routing_rules.append("R4:market_conflict -> keep external_context (no turn-0 auto-skip)")
+                elif "external_context" not in topics_completed:
                     topics_completed.append("external_context")
 
             # If user provided a message, extract refinements from it
@@ -2413,14 +2517,18 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     user_message, current_topic, da_output, decision_style, principal_id
                 )
                 self.logger.info(f"[DA] Extracted refinements: ext_ctx={len(extracted.external_context)}, constraints={len(extracted.constraints)}, validated={len(extracted.validated_hypotheses)}")
-                # Merge extracted into accumulated
-                accumulated = self._merge_refinements(accumulated, extracted)
+                # Merge extracted into accumulated. Constraints from the interview
+                # are stamped `source="refinement"` with the turn that produced them.
+                accumulated = self._merge_refinements(
+                    accumulated, extracted, source="refinement", turn_index=turn_count
+                )
             
             # Check if topic is complete (via LLM or heuristics)
             topic_complete = False
             if user_message and not topic_skipped:
                 topic_complete = await self._check_topic_complete(
-                    current_topic, history, user_message, extracted
+                    current_topic, history, user_message, extracted,
+                    turns_on_current_topic=input_model.turns_on_current_topic,
                 )
             
             # Advance topic if complete
@@ -2432,7 +2540,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 if current_topic is None:
                     return self._create_final_result(
                         da_output, principal_ctx, history, topics_completed, turn_count,
-                        accumulated
+                        accumulated,
+                        profile_cell=profile_cell, topic_sequence=topic_sequence, routing_rules=routing_rules,
                     )
             
             # Generate next question via LLM
@@ -2472,6 +2581,10 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 council_routing_rationale=None,
                 turn_count=turn_count + 1,
                 conversation_history=new_history,
+                constraint_items=accumulated.constraint_items,
+                problem_profile_cell=profile_cell,
+                topic_sequence=topic_sequence,
+                topic_routing_rules_applied=routing_rules,
             )
             
         except Exception as e:
@@ -2524,19 +2637,49 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 return topic
         return None
 
-    def _extract_completed_topics(self, history: List[Dict[str, str]]) -> List[str]:
-        """Extract which topics have been completed from conversation history."""
-        # Simple heuristic: look for topic transitions in assistant messages
-        completed = []
-        for msg in history:
-            if msg.get("role") == "assistant":
-                content = msg.get("content", "").lower()
-                # Check for topic transition phrases
-                for topic in REFINEMENT_TOPIC_SEQUENCE:
-                    if f"moving to {topic}" in content or f"completed {topic}" in content:
-                        if topic not in completed:
-                            completed.append(topic)
-        return completed
+    # REMOVED (Stage I B-1): `_extract_completed_topics(history)`.
+    #
+    # It scanned assistant messages for the literal substrings "moving to
+    # {topic}" / "completed {topic}" — phrases nothing in the codebase
+    # deterministically emits, so in practice it returned [] on every turn. It
+    # also iterated the STATIC REFINEMENT_TOPIC_SEQUENCE, so it could never
+    # recognise `replication_potential`, nor any of the problem-shape-routed
+    # topics added by B-1.
+    #
+    # `topics_completed` is now round-tripped through the client, which already
+    # held it (ProblemRefinementChat state) and simply never sent it back. The
+    # server stays stateless. Recovering state by pattern-matching an LLM's prose
+    # was the defect; asking the caller for the state it already has is the fix.
+
+    @staticmethod
+    def _format_kt_delta(delta: Any, unit: Optional[str]) -> str:
+        """Render a KT driver delta in the KPI's OWN unit.
+
+        A literal `$` used to be hardcoded into this block, so a percentage KPI
+        rendered as currency: `gross_margin_pct` falling 7.14 percentage points
+        printed as `$-7` in the context EVERY Solution Finder persona reads.
+
+        Two separate defects, both material:
+
+        * **Wrong unit.** `pp` presented as dollars. A principal who catches it
+          stops trusting the system; one who does not is misinformed.
+        * **Lost precision.** `:,.0f` collapsed the top two drivers (-7.14 and
+          -6.61) onto the same `$-7`, destroying the ranking this block exists
+          to convey.
+
+        A delta of a percentage is percentage POINTS, never percent — a margin
+        going 34.43% -> 29.94% moved 4.49pp, not 4.49%.
+        """
+        try:
+            d = float(delta)
+        except (TypeError, ValueError):
+            return "n/a"
+        u = (unit or "").strip().lower()
+        if u in ("%", "pct", "percent", "percentage"):
+            return f"{d:+,.2f}pp"
+        if u in ("$", "usd"):
+            return f"-${abs(d):,.0f}" if d < 0 else f"${d:,.0f}"
+        return f"{d:+,.2f}{(' ' + unit.strip()) if unit else ''}"
 
     def _build_kt_summary(self, da_output: Dict[str, Any]) -> str:
         """Build a concise summary of KT IS/IS-NOT findings for LLM context."""
@@ -2562,6 +2705,16 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         if scqa:
             summary_parts.append(f"Summary: {scqa[:500]}")
         
+        # Resolve the KPI's declared unit once. The deltas below are meaningless
+        # without it, and guessing is what produced `$-7` for percentage points.
+        plan = da_output.get("plan") or {}
+        kpi_ref = plan.get("kpi_name") or (situation or {}).get("kpi_name")
+        client_id = plan.get("client_id") or (situation or {}).get("client_id")
+        kpi_unit = None
+        if kpi_ref:
+            kpi_rec = self._lookup_kpi_scoped(kpi_ref, client_id)
+            kpi_unit = getattr(kpi_rec, "unit", None) if kpi_rec else None
+
         # Where IS (top drivers)
         where_is = kt.get("where_is", [])
         if where_is:
@@ -2569,9 +2722,16 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             driver_strs = []
             for d in top_drivers:
                 key = d.get("key", "Unknown")
-                delta = d.get("delta", 0)
-                pct = d.get("percent_of_total", 0)
-                driver_strs.append(f"- {key}: ${delta:,.0f} ({pct:.1f}% of variance)")
+                line = f"- {key}: {self._format_kt_delta(d.get('delta'), kpi_unit)}"
+                # `percent_of_total` is NOT computed on the flat dimension path —
+                # the key is absent from every entry. `.get(key, 0)` therefore
+                # defaulted it and printed "(0.0% of variance)" against every
+                # driver, telling each persona that the top driver explains none
+                # of the problem. Omit the clause rather than assert a false zero.
+                pct = d.get("percent_of_total")
+                if isinstance(pct, (int, float)) and not isinstance(pct, bool):
+                    line += f" ({pct:.1f}% of variance)"
+                driver_strs.append(line)
             summary_parts.append("Top Drivers (WHERE IS):\n" + "\n".join(driver_strs))
         
         # Where IS NOT (stable segments)
@@ -2588,20 +2748,116 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         
         return "\n\n".join(summary_parts) if summary_parts else "No KT analysis data available."
 
-    def _get_topic_sequence(self, da_output: Dict[str, Any]) -> List[str]:
-        """Return topic sequence — 5 base topics + replication_potential when internal benchmarks exist."""
+    def _has_internal_benchmarks(self, da_output: Dict[str, Any]) -> bool:
+        """True when DA classified at least one IS-NOT segment as a replication target."""
         execution = da_output.get("execution", da_output)
         kt = execution.get("kt_is_is_not", {})
         if not isinstance(kt, dict):
             kt = {}
-        benchmark_segments = kt.get("benchmark_segments", [])
-        has_internal = any(
+        benchmark_segments = kt.get("benchmark_segments", []) or []
+        return any(
             (s.get("benchmark_type") if isinstance(s, dict) else getattr(s, "benchmark_type", None)) == "internal_benchmark"
-            for s in (benchmark_segments or [])
+            for s in benchmark_segments
         )
-        if has_internal:
-            return list(REFINEMENT_TOPIC_SEQUENCE) + ["replication_potential"]
-        return list(REFINEMENT_TOPIC_SEQUENCE)
+
+    def _get_topic_sequence(self, da_output: Dict[str, Any]) -> Tuple[List[str], Optional[Any], List[str]]:
+        """Route the interview topics off the problem's measured structure.
+
+        Returns `(sequence, profile, rules_applied)`.
+
+        WHY THIS EXISTS
+        ---------------
+        The interview ran a FIXED five-topic sequence regardless of what the
+        analysis had already established. A concentrated single-segment problem
+        and a diffuse enterprise one got the same five questions in the same
+        order — so turns were spent asking what the data had already answered,
+        and the questions that only a human could answer were never reached.
+
+        `src/analysis/problem_profile.py` already classifies the structural
+        facets deterministically and was consumed by nothing on any production
+        path. This is its first live use. No LLM: the ROUTING is deterministic;
+        only the wording of each question is generated.
+
+        Every rule is justified by what the facet makes redundant or necessary,
+        never by taste. `constraints` and `success_criteria` are never dropped —
+        they are what Solution Finder consumes.
+        """
+        from src.analysis.problem_profile import classify
+
+        base = list(REFINEMENT_TOPIC_SEQUENCE)
+        if self._has_internal_benchmarks(da_output):
+            base.append("replication_potential")
+
+        try:
+            profile = classify(da_output)
+        except Exception as e:
+            # A routing failure must never cost the principal their interview.
+            self.logger.warning(f"[REFINE] problem_profile.classify failed, using base sequence: {e}")
+            return base, None, []
+
+        rules: List[str] = []
+        seq = list(base)
+
+        # --- R2 / R2': what concentration says about scope -------------------
+        # A dominance ratio >= 2.0 means one segment is carrying the variance and
+        # the data has ALREADY answered "which segments are in scope". Asking it
+        # spends a turn to be told what we told them. Ask the question the
+        # concentration raises instead: why THIS one.
+        if profile.concentration == "concentrated":
+            if "scope_boundaries" in seq:
+                seq.remove("scope_boundaries")
+            rules.append("R2:concentrated -> drop scope_boundaries, add segment_specific_causation")
+        elif profile.concentration == "distributed":
+            # Diffuse variance: scope genuinely IS the first question.
+            if "scope_boundaries" in seq:
+                seq.remove("scope_boundaries")
+                seq.insert(0, "scope_boundaries")
+                rules.append("R2':distributed -> scope_boundaries leads")
+
+        # --- early-slot inserts, in fixed priority order ---------------------
+        # All three want the position right after hypothesis_validation. The
+        # order between them is fixed so the sequence is reproducible: the
+        # cross-KPI tension is the most urgent framing question, then where to
+        # look, then what to compare against.
+        early: List[str] = []
+        if profile.compound_alert:
+            early.append("tradeoff_tolerance")
+            rules.append("R1:compound_alert -> add tradeoff_tolerance")
+        if profile.concentration == "concentrated":
+            early.append("segment_specific_causation")
+        if not profile.has_control_group:
+            # KT diagnosis leans on contrast. An empty IS-NOT set means "why here
+            # and not there" cannot be answered from the data at all — so the
+            # contrast has to come from the principal or the interview produces
+            # nothing diagnostic.
+            early.append("comparison_baseline")
+            rules.append("R3:no_control_group -> add comparison_baseline")
+
+        if early:
+            anchor = seq.index("hypothesis_validation") if "hypothesis_validation" in seq else -1
+            for offset, topic in enumerate(early):
+                if topic not in seq:
+                    seq.insert(anchor + 1 + offset, topic)
+
+        # --- R5: replication barriers ARE constraints ------------------------
+        if profile.mode == "opportunity" and "replication_potential" in seq and "constraints" in seq:
+            if seq.index("replication_potential") > seq.index("constraints"):
+                seq.remove("replication_potential")
+                seq.insert(seq.index("constraints"), "replication_potential")
+                rules.append("R5:opportunity -> replication_potential before constraints")
+
+        # --- cap, protecting what SF consumes --------------------------------
+        if len(seq) > MAX_TOPICS_IN_SEQUENCE:
+            trimmed = list(seq)
+            for topic in reversed(seq):
+                if len(trimmed) <= MAX_TOPICS_IN_SEQUENCE:
+                    break
+                if topic not in PROTECTED_TOPICS:
+                    trimmed.remove(topic)
+            rules.append(f"CAP:{len(seq)}->{len(trimmed)} (protected: {sorted(PROTECTED_TOPICS)})")
+            seq = trimmed
+
+        return seq, profile, rules
 
     def _build_benchmark_summary(self, da_output: Dict[str, Any]) -> str:
         """Build a summary of internal benchmark segments for the replication_potential topic."""
@@ -2629,31 +2885,101 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 lines.append(f"- {seg.get('dimension', '')} = {key}: delta {delta}{rep_str}")
         return "\n".join(lines)
 
-    def _accumulate_refinements(self, history: List[Dict[str, str]]) -> ExtractedRefinements:
-        """Accumulate refinements from conversation history by re-extracting from user messages."""
-        accumulated = ExtractedRefinements()
-        
-        # Extract refinements from each user message in history
+    def _accumulate_refinements(
+        self,
+        history: List[Dict[str, str]],
+        prior_constraint_items: Optional[List[ConstraintItem]] = None,
+        prior_exclusions: Optional[List[RefinementExclusion]] = None,
+    ) -> ExtractedRefinements:
+        """Rebuild accumulated refinements from prior turns.
+
+        WHAT THIS USED TO DO, AND WHY IT WAS WRONG
+        ------------------------------------------
+        It replayed every user message through `_simple_extraction(msg,
+        "general")` — the KEYWORD extractor — discarding the structured output
+        the LLM had already produced on those turns and re-deriving it by
+        substring matching. Two consequences:
+
+          * `exclusions` were lost permanently. The "general" branch never
+            populates them, so an exclusion captured on turn 2 did not exist by
+            turn 3, and the principal's "leave International out of this" was
+            silently dropped from the problem statement.
+          * Provenance could not survive. A keyword match has no idea which
+            persona's extractor surfaced an item, so per-persona constraint sets
+            were impossible to build on top of it.
+
+        Now the client echoes back the typed state it already holds, and the
+        keyword replay is the fallback for callers that do not send it. The
+        endpoint stays stateless — we ask the caller for state it has, rather
+        than reconstructing it from prose.
+        """
+        accumulated = ExtractedRefinements(
+            constraints=[c.text for c in (prior_constraint_items or [])],
+            constraint_items=list(prior_constraint_items or []),
+            exclusions=list(prior_exclusions or []),
+        )
+
+        if prior_constraint_items or prior_exclusions:
+            # Caller supplied typed state; do not re-derive it heuristically.
+            return accumulated
+
         for msg in history:
             if msg.get("role") == "user":
                 user_text = msg.get("content", "")
-                # Use simple extraction (sync) to accumulate from history
                 extracted = self._simple_extraction(user_text, "general")
                 accumulated = self._merge_refinements(accumulated, extracted)
-        
+
         return accumulated
 
     def _merge_refinements(
-        self, accumulated: ExtractedRefinements, extracted: ExtractedRefinements
+        self,
+        accumulated: ExtractedRefinements,
+        extracted: ExtractedRefinements,
+        source: str = "refinement",
+        turn_index: Optional[int] = None,
+        discovered_by: Optional[List[str]] = None,
     ) -> ExtractedRefinements:
-        """Merge newly extracted refinements into accumulated."""
+        """Merge newly extracted refinements into accumulated.
+
+        Constraint texts arriving without a typed item get one minted here, so
+        `constraint_items` stays a complete mirror of `constraints` no matter
+        which extraction path produced them. Merging is by `ConstraintItem.id`:
+        a constraint restated on a later turn unions its `discovered_by` rather
+        than appearing twice.
+        """
+        merged_items: Dict[str, ConstraintItem] = {c.id: c for c in accumulated.constraint_items}
+
+        for item in extracted.constraint_items:
+            existing = merged_items.get(item.id)
+            if existing is None:
+                merged_items[item.id] = item
+            else:
+                existing.discovered_by = sorted(set(existing.discovered_by) | set(item.discovered_by))
+
+        for text in extracted.constraints:
+            cid = constraint_id(text)
+            if cid in merged_items:
+                if discovered_by:
+                    merged_items[cid].discovered_by = sorted(
+                        set(merged_items[cid].discovered_by) | set(discovered_by)
+                    )
+                continue
+            merged_items[cid] = ConstraintItem(
+                id=cid,
+                text=text,
+                source=source,
+                discovered_by=list(discovered_by or []),
+                turn_index=turn_index,
+            )
+
         return ExtractedRefinements(
             exclusions=accumulated.exclusions + extracted.exclusions,
             external_context=accumulated.external_context + extracted.external_context,
-            constraints=accumulated.constraints + extracted.constraints,
+            constraints=[c.text for c in merged_items.values()],
             validated_hypotheses=accumulated.validated_hypotheses + extracted.validated_hypotheses,
             invalidated_hypotheses=accumulated.invalidated_hypotheses + extracted.invalidated_hypotheses,
             replication_constraints=accumulated.replication_constraints + extracted.replication_constraints,
+            constraint_items=list(merged_items.values()),
         )
 
     async def _extract_refinements_from_response(
@@ -3138,17 +3464,20 @@ If nothing relevant is found for a category, use an empty list."""
         history: List[Dict[str, str]],
         user_message: str,
         extracted: ExtractedRefinements,
+        turns_on_current_topic: int = 0,
     ) -> bool:
-        """Determine if the current topic has been sufficiently covered."""
-        # Count turns on this topic
-        topic_turns = 0
-        for msg in history:
-            if msg.get("role") == "assistant":
-                # Simple heuristic: count assistant messages since last topic change
-                topic_turns += 1
-        
-        # Auto-complete if max turns per topic reached
-        if topic_turns >= MAX_TURNS_PER_TOPIC:
+        """Determine if the current topic has been sufficiently covered.
+
+        `turns_on_current_topic` is maintained by the caller and reset whenever
+        `current_topic` changes. It previously counted EVERY assistant message in
+        the conversation — not messages since the last topic change — so from
+        turn 3 onward every topic auto-completed on arrival regardless of what
+        the principal had said. Under B-1's routed sequences that would have
+        raced the routing: a topic added because the problem's shape demanded it
+        would be marked complete before it was ever properly asked.
+        """
+        # Auto-complete if max turns on THIS topic reached
+        if turns_on_current_topic >= MAX_TURNS_PER_TOPIC:
             return True
         
         # Topic-specific completion heuristics
@@ -3180,6 +3509,22 @@ If nothing relevant is found for a category, use an empty list."""
         elif current_topic == "replication_potential":
             # Complete if user gave any substantive answer (template valid or identified barriers)
             if extracted.replication_constraints or len(user_message) > 20:
+                return True
+
+        # --- Stage I B-1 problem-shape-routed topics -------------------------
+        elif current_topic == "tradeoff_tolerance":
+            # A stated willingness to trade is itself a constraint on the answer set.
+            if extracted.constraints or len(user_message) > 20:
+                return True
+
+        elif current_topic == "segment_specific_causation":
+            # Any causal claim about the segment, confirmed or ruled out.
+            if extracted.validated_hypotheses or extracted.invalidated_hypotheses or len(user_message) > 20:
+                return True
+
+        elif current_topic == "comparison_baseline":
+            # The principal supplying a contrast the data could not.
+            if extracted.external_context or len(user_message) > 20:
                 return True
 
         return False
@@ -3252,14 +3597,25 @@ If nothing relevant is found for a category, use an empty list."""
                 "The analysis identified internal segments performing above baseline. Are these a valid replication template, or do structural barriers prevent direct replication?",
                 ["Yes, these are a valid template", "There are capacity constraints", "There are contractual barriers", "The timing context was different"]
             ),
+            # Stage I B-1 routed topics. Every topic the router can emit needs an
+            # entry here, or the no-LLM path degrades it to a generic prompt.
+            "tradeoff_tolerance": (
+                "Two KPIs are moving against each other here. If you had to give ground on one to protect the other, which one, and how much?",
+                ["Protect margin, accept volume loss", "Protect volume, accept margin loss", "Neither can move", "Depends on the segment"]
+            ),
+            "segment_specific_causation": (
+                "The variance is concentrated in one segment rather than spread across the business. What is different about that segment specifically?",
+                ["Different customer mix", "Different cost structure", "A one-off event", "Nothing — I'd expect it everywhere"]
+            ),
+            "comparison_baseline": (
+                "There is no comparable segment in the data to contrast against, so the analysis cannot say 'why here and not there'. What should this be measured against?",
+                ["Prior year same period", "Budget/plan", "An external benchmark", "A specific peer segment"]
+            ),
         }
-        
+
         if not self.llm_service_agent:
             # Return default question for topic
-            return default_questions.get(current_topic, (
-                "Please share any additional context that would help refine this analysis.",
-                ["Continue", "Skip this topic", "Proceed to solutions"]
-            ))
+            return default_questions.get(current_topic, _GENERIC_QUESTION)
         
         try:
             from src.agents.new.a9_llm_service_agent import A9_LLM_Request
@@ -3283,13 +3639,16 @@ ANALYSIS FINDINGS (ALREADY COMPLETE):
 {kt_summary}
 
 {f"CONVERSATION SO FAR:{chr(10)}{history_str}" if history_str else ""}
-{f"USER JUST SAID: {user_message}" if user_message else "This is the FIRST question - introduce yourself briefly and reference the specific findings above."}
+{f"USER JUST SAID: {user_message}" if user_message else "This is the FIRST question - open DIRECTLY with the specific findings above."}
 {f"REFINEMENTS CAPTURED:{chr(10)}{acc_str}" if acc_str else ""}
 
 OUTPUT REQUIREMENTS:
 - Generate exactly ONE question (1-2 sentences max)
 - Reference specific numbers or segments from the analysis findings above
 - Ask about VALIDATION, CONTEXT, or CONSTRAINTS - not more data
+- NEVER introduce yourself, greet the principal, or refer to yourself by a name.
+  Do not say "I'm <name>" or "This is <name>". You are a step in an analysis, not
+  a persona. Open with the finding.
 - Return ONLY this JSON format:
 
 {{"question": "Your single question here", "suggested_responses": ["Option 1", "Option 2", "Option 3"]}}"""
@@ -3313,7 +3672,14 @@ OUTPUT REQUIREMENTS:
             json_match = re.search(r'\{[\s\S]*?\}', content)  # Non-greedy match for first JSON object
             if json_match:
                 data = json.loads(json_match.group())
-                question = data.get("question", default_questions[current_topic][0])
+                # .get, not [] — a missing default must never discard a good LLM
+                # answer. Indexing here raised KeyError for topics absent from
+                # default_questions, and the outer `except Exception` swallowed
+                # it and returned the generic fallback, so a successful
+                # generation was thrown away by a lookup it did not need.
+                # Observed live 2026-08-11 on `comparison_baseline`.
+                _fallback = default_questions.get(current_topic, _GENERIC_QUESTION)
+                question = data.get("question", _fallback[0])
                 
                 # Post-process: take only first sentence if multiple questions detected
                 if question.count("?") > 1:
@@ -3323,15 +3689,12 @@ OUTPUT REQUIREMENTS:
                 
                 return (
                     question,
-                    data.get("suggested_responses", default_questions[current_topic][1])
+                    data.get("suggested_responses", _fallback[1])
                 )
         except Exception as e:
             self.logger.warning(f"LLM question generation failed: {e}")
-        
-        return default_questions.get(current_topic, (
-            "Please share any additional context.",
-            ["Continue", "Skip", "Proceed to solutions"]
-        ))
+
+        return default_questions.get(current_topic, _GENERIC_QUESTION)
 
     def _determine_council_type(
         self,
@@ -3504,8 +3867,16 @@ OUTPUT REQUIREMENTS:
         topics_completed: List[str],
         turn_count: int,
         accumulated: Optional[ExtractedRefinements] = None,
+        profile_cell: Optional[str] = None,
+        topic_sequence: Optional[List[str]] = None,
+        routing_rules: Optional[List[str]] = None,
     ) -> ProblemRefinementResult:
-        """Create the final refinement result with problem statement and council routing."""
+        """Create the final refinement result with problem statement and council routing.
+
+        The routing fields are carried through to the terminal result too — a
+        conversation that ended early is exactly the one where you want to see
+        which sequence it was following and how far it got.
+        """
         if accumulated is None:
             accumulated = ExtractedRefinements()
         
@@ -3558,6 +3929,10 @@ OUTPUT REQUIREMENTS:
             recommended_council_members=diverse_council,
             turn_count=turn_count,
             conversation_history=history,
+            constraint_items=accumulated.constraint_items,
+            problem_profile_cell=profile_cell,
+            topic_sequence=list(topic_sequence or []),
+            topic_routing_rules_applied=list(routing_rules or []),
         )
 
 

@@ -15,6 +15,7 @@ from typing import Dict, Any, Optional, List
 
 from src.agents.agent_config_models import A9_Solution_Finder_Agent_Config
 from src.agents.protocols.solution_finder_protocol import SolutionFinderProtocol
+from src.agents.models.deep_analysis_models import constraint_id as _constraint_id
 from src.agents.models.solution_finder_models import (
     SolutionFinderRequest,
     SolutionFinderResponse,
@@ -564,6 +565,238 @@ _PROVENANCE_CAVEAT = {
 }
 
 
+# Separate budgets for the two constraint sources reaching Stage 1. A single
+# outer cap let one source starve the other — see the merge site in
+# recommend_actions and tests/unit/test_sf_constraint_exposure.py.
+_MAX_REFINEMENT_CONSTRAINTS_S1 = 5
+_MAX_REGISTER_CONSTRAINTS_S1 = 5
+
+# Market signals and the principal's own statements get SEPARATE budgets. They
+# previously shared one `external_context[:3]` slot, so MA-derived signals — seeded
+# into that field at turn 0 of refinement — crowded out what the executive actually
+# said, and were labelled as the executive's words when they survived. Same failure
+# shape as the refinement/register constraint budgets above.
+_MAX_MARKET_SIGNALS = 5
+_MAX_PRINCIPAL_CONTEXT = 3
+
+# Turn-0 refinement seeding writes MA signals into external_context with this
+# prefix (see workflows.py refine endpoint). Used to separate them back out so
+# each is presented under its true provenance.
+_MA_SEED_PREFIX = "market signal:"
+
+
+def _split_external_context(items: List[Any]) -> tuple:
+    """Separate MA-seeded signals from the principal's own statements.
+
+    Returns (principal_said, ma_seeded). Anything seeded at turn 0 carries the
+    `Market signal: ` prefix; everything else was extracted from what the
+    principal actually typed.
+    """
+    principal, ma_seeded = [], []
+    for it in items or []:
+        (ma_seeded if str(it).strip().lower().startswith(_MA_SEED_PREFIX) else principal).append(str(it))
+    return principal, ma_seeded
+
+
+def _format_market_signals(da_ctx: Any, refinement_result: Any, limit: int = _MAX_MARKET_SIGNALS) -> str:
+    """External market signals as their own labelled block.
+
+    Read from the DA output FIRST. Previously the only path into Solution Finder
+    was `refinement_result["external_context"]`, which meant a principal who
+    skipped the refinement chat got no market signals at all — the agent had run,
+    the signals were attached to the DA output, and nothing downstream read them.
+    """
+    def _key(text: str) -> str:
+        """Dedup on CONTENT, not on the rendered line.
+
+        The same signal arrives from two paths in different shapes — structured
+        from the DA output (rendered with `| source: … | relevance: …`) and as a
+        `Market signal: title — summary` string seeded into refinement. Comparing
+        rendered lines never matches, so every signal appeared twice.
+        """
+        t = str(text or "").strip()
+        if t.lower().startswith(_MA_SEED_PREFIX):
+            t = t[len(_MA_SEED_PREFIX):]
+        t = t.split(" | ")[0]
+        return " ".join(t.lower().split())
+
+    out: List[str] = []
+    seen: set = set()
+
+    signals = da_ctx.get("market_signals") if isinstance(da_ctx, dict) else None
+    for s in (signals or []):
+        if not isinstance(s, dict):
+            continue
+        title = (s.get("title") or "").strip()
+        summary = (s.get("summary") or "").strip()
+        if not (title or summary):
+            continue
+        head = f"{title} — {summary}" if title and summary else (title or summary)
+        if _key(head) in seen:
+            continue
+        seen.add(_key(head))
+        bits = [head]
+        if s.get("source"):
+            bits.append(f"source: {s['source']}")
+        rel = s.get("relevance_score")
+        if isinstance(rel, (int, float)):
+            bits.append(f"relevance: {rel:.2f}")
+        out.append(" | ".join(bits))
+
+    # Fall back to whatever was seeded into refinement, for payloads whose DA
+    # output predates market_signals being carried through.
+    if isinstance(refinement_result, dict):
+        _, ma_seeded = _split_external_context(refinement_result.get("external_context"))
+        for line in ma_seeded:
+            if _key(line) not in seen:
+                seen.add(_key(line))
+                out.append(line)
+
+    if not out:
+        return ""
+    return "EXTERNAL MARKET SIGNALS (from Market Analysis — not the principal's own words): " + \
+        "; ".join(out[:limit])
+
+
+# How far to walk the causal graph from the analysed KPI. 2 reaches the upstream
+# cause (base_oil_cost -> cogs -> gross_margin_pct on the lubricants seed) without
+# pulling in the whole client graph. Raising this widens the prompt and weakens
+# the average edge — each extra hop is a longer inferential chain.
+_CAUSAL_MAX_HOPS = 2
+
+
+def compute_constraint_exposure(
+    *,
+    constraint_items: List[Any],
+    persona_ids: List[str],
+    options: Optional[List[Dict[str, Any]]] = None,
+    moderator_checked: bool = False,
+) -> Dict[str, Any]:
+    """Which constraints each persona actually saw. Deterministic, no LLM.
+
+    WHY THIS IS NOT THE MODERATOR'S JOB
+    -----------------------------------
+    `enable_theory_moderator` defaults False, so on a default install NOTHING
+    checks an option against the constraints the principal stated. Safety cannot
+    depend on an optional LLM pass. This reports *exposure* — who was told what —
+    which is structurally knowable in Python and true regardless of model
+    behaviour.
+
+    It deliberately does NOT judge violation. Whether an option breaches a
+    constraint is a semantic question, and a regex claiming to answer it would
+    be exactly the false confidence `src/analysis/` exists to avoid.
+
+    A persona is considered to have seen a constraint when it is not a
+    refinement constraint (register and relationship constraints always reach
+    every persona), or when its id appears in `discovered_by`. An empty
+    `discovered_by` on a refinement constraint means per-persona extraction is
+    not enabled, so everyone saw it — which is today's behaviour, and why this
+    currently reports no exposure gap. That is the correct reading: the gap
+    opens only once constraint sets are actually split.
+    """
+    def _get(item, key, default=None):
+        if isinstance(item, dict):
+            return item.get(key, default)
+        return getattr(item, key, default)
+
+    items = list(constraint_items or [])
+    all_ids = [str(_get(c, "id") or "") for c in items]
+
+    by_persona: Dict[str, Dict[str, List[str]]] = {}
+    for pid in persona_ids or []:
+        seen, unseen = [], []
+        for c in items:
+            cid = str(_get(c, "id") or "")
+            source = str(_get(c, "source") or "refinement")
+            discovered_by = list(_get(c, "discovered_by") or [])
+            if source != "refinement" or not discovered_by or pid in discovered_by:
+                seen.append(cid)
+            else:
+                unseen.append(cid)
+        by_persona[pid] = {"seen": seen, "unseen": unseen}
+
+    by_option: Dict[str, Dict[str, Any]] = {}
+    for opt in (options or []):
+        if not isinstance(opt, dict):
+            continue
+        opt_id = str(opt.get("id") or opt.get("option_id") or opt.get("title") or "")
+        if not opt_id:
+            continue
+        origin = opt.get("originating_persona")
+        exposure = by_persona.get(origin) if origin else None
+        by_option[opt_id] = {
+            "originating_persona": origin,
+            # No originating persona recorded means we cannot attribute exposure;
+            # report the whole union as seen rather than inventing a gap.
+            "constraints_seen": exposure["seen"] if exposure else all_ids,
+            "constraints_unseen": exposure["unseen"] if exposure else [],
+        }
+
+    return {
+        "union_size": len(items),
+        "by_persona": by_persona,
+        "by_option": by_option,
+        "moderator_checked": bool(moderator_checked),
+    }
+
+
+def build_constraint_hitl_context(
+    exposure: Dict[str, Any],
+    constraint_items: List[Any],
+    recommended_option_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """HITL payload for the constraint check, with honest summary text.
+
+    The load-bearing case is `moderator_checked=False`: today the approval
+    surface reads "Review ranked options and approve or select an alternative",
+    which implies a review happened when, with the moderator off, nothing checked
+    any option against any constraint. Silence there is a claim.
+    """
+    def _get(item, key, default=None):
+        if isinstance(item, dict):
+            return item.get(key, default)
+        return getattr(item, key, default)
+
+    union = [
+        {"id": _get(c, "id"), "text": _get(c, "text"), "source": _get(c, "source")}
+        for c in (constraint_items or [])
+    ]
+    n = len(union)
+    checked = bool(exposure.get("moderator_checked"))
+
+    unseen: List[str] = []
+    if recommended_option_id:
+        unseen = list(
+            (exposure.get("by_option", {}).get(recommended_option_id, {}) or {}).get(
+                "constraints_unseen", []
+            )
+        )
+
+    base = "Review ranked options and approve or select an alternative."
+    if n == 0:
+        summary = f"{base} No constraints were captured for this analysis."
+    elif not checked:
+        summary = (
+            f"{base} {n} constraint(s) were captured, but no adjudication pass ran — "
+            "no option has been checked against them."
+        )
+    elif unseen:
+        summary = (
+            f"{base} The recommended option was proposed without knowledge of "
+            f"{len(unseen)} of the {n} captured constraint(s); these were checked at "
+            "adjudication — review the flagged items."
+        )
+    else:
+        summary = f"{base} The recommended option was graded against all {n} captured constraint(s)."
+
+    return {
+        "summary": summary,
+        "constraint_union": union,
+        "recommended_option_unseen_constraints": unseen,
+        "constraint_check_performed": checked,
+    }
+
+
 def _build_causal_context_section(relationships: List[Any], constraints: List[Any]) -> str:
     """Format the causal chain + active constraints for the synthesis prompt,
     with provenance-aware caveating baked into the text itself (Phase 15
@@ -575,14 +808,30 @@ def _build_causal_context_section(relationships: List[Any], constraints: List[An
 
     lines: List[str] = []
     if relationships:
-        lines.append("## CAUSAL CONTEXT (known relationships for this KPI)")
+        # Entries may be bare relationships or (relationship, hops) pairs from
+        # get_causal_neighbourhood. Hop distance is surfaced, never flattened:
+        # an indirect link is weaker evidence, and presenting a two-hop chain as
+        # equivalent to a direct one manufactures confidence the graph does not
+        # support. Same discipline as the provenance caveats below.
+        _pairs = [r if isinstance(r, tuple) else (r, 1) for r in relationships]
+        _indirect = any(h > 1 for _r, h in _pairs)
+
+        lines.append("## CAUSAL CONTEXT (known relationships around this KPI)")
         lines.append(
             "Each relationship below is provenance-tagged. Respect the caveat for each one — "
             "an unconfirmed prior is not a fact, and a validated relationship is evidence, not proof."
         )
-        for r in relationships:
+        if _indirect:
+            lines.append(
+                "Entries marked INDIRECT are reached through another KPI rather than attached to "
+                "this one. They often carry the upstream cause — a dimensional breakdown shows WHERE "
+                "a KPI moved, not WHY — but the link is inferred across a chain, so treat it as a "
+                "hypothesis to test with the principal, never as an established fact about this KPI."
+            )
+        for r, _hops in _pairs:
             caveat = _PROVENANCE_CAVEAT.get(getattr(r, "provenance", "template"), "")
-            parts = [f"{r.kpi_id} <-> {r.related_kpi_id} ({r.relationship_type}, {r.conflict_direction})"]
+            _reach = "DIRECT" if _hops <= 1 else f"INDIRECT via {_hops} hops"
+            parts = [f"[{_reach}] {r.kpi_id} <-> {r.related_kpi_id} ({r.relationship_type}, {r.conflict_direction})"]
             if getattr(r, "mechanism", None):
                 parts.append(f"mechanism: {r.mechanism}")
             if getattr(r, "lag_periods", None) is not None:
@@ -1407,10 +1656,20 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     if _s2_conflict and _s2_conflict.get("detected") and _s2_conflict.get("summary"):
                         dataset_recap_lines.append(f"MARKET SIGNAL CONFLICT: {_s2_conflict['summary']}")
 
+                    # External market signals, under their own label and their own budget.
+                    # Read from the DA output so they arrive whether or not refinement ran.
+                    _ma_block = _format_market_signals(da_ctx, refinement_result)
+                    if _ma_block:
+                        dataset_recap_lines.append(_ma_block)
+
                     # Add Problem Refinement context from MBB-style chat
                     if refinement_result:
                         if refinement_result.get("external_context"):
-                            ctx_items = refinement_result["external_context"][:3]
+                            # MA-seeded items are carried by the block above — presenting
+                            # them here too would double-count them AND attribute market
+                            # research to the executive.
+                            _principal_said, _ = _split_external_context(refinement_result["external_context"])
+                            ctx_items = _principal_said[:_MAX_PRINCIPAL_CONTEXT]
                             if ctx_items:
                                 # Phase 15 Stage C label fix: this is the principal's own
                                 # statements captured during refinement chat, not their profile.
@@ -1550,12 +1809,47 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                 from src.registry.providers.kpi_relationship_provider import KPIRelationshipProvider
                                 from src.registry.providers.assumption_provider import AssumptionProvider
 
-                                _cg_relationships = await KPIRelationshipProvider().get_relationships_for_kpi(
-                                    _cg_kpi_id, _cg_client_id
+                                # Traverse, don't peek. Single-hop returns only edges
+                                # touching this KPI, which on the lubricants graph hides
+                                # base_oil_cost -> cogs -> gross_margin_pct — the upstream
+                                # cause of the very margin problem under analysis. Entries
+                                # are (relationship, hops); the prompt labels the distance.
+                                _max_hops = int(getattr(self.config, "causal_max_hops", _CAUSAL_MAX_HOPS) or _CAUSAL_MAX_HOPS)
+                                _cg_relationships = await KPIRelationshipProvider().get_causal_neighbourhood(
+                                    _cg_kpi_id, _cg_client_id, max_hops=_max_hops
+                                )
+                                _direct = sum(1 for _r, _h in _cg_relationships if _h <= 1)
+                                self.logger.info(
+                                    f"[SF] Causal neighbourhood for '{_cg_kpi_id}': "
+                                    f"{len(_cg_relationships)} edges ({_direct} direct, "
+                                    f"{len(_cg_relationships) - _direct} indirect, max_hops={_max_hops})"
                                 )
                                 _cg_constraints = await AssumptionProvider().get_active_constraints(
                                     _cg_client_id, scope=_cg_kpi_id
                                 )
+                                # Audit the evidence scope actually assembled, so a run's
+                                # configuration is readable from its own payload rather than
+                                # inferred from the environment that produced it.
+                                #
+                                # THIS APPEND MUST FOLLOW THE CONSTRAINT FETCH. It originally
+                                # sat above it and read `_cg_constraints` while still bound to
+                                # the empty list initialised at the top of the block, so every
+                                # run reported `constraints: 0` no matter what the register
+                                # returned — a false zero from an instrument that had not yet
+                                # looked, which is the same defect shape as the "0.0% of
+                                # variance" label in the DA KT summary.
+                                audit_log.append({
+                                    "event": "causal_context",
+                                    "kpi_id": _cg_kpi_id,
+                                    "max_hops": _max_hops,
+                                    "edges": len(_cg_relationships),
+                                    "direct": _direct,
+                                    "indirect": len(_cg_relationships) - _direct,
+                                    "constraints": len(_cg_constraints or []),
+                                    "market_signals": len(
+                                        (da_ctx.get("market_signals") or []) if isinstance(da_ctx, dict) else []
+                                    ),
+                                })
                             elif _cg_client_id and _cg_kpi_ref:
                                 self.logger.info(
                                     f"[SF] Causal grounding: KPI '{_cg_kpi_ref}' not resolvable for "
@@ -1646,6 +1940,12 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         _s1_conflict = da_ctx.get("market_conflict") if isinstance(da_ctx, dict) else None
                         if _s1_conflict and _s1_conflict.get("detected") and _s1_conflict.get("summary"):
                             da_compact_s1["market_signal_conflict"] = _s1_conflict["summary"]
+                        # Stage 1 previously saw the market CONFLICT flag but never the
+                        # signals themselves — personas were told two things disagreed
+                        # without being told what the external one said.
+                        _s1_ma = _format_market_signals(da_ctx, refinement_result)
+                        if _s1_ma:
+                            da_compact_s1["external_market_signals"] = _s1_ma
                         bc_compact_s1: Dict[str, Any] = {}
                         if isinstance(bc, dict):
                             bc_compact_s1 = {k: v for k, v in {
@@ -1670,7 +1970,15 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             if refinement_result.get("invalidated_hypotheses"):
                                 refinement_compact_s1["ruled_out_causes"] = refinement_result["invalidated_hypotheses"][:3]
                             if refinement_result.get("external_context"):
-                                refinement_compact_s1["principal_context"] = refinement_result["external_context"][:3]
+                                # Same split as the dataset recap. Without it, Stage 1
+                                # personas receive MA-derived signals under the key
+                                # `principal_context` — market research attributed to the
+                                # executive — while the executive's own statements are
+                                # crowded out of the same 3 slots. The signals reach
+                                # Stage 1 separately as `external_market_signals`.
+                                _s1_principal, _ = _split_external_context(refinement_result["external_context"])
+                                if _s1_principal:
+                                    refinement_compact_s1["principal_context"] = _s1_principal[:_MAX_PRINCIPAL_CONTEXT]
 
                         # Phase 15 Stage D: accreted constraints (kpi_relationships/assumptions,
                         # fetched above BEFORE Stage 1 runs) merge into the SAME field the LLM
@@ -1680,11 +1988,16 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         # persona would have to separately learn to honor. Deliberately a
                         # sibling of the refinement_result block above, not nested inside it —
                         # accreted constraints are independent of whether refinement chat ran.
+                        #
+                        # TWO BUDGETS, NOT ONE OUTER CAP. This previously read
+                        # `(refinement + register)[:5]`, so five refinement constraints
+                        # crowded the register out entirely — and the register is the
+                        # moderator's whole grading denominator, so a talkative interview
+                        # could silently disarm adjudication. Nothing asserted it.
                         if _cg_constraints:
-                            _cg_constraint_texts = [c.text for c in _cg_constraints][:5]
-                            refinement_compact_s1["constraints"] = (
-                                refinement_compact_s1.get("constraints", []) + _cg_constraint_texts
-                            )[:5]
+                            _cg_constraint_texts = [c.text for c in _cg_constraints][:_MAX_REGISTER_CONSTRAINTS_S1]
+                            _refinement_texts = refinement_compact_s1.get("constraints", [])[:_MAX_REFINEMENT_CONSTRAINTS_S1]
+                            refinement_compact_s1["constraints"] = _refinement_texts + _cg_constraint_texts
 
                         # Use refined problem statement in Stage 1 if principal provided one
                         ps_s1 = ps
@@ -1766,6 +2079,40 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                         "recovery_range low/high = estimated replication uplift in lagging segments (NEVER 0.0). "
                                         "Frame hypothesis as 'outperformance driver', not 'root cause of problem'. "
                                         "Respect any do_not_propose items from PRINCIPAL CONSTRAINTS.\n\n"
+                                    )
+                                elif getattr(self.config, "stage1_allow_frame_challenge", False):
+                                    # EXPERIMENTAL — 2026-08-14 evidence-scope test, step 1.
+                                    # Gated by stage1_allow_frame_challenge (default False;
+                                    # see agent_config_models.py for the baseline this compares
+                                    # against). The production task text below REQUIRES every
+                                    # option to recover this KPI ("primary driver of THIS KPI
+                                    # situation", recovery_range "proportional to the observed
+                                    # variance") — which structurally cannot express a portfolio
+                                    # or exit move. This variant adds permission, not a quota:
+                                    # task 1-4 are unchanged, and an option that still recovers
+                                    # the KPI remains a fully valid answer.
+                                    _s1_task = (
+                                        f"As {p.name}, apply your methodology to:\n"
+                                        "1. Form ONE specific hypothesis about the primary driver of this KPI situation\n"
+                                        "2. Propose ONE actionable intervention with a distinct mechanism\n"
+                                        "3. Estimate the recovery/uplift impact using the KPI unit from the SITUATION METRICS section above — recovery_range MUST be non-zero numbers proportional to the observed variance\n"
+                                        "4. Provide 3 specific data points as evidence from the analysis signals\n"
+                                        "5. ALTERNATIVE FRAME (optional, use only if genuinely warranted by the evidence): if the analysis "
+                                        "signals suggest the underlying business assumption itself is in question — e.g. a market signal "
+                                        "indicating structural category decline — you MAY instead propose a portfolio-level response (exit, "
+                                        "reallocation, structural de-emphasis) rather than a KPI-recovery mechanism. If you do, set "
+                                        "recommended_focus to the segment/category in question and set recovery_range to your best estimate "
+                                        "of the AVOIDED future decline this KPI would otherwise see (not a recovery of current variance) — "
+                                        "state that basis explicitly in mechanism. This is permission, not a requirement: propose it only "
+                                        "if you would stand behind it as your genuine top recommendation.\n"
+                                        + (
+                                            "6. If internal_benchmarks are present in KEY ANALYSIS SIGNALS, consider replication strategies — "
+                                            "how can the outperforming segment's practices be scaled to underperforming areas?\n"
+                                            if da_compact_s1.get("internal_benchmarks") else ""
+                                        )
+                                        + "RULES: recommended_focus = entity name only, NO field prefixes (e.g. 'High Mileage Engine Oil', NOT 'product_name: High Mileage Engine Oil'). "
+                                        "recovery_range low/high = actual numeric estimates (NEVER 0.0). cost_signal and risk_signal must reflect your mechanism's complexity. "
+                                        "Respect any do_not_propose items and constraints from PRINCIPAL CONSTRAINTS — do not propose excluded options.\n\n"
                                     )
                                 else:
                                     _s1_task = (
@@ -2099,11 +2446,24 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         _n_constraints = len(_cg_constraints or [])
                         _n_edges = len(_cg_relationships or [])
                         _prov_counts: Dict[str, int] = {}
-                        for _rel in (_cg_relationships or []):
+                        _n_indirect = 0
+                        for _entry in (_cg_relationships or []):
+                            # Entries are (relationship, hops) since the traversal change;
+                            # unwrap before reading provenance or every edge grades "unknown".
+                            _rel, _hops = _entry if isinstance(_entry, tuple) else (_entry, 1)
+                            if _hops > 1:
+                                _n_indirect += 1
                             _p = (_rel.get("provenance") if isinstance(_rel, dict)
                                   else getattr(_rel, "provenance", None)) or "unknown"
                             _prov_counts[str(_p)] = _prov_counts.get(str(_p), 0) + 1
                         _prov_mix = ", ".join(f"{k}: {v}" for k, v in sorted(_prov_counts.items())) or "none"
+                        # Only annotate reach when there ARE edges: with zero the
+                        # line must stay exactly "0 (by provenance: none)", which is
+                        # the PM-1 "zero register states zero counts" wording.
+                        _reach_mix = (
+                            f"{_n_edges - _n_indirect} direct, {_n_indirect} indirect; "
+                            if _n_edges else ""
+                        )
                         # PM-9: 'judge' is the only implemented protocol. Unknown values
                         # (including the designed-but-gated 'integrator') fall back with a
                         # log line so a typo can't silently change adjudication semantics.
@@ -2118,7 +2478,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             "Populate `moderator_grades` for EVERY option. You are grading against exactly this "
                             "much verified theory — state of the register for this KPI:\n"
                             f"- Active constraints: {_n_constraints}\n"
-                            f"- Causal edges: {_n_edges} (by provenance: {_prov_mix})\n"
+                            f"- Causal edges: {_n_edges} ({_reach_mix}by provenance: {_prov_mix})\n"
                             "Grading rules:\n"
                             "1. constraint_survival: check the option's mechanism against each KNOWN CONSTRAINT above. "
                             "'fail' requires naming the violated constraint in violated_constraints. If there are 0 "
@@ -2638,6 +2998,51 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
             except Exception:
                 pass
 
+            # --- Constraint exposure (Stage I B-2) -------------------------------
+            # Always computed, no LLM. The union is refinement constraints (from the
+            # principal's interview) plus register constraints (assumption register).
+            # With enable_theory_moderator defaulting False, this is the ONLY thing
+            # that reports the constraint picture to the reader.
+            _constraint_union: List[Dict[str, Any]] = []
+            try:
+                _seen_cids = set()
+                for _ci in ((refinement_result or {}).get("constraint_items") or []):
+                    _cid = _ci.get("id") if isinstance(_ci, dict) else getattr(_ci, "id", None)
+                    if _cid and _cid not in _seen_cids:
+                        _seen_cids.add(_cid)
+                        _constraint_union.append(_ci if isinstance(_ci, dict) else _model_to_dict(_ci))
+                for _rc in (_cg_constraints or []):
+                    _txt = getattr(_rc, "text", None) or (isinstance(_rc, dict) and _rc.get("text"))
+                    if not _txt:
+                        continue
+                    _cid = _constraint_id(_txt)
+                    if _cid in _seen_cids:
+                        continue
+                    _seen_cids.add(_cid)
+                    _constraint_union.append({
+                        "id": _cid, "text": _txt, "source": "assumption_register", "discovered_by": [],
+                    })
+            except Exception as e:
+                # Observation must never break generation.
+                self.logger.warning(f"[SF] constraint union assembly failed (non-fatal): {e}")
+
+            constraint_exposure = compute_constraint_exposure(
+                constraint_items=_constraint_union,
+                persona_ids=[p.id for p in (consulting_personas or [])],
+                options=options_payload,
+                moderator_checked=bool(_theory_moderator_on and moderator_grades),
+            )
+            _rec_id = None
+            if isinstance(recommendation_payload, dict):
+                _rec_id = (
+                    recommendation_payload.get("id")
+                    or recommendation_payload.get("option_id")
+                    or recommendation_payload.get("title")
+                )
+            _hitl_context = build_constraint_hitl_context(
+                constraint_exposure, _constraint_union, _rec_id
+            )
+
             # Single HITL event required per PRD
             return SolutionFinderResponse.success(
                 request_id=req_id,
@@ -2649,9 +3054,8 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                 recommendation_rationale=rationale,
                 human_action_required=True,
                 human_action_type="approval",
-                human_action_context={
-                    "summary": "Review ranked options and approve or select an alternative.",
-                },
+                human_action_context=_hitl_context,
+                constraint_exposure=constraint_exposure,
                 audit_log=(
                     [{"event": "ranked_options", "count": len(options_payload)}]
                     + audit_log

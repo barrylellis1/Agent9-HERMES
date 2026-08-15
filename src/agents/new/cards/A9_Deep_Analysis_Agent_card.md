@@ -29,8 +29,101 @@ structural barriers to replicating high-performing segments. Extracted barriers 
 `replication_constraints: List[str]` on `ExtractedRefinements` and `ProblemRefinementResult`.
 
 Key methods:
-- `_get_topic_sequence(da_output)` — returns 5 base topics + `replication_potential` when benchmarks present
+- `_get_topic_sequence(da_output)` — **signature changed Aug 2026**, see below
 - `_build_benchmark_summary(da_output)` — formats internal benchmarks as context for the replication question
+
+### Problem-Shape-Routed Topics (Aug 2026, Stage I B-1)
+
+`_get_topic_sequence(da_output) -> (sequence, ProblemProfile | None, rules_applied)` now routes the
+interview off the problem's **measured structure** instead of running a fixed five-topic sequence.
+This is the first production consumer of `src/analysis/problem_profile.py`, which classified these
+facets deterministically and was previously called only by tests.
+
+**The routing is deterministic — no LLM.** Only the wording of each question is generated.
+
+| Rule | Facet | Effect | Why |
+|---|---|---|---|
+| R1 | `compound_alert` | add `tradeoff_tolerance` | a cross-KPI tension makes "which one gives?" the first real question |
+| R2 | `concentration == "concentrated"` (dominance ≥ 2.0) | **drop** `scope_boundaries`, add `segment_specific_causation` | one segment carries the variance, so the data already answered "which segments" — that turn was being spent to repeat ourselves |
+| R2′ | `concentration == "distributed"` | `scope_boundaries` leads | with diffuse variance, scope genuinely is the first question |
+| R3 | `has_control_group == False` | add `comparison_baseline` | an empty IS-NOT set means "why here and not there" is unanswerable from data; the contrast must come from the principal |
+| R4 | `market_conflict` | suppress the turn-0 auto-skip of `external_context` | a market-vs-internal disagreement is the reason to ask, not a substitute for asking |
+| R5 | `mode == "opportunity"` + benchmarks | `replication_potential` before `constraints` | replication barriers *are* constraints |
+| — | none fire | unchanged five-topic sequence | |
+
+Early-slot inserts compose in fixed priority (`tradeoff_tolerance` → `segment_specific_causation` →
+`comparison_baseline`) so a given problem always produces the same sequence.
+
+**`PROTECTED_TOPICS` / `MAX_TOPICS_IN_SEQUENCE = 6`.** Sequences are capped, and
+`hypothesis_validation` / `constraints` / `success_criteria` are never truncated. `MAX_TOTAL_TURNS` is
+10, so at ~2 turns per topic a 9-topic sequence would guarantee `constraints` is never reached — and
+Solution Finder would then run with an empty bound set, the exact defect Stage I exists to fix.
+
+Classification failure degrades to the base sequence with a warning; a routing error must never cost
+the principal their interview.
+
+**Observability** — `ProblemRefinementResult` carries `problem_profile_cell` (e.g.
+`problem/concentrated/no-control/single`), `topic_sequence`, and `topic_routing_rules_applied`.
+Without these a routed conversation is indistinguishable from the default one.
+
+### Two conversation-state defects fixed alongside (same commit)
+
+Both would have made the routing unobservable or raced its own progress:
+
+- **`_extract_completed_topics` REMOVED.** It scanned assistant prose for the literal substrings
+  `"moving to {topic}"` / `"completed {topic}"` — phrases nothing in the codebase emits, so it
+  returned `[]` on every turn — and iterated the *static* `REFINEMENT_TOPIC_SEQUENCE`, so it could
+  never recognise `replication_potential` or any routed topic. Replaced by
+  `ProblemRefinementInput.topics_completed`, round-tripped from the client, which already held the
+  state and simply never sent it back. **The endpoint remains stateless.**
+- **`_check_topic_complete` turn counting.** It counted *every* assistant message in the
+  conversation rather than messages since the last topic change, so from turn 3 onward every topic
+  auto-completed on arrival. Now takes `turns_on_current_topic`, maintained client-side and reset on
+  topic change.
+
+The refine endpoint's error path also now echoes `topics_completed` back instead of `[]` — returning
+an empty list told the client it had covered nothing, so one transient error silently reset the
+interview's progress and re-asked answered topics.
+
+### Two defects found by the live run, not by the tests (2026-08-11)
+
+Both were invisible to unit tests and only appeared when a real conversation ran end to end.
+
+1. **`effective_turn_budget(topic_sequence)`** — `PROTECTED_TOPICS` stops `constraints` being
+   *truncated* out of the sequence; it does nothing about it never being *reached*. `MAX_TOTAL_TURNS`
+   was a fixed 10, and a 6-topic sequence at ~2 turns each needs ~12 — so the interview ended two
+   topics short and Solution Finder received no constraints, the same starvation arriving by a
+   different route. The budget now scales with sequence length, with `MAX_TOTAL_TURNS` as the floor
+   so the default 5-topic path is unchanged.
+2. **A successful LLM question was being discarded.** `_generate_refinement_question`'s parse branch
+   indexed `default_questions[current_topic]` to build a fallback. For any topic absent from that
+   dict this raised `KeyError`, the surrounding `except Exception` swallowed it, and the generic
+   "Please share any additional context." was returned — throwing away a good generation because of a
+   lookup it never needed. Now `.get(..., _GENERIC_QUESTION)`, and all three routed topics have
+   authored defaults so the no-LLM path does not degrade either.
+
+**Rule this reinforces:** every topic the router can emit needs an entry in `TOPIC_OBJECTIVES`,
+`default_questions`, `_check_topic_complete`, and the UI's `TOPIC_LABELS`. Tests now assert the first
+two for every reachable topic.
+
+### Constraint Provenance (Aug 2026, Stage I B-2)
+
+`_accumulate_refinements(history, prior_constraint_items, prior_exclusions)` no longer rebuilds prior
+turns by replaying user messages through the **keyword** extractor. That replay discarded the
+structured LLM output those turns had already produced, and lost `exclusions` **permanently** — the
+`"general"` branch never populates them, so a principal's "leave International out of this" ceased to
+exist one turn later and never reached the refined problem statement.
+
+The client now echoes the typed state it already holds (`prior_constraint_items`,
+`prior_exclusions`); keyword replay remains the fallback for callers that send nothing, so older
+clients are unaffected. **The endpoint stays stateless** — we ask the caller for state it has rather
+than reconstructing it from prose.
+
+`_merge_refinements(..., source, turn_index, discovered_by)` merges by `ConstraintItem.id`, so a
+constraint restated on a later turn unions its `discovered_by` instead of appearing twice, and mints
+typed items for bare constraint strings so `constraint_items` mirrors `constraints` on every path.
+`ProblemRefinementResult.constraint_items` carries them downstream to Solution Finder — see
+`A9_Solution_Finder_Agent_card.md` → Constraint Provenance and Exposure.
 
 ### Diverse Council Recommendation
 The agent recommends one consulting firm from each category:
@@ -43,6 +136,15 @@ Selection is based on:
 1. Keyword matching from SCQA summary and refinement responses
 2. Principal role affinity
 3. Default selection if no matches
+
+#### ⚠️ Known defect — the "four-firm" council has two real choices and can seat a firm twice (found Aug 2026)
+
+`PARTNER_RULES` (`_recommend_diverse_council`) declares four categories, but:
+
+- **`technology` and `risk` have exactly one member each** — Accenture and KPMG Advisory. They are not selections; they appear on every diverse council regardless of the problem. Only `mbb` and `big4` are genuine choices, so a "four-firm" council makes **two** decisions.
+- **KPMG is a member of BOTH `big4` and `risk`.** The loop appends one winner per category, so a risk-flavoured problem (keywords `risk`, `compliance`, `governance`, `regulatory`, `esg`, `audit`, `controls`) wins KPMG the Big4 slot as well and the council returns **KPMG twice** — four seats, three firms, with no warning. Same failure class as the Stage 1 attribution bug: a council quietly running with fewer members than it reports.
+
+Not yet fixed. A dedupe (skip a firm already selected by an earlier category) is the minimal change; the single-member categories need more members or an honest rename. Observed live on the lubricants margin problem the council resolved cleanly to McKinsey / PwC Strategy& / Accenture / KPMG — the duplication is latent, not constant.
 
 ## Configuration Schema
 Defined in `src/agents/agent_config_models.py`:
@@ -72,7 +174,7 @@ class A9_Deep_Analysis_Agent_Config(BaseModel):
 Environment variable overrides: `CLAUDE_MODEL_NLP`, `CLAUDE_MODEL_REASONING`
 
 ## Planning and Execution
-- Dimensions are sourced from the Data Product Contract YAML (`src/registry_references/data_product_registry/data_products/fi_star_schema.yaml`) using `llm_profile.dimension_semantics` for `FI_Star_View`.
+- Dimensions are sourced **per tenant** from that client's Data Product Contract YAML (`src/registry_references/data_product_registry/data_products/<contract>.yaml`), resolved by `_contract_path_for_kpi` via the KPI's `data_product_id`. Resolution precedence and ordering: see **Dimension Selection** below.
 - Planned steps are grouped comparisons per selected dimension with a "current vs previous" timeframe.
 - Dimension scan limit increased to 15 (from 5) for broader coverage.
 - **Default timeframe**: When no timeframe is specified, defaults to `current_quarter` to ensure dimensional scans have time boundaries.
@@ -367,9 +469,48 @@ Run 3 verified end to end and cross-checked independently against BigQuery: **YT
 
 **Design rule this encodes:** *any number requiring arithmetic is computed by the query, not by Agent9.* The agents decide what to ask and interpret what comes back; they do not aggregate. Tests: `tests/unit/test_rollup_total_sql.py`, `tests/unit/test_ratio_delta_additivity.py`.
 
-## Known Defect — Hardcoded Dimension Selection (Aug 2026, fix planned)
+## Dimension Selection — declared order, auditable (Aug 2026, Stage I Part A)
 
-`_dims_from_contract` ranks candidate dimensions against a static literal preference list, so every KPI, client and problem type is investigated along the same dimensions in the same order. Nothing about the problem influences what gets investigated — not the alert type, not the concentration of the variance, not whether a contrast group exists, not the requesting persona. Because Solution Finder's personas all read one DA output, a fixed investigation is a fixed evidence base. See `docs/prd/agents/a9_deep_analysis_agent_prd.md` §9.9 and `DEVELOPMENT_PLAN.md` → Phase 15 → Stage I.
+**Resolved defect.** `_dims_from_contract` used to re-rank candidate dimensions against a static literal:
+
+```python
+preferred = ["profit_center_name", "customer_name", "product_name",
+             "product_line", "channel_name", "customer_segment", ...]
+```
+
+A hand-copy of bicycle and lubricants field names, merged and frozen, applied to every KPI, client and problem type — so each tenant was investigated in an order nobody had chosen for them, and it **silently overrode each client's own contract**. For lubricants it forced profit-centre first against a contract whose `dimension_semantics` is grouped and commented Product → Customer → Organization → Channel → Account → Time.
+
+**Now: declared order wins, and which declaration won is recorded.**
+
+| Precedence | Source | Notes |
+|---|---|---|
+| 1 | contract `llm_profile.dimension_semantics` | declared order, de-duplicated |
+| 2 | `KPI.dimensions[].field` from the Supabase registry | only when the contract yields nothing |
+| 3 | DGA view metadata | last resort |
+| — | ban filter (`flag`, `hierarchy`, `_id`, `transaction_date`, `version`, `fiscal ytd/qtd/mtd`) | unchanged |
+
+`DeepAnalysisPlan.dimension_rank_source` (`contract_semantics` \| `kpi_registry` \| `dga_metadata` \| `hierarchy_vectors` \| `none`) records the winner; `DeepAnalysisPlan.dimensions_considered` carries the full pre-truncation candidate set.
+
+**Accepted failure mode:** a client whose contract lists dimensions in ETL or alphabetical order now gets that order, where the literal was accidentally acting as a safety net. This is the correct trade — it surfaces as a contract-authoring problem instead of being masked. `dimension_rank_source` is what makes it visible.
+
+**The same literal existed on the hierarchical drill path** — `vector_order = [k for k in ["customer","product","profit_center"] if k in hmap] or list(hmap.keys())`. Inert in practice (no live contract names its vectors that way; only `hess_financials.yaml` declares `dimension_hierarchies` at all, using `geography`/`segment`/`financials`), but a trap for the first contract that does. Now `list(hmap.keys())`.
+
+### Two different 5s — search width vs report width
+
+These are independent caps and are routinely confused:
+
+| Cap | Where | What it bounds |
+|---|---|---|
+| `max_dimensions` (**10** as of Stage I Part A, was 5) | `execute_deep_analysis` `dims_to_process` | how many dimensions get **queried** |
+| `change_points[:5]` | post-loop, globally sorted by \|delta\| | how many drivers reach SCQA / Solution Finder |
+
+Raising `max_dimensions` therefore **widens the search without widening the funnel** — a better-selected top 5, not more of them. SF's evidence base and KT's one-problem-per-analysis discipline are unchanged. Cost is ~1 extra query per added dimension (2 on the budget comparator, roughly double again when the two-basis matrix runs), executed sequentially.
+
+`DeepAnalysisResponse.dimensions_analyzed` records the dimensions actually queried. Before it existed, a run reported N suggested, analyzed `max_dimensions` of them, and recorded nowhere which ones.
+
+**Known exposure:** a wider search increases the surface for the slice-validity failure class (a ratio cut by a dimension whose components are not allocated at the same grain — see the −457% / 100.00% margin case). DA-side enforcement remains deliberately un-built; `scripts/check_slice_validity.py` is the manual pre-flight for new client datasets.
+
+**Still true:** nothing about the *problem* influences what gets investigated — not the alert type, not the concentration of the variance, not whether a contrast group exists. Only the client's declaration does. Problem-shape routing is Part B (`DEVELOPMENT_PLAN.md` → Phase 15 → Stage I).
 
 ## One Comparison Basis Per Analysis — `_compute_overall_summary` (Aug 2026)
 

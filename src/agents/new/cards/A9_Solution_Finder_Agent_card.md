@@ -157,6 +157,159 @@ omitted or renamed that field (observed live: council quietly ran with 2 of 3 fi
 mismatched echo is logged and ignored; dropped personas emit a warning plus a
 `dropped_personas` field on the `stage1_calls_complete` audit event.
 
+## Constraint Provenance and Exposure (Aug 2026, Stage I B-2)
+
+Constraints previously travelled as bare strings, so nothing recorded whether one came from the
+principal's interview or the assumption register. `ConstraintItem`
+(`src/agents/models/deep_analysis_models.py`) attaches provenance: `id` (sha1 of normalized text —
+the dedup key across turns and sources), `text`, `source`
+(`refinement` | `assumption_register` | `kpi_relationship`), `discovered_by`, `asked_by`,
+`turn_index`. `ProblemRefinementResult.constraints` remains the flat union of texts, so every
+existing consumer is untouched.
+
+### Two named budgets, not one outer cap 🔴
+
+The Stage 1 merge previously read `(refinement + register)[:5]`. Five interview constraints therefore
+crowded the assumption register out **entirely** — and the register is the Stage H moderator's whole
+grading denominator, so a talkative refinement chat could silently disarm adjudication while the
+prompt still reported a constraint count. Nothing asserted this. Now
+`_MAX_REFINEMENT_CONSTRAINTS_S1` and `_MAX_REGISTER_CONSTRAINTS_S1` are applied separately and
+concatenated with no outer cap.
+
+### `compute_constraint_exposure()` — deterministic, always on
+
+`enable_theory_moderator` defaults **False**, so on a default install nothing checks an option
+against the constraints the principal stated. Safety must not depend on an optional LLM pass, so
+exposure is computed in Python on every run:
+
+```
+{union_size, by_persona{pid: {seen, unseen}}, by_option{...}, moderator_checked}
+```
+
+It reports **who was told what**. It deliberately does **not** judge violation — whether an option
+breaches a constraint is a semantic question, and a regex claiming to answer it would be exactly the
+false confidence `src/analysis/` exists to avoid.
+
+A persona has seen a constraint when `source != "refinement"` (register and relationship constraints
+always reach every persona — splitting them would degrade the moderator whose denominator they are)
+or its id is in `discovered_by`. **An empty `discovered_by` means every persona saw it**, which is
+today's behaviour — so the report currently shows no exposure gap. That is the correct reading, not a
+bug: the gap opens only once constraint sets are actually split (B-4, gated behind the B-3 test).
+The net is installed before the thing that needs it.
+
+### HITL surface states whether a check happened
+
+`human_action_context` gains `constraint_union`, `recommended_option_unseen_constraints`, and
+`constraint_check_performed`, with summary text conditional on the check. The load-bearing case is
+moderator-off:
+
+> *"N constraint(s) were captured, but no adjudication pass ran — no option has been checked against them."*
+
+The previous unconditional "Review ranked options and approve or select an alternative" implied a
+review had occurred when nothing had checked anything. Silence there is a claim.
+
+New response field: `SolutionFinderResponse.constraint_exposure`.
+Tests: `tests/unit/test_sf_constraint_exposure.py` (15).
+
+### Found by the live run: `refinement_result` reached SF by only one of its two documented paths 🔴
+
+The first live exposure report came back with `union_size: 1` — the assumption-register constraint,
+**not the principal's own**. Two independent wiring gaps, both silent:
+
+1. **`SolutionWorkflowRequest.refinement_result` was declared and never read.** SF only ever reads
+   `preferences["refinement_result"]`, so a caller using the documented top-level field got no
+   constraints, no exclusions, and no error. Same failure class as the never-wired
+   `use_structured_output` flag: the field existed, typechecked, and did nothing. `workflows.py` now
+   folds it into `preferences` (without clobbering an explicit entry) and a test asserts the wiring.
+2. **The UI's `refinement_result` payload is an explicit field allow-list**
+   (`useDecisionStudio.ts`), so `constraint_items` would never have reached SF from the real app
+   either. Adding a field to `ProblemRefinementResult` is not sufficient — it must be added there
+   too, and omitting it fails silently because the flat `constraints` list masks the loss.
+
+**Rule:** a new field on `ProblemRefinementResult` needs THREE edits to reach Solution Finder — the
+model, the UI allow-list in `useDecisionStudio.ts`, and (for non-UI callers) the top-level passthrough
+in `workflows.py`. Verified live afterwards: `union_size: 2`, one `refinement` and one
+`assumption_register`, each labelled with its provenance.
+
+## Causal Traversal — reaching the upstream cause (Aug 2026) 🔴
+
+**The defect.** Stage D fetched causal context with `get_relationships_for_kpi`, which returns only
+edges that *touch* the analysed KPI. Measured against the live lubricants graph:
+
+```
+max_hops=1  ->  3 of 6 edges   (gross_margin_pct<->cogs, net_revenue, premium_mix_pct)
+max_hops=2  ->  6 of 6 edges   base_oil_cost, distribution_cost, product_sales_revenue reachable
+```
+
+The three invisible edges included **`base_oil_cost -> cogs`** — labelled in the seed file as "the 11F
+anchor scenario" and carrying that client's single most important causal fact:
+
+> *"Base oil is the primary raw-material input (~50-60% of COGS). Price moves pass through to reported
+> COGS with an inventory-buffered lag of roughly one month, so a spot-price spike shows up in margin a
+> period later."*
+
+The real chain is `base_oil_cost -> cogs -> gross_margin_pct` — **two hops**. SF saw one, so a margin
+analysis could never reach the cause of its own margin problem. **A dimensional breakdown answers
+WHERE a KPI moved; the causal graph is the only thing that answers WHY**, and it was read one hop too
+shallow.
+
+**The fix.** `KPIRelationshipProvider.get_causal_neighbourhood(kpi_id, client_id, max_hops=2,
+max_edges=25)` — BFS over the undirected edge set, returning `[(relationship, hops), ...]` at shortest
+distance. One `get_all` query, traversal in memory. Cycles terminate (each KPI expanded once);
+bounded twice so a dense graph cannot flood a prompt. SF calls it with `_CAUSAL_MAX_HOPS = 2`.
+
+**`get_relationships_for_kpi` is unchanged and still single-hop** — SA's compound-alert detection
+(11I-B) and the registry API both genuinely want direct edges only. `max_hops=1` returns exactly the
+old set, which is pinned by test.
+
+**Hop distance is surfaced, never flattened.** `_build_causal_context_section` labels each entry
+`[DIRECT]` or `[INDIRECT via N hops]`, and when any indirect edge is present adds:
+
+> *"Entries marked INDIRECT are reached through another KPI rather than attached to this one. They
+> often carry the upstream cause — a dimensional breakdown shows WHERE a KPI moved, not WHY — but the
+> link is inferred across a chain, so treat it as a hypothesis to test with the principal, never as an
+> established fact about this KPI."*
+
+Presenting a two-hop chain as equivalent to a direct edge would manufacture confidence the graph does
+not support — the same discipline as the provenance caveats. The moderator's denominator line reports
+the split too (`Causal edges: 6 (3 direct, 3 indirect; by provenance: …)`), while a **zero** register
+still renders exactly `Causal edges: 0 (by provenance: none)` — the PM-1 wording is pinned by test.
+
+The section accepts bare relationships as well as tuples, so any caller not yet traversing still
+renders. Tests: `tests/unit/test_causal_neighbourhood.py` (11).
+
+## Market Signal Routing — own label, own budget, own path (Aug 2026) 🔴
+
+**Three defects, one root shape.** Market Analysis runs at the end of the DA workflow and attaches
+`market_signals` to the DA output. Solution Finder **never read that field.** The only route in was
+`refinement_result["external_context"]`, populated by turn-0 seeding of the refinement chat.
+
+1. **Skipping the refinement chat dropped every signal.** MA ran, signals were attached, and nothing
+   downstream read them — only the `market_conflict` flag survived. Personas were told two things
+   disagreed without being told what the external one said.
+2. **Signals were attributed to the executive.** They rendered as `PRINCIPAL-PROVIDED CONTEXT (from
+   refinement)` — market research presented as the principal's own words.
+3. **Shared budget.** Signals and principal statements competed for the same `external_context[:3]`,
+   so seeded signals crowded out what the executive actually said. Same failure shape as the
+   refinement/register constraint budgets.
+
+**Fix — `_format_market_signals(da_ctx, refinement_result)`:**
+
+- Reads `da_ctx["market_signals"]` **first**, so signals arrive whether or not refinement ran; the
+  seeded path remains a fallback for DA payloads that predate the field.
+- Renders under its own heading: *"EXTERNAL MARKET SIGNALS (from Market Analysis — not the
+  principal's own words)"*.
+- Preserves `source` and `relevance_score` — flattening to a bare string discarded the provenance a
+  persona needs to weigh a signal.
+- Separate budgets: `_MAX_MARKET_SIGNALS = 5`, `_MAX_PRINCIPAL_CONTEXT = 3`.
+- `_split_external_context()` separates MA-seeded items (prefix `Market signal: `) from what the
+  principal typed, so each is presented under its true provenance and neither is double-counted.
+- Dedup is on **content**, not the rendered line — the same signal arrives structured from DA and as
+  a seeded string, and comparing rendered lines never matched (caught by test, not by review).
+
+Reaches both the dataset recap **and** Stage 1 (`da_compact_s1["external_market_signals"]`); Stage 1
+previously saw only the conflict flag. Tests: `tests/unit/test_sf_market_signal_routing.py` (10).
+
 ## Cost Observability — `token_usage` audit event (Aug 2026)
 Every LLM call SF makes records into a per-run ledger; the totals are appended to the audit
 log as a single `token_usage` event:

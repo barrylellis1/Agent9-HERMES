@@ -949,6 +949,10 @@ class A9_Orchestrator_Agent:
                 "A9_Solution_Finder_Agent",
                 config={
                     "enable_causal_grounding": os.getenv("SF_ENABLE_CAUSAL_GROUNDING", "false").lower() == "true",
+                    # How far to traverse the causal graph. Env-settable so an
+                    # experiment arm can be switched with a restart, same protocol
+                    # as the flags above (config is read at agent creation).
+                    "causal_max_hops": int(os.getenv("SF_CAUSAL_MAX_HOPS", "2") or 2),
                     "enable_critic_pass": os.getenv("SF_ENABLE_CRITIC_PASS", "false").lower() == "true",
                     # Stage H: theory-guided moderator (PM-2 A/B arm selector).
                     # Same env-var pattern; requires SF_ENABLE_CAUSAL_GROUNDING too
@@ -964,6 +968,11 @@ class A9_Orchestrator_Agent:
                     # agent never read: the precise false-confidence gap that endpoint
                     # exists to eliminate.
                     "use_structured_output": os.getenv("SF_USE_STRUCTURED_OUTPUT", "false").lower() == "true",
+                    # Step 1 of the 2026-08-14 evidence-scope experiment. Same
+                    # env-var-at-creation protocol as the flags above.
+                    "stage1_allow_frame_challenge": os.getenv(
+                        "SF_STAGE1_ALLOW_FRAME_CHALLENGE", "false"
+                    ).lower() == "true",
                 },
             )
             # Also fixes a real, separate wiring gap: A9_Solution_Finder_Agent.create()
