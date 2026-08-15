@@ -970,6 +970,44 @@ export async function testConnectionHealth(clientId?: string): Promise<Connectio
 }
 
 // ---------------------------------------------------------------------------
+// Admin — Slice Validity (docs/architecture/kpi_semantic_contract.md §4)
+//
+// GET reads the persisted result straight off the KPI record — unlike
+// connection health above, slice-validity results ARE durably stored, so
+// there is no in-memory-cache staleness gap to reproduce here.
+// ---------------------------------------------------------------------------
+
+export interface SliceValidityDimensionResult {
+  dimension: string;
+  counts: Record<string, number>;
+  coverage: number;
+  verdict: 'ok' | 'degraded' | 'INVALID' | 'unknown';
+}
+
+export interface SliceValidityResponse {
+  status: 'success' | 'error' | 'not_probed' | 'checked';
+  kpi_id: string;
+  client_id: string;
+  error_message?: string | null;
+  results: SliceValidityDimensionResult[];
+  not_sliceable_by: string[];
+  checked_at: string | null;
+}
+
+export async function getSliceValidity(kpiId: string, clientId: string): Promise<SliceValidityResponse> {
+  const qs = `?kpi_id=${encodeURIComponent(kpiId)}&client_id=${encodeURIComponent(clientId)}`;
+  const envelope = await requestJson<Envelope<SliceValidityResponse>>(`/admin/slice-validity${qs}`);
+  return envelope.data ?? { status: 'not_probed', kpi_id: kpiId, client_id: clientId, results: [], not_sliceable_by: [], checked_at: null };
+}
+
+export async function testSliceValidity(kpiId: string, clientId: string, dimensions?: string[]): Promise<SliceValidityResponse> {
+  const params = new URLSearchParams({ kpi_id: kpiId, client_id: clientId });
+  (dimensions ?? []).forEach((d) => params.append('dimensions', d));
+  const envelope = await requestJson<Envelope<SliceValidityResponse>>(`/admin/slice-validity/test?${params.toString()}`, { method: 'POST' });
+  return envelope.data ?? { status: 'error', kpi_id: kpiId, client_id: clientId, results: [], not_sliceable_by: [], checked_at: null };
+}
+
+// ---------------------------------------------------------------------------
 // Connection Profiles — Infra B (Supabase-backed, client-scoped, encrypted)
 // ---------------------------------------------------------------------------
 

@@ -73,6 +73,7 @@ const MAINTENANCE_NAV: NavGroup[] = [
     items: [
       { label: 'Company Profile',    to: '/settings/company-profile',  icon: <Building2 className="w-4 h-4" /> },
       { label: 'Connection Health',  to: '/settings/connection-health', icon: <Activity className="w-4 h-4" /> },
+      { label: 'Slice Validity',     to: '/settings/slice-validity',    icon: <ShieldCheck className="w-4 h-4" /> },
     ],
   },
 ]

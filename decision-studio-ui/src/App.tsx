@@ -51,6 +51,7 @@ function App() {
         <Route path="/settings/accountability" element={<RegistryExplorer />} />
         <Route path="/settings/ownership-interview" element={<RegistryExplorer />} />
         <Route path="/settings/connection-health" element={<RegistryExplorer />} />
+        <Route path="/settings/slice-validity" element={<RegistryExplorer />} />
 
         {/* Settings — standalone pages wrapped in SettingsLayout */}
         <Route path="/settings/company-profile" element={<CompanyProfile />} />

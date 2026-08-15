@@ -31,6 +31,7 @@ import { PrincipalCardList } from '../components/PrincipalEditor'
 import { AccountabilityInterviewPanel } from '../components/AccountabilityInterviewPanel'
 import { DataProductOnboardingNew } from './DataProductOnboardingNew'
 import { ConnectionHealthPanel } from '../components/ConnectionHealthPanel'
+import { SliceValidityPanel } from '../components/SliceValidityPanel'
 
 function clampDay(n: number): number {
   if (Number.isNaN(n)) return 1
@@ -223,7 +224,14 @@ export function OnboardingDayView() {
               onRegistrationSuccess={() => setDp5RegisteredThisSession(true)}
             />
           )}
-          {day === 6 && <ConnectionHealthPanel clientId={clientId} />}
+          {day === 6 && (
+            <div className="space-y-8">
+              <ConnectionHealthPanel clientId={clientId} />
+              <div className="border-t border-slate-800/60 pt-8">
+                <SliceValidityPanel clientId={clientId} />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer nav */}
