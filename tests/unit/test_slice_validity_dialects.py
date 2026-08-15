@@ -136,6 +136,52 @@ async def test_profile_emits_backtick_quoted_sql_for_bigquery():
 
 
 @pytest.mark.asyncio
+async def test_uppercase_row_keys_are_handled_case_insensitively():
+    """Regression for a real bug found live (2026-08-15) against
+    apex_lubricants (Snowflake). Snowflake returns unquoted identifiers
+    UPPERCASE by default -- rows came back as {"COMPONENT": ..., "N": ...},
+    not {"component": ..., "n": ...} -- and the KeyError this produced sat
+    OUTSIDE the per-dimension try/except in the original code, so it killed
+    the entire check (every dimension) rather than skipping the one
+    dimension the way an absent column does below.
+    """
+
+    def run_query(sql):
+        return [{"COMPONENT": "Revenue", "N": 5}, {"COMPONENT": "COGS", "N": 5}]
+
+    verdicts = await profile(
+        run_query, "v", "account_type", ["Revenue", "COGS"], ["customer_name"], "Actual", "snowflake",
+    )
+
+    assert len(verdicts) == 1
+    assert verdicts[0].verdict == "ok"
+    assert verdicts[0].counts == {"Revenue": 5, "COGS": 5}
+
+
+@pytest.mark.asyncio
+async def test_a_row_shape_surprise_on_one_dimension_does_not_kill_the_whole_check():
+    """The structural fix alongside the case-insensitivity one: parsing now
+    happens inside the same try/except as the query call, so one dimension's
+    malformed rows are skipped like an absent column, not propagated past
+    profile() entirely."""
+
+    def run_query(sql):
+        if "customer_name" in sql:
+            return [{"totally_unexpected_key": "oops"}]  # still fails to parse...
+        return [{"component": "Revenue", "n": 5}, {"component": "COGS", "n": 5}]
+
+    verdicts = await profile(
+        run_query, "v", "account_type", ["Revenue", "COGS"],
+        ["customer_name", "product_name"], "Actual", "bigquery",
+    )
+
+    # ...but the OTHER dimension still gets checked, rather than the whole
+    # call raising and returning zero results for everything.
+    assert len(verdicts) == 1
+    assert verdicts[0].dimension == "product_name"
+
+
+@pytest.mark.asyncio
 async def test_profile_accepts_a_sync_or_async_run_query():
     """A9_Data_Governance_Agent's closure around execute_sql is async; the
     CLI's _bigquery_executor is sync. Both must work without profile()

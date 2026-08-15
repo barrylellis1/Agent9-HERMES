@@ -171,10 +171,22 @@ async def profile(
         try:
             result = run_query(sql)
             rows = await result if inspect.isawaitable(result) else result
-        except Exception as exc:  # dimension absent from this view
+            # Snowflake returns unquoted identifiers UPPERCASE by default
+            # ("COMPONENT"/"N", not "component"/"n") — found live 2026-08-15
+            # against apex_lubricants: r["component"] raised KeyError,
+            # OUTSIDE this try/except in the original code, so it killed the
+            # entire check (every dimension, not just one) rather than being
+            # skipped the way a genuinely absent dimension is below. Moved
+            # inside the try/except and made case-insensitive so it degrades
+            # the same way a missing column does, and works regardless of
+            # which backend's casing convention produced the row.
+            counts = {}
+            for r in rows:
+                row = {str(k).lower(): v for k, v in r.items()}
+                counts[row["component"]] = int(row["n"])
+        except Exception as exc:  # dimension absent from this view, or a row-shape surprise
             print(f"  {dim:24s} skipped — {str(exc).splitlines()[0][:70]}", file=sys.stderr)
             continue
-        counts = {r["component"]: int(r["n"]) for r in rows}
         for c in components:            # a component with zero rows still counts
             counts.setdefault(c, 0)
         richest = max(counts.values()) if counts else 0
