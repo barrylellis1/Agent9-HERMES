@@ -979,6 +979,10 @@ export async function testConnectionHealth(clientId?: string): Promise<Connectio
 
 export interface SliceValidityDimensionResult {
   dimension: string;
+  // Means different things per list below: component name -> distinct-value
+  // count (cross_component_results), or {total_rows, complete_rows}
+  // (completeness_results) — not unified, so which question this answers
+  // stays visible.
   counts: Record<string, number>;
   coverage: number;
   verdict: 'ok' | 'degraded' | 'INVALID' | 'unknown';
@@ -989,22 +993,36 @@ export interface SliceValidityResponse {
   kpi_id: string;
   client_id: string;
   error_message?: string | null;
-  results: SliceValidityDimensionResult[];
+  // Two independent checks (src/analysis/slice_validity.py has the full
+  // reasoning). completeness runs for EVERY KPI, 1 component or many —
+  // does every row have a non-NULL value for this dimension at all.
+  // cross_component only runs with 2+ components — do they reach the same
+  // dimension values as each other. Empty is a legitimate result for
+  // cross_component_results on a single-component KPI, not a failure.
+  completeness_results: SliceValidityDimensionResult[];
+  cross_component_results: SliceValidityDimensionResult[];
+  components_used: string[];
   not_sliceable_by: string[];
   checked_at: string | null;
 }
 
+const _EMPTY_SLICE_VALIDITY = (kpiId: string, clientId: string, status: SliceValidityResponse['status']): SliceValidityResponse => ({
+  status, kpi_id: kpiId, client_id: clientId,
+  completeness_results: [], cross_component_results: [], components_used: [],
+  not_sliceable_by: [], checked_at: null,
+});
+
 export async function getSliceValidity(kpiId: string, clientId: string): Promise<SliceValidityResponse> {
   const qs = `?kpi_id=${encodeURIComponent(kpiId)}&client_id=${encodeURIComponent(clientId)}`;
   const envelope = await requestJson<Envelope<SliceValidityResponse>>(`/admin/slice-validity${qs}`);
-  return envelope.data ?? { status: 'not_probed', kpi_id: kpiId, client_id: clientId, results: [], not_sliceable_by: [], checked_at: null };
+  return envelope.data ?? _EMPTY_SLICE_VALIDITY(kpiId, clientId, 'not_probed');
 }
 
 export async function testSliceValidity(kpiId: string, clientId: string, dimensions?: string[]): Promise<SliceValidityResponse> {
   const params = new URLSearchParams({ kpi_id: kpiId, client_id: clientId });
   (dimensions ?? []).forEach((d) => params.append('dimensions', d));
   const envelope = await requestJson<Envelope<SliceValidityResponse>>(`/admin/slice-validity/test?${params.toString()}`, { method: 'POST' });
-  return envelope.data ?? { status: 'error', kpi_id: kpiId, client_id: clientId, results: [], not_sliceable_by: [], checked_at: null };
+  return envelope.data ?? _EMPTY_SLICE_VALIDITY(kpiId, clientId, 'error');
 }
 
 // ---------------------------------------------------------------------------

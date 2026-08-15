@@ -25,7 +25,7 @@ import {
   testSliceValidity,
 } from '../api/client'
 
-function VerdictBadge({ verdict }: { verdict: SliceValidityResponse['results'][number]['verdict'] }) {
+function VerdictBadge({ verdict }: { verdict: SliceValidityResponse['completeness_results'][number]['verdict'] }) {
   if (verdict === 'ok') return (
     <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
       <CheckCircle2 className="w-3.5 h-3.5" /> ok
@@ -42,6 +42,47 @@ function VerdictBadge({ verdict }: { verdict: SliceValidityResponse['results'][n
     </span>
   )
   return <span className="text-xs font-medium text-slate-500">unknown</span>
+}
+
+function ResultsTable({
+  title, subtitle, results, countsLabel,
+}: {
+  title: string
+  subtitle: string
+  results: SliceValidityResponse['completeness_results']
+  countsLabel: string
+}) {
+  if (results.length === 0) return null
+  return (
+    <div className="mb-6">
+      <h3 className="text-sm font-semibold text-white mb-0.5">{title}</h3>
+      <p className="text-xs text-slate-500 mb-2">{subtitle}</p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-800 text-left">
+              <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Dimension</th>
+              <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Coverage</th>
+              <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Verdict</th>
+              <th className="pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide">{countsLabel}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {results.map((r) => (
+              <tr key={r.dimension} className="border-b border-slate-800/60 hover:bg-slate-800/20">
+                <td className="py-2.5 pr-4 text-white font-medium">{r.dimension}</td>
+                <td className="py-2.5 pr-4 text-slate-400 text-xs">{(r.coverage * 100).toFixed(0)}%</td>
+                <td className="py-2.5 pr-4"><VerdictBadge verdict={r.verdict} /></td>
+                <td className="py-2.5 text-slate-400 text-xs font-mono">
+                  {Object.entries(r.counts).map(([c, n]) => `${c}=${n}`).join('  ')}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
 }
 
 // A stale "last checked" reads as current unless it's called out — the
@@ -98,9 +139,12 @@ export function SliceValidityPanel({ clientId }: { clientId?: string }) {
     }
   }
 
-  const results = result?.results ?? []
+  const completenessResults = result?.completeness_results ?? []
+  const crossComponentResults = result?.cross_component_results ?? []
   const notSliceableBy = result?.not_sliceable_by ?? []
+  const componentsUsed = result?.components_used ?? []
   const stale = staleness(result?.checked_at ?? null)
+  const hasAnyResults = completenessResults.length > 0 || crossComponentResults.length > 0
 
   return (
     <div>
@@ -141,40 +185,37 @@ export function SliceValidityPanel({ clientId }: { clientId?: string }) {
 
       {notSliceableBy.length > 0 && (
         <div className="mb-4 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm">
-          <span className="font-semibold">Do not slice this KPI by:</span> {notSliceableBy.join(', ')} — a component
-          measure doesn't reach these dimensions, so slicing produces a confident, wrong number.
+          <span className="font-semibold">Do not slice this KPI by:</span> {notSliceableBy.join(', ')} — either some
+          rows have no value for the dimension at all, or the component measures don't reach it the same way. Either
+          way, slicing by it produces a confident, wrong number.
         </div>
       )}
 
-      {results.length === 0 && !running ? (
+      {componentsUsed.length > 0 && (
+        <p className="text-xs text-slate-500 mb-4">
+          Checked as built from: <span className="font-mono text-slate-400">{componentsUsed.join(', ')}</span>
+        </p>
+      )}
+
+      {!hasAnyResults && !running ? (
         <p className="text-sm text-slate-500 italic">
           {selectedKpiId ? 'Not yet checked — click Run Check.' : 'Select a KPI to check.'}
         </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-800 text-left">
-                <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Dimension</th>
-                <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Coverage</th>
-                <th className="pb-2 pr-4 text-xs font-semibold text-slate-400 uppercase tracking-wide">Verdict</th>
-                <th className="pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide">Component counts</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((r) => (
-                <tr key={r.dimension} className="border-b border-slate-800/60 hover:bg-slate-800/20">
-                  <td className="py-2.5 pr-4 text-white font-medium">{r.dimension}</td>
-                  <td className="py-2.5 pr-4 text-slate-400 text-xs">{(r.coverage * 100).toFixed(0)}%</td>
-                  <td className="py-2.5 pr-4"><VerdictBadge verdict={r.verdict} /></td>
-                  <td className="py-2.5 text-slate-400 text-xs font-mono">
-                    {Object.entries(r.counts).map(([c, n]) => `${c}=${n}`).join('  ')}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <ResultsTable
+            title="Completeness"
+            subtitle="Of this KPI's own rows, what fraction have a value for this dimension at all — applies whether the KPI is a plain sum or built from several components."
+            results={completenessResults}
+            countsLabel="Rows (total / with value)"
+          />
+          <ResultsTable
+            title="Cross-Component Coverage"
+            subtitle="Do this KPI's component measures (e.g. Revenue vs COGS) reach the same values for this dimension — only meaningful with 2+ components."
+            results={crossComponentResults}
+            countsLabel="Distinct values per component"
+          />
+        </>
       )}
     </div>
   )
