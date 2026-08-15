@@ -385,6 +385,11 @@ export function useDecisionStudio() {
                 exclusions: refinementResult.exclusions,
                 external_context: refinementResult.external_context,
                 constraints: refinementResult.constraints,
+                // Typed constraints with provenance. This object is an explicit
+                // field allow-list, so a new field on ProblemRefinementResult
+                // reaches Solution Finder only when added here — omitting it fails
+                // silently, with the flat `constraints` list masking the loss.
+                constraint_items: refinementResult.constraint_items,
                 validated_hypotheses: refinementResult.validated_hypotheses,
                 invalidated_hypotheses: refinementResult.invalidated_hypotheses,
                 refined_problem_statement: refinementResult.refined_problem_statement,

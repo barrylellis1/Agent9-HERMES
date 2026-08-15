@@ -369,6 +369,31 @@ export interface ProblemRefinementRequest {
   user_message?: string;
   current_topic?: string;
   turn_count: number;
+  /**
+   * Client-held conversation state echoed back each turn (Stage I B-1). The
+   * refine endpoint is stateless by design; the server previously tried to
+   * recover topics_completed by pattern-matching LLM prose, which never worked.
+   */
+  topics_completed?: string[];
+  /** Turns spent on current_topic; reset by the client when the topic changes. */
+  turns_on_current_topic?: number;
+  /**
+   * Typed refinement state from prior turns (Stage I B-2). Without these the
+   * server re-derives earlier turns with a keyword extractor, which discards
+   * constraint provenance and drops exclusions entirely.
+   */
+  prior_constraint_items?: ConstraintItem[];
+  prior_exclusions?: RefinementExclusion[];
+}
+
+export interface ConstraintItem {
+  id: string;
+  text: string;
+  source: 'refinement' | 'assumption_register' | 'kpi_relationship';
+  /** Persona ids whose extractor surfaced this. Empty = every persona has it. */
+  discovered_by?: string[];
+  asked_by?: string | null;
+  turn_index?: number | null;
 }
 
 export interface CouncilMemberRecommendation {
@@ -414,6 +439,17 @@ export interface ProblemRefinementResult {
   conversation_history: Array<{ role: string; content: string }>;
   market_signals?: MarketSignal[];
   replication_constraints?: string[];
+  /**
+   * Why this interview asked what it asked (Stage I B-1). The topic sequence is
+   * routed off the problem's measured structure rather than fixed, so these
+   * report the decision — without them a routed conversation is
+   * indistinguishable from the default one.
+   */
+  problem_profile_cell?: string;
+  topic_sequence?: string[];
+  topic_routing_rules_applied?: string[];
+  /** Accumulated constraints with provenance. `constraints` remains the flat union of texts. */
+  constraint_items?: ConstraintItem[];
 }
 
 // ---------------------------------------------------------------------------

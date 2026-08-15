@@ -18,6 +18,11 @@ const TOPIC_LABELS: Record<string, string> = {
   constraints: 'Constraints',
   success_criteria: 'Success Criteria',
   replication_potential: 'Replication Targets',
+  // Problem-shape-routed topics (Stage I B-1) — asked only when the analysis's
+  // measured structure makes them the question worth spending a turn on.
+  tradeoff_tolerance: 'Trade-off Tolerance',
+  segment_specific_causation: 'Why This Segment',
+  comparison_baseline: 'Comparison Baseline',
 };
 
 const STYLE_LABELS: Record<string, { label: string; color: string }> = {
@@ -40,10 +45,16 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
   const [currentTopic, setCurrentTopic] = useState<string>('hypothesis_validation');
   const [topicsCompleted, setTopicsCompleted] = useState<string[]>([]);
   const [turnCount, setTurnCount] = useState(0);
+  // Turns spent on the CURRENT topic, reset whenever the topic changes. The
+  // server judges topic completion per topic; it used to count every assistant
+  // message in the conversation, so from turn 3 onward each topic completed the
+  // moment it was reached.
+  const [turnsOnCurrentTopic, setTurnsOnCurrentTopic] = useState(0);
   const [refinementState, setRefinementState] = useState<Partial<ProblemRefinementResult>>({});
   const [suggestedResponses, setSuggestedResponses] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const prevTopicRef = useRef<string>('hypothesis_validation');
 
   const decisionStyle = principalContext?.decision_style || 'analytical';
   const styleInfo = STYLE_LABELS[decisionStyle] || STYLE_LABELS.analytical;
@@ -66,6 +77,17 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
       tier_label: (result as any).tier_label,
     }]);
     
+    // Reset the per-topic counter on a topic change, otherwise advance it.
+    // Tracked via a ref, not derived inside a state updater: React invokes
+    // updaters twice under StrictMode, which would double-count the turns and
+    // trip the auto-complete threshold a turn early.
+    if (prevTopicRef.current === result.current_topic) {
+      setTurnsOnCurrentTopic(c => c + 1);
+    } else {
+      setTurnsOnCurrentTopic(0);
+      prevTopicRef.current = result.current_topic;
+    }
+
     // Update state
     setCurrentTopic(result.current_topic);
     setTopicsCompleted(result.topics_completed);
@@ -89,6 +111,8 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
         principal_context: principalContext,
         conversation_history: [],
         turn_count: 0,
+        topics_completed: [],
+        turns_on_current_topic: 0,
       };
 
       const result = await refineProblem(request);
@@ -129,6 +153,12 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
         user_message: message,
         current_topic: currentTopic,
         turn_count: turnCount,
+        topics_completed: topicsCompleted,
+        turns_on_current_topic: turnsOnCurrentTopic,
+        // Echo prior typed state back. The server is stateless; without this it
+        // re-derives earlier turns heuristically and loses exclusions entirely.
+        prior_constraint_items: refinementState.constraint_items || [],
+        prior_exclusions: refinementState.exclusions || [],
       };
 
       const result = await refineProblem(request);
@@ -164,8 +194,11 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
     ) ??
     false
   );
-  const totalTopics = hasBenchmarks ? 6 : 5;
-  const progressPercentage = (topicsCompleted.length / totalTopics) * 100;
+  // The sequence is routed off the problem's structure (Stage I B-1), so its
+  // length is no longer a function of benchmarks alone — the server reports it.
+  // The benchmark heuristic remains only as the pre-first-response fallback.
+  const totalTopics = refinementState.topic_sequence?.length || (hasBenchmarks ? 6 : 5);
+  const progressPercentage = Math.min(100, (topicsCompleted.length / totalTopics) * 100);
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-slate-800 rounded-lg shadow-lg">
