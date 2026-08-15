@@ -1,9 +1,10 @@
 # KPI Semantic Contract — Governing What a Number *Means*
 
-**Status:** Design note. Not built. Parked behind the Phase 15 Stage H A/B (PM-4: one variable per live run).
-**Date:** 2026-08-09
+**Status:** Design note. Not built.
+**Date:** 2026-08-09 · **§4 sliceability added 2026-08-11**
 **Related:** `theory_layer_design.md` (what is *causally true*), this doc (what a number *means*),
-`DEVELOPMENT_PLAN.md` Phase 15 Stage H, `src/analysis/` (the deterministic scorers that would consume it)
+`DEVELOPMENT_PLAN.md` Phase 15 Stage H / Stage I, `src/analysis/` (the deterministic scorers that
+would consume it), `scripts/check_slice_validity.py` (the profiler that would populate §4)
 
 ---
 
@@ -20,9 +21,18 @@ that nothing authoritative records**. Not one was a plumbing failure; the A2A mo
 | `"Trend: Recovering"` printed above `−$58.3M → −$59.5M` | **sign convention** for negative-stored measures |
 | `KPIValue.unit` never populated system-wide → fake `$` on percentage points (fixed Jul 2026) | **unit**, declared but never enforced |
 | `%` vs `pp` confusion in briefing formatting | **unit semantics**, not just the symbol |
+| Gross margin by customer read **−457.71%** for one account and **exactly 100.00%** for nineteen others; the briefing recommended renegotiating a contract to correct an ETL defect | **sliceability** — is a cut along *this* dimension meaningful for *this* KPI? (§4) |
 
 The recurring shape: **prose or UI re-deriving what a typed model already carried correctly**, or
 computing something the registry never said was valid to compute.
+
+The last row is the odd one out and is worth stating precisely, because it is the reason §4 exists.
+Its *root cause* was a plumbing failure — COGS rows pinned to one `cust_id` in the generator — unlike
+every other row here. But its *escape* was semantic: SA raised a breach, DA found the "concentration",
+three MBB personas diagnosed a base-oil pass-through, and the briefing recommended action, because
+**no layer anywhere asked whether the slice was meaningful before reasoning on top of it**. The
+enterprise figure (33.25%) was correct throughout, which is exactly why it survived. A data bug is
+someone else's to fix; not noticing is ours.
 
 The sharpest single example: **Revenue in dollars genuinely sums across segments. Gross Margin %
 does not — it requires revenue-weighting.** That distinction caused two separate defects, and today
@@ -64,6 +74,10 @@ New governed fields on the KPI registry record, owned by the DGA, consumed by ev
 | `sign_convention` | `natural` \| `negative_stored` | Whether costs arrive as negative debits |
 | `inverse_logic` | `true` \| `false` | Whether a rise is bad (already on `KPIValue`; belongs in the registry as the source of truth) |
 | `scope_eligible` | `enterprise` \| `segment` \| `both` | Whether this KPI can legitimately be claimed at enterprise level |
+| `not_sliceable_by` | list of `{dimension, reason_class, note, source}` | Which dimensions this KPI must **not** be cut by. Different shape from the rest — see §4 |
+
+Every field above is a property of the KPI **alone**. `not_sliceable_by` is the one exception: it is a
+property of the KPI **× dimension** pair, and it is derived rather than declared. §4 covers why.
 
 ### Worked example
 
@@ -82,6 +96,11 @@ gross_margin_pct:
   weight_column: net_revenue
   sign_convention: natural
   inverse_logic: false
+  not_sliceable_by:                     # <-- §4; empty today, populated by profiling
+    - dimension: customer_name
+      reason_class: pipeline_gap        # should carry customer; the load drops it
+      note: "COGS coverage 1/20 vs revenue 20/20 (profiled 2026-08-09, since fixed)"
+      source: derived
 
 cogs:
   unit_class: currency
@@ -92,12 +111,127 @@ cogs:
 
 ---
 
-## 4. Division of responsibility (deliberate)
+## 4. Sliceability — the KPI × dimension axis
+
+### 4.1 It is a different property from additivity, and only one of them was designed
+
+These get conflated constantly, so state them side by side:
+
+| | Additivity (§3) | Sliceability (§4) |
+|---|---|---|
+| Scope | the KPI | the KPI **×** dimension pair |
+| Question | may segment values be **summed**? | is a cut along this dimension **meaningful at all**? |
+| Governs | arithmetic *between* segments | whether the segment values were ever worth computing |
+| Catches | `43.24 + 16.76 + 15.18` claimed as an enterprise move | `−457.71%` for one customer |
+
+`additive_across_dimensions: false` on `gross_margin_pct` correctly forbids summing its segments. It
+says **nothing** about whether any individual segment value was real. On the same KPI, the same day,
+the Aug 9 briefing failed the second test while passing the first.
+
+The reverse also holds, which is what makes this a genuinely separate axis rather than a special case:
+`net_revenue` is perfectly additive *and* was perfectly sliceable by customer in the same dataset that
+made `gross_margin_pct` unsliceable by customer. Additivity is about the measure; sliceability is
+about whether the measure's **components** reach that grain.
+
+### 4.2 Why it belongs on the KPI and not the data product
+
+Validity follows the KPI's components, not the view. On the *same* `LubricantsStarSchemaView`:
+
+| KPI | by product | by customer (pre-fix data) |
+|---|---|---|
+| `net_revenue` | valid | valid — revenue carries `cust_id` |
+| `gross_margin_pct` | valid — both components carry product | **invalid** — COGS did not |
+
+One data product, one view, two different answers. That is a KPI-level property by construction.
+
+This matters beyond correctness. `KPI.dimensions` exists today and is supposed to be the per-KPI
+declaration of what to analyse — but it is an **allow list that decayed into a per-client constant**:
+all four client seeds define one module-level `_DIMS`/`_DIMENSIONS` and paste it onto every KPI (67
+KPI records across 4 files reference exactly 4 distinct lists; `bicycle.py` has 2 entries). It is
+strictly worse than the contract it duplicates — for `lubricants` it is 5 entries against the
+contract's 16, two of which (`channel`, `region`) are not columns at all. Sliceability is the job that
+actually belongs at that level.
+
+### 4.3 Deny list, not allow list
+
+The decay above is structural, not sloppiness, and it is the argument for the shape:
+
+- An **allow list** must be maintained as the contract grows. Add a column to the view and the allow
+  list silently omits it. You lose analysis coverage with **zero signal** — nobody discovers that a
+  good analysis never happened.
+- A **deny list** defaults to *analyse*. New dimensions are picked up automatically; an entry is
+  needed only where something is known-broken.
+
+The failure modes are asymmetric in the direction we want:
+
+| | decay produces | visibility |
+|---|---|---|
+| allow list | a good analysis silently never happens | **invisible** |
+| deny list | you analyse something you shouldn't, and get a strange number | **loud** |
+
+Prefer loud. This is the same reasoning as `DimensionTotal.source` being a `Literal` in which `"sum"`
+is not representable: make the bad state hard to reach and the remaining failure noisy.
+
+### 4.4 Derive it; do not ask for it
+
+The strongest version is not hand-authored. `scripts/check_slice_validity.py` **already computes**
+per-component dimensional coverage and reports which dimensions a ratio KPI can legitimately be cut
+by. It is run by hand, wired to nothing, and gates no workflow.
+
+Proposal: run it at onboarding, write the result onto the KPI record, and let humans add what the data
+cannot reveal. Each entry carries `source`:
+
+| `source` | Meaning |
+|---|---|
+| `derived` | produced by coverage profiling — reproducible, re-runnable, dated |
+| `declared` | a human asserted it; the data did not show it |
+
+This is the provenance ladder from `theory_layer_design.md`, applied to measurement rather than
+causation. It also answers the obvious objection — *who would know?* — for the common case: **the data
+knows.** Coverage profiling would have caught Aug 9 outright (COGS 1-of-20 against revenue 20-of-20)
+without anyone needing prior knowledge of the ETL defect.
+
+`"ok"` must require **full** coverage. 19 of 20 means one slice is fabricated, and partial coverage is
+the case most likely to be believed.
+
+### 4.5 What DA does with it, and the one rule that must not be broken
+
+Exclude the dimension from `dims_to_process` — analysing a cut you have declared meaningless burns a
+query slot and risks the number reaching a reader.
+
+**But record every exclusion.** `DeepAnalysisResponse.dimensions_excluded: [{dimension, reason_class,
+source}]`, alongside the `dimensions_analyzed` field added in Stage I Part A. A deny list that quietly
+shrinks the investigation is the `preferred`-literal defect wearing better clothes — Part A was spent
+removing one invisible narrowing of the dimension set, and this must not install another.
+
+Useful interaction: excluding known-invalid cuts **frees slots** under `max_dimensions` (10 since Part
+A), so the search reaches deeper into valid dimensions. The check partly pays for its own cost.
+
+### 4.6 The trap: a deny list is a place to hide bugs
+
+Someone sees `−457.71%`, adds `customer_name` to `not_sliceable_by`, the symptom disappears, and the
+ETL defect lives forever behind something that looks like governance. `reason_class` exists to prevent
+exactly this:
+
+| `reason_class` | Meaning | Disposition |
+|---|---|---|
+| `structural` | the component genuinely is not captured at that grain (COGS is booked at product level; that is how the business works) | a **fact** — permanent, correct to declare |
+| `pipeline_gap` | it should be captured at that grain and is not | a **bug** — needs a ticket, not a declaration |
+
+`pipeline_gap` entries should be surfaced by `validate_registry_integrity` as open defects rather than
+sitting silently. A deny list with no `structural`/`pipeline_gap` split becomes a graveyard of unfixed
+ETL problems, and the graveyard will look like diligence.
+
+---
+
+## 5. Division of responsibility (deliberate)
 
 **The DGA declares. The scorers enforce. The agents obey.**
 
 ```
 DGA        declares the semantic contract per KPI          (authoritative, static)
+           §4 sliceability is the exception: DERIVED by
+           profiling, re-runnable, dated — not static
    |
    v
 SA / DA    read it when computing and stamping values      (MeasurementContext)
@@ -122,13 +256,17 @@ DGA's contribution is *upstream* — supplying the facts those checks currently 
 | `groundedness.cross_segment_summation` — inferred: "the claim is implausible vs the enterprise move but fits the sum of segments, so it was *probably* summed" | "this KPI is declared **non-additive**; summing its segment deltas is invalid, full stop" |
 | `narrative_claims` sum check — self-contained: only catches a total contradicting components *cited in the same sentence* | Also catches a total that is arithmetically consistent but **semantically invalid** (correctly summed, wrong to sum at all) |
 | `_parse_impact_estimate` scope guard — rejects `enterprise` + a segment label | Also rejects an `enterprise` claim on a KPI declared `scope_eligible: segment` |
+| **Nothing.** No layer asks whether a slice is meaningful before reasoning on it — the −457% / 100.00% margins passed SA, DA, three MBB personas and a briefing intact | `not_sliceable_by` excludes the cut, and `dimensions_excluded` records that it was excluded and why (§4.5) |
 
-That last row matters most: an LLM that sums three segment percentages *correctly* currently passes
-every check we have. Only a declared additivity property catches it.
+Two rows matter most. An LLM that sums three segment percentages *correctly* currently passes every
+check we have — only a declared additivity property catches it. And the last row is not an upgrade
+from heuristic to fact but from **nothing to something**: the other checks all verify arithmetic
+*inside* the pipeline, and no amount of downstream rigour substitutes for asking whether the input
+was meaningful.
 
 ---
 
-## 5. Honest limitations
+## 6. Honest limitations
 
 1. **This is prevention-adjacent, not prevention.** Declaring non-additivity does not stop an LLM
    summing anyway. It makes the violation *deterministically detectable* rather than heuristically
@@ -141,25 +279,53 @@ every check we have. Only a declared additivity property catches it.
    "cannot verify this claim", consistent with the not-checked ≠ pass discipline in `src/analysis/`.
 4. **It does not help un-onboarded KPIs.** A client whose KPIs predate the contract gets `unknown`
    everywhere until backfilled — which is honest, but means the checks stay heuristic in the interim.
+5. **Sliceability catches known and detectable invalidity — not unknown invalidity.** Coverage
+   profiling closes most of the gap, but it measures **presence, not provenance**. A fully-allocated
+   COGS column looks perfect to it. The genuinely dangerous case it cannot see is cost that reached
+   the customer by **allocation rather than observation**: someone re-weights an allocation driver and
+   an account goes from profitable to catastrophic with nothing having happened commercially. Unlike
+   100%-margin rows, that is invisible to inspection. It needs a real CO-PA / PaPM feed where the
+   cycles exist and is correctly deferred to pilot — raise it in pilot scoping, never as a demo slide.
+6. **Its value is concentrated outside the enterprise ICP.** In a mature SAP CO-PA / S4 Margin
+   Analysis landscape, standard COGS *does* carry customer and product from the sales document, so the
+   coverage check often will not fire. Its value concentrates in mid-market and in warehouse layers
+   that dropped characteristics — a segment not yet validated.
 
 ---
 
-## 6. Sequencing
+## 7. Sequencing
 
 Pairs naturally with **token substitution** (see Phase 15 Stage H notes): a basis-aware token
 vocabulary and an additivity declaration are the same idea — *the registry states what this number
-means, and consumers reference rather than re-derive*. Both are parked behind the Stage H A/B and
-should land together rather than separately.
+means, and consumers reference rather than re-derive*. They should land together rather than
+separately. (The Stage H A/B these were parked behind **closed 2026-08-09**; nothing gates them now
+except priority.)
 
-Suggested order when unparked:
+**§4 sliceability ships with §3, not after it.** Both are the same governance surface and the same
+migration. Shipping them as two schema changes would mean backfilling every client twice and running
+the handle-with-care registry migration path twice, for one coherent idea. If only one can be
+afforded, note that additivity has designed-but-unbuilt heuristic cover in
+`groundedness.cross_segment_summation`, whereas sliceability has **no cover at all** — no layer
+anywhere currently asks the question.
+
+Suggested order:
 
 1. **Schema + seed for one client** (lubricants), `unknown` defaults everywhere else
-2. **Scorers consume it** — `groundedness` and `narrative_claims` prefer the declared fact over their
+2. **Wire `check_slice_validity.py` into onboarding** so `not_sliceable_by` is populated by profiling
+   rather than authored — this is what makes §4 cheap enough to be worth having
+3. **Scorers consume it** — `groundedness` and `narrative_claims` prefer the declared fact over their
    heuristic, falling back to the heuristic when `unknown`
-3. **SF prompt is told it** — one line per KPI in the synthesis context
-4. **DGA exposes it** via a `get_kpi_semantics(kpi_id, client_id)` entrypoint, and
-   `validate_registry_integrity` gains a check for KPIs missing a semantic contract
-5. **Backfill remaining clients**, then flip `unknown` from tolerated to a registry-integrity warning
+4. **DA consumes `not_sliceable_by`** — exclude from `dims_to_process`, and populate
+   `dimensions_excluded` on the response (§4.5: never narrow silently)
+5. **SF prompt is told it** — one line per KPI in the synthesis context
+6. **DGA exposes it** via a `get_kpi_semantics(kpi_id, client_id)` entrypoint, and
+   `validate_registry_integrity` gains a check for KPIs missing a semantic contract **and** a check
+   that surfaces every `reason_class: pipeline_gap` entry as an open defect (§4.6)
+7. **Backfill remaining clients**, then flip `unknown` from tolerated to a registry-integrity warning
+
+Note the ordering constraint in step 4: it depends on Stage I Part A having landed
+`dimensions_analyzed`, since `dimensions_excluded` is meaningless without a record of what *was*
+analysed. That is already in place.
 
 Also worth doing independently of the above: **either implement `check_data_quality` or delete it.**
 It currently returns hardcoded confident metrics, which is actively misleading.

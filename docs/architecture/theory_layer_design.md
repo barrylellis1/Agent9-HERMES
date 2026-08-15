@@ -112,10 +112,103 @@ Principle: **executives will never fill in causal metadata forms.** The only via
 - **Assumption records** — attach to the threshold row they explain.
 - **Relationship candidates** — proposed `kpi_relationships` rows with mechanism/lag.
 
-### 5.2 SF HITL — rejections are worth more than approvals
+### 5.2 Constraint capture — two points, one register (designed 2026-08-12)
 
-- **Rejection/modification rationale → constraint records** ("can't touch pricing on the anchor account, contract to 2028"). Fed into SF Stage 1 prompts for that client permanently. The visible learning loop — SF demonstrably stops proposing known-impossible things — is the calibration behavior executives read as competence. ⚠️ Per-client prompt injection widens the cross-tenant contamination surface previously hit in SF — isolation tests required.
-- **Approval → "this option bets on:" assumption list**, emitted by synthesis, confirmed at approval, passed to VA in the registration payload. Rides the same wiring as the open SF→VA HITL TODO (kpi_id + impact bounds) — implement together.
+- **Approval → "this option bets on:" assumption list**, emitted by synthesis, confirmed at approval, passed to VA in the registration payload. Rides the same wiring as the open SF→VA HITL TODO (kpi_id + impact bounds) — implement together. **Shipped Aug 2026** (`workflows.py` HITL-approve handler → `AssumptionProvider.upsert`).
+- **Rejection/modification rationale → constraint records** ("can't touch pricing on the anchor account, contract to 2028"). The visible learning loop — SF demonstrably stops proposing known-impossible things — is the calibration behavior executives read as competence. ⚠️ Per-client prompt injection widens the cross-tenant contamination surface previously hit in SF — isolation tests required.
+
+The rest of this section is the design that fell out of working through that second bullet. **Not built.**
+
+#### 5.2.1 There are two capture points, and they are complementary
+
+Constraints are stated at two different moments, and the original sketch only saw one:
+
+| | **Problem refinement** (DA) | **Solution rejection** (SF) |
+|---|---|---|
+| Prompt | direct question — "what levers are off the table?" | reaction to a concrete proposal |
+| Cost to state | cheap; no decision attached | **costly** — overriding a recommendation |
+| Recall quality | memory-limited — nobody lists the union agreement unprompted | triggered; far better |
+| Generality | stated categorically | stated about *this* option |
+| Rationalization risk | low | real — the reason given may not be the reason |
+
+Neither dominates. Rejection is stronger on **assertion** (§4's own logic: vetoes are asymmetrically less bias-prone than confirmations — rejecting requires overriding, agreeing requires only inertia). Refinement is stronger on **generality**. A single ladder position cannot hold both, which is the same collision §5.5 already resolved for causal edges by splitting `causal_rung` from `provenance`.
+
+**Resolution: same rung, different default reach.** Both are *directly elicited*, so both enter `confirmed` and active — see 5.2.2. They differ only in what they bind by default (5.2.4).
+
+`ConstraintItem.source` gains `solution_rejection` alongside `refinement`, so the capture point survives into the register.
+
+#### 5.2.2 Trust on capture — the ladder's caution does not apply here
+
+`hitl_proposed` ("not consumed until confirmed") was built for **mined** material — the SA comment field, where a human never asserted anything and inference is doing the work. A direct question answered directly is a different epistemic event, and §5.5's guardrail already carves it out as the legitimate HITL contribution: *"domain facts an algorithm can't know (a supplier change, a contract event)."*
+
+**Rule: if an executive answers a direct question, we trust it until it is proven wrong.** Refinement and rejection constraints enter `active` and are consumed immediately. This also disposes of the confirmation-lag problem — there is no queue to bypass (§5.4).
+
+The boundary of that rule matters: it covers what the executive **asserted**, not what a model **inferred they meant**. See 5.2.4.
+
+#### 5.2.3 VA cannot falsify a constraint — this is structural, not a gap in wiring
+
+VA falsifies **assumptions** cleanly: an option bet on base oil normalising, VA observes the outcome, held or broke.
+
+Constraints are not symmetric with this. A constraint's job is to stop certain options being generated — so **if a constraint is wrong, the evidence that would reveal it is never created.** The option was never proposed, never approved, never measured. VA sees nothing, because there is nothing to see.
+
+"Can't raise prices on the anchor account" persists past the Q3 renewal. SF stops proposing price moves. No solution fails, no assumption breaks, VA stays silent, and the register looks healthy while quietly narrowing what the system can imagine. **This is the same failure §5.1 forbade outright for explanations — absence of evidence manufactured by the suppression itself** — and it is worse here, because a stale constraint is invisible: the failure is an *absence* of options, and nobody notices what was never proposed.
+
+**Therefore constraints need a falsifier that is not outcome data.** It is the confirmation beat (5.2.5). This also catches rationalization: asking *"is this still true?"* at a later situation, outside the heat of rejecting a specific option, is exactly the test a real constraint survives and a constructed reason tends not to. No one has to distrust the executive in the moment.
+
+#### 5.2.4 Reach — business process, not KPI
+
+**Constraints bound decisions. KPIs are measurement instruments. Business processes are where decisions get made.**
+
+"Can't raise prices on the anchor account" is not a fact about `gross_margin_pct`. It is a fact about revenue management, and it should bind whether the trigger was margin, net revenue or product sales revenue. Keying it to whichever metric happened to breach is an accident of which threshold fired first.
+
+| Field | Role |
+|---|---|
+| `client_id` | hard tenant boundary — RLS-enforced, non-negotiable |
+| `business_process_ids[]` | what it **binds** |
+| `kpi_id`, `situation_id`, captured-at | where it **came from** — searchable tags, never gates |
+
+Many-to-many is required, not optional: "headcount is frozen" bounds Finance *and* Operations. The current `assumptions.scope` single string (`scope = $2 OR scope = 'client'`) cannot express this.
+
+**Default reach is deterministic:** the `business_process_ids` already attached to the KPI under analysis. That is a fact about our own registry, so it inherits the executive's trust and applies immediately.
+
+**Inferred widening is held until confirmed.** When extraction concludes a constraint reaches further than the analysed KPI's processes ("this applies to anything touching the anchor account"), that is the *model* reasoning about what the executive meant — precisely the class 5.2.2's trust rule does not cover. Propose it, show it at the confirmation beat, apply it only when accepted.
+
+**No promotion ladder.** An earlier sketch had reach earned by repetition (situation → KPI → client). That is wrong, not merely unnecessary: if a constraint is a fact, it is true everywhere it is relevant on day one, and a promotion mechanism means deliberately withholding a known fact until someone repeats themselves — the system being artificially stupid, plus machinery whose only job is to undo a restriction we imposed on ourselves.
+
+⚠️ **Prerequisite.** Business process ids are currently inconsistent across registries (mixed snake_case, display names and ids — see root `CLAUDE.md` known issues). That is tolerable when BPs drive dimension hints; it is **not** when they gate whether a prohibition applies. A fuzzy match either leaks a prohibition onto unrelated work or silently fails to apply one, and the second is invisible. Constraint retrieval must be strict-match and must **log loudly when a constraint's BP ids do not resolve** — an unresolvable constraint should never fail silently, because its whole job is to stop something happening. Domain-level BPs (`"Finance"`) are too coarse to be usable here.
+
+#### 5.2.5 The confirmation beat — inside the solution HITL
+
+Not a standing queue (§5.4), not a separate ritual. At solution review the principal is already deciding; the beat is *"these N constraints are being applied to this problem — confirm."*
+
+It does three jobs at once:
+1. Confirms relevance — the situation→register mapping will not always be clean, so this is where LLM inference gets a human check rather than being trusted silently.
+2. Falsifies stale constraints (5.2.3) at exactly the moment they would bind.
+3. Accepts or rejects inferred widening (5.2.4).
+
+Where the principal stated a review date — *"before the contract renews in Q3"* — carry it as a marker so the beat can say *"stated as holding until Q3, and it is now October"* rather than presenting the constraint flat. Not a hard expiry that silently deletes; a prompt that makes staleness visible.
+
+#### 5.2.6 Late capture requires re-running Solution Finding
+
+A constraint captured at solution review arrives **after** the options were generated. Those options were conceived without it. So the principal must be able to re-run Solution Finding with the augmented constraint set — a different option could emerge, and usually should.
+
+This upgrades the learning loop from *next time* to *now*. Deferred learning is invisible; nobody notices an option that was not proposed weeks later. Immediate re-generation is the demonstration.
+
+- **Full re-run, not partial reuse.** Constraints bind at Stage 1 (`refinement_compact_s1` feeds the persona prompts). Reusing Stage 1 hypotheses would produce options *conceived* under the old bounds and merely re-described under the new ones.
+- **Replaces the briefing.** Round 1 remains retrievable under its own `request_id` and can be printed for comparison.
+- **Supersession must be recorded** — run 2 links to run 1 with the constraint that caused it, so the briefing can say *"these options changed because you added this constraint."* That sentence is the value.
+- **The over-constrained terminal state must be sayable.** Enough cycles and the feasible set empties. *"Everything that would work, you have ruled out"* is a legitimate and valuable answer — but today it would surface as generic stub options, indistinguishable from the known defect where a total LLM outage renders as a successful briefing. It needs its own explicit outcome.
+- **Cycle count visible, not capped.** An executive on their fourth re-run is telling you something about the problem; cutting them off mid-thought is worse than letting it run.
+
+⚠️ **This is the risk that decides whether the loop is worth building.** If the principal rejects an option saying "we can't touch the anchor account" and the re-run proposes something else that touches it, that is not a neutral failure — it is the system visibly not listening, seconds after being told, in front of the person whose trust the loop exists to earn. Deferred learning fails quietly; this fails loudly. The capture-and-apply path must be verified end-to-end on a real rejection before it goes near a demo.
+
+#### 5.2.7 Schema deltas required
+
+- `assumptions.business_process_ids` (array) — replaces single-string `scope` for constraint binding; `scope` degrades to a provenance tag.
+- `assumptions.review_date` (nullable) — the principal's stated validity horizon, for 5.2.5.
+- `ConstraintItem.source` += `solution_rejection`.
+- Retrieval changes from `get_active_constraints(client_id, scope=kpi_id)` to a BP-set match resolved from the analysed KPI's `business_process_ids`.
+- Supersession link on the solution workflow record (5.2.6).
 
 ### 5.3 VA HITL — the richest and currently thinnest touchpoint
 
@@ -219,7 +312,7 @@ Kept as first-class design content. "It's July 2027 and the theory layer failed"
 |---|---|---|
 | **P0** | Assumption text on threshold rows; explanation records with mandatory expiry + self-falsification (alert-noise hardening win, zero flywheel dependency) | None — standalone value; schedule against Phase 12 priorities |
 | **P1** | VA adjudication HITL (cold-ask, no pre-fill) + assumption verdicts + lag write-back — dock to SF→VA wiring TODO | SF→VA wiring scheduled |
-| **P2** | SF rejection→constraint extraction + prompt injection | Tenant-isolation tests pass; ≥1 pilot with real SF usage |
+| **P2** | Constraint capture at both HITL points + BP-scoped reach + confirmation beat + SF re-run loop (**§5.2 — designed 2026-08-12**) | Tenant-isolation tests pass; **business-process id normalisation** (§5.2.4 prerequisite — fuzzy BP matching silently fails to apply a prohibition); ≥1 pilot with real SF usage. Informed by Phase 15 Stage I B-3: if the personas do not diverge on what they ask, per-persona constraint sets matter much less and this reduces to a single shared set |
 | **Template seeding** | MA causal template generator + onboarding correction interview + provenance ladder in schema | Scheduled with a real new-client onboarding (12-series slot) |
 | **P3** | Static tree exhibit (spine + external ports) | 12C shipped (objectives/driver weights) |
 | **P4** | Interactive tree as adjudication UI; shard-conflict surfacing | Observed pilot engagement with static exhibit; graph density from real usage |

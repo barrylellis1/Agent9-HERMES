@@ -1975,6 +1975,52 @@ Same ordering for every KPI, client, and problem type. No framework, principal, 
 
 **Sequencing.** Hold every live run until the `use_structured_output` flip lands (PM-4 — one variable per run). Then: problem-profile-driven topics + dimensions (deterministic, no experiment needed) → cheap proposal-comparison test → shared-interview build only if the test shows divergence. Measure the outcome with the Stage H instruments already built (mechanism fingerprint, groundedness, problem profile), comparing **within** problem type.
 
+**🏁 Stage I B-3 GATE CLOSED (2026-08-12) — CONVERGE. B-4 (shared question queue) is NOT justified.**
+
+The gate asked the question the whole persona-differentiation build rests on: *would the personas actually ask different questions?* Each persona proposed 6 refinement questions on one fixed DA result (lubricants `gross_margin_pct`), self-tagging each against the 9-topic interview vocabulary. Deterministic comparison, no LLM judge. Harness: `tools/ab_harness/b3_question_divergence.py`.
+
+| council | personas | mean topic Jaccard | vs null |
+|---|---|---|---|
+| MBB | mckinsey, bcg, bain | **0.667** | **above the 95th pct — significantly MORE aligned than chance** |
+| diverse (as `_recommend_diverse_council` selected) | mckinsey, pwc_strategy, accenture, kpmg | **0.604** | inside the null range — indistinguishable from random tagging |
+| — | *random tagger, 6 picks of 9* | **0.512** (90% range 0.44–0.64) | — |
+
+**The first verdict was wrong, and the error was mine.** The gate originally used a flat "mean Jaccard ≤ 0.70 ⇒ diverge" threshold and reported DIVERGE for both councils. But choosing 6 topics from a 9-item vocabulary produces overlap by arithmetic alone: a **random tagger scores ~0.51**. The threshold sat *below the null*, so it would have called chance divergence — and did, twice. Divergence requires scoring **below** the null; both councils scored **above** it. Corrected in the harness: the gate now simulates the null (fixed seed) and compares against it rather than a hand-picked number.
+
+- **Even across disciplines, the questions converge.** All four diverse-council personas asked the same three things — what changed in period 2026-006, whether the erosion is segment-concentrated, and which external cost/competitive factors apply. What differed was **house vocabulary**, not substance: PwC framed it as *capabilities* (pricing governance, procurement), Accenture as *systems* (ERP/pricing-system constraints on granular margin instrumentation), KPMG as *governance* (escalation thresholds, controls). One analysis in four costumes — the original Stage I observation, reproduced at four personas spanning four disciplines rather than three strategy houses.
+- **MBB collapses to two.** McKinsey and BCG produced **identical** topic sets (Jaccard 1.00); only Bain differed. A three-firm council is effectively two questioners.
+- **Decision: close Stage I at B-2 for now.** Do not build the shared question queue or per-persona constraint sets *as designed*. The B-2 machinery (constraint provenance, the register-crowding truncation fix, the deterministic exposure report, the HITL "no adjudication pass ran" string) stands on its own merits and stays. **Superseded in part — see the extension below.**
+- **Cost: ~$0.07 total** across both councils (6,265 in / 3,835 out tokens, `claude-sonnet-5`) against a $0.50 budget — the cheapest finding in Phase 15, and it prevented the most expensive build in it.
+
+**🔬 B-3 EXTENSION (same day, 5 further arms, ~$1.15) — the convergence is the ROSTER, not the pipeline.**
+
+Full record, methodology lessons and the proposed test series: **`docs/architecture/persona_council_experiments.md`**. Summary of what changed the conclusion:
+
+- **Correction to the readout above.** The 20-mind arms tag 2 topics of 9, not 6, and that null (**0.157**) was not computed at the time. Against it, *every* council tested — including the 20 methods — sits **above** its null. Topic selection converges under every configuration; only the famous-four arm reached its null. The problem constrains which questions are worth asking. What differentiates is the **content within** topics, which topic-tag Jaccard cannot see and lexical Jaccard tracks (0.26 → 0.058 across the roster range).
+- **Three clean single-variable comparisons.** Model only: MBB 0.667 → **0.810** (*more* convergent on the better model); 20 methods 0.405 → **0.311** (*more* divergent). Prompt only: 20 methods on Fable, authored profiles → **name only**, 0.311 → **0.261** (*more* divergent). One model change, two opposite directions, decided by who is in the council.
+- **The differentiation is not authored.** Stripping the profiles entirely and prompting with the bare name *increased* divergence and surfaced concepts absent from any profile text — Ohno → *gemba*, Levitt → *electric*/*drivetrains*, Drucker → *abandonment*, Munger → *invert*. It lives in the model's knowledge of these people, which closes the circularity objection.
+- **The consequential result.** Two of twenty methods (Carnegie, Deming) independently proposed the margin decline might be an **accounting artefact** — under-absorption from volume shortfall, or a costing-methodology change — before diagnosing any commercial cause. **Zero of the six consulting personas did.** The Aug 9 slice-validity incident was exactly that failure, and it passed SA, DA, three MBB personas and a briefing intact.
+- **Revised recommendation:** the lever is **roster composition**, not the shared queue. Replace the consulting-firm roster with a method roster and keep the existing `_recommend_diverse_council` selection machinery — which also dissolves the roster defect below rather than patching it. B-4 should be re-asked against personas that actually differ.
+- **NOT authorised, and the reason is explicit.** Every number measures *divergence*, which is a proxy. Nothing tests whether these questions elicit constraints that change the recommendation, and the load-bearing risk runs the other way — a council optimised for divergence could be a council optimised for mutual ignorance.
+
+**🏁 PHASE 0 OUTCOME MEASURE RUN (2026-08-12, $0 — scored the saved payloads). The persona line CLOSES.**
+
+Scored all seven arms on the only thing that matters: *does any persona challenge how cost was assigned before diagnosing a commercial cause* — the question that would have caught the Aug 9 artefact. `tools/ab_harness/b3_artefact_score.py`.
+
+| council type | genuine hits |
+|---|---|
+| consulting + famous (arms 1–4) | **0 of 14 persona-slots** |
+| 20 methods (arms 5–7) | **4 of 60 (~7%)** — Carnegie, Deming ×2, Ohno |
+
+- **The roster thesis holds directionally and fails practically.** 0% vs ~7% is real, and it is the cost-accounting / SPC / shop-floor methods doing all of it. But selecting 4–6 from a 20-library is roughly a coin flip on including Carnegie or Deming. **A defect that produced a −457% margin and reached a briefing cannot be defended by a persona lottery.**
+- **Decision: do not solve this with personas.** The artefact question must be asked deterministically on every run. `scripts/check_slice_validity.py` already computes it and is wired to nothing; the governed version is designed in `kpi_semantic_contract.md` §4 (sliceability). **Wiring that check now outranks any council change.** The stop rule written into the test design fired, and ~$0 of new spend closed a line that phases 1–3 would have refined at real cost.
+- **Instrument caveat.** The term screen threw 14 candidates of which 4 survived adjudication — a **71% false-positive rate**, dominated by `absorb` in the commercial sense (*"we absorbed the cost increase"* ≠ absorption costing). Adjudication is recorded as data beside the screen rather than folded into a cleverer regex. The first version of that lookup had an off-by-one that turned every verdict into `unreviewed` and displayed as 0 genuine across all arms — a not-checked masquerading as a fail, caught only because a uniform zero looked wrong.
+- **Limitation:** all arms saw the post-fix (clean) data, so this measures whether the method asks the question *as standard practice* — the property you actually want, since the check must fire before anyone suspects a problem.
+
+**Also found by this gate, both recorded not fixed:**
+- **The "four-firm" diverse council has two real choices and can seat one firm twice.** `technology` and `risk` have a single member each (Accenture, KPMG), so they are constants rather than selections; and KPMG sits in **both** `big4` and `risk`, so a risk-flavoured problem returns KPMG in two seats. Details on `A9_Deep_Analysis_Agent_card.md`.
+- **`_build_kt_summary` formats percentage-point deltas as dollars.** The refinement prompt — production, not just the probe — renders `- Synthetic Blend Engine Oil: $-7 (0.0% of variance)` for a −7.1pp move, with a variance share that always rounds to zero. Same `KPIValue.unit` gap listed under Known Issues, surfacing in a new place. Identical for every persona, so it did not bias the gate.
+
 #### A total LLM outage renders as a successful briefing (found 2026-08-09, NOT fixed)
 
 A live Solution Finder run was attempted to refresh a test fixture. The Anthropic account had **zero credit**, so every LLM call failed:
@@ -2039,6 +2085,23 @@ Root cause was in the generator, not the warehouse: COGS rows were distributed a
 **Deferred to pilot: allocation provenance.** The coverage check measures **presence, not provenance** — a fully-allocated COGS column looks perfect to it. In a mature SAP CO-PA / S4 Margin Analysis landscape standard COGS *does* carry customer and product from the sales document, so the crude check often will not fire in the enterprise ICP; its value concentrates in mid-market and in warehouse layers that dropped characteristics, a segment not yet validated. The genuinely dangerous case is the one it cannot see: **cost that reached the customer by allocation rather than observation.** If a margin move is driven by allocated cost, the root cause may be an allocation-driver or basis change rather than the business — someone re-weights a driver and an account goes from profitable to catastrophic with nothing having happened commercially. Unlike 100%-margin rows, that is invisible to inspection. Cannot be built honestly against synthetic data; needs a real CO-PA/PaPM feed where the cycles exist. **Raise in pilot scoping conversations** ("we'd flag if your margin move came from an allocation change rather than the business" is strong to a controller) — never as a demo slide, where it invites a technical argument in a room that wants a business conversation.
 
 **Open commercial question this raises.** If three MBB personas reliably yield one hypothesis, we are paying for three calls plus council machinery to obtain one idea — and presenting a "council" narrative that implies more independent scrutiny than occurred. That is a credibility exposure with a CFO who knows these firms. The earlier diverse-council run (McKinsey / KPMG / Accenture) *did* produce genuinely distinct archetypes — negotiate / govern / platformize — which appeared in none of the 10 MBB runs. Working hypothesis: **persona differentiation pays when the disciplines genuinely differ, and collapses when they do not.** Stage I tests whether framing-level differentiation can recover it within a single discipline; if it cannot, the honest options are one strategy persona plus genuinely different disciplines, or keeping three but no longer calling it a debate.
+
+**🔬 EVIDENCE-SCOPE EXTENSION (2026-08-14/15, 11 further real SF runs) — the persona line stayed closed; two adjacent lines opened, ran, and closed too.**
+
+Full record: **`docs/architecture/persona_council_experiments.md` §7b/§7c.** This work did not reopen B-4 — it followed a different architectural insight, that SF reasons over the dimensional decomposition of one KPI (WHERE it moved) and had two broken channels to WHY: causal-graph traversal was single-hop, and `market_signals` was never read by SF at all.
+
+- **Two false zeros fixed first.** `_build_kt_summary` rendered percentage-point deltas as dollars (`$-7` for a −7.14pp move, collapsing distinct drivers onto identical values) and asserted `"(0.0% of variance)"` against every driver because the field is absent on the flat dimension path, not zero — this is the same defect the Aug-12 gate flagged at line 2022 above, now fixed via the KPI's registry unit. Separately, the SF `causal_context` audit event read `constraints` before fetching them, so every run reported `constraints: 0` regardless of what the register held — the register was correct throughout (one active lubricants constraint); only the audit was blind. Both pinned by regression tests. **27 of the 33 real-run options in this whole exploration were generated over the broken unit string** — a fact worth remembering before re-reading any option text quoted in this doc from before 2026-08-14.
+- **Causal traversal (`max_hops` 1→2): no measurable effect, and the null is explained, not mysterious.** `get_causal_neighbourhood()` (BFS, hop-tracked) shipped and works — verified live. But on lubricants `gross_margin_pct`, the *direct* edge's mechanism prose already names base oil ("largest COGS input... passes through to COGS with a lag"), so the 2-hop node added precision, not the concept. **Graph depth and mechanism prose are substitutes** — the effect should reappear on a KPI whose near edges are still `mechanism: null` (three of six lubricants edges are). Not retested; not urgent.
+- **Market-signal routing: one concrete, checkable win.** Without it, an indexed pricing clause benchmarked to **WTI crude** — wrong, since the crude-to-base-oil spread is exactly the risk being hedged. With signals routed in, it benchmarked to **Group I/II base oil spot**, the correct grade, traced to a specific MA signal. Kept.
+- **Step 1 — task-statement permission to challenge the frame: null at n=2.** New flag `stage1_allow_frame_challenge` (default `False`, off-branch verified byte-identical to production text) gave Stage 1 explicit optional permission to propose a portfolio/exit move instead of a KPI recovery. **0 of 6 treatment options used it.** Closed — do not spend further on wording variants.
+- **Step 2 — lens roster (Commercial/Operational/Structural, replacing McKinsey/BCG/Bain): null on the target, real value found along the way.** Building this surfaced that `to_prompt_context()` renders `## Consulting Advisor: McKinsey & Company` — the actual protected firm name — directly into production LLM prompts today, for all eight personas in `consulting_personas_registry.yaml`. The lens roster removes that exposure. On the actual question, **still 0/6 portfolio options**, even from a persona explicitly briefed for that lens (`typical_recommendations` names "portfolio reallocation" almost verbatim) — its frame-questioning transferred but pointed inward at an existing option's assumption, not outward at category participation. Kept as an available `council_preset` (`lens_council`) for the trademark fix alone; not presented as solving the portfolio gap.
+- **Cumulative finding across both steps: 33 real options, zero structural, across two independently-tested variables (wording, roster) that both explicitly targeted the gap.** That is stronger evidence than either result alone that the missing ingredient isn't wording or who's asking — closed both lines rather than running a third variant.
+- **Still open, not started:** whether the shared evidence base (DA output, refinement, market signals) contains what a portfolio-level call would need to be *grounded* rather than speculative. SF sees a KPI, not a category. Untested, and the natural next question if the portfolio gap is worth closing.
+
+**Also found, not yet acted on:**
+- `SF_ENABLE_CAUSAL_GROUNDING` defaults to `false` in code (`os.getenv(..., "false")`); it is only `true` in local `.env` for this exploration. Whether to enable it in production is an undecided, separate question from whether it works.
+- Part A's own plan required a live lubricants DA run reporting `dimension_rank_source`, `dimensions_analyzed`, and measured latency **before Part B started.** Part B (B-1 through this extension) proceeded without it. Still owed.
+- 36 files from Part A, B-1/B-2, this extension, and their tests are uncommitted as of this readout.
 
 ---
 
@@ -3218,6 +3281,33 @@ Running seed scripts with production credentials from a developer's machine is n
 2. Admin reload endpoint — immediate operational relief
 3. Connection health dashboard — visibility before adding a third pilot client
 4. Seed-from-UI — required before handing onboarding to a non-engineer
+
+#### Consulting Personas Registry — location gray area (noted, not scheduled)
+
+`src/registry/consulting_personas/consulting_persona_provider.py` loads
+`consulting_personas_registry.yaml` via `yaml.safe_load()`, process-lifetime singleton, no
+`client_id` on any record. Two things worth resolving together, found 2026-08-15 while adding the
+Commercial/Operational/Structural lens roster (`docs/architecture/persona_council_experiments.md` §7c
+step 2):
+
+- **Directory mismatch, not a rule violation.** The five enumerated registry types in
+  [CLAUDE.md](CLAUDE.md) (KPIs, principals, data products, business processes, glossary) don't
+  include consulting personas, and the content is genuinely non-tenant — shared methodology
+  descriptions, not client data — closer in kind to `src/registry_references/` (explicitly carved out
+  as "schema definitions, not registry data") than to anything Supabase-backed. But the file lives
+  inside `src/registry/`, whose own structure comment says "Supabase-backed providers (no YAML)."
+  Low-risk fix: relocate to `src/registry_references/consulting_personas/` so the exception is legible
+  in the tree instead of silently contradicting the directory it sits in.
+- **Same live-reload gap as the rest of this section.** The class-level singleton cache means an edit
+  to the roster (including the lens personas just added) needs a full backend restart to take effect —
+  discovered by testing, not by design. If Registry Live-Reload above is ever generalized to a
+  provider-agnostic "reload on demand" mechanism, personas should be swept in rather than left as a
+  restart-only exception.
+
+**Not scheduled.** No client currently needs a private or customized roster — `principal_affinity` in
+the same file is keyed by role name, not `client_id`, confirming the shared/global design is
+intentional as-is. Revisit if that need appears; the seed-file protocol used elsewhere is the natural
+pattern for a client-scoped variant if one is ever needed, not something to build speculatively now.
 
 #### SQL Server Production Enablement
 
