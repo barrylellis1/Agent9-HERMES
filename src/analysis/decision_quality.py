@@ -310,21 +310,42 @@ def score_run(
     named = [c for c in criteria if isinstance(c, dict) and c.get("name")]
     weighted = [c for c in named if isinstance(c.get("weight"), (int, float))]
     if tm:
-        vector = tuple((str(c["name"]), c.get("weight")) for c in named)
-        s.criteria_defaulted = vector == DEFAULT_CRITERIA_WEIGHTS
         present = bool(named) and len(weighted) == len(named)
-        # PRESENCE IS NOT SUFFICIENT. `request.evaluation_criteria or [defaults]`
-        # in the agent means an unsupplied criteria set silently becomes the
-        # config constant — which renders as a fully-populated weighted matrix
-        # and passes any presence check. DQ link 4 asks whether THIS decision
-        # maker's values were made explicit, so a matrix that is exactly the
-        # system default is evidence they were not.
+        # PROVENANCE, NOT VALUE. `request.evaluation_criteria or [defaults]` in
+        # the agent means an unsupplied criteria set silently becomes the config
+        # constant — which renders as a fully-populated weighted matrix and
+        # passes any presence check. DQ link 4 asks whether THIS decision maker's
+        # values were made explicit, which is a question about where the vector
+        # CAME FROM, not what it equals.
+        #
+        # `criteria_source` (added with Stage J) answers that directly. Before it
+        # existed, the only available proxy was comparing the vector against the
+        # known config default — sound at the time, because nothing populated
+        # `evaluation_criteria` at all, so value and provenance coincided. They
+        # diverge now: a principal whose genuine preference happens to match the
+        # house numbers would be a false positive under the old check. Prefer the
+        # recorded source; fall back to the value comparison only for payloads
+        # written before the field existed.
+        source = tm.get("criteria_source")
+        if source in ("business_context", "request", "config_default"):
+            s.criteria_defaulted = source == "config_default"
+            provenance = {
+                "business_context": "weights from the enterprise's declared strategic posture",
+                "request": "weights supplied explicitly on the request",
+                "config_default": "AGENT CONFIG DEFAULT: no enterprise values were supplied",
+            }[source]
+        else:
+            vector = tuple((str(c["name"]), c.get("weight")) for c in named)
+            s.criteria_defaulted = vector == DEFAULT_CRITERIA_WEIGHTS
+            provenance = (
+                "vector equals the agent config default (legacy payload, no "
+                "criteria_source recorded — inferred from value)"
+                if s.criteria_defaulted else
+                "differs from the config default (legacy payload, inferred from value)"
+            )
         s.l4_tradeoffs.passed = present and not s.criteria_defaulted
         s.l4_tradeoffs.detail = (
-            f"{len(named)} criteria, {len(weighted)} weighted — "
-            + ("VECTOR IS THE AGENT CONFIG DEFAULT: no principal-specific "
-               "values were supplied for this decision"
-               if s.criteria_defaulted else "criteria supplied for this decision")
+            f"{len(named)} criteria, {len(weighted)} weighted — {provenance}"
             if named else "tradeoff matrix present but names no criteria"
         )
         s.l4_tradeoffs.evidence = [f"{c['name']}={c.get('weight')}" for c in named]

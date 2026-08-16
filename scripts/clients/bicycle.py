@@ -31,6 +31,15 @@ CLIENT_META: Dict[str, Any] = {
     "name": "Global Bike Inc.",
     "industry": "Retail & Manufacturing",
     "data_product_ids": ["fi_star_schema"],
+    # NO strategic_posture / tradeoff_weights — DELIBERATE, not an omission.
+    #
+    # One seeded client must keep the unconfigured path live. With every client
+    # configured, the config-default fallback would never execute outside unit
+    # tests, `criteria_source: "config_default"` would never appear in a real
+    # payload, and the Decision Quality link-4 failure state would stop being
+    # observable anywhere real. A fallback nobody exercises is a fallback nobody
+    # notices breaking. This client is also the natural control arm for any
+    # posture experiment.
 }
 
 # ---------------------------------------------------------------------------

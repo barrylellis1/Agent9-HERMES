@@ -58,7 +58,12 @@ from src.registry.canonical.glossary import CORE_GLOSSARY_TERMS
 def _load_env_file(path: str) -> None:
     """Load KEY=VALUE pairs from a .env file into os.environ."""
     try:
-        with open(path) as f:
+        # encoding is explicit: bare open() uses the platform default, which is
+        # cp1252 on Windows and raises UnicodeDecodeError on any non-ASCII byte
+        # in .env (a smart quote or em-dash in a comment is enough). Observed
+        # 2026-08-16 — this made every onboard_client.py run fail on Windows
+        # before reaching any Supabase call.
+        with open(path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith("#") or "=" not in line:
@@ -198,12 +203,30 @@ def _business_context_row(meta: Dict[str, Any]) -> Dict[str, Any]:
     Note: business_contexts uses 'id' as the sole PK — it IS the client anchor.
     There is no separate client_id column on this table.
     """
-    return {
+    row = {
         "id": meta["id"],
         "name": meta["name"],
         "industry": meta.get("industry", ""),
         "data_product_ids": meta.get("data_product_ids", []),
     }
+
+    # Fields that live in the `metadata` JSONB rather than as columns (the
+    # business_contexts table carries a metadata escape hatch and the provider
+    # round-trips named keys through it — see SupabaseBusinessContextProvider).
+    #
+    # Phase 15 Stage J: `strategic_posture` + `tradeoff_weights` are the enterprise's
+    # option-ranking value model. Without this passthrough they would be accepted
+    # in CLIENT_META and silently dropped on seed — the same failure class as the
+    # never-wired evaluation_criteria field that made Stage J necessary.
+    #
+    # ONLY emitted when the seed actually declares one. Writing `metadata` on
+    # every run would clobber keys set through other paths with an empty dict;
+    # omitting the key leaves the column untouched.
+    metadata = {k: meta[k] for k in ("strategic_posture", "tradeoff_weights") if meta.get(k) is not None}
+    if metadata:
+        row["metadata"] = metadata
+
+    return row
 
 
 # ---------------------------------------------------------------------------

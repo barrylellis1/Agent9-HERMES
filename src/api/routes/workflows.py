@@ -1337,6 +1337,13 @@ async def _run_solution_workflow(request_id: str, runtime: AgentRuntime, request
         # Add principal_context if provided (for Principal-driven approach with decision_style)
         if request.principal_context:
             solution_request_payload["principal_context"] = request.principal_context
+
+        # NOTE on option-ranking weights (Phase 15 Stage J): they are resolved
+        # inside the SF agent from the ENTERPRISE business context, not here and
+        # not from the principal. See `_tradeoff_weights_to_criteria` in
+        # a9_solution_finder_agent.py — SF already loads the business context for
+        # synthesis, so resolving there avoids a duplicate fetch and works for
+        # every caller rather than only this API route.
         # client_id scopes business context load — prevents cross-tenant contamination
         if request.client_id:
             solution_request_payload["client_id"] = request.client_id

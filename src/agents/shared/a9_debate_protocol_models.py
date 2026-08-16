@@ -209,6 +209,36 @@ class A9_PS_DebateConfig(A9AgentBaseModel):
         default_factory=list, description="Debate participants"
     )
 
+class TradeoffWeights(A9AgentBaseModel):
+    """How this ENTERPRISE trades impact against cost and risk.
+
+    Consumed by Solution Finder's `_rank_options` via
+    `SolutionFinderRequest.evaluation_criteria`. Deliberately has no field
+    defaults: absence of a weighting is represented by
+    `A9_PS_BusinessContext.tradeoff_weights = None`, never by a populated object
+    holding the system's own numbers. A default here would manufacture consent --
+    every client would appear to have chosen weights nobody set, and "never
+    configured" would become indistinguishable from "chose the house numbers".
+
+    Weights are relative, not normalised. `_rank_options` computes
+    `impact_w*impact - cost_w*cost - risk_w*risk` with no rescaling, so
+    {2.0, 1.0, 1.0} ranks identically to {0.5, 0.25, 0.25}. Summing to 1 is a
+    readable convention, not a requirement.
+    """
+
+    impact: float = Field(..., ge=0.0, description="Weight on expected business impact")
+    cost: float = Field(..., ge=0.0, description="Weight on cost (lower preferred)")
+    risk: float = Field(..., ge=0.0, description="Weight on risk (lower preferred)")
+
+    def to_criteria(self) -> List[Dict[str, Any]]:
+        """Render as the `evaluation_criteria` shape Solution Finder consumes."""
+        return [
+            {"name": "impact", "weight": self.impact},
+            {"name": "cost", "weight": self.cost},
+            {"name": "risk", "weight": self.risk},
+        ]
+
+
 class A9_PS_BusinessContext(A9AgentBaseModel):
     """Stable, concise enterprise context that guides brand recommendations.
 
@@ -241,6 +271,33 @@ class A9_PS_BusinessContext(A9AgentBaseModel):
     )
     operating_model: Optional[str] = Field(
         default=None, description="Centralized, decentralized, or hybrid"
+    )
+    # --- Corporate value model (Phase 15 Stage J) ---------------------------
+    # These two belong to the ENTERPRISE, not to whoever is looking at the
+    # screen. A cash-cow division, an M&A roll-up and a growth-stage business
+    # have genuinely different optimal tradeoffs, and that difference should
+    # apply identically to every decision the company makes.
+    #
+    # An earlier cut of Stage J hung these off PrincipalProfile. That violated
+    # the M1 invariant already written into the synthesis prompt -- "role
+    # adaptation controls entry point and depth only; the conclusion is
+    # identical for every role" -- because ranking weights change the
+    # conclusion, measurably: 4 of 11 saved arms flip their recommended option
+    # across plausible CEO/COO/CFO weightings. Corporate value models are
+    # organizational, not personal; a capital-allocation group elicits the
+    # firm's tradeoffs once and applies them across decisions.
+    strategic_posture: Optional[str] = Field(
+        default=None,
+        description="The corporate strategy the weighting serves, e.g. 'margin defense', "
+                    "'growth capture', 'cash preservation', 'integration', 'turnaround'. "
+                    "Carries the JUSTIFICATION for tradeoff_weights -- the part a customer can "
+                    "confirm or argue with, where three bare numbers cannot be.",
+    )
+    tradeoff_weights: Optional["TradeoffWeights"] = Field(
+        default=None,
+        description="Enterprise option-ranking weights consumed by Solution Finder. "
+                    "None = never configured; SF falls back to its agent-config default and "
+                    "Decision Quality link 4 correctly reports no values were supplied.",
     )
     notes: Optional[str] = Field(default=None, description="Short free-text note (<=160 chars)")
 

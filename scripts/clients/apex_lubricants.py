@@ -26,6 +26,15 @@ CLIENT_META = {
     "name": "Apex Lubricants",
     "industry": "Specialty Chemicals & Automotive Aftermarket",
     "data_product_ids": ["dp_lubricants_snowflake"],
+    # Corporate value model (Stage J) — authored demo values, see lubricants.py.
+    # This client tracks customer concentration explicitly (top-3 B2B revenue
+    # share as a named risk KPI), so the strategy that follows is growing out of
+    # the concentration rather than defending inside it: impact-weighted, and
+    # more tolerant of cost and risk than a margin-defense client would be.
+    # Deliberately DIFFERENT from lubricants so the effect of posture is
+    # observable across clients rather than being one setting everywhere.
+    "strategic_posture": "growth capture",
+    "tradeoff_weights": {"impact": 0.6, "cost": 0.2, "risk": 0.2},
 }
 
 _DP_ID = "dp_lubricants_snowflake"

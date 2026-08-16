@@ -26,6 +26,19 @@ CLIENT_META = {
     "name": "Lubricants Business",
     "industry": "Oil & Gas / Specialty Chemicals",
     "data_product_ids": ["dp_lubricants_financials"],
+    # --- Corporate value model (Phase 15 Stage J) --------------------------
+    # AUTHORED, not inferred. These are preferences, not facts — there is no
+    # correct value to converge on and nothing to tune toward, so they must be
+    # stated by whoever owns the strategy. Set here as demo values because we
+    # own this client; a real customer authors their own.
+    #
+    # Derived from what this client's own data shows: mature product lines
+    # (Synthetic Blend / Conventional / Premium / Value), gross margin under
+    # base-oil cost pressure, and a contractual price-lock on the anchor
+    # account that a wrong move would breach. Defend the margin, and weight
+    # risk as heavily as impact because the downside here is a broken contract.
+    "strategic_posture": "margin defense",
+    "tradeoff_weights": {"impact": 0.4, "cost": 0.2, "risk": 0.4},
 }
 
 DATA_PRODUCT = {

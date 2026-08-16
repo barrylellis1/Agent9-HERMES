@@ -163,6 +163,13 @@ class SolutionOption(A9AgentBaseModel):
 class TradeOffMatrix(A9AgentBaseModel):
     criteria: List[TradeOffCriterion] = Field(default_factory=list)
     options: List[SolutionOption] = Field(default_factory=list)
+    # "principal" = weights supplied for this decision; "config_default" = the
+    # agent's own constant. A rendered matrix looks identical either way, which
+    # is how every run shipped an unexamined system default without anyone
+    # noticing. Optional so payloads written before this field remain readable.
+    criteria_source: Optional[str] = Field(
+        None, description="Provenance of `criteria`: 'principal' or 'config_default'"
+    )
 
 
 class PrincipalInputPreferences(A9AgentBaseModel):

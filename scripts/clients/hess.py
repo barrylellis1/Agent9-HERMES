@@ -25,6 +25,13 @@ CLIENT_META = {
     "name": "Hess Corporation",
     "industry": "Oil & Gas — Exploration & Production",
     "data_product_ids": ["dp_hess_financials"],
+    # Corporate value model (Stage J) — authored demo values, see lubricants.py.
+    # Capital-intensive, price-cyclical E&P: cost discipline outweighs upside
+    # capture, which is the third distinct posture across the seeded clients.
+    # NOTE: this is a synthetic-data connectivity proof, not an assertion about
+    # the real company's strategy — never present it as one.
+    "strategic_posture": "cash preservation",
+    "tradeoff_weights": {"impact": 0.3, "cost": 0.4, "risk": 0.3},
 }
 
 DATA_PRODUCT = {

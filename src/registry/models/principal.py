@@ -42,7 +42,7 @@ class CommunicationPreference(BaseModel):
 class PrincipalProfile(BaseModel):
     """
     Represents a principal profile in the registry.
-    
+
     This model replaces hardcoded principal data with a flexible,
     data-driven model that can be extended by customers.
     """
@@ -74,8 +74,14 @@ class PrincipalProfile(BaseModel):
                                                 description="Default filters for data views")
     time_frame: TimeFrame = Field(default_factory=TimeFrame, 
                                 description="Preferred time frame for analysis")
-    communication: CommunicationPreference = Field(default_factory=CommunicationPreference, 
+    communication: CommunicationPreference = Field(default_factory=CommunicationPreference,
                                                  description="Communication preferences")
+    # NOTE: option-ranking weights deliberately do NOT live here. They are a
+    # property of the enterprise's strategy, not of the individual reading the
+    # screen -- see A9_PS_BusinessContext.tradeoff_weights and the M1 invariant in
+    # a9_solution_finder_agent.py. What legitimately varies per principal is
+    # presentation depth and entry point (`communication.detail_level`), never
+    # which option wins.
     metadata: Dict[str, str] = Field(default_factory=dict, description="Additional metadata for extensions")
     
     def to_dict(self) -> Dict:

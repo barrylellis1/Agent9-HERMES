@@ -70,6 +70,84 @@ def _model_to_dict(obj: Any) -> Any:
         return obj
 
 
+def _tradeoff_weights_to_criteria(business_context: Any) -> Optional[List[Dict[str, Any]]]:
+    """Resolve the ENTERPRISE's `tradeoff_weights` into `evaluation_criteria` shape.
+
+    Phase 15 Stage J. `SolutionFinderRequest.evaluation_criteria` has existed
+    since the model was written and is read at two call sites here, but nothing
+    ever populated it -- so `request.evaluation_criteria or [config defaults]`
+    resolved to the agent's own constant on every run the product has ever done.
+    Decision Quality link 4 ("clear values and tradeoffs") failed 11/11 on the
+    retrospective baseline for exactly that reason.
+
+    WHY ENTERPRISE AND NOT PRINCIPAL. Ranking weights change which option wins --
+    measurably, in 4 of 11 saved arms across plausible CEO/COO/CFO weightings.
+    Per-principal weights would therefore break the M1 invariant stated in the
+    synthesis prompt below: role adaptation controls entry point and depth only,
+    and the conclusion is identical for every role. A cash-cow division, a
+    roll-up and a growth-stage business genuinely differ in how they trade impact
+    against cost and risk -- but that difference belongs to the company's
+    strategy and applies to every decision it makes, not to whoever opens the
+    briefing.
+
+    Returns None when no weighting is configured, which is the common case and a
+    legitimate one. Returning None rather than the default vector is deliberate:
+    handing the caller the same numbers it would have used anyway makes "nobody
+    chose this" and "this client chose the house numbers" indistinguishable
+    downstream, which is the exact ambiguity Stage J exists to remove.
+    """
+    if not business_context:
+        return None
+    if isinstance(business_context, dict):
+        lw = business_context.get("tradeoff_weights")
+    else:
+        lw = getattr(business_context, "tradeoff_weights", None)
+    if not lw:
+        return None
+    if not isinstance(lw, dict):
+        lw = lw.model_dump() if hasattr(lw, "model_dump") else vars(lw)
+
+    criteria: List[Dict[str, Any]] = []
+    for name in ("impact", "cost", "risk"):
+        weight = lw.get(name)
+        if not isinstance(weight, (int, float)) or isinstance(weight, bool):
+            # A partial weighting is not a weighting. Fall back wholesale rather
+            # than mixing a half-stated intent with the house numbers.
+            return None
+        criteria.append({"name": name, "weight": float(weight)})
+    return criteria
+
+
+def _business_context_for_prompt(bc: Any) -> Optional[Dict[str, Any]]:
+    """Business context as the model should see it — WITHOUT `tradeoff_weights`.
+
+    DOUBLE-COUNTING GUARD. The model writes each option's `expected_impact`,
+    `cost` and `risk` scalars. `_rank_options` then applies the enterprise's
+    weighting to exactly those three numbers. If the model can also read the
+    weighting, it can tilt the scalars toward it -- and the ranker applies the
+    same weighting a second time to already-tilted inputs. The effect is
+    invisible from the outside: nothing errors, the numbers merely lean.
+
+    `strategic_posture` deliberately STAYS. Prose is what a model reasons with
+    when proposing options, and "this is a margin-defense business" shapes what
+    gets written without pre-loading the arithmetic that scores it. Text drives
+    generation; numbers drive selection; only the numbers are withheld.
+
+    Channels checked before closing this one (§7b lesson -- enumerate every
+    channel carrying the variable rather than closing them one failure at a
+    time): the `business_context` field threaded onto `A9_LLM_AnalysisRequest`
+    /`A9_LLM_Request` never reaches prompt text -- no provider in
+    `src/llm_services/` reads it -- and the `llm_debate_analysis_req` audit event
+    keeps the full context on purpose, because that is provenance, not input.
+    """
+    if not bc:
+        return None
+    out = _model_to_dict(bc)
+    if isinstance(out, dict):
+        out = {k: v for k, v in out.items() if k != "tradeoff_weights"}
+    return out
+
+
 def _limit(items: Optional[List[Any]], limit: int = 5) -> List[Any]:
     if not items:
         return []
@@ -2355,7 +2433,8 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "problem_statement": ps,
                         "situation_metadata": situation_metadata,
                         "decision_maker": decision_maker,
-                        "business_context": _model_to_dict(bc) if bc else None,
+                        # tradeoff_weights withheld — see _business_context_for_prompt
+                        "business_context": _business_context_for_prompt(bc),
                         **({"deep_analysis_context": full_da_context} if _include_full_da else {}),
                         "deep_analysis_summary": da_summary,
                         "dataset_recap": dataset_recap,
@@ -2935,11 +3014,25 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                          "key_assumptions": ["Standard operating procedures apply"]
                      }
 
-            criteria = request.evaluation_criteria or [
-                TradeOffCriterion(name="impact", weight=self.config.weight_impact),
-                TradeOffCriterion(name="cost", weight=self.config.weight_cost),
-                TradeOffCriterion(name="risk", weight=self.config.weight_risk),
-            ]
+            # PROVENANCE, NOT JUST VALUES. Whether the weighting was supplied for
+            # this decision or fell back to the agent's own constant is not
+            # recoverable from the rendered matrix -- both look identical, which
+            # is why the config default went unnoticed in every run for months.
+            # Record which one happened.
+            _bc_criteria = _tradeoff_weights_to_criteria(getattr(request, "business_context", None))
+            if request.evaluation_criteria:
+                criteria_source = "request"
+                criteria = request.evaluation_criteria
+            elif _bc_criteria:
+                criteria_source = "business_context"
+                criteria = [TradeOffCriterion(**c) for c in _bc_criteria]
+            else:
+                criteria_source = "config_default"
+                criteria = [
+                    TradeOffCriterion(name="impact", weight=self.config.weight_impact),
+                    TradeOffCriterion(name="cost", weight=self.config.weight_cost),
+                    TradeOffCriterion(name="risk", weight=self.config.weight_risk),
+                ]
             ranked = self._rank_options(options, criteria)
             recommendation = ranked[0] if ranked else None
 
@@ -2974,7 +3067,11 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                 recommendation_payload = recommendation.model_dump() if (recommendation is not None and hasattr(recommendation, "model_dump")) else (recommendation if isinstance(recommendation, dict) else None)
             except Exception:
                 recommendation_payload = None
-            matrix_payload = {"criteria": criteria_payload, "options": options_payload}
+            matrix_payload = {
+                "criteria": criteria_payload,
+                "options": options_payload,
+                "criteria_source": criteria_source,
+            }
 
             # Build framing_context for Principal-driven transparency (per PRD guardrails)
             framing_context_payload = None
@@ -3092,13 +3189,21 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     normalized.append(o)
                 elif isinstance(o, dict):
                     normalized.append(SolutionOption(**o))
-            criteria = request.evaluation_criteria or [
-                TradeOffCriterion(name="impact", weight=self.config.weight_impact),
-                TradeOffCriterion(name="cost", weight=self.config.weight_cost),
-                TradeOffCriterion(name="risk", weight=self.config.weight_risk),
-            ]
+            _bc_criteria_h = _tradeoff_weights_to_criteria(getattr(request, "business_context", None))
+            if request.evaluation_criteria:
+                _src_h, criteria = "request", request.evaluation_criteria
+            elif _bc_criteria_h:
+                _src_h = "business_context"
+                criteria = [TradeOffCriterion(**c) for c in _bc_criteria_h]
+            else:
+                _src_h = "config_default"
+                criteria = [
+                    TradeOffCriterion(name="impact", weight=self.config.weight_impact),
+                    TradeOffCriterion(name="cost", weight=self.config.weight_cost),
+                    TradeOffCriterion(name="risk", weight=self.config.weight_risk),
+                ]
             ranked = self._rank_options(normalized, criteria)
-            matrix = TradeOffMatrix(criteria=criteria, options=ranked)
+            matrix = TradeOffMatrix(criteria=criteria, options=ranked, criteria_source=_src_h)
             recommendation = ranked[0] if ranked else None
             return SolutionFinderResponse.success(
                 request_id=req_id,

@@ -233,10 +233,19 @@ class SupabaseBusinessContextProvider:
             "compliance_requirements",
             "operating_model",
             "notes",
+            "strategic_posture",
         ):
             value = getattr(context, field_name, None)
             if value is not None:
                 metadata[field_name] = value
+
+        # tradeoff_weights is a nested model, not a scalar — dump it so the JSONB
+        # column receives plain types rather than a Pydantic object.
+        _lw = getattr(context, "tradeoff_weights", None)
+        if _lw is not None:
+            metadata["tradeoff_weights"] = (
+                _lw.model_dump() if hasattr(_lw, "model_dump") else dict(_lw)
+            )
 
         row: Dict[str, Any] = {
             "name": context.enterprise_name,
@@ -296,6 +305,10 @@ class SupabaseBusinessContextProvider:
             "compliance_requirements": metadata.get("compliance_requirements"),
             "operating_model": metadata.get("operating_model"),
             "notes": metadata.get("notes"),
+            # Corporate value model (Stage J) — round-trips through metadata
+            # JSONB; `business_contexts` needs no migration for these.
+            "strategic_posture": metadata.get("strategic_posture"),
+            "tradeoff_weights": metadata.get("tradeoff_weights"),
         }
 
         # Remove None values so Pydantic uses its own defaults

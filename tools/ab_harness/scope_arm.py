@@ -146,7 +146,17 @@ def _get(url):
         return json.loads(resp.read().decode())
 
 
-def run_arm(payload_path: Path, arm: str):
+def run_arm(payload_path: Path, arm: str, label: str | None = None):
+    """`label` names the output file instead of the arm letter.
+
+    Needed whenever the same harness arm is run more than once with the variable
+    living OUTSIDE the request body — e.g. Stage J posture experiments, where the
+    roster and payload are identical and only `business_contexts.metadata`
+    differs between runs. Without it two such runs both write
+    `scope_arm_C.json` and the first is silently lost, which is the overwrite
+    this harness already suffered once (see the Stage H A/B harness-hardening
+    note in DEVELOPMENT_PLAN.md).
+    """
     cfg = ARMS[arm]
     raw = json.loads(payload_path.read_text(encoding="utf-8"))
     da = raw.get("result", raw)
@@ -194,7 +204,10 @@ def run_arm(payload_path: Path, arm: str):
             break
         if time.time() - t0 > 900:
             print("  TIMEOUT"); return
-    out = HERE / f"scope_arm_{arm}.json"
+    out = HERE / f"scope_arm_{label or arm}.json"
+    if out.exists():
+        # Never clobber a saved payload — the corpus IS the evidence.
+        raise SystemExit(f"  REFUSING to overwrite {out.name} — pass a fresh label")
     out.write_text(json.dumps(d, indent=2, default=str), encoding="utf-8")
     sol = (d.get("result") or {}).get("solutions") or {}
     print(f"  state={d.get('state')} in {time.time()-t0:.0f}s, "
@@ -252,7 +265,10 @@ def main():
     if sys.argv[1] == "score":
         score()
         return
-    run_arm(Path(sys.argv[1]), sys.argv[2].upper())
+    # optional 3rd arg: output label, for repeat runs of one arm where the
+    # variable lives outside the request body (see run_arm docstring)
+    run_arm(Path(sys.argv[1]), sys.argv[2].upper(),
+            sys.argv[3] if len(sys.argv) > 3 else None)
 
 
 if __name__ == "__main__":

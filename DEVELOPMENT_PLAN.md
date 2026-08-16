@@ -2165,6 +2165,261 @@ Before enforcing, checked §4.6's stated precondition first rather than assume i
 
 ---
 
+#### 🏁 Decision Quality — the outcome measure Stage I said must come first (built 2026-08-15, $0)
+
+**This is an instrument, not a stage.** It follows the Stage H precedent: `src/analysis/`'s mechanism
+fingerprint, groundedness scorer and problem profiler were built *during* a stage and recorded as
+implementation notes, not given their own letters. `decision_quality.py` is the fifth module in that
+same package. What it produces, however, authorises real build work — recorded as Stage J below.
+
+**Why it exists.** Stage I's B-3 record closed with an explicit blocker: *"Optimising a proxy is not
+optimising the objective… until 'better' has a referent, every additional arm refines a number nobody
+should act on."* Divergence, lever stability and citation hygiene are all proxies. This supplies the
+referent — **Decision Quality** (Stanford SDG): six requirements scored as a chain where the weakest
+link governs. Chosen over MAP / Vroom-Yetton / KT-DA / AHP because it is a **standard, not a
+procedure** — it grades the artefact and asks nothing of how a customer runs its meetings, which is
+what keeps this a software purchase rather than a change-management engagement. Full rationale,
+corpus limits and the pre-registered prediction: **`docs/architecture/decision_quality_rubric.md`**.
+
+**Built:** `src/analysis/decision_quality.py`, `tools/ab_harness/dq_score.py`, 19 tests
+(`tests/unit/test_decision_quality.py`). All 11 saved `scope_arm_*.json` arms scored retrospectively —
+**33 options, no new API spend.**
+
+| link | passes (11 arms) | |
+|---|---|---|
+| 1 frame *(advisory)* | **2/11** | caps the chain ×9 |
+| 2 creative alternatives | 10/11 | |
+| 3 reliable information | **11/11** | |
+| 4 clear values & tradeoffs *(advisory)* | **0/11** | caps the chain ×11 |
+| 5 sound reasoning | 10/11 | |
+| 6 commitment to action | **11/11** | |
+
+**No run holds the chain.** Prediction scorecard: 2 of 4 correct, recorded plainly in the rubric doc
+because the value of a pre-registered prediction is entirely in being allowed to lose it.
+
+**Three findings:**
+1. 🔴 **Link 4 fails 11/11 and is a product defect, not a measurement artefact.** Every run carries the
+   identical vector `impact=0.5, cost=0.25, risk=0.25` — the agent config default, reached via
+   `request.evaluation_criteria or [defaults]` where **nothing anywhere populates
+   `evaluation_criteria`**. Every ranking the product has ever produced used a system constant. It
+   escaped notice because a presence check passes: the matrix *looks* complete and fully weighted. → **Stage J.**
+2. **The moderator is structurally blind to every failing link.** Union of `moderator_grades` keys
+   across all 11 arms is `constraint_survival` / `causal_grounding` / `arithmetic_consistency` /
+   `critic_findings_response` — links 3 and 5, the two already at 11/11 and 10/11. Zero rubric
+   coverage of frame, alternatives or values. → **Stage H follow-on** (below), alongside the still-open
+   critic dual-duty risk-proposal item.
+3. 🔴 **`persona_council_experiments.md` §7c's `0 of 27` structural options is wrong as stated.** Arm D1
+   opt_2 ("Immediate SKU Rationalization") genuinely proposes discontinuing and delisting SKUs, and D1
+   is one of the six frame-challenge *treatment* options counted as `0/6`; E2 opt_3 is a second
+   instance. The null was adjudicated at category/portfolio-exit granularity without that criterion
+   ever being written down. Direction survives (2 of 33 is still near the floor); the number should
+   not be quoted again without a stated criterion. Correction written into that doc.
+
+**Two instrument defects found and fixed *before* any number above was reported** — both caught by
+adjudicating screen hits rather than trusting them (§5's 71%-FPR lesson applied to this instrument):
+`unclassified` was being counted as a lever family (turning arm E2 into a confident PASS on link 2),
+and `volume_for_margin` auto-passed link 1 by matching `full-potential` on an ordinary recovery plan.
+Both regression-tested. Adjudications recorded as data in `dq_score.py`, not folded into the regex.
+
+**Also landed:** `mechanism.LEVER_PATTERNS` gained `mix_shift` and `hedging` — the two most common
+unclassified levers, appearing across both MBB and lens rosters. All 43 existing mechanism tests pass
+unchanged. `mechanism.py` is imported only by tests and the harness, never by an agent, so this
+changes measurement and not generation.
+
+**🔴 The lens-swap comparison is not yet readable.** With the taxonomy extended, 3-of-3 distinct lever
+families turns out **not** to be a lens property — MBB reached it in 5 of 6 pre-fix runs (A/A0/A0C/B/C),
+and the lens arms (E1, E2) match that ceiling rather than exceeding it. Worse, **C1 — the sole control
+the lens swap is measured against — is the single worst run in the corpus at 1/3**, against post-fix
+MBB arms D1/D2 at 2/3. Two treatment runs versus one outlier control draw is
+`feedback_one_observation_is_not_a_baseline` again, on the control side.
+
+A second pattern wants testing rather than asserting: **every post-fix MBB run scores below every
+pre-fix MBB run but one.** The `_build_kt_summary` unit fix landed in between, replacing an
+undifferentiated `$-7 (0.0% of variance)` smear with correctly ranked pp values. It is possible that a
+*correctly specified problem invites a narrower answer* — an uncomfortable result, since that fix was
+unambiguously right. Equally consistent with noise at these sample sizes.
+
+**Next action, and a sequencing note that matters:** replicate the control to **n ≥ 3 on the current
+post-push build** (~$0.20/run). Do not compare new runs against the existing C1 — it predates both the
+Stage I build and today's DA work. The harness replays a **frozen** DA payload (`scope_da_input.json`,
+stamped 2026-08-11), so today's budget-comparator and §4.5 fixes do **not** confound it; the SF agent
+itself is what drifted, and that is enough to require a fresh control.
+
+#### Stage J — Enterprise evaluation criteria ✅ BUILT 2026-08-16
+
+| Stage | Work | Owner | Status |
+|---|---|---|---|
+| **J** | Populate `evaluation_criteria` from the **enterprise's** declared strategy so `_rank_options` stops using `A9_Solution_Finder_Agent_Config.weight_*`. Two fields on `A9_PS_BusinessContext`: `strategic_posture` (the justification) + `tradeoff_weights` (the operative numbers). Closes DQ link 4 | Phase 15 | ✅ **BUILT** — 27 tests (`test_sf_stage_j_tradeoff_weights.py`), 1202 suite pass. **No migration** — both fields ride the existing `business_contexts.metadata` JSONB |
+
+**🔴 Naming corrected — `tradeoff_weights`, NOT `lens_weights`. The name was already taken.**
+`principal_lens_weighting_design.md` defines `lens_weights` as
+`{"plan": 1.0, "trend": 0.6, "peer": 0.3, "value_gap": 0.8, "bridge": 0.9}` — weights over the **five
+comparison lenses** (L1 vs Plan · L2 vs Trend · L3 vs Peer · L4 vs Full potential · L5 Bridge), an
+SA/DA concept governing how a KPI situation is *appraised and prioritised*. That is a different
+feature, still unbuilt, and **the earlier claim in this entry that "the design already exists, only the
+wiring is missing" was wrong.** Three things were called "lens" at once: those comparison lenses,
+`PerspectiveAnalysis.lens` (`"Financial"`/`"Operational"`/`"Strategic"` argument sets on each option),
+and this. Renamed to match what it actually feeds — `tradeoff_weights` → `TradeOffCriterion` →
+`TradeOffMatrix`. `organization_priorities` was considered and rejected: `A9_PS_BusinessContext`
+already carries `strategic_priorities`, so it would have collided with a field on the same model, and
+it overclaims — these three numbers break ties between options that all already address the problem,
+which is a tiebreaker, not a priority.
+
+**And the M1 argument below applies to option ranking ONLY, not to the comparison lenses.**
+Lens weighting changes *which situations reach whom and how they are framed* — different questions,
+which is correct and M1-compliant (a COO should not be paged about multi-year portfolio positioning).
+Tradeoff weighting changes *which answer wins for the same question*. Per-principal is right for the
+first and forbidden for the second. The original design was not wrong to be per-principal; it was
+designing appraisal, and appraisal is personal.
+
+**Pre-existing dead duplicate, found during the rename:** `A9_PS_Criterion` /
+`A9_PS_DecisionCriteria` in `a9_debate_protocol_models.py` already model exactly this
+(name/weight criteria over impact/cost/time_to_value/risk, plus `risk_tolerance`). **Zero references
+anywhere outside their own definition** — CaaS debate-protocol scaffolding that was never wired. Left
+in place, but note its `_validate_weights` requires weights to sum to 1.0 ±0.01, whereas
+`_rank_options` does no normalisation at all. Two contradictory assumptions about the same concept
+have been sitting in this codebase; **Stage J follows `_rank_options` (relative, unnormalised)** and
+that is now stated in the model docstring. Retiring the dead pair is a cleanup candidate.
+
+**🔴 Design corrected mid-build, on the user's challenge — weights are ENTERPRISE, not PRINCIPAL.**
+The first cut followed `principal_lens_weighting_design.md` and hung the field off
+`PrincipalProfile`. The user pushed back before it went further: *a cash cow, an M&A mover and a
+growth-stage business each have optimal weights that follow from corporate strategy and should impact
+every decision the same.* Correct, and the codebase already said so — **the M1 invariant written into
+the synthesis prompt** (`a9_solution_finder_agent.py`) states that *role adaptation controls entry
+point and depth only; the conclusion is identical for every role.* Ranking weights change the
+conclusion, so per-principal weights violate M1.
+
+**Measured before deciding** (`_rank_options` replayed over the 11 saved arms under CEO/COO/CFO
+profiles): **4 of 11 arms flip their recommended option.** But the flips land at margins of
+**+0.0035 to +0.045**, and arm B0's default profile is an **exact 0.0000 tie** decided by list order.
+Stable arms sit at +0.13. The scalars being weighted are LLM estimates in 0.05 increments on a process
+already known stochastic on identical input — so weights only decide the outcome when the options were
+near-equivalent anyway. Decision-analysis practice agrees with the user's instinct: corporate value
+models are organizational, elicited once for the firm, not per executive.
+
+**Built:**
+- `TradeoffWeights` + `strategic_posture` on `A9_PS_BusinessContext` (`a9_debate_protocol_models.py`).
+  `tradeoff_weights` is nullable with **no default_factory** — `None` means never configured and must stay
+  visible; a default would manufacture consent, making "nobody chose this" indistinguishable from
+  "this client chose the house numbers". Same reason the resolver returns `None` rather than the
+  default vector.
+- `strategic_posture` carries the *justification* — "margin defense", "growth capture",
+  "cash preservation", "integration", "turnaround". Three bare numbers cannot be confirmed or argued
+  with by a customer; a posture can. This makes link 4 *reasoned*, not merely explicit.
+- Provider round-trip through `business_contexts.metadata` JSONB, both directions — **no migration
+  needed**; the column and the explicit field-mapping pattern already exist.
+- `_tradeoff_weights_to_criteria()` in the SF agent, resolving from the business context SF **already
+  loads** for synthesis — no duplicate fetch, and it works for every caller rather than only the API
+  route. An earlier cut put this in `workflows.py` with its own principal fetch; removed.
+- **`tradeoff_weights` withheld from the LLM prompt** (`_business_context_for_prompt`) — the model
+  writes each option's `expected_impact`/`cost`/`risk` scalars and `_rank_options` then weights exactly
+  those three numbers. If the model can read the weighting it is about to be scored under, it can tilt
+  the scalars toward it and the ranker applies the same weighting a second time to already-tilted
+  input — invisible from outside, since nothing errors and the numbers merely lean.
+  `strategic_posture` deliberately **stays** in the prompt: text drives generation, numbers drive
+  selection, only the numbers are withheld. Per §7b's lesson all three channels carrying the value were
+  enumerated before closing one — the `business_context` field on `A9_LLM_AnalysisRequest`/
+  `A9_LLM_Request` never reaches prompt text (no provider in `src/llm_services/` reads it), and the
+  `llm_debate_analysis_req` audit event keeps the full context on purpose, because that is provenance,
+  not input.
+- `TradeOffMatrix.criteria_source` (`request` / `business_context` / `config_default`) — provenance is
+  now **recorded, not inferred**. The DQ link-4 check reads it and falls back to the old value
+  comparison only for payloads predating the field, so the §8 baseline stays reproducible.
+
+**Deliberately not done:** no weights seeded for any client. They are preferences, and inventing them
+would reintroduce the exact defect this closes — a weighting nobody chose, now wearing the customer's
+name. **Every client is `NULL` until someone sets one, so this is a no-op until configured.** There is
+also no UI: Registry Explorer form editing is still on the pre-video polish list, so today the routes
+are the seed file, the registry API, or SQL.
+
+**🏁 LIVE VERIFICATION (2026-08-16) — Stage J confirmed working end to end; posture effect NOT
+established, and the design cannot establish it.** Two arms, lubricants, frozen DA payload, arm-C
+config, varying ONLY `business_contexts.metadata`. ~$0.45, 277s and 298s.
+
+| arm | `criteria_source` | criteria | levers generated | winner |
+|---|---|---|---|---|
+| **P0** control (posture nulled) | `config_default` | 0.5 / 0.25 / 0.25 | mix_shift, pricing_corridor ×2 | SKU Rationalization (risk 0.30) |
+| **P1** posture set | **`business_context`** | **0.4 / 0.2 / 0.4** | indexation ×2, pricing_corridor | Base-Oil Indexed Renewal (risk 0.30) |
+
+**What is established:** the enterprise posture reaches `_rank_options` on the live path, provenance is
+recorded correctly, no stub, `causal_context` confirms max_hops=2 / 6 edges / 1 constraint / 4 market
+signals. **DQ link 4 would now pass for lubricants — the first time it has for any client.**
+
+**What is NOT established, exactly as predicted before the runs:** whether `strategic_posture` in the
+prompt changes *generation*. The lever families differ between arms — but arm C1 on an earlier build,
+with **no posture**, produced `indexation ×3`, so "no posture" has already produced both outcomes. The
+difference sits inside documented run-to-run variance (PM-2: `arithmetic_flags` 0→3→0→1 on identical
+input), and both arms produced 2 distinct lever families and a winner at risk 0.30. **n=1 versus n=1
+cannot separate a posture effect from stochastic variation**, and this was recorded as the prediction
+before either arm ran.
+
+**Structural finding — ranking weights are blind on most runs.** P1 produced a **dominated** option
+set: opt_1 beat both alternatives on impact, cost *and* risk simultaneously, so no weighting could
+change its winner. That matches the free replay across the 11 saved arms, where the lubricants posture
+changed the recommendation in **1 of 11** — and only on arm B0, the exact 0.0000 tie. Weights act in a
+narrow band: genuine close calls. Correct behaviour for a tiebreaker, and the reason the effect is
+small rather than the chaos a per-principal design would have implied.
+
+**🔴 Decision: do NOT run the `risk_posture` overlap arms (P2/P3).** A contradiction between
+`risk_posture` text and a numeric risk weight can only surface in output if the posture text moves
+generation — which is unestablished and would need n≥3 per arm minimum to test against this variance,
+for a question that is answerable by design. **Settle it with a configuration-time consistency check
+instead:** the two fields do genuinely different jobs (`risk_posture` is prose that shapes what gets
+*proposed*; the risk weight is arithmetic that breaks ties among *proposals*), so collapsing them by
+derivation would merge two different stages. Flag the contradiction where it is authored — warn when
+`risk_posture: "high"` pairs with risk as the largest weight, or `"low"` with the smallest — and do
+not block. This supersedes the earlier "derive — one authored source per concept" lean.
+
+**Two pre-existing bugs found by actually running this, both fixed:** `onboard_client.py` opened
+`.env` with the platform default encoding, so every run on Windows died with `UnicodeDecodeError`
+before reaching Supabase; and `scope_arm.py` named output by arm letter alone, so two runs of one arm
+varying only the database would silently overwrite each other — it now takes a label and refuses to
+clobber an existing payload. **Also found, not fixed:** `_find_active_client_id` in
+`company_profile.py` excludes `lubricants` and `bicycle` as demo clients, so the company-profile API
+**cannot** set posture for them; the row had to be written directly. That surface works only for a
+non-demo tenant.
+
+**Method note — the check that saved the experiment.** Before restarting, `/api/v1/company-profile`
+did not expose the new fields while a fresh Python process reading the same database did: the backend
+was running stale code. Arms run at that moment would have exercised the old build and returned a
+confident false negative. Verified per `feedback_verify_config_reaches_the_live_call_path` *before*
+spending, not after.
+
+**🔴 Separate defect found while measuring this, NOT fixed — `_rank_options` has no tie band.**
+Arm B0's top two options score **identically to four decimal places** (0.035 vs 0.035) under the
+default weighting, and the agent presents a confident `recommendation` anyway, chosen by list order.
+This predates Stage J entirely and is independent of it. The honest output when the top-two margin is
+below some threshold is "these are equivalent under this weighting", not a winner. Needs a threshold
+nobody has an empirical basis for yet — so it is recorded rather than guessed at.
+
+**Also still open:** the weighting is not surfaced anywhere a reader sees it. "Ranked for a
+margin-defense posture: impact 0.4 / cost 0.3 / risk 0.3" turns a ranking into something checkable;
+without it, three numbers decide the recommendation invisibly. Belongs with Stage G's briefing UI.
+
+**Stage H follow-on (added 2026-08-15):** extend the moderator rubric to the links it currently cannot
+see — frame and creative alternatives — **or** conclude they are not gradeable at synthesis time and
+handle them upstream. Do not tune the four existing rubric items; they grade what already passes.
+Joins the still-open critic dual-duty risk-proposal item on Stage H's follow-on list.
+
+**🔴 Scope finding — framing is outside Phase 15 as this phase is defined.** Link 1 fails 9 of 11 and
+is the chain's first link, but the frame is not set in Solution Finder at all: it is fixed upstream
+when SA emits a situation card named after one breached KPI, and every persona downstream inherits
+"recover this KPI" as an axiom. This is why **both** prior experiments returned nulls — the roster swap
+varied who was in the council, the frame-challenge flag varied the task wording, and both varied things
+*inside* a frame decided three stages earlier. Phase 15's stated goal is recommendations that are
+grounded, honest about their bets, and calibrated on known-vs-inferred: all three concern the quality
+of the answer to a given question, none concerns whether the right question was asked. **Phase 15 can
+therefore complete successfully with link 1 still failing.** Needs its own phase or a home in whatever
+owns situation-card semantics — flagged as the strongest candidate for what follows Phase 15, not as
+work to squeeze into it.
+
+**Still required before any frame conclusion is load-bearing:** a second problem shape. All 33 options
+are one KPI on one DA result, so "frame fails 9 of 11" stays consistent with *this problem has one
+right frame*.
+
+---
+
 ### Phase 16: Data Product Contract Consolidation — finish the YAML → registry migration
 
 > **Numbering note:** Phase 15 is the LLM-trust spine; Phase 14+ remains the reserved unscheduled Future bucket. This takes the next free number, 16.

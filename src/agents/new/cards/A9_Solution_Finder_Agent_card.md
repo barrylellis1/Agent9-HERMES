@@ -125,6 +125,46 @@ selects the NEW arm of the PM-2 A/B on the synthesis call:
 - Frontend runs TWO dispatches (`stage1_only` → `synthesis`); the dead `hypothesis`/`cross_review`
   dispatches and the never-read `prior_transcript` are gone; `VITE_DEBATE_MODE` is retired.
 
+## Stage J — Enterprise Tradeoff Weights (Aug 2026) 🔴
+Option ranking no longer uses the agent's own constant. `_rank_options` consumes
+`request.evaluation_criteria`, resolved in this order by `_tradeoff_weights_to_criteria()`:
+
+1. `request.evaluation_criteria` — explicit caller override → `criteria_source="request"`
+2. `business_context.tradeoff_weights` → `criteria_source="business_context"`
+3. `A9_Solution_Finder_Agent_Config.weight_impact/_cost/_risk` → `criteria_source="config_default"`
+
+**The defect this closes.** `evaluation_criteria` existed on the request model and was read at both
+call sites, but **nothing ever populated it** — so every ranking the product had ever produced used
+`impact=0.5 / cost=0.25 / risk=0.25` regardless of client. Invisible because the rendered matrix looks
+complete and fully weighted. Decision Quality link 4 failed 11/11 on the retrospective baseline.
+
+**Weights are ENTERPRISE, never principal.** They live on `A9_PS_BusinessContext`
+(`tradeoff_weights` + `strategic_posture`), round-tripped through the existing
+`business_contexts.metadata` JSONB — no migration. Per-principal weights would violate the **M1
+invariant** stated in this agent's own synthesis prompt (role adaptation controls entry point and
+depth only; the conclusion is identical for every role), because ranking weights change which option
+wins — measured: 4 of 11 saved arms flip across plausible CEO/COO/CFO profiles.
+
+**`tradeoff_weights` are withheld from the LLM prompt** — `_business_context_for_prompt()` strips
+them while keeping `strategic_posture`. The model authors the `expected_impact`/`cost`/`risk` scalars
+that `_rank_options` then weights; letting it read the weighting invites it to tilt the scalars and
+have the ranker apply the same weighting a second time. **Text drives generation, numbers drive
+selection.** The `business_context` field on `A9_LLM_AnalysisRequest` never reaches prompt text (no
+provider reads it) and the `llm_debate_analysis_req` audit event keeps the full context deliberately —
+that is provenance, not input.
+
+**Weights are relative, not normalised.** `_rank_options` computes
+`impact_w*impact - cost_w*cost - risk_w*risk` with no rescaling. (Note `A9_PS_DecisionCriteria` in
+`a9_debate_protocol_models.py` requires weights to sum to 1.0 — it is dead code, referenced nowhere,
+and does NOT govern this path.)
+
+**`TradeOffMatrix.criteria_source`** records provenance rather than leaving it inferable from values;
+`src/analysis/decision_quality.py` reads it for link 4 and falls back to value comparison only for
+payloads written before the field existed.
+
+**Not built:** `_rank_options` has no tie band — an exact 0.0000 top-two tie is still presented as a
+confident recommendation (observed on arm B0). No UI surfaces the weighting to a reader.
+
 ## Narrative Claim Validation (Aug 2026)
 Every other guard in SF scores the **options**. The **prose** — `problem_reframe` and
 `recommendation_rationale` — leads page one of the Executive Briefing, above the fold, and had
