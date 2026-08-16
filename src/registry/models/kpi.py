@@ -9,7 +9,7 @@ import os
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ComparisonType(str, Enum):
@@ -76,6 +76,46 @@ class KPIMonitoringProfile(BaseModel):
     min_breach_duration: int = Field(1, ge=1, description="Consecutive periods in breach before SA escalates.")
     confidence_floor: float = Field(0.6, ge=0.0, le=1.0, description="Minimum SA confidence to escalate to DA; below this → 'monitoring' status.")
     urgency_window_days: int = Field(14, ge=1, description="SLA window in days for this KPI type.")
+
+
+class NotSliceableByEntry(BaseModel):
+    """One denied (KPI x dimension) cut. docs/architecture/kpi_semantic_contract.md §4.
+
+    Two independent axes, not one — collapsing them into a plain dimension
+    name (the original shape of this field) defeats the reason a deny list
+    is safer than an allow list at all: §4.6 calls a deny list "a place to
+    hide bugs" unless reason_class distinguishes a permanent fact from a
+    fixable data gap.
+
+    - `reason_class`: 'structural' = a permanent fact about how THIS
+      CLIENT's business data works (e.g. COGS booked at product level, not
+      customer level) — declare once, deny forever, nothing to fix.
+      'pipeline_gap' = the data SHOULD reach this grain and doesn't — a
+      genuine completeness gap in the CLIENT's own source system/ETL, not a
+      permanent fact about their business. NOT an Agent9 code defect —
+      Agent9 does not own the client's warehouse pipeline and cannot fix
+      this by writing code. Worth surfacing as a known data-quality finding
+      to whoever DOES own that pipeline (the client's data team, or
+      Agent9's onboarding/implementation function for that account), not
+      left to sit silently mislabeled as a permanent fact. Defaults to
+      pipeline_gap: profiling alone cannot tell the two apart, and §4.3's
+      "prefer loud" principle means treating an unclassified gap as worth
+      flagging until a human overrides it, not assuming it's permanent by
+      default.
+    - `source`: 'derived' = produced by coverage profiling (reproducible,
+      re-runnable, dated). 'declared' = a human asserted it without data
+      support — the escape hatch for cases the profiler can't see.
+    """
+    dimension: str = Field(..., description="The denied dimension field name")
+    reason_class: str = Field(
+        "pipeline_gap",
+        description="'structural' (permanent fact about the client's business data, declare and keep) | 'pipeline_gap' (a completeness gap in the client's own source data/ETL — not an Agent9 defect) — see class docstring",
+    )
+    note: Optional[str] = Field(None, description="Human-readable detail — which check failed, coverage numbers, etc.")
+    source: str = Field(
+        "derived",
+        description="'derived' (produced by coverage profiling) | 'declared' (a human asserted it without data support)",
+    )
 
 
 class KPI(BaseModel):
@@ -150,10 +190,40 @@ class KPI(BaseModel):
     # as scope creep at demo stage (DEVELOPMENT_PLAN.md -> Phase 15 -> Stage I).
     # If a future change makes this field load-bearing rather than advisory,
     # that is a decision to make consciously, not one to drift into.
-    not_sliceable_by: List[str] = Field(
+    not_sliceable_by: List[NotSliceableByEntry] = Field(
         default_factory=list,
-        description="Dimensions this KPI (single-component sum or multi-component ratio) must NOT be sliced by — the UNION of two checks (completeness + cross-component), advisory only, never enforced."
+        description=(
+            "Dimensions this KPI (single-component sum or multi-component ratio) must NOT be "
+            "sliced by — the UNION of two checks (completeness + cross-component). Consumed by "
+            "A9_Deep_Analysis_Agent (docs/architecture/kpi_semantic_contract.md §4.5): excluded "
+            "from dims_to_process before the max_dimensions cut, and recorded on "
+            "DeepAnalysisResponse.dimensions_excluded so exclusion is never silent (§4.6's "
+            "trap — a deny list is a place bugs hide unless every exclusion stays visible)."
+        )
     )
+
+    @field_validator("not_sliceable_by", mode="before")
+    @classmethod
+    def _normalize_not_sliceable_by(cls, v: Any) -> Any:
+        """Accept legacy flat-string entries alongside the current structured shape.
+
+        Real KPI records were persisted with `not_sliceable_by` as a bare list
+        of dimension names before this field carried reason_class/source/note
+        (2026-08-16) — normalizing here means those records still load instead
+        of failing validation. A bare string is wrapped as
+        reason_class='pipeline_gap' (prefer loud — see NotSliceableByEntry)
+        and source='derived' (it WAS produced by profiling, just before this
+        field existed to record that explicitly).
+        """
+        if not v:
+            return v
+        normalized = []
+        for item in v:
+            if isinstance(item, str):
+                normalized.append({"dimension": item, "reason_class": "pipeline_gap", "source": "derived", "note": None})
+            else:
+                normalized.append(item)
+        return normalized
     slice_validity_details: Optional[Dict[str, Any]] = Field(
         None,
         description="Last check_slice_validity run's raw per-dimension result — {dimension: {'completeness': {counts,coverage,verdict}, 'cross_component': {...} | absent}} — so a human can see WHICH check failed and why, not just that one did. cross_component is absent when the KPI has fewer than 2 components (nothing to compare); completeness always runs."

@@ -261,7 +261,7 @@ async def test_run_check_delegates_to_dga_and_returns_its_response():
     dga = MagicMock()
     dga.check_slice_validity = AsyncMock(return_value=SliceValidityCheckResponse(
         kpi_id="gross_margin_pct", client_id="lubricants", status="success",
-        not_sliceable_by=["customer_name"],
+        not_sliceable_by=[{"dimension": "customer_name", "reason_class": "pipeline_gap", "source": "derived"}],
     ))
     rt._agents = {"A9_Data_Governance_Agent": dga}
 
@@ -269,4 +269,4 @@ async def test_run_check_delegates_to_dga_and_returns_its_response():
 
     dga.check_slice_validity.assert_awaited_once()
     assert result["status"] == "success"
-    assert result["not_sliceable_by"] == ["customer_name"]
+    assert [e["dimension"] for e in result["not_sliceable_by"]] == ["customer_name"]

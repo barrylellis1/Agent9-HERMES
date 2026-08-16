@@ -903,6 +903,15 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             spec_main: Dict[str, Any] = {"comparison_type": "previous", "inverse_logic": False, "yellow_threshold": 0.0}
             kpi_def = None  # populated below when resolvable; used for unit-aware SCQA framing
 
+            # Dimensions this KPI's not_sliceable_by deny list excludes from analysis
+            # (docs/architecture/kpi_semantic_contract.md §4.5) — populated once kpi_def
+            # resolves, read unconditionally at the end of this method (same reason
+            # _dimension_totals is declared here rather than inside the branch that fills
+            # it: a definition nested in a conditional would raise NameError on every path
+            # where no KPI resolves).
+            _denied_dims: Dict[str, Dict[str, Any]] = {}  # dimension name -> {reason_class, source, note}
+            _dimensions_excluded: List[Dict[str, Any]] = []
+
             # If DP Agent is available, compute where/when by executing grouped queries
             if self.data_product_agent is not None and getattr(plan, "kpi_name", None):
                 try:
@@ -934,6 +943,23 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         except Exception:
                             pass
                     prev_tf = self._prev_timeframe(cur_tf)
+
+                    # §4.5: index the deny list once, before any dimension list is built,
+                    # so both the flat loop and the hierarchical vector path below can
+                    # filter against it. Tolerates the KPI model instance carrying either
+                    # NotSliceableByEntry objects or plain dicts (defensive — this method
+                    # accepts kpi_def from more than one lookup path).
+                    for _entry in (getattr(kpi_def, "not_sliceable_by", None) or []):
+                        _dim_name = _entry.get("dimension") if isinstance(_entry, dict) else getattr(_entry, "dimension", None)
+                        if not _dim_name:
+                            continue
+                        _reason_class = _entry.get("reason_class") if isinstance(_entry, dict) else getattr(_entry, "reason_class", None)
+                        _source = _entry.get("source") if isinstance(_entry, dict) else getattr(_entry, "source", None)
+                        _denied_dims[_dim_name] = {
+                            "reason_class": _reason_class or "pipeline_gap",
+                            "source": _source or "derived",
+                        }
+
                     dims = getattr(plan, "dimensions", []) or []
 
                     # Fallback: populate dimensions and steps from contract if missing
@@ -945,6 +971,28 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                 plan.dimensions = dims
                         except Exception:
                             pass
+
+                    # §4.5: exclude denied dimensions BEFORE the max_dimensions cut (applied
+                    # later via dims_to_process/unique_dims), not after — a denied slot should
+                    # free room for a valid dimension, not just waste a query slot on a cut
+                    # already known to be meaningless. Every exclusion is recorded in
+                    # _dimensions_excluded, never silent (§4.5's "one rule that must not be
+                    # broken" — a deny list that quietly shrinks the investigation is the
+                    # preferred-literal defect wearing better clothes).
+                    if _denied_dims and dims:
+                        _kept_dims = []
+                        for _d in dims:
+                            if _d in _denied_dims:
+                                _dimensions_excluded.append({"dimension": _d, **_denied_dims[_d]})
+                            else:
+                                _kept_dims.append(_d)
+                        if _dimensions_excluded:
+                            self.logger.info(
+                                f"[SLICEABILITY] Excluded {len(_dimensions_excluded)} denied dimension(s) "
+                                f"for {getattr(plan, 'kpi_name', '?')}: {[e['dimension'] for e in _dimensions_excluded]}"
+                            )
+                        dims = _kept_dims
+
                     try:
                         steps_attr = getattr(plan, "steps", None)
                     except Exception:
@@ -1449,10 +1497,17 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         vector_order = list(hmap.keys())
                         dimensions_analyzed = [
                             lvl for vec in vector_order for lvl in (hmap.get(vec) or [])
+                            if lvl not in _denied_dims
                         ]
                         for vec in vector_order:
                             levels = hmap.get(vec, []) or []
                             for lvl in levels:
+                                # §4.5 — same deny-list exclusion as the flat path below,
+                                # applied here too so the hierarchical vector path isn't a
+                                # silent gap in the same protection.
+                                if lvl in _denied_dims:
+                                    _dimensions_excluded.append({"dimension": lvl, **_denied_dims[lvl]})
+                                    continue
                                 grp = await _maps_for_level(lvl, comparator)
                                 if not grp:
                                     continue
@@ -1552,6 +1607,14 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                         self.logger.info(f"[LOOP] Will process {len(dims_to_process)} dimensions: {dims_to_process}")
                         for dim_idx, dim in enumerate(dims_to_process):
                             self.logger.info(f"[LOOP] Processing dimension {dim_idx+1}/{len(dims_to_process)}: {dim}")
+                            # Snapshot of the cumulative list BEFORE this dimension's own pass, so the
+                            # fallback gate below can ask "did THIS dimension add anything" instead of
+                            # "is the whole multi-dimension list still empty" — the latter silently
+                            # skips every dimension after the first once any prior dimension succeeds
+                            # (confirmed live: comparator=budget forces every dim through the fallback
+                            # branch, so after dim 1 populates kt.where_is, `if not kt.where_is` is
+                            # permanently False and dims 2..N contribute nothing — 2026-08-16).
+                            _where_is_count_before_dim = len(kt.where_is)
                             try:
                                 # Fetch ALL data for this dimension to apply hybrid threshold selection
                                 # This gives us richer context for the LLM vs fixed Top 3/Bottom 3
@@ -1651,24 +1714,56 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                                             kt.where_is_not.append(entry_bot)
                                             added_where_is_not_keys.add(dedup_key)
                                 
-                                # Fallback: dual-query method if TopN path failed to populate
-                                if not kt.where_is:
-                                    gen_cur = await self.data_product_agent.generate_sql_for_kpi(
-                                        kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim]
-                                    )
-                                    if gen_cur.get("success"):
-                                        cur_exec = await self.data_product_agent.execute_sql(gen_cur.get("sql"), data_product_id=dp_id)
-                                        queries_executed += 1
-                                        m_cur = _as_map(cur_exec)
-                                        m_prev: Dict[str, float] = {}
-                                        if prev_tf:
-                                            gen_prev = await self.data_product_agent.generate_sql_for_kpi(
-                                                kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim], comparison_period=True
+                                # Fallback: dual-query method if the TopN path failed to populate
+                                # THIS dimension (not "is the whole cumulative list still empty").
+                                if len(kt.where_is) == _where_is_count_before_dim:
+                                    m_cur: Dict[str, float] = {}
+                                    m_prev: Dict[str, float] = {}
+                                    _fb_success = False
+                                    if comp_fb == "budget":
+                                        # Actual-vs-budget needs a version-substituted proxy KPI, not
+                                        # a second time window — mirrors the pattern already proven in
+                                        # _maps_for_level / _record_dimension_total (search
+                                        # _budget_variant_kpi elsewhere in this file). TopN has no
+                                        # "vs budget" query shape (see the comment above this loop),
+                                        # so THIS is budget's only path to segment-level deltas — it
+                                        # was silently running actual-vs-PRIOR-PERIOD here instead,
+                                        # mislabeled as budget throughout the response and UI
+                                        # (confirmed live: identical output to the "previous"
+                                        # comparator run for the same KPI/timeframe) — fixed 2026-08-16.
+                                        _bud_kpi_fb = self._budget_variant_kpi(kpi_def)
+                                        if _bud_kpi_fb is not None:
+                                            gen_cur = await self.data_product_agent.generate_sql_for_kpi(
+                                                kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim]
                                             )
-                                            if gen_prev.get("success"):
-                                                prev_exec = await self.data_product_agent.execute_sql(gen_prev.get("sql"), data_product_id=dp_id)
-                                                queries_executed += 1
-                                                m_prev = _as_map(prev_exec)
+                                            gen_bud = await self.data_product_agent.generate_sql_for_kpi(
+                                                _bud_kpi_fb, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim]
+                                            )
+                                            if gen_cur.get("success") and gen_bud.get("success"):
+                                                cur_exec = await self.data_product_agent.execute_sql(gen_cur.get("sql"), data_product_id=dp_id)
+                                                bud_exec = await self.data_product_agent.execute_sql(gen_bud.get("sql"), data_product_id=dp_id)
+                                                queries_executed += 2
+                                                m_cur = _as_map(cur_exec)
+                                                m_prev = _as_map(bud_exec)
+                                                _fb_success = True
+                                    else:
+                                        gen_cur = await self.data_product_agent.generate_sql_for_kpi(
+                                            kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim]
+                                        )
+                                        if gen_cur.get("success"):
+                                            cur_exec = await self.data_product_agent.execute_sql(gen_cur.get("sql"), data_product_id=dp_id)
+                                            queries_executed += 1
+                                            m_cur = _as_map(cur_exec)
+                                            _fb_success = True
+                                            if prev_tf:
+                                                gen_prev = await self.data_product_agent.generate_sql_for_kpi(
+                                                    kpi_def, timeframe=cur_tf, filters=getattr(plan, "filters", None), breakdown=True, override_group_by=[dim], comparison_period=True
+                                                )
+                                                if gen_prev.get("success"):
+                                                    prev_exec = await self.data_product_agent.execute_sql(gen_prev.get("sql"), data_product_id=dp_id)
+                                                    queries_executed += 1
+                                                    m_prev = _as_map(prev_exec)
+                                    if _fb_success:
                                         # Compute deltas per group
                                         keys = set(m_cur.keys()) | set(m_prev.keys())
                                         diffs = []
@@ -2376,6 +2471,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 when_started=when_started,
                 dimensions_suggested=getattr(plan, "dimensions", []),
                 dimensions_analyzed=dimensions_analyzed,
+                dimensions_excluded=_dimensions_excluded,
                 analysis_mode=getattr(plan, "analysis_mode", "problem"),
                 mixed_framing=(_effective_mode_final == "mixed"),
                 # 11I-D: surface which alert basis was diagnosed so SF/PIB can label it and the

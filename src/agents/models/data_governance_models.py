@@ -274,6 +274,25 @@ class SliceValidityDimensionResult(BaseModel):
     verdict: str = Field(..., description="'ok' | 'degraded' | 'INVALID' | 'unknown'")
 
 
+class NotSliceableByEntry(BaseModel):
+    """One denied (KPI x dimension) cut. docs/architecture/kpi_semantic_contract.md §4.
+
+    Mirrors src.registry.models.kpi.NotSliceableByEntry (duplicated rather
+    than imported — agent I/O models in this codebase don't import registry
+    models directly). `reason_class` defaults to 'pipeline_gap': profiling
+    alone cannot tell a permanent structural fact from a fixable data gap in
+    the CLIENT's own source system — NOT an Agent9 code defect, since Agent9
+    doesn't own the client's warehouse ETL. §4.3's "prefer loud" principle
+    means treating an unclassified gap as worth flagging to whoever owns
+    that data until a human overrides it via source='declared', not
+    assuming it's permanent by default.
+    """
+    dimension: str = Field(..., description="The denied dimension field name")
+    reason_class: str = Field("pipeline_gap", description="'structural' (permanent fact about the client's business data) | 'pipeline_gap' (a completeness gap in the client's own source data/ETL — not an Agent9 defect)")
+    note: Optional[str] = Field(None, description="Human-readable detail — which check failed, coverage numbers, etc.")
+    source: str = Field("derived", description="'derived' (coverage profiling) | 'declared' (human assertion, no data support)")
+
+
 class SliceValidityCheckResponse(BaseModel):
     """Response for a slice-validity check.
 
@@ -298,7 +317,7 @@ class SliceValidityCheckResponse(BaseModel):
     components_used: List[str] = Field(
         default_factory=list, description="The components actually checked (explicit or auto-derived)"
     )
-    not_sliceable_by: List[str] = Field(
-        default_factory=list, description="Dimensions where EITHER check landed on 'INVALID'"
+    not_sliceable_by: List[NotSliceableByEntry] = Field(
+        default_factory=list, description="Dimensions where EITHER check landed on 'INVALID', with reason_class/source/note — consumed by DA (§4.5)"
     )
     checked_at: Optional[datetime] = Field(None, description="When this run completed")

@@ -272,7 +272,9 @@ async def test_verdicts_match_assess_and_populate_not_sliceable_by():
     verdicts = {r.dimension: r.verdict for r in resp.cross_component_results}
     assert verdicts["customer_name"] == "INVALID"
     assert verdicts["product_name"] == "ok"
-    assert resp.not_sliceable_by == ["customer_name"]
+    assert [e.dimension for e in resp.not_sliceable_by] == ["customer_name"]
+    assert resp.not_sliceable_by[0].reason_class == "pipeline_gap"
+    assert resp.not_sliceable_by[0].source == "derived"
     assert resp.checked_at is not None
     assert resp.components_used == ["Revenue", "COGS"]
 
@@ -310,7 +312,7 @@ async def test_result_is_persisted_via_upsert_with_both_check_types():
 
     agent.kpi_provider.upsert.assert_awaited_once()
     (persisted,), _ = agent.kpi_provider.upsert.call_args
-    assert persisted.not_sliceable_by == ["customer_name"]
+    assert [e.dimension for e in persisted.not_sliceable_by] == ["customer_name"]
     detail = persisted.slice_validity_details["customer_name"]
     assert detail["cross_component"]["verdict"] == "INVALID"
     assert detail["completeness"]["verdict"] == "ok"
@@ -332,7 +334,7 @@ async def test_persist_failure_reports_error_not_a_reverting_success():
     assert resp.status == "error"
     assert resp.checked_at is None
     # But what the check actually found is still surfaced, not discarded.
-    assert resp.not_sliceable_by == ["customer_name"]
+    assert [e.dimension for e in resp.not_sliceable_by] == ["customer_name"]
     assert len(resp.cross_component_results) == 1
 
 
@@ -355,7 +357,7 @@ async def test_persist_failure_is_caught_even_when_upsert_returns_false_silently
 
     assert resp.status == "error"
     assert resp.checked_at is None
-    assert resp.not_sliceable_by == ["customer_name"]
+    assert [e.dimension for e in resp.not_sliceable_by] == ["customer_name"]
 
 
 @pytest.mark.asyncio
@@ -565,4 +567,4 @@ async def test_not_sliceable_by_is_the_union_of_both_checks():
     resp = await agent.check_slice_validity(_request(dimensions=["customer_name", "product_name"]))
 
     # product_name is fine by cross-component but fails completeness — still unsafe overall.
-    assert resp.not_sliceable_by == ["product_name"]
+    assert [e.dimension for e in resp.not_sliceable_by] == ["product_name"]

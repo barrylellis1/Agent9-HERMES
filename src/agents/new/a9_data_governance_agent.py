@@ -48,6 +48,7 @@ from src.agents.models.data_governance_models import (
     SliceValidityCheckRequest,
     SliceValidityCheckResponse,
     SliceValidityDimensionResult,
+    NotSliceableByEntry,
 )
 from src.agents.models.data_product_onboarding_models import (
     KPIRegistryUpdateRequest,
@@ -55,7 +56,7 @@ from src.agents.models.data_product_onboarding_models import (
     BusinessProcessMappingRequest,
     BusinessProcessMappingResponse,
 )
-from src.registry.models.kpi import KPI as RegistryKPI
+from src.registry.models.kpi import KPI as RegistryKPI, NotSliceableByEntry as RegistryNotSliceableByEntry
 from src.registry.models.business_process import BusinessProcess
 from src.analysis.slice_validity import (
     check_completeness as _slice_validity_check_completeness,
@@ -973,11 +974,36 @@ class A9_Data_Governance_Agent:
         ]
         # UNION of dimensions failing EITHER check — "not sliceable by X"
         # should mean don't trust it for any reason, not just the reason the
-        # first check happened to look for.
-        not_sliceable_by = sorted({
-            v.dimension for v in (completeness_verdicts + cross_component_verdicts)
-            if v.verdict == "INVALID"
-        })
+        # first check happened to look for. One structured entry per denied
+        # dimension (§4), not a bare name: reason_class defaults to
+        # 'pipeline_gap' (profiling alone cannot tell a permanent structural
+        # fact about the CLIENT's business from a fixable completeness gap
+        # in the CLIENT's own source data/ETL — this is never an Agent9
+        # code defect, Agent9 doesn't own the client's warehouse pipeline.
+        # §4.3's "prefer loud" means treating an unclassified gap as worth
+        # flagging to whoever owns that pipeline until a human overrides it
+        # via source='declared', not assuming it's permanent by default).
+        # When a dimension fails both checks, the completeness note wins —
+        # arbitrary but deterministic, and completeness is the check with a
+        # value column to quote a concrete ratio from.
+        _invalid_by_dim: Dict[str, Any] = {}
+        for v in cross_component_verdicts:
+            if v.verdict == "INVALID":
+                _invalid_by_dim[v.dimension] = (
+                    f"Cross-component coverage {v.coverage:.0%} — components reach different "
+                    f"sets of {v.dimension} values ({v.counts})"
+                )
+        for v in completeness_verdicts:
+            if v.verdict == "INVALID":
+                _c = v.counts or {}
+                _invalid_by_dim[v.dimension] = (
+                    f"Completeness {v.coverage:.0%} — {_c.get('complete_rows', '?')}/"
+                    f"{_c.get('total_rows', '?')} rows carry a {v.dimension} value"
+                )
+        not_sliceable_by = [
+            NotSliceableByEntry(dimension=dim, reason_class="pipeline_gap", source="derived", note=note)
+            for dim, note in sorted(_invalid_by_dim.items())
+        ]
         # Persisted per dimension, both sub-checks side by side so a human
         # reading the record later can see WHICH question failed, not just
         # that one did.
@@ -993,8 +1019,17 @@ class A9_Data_Governance_Agent:
         checked_at = datetime.now(timezone.utc)
 
         try:
+            # Re-typed through the REGISTRY-layer NotSliceableByEntry explicitly —
+            # model_copy(update=...) does not validate/coerce, so leaving the
+            # agent-layer instances in place would leave `updated_kpi` holding a
+            # field typed List[registry.NotSliceableByEntry] but populated with
+            # agent.NotSliceableByEntry instances. Same shape, still worth being
+            # exact about which class actually owns the field.
+            _registry_not_sliceable_by = [
+                RegistryNotSliceableByEntry(**e.model_dump()) for e in not_sliceable_by
+            ]
             updated_kpi = kpi.model_copy(update={
-                "not_sliceable_by": not_sliceable_by,
+                "not_sliceable_by": _registry_not_sliceable_by,
                 "slice_validity_details": details,
                 "slice_validity_checked_at": checked_at,
             })

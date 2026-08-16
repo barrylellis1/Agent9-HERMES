@@ -13,8 +13,13 @@
  * Stage I. Loading the KPI list itself is read-only and automatic; running
  * the actual check is not.
  *
- * Advisory only — nothing downstream reads not_sliceable_by to gate
- * anything. This panel is where a human reads it, full stop.
+ * Not purely advisory (as of 2026-08-16) — A9_Deep_Analysis_Agent now
+ * excludes every dimension in not_sliceable_by from analysis before running
+ * (docs/architecture/kpi_semantic_contract.md §4.5) and reports each
+ * exclusion on DeepAnalysisResponse.dimensions_excluded, so this panel is no
+ * longer just a display: what a human runs here changes what DA will and
+ * won't cut this KPI by on every subsequent run. Onboarding/UI flows
+ * themselves still aren't gated by it — only DA's own dimension selection is.
  */
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, CheckCircle2, Loader2, ShieldAlert } from 'lucide-react'
@@ -185,9 +190,19 @@ export function SliceValidityPanel({ clientId }: { clientId?: string }) {
 
       {notSliceableBy.length > 0 && (
         <div className="mb-4 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm">
-          <span className="font-semibold">Do not slice this KPI by:</span> {notSliceableBy.join(', ')} — either some
-          rows have no value for the dimension at all, or the component measures don't reach it the same way. Either
-          way, slicing by it produces a confident, wrong number.
+          <span className="font-semibold">Deep Analysis will not slice this KPI by:</span>{' '}
+          {notSliceableBy.map((e) => e.dimension).join(', ')} — either some rows have no value for the dimension at
+          all, or the component measures don't reach it the same way. Either way, slicing by it produces a
+          confident, wrong number, so Deep Analysis excludes these dimensions before it runs (§4.5).
+          <ul className="mt-2 space-y-0.5">
+            {notSliceableBy.map((e) => (
+              <li key={e.dimension} className="text-xs text-red-300/80">
+                <span className="font-mono">{e.dimension}</span> —{' '}
+                {e.reason_class === 'structural' ? 'structural (a permanent fact about how this business’s data works)' : 'data gap in this client’s source system — worth flagging to whoever owns their data pipeline'}
+                {e.note ? `: ${e.note}` : ''}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

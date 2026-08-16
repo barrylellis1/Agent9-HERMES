@@ -227,6 +227,18 @@ class DeepAnalysisResponse(A9AgentBaseResponse):
             "field existed nothing recorded which 10."
         ),
     )
+    dimensions_excluded: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description=(
+            "Dimensions dropped from analysis because the KPI's own not_sliceable_by deny "
+            "list flagged them (docs/architecture/kpi_semantic_contract.md §4.5) — each entry "
+            "{dimension, reason_class, source}. Excluded BEFORE the max_dimensions cut, so a "
+            "denied slot frees room for a valid one rather than just wasting a query on a cut "
+            "already known to be meaningless. Must be recorded, never silent: a deny list that "
+            "quietly shrinks the investigation with no trace is the same defect a hardcoded "
+            "dimension-preference list already caused once (§4.5)."
+        ),
+    )
 
     # Analysis outputs
     scqa_summary: Optional[str] = None

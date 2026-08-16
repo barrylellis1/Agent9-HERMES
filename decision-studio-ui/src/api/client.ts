@@ -988,6 +988,20 @@ export interface SliceValidityDimensionResult {
   verdict: 'ok' | 'degraded' | 'INVALID' | 'unknown';
 }
 
+// One denied (KPI x dimension) cut — docs/architecture/kpi_semantic_contract.md §4.
+// Structured, not a bare name (2026-08-16): reason_class distinguishes a
+// permanent fact ('structural') from an open bug ('pipeline_gap' — the
+// default, since profiling alone can't tell them apart); source distinguishes
+// data-derived from human-declared. Consumed by A9_Deep_Analysis_Agent, which
+// excludes these dimensions from analysis (§4.5) and reports them on
+// DeepAnalysisResponse.dimensions_excluded.
+export interface NotSliceableByEntry {
+  dimension: string;
+  reason_class: 'structural' | 'pipeline_gap';
+  note?: string | null;
+  source: 'derived' | 'declared';
+}
+
 export interface SliceValidityResponse {
   status: 'success' | 'error' | 'not_probed' | 'checked';
   kpi_id: string;
@@ -1002,7 +1016,7 @@ export interface SliceValidityResponse {
   completeness_results: SliceValidityDimensionResult[];
   cross_component_results: SliceValidityDimensionResult[];
   components_used: string[];
-  not_sliceable_by: string[];
+  not_sliceable_by: NotSliceableByEntry[];
   checked_at: string | null;
 }
 
