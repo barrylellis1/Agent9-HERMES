@@ -72,13 +72,49 @@ written by DA and then treated as given** by the interview, the council, the mod
 **Consequence for §4's gate — this is a placement constraint, not just an ordering preference.**
 Unbundling the gate from the interview (§4) solves *optionality* but not *position*: a mandatory gate
 that fires after `execute_deep_analysis()` still arrives too late, because SCQA — and DA's
-recommendation — are already written and shipped downstream. So either
+recommendation — are already written and shipped downstream.
 
-- the gate can **rewrite** the SCQA Q and DA's recommendation with it, or
-- **SCQA generation moves to after the gate**, which is cleaner and the larger change.
+### ✅ DECIDED (2026-08-16) — SCQA is the OUTPUT of framing, not an input to it
 
-**This is the first decision to settle, ahead of everything in §8**, because it determines where the
-gate physically sits and therefore what else has to move with it.
+`_generate_scqa_summary()` and DA's recommendation move to **after** the framing gate and are produced
+*against the chosen frame*. The rejected alternative was letting the gate rewrite an
+already-generated SCQA, which keeps a discarded frame in the payload and in the reader's head.
+
+This is the correct reading of what SCQA *is*. Situation–Complication–**Question**–Answer is a framing
+device whose Q is the frame; generating it before the frame is chosen means the framing device is
+doing the framing. Once the order is right, SCQA becomes the artefact that *records* the chosen frame,
+and its Q is the answer to the gate rather than a substitute for it.
+
+### 1c. 🔴 The display is itself premature framing — and the hierarchy is inverted
+
+Moving generation is necessary but not sufficient. **The DA console currently anchors the reader on
+the frame before anything asks them to choose one**, and it does so in the strongest possible way.
+
+`DeepFocusView.tsx` renders `ScqaBlock` at the top of the Analysis panel, and inside it:
+
+| SCQA element | treatment | line |
+|---|---|---|
+| **A** (answer) | **shown FIRST**, labelled **"Recommendation"**, `text-lg font-medium text-white` in a highlighted card | `:78-83` |
+| S (situation) | body text, `text-slate-300` | `:97-101` |
+| C (complication) | body text, `text-slate-300` | `:103-106` |
+| **Q** (the frame) | **shown LAST**, `text-slate-500 italic text-xs` — the least prominent element on screen | `:107-109` |
+
+**The visual hierarchy exactly inverts the epistemic order.** The reader sees a confident
+recommendation in large white type before they see the question it answers, and the question — the
+frame, the thing the gate exists to put in play — is styled as a footnote.
+
+By the time a framing gate asks *"is recovering this KPI the objective?"*, a user who has read this
+panel has already been given the answer to a question they were never asked. Their "yes" is an
+anchored confirmation, not a choice — **which reproduces the rubber-stamp failure the gate exists to
+prevent**, and would do so invisibly, because the gate would report `frame_examined: true`.
+
+**Therefore the console must not render SCQA or DA's recommendation before the gate.** What it *can*
+show pre-gate is the evidence, which carries no frame: KT Is/Is-Not, change points, dimensions
+analysed, and the §4.5 deny-list exclusions. Facts first, frame chosen, then narrative and
+recommendation generated against it.
+
+**This is the first thing to settle**, because it determines where the gate physically sits, what
+moves with it, and what the console shows in the meantime.
 
 ## 2. This explains both prior nulls
 
@@ -196,6 +232,8 @@ that is a frame assumption written to this register. The intent is connected; no
 | surface | change |
 |---|---|
 | **framing gate** | new, **mandatory**, fires before SF regardless of whether the interview runs. NOT a `REFINEMENT_TOPIC_SEQUENCE` entry — unbundling means `PROTECTED_TOPICS` and `MAX_TOPICS_IN_SEQUENCE` are untouched, and the Stage I B-1 routed topics keep their slots |
+| `_generate_scqa_summary()` + DA recommendation | **move to after the gate**, generated against the chosen frame (§1b decision) |
+| `DeepFocusView.tsx` — `ScqaBlock` | 🔴 **must not render pre-gate.** Today it shows the answer first as "Recommendation" in `text-lg text-white` and the Q last in `text-slate-500 italic text-xs`, anchoring the reader on a frame nobody chose. Pre-gate the panel shows evidence only: KT Is/Is-Not, change points, dimensions analysed, §4.5 exclusions |
 | `Assumption` register | the frame decision is written here with `falsification_criterion` + `expiry` (§4b). No new model needed |
 | `RefinementResult` | carries the frame decision + whether it was changed, when the interview does run |
 | SF synthesis task text | must *accept* a reframed objective — today it requires every option to name "the primary driver of THIS KPI situation" with `recovery_range` "proportional to the observed variance", wording that cannot express a non-KPI objective |
