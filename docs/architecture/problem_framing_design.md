@@ -39,6 +39,43 @@ inferred — here is the full topic vocabulary of the one interview that exists
 Nine topics, none of them the frame. `tradeoff_tolerance` comes nearest and still presumes the KPI set
 is the right set to trade within.
 
+### 1b. 🔴 Worse than inherited — DA *authors* the frame, in SCQA, before any human is engaged
+
+SCQA is a framing device. Its **Q is the frame**, and its A presupposes that Q. So the question is not
+only *when* the frame gets examined but *who wrote it*, and the answer is: an LLM call inside Deep
+Analysis, before the interview exists.
+
+Ordering, verified in `a9_deep_analysis_agent.py`:
+
+```
+execute_deep_analysis()            (:857)
+    └── _generate_scqa_summary()   (:2270)  ← the frame is authored HERE
+    └── returns scqa_summary       (:2466)  ← and propagates to SF's context
+_generate_refinement_question()    (:3628)  ← the interview runs AFTER, and has
+                                              no topic that can revisit it
+```
+
+And on the fallback path the frame is not merely early, it is **hardcoded**:
+
+```python
+scqa_summary = (f"Situation: Reviewing {kpi_name}. Complication: Variance detected vs target. "
+                f"Question: Which segments drive the change?")
+```
+
+*"Which segments drive the change?"* is a dimensional-attribution question — a frame, asserted as a
+constant, whenever SCQA generation fails. Every downstream stage then answers it faithfully. The DA
+**recommendation** carries the same problem: it is produced against a frame nobody chose.
+
+This tightens §1's claim. The frame is not passively inherited from the SA card; it is **actively
+written by DA and then treated as given** by the interview, the council, the moderator and HITL. Any
+framing intervention must therefore sit *before or at* SCQA generation — a `problem_framing` interview
+topic placed after `execute_deep_analysis()` refines a frame that has already been committed to prose
+and shipped downstream.
+
+**Consequence for §4's proposal:** either the interview must be able to *rewrite* the SCQA Q (and DA's
+recommendation with it), or SCQA generation must move to after the framing topic. The second is
+cleaner and is the larger change. This is now the first open decision, ahead of those in §8.
+
 ## 2. This explains both prior nulls
 
 Two experiments tried to move the option space and both returned nulls:
