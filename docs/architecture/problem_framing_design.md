@@ -67,14 +67,18 @@ constant, whenever SCQA generation fails. Every downstream stage then answers it
 **recommendation** carries the same problem: it is produced against a frame nobody chose.
 
 This tightens §1's claim. The frame is not passively inherited from the SA card; it is **actively
-written by DA and then treated as given** by the interview, the council, the moderator and HITL. Any
-framing intervention must therefore sit *before or at* SCQA generation — a `problem_framing` interview
-topic placed after `execute_deep_analysis()` refines a frame that has already been committed to prose
-and shipped downstream.
+written by DA and then treated as given** by the interview, the council, the moderator and HITL.
 
-**Consequence for §4's proposal:** either the interview must be able to *rewrite* the SCQA Q (and DA's
-recommendation with it), or SCQA generation must move to after the framing topic. The second is
-cleaner and is the larger change. This is now the first open decision, ahead of those in §8.
+**Consequence for §4's gate — this is a placement constraint, not just an ordering preference.**
+Unbundling the gate from the interview (§4) solves *optionality* but not *position*: a mandatory gate
+that fires after `execute_deep_analysis()` still arrives too late, because SCQA — and DA's
+recommendation — are already written and shipped downstream. So either
+
+- the gate can **rewrite** the SCQA Q and DA's recommendation with it, or
+- **SCQA generation moves to after the gate**, which is cleaner and the larger change.
+
+**This is the first decision to settle, ahead of everything in §8**, because it determines where the
+gate physically sits and therefore what else has to move with it.
 
 ## 2. This explains both prior nulls
 
@@ -109,9 +113,13 @@ council a frame and asking only for options within it.
 
 **So the objective is not a better frame. It is that the frame is chosen rather than inherited.**
 
-## 4. Proposal — a `problem_framing` topic, asked first
+## 4. Proposal — a mandatory one-question framing gate, unbundled from the interview
 
-Add a tenth topic and route it to the front of the sequence.
+> **Revised 2026-08-16.** The first draft proposed a tenth *topic inside* the refinement interview.
+> That inherits the interview's optionality — arms A0/B0 ran with no refinement at all — so link 1
+> would have passed only sometimes. **Unbundle it.** The refinement interview is 5–10 turns and making
+> that mandatory is a real imposition on a user; the frame is **one question**. A single mandatory gate
+> is a far smaller ask than a mandatory interview, and it closes the gap properly.
 
 ```python
 "problem_framing":
@@ -119,10 +127,11 @@ Add a tenth topic and route it to the front of the sequence.
     "symptom of an exposure the principal would rather act on directly."
 ```
 
-**Why the refinement interview is the right home.** It is the only point where a human is engaged
-before Solution Finder runs; it is upstream of SF, where the frame actually lives; and the human
-answers, so the frame is *chosen*. The system asks — it does not decide. Same division that made
-`strategic_posture` work: the interface elicits, the customer authors.
+**Mandatory, and independent of whether the full interview runs.** The gate fires on every situation
+that reaches Solution Finding. The interview remains optional and unchanged.
+
+**Why a human answers it.** The frame is *chosen*, not computed — the system asks, it does not decide.
+Same division that made `strategic_posture` work: the interface elicits, the customer authors.
 
 **The question must offer concrete alternatives or it will always get "yes."** A bare *"is this the
 right problem?"* is rhetorical. The material for a real question already exists in the theory layer:
@@ -135,13 +144,60 @@ right problem?"* is rhetorical. The material for a real question already exists 
 That is buildable today from `kpi_relationships` (already traversed at 2 hops by Stage D) plus the
 assumption register (already fetched for constraint exposure). No new data.
 
+### 4b. The burden falls over time — and the store already exists
+
+A mandatory gate sounds like a permanent tax. It is not, because **a frame decision is an assumption**,
+and the assumption register already models exactly this:
+
+| `Assumption` field | carries |
+|---|---|
+| `text` | *"We are treating margin recovery as the objective, not base-oil exposure reduction."* |
+| `provenance` | `template` → `hitl_proposed` → `confirmed` → `va_validated` — the accretion ladder |
+| `validated_by` | `human_confirmation` for a chosen frame |
+| `falsification_criterion` | 🔴 **what would make this frame wrong** |
+| `expiry` | 🔴 **frames go stale, and this says when** |
+| `linked_situation_id` / `linked_solution_id` | ties the frame to the run it governed |
+| `client_id` | tenant-scoped, so accretion never crosses a client boundary |
+
+So the first framing conversation for a client is elicitation; later ones are **confirmation against
+recorded evidence**, which is cheaper without being emptier.
+
+🔴 **The failure mode this must avoid, and the two fields that prevent it.** The obvious risk of
+accretion is that a remembered frame becomes **the new unexamined default** — the system offers "same
+frame as last time?", the user clicks yes, and precedent hardens into assumption. That is precisely
+the defect closed twice already today: the tradeoff-weights constant nobody authored, and the
+rubber-stamped LLM-proposed posture. A remembered frame accepted without examination is the same
+disease wearing a longer history.
+
+`falsification_criterion` and `expiry` are what make the difference. The second conversation is **not**
+*"is this still the frame?"* — it is:
+
+> You framed this as margin recovery on 14 June, because base-oil elevation looked cyclical. The
+> falsification criterion you set was elevation persisting past Q4. **It has.** Does the frame still
+> hold?
+
+Confirmation against evidence, not a rubber stamp. This is the same machinery as **11J's
+market-condition drift re-query** (re-querying MA for `validated_by="ma_query"` assumptions to check
+they still hold), pointed at frames instead of solution assumptions.
+
+**Already half-designed elsewhere:** the Structural lens's stated recommendations include *"flag an
+assumption (continued category participation) for the record rather than silently accepting it"* —
+that is a frame assumption written to this register. The intent is connected; nothing has wired it.
+
+### 4c. On recording past interviews — split by purpose
+
+| purpose | what to keep | why |
+|---|---|---|
+| **Accretion, same client** | the **typed decision** in the register | queryable, gradeable, expirable. A transcript is a weaker form of the same thing that nothing downstream can act on |
+| **Cross-client learning** | transcripts — but as a **research asset**, not a product feature | genuinely useful for improving the system, and it crosses the tenant boundary that the RLS and client-isolation work exists to defend. Keep per-tenant and out of any shared corpus unless that is a separate, deliberate decision |
+
 ## 5. Surfaces that would change
 
 | surface | change |
 |---|---|
-| `TOPIC_OBJECTIVES` / `REFINEMENT_TOPIC_SEQUENCE` | new topic, routed first |
-| `PROTECTED_TOPICS` | **decision required** — see §8 |
-| `RefinementResult` | new typed field carrying the frame decision + whether it was changed |
+| **framing gate** | new, **mandatory**, fires before SF regardless of whether the interview runs. NOT a `REFINEMENT_TOPIC_SEQUENCE` entry — unbundling means `PROTECTED_TOPICS` and `MAX_TOPICS_IN_SEQUENCE` are untouched, and the Stage I B-1 routed topics keep their slots |
+| `Assumption` register | the frame decision is written here with `falsification_criterion` + `expiry` (§4b). No new model needed |
+| `RefinementResult` | carries the frame decision + whether it was changed, when the interview does run |
 | SF synthesis task text | must *accept* a reframed objective — today it requires every option to name "the primary driver of THIS KPI situation" with `recovery_range` "proportional to the observed variance", wording that cannot express a non-KPI objective |
 | `decision_quality.py` link 1 | grade the recorded decision, not a term screen |
 
@@ -149,15 +205,16 @@ That fourth row is the one most likely to be skipped and the one that would sile
 change: a frame decision that Solution Finder's task statement cannot express is a frame decision with
 nowhere to go.
 
-## 6. Risks — and the two that turn out to be already handled
+## 6. Risks — all but two now resolved by design
 
 | risk | status |
 |---|---|
-| Turn starvation from a longer sequence | **Already handled.** `effective_turn_budget()` scales as `max(MAX_TOTAL_TURNS, TURNS_PER_TOPIC_BUDGET * len(sequence))` — added 2026-08-11 after a live 6-topic run reached topic 2 of 6 by turn 5 |
-| Sequence length cap | **Already handled** — routing exists; `MAX_TOPICS_IN_SEQUENCE = 6`, so a tenth topic *competes for a slot* rather than extending the interview |
-| **Refinement is optional** | 🔴 **Not handled.** Arms A0/B0 ran with no refinement at all. A frame topic only fires when the interview runs, so link 1 would pass *sometimes* — better than never, not a fix |
+| **Refinement is optional** | ✅ **Resolved by unbundling (§4).** The gate fires independently of the interview. This was the one unhandled risk in the first draft |
+| Turn starvation / sequence cap | ✅ **Moot.** Unbundling leaves `REFINEMENT_TOPIC_SEQUENCE`, `PROTECTED_TOPICS` and `MAX_TOPICS_IN_SEQUENCE` untouched — the Stage I B-1 routed topics keep their slots |
+| A mandatory gate is a permanent user tax | ✅ **Falls over time (§4b).** First conversation elicits; later ones confirm against a recorded falsification criterion |
+| 🔴 **Accreted frame hardens into the new unexamined default** | **The real risk, mitigated not eliminated.** `falsification_criterion` + `expiry` turn re-confirmation into a check against evidence — but only if the UI actually *shows* the prior reasoning rather than offering a pre-ticked "same as last time" |
 | Naive question gets "yes" | Mitigated by §4's concrete-alternatives construction; needs live validation |
-| Frame examined but SF cannot act on it | §5 row 4 — must land together |
+| Frame examined but SF cannot act on it | §5 — the synthesis task text must land with it |
 
 ## 7. Alternatives considered and rejected
 
@@ -179,17 +236,22 @@ radius than one interview topic. Worth revisiting if the interview route proves 
 
 ## 8. Open decisions — settle before any code
 
-1. **Does `problem_framing` join `PROTECTED_TOPICS`?** It is link 1 of the chain, which argues yes.
-   But protected topics survive truncation, and with a 6-topic cap a fourth protected entry squeezes
-   the problem-shape-routed topics (`tradeoff_tolerance`, `segment_specific_causation`,
-   `comparison_baseline`) that Stage I B-1 added for good reasons.
-2. **What happens when the frame IS changed?** Does DA re-run against a different KPI? Does SF receive
+1. ~~**Does `problem_framing` join `PROTECTED_TOPICS`?**~~ ✅ **Closed by unbundling (§4).** It is not
+   a sequence entry at all, so the cap and the protected set are untouched and the Stage I B-1 routed
+   topics keep their slots.
+2. **How is the prior frame re-presented?** §4b's mitigation only works if the UI shows the prior
+   reasoning and its falsification criterion. A pre-ticked "same as last time" recreates the
+   unexamined default with extra steps — the failure this whole note exists to prevent.
+3. **When does a frame expire by default?** `expiry` exists on the model; nothing says whether a frame
+   should carry one always, or only when the principal names a condition. Always-expire is safer and
+   noisier.
+4. **What happens when the frame IS changed?** Does DA re-run against a different KPI? Does SF receive
    the original decomposition with a reframed objective? The cheap version — carry the decision as
    context and let SF act on it — is probably right, but it means SF reasons about base-oil exposure
    using a gross-margin decomposition, and that mismatch should be stated rather than discovered.
-3. **Does the frame decision reach VA?** A solution accepted under a reframed objective must be
+5. **Does the frame decision reach VA?** A solution accepted under a reframed objective must be
    measured against *that* objective, not the original KPI.
-4. **Is a "no, the frame is right" answer recorded?** It must be. An examined-and-confirmed frame
+6. **Is a "no, the frame is right" answer recorded?** It must be. An examined-and-confirmed frame
    passes link 1; an unexamined one does not, and the two are indistinguishable unless the confirmation
    is written down. This is the `not-checked is never pass` rule applied to the frame.
 
