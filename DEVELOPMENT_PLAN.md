@@ -2835,6 +2835,51 @@ functional defect, not styling, and it is the single highest-priority line item 
 Items 2–6 are worth doing on the de-branding driver alone and do not depend on the analytical
 comparison. **Item 7 does depend on it**, and on the control replication that makes §9 readable.
 
+#### Do the three lenses cover the important perspectives? (assessed 2026-08-16)
+
+**For a margin problem on a P&L data product, close to complete** — Commercial takes the revenue side,
+Operational the cost side, Structural the participation question. That is a clean decomposition of
+"margin fell."
+
+**But coverage is relative to the problem class, and there is no universal set.** Asking whether three
+lenses cover everything presumes a complete roster exists; it does not. What is absent, and when it
+would bite:
+
+| absent perspective | bites when |
+|---|---|
+| **Capital & liquidity** — working capital, cash conversion, capex | a cash problem, which is not a P&L problem — none of the three reach it |
+| **Risk / compliance / contractual** | the register *records* the anchor price-lock; no lens *reasons* about what an action would breach |
+| **Competitive response** | Commercial reaches for repricing without modelling what the competitor does next |
+| **Organisational capability** | "can we actually execute this" — Bain's classic angle, dropped in the lens roster |
+
+🔴 **A lens without data is theatre, and that is the binding constraint.** `dp_lubricants_financials`
+is a pure general ledger: one signed `amount` column over five dimensions, entirely P&L. No balance
+sheet, no volume, no headcount. A capital lens would have nothing to reason over and would produce
+confident prose about working capital it cannot see — the same failure class as the −457% margin
+incident. **Lens coverage is therefore gated on the operational data layers deferred 2026-08-16
+(volume/units discussion), not on roster design.**
+
+**The routing mechanism already exists.** Stage I B-1 routes *interview topics* by problem shape and
+`_recommend_diverse_council` already does keyword/role matching for councils. The answerable question
+is not "do three lenses cover everything" but **"does the routing pick the right lenses for this
+problem"** — incremental, and requiring no universal roster.
+
+🔴 **Design contradiction worth naming.** The Structural lens is built to question the frame — its
+approach is literally *"questions the frame before optimizing inside it"* and its stated strength is
+*"names when a KPI-recovery frame may be the wrong frame."* But DA **authors** the frame in SCQA
+before any council runs (`problem_framing_design.md` §1b). The one lens designed to challenge the
+frame is handed a frame already committed to prose and shipped downstream. **This is not a roster gap
+— it is the framing work, and closing it would unlock a capability the roster already has.**
+
+**What the evidence supports.** E1 and E2 each produced **3/3 distinct lever families**, so the three
+lenses are non-redundant on this problem — the necessary condition, and precisely what MBB failed
+(McKinsey/BCG topic Jaccard 1.00). E2's structural option proposed SKU exit/de-emphasis, the first
+sign that lens does its job. n=2 against an unreadable control, so encouraging rather than established.
+
+**Recommendation: do not add lenses now.** Revisit routing when a second problem shape gives something
+to route *to*, and revisit capital/risk lenses when the data exists to support them. A fourth lens
+today is a voice with nothing to read.
+
 #### Open decisions
 1. Are branded personas **removed** from the registry, or kept selectable but not surfaced? Removal is
    cleaner; keeping them preserves the A/B corpus's reproducibility.
