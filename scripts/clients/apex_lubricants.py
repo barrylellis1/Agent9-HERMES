@@ -484,9 +484,20 @@ KPIS: List[Dict[str, Any]] = [
         "business_process_ids": ["finance_revenue_growth_analysis"],
         "kpi_type": "concentration",
         "sql_query": (
-            f"SELECT (SUM(CASE WHEN customer_rank <= 3 THEN amount ELSE 0 END) "
-            f"/ NULLIF(SUM(amount), 0)) * 100 AS value FROM {_VIEW} "
-            f"WHERE account_type = 'Revenue' AND version = 'Actual'"
+            # customer_rank is not a stored column anywhere in LubricantsStarSchemaView
+            # (verified against scripts/load_lubricants_to_snowflake.py's CREATE VIEW —
+            # no such column, and no RANK()/ROW_NUMBER() precedent elsewhere in this
+            # codebase computed it either). The KPI was authored assuming a column that
+            # was never materialized. Fixed 2026-08-15 by ranking customers inline via a
+            # window function over the same view, ANSI SQL, valid on Snowflake.
+            f"WITH customer_totals AS ("
+            f"SELECT customer_name, SUM(amount) AS customer_revenue FROM {_VIEW} "
+            f"WHERE account_type = 'Revenue' AND version = 'Actual' GROUP BY customer_name"
+            f"), ranked_customers AS ("
+            f"SELECT customer_revenue, RANK() OVER (ORDER BY customer_revenue DESC) AS customer_rank "
+            f"FROM customer_totals"
+            f") SELECT (SUM(CASE WHEN customer_rank <= 3 THEN customer_revenue ELSE 0 END) "
+            f"/ NULLIF(SUM(customer_revenue), 0)) * 100 AS value FROM ranked_customers"
         ),
         "filters": {"account_type": "Revenue", "version": "Actual"},
         "thresholds": [
