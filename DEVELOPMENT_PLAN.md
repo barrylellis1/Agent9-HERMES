@@ -2756,6 +2756,96 @@ Absent a presentation layer you get a plain derived tree — **correct by defaul
 
 ---
 
+### Phase 18: Council Roster De-branding + Lens Council as a First-Class UI Citizen
+
+> **Numbering note:** Phase 14+ below is the reserved unscheduled Future bucket; 15–17 are taken.
+> This takes the next free number, 18.
+
+**Goal:** retire consulting-firm identity as a *product feature*, and make the Lens Council
+(`commercial` / `operational` / `structural`) render as well as MBB does instead of degrading to grey
+fallbacks.
+
+**Two independent drivers — either alone justifies the work.**
+1. **The lens roster already exists and is second-class in the UI.** `lens_council` is in
+   `consulting_personas_registry.yaml` with full framework/bias definitions, and E1/E2 ran on it. But
+   every UI affordance is keyed to firm ids, so a lens run falls through to `{ id, label: id, color:
+   'text-slate-400' }` — grey text, the generic `default` thought script, no specialty framing.
+2. **Firm identity is currently a product feature, not a citation.** See the categories below.
+
+#### Three categories of firm-name usage — only one is a problem
+
+| # | Category | Sites | Disposition |
+|---|---|---|---|
+| **A** | **Attributed citation of published research** — McKinsey's 2025 *State of AI* survey, linked to mckinsey.com | `LandingPageAlternate.tsx:259-265`, `InsightsBIModernization.tsx:562-606` | ✅ **Keep.** Normal sourced citation, correctly attributed and linked |
+| **B** | **Comparative marketing claims** — "the kind of structured analysis a McKinsey engagement delivers"; "on McKinsey, BCG, and Bain analytical traditions" | `LandingPage.tsx:270,635`, `HowItWorks.tsx:639,694` | ⚠️ **Judgment call, not engineering.** Positioning copy asserting equivalence to named competitors' services. Owner decision, listed for completeness |
+| **C** | 🔴 **Firm identity used as product functionality** — a user *selects* "McKinsey" as an advisor and receives output attributed to "McKinsey & Company" | below | **This is the phase** |
+
+**Category C inventory:**
+- `uiConstants.ts:45-47` — persona picker entries `{ id: "mckinsey", label: "McKinsey", type: "firm" }`,
+  each with an approximation of the real firm's brand colour (blue / green / red)
+- `uiConstants.ts:37,39` — council presets described as "McKinsey, BCG, Bain" and "Accenture, Deloitte, BCG"
+- `ExecutiveBriefing.tsx:457-460` — **full legal names in the briefing itself** ("McKinsey & Company",
+  "Bain & Company") with per-firm bar/border/badge/dot colour sets
+- `CouncilDebatePage.tsx:11` — per-firm styling keyed by id
+- `CouncilDebate.tsx` — **fabricated dialogue naming real firms**: *"Reviewing BCG proposal: does the
+  experience curve logic hold at this volume?"*, *"Stress-testing Bain's implementation timeline…"*,
+  *"McKinsey option: strong diagnosis, but who owns the execution?"* Severity qualifier: this block
+  renders only pre-results (`!stageOneHypotheses || phase < 2`), so it is a **loading animation**, not
+  fabricated analysis presented as output. Still invented quotes attributed to named real firms
+- `ProblemRefinementChat.tsx:29` — maps a principal's `decision_style: "analytical"` to a badge
+  reading **"McKinsey"**, so a person's decision style renders as a consulting firm
+
+*Not a legal opinion — recorded as a commercial/diligence exposure that exists in shipped code today
+and is independent of how the lens-vs-MBB analytical comparison resolves.*
+
+#### 🔴 The functional blocker, found while inventorying
+
+`DeepFocusView.tsx:968` and `:1072` hardcode `['mckinsey', 'bcg', 'bain']` as the fallback roster:
+
+```ts
+selectedPersonas: refinementResult?.recommended_council_members?.map(m => m.persona_id)
+                  ?? ['mckinsey', 'bcg', 'bain'],
+```
+
+**Changing the backend default roster does not change what the UI requests.** Any roster swap that
+does not touch these two lines will silently keep running MBB whenever the refinement result carries
+no recommended council — which is exactly the arms-A0/B0 case where refinement never ran. This is a
+functional defect, not styling, and it is the single highest-priority line item here.
+
+#### Scope
+
+| Item | Work | Size |
+|---|---|---|
+| **1** | Remove the hardcoded MBB fallback in `DeepFocusView.tsx` (×2) — default must come from the registry preset, not a literal | S |
+| **2** | Make persona display data-driven — label, colour and description resolved from the persona registry rather than `uiConstants.ts` literals and `FIRM_NAMES` maps in two components | M |
+| **3** | Per-lens thought scripts + colours so `commercial`/`operational`/`structural` do not render grey with generic text | M |
+| **4** | Retire the fabricated firm dialogue in `CouncilDebate.tsx`; replace with lens-appropriate progress text that does not impersonate anyone | S |
+| **5** | `ProblemRefinementChat.tsx:29` — `decision_style` badge shows the style ("Analytical"), not a firm | S |
+| **6** | `ExecutiveBriefing.tsx` — persona attribution and colours from the registry; no legal entity names in output | M |
+| **7** | Decide the fate of the branded personas themselves: retire from the registry, or keep selectable and unadvertised | Decision |
+
+#### Not in scope
+- Category A citations (keep) and Category B marketing copy (owner call, not engineering).
+- Whether the lens roster is analytically *better* than MBB. **Unresolved** — E1/E2 both hit 3/3
+  distinct lever families, but so did five of six pre-fix MBB arms, and the control C1 is n=1 and the
+  worst run in the corpus. See `decision_quality_rubric.md` §9.
+
+#### Sequencing
+**Item 1 is independent and should not wait** — it is a live defect regardless of which roster wins.
+Items 2–6 are worth doing on the de-branding driver alone and do not depend on the analytical
+comparison. **Item 7 does depend on it**, and on the control replication that makes §9 readable.
+
+#### Open decisions
+1. Are branded personas **removed** from the registry, or kept selectable but not surfaced? Removal is
+   cleaner; keeping them preserves the A/B corpus's reproducibility.
+2. Does the lens council become the **default preset**, before the comparison is settled? Defaulting to
+   an unproven roster on de-branding grounds is defensible, but it should be a stated choice rather
+   than a side effect of item 1.
+3. Does the briefing name a lens at all? Attributing an option to "Commercial Lens" is honest; it may
+   also be noise an executive does not need.
+
+---
+
 ### Phase 14+: Future (not scheduled)
 
 | Initiative | When |
