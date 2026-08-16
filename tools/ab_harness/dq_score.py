@@ -26,6 +26,11 @@ HERE = Path(__file__).resolve().parent
 # §7c: C1 is the first arm run after both false-zero fixes landed.
 POST_FIX = ["C1", "D1", "D2", "E1", "E2"]
 PRE_FIX = ["A", "A0", "A0C", "B", "B0", "C"]
+# Stage J posture arms — a THIRD stratum, not poolable with the two above. They
+# ran on a later build (post Stage-I push + today's DA work) and vary the
+# database rather than the request body. The pair differ from each other in
+# exactly one thing: whether `business_contexts.metadata` carries a posture.
+STAGE_J = ["P0_control", "P1_posture"]
 
 ARM_NOTE = {
     "A": "1 hop, refinement on", "B": "2 hops", "C": "2 hops + market signals",
@@ -35,6 +40,8 @@ ARM_NOTE = {
     "D1": "frame-challenge flag on", "D2": "frame-challenge flag on",
     "E1": "lens swap: commercial/operational/structural",
     "E2": "lens swap, replicate",
+    "P0_control": "Stage J control — posture NULLED in the database",
+    "P1_posture": "Stage J — margin defense, 0.4/0.2/0.4",
 }
 
 LINKS = ["frame", "alternatives", "information", "tradeoffs", "reasoning", "commitment"]
@@ -118,11 +125,14 @@ def summarise(scores, heading):
 
 
 if __name__ == "__main__":
+    sj = report(STAGE_J, "STAGE J STRATUM (posture on/off — later build, DB is the variable)")
+    summarise(sj, "stage J")
     post = report(POST_FIX, "POST-FIX STRATUM (clean context)")
     summarise(post, "post-fix")
     pre = report(PRE_FIX, "PRE-FIX STRATUM (broken _build_kt_summary unit string)")
     summarise(pre, "pre-fix")
 
-    print(f"\n{'=' * 100}\nCOMBINED: {len(post) + len(pre)} runs, "
-          f"{sum(s.n_options for s in post + pre)} options\n{'=' * 100}")
-    summarise(post + pre, "all arms")
+    allruns = sj + post + pre
+    print(f"\n{'=' * 100}\nCOMBINED: {len(allruns)} runs, "
+          f"{sum(s.n_options for s in allruns)} options\n{'=' * 100}")
+    summarise(allruns, "all arms")

@@ -300,3 +300,52 @@ diversity. It is equally consistent with noise at these sample sizes.
 
 The taxonomy extension itself is safe to land mid-experiment: `mechanism.py` is imported by tests and
 the harness only, never by an agent, so it changes measurement and not generation.
+
+---
+
+## 10. 🏁 Stage J scored (2026-08-16) — link 4 passes for the first time
+
+Two new arms, identical but for whether `business_contexts.metadata` carries a posture. Scored as a
+**third stratum** — they ran on a later build than either group above and are not poolable with them.
+
+| link | P0 control | P1 posture |
+|---|---|---|
+| 1 frame *(advisory)* | FAIL | FAIL |
+| 2 alternatives | PASS | PASS |
+| 3 information | PASS | PASS |
+| 4 tradeoffs *(advisory)* | **FAIL** — agent config default | **PASS** — weights from declared posture |
+| 5 reasoning | PASS | PASS |
+| 6 commitment | PASS | PASS |
+| **chain** | capped, 4/6 | capped, **5/6** |
+
+**The pair differ on exactly one link.** That is the result: a well-scoped change moved the link it
+was aimed at and nothing else. P1 is the highest-scoring run in the corpus.
+
+### Corpus now 13 runs, 39 options
+
+| link | pass rate | change |
+|---|---|---|
+| 1 frame *(advisory)* | 2/13 | — |
+| 2 alternatives | 12/13 | — |
+| 3 information | 13/13 | — |
+| 4 tradeoffs *(advisory)* | **1/13** | **was 0/11 — first pass ever** |
+| 5 reasoning | 12/13 | — |
+| 6 commitment | 13/13 | — |
+
+**Capped by:** frame ×11 · tradeoffs ×12 · alternatives ×1 · reasoning ×1.
+
+### What this changes about the plan
+
+**One of the two systematic caps is now closable on demand.** Link 4 failed 11/11 because nothing
+could supply enterprise values; it now passes whenever a client has a posture. That is a
+configuration state, not a code gap — every client that gets a posture gets the link.
+
+**Frame is the sole remaining systematic failure**, and it is the one that sits *outside* Phase 15 by
+the phase's own goal statement (see DEVELOPMENT_PLAN → Phase 15 → Stage J scope finding). The chain
+now reads: everything Solution Finder controls passes; the thing it does not control does not. A run
+scoring 5/6 capped only by a link decided three stages upstream is a sharper argument for the frame
+work than any of the roster or wording experiments produced.
+
+**Caveat that has not moved.** Links 1 and 4 remain advisory screens, and all 39 options are still one
+KPI on one Deep Analysis result. "Frame fails 11 of 13" stays consistent with *this problem has one
+right frame* until a second problem shape is scored.
