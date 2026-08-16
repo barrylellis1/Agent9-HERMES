@@ -1,6 +1,6 @@
 # Problem Framing — examining the frame instead of inheriting it
 
-**Status:** Design note, **not built**, no phase assigned. Written 2026-08-16.
+**Status:** Design note, **not built**. **Phase 19** (assigned 2026-08-16). Written 2026-08-16.
 **Motivation:** DQ link 1 (appropriate frame) fails **11 of 13** scored runs and is now the *only*
 systematic cap left on the chain — see `decision_quality_rubric.md` §8–10.
 **Related:** `hitl_decision_philosophy.md` · `theory_layer_design.md` · `persona_council_experiments.md`

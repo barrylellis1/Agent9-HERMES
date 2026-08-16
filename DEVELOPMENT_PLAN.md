@@ -2891,6 +2891,55 @@ today is a voice with nothing to read.
 
 ---
 
+### Phase 19: Problem Framing — the frame is chosen, not inherited
+
+> **Numbering note:** 15–18 are taken; Phase 14+ below is the reserved unscheduled Future bucket.
+> This takes the next free number, 19.
+
+**Full design:** `docs/architecture/problem_framing_design.md`. This entry records scope, sequencing
+and dependencies only — the reasoning, the rejected alternatives and the open decisions live there.
+
+**Goal:** the problem frame is **chosen by a human and recorded**, rather than authored by DA and
+inherited by everything downstream.
+
+**Why it is its own phase, not a stage of another:**
+1. **It is the only systematic cap left on the Decision Quality chain.** Link 1 fails 11 of 13 scored
+   runs. Links 2/3/5/6 pass consistently and link 4 passes whenever a client is configured
+   (`decision_quality_rubric.md` §10).
+2. **It is outside Phase 15 by that phase's own goal statement** — "grounded in a verified cause,
+   honest about what they bet on, calibrated on known vs inferred" all concern the quality of the
+   answer to a given question, never whether the right question was asked. **Phase 15 can complete
+   successfully with link 1 still failing.**
+3. **It is cross-cutting, not backend-only** — DA generation order, the DA console's render order, the
+   assumption register, SF's synthesis task text, and a new gate. That is a phase, not a stage.
+
+**Scope**
+
+| # | Work | Notes |
+|---|---|---|
+| **1** | Mandatory one-question framing gate, fires before SF **independently of the refinement interview** | unbundled — `REFINEMENT_TOPIC_SEQUENCE` / `PROTECTED_TOPICS` / `MAX_TOPICS_IN_SEQUENCE` untouched |
+| **2** | Move `_generate_scqa_summary()` + DA's recommendation to **after** the gate | SCQA is the *output* of framing (decided 2026-08-16) |
+| **3** | 🔴 `DeepFocusView.tsx` must not render `ScqaBlock` pre-gate | today it shows the answer first as "Recommendation" in `text-lg text-white` and the frame last in `text-slate-500 italic text-xs` — an anchored "yes" that still reports `frame_examined: true` |
+| **4** | Frame decision written to the `Assumption` register with `falsification_criterion` + `expiry` | no new model; provenance ladder already exists |
+| **5** | Re-present a prior frame **with its reasoning and falsifier**, never as a pre-ticked default | the accretion-hardening risk; this is the whole mitigation |
+| **6** | SF synthesis task text must be able to *express* a reframed objective | today it requires every option to name "the primary driver of THIS KPI situation" |
+| **7** | DQ link 1 grades the **recorded decision**, retiring the term screen | also retires a screen with a known 71% FPR on this class |
+
+**🔴 Prerequisite, currently in no phase — score a second problem shape.** All 39 scored options are
+one KPI on one DA result, so *"frame fails 11 of 13"* stays consistent with **this problem has one
+right frame**. A `distributed` or `no-control` shape — where the right frame is genuinely less obvious
+than on a single dominant driver — is cheap (a few DA+SF runs) and de-risks the entire phase. **Do
+this before item 1.**
+
+**Sequencing note.** Item 3 is a UI change and item 1 is a UX addition, so this phase overlaps Phase
+18's console work. Worth landing them together rather than editing `DeepFocusView.tsx` twice.
+
+**Stated falsifier** (from the design note, recorded before any build): if the frame is examined and
+confirmed unchanged in nearly every run, this is an expensive way to write `frame_examined: true`, and
+the honest conclusion is that the frame really is determined by the KPI that breached.
+
+---
+
 ### Phase 14+: Future (not scheduled)
 
 | Initiative | When |
