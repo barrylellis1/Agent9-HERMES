@@ -199,6 +199,12 @@ All four backends operational and verified end-to-end via SA scan:
 
 ### Phase 10D: Solution Finder Performance Tuning ✅ COMPLETE (Apr 2026)
 
+> ⚠️ **Number collision — there are TWO Phase 10D entries.** This one (complete, Apr 2026) and the
+> open *MCP Abstraction Layer* below. Deliberately not renumbered: "Phase 10D" appears across ~15
+> files referring to both, so a renumber would invalidate more cross-references than it fixes.
+> References in `roadmap.md`, `realism_and_timeline.md` and `agent9_executive_summary.md` mean
+> *this* one.
+
 **Result:** Dev latency reduced from ~9 min to ~3 min per debate (3× speedup).
 
 | Deliverable | What was done |
@@ -328,6 +334,10 @@ Agent9 connects to customer data warehouses at three progressive levels of integ
 
 
 ### Phase 10D: MCP Abstraction Layer
+
+> ⚠️ **Number collision — see the completed *Solution Finder Performance Tuning* Phase 10D above.**
+> The four `PHASE_10D_*.md` documents, `data_connectivity_strategy.md`, the Data Product and LLM
+> Service PRDs, and the connectivity-tier strategy docs all mean *this* one.
 
 **Goal:** Transition from direct SDK to vendor-managed MCP servers when available. Decorator pattern allows swapping connection method without changing application code.
 
@@ -1674,6 +1684,18 @@ SA assessment results (already computed per run) ──────────�
 
 ### Phase 13: Executive Briefing Quality + Principal-Adaptive Output
 
+> **Status reconciled at Phase 15 close (2026-08-16).** Cat 2 shipped as Phase 15 Stages A–B and
+> Cat 4 as Stage C. **Cat 3 — the briefing UI — is what returns here from Phase 15 Stage G**, which
+> was always scoped as "Phase 13 Cat 3 + Cat 4 + Phase 15". Two entries were describing the same
+> unbuilt UI from opposite directions; this is now the single owner.
+>
+> 🔴 **M3 below conflicts with Phase 18 and must be reconciled before either is built.** M3 (May
+> 2026) says keep firm names as internal reasoning anchors and strip them from display only. Phase
+> 18 (Aug 2026) argues firm identity should stop being a product feature at all — a user selecting
+> "McKinsey" as an advisor and receiving output attributed to "McKinsey & Company". These are
+> different positions on the same question, taken three months apart. M1 below is also the invariant
+> Phase 15 Stage J cites; it originates here.
+
 **Goal:** Elevate the Executive Briefing from "impressively close to MBB quality" to genuinely boardroom-ready: fix structural bugs, remove consultant jargon from display, restructure for a 2-minute CFO read, and adapt depth and tone by principal role.
 
 **Pre-mortem mitigations (2026-05-30) — built in by design:**
@@ -2417,6 +2439,85 @@ work to squeeze into it.
 **Still required before any frame conclusion is load-bearing:** a second problem shape. All 33 options
 are one KPI on one DA result, so "frame fails 9 of 11" stays consistent with *this problem has one
 right frame*.
+
+---
+
+## 🏁 PHASE 15 CLOSED (2026-08-16)
+
+**Closed on an objective criterion rather than a judgment call.** Phase 15's goal was recommendations
+an executive will act on — *grounded in a verified cause, honest about what they bet on, calibrated on
+known vs inferred*. Measured against the Decision Quality chain across 13 runs / 39 options
+(`decision_quality_rubric.md` §8–10):
+
+| link | state at close |
+|---|---|
+| 2 creative alternatives | 12/13 |
+| 3 reliable information | **13/13** |
+| 4 clear values & tradeoffs | passes **whenever a client is configured** (Stage J) |
+| 5 sound reasoning | 12/13 |
+| 6 commitment to action | **13/13** |
+| **1 appropriate frame** | 2/13 — **out of scope**, see below |
+
+**Everything Phase 15 controls, passes.** Link 1 fails because the frame is authored in DA's SCQA
+before any council runs — outside this phase by its own goal statement, which concerns the quality of
+the answer to a given question and never whether the right question was asked. Holding Phase 15 open
+for it would mean holding it open for work it structurally cannot do. → **Phase 19.**
+
+### Final stage status
+
+| Stage | State |
+|---|---|
+| A structured output | ✅ built; **flag still `false`** — see settlement 2 |
+| B unified schema | ✅ |
+| C context contract | ✅ |
+| D grounding + constraints | ✅ live (`enable_causal_grounding=true`; migration **is** applied — the old "not applied" note was stale and is corrected below) |
+| E critic pass | ✅ live |
+| F bets → VA | ✅ core wiring |
+| **G briefing UI** | ❌ **not built → returned to Phase 13** (settlement 1) |
+| H moderator | ✅ live, adopted on scope elicitation (27/27 vs 0/12) |
+| I persona framing | closed at B-2; lens-swap comparison **unreadable** pending control replication |
+| **J tradeoff weights** | ✅ built + live-verified; first link-4 pass on record |
+
+### Three settlements
+
+**1. Stage G returns to Phase 13, where it started.** Stage G was always *"Phase 13 Cat 3 + Cat 4 +
+Phase 15"*. Cat 4 shipped inside Stage C; Cat 2 shipped inside Stages A–B. What remains of Stage G is
+exactly **Phase 13 Cat 3 — the briefing UI**. Returning it removes a duplicate entry rather than
+creating a new phase, and reconciles two entries that were describing the same unbuilt UI from
+opposite directions.
+
+**2. `use_structured_output`: decision recorded, flip handed off.** The call was deferred *"until
+Stage I closes"*; Stage I has closed. The standing recommendation from the A/B stands — **adopt, on
+failure-mode removal rather than measured gain** (the control arm scored perfectly on every
+conformance measure, so a tie was the best available outcome), and **delete the prose path** per PM-2
+rather than carrying two. The flag is deliberately **not flipped as part of a documentation close**:
+it changes live LLM behaviour and deserves its own commit and verification run.
+
+**3. Stage D's "migration still not applied" note was stale** — `20260723_theory_layer_causal_schema.sql`
+exists, `enable_causal_grounding` is live, and arm P1 reported 6 edges / 1 constraint resolved from
+the register. Corrected in the stage table above.
+
+### Loose ends, handed off explicitly rather than carried
+
+| item | goes to |
+|---|---|
+| Briefing UI (ex-Stage G) | **Phase 13 Cat 3** |
+| `use_structured_output` flip + prose-path deletion | follow-on commit, recommendation above |
+| Critic dual-duty risk proposal | Stage H follow-on list |
+| Moderator rubric coverage for links 1 + 2 | decide-or-drop; blocked on Phase 19 |
+| `_rank_options` has no tie band | **plain bug** — a 0.0000 top-two tie is presented as a confident recommendation |
+| `risk_posture` ↔ risk-weight consistency check | config-time warning, decided not built |
+| No UI surfaces the tradeoff weighting to a reader | **Phase 18** (console work) |
+| Control replication to n≥3 on the current build | unblocks the Stage I lens read |
+| Frame | **Phase 19** |
+
+### Bookkeeping defect found at close, NOT renumbered
+
+🔴 **Two phases share the number 10D** — *Solution Finder Performance Tuning* (✅ Apr 2026) and *MCP
+Abstraction Layer* (open). **Deliberately not renumbered:** "Phase 10D" appears across ~15 files
+including four dedicated `PHASE_10D_*.md` documents, `data_connectivity_strategy.md`, three agent
+PRDs and four strategy docs, referring to **both** phases. A renumber would silently invalidate more
+cross-references than it fixes. Both headers now carry a disambiguation note instead.
 
 ---
 
