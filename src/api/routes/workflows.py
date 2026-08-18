@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -15,6 +16,7 @@ from src.agents.models.deep_analysis_models import (
     DeepAnalysisRequest,
     ProblemRefinementInput,
     ProblemRefinementResult,
+    FramingDecision,
 )
 from src.agents.models.solution_finder_models import SolutionFinderRequest
 from src.agents.models.situation_awareness_models import ComparisonType, TimeFrame, SituationDetectionRequest
@@ -212,6 +214,14 @@ class ProblemRefinementRequest(BaseModel):
     # provenance and drops exclusions entirely.
     prior_constraint_items: List[Dict[str, Any]] = Field(default_factory=list, description="Constraints captured on earlier turns, echoed from the previous response")
     prior_exclusions: List[Dict[str, Any]] = Field(default_factory=list, description="Exclusions captured on earlier turns, echoed from the previous response")
+    # Phase 19 — present only on the turn that submits the mandatory framing
+    # gate. Typed as the real model (not a raw dict) so a malformed
+    # submission (missing falsification_criterion, an invalid choice value,
+    # choice='alternative' with no chosen_kpi_id) fails FastAPI's own request
+    # validation with a clear 422 before the handler ever runs, rather than
+    # raising deep inside the try block and surfacing as a generic "I
+    # encountered an issue" chat message.
+    framing_decision: Optional[FramingDecision] = Field(None, description="The principal's framing submission, present only on the turn that submits it")
 
 
 class AnnotationRequest(BaseModel):
@@ -354,6 +364,7 @@ async def refine_deep_analysis(
                 prior_constraint_items=request.prior_constraint_items,
                 prior_exclusions=request.prior_exclusions,
                 initial_external_context=initial_external_context,
+                framing_decision=request.framing_decision,
             )
         else:
             refinement_input = ProblemRefinementInput(
@@ -367,6 +378,7 @@ async def refine_deep_analysis(
                 turns_on_current_topic=request.turns_on_current_topic,
                 prior_constraint_items=request.prior_constraint_items,
                 prior_exclusions=request.prior_exclusions,
+                framing_decision=request.framing_decision,
             )
 
         # Call the Deep Analysis Agent's refine_analysis method
@@ -406,6 +418,14 @@ async def refine_deep_analysis(
             "ready_for_solutions": False,
             "turn_count": request.turn_count + 1,
             "conversation_history": request.conversation_history,
+            # Phase 19 — fail closed: an error must never report the gate
+            # satisfied. Reads the same env var runtime.py/a9_orchestrator_agent.py
+            # bake into agent config at startup, rather than unconditionally
+            # True, so a transient error doesn't newly block "Generate
+            # Solutions" for flag-off deployments where this field was never
+            # meaningful before — that would be a regression hiding inside a
+            # safety fix.
+            "framing_required": os.getenv("DA_ENABLE_FRAMING_GATE", "false").lower() == "true",
             "exclusions": [],
             "external_context": [],
             "constraints": [],

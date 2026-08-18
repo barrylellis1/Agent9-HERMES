@@ -660,9 +660,82 @@ name + top-3 `where_is` driver keys" whenever `scqa_summary` is absent — neces
 the same principle to the fallback path). Built only from `kt_is_is_not`'s top drivers, never from the
 `analysis_mode`/scqa conclusion — preserves the "conclusion firewall" MA's own card documents.
 
+### Slice 4 — wired into the interview, with server-side bypass guards
+
+`FRAMING_TOPIC = "problem_framing"` is a real `REFINEMENT_TOPIC_SEQUENCE` entry, inserted at index 0
+by `_maybe_prepend_framing_topic()` — called from BOTH of `_get_topic_sequence`'s return paths (the
+normal routed path, after the cap so it can never be trimmed; and the `classify()`-failure fallback,
+so a profiling failure doesn't also cost the principal the gate).
+
+**New `_handle_framing_gate(...)`** is the single entry point `refine_analysis` calls, evaluated
+BEFORE every other branch (early-exit, skip-command, max-turns, all-topics-complete). This IS the
+server-side bypass guard, achieved by WHERE it's called from rather than by patching each of those
+branches individually: while framing is pending (flag on, `FRAMING_TOPIC` not yet in
+`topics_completed`), this method returns unconditionally without ever inspecting `user_message` — so
+early-exit/skip/"proceed to solutions" keywords are silently ignored, not rejected by their own logic.
+There is deliberately **no turn-budget escape valve** either — running out the clock does not
+auto-finalize past a pending frame, unlike a normal topic.
+
+Two sub-flows:
+- **Present** (no `framing_decision` in the request): calls `_build_framing_prompt`; if it returns
+  `None` (its own documented "nothing to show this turn" contract), still blocks —
+  `framing_required=True`, empty `suggested_responses`, never silently proceeds.
+- **Submit** (`framing_decision` present — already Pydantic-validated as a real `FramingDecision` by
+  `ProblemRefinementInput`'s field type; `falsification_criterion` non-blank and
+  `choice='alternative' ⇒ chosen_kpi_id` set are both guaranteed before this method runs). What
+  Pydantic *cannot* check: whether `chosen_kpi_id` was actually one of the alternatives offered — a
+  **fresh** `_build_framing_prompt` call re-derives the offer set rather than trusting a client-echoed
+  one; an unoffered id re-shows the (fresh) gate rather than being accepted. On acceptance: resolves
+  `client_id`/`kpi_id`/`owner_role` the same way `_build_framing_prompt` does; stamps
+  `decided_by_role`/`decided_by_is_owner` server-side (never client-claimed); **lift-then-insert**
+  (Decision #9) — any prior active framing row for this KPI is marked `status='lifted'` via its own
+  `upsert` call before the new row is inserted, so a changed mind stays on the audit trail; writes the
+  `Assumption` (`record_type='framing'`); calls `generate_scqa_for_frame`; appends `FRAMING_TOPIC` to
+  `topics_completed`; generates the **next topic's question in the same response** so the interview
+  doesn't stall on a dead turn. A register-write failure (`persisted=False` + `persist_error`) does
+  **not** lose the chat — losing the write is the smaller failure.
+
+**Turn budget**: `effective_turn_budget()` is computed on the sequence with `FRAMING_TOPIC` excluded,
+then +1 added back when framing is present — the presentation-only round trip is pure overhead (one
+turn); the submission round trip pulls its own weight (it also asks the next real question), so it
+needs no extra allowance.
+
+**Transcript, not a chat message**: a successful submission appends
+`{"role": "user", "content": "[Framing decision] {choice}: {chosen_objective_text}"}` to
+`conversation_history` — readable in a human review, but `_accumulate_refinements`'s legacy
+keyword-replay fallback (only reachable when a caller sends no typed `prior_constraint_items`) now
+skips any entry with that prefix, so it's never misfiled as a constraint via `_simple_extraction`.
+`_extract_refinements_from_response` is never invoked on a framing turn at all (no `user_message`
+exists on one) — this is structural (the early return above), not a separate check.
+
+**Error handler fix (same commit)**: the agent-level `except Exception` in `refine_analysis` used to
+reset `topics_completed=[]` on any transient error — a second instance of the exact bug already fixed
+at the endpoint level (`workflows.py`'s `refine_deep_analysis` except block, `topics_completed`
+comment). Now echoes `input_model.topics_completed` back. Also now sets
+`framing_required=bool(self.config.enable_framing_gate)` — fails closed for flag-on deployments
+without falsely claiming the gate applies for flag-off ones (unconditional `True` would have been a
+regression hiding inside a safety fix).
+
+**`workflows.py`**: `ProblemRefinementRequest.framing_decision: Optional[FramingDecision]` — typed as
+the real model, not a raw dict, so a malformed submission (missing falsifier, invalid choice, a
+missing `chosen_kpi_id`) fails FastAPI's request validation with a 422 before the handler runs, rather
+than surfacing as a generic in-chat error. Threaded into both `ProblemRefinementInput` construction
+sites (turn-0 and subsequent). The endpoint's own exception fallback gained
+`"framing_required": os.getenv("DA_ENABLE_FRAMING_GATE", ...)` — same fail-closed-to-actual-state
+reasoning as the agent-level fix, read fresh from the same env var `runtime.py` bakes into agent config
+at startup.
+
+New `tests/unit/test_da_framing_gate.py` (20 tests, all passing on first run): topic-sequence
+insertion (position 0, absent when off, survives a classify() failure, survives a 7-topic capped
+sequence); the presentation turn including the `_build_framing_prompt→None` fail-closed case;
+early-exit/skip-command/max-turns/proceed-to-solutions all silently ignored while framing is pending;
+the extraction pipeline rigged to raise if ever called, proving it genuinely isn't; falsification/
+chosen_kpi_id rejected at the Pydantic layer; an unoffered `chosen_kpi_id` rejected at the agent layer
+and the gate re-shown; a valid submission advancing with a real SCQA and next-topic question in one
+response; lift-then-insert verified via call-order assertions on the mocked provider; a register-write
+failure still proceeding the chat; an unresolvable KPI still proceeding without persisting.
+
 ### Not yet built (see the implementation plan for remaining slices)
-Slice 1 (register support) and Slices 2–3 above are committed. Still to come: wiring
-`_build_framing_prompt`/`generate_scqa_for_frame` into `refine_analysis` as the mandatory first
-interview topic with server-side bypass guards (Slice 4); frontend types + the framing card (Slice 5);
-closing the three Solution-Finder bypass paths + a pre-existing Cancel-button bug (Slice 6); Solution
-Finder expressing the reframe in its task text (Slice 7).
+Slices 1–4 above are committed. Still to come: frontend types + the framing card (Slice 5); closing
+the three Solution-Finder bypass paths + a pre-existing Cancel-button bug (Slice 6); Solution Finder
+expressing the reframe in its task text (Slice 7).

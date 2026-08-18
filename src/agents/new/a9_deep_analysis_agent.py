@@ -106,7 +106,14 @@ REFINEMENT_TOPIC_SEQUENCE = [
     "success_criteria",       # Define what "solved" looks like
 ]
 
+# Phase 19 — the mandatory framing gate's topic id. A real
+# REFINEMENT_TOPIC_SEQUENCE entry (mechanism B, superseding the earlier
+# unbundled-gate proposal — see problem_framing_design.md §8 item 1), inserted
+# at sequence position 0 only when enable_framing_gate is on (_get_topic_sequence).
+FRAMING_TOPIC = "problem_framing"
+
 TOPIC_OBJECTIVES = {
+    "problem_framing": "Confirm the objective — recover the stated KPI, or address a specific alternative the evidence points to",
     "hypothesis_validation": "Confirm which KT drivers are real issues vs. known/expected factors",
     "scope_boundaries": "Define what segments, time periods, or dimensions to include or exclude",
     "external_context": "Capture external factors not visible in the data (market changes, supplier issues, etc.)",
@@ -2573,7 +2580,21 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             if not current_topic:
                 # First turn - start with first topic
                 current_topic = topic_sequence[0]
-            
+
+            # Phase 19 — the mandatory framing gate, evaluated BEFORE every
+            # other branch below (early-exit, skip-command, max-turns,
+            # all-complete). This IS the server-side bypass guard: while
+            # framing is pending, this returns unconditionally without ever
+            # inspecting user_message, so none of those paths are reachable
+            # and none of them need their own individual guard. See
+            # _handle_framing_gate's own docstring for the full reasoning.
+            _framing_result = await self._handle_framing_gate(
+                input_model, da_output, principal_ctx, topics_completed, topic_sequence,
+                turn_count, profile_cell, routing_rules,
+            )
+            if _framing_result is not None:
+                return _framing_result
+
             # Check for early exit commands
             if user_message and self._is_early_exit(user_message):
                 # Accumulate refinements before finalizing
@@ -2594,7 +2615,20 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
 
             # Check max turns — budget scales with the routed sequence length so a
             # longer sequence cannot starve the topics Solution Finder consumes.
-            _turn_budget = effective_turn_budget(topic_sequence)
+            #
+            # Phase 19: by the time turn_count could ever reach this check,
+            # FRAMING_TOPIC is already in topics_completed (the gate above
+            # returns unconditionally otherwise) — so its one turn of pure
+            # overhead (the presentation-only round trip; the submission
+            # round trip pulls its own weight by also asking the next
+            # topic's question) has already been spent. Compute the budget
+            # on the REST of the sequence, then add exactly that one turn
+            # back, rather than let a 6-topic budget implicitly absorb it
+            # and starve the last real topic by one turn.
+            _budget_sequence = [t for t in topic_sequence if t != FRAMING_TOPIC]
+            _turn_budget = effective_turn_budget(_budget_sequence)
+            if FRAMING_TOPIC in topic_sequence:
+                _turn_budget += 1
             if turn_count >= _turn_budget:
                 self.logger.info(
                     f"Max turns ({_turn_budget} for {len(topic_sequence)} topics) reached, finalizing refinement"
@@ -2721,7 +2755,22 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             
         except Exception as e:
             self.logger.error(f"Error in refine_analysis: {e}")
-            # Return a graceful error response
+            # Return a graceful error response.
+            #
+            # Echo the client's progress back rather than resetting to [] —
+            # returning an empty list told the client it had covered
+            # nothing, so one transient error silently reset the interview's
+            # progress and re-asked answered topics. Same fix, same
+            # reasoning, as the endpoint-level handler already carries
+            # (workflows.py's refine_deep_analysis except block).
+            #
+            # Phase 19: framing_required fails closed to the ACTUAL config
+            # state, not unconditionally True — an error must never report
+            # the gate satisfied when the gate is genuinely on, but must
+            # also not newly block "Generate Solutions" for flag-off
+            # deployments where framing_required was never meaningful
+            # before. That would be a real regression hiding inside a
+            # "safety" fix.
             return ProblemRefinementResult(
                 agent_message=f"I encountered an issue processing your response. Let's continue - {str(e)[:100]}",
                 suggested_responses=["Let's continue", "Skip this topic", "Proceed to solutions"],
@@ -2732,11 +2781,280 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 invalidated_hypotheses=[],
                 current_topic=input_model.current_topic or REFINEMENT_TOPIC_SEQUENCE[0],
                 topic_complete=False,
-                topics_completed=[],
+                topics_completed=input_model.topics_completed or [],
                 ready_for_solutions=False,
                 turn_count=input_model.turn_count + 1,
                 conversation_history=input_model.conversation_history or [],
+                framing_required=bool(getattr(self.config, "enable_framing_gate", False)),
             )
+
+    async def _handle_framing_gate(
+        self,
+        input_model: ProblemRefinementInput,
+        da_output: Dict[str, Any],
+        principal_ctx: Dict[str, Any],
+        topics_completed: List[str],
+        topic_sequence: List[str],
+        turn_count: int,
+        profile_cell: Optional[str],
+        routing_rules: List[str],
+    ) -> Optional[ProblemRefinementResult]:
+        """Phase 19 — the mandatory framing gate, as a single entry point.
+
+        Returns `None` when there is nothing for the gate to do (flag off, or
+        `FRAMING_TOPIC` already in `topics_completed`) — the caller proceeds
+        with the rest of `refine_analysis` normally. Otherwise returns a
+        complete `ProblemRefinementResult` that the caller must return
+        IMMEDIATELY, without evaluating anything else.
+
+        THIS IS THE SERVER-SIDE BYPASS GUARD, achieved by WHERE it is called
+        from, not by patching N different methods. `refine_analysis` calls
+        this before `_is_early_exit`, `_is_skip_command`, the max-turns check,
+        and the all-topics-complete check — so while framing is pending, NONE
+        of those paths are ever reached: this method never even inspects
+        `user_message`, so early-exit/skip keywords are silently ignored
+        rather than needing their own individual guards. There is
+        deliberately no turn-budget escape valve either — "Generate
+        Solutions is unreachable until it's answered" is an absolute, not a
+        soft preference, so a stuck/never-submitted framing gate does not
+        auto-finalize the interview the way a stuck normal topic would.
+        """
+        framing_gate_on = bool(getattr(self.config, "enable_framing_gate", False))
+        if not framing_gate_on or FRAMING_TOPIC in topics_completed:
+            return None
+
+        decision = input_model.framing_decision
+        if decision is None:
+            # --- Present the gate. Nothing has been submitted yet. ---
+            framing_prompt = await self._build_framing_prompt(da_output, principal_ctx)
+            if framing_prompt is None:
+                # _build_framing_prompt's own contract: None means "nothing to
+                # show this turn" (missing client_id, unresolvable KPI, a
+                # provider exception) — NOT permission to proceed. Fail
+                # closed: still framing_required=True, still no bypass chips.
+                self.logger.warning(
+                    "[FRAMING] gate is on but _build_framing_prompt returned None — blocking, not bypassing"
+                )
+                return ProblemRefinementResult(
+                    agent_message=(
+                        "I couldn't prepare the framing step for this analysis right now — please try "
+                        "again in a moment."
+                    ),
+                    suggested_responses=[],
+                    current_topic=FRAMING_TOPIC,
+                    topic_complete=False,
+                    topics_completed=topics_completed,
+                    ready_for_solutions=False,
+                    turn_count=turn_count + 1,
+                    conversation_history=input_model.conversation_history or [],
+                    framing_prompt=None,
+                    framing_required=True,
+                    problem_profile_cell=profile_cell,
+                    topic_sequence=topic_sequence,
+                    topic_routing_rules_applied=routing_rules,
+                )
+            return ProblemRefinementResult(
+                agent_message=(
+                    f"Before generating solutions, let's confirm the objective for "
+                    f"{framing_prompt.kpi_name or 'this KPI'}."
+                ),
+                suggested_responses=[],  # a chip is a click, and clicks aren't the point (Decision #4)
+                current_topic=FRAMING_TOPIC,
+                topic_complete=False,
+                topics_completed=topics_completed,
+                ready_for_solutions=False,
+                turn_count=turn_count + 1,
+                conversation_history=input_model.conversation_history or [],
+                framing_prompt=framing_prompt,
+                framing_required=True,
+                problem_profile_cell=profile_cell,
+                topic_sequence=topic_sequence,
+                topic_routing_rules_applied=routing_rules,
+            )
+
+        # --- A decision was submitted. `decision` is already a validated
+        # FramingDecision (Pydantic validated it at ProblemRefinementInput
+        # construction time — falsification_criterion non-blank and
+        # choice='alternative' => chosen_kpi_id set are both already
+        # guaranteed here; nothing to re-check on those two). What Pydantic
+        # CANNOT check: whether chosen_kpi_id was actually one of the
+        # alternatives offered. Re-derive fresh rather than trust a
+        # client-echoed offer list — the causal graph is the authority. ---
+        fresh_prompt = await self._build_framing_prompt(da_output, principal_ctx)
+        offered_kpi_ids = {
+            a.kpi_id for a in ((fresh_prompt.alternatives if fresh_prompt else []) or []) if a.kpi_id
+        }
+        if decision.choice == "alternative" and decision.chosen_kpi_id not in offered_kpi_ids:
+            self.logger.warning(
+                f"[FRAMING] rejected submission: chosen_kpi_id={decision.chosen_kpi_id!r} not among "
+                f"offered alternatives {sorted(offered_kpi_ids)}"
+            )
+            return ProblemRefinementResult(
+                agent_message="That alternative isn't one of the options currently offered — please choose from the list shown.",
+                suggested_responses=[],
+                current_topic=FRAMING_TOPIC,
+                topic_complete=False,
+                topics_completed=topics_completed,
+                ready_for_solutions=False,
+                turn_count=turn_count + 1,
+                conversation_history=input_model.conversation_history or [],
+                framing_prompt=fresh_prompt,
+                framing_required=True,
+                problem_profile_cell=profile_cell,
+                topic_sequence=topic_sequence,
+                topic_routing_rules_applied=routing_rules,
+            )
+
+        # Resolve KPI/client/owner the same way _build_framing_prompt does,
+        # for the Assumption write and decided_by_* server-side stamping —
+        # NEVER trust a client-supplied claim of ownership (Decision #5).
+        plan = da_output.get("plan") or {}
+        situation = da_output.get("situation_context", {}) or {}
+        client_id = plan.get("client_id") or situation.get("client_id")
+        kpi_ref = plan.get("kpi_name") or situation.get("kpi_name")
+        kpi_rec = self._lookup_kpi_scoped(kpi_ref, client_id) if kpi_ref else None
+        kpi_id = getattr(kpi_rec, "id", None)
+        kpi_name = getattr(kpi_rec, "name", None) or kpi_ref
+        owner_role = getattr(kpi_rec, "owner_role", None)
+        decided_by_role = (principal_ctx or {}).get("role")
+        decided_by_is_owner = None
+        if owner_role and decided_by_role:
+            decided_by_is_owner = str(owner_role).strip().lower() == str(decided_by_role).strip().lower()
+
+        persisted = False
+        persist_error: Optional[str] = None
+        assumption_id: Optional[str] = None
+        decided_at: Optional[str] = None
+        if client_id and kpi_id:
+            try:
+                from src.registry.models.assumption import Assumption
+                from src.registry.providers.assumption_provider import AssumptionProvider
+
+                provider = AssumptionProvider()
+                # Lift-then-insert (Decision #9): mark any prior active
+                # framing row 'lifted' before inserting the new one, so a
+                # changed mind stays on the audit trail instead of being
+                # silently overwritten in place.
+                prior = await provider.get_active_framing(client_id, kpi_id)
+                if prior is not None and prior.id:
+                    prior.status = "lifted"
+                    await provider.upsert(prior)
+
+                if decision.choice == "confirm_stated":
+                    assumption_text = f"The objective is recovering {kpi_name}."
+                else:
+                    assumption_text = f"The objective is {decision.chosen_objective_text}, not recovering {kpi_name}."
+
+                written = await provider.upsert(Assumption(
+                    client_id=client_id, scope=kpi_id, record_type="framing", text=assumption_text,
+                    status="active", source="da_hitl", provenance="hitl_proposed",
+                    falsification_criterion=decision.falsification_criterion,
+                    expiry_event="va_verdict_on_linked_solution",
+                    framing_choice=decision.choice,
+                    decided_by_role=decided_by_role, decided_by_is_owner=decided_by_is_owner,
+                ))
+                persisted = True
+                assumption_id = written.id
+                decided_at = written.created_at
+            except Exception as e:
+                # Losing the register write is a smaller failure than losing
+                # the chat — the interview proceeds either way, but the UI
+                # and any consumer must be able to tell the two apart.
+                persist_error = str(e)[:200]
+                self.logger.warning(f"[FRAMING] register write failed (non-fatal, interview proceeds): {e}")
+        else:
+            persist_error = "KPI or client_id not resolvable — decision recorded in-session only"
+            self.logger.warning(f"[FRAMING] {persist_error}")
+
+        principal_id = (principal_ctx or {}).get("principal_id", "system")
+        scqa = await self.generate_scqa_for_frame(
+            da_output, principal_id, decision, decided_by_role=decided_by_role,
+        )
+
+        framing_record = FramingRecord(
+            persisted=persisted, persist_error=persist_error, assumption_id=assumption_id,
+            decided_by_role=decided_by_role, decided_by_is_owner=decided_by_is_owner,
+            decided_at=decided_at,
+        )
+
+        new_topics_completed = list(topics_completed)
+        if FRAMING_TOPIC not in new_topics_completed:
+            new_topics_completed.append(FRAMING_TOPIC)
+
+        # A readable transcript entry — NOT a chat message. The
+        # "[Framing decision]" prefix is a marker _accumulate_refinements'
+        # replay loop recognizes and skips, so a legacy client falling back
+        # to keyword extraction never misfiles the objective text as a
+        # constraint.
+        history = list(input_model.conversation_history or [])
+        history.append({
+            "role": "user",
+            "content": f"[Framing decision] {decision.choice}: {decision.chosen_objective_text}",
+        })
+
+        # Advance to the next topic and generate ITS question in the SAME
+        # response — the interview must not stall on a dead turn just
+        # because this one carried framing instead of a normal answer.
+        next_topic = self._get_next_topic(FRAMING_TOPIC, new_topics_completed, topic_sequence)
+        accumulated = self._accumulate_refinements(
+            history, input_model.prior_constraint_items, input_model.prior_exclusions
+        )
+
+        if next_topic is None:
+            result = self._create_final_result(
+                da_output, principal_ctx, history, new_topics_completed, turn_count, accumulated,
+                profile_cell=profile_cell, topic_sequence=topic_sequence, routing_rules=routing_rules,
+            )
+            result.framing_decision = decision
+            result.framing_record = framing_record
+            if scqa:
+                result.scqa_summary = scqa
+            result.framing_required = False
+            return result
+
+        decision_style = (principal_ctx or {}).get("decision_style", "analytical").lower()
+        if decision_style not in STYLE_GUIDANCE:
+            decision_style = "analytical"
+        kt_summary = self._build_kt_summary(da_output)
+        agent_message, suggested_responses = await self._generate_refinement_question(
+            current_topic=next_topic,
+            decision_style=decision_style,
+            kt_summary=kt_summary,
+            history=history,
+            user_message=None,
+            accumulated=accumulated,
+            principal_role=(principal_ctx or {}).get("role", ""),
+            principal_id=principal_id,
+            da_output=da_output,
+        )
+        history.append({"role": "assistant", "content": agent_message})
+
+        return ProblemRefinementResult(
+            agent_message=agent_message,
+            suggested_responses=suggested_responses,
+            exclusions=accumulated.exclusions,
+            external_context=accumulated.external_context,
+            constraints=accumulated.constraints,
+            validated_hypotheses=accumulated.validated_hypotheses,
+            invalidated_hypotheses=accumulated.invalidated_hypotheses,
+            replication_constraints=accumulated.replication_constraints,
+            current_topic=next_topic,
+            topic_complete=False,
+            topics_completed=new_topics_completed,
+            ready_for_solutions=False,
+            refined_problem_statement=None,
+            turn_count=turn_count + 1,
+            conversation_history=history,
+            constraint_items=accumulated.constraint_items,
+            problem_profile_cell=profile_cell,
+            topic_sequence=topic_sequence,
+            topic_routing_rules_applied=routing_rules,
+            framing_prompt=None,
+            framing_decision=decision,
+            framing_record=framing_record,
+            scqa_summary=scqa,
+            framing_required=False,
+        )
 
     def _is_early_exit(self, message: str) -> bool:
         """Check if user wants to exit refinement early."""
@@ -3118,7 +3436,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         except Exception as e:
             # A routing failure must never cost the principal their interview.
             self.logger.warning(f"[REFINE] problem_profile.classify failed, using base sequence: {e}")
-            return base, None, []
+            return self._maybe_prepend_framing_topic(base), None, []
 
         rules: List[str] = []
         seq = list(base)
@@ -3182,7 +3500,28 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             rules.append(f"CAP:{len(seq)}->{len(trimmed)} (protected: {sorted(PROTECTED_TOPICS)})")
             seq = trimmed
 
+        # Phase 19 — inserted AFTER the cap so it can never be trimmed, and at
+        # index 0 so R2's scope_boundaries insert above (which runs earlier)
+        # can't displace it. PROTECTED_TOPICS/MAX_TOPICS_IN_SEQUENCE are
+        # deliberately untouched — adding framing to the protected set would
+        # be a no-op since the cap has already run by the time this fires.
+        seq = self._maybe_prepend_framing_topic(seq)
+        if FRAMING_TOPIC in seq:
+            rules.append("PHASE19:framing_gate -> problem_framing leads")
+
         return seq, profile, rules
+
+    def _maybe_prepend_framing_topic(self, seq: List[str]) -> List[str]:
+        """Insert FRAMING_TOPIC at index 0 when enable_framing_gate is on,
+        idempotently. Shared by both `_get_topic_sequence` return paths (the
+        classify-failure fallback and the normal routed path) so the gate is
+        guaranteed present regardless of which one fires — a profiling
+        failure must not also cost the principal the framing gate."""
+        if not getattr(self.config, "enable_framing_gate", False):
+            return seq
+        if FRAMING_TOPIC in seq:
+            return seq
+        return [FRAMING_TOPIC] + list(seq)
 
     def _build_benchmark_summary(self, da_output: Dict[str, Any]) -> str:
         """Build a summary of internal benchmark segments for the replication_potential topic."""
@@ -3251,6 +3590,14 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         for msg in history:
             if msg.get("role") == "user":
                 user_text = msg.get("content", "")
+                # Phase 19: a "[Framing decision] ..." entry is a readable
+                # transcript marker _handle_framing_gate writes, NOT free
+                # text — keyword-extracting it would misfile the chosen
+                # objective as a constraint. Only reachable for legacy
+                # clients that don't echo prior_constraint_items (the early
+                # return above handles every modern caller).
+                if user_text.startswith("[Framing decision]"):
+                    continue
                 extracted = self._simple_extraction(user_text, "general")
                 accumulated = self._merge_refinements(accumulated, extracted)
 
