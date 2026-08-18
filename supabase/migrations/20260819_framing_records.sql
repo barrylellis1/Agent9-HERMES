@@ -12,6 +12,21 @@
 -- 20260731_assumption_grading_fields.sql: editing an applied migration in place
 -- produces a checksum mismatch and silently skips the change for anyone who
 -- already ran it.
+--
+-- RENAMED from 20260818_framing_records.sql (still 2026-08-18 in content and
+-- intent) to 20260819 after a real `supabase db push --linked` failure: the
+-- CLI keys its schema_migrations tracking table by the leading NUMERIC
+-- PREFIX only, not the full filename, so this and
+-- 20260818_framing_decision_attribution.sql collided on "20260818" --
+-- attribution applied and got tracked first (alphabetical: "d" < "r"), this
+-- one's DDL ran (visible via harmless "does not exist, skipping" NOTICEs on
+-- the DROP CONSTRAINT IF EXISTS lines) but its own tracking-row INSERT hit
+-- a duplicate-key error and the whole migration rolled back atomically --
+-- confirmed via a read-only `db dump --linked` against production showing
+-- attribution's columns present, this migration's (expiry_event, the
+-- extended record_type/source CHECKs, the index) absent. Every migration in
+-- this repo needs a genuinely unique leading date/number, not just a unique
+-- filename -- same-day siblings need distinct numbers going forward.
 -- ---------------------------------------------------------------------------
 
 ALTER TABLE assumptions

@@ -126,7 +126,7 @@ def test_attribution_fields_default_to_none():
 
 _MIGRATION_PATH = (
     Path(__file__).resolve().parents[2]
-    / "supabase" / "migrations" / "20260818_framing_records.sql"
+    / "supabase" / "migrations" / "20260819_framing_records.sql"
 )
 
 
