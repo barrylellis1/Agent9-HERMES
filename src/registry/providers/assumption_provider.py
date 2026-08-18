@@ -31,6 +31,7 @@ def _row_to_model(row: asyncpg.Record) -> Assumption:
         validated_by=row["validated_by"],
         falsification_criterion=row["falsification_criterion"],
         expiry=row["expiry"].isoformat() if row["expiry"] else None,
+        expiry_event=row["expiry_event"] if "expiry_event" in row.keys() else None,
         linked_situation_id=row["linked_situation_id"],
         linked_solution_id=row["linked_solution_id"],
         created_at=row["created_at"].isoformat() if row["created_at"] else None,
@@ -90,6 +91,32 @@ class AssumptionProvider:
                 )
         return [_row_to_model(r) for r in rows]
 
+    async def get_active_framing(self, client_id: str, scope: str) -> Optional[Assumption]:
+        """Return the active framing record for a KPI, if one exists (Phase 19).
+
+        Additive — does not touch get_active_constraints. At most one row should
+        be 'active' at a time for a given (client_id, scope, record_type='framing');
+        the lift-then-insert behavior that guarantees this lives at the Slice 4 call
+        site, not here (Decision #9 of the framing implementation plan) — a prior
+        active row is marked status='lifted' before a resubmission is inserted, so a
+        changed mind stays on the audit trail instead of being overwritten in place.
+        Returns the most recent active row if more than one is ever found (defensive
+        only — should not happen if the lift-then-insert discipline is followed).
+        """
+        async with tenant_scope(self._pool(), client_id) as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT * FROM assumptions
+                WHERE client_id = $1 AND scope = $2
+                  AND record_type = 'framing' AND status = 'active'
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                client_id,
+                scope,
+            )
+        return _row_to_model(row) if row else None
+
     async def get_for_solution(self, solution_id: str, client_id: str) -> List[Assumption]:
         """Return every assumption registered against a solution.
 
@@ -138,6 +165,7 @@ class AssumptionProvider:
                         source = $6, provenance = $7, confidence = $8, expiry = $9,
                         linked_situation_id = $10, linked_solution_id = $11,
                         validated_by = $12, falsification_criterion = $13,
+                        expiry_event = $14,
                         updated_at = NOW()
                     WHERE id = $1
                     RETURNING *
@@ -146,6 +174,7 @@ class AssumptionProvider:
                     item.source, item.provenance, item.confidence, item.expiry,
                     item.linked_situation_id, item.linked_solution_id,
                     item.validated_by, item.falsification_criterion,
+                    item.expiry_event,
                 )
             else:
                 # ON CONFLICT targets uq_assumptions_solution_text — approving the
@@ -164,21 +193,22 @@ class AssumptionProvider:
                     INSERT INTO assumptions
                         (client_id, scope, record_type, text, status, source,
                          provenance, confidence, expiry, linked_situation_id, linked_solution_id,
-                         validated_by, falsification_criterion)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                         validated_by, falsification_criterion, expiry_event)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                     ON CONFLICT (linked_solution_id, md5(text)) WHERE linked_solution_id IS NOT NULL
                     DO UPDATE SET
                         scope = EXCLUDED.scope,
                         confidence = EXCLUDED.confidence,
                         validated_by = EXCLUDED.validated_by,
                         falsification_criterion = EXCLUDED.falsification_criterion,
+                        expiry_event = EXCLUDED.expiry_event,
                         updated_at = NOW()
                     RETURNING *
                     """,
                     item.client_id, item.scope, item.record_type, item.text, item.status,
                     item.source, item.provenance, item.confidence, item.expiry,
                     item.linked_situation_id, item.linked_solution_id,
-                    item.validated_by, item.falsification_criterion,
+                    item.validated_by, item.falsification_criterion, item.expiry_event,
                 )
         logger.info(
             "Upserted assumption record type=%s scope=%s for client '%s'",

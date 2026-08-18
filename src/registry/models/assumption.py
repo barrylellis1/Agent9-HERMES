@@ -19,11 +19,13 @@ class Assumption(BaseModel):
     scope: str = Field(
         ..., description="What this attaches to -- typically a kpi_id or a monitoring-profile threshold identifier"
     )
-    record_type: Literal["assumption", "constraint", "explanation"] = Field(
+    record_type: Literal["assumption", "constraint", "explanation", "framing"] = Field(
         "assumption",
         description=(
             "assumption = a belief that might be wrong. constraint = a stated prohibition "
-            "(from SF-rejection HITL). explanation = why a situation is suppressed -- requires expiry."
+            "(from SF-rejection HITL). explanation = why a situation is suppressed -- requires expiry. "
+            "framing = a human-chosen problem objective (Phase 19) -- event-scoped via expiry_event, "
+            "not date-scoped via expiry."
         ),
     )
     text: str = Field(..., description="The claim itself, in plain language")
@@ -31,7 +33,7 @@ class Assumption(BaseModel):
         "active",
         description="assumption/explanation use active|held|falsified; constraint uses active|lifted",
     )
-    source: Literal["sa_hitl", "sf_hitl_rejection", "sf_hitl_approval", "va_hitl", "manual"] = Field(
+    source: Literal["sa_hitl", "sf_hitl_rejection", "sf_hitl_approval", "va_hitl", "manual", "da_hitl"] = Field(
         ..., description="Which HITL surface produced this record"
     )
     provenance: Literal["template", "confirmed", "hitl_proposed", "va_validated"] = Field(
@@ -64,7 +66,21 @@ class Assumption(BaseModel):
         description=(
             "ISO datetime. MANDATORY for record_type='explanation' -- self-falsification, "
             "never indefinite suppression (theory doc §5.1, §9 pre-mortem #5). Enforced here "
-            "AND at the DB layer (CHECK constraint) so no write path can skip it."
+            "AND at the DB layer (CHECK constraint) so no write path can skip it. Stays None "
+            "for record_type='framing' -- that record's expiry is event-based, see expiry_event."
+        ),
+    )
+    expiry_event: Optional[Literal["va_verdict_on_linked_solution"]] = Field(
+        None,
+        description=(
+            "Event-based expiry trigger for record_type='framing' (problem_framing_design.md §8 "
+            "item 3): the frame expires when Value Assurance resolves the bet on the solution it "
+            "governed -- validated OR failed, either outcome is a genuine re-examination trigger. "
+            "Deliberately NOT a date -- `expiry` is typed as an ISO datetime and cannot express "
+            "'when VA renders a verdict', which is why this is a separate field rather than an "
+            "overload of `expiry`. A frame whose solution is never approved never expires via this "
+            "mechanism -- the un-backstopped case named in the design doc, carried forward not "
+            "solved here."
         ),
     )
     linked_situation_id: Optional[str] = None
