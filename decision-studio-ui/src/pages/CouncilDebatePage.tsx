@@ -7,6 +7,12 @@ import { buildExecutiveBriefing } from '../utils/briefingUtils';
 
 // ─── Firm colour palette ───────────────────────────────────────────────────────
 
+// Keyed by persona id, not exclusively firm id — commercial/operational/
+// structural (lens_council) run through the exact same column rendering as
+// mckinsey/bcg/bain, so they need entries here too or they fall through to
+// getFirmColor's generic grey fallback below: label=raw-id, no accent color,
+// which reads as "this option is broken" rather than "this is a different,
+// equally-supported methodology" (2026-08-17).
 const FIRM_COLORS: Record<string, { label: string; accent: string; border: string; badge: string }> = {
   mckinsey: {
     label: 'McKinsey',
@@ -25,6 +31,24 @@ const FIRM_COLORS: Record<string, { label: string; accent: string; border: strin
     accent: 'text-amber-300',
     border: 'border-amber-500/30',
     badge: 'bg-amber-900/30 text-amber-300',
+  },
+  commercial: {
+    label: 'Commercial',
+    accent: 'text-cyan-300',
+    border: 'border-cyan-500/30',
+    badge: 'bg-cyan-900/30 text-cyan-300',
+  },
+  operational: {
+    label: 'Operational',
+    accent: 'text-orange-300',
+    border: 'border-orange-500/30',
+    badge: 'bg-orange-900/30 text-orange-300',
+  },
+  structural: {
+    label: 'Structural',
+    accent: 'text-violet-300',
+    border: 'border-violet-500/30',
+    badge: 'bg-violet-900/30 text-violet-300',
   },
 };
 
@@ -219,6 +243,16 @@ export const CouncilDebatePage: React.FC = () => {
         kpi_name: situation.kpi_name,
       };
 
+      // Last-resort default only. Any debate launched through DeepFocusView's
+      // Assemble Council screen now populates debateConfig.selectedPersonas
+      // for BOTH preset and custom selections (see COUNCIL_PRESET_PERSONAS in
+      // uiConstants.ts), so this fallback should be unreachable in normal
+      // flow — it exists only for a malformed or pre-2026-08-17 debateConfig.
+      // Before that fix, EVERY preset silently hit this line, because
+      // choosing a preset (as opposed to Custom) never touched
+      // selectedPersonas at all — the backend's own resolution order checks
+      // consulting_personas before council_preset, so this hardcoded MBB
+      // list always won regardless of which preset was actually clicked.
       const preferencesBase: Record<string, any> = {
         consulting_personas: debateConfig.selectedPersonas?.length ? debateConfig.selectedPersonas : ['mckinsey', 'bcg', 'bain'],
         council_preset: debateConfig.selectedPreset || 'recommended',
@@ -306,7 +340,9 @@ export const CouncilDebatePage: React.FC = () => {
     }
   };
 
-  // ── Derived: firm list in a stable order ────────────────────────────────────
+  // ── Derived: council-member list in a stable order ──────────────────────────
+  // "firm" in the variable name predates lens_council; kept to limit the diff.
+  // Same last-resort-only fallback reasoning as preferencesBase above.
   const firms: string[] = debateConfig?.selectedPersonas?.length
     ? debateConfig.selectedPersonas
     : ['mckinsey', 'bcg', 'bain'];

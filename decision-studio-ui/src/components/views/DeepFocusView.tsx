@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Situation, ProblemRefinementResult, MarketSignal, MarketConflict } from '../../api/types';
 import { runDeepAnalysis } from '../../api/client';
+import { COUNCIL_PRESET_PERSONAS } from '../../config/uiConstants';
 import { formatExecutive } from '../../utils/formatExecutive';
 import { ProblemRefinementChat } from '../ProblemRefinementChat';
 import { IsIsNotExhibit } from '../visualizations/DivergingBarChart';
@@ -1027,7 +1028,14 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                              {availableCouncils.map(c => (
                                                  <button
                                                      key={c.id}
-                                                     onClick={() => setSelectedPreset(c.id)}
+                                                     onClick={() => {
+                                                         setSelectedPreset(c.id);
+                                                         // Without this, selectedPersonas stays whatever it last was
+                                                         // (often [] or a stale Custom pick) and the dispatch payload
+                                                         // silently falls back to hardcoded MBB regardless of which
+                                                         // preset was actually clicked — see COUNCIL_PRESET_PERSONAS.
+                                                         setSelectedPersonas(COUNCIL_PRESET_PERSONAS[c.id] ?? []);
+                                                     }}
                                                      className={`w-full text-left p-3 rounded border transition-all ${selectedPreset === c.id ? 'bg-slate-800 border-indigo-500' : 'bg-slate-900/50 border-slate-800 hover:border-slate-700'}`}
                                                  >
                                                      <div className="flex items-center gap-2">

@@ -38,7 +38,35 @@ export const AVAILABLE_COUNCILS: Council[] = [
   { id: "big4_council", label: "Big 4 Advisory Council", description: "Deloitte, EY-Parthenon, KPMG, PwC", icon: User, color: "text-blue-400" },
   { id: "tech_council", label: "Tech Transformation", description: "Accenture, Deloitte, BCG", icon: User, color: "text-emerald-400" },
   { id: "risk_council", label: "Risk & Governance", description: "KPMG, EY-Parthenon, Deloitte", icon: User, color: "text-red-400" },
+  // Method-defined alternative to the four firm-branded presets above — see
+  // consulting_personas_registry.yaml:350. Offered alongside MBB, not in place
+  // of it (2026-08-17 decision); the analytical comparison is still open.
+  { id: "lens_council", label: "Analytical Lens Council", description: "Commercial, Operational, Structural", icon: User, color: "text-teal-400" },
 ];
+
+// Preset -> persona-id list, mirroring consulting_personas_registry.yaml's
+// `council_presets` section exactly.
+//
+// WHY THIS EXISTS: selecting a preset previously only set `selectedPreset`
+// (a label for UI highlighting) without ever populating `selectedPersonas`.
+// Every downstream consumer that builds the actual dispatch payload
+// (CouncilDebatePage.tsx) falls back to a hardcoded ['mckinsey','bcg','bain']
+// whenever `selectedPersonas` is empty — which is EVERY preset selection,
+// not just a new one. Because the backend's persona-resolution order checks
+// `consulting_personas` before `council_preset`, that hardcoded fallback wins
+// and the actual preset choice is never consulted. This is invisible for the
+// MBB preset (the fallback happens to equal the right answer) and was
+// silently breaking every OTHER preset — Big 4, Tech, Risk — before lenses
+// were ever added. Populating `selectedPersonas` at the moment a preset is
+// chosen (see DeepFocusView.tsx) fixes the root cause for all five presets,
+// not just the new one.
+export const COUNCIL_PRESET_PERSONAS: Record<string, string[]> = {
+  mbb_council: ["mckinsey", "bcg", "bain"],
+  big4_council: ["deloitte", "ey_parthenon", "kpmg", "pwc_strategy"],
+  tech_council: ["deloitte", "accenture", "bcg"],
+  risk_council: ["kpmg", "ey_parthenon", "deloitte"],
+  lens_council: ["commercial", "operational", "structural"],
+};
 
 export const AVAILABLE_PERSONAS: Persona[] = [
   // Consulting Firms

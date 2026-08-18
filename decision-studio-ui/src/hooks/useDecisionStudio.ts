@@ -15,7 +15,8 @@ import {
 import {
   AVAILABLE_PRINCIPALS,
   AVAILABLE_COUNCILS,
-  AVAILABLE_PERSONAS
+  AVAILABLE_PERSONAS,
+  COUNCIL_PRESET_PERSONAS
 } from '../config/uiConstants';
 import { Client, Principal, MarketSignal, MarketConflict } from '../api/types';
 import { buildExecutiveBriefing } from '../utils/briefingUtils';
@@ -100,7 +101,10 @@ export function useDecisionStudio() {
   const [useHybridCouncil, setUseHybridCouncil] = useState(true);
   const [councilType, setCouncilType] = useState<"preset" | "custom">("preset");
   const [selectedPreset, setSelectedPreset] = useState("mbb_council");
-  const [selectedPersonas, setSelectedPersonas] = useState<string[]>([]);
+  // Seeded to match selectedPreset's default, not []. An empty array here is
+  // what let the default MBB preset mask the dispatch bug this session found —
+  // see COUNCIL_PRESET_PERSONAS's comment in uiConstants.ts.
+  const [selectedPersonas, setSelectedPersonas] = useState<string[]>(COUNCIL_PRESET_PERSONAS.mbb_council);
   
   // Context / Principal — seed from router state so there's only one SA scan on mount
   const [selectedPrincipal, setSelectedPrincipal] = useState(location.state?.principalId || "cfo_001");
