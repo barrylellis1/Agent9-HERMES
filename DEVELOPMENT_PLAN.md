@@ -1689,12 +1689,21 @@ SA assessment results (already computed per run) ──────────�
 > was always scoped as "Phase 13 Cat 3 + Cat 4 + Phase 15". Two entries were describing the same
 > unbuilt UI from opposite directions; this is now the single owner.
 >
-> 🔴 **M3 below conflicts with Phase 18 and must be reconciled before either is built.** M3 (May
-> 2026) says keep firm names as internal reasoning anchors and strip them from display only. Phase
-> 18 (Aug 2026) argues firm identity should stop being a product feature at all — a user selecting
-> "McKinsey" as an advisor and receiving output attributed to "McKinsey & Company". These are
-> different positions on the same question, taken three months apart. M1 below is also the invariant
-> Phase 15 Stage J cites; it originates here.
+> ✅ **Cat 3 BUILT 2026-08-16.** See the Cat 3 table and the build notes below it. Remaining in this
+> phase: Cat 4's one UI item (role-adaptive collapse depth), deliberately deferred.
+>
+> ✅ **The M3 / Phase 18 conflict is settled — Phase 18's position wins, on the briefing surface.**
+> M3 (May 2026) said keep firm names as internal reasoning anchors and strip them from display only;
+> Phase 18 (Aug 2026) said firm identity should stop being a product feature at all. Decided in
+> favour of Phase 18 for this page specifically, on the ground that the briefing is the artifact an
+> executive exports to PDF and forwards — the worst place to carry a real firm's legal name over
+> analysis that firm did not produce. M3's *substantive* point is kept: the persona id remains the
+> reasoning anchor inside the prompt, and the display label now names the analytical tradition the
+> persona encodes ("Portfolio & unit economics") rather than blanking it out. Generation is
+> unchanged. Scope is the briefing only — the persona picker, council presets, `CouncilDebate.tsx`
+> and `DeepFocusView.tsx` remain Phase 18 Category C.
+>
+> M1 below is also the invariant Phase 15 Stage J cites; it originates here.
 
 **Goal:** Elevate the Executive Briefing from "impressively close to MBB quality" to genuinely boardroom-ready: fix structural bugs, remove consultant jargon from display, restructure for a 2-minute CFO read, and adapt depth and tone by principal role.
 
@@ -1722,27 +1731,85 @@ SA assessment results (already computed per run) ──────────�
 
 > **Reconciliation (2026-07-21):** This category is **Stages A–C** of the unified SF build spine in **Phase 15**. Its structured-output migration and `SFResponse` schema are the single foundation that also carries Phase 11J P1's typed `SolutionAssumption` and Phase 15's "bets on" + calibrated-confidence fields — **one schema, one M2/M5 compliance gate**, not three rewrites. The `key_assumptions` field below becomes the typed `List[SolutionAssumption]` (see Phase 15 Stage B). Build order and gates: see Phase 15.
 
+> 🔴 **CORRECTION (2026-08-16): the first deliverable below was NEVER BUILT, despite this category
+> being recorded as shipped via Phase 15 Stages A–B.** Stages A–B were the structured-output schema;
+> the firm-name prompt rule was not part of them and no equivalent instruction exists anywhere in
+> `a9_solution_finder_agent.py`. Caught by a live e2e run, not by review: the briefing rendered
+> *"This is **Bain's** Full Potential Transformation applied as a multi-year margin-architecture
+> reset"* straight out of `options_ranked[2].description`, with `opt1.rationale` and the
+> recommendation rationale both citing *"McKinsey's MECE cost-driver framing"* and `opt2.rationale`
+> opening *"BCG's Growth-Share/Experience-Curve lens argues…"*.
+>
+> The prompt does not merely fail to forbid this — it **invites** it. Line ~1352 builds
+> `framework_lines` from each persona's name plus the fallback text *"Apply signature frameworks and
+> expertise"*, so the model is told to apply a named firm's signature method and then writes that
+> sentence.
+>
+> **Consequence for Phase 18:** Category C is NOT closed by Cat 3's UI de-branding. Removing the
+> chrome while the generated prose still names firms moves the exposure from a label the UI controls
+> into free text nobody screens. A prior run of the same pipeline rendered clean, so this is
+> intermittent — which makes it worse to rely on, not better.
+
 | Deliverable | File | Description |
 |------------|------|-------------|
-| Strip firm names from display narrative | `a9_solution_finder_agent.py` synthesis prompt | "BCG's Growth-Share Matrix" → "portfolio segmentation by volume and margin". Firm names retained as internal reasoning; available in "View methodology" panel |
+| 🔴 **Strip firm names from display narrative — NOT BUILT** | `a9_solution_finder_agent.py` synthesis prompt | "BCG's Growth-Share Matrix" → "portfolio segmentation by volume and margin". Firm names retained as internal reasoning; available in "View methodology" panel. **Verified absent 2026-08-16 and observed leaking to a rendered briefing.** The `live-briefing-cat3*` specs' firm-name sweep is the regression test |
 | Cap ROI precision | SF synthesis prompt | Round ranges in output: "+$45M–$78M" not "+$45.0M to +$78.0M" |
 | Cap paragraph length | SF synthesis prompt | Max 3 sentences per on-screen section; multi-clause sentences split |
 | `DecisionAsk` structured output | `a9_solution_finder_agent.py` + `SFResponse` model | New field: `decision_ask: DecisionAsk` with `{decision_text (≤25 words), decision_owner, deadline, approval_type}`. Validated before display. |
 | `ImmediateAction` structured output | `a9_solution_finder_agent.py` + `SFResponse` model | Replace prose action list with `List[ImmediateAction]`: `{action_text, owner, due_by_days, why_it_matters}`. Test LLM compliance on 20+ synthetic runs before building checklist UI. |
 | Assumptions panel per ROI range | SF synthesis prompt + `SFResponse` model | Each option includes `List[str] key_assumptions` — 3–5 bullet drivers. Rendered as expandable panel in UI. |
 
-#### Category 3 — Executive Briefing UI restructure
+#### Category 3 — Executive Briefing UI restructure ✅ Built 2026-08-16
 
-| Deliverable | File | Description |
-|------------|------|-------------|
-| Top block above the fold | `ExecutiveBriefingPage.tsx` | Always-visible: Situation (3 bullets max) + Decision ask (1 line from `DecisionAsk`) + Recommended path + Impact range. Above all detail. |
-| CoI above recommendation | `ExecutiveBriefingPage.tsx` | Move Cost of Inaction block above the recommendation panel — it is the urgency anchor. "Doing nothing costs you $X by Q3." |
-| Options tight table + drill-down | Strategic Options component | 5-column summary table (name, time, impact, risk, role in sequence). Full narrative (arguments for/against, stakeholder questions) in a side drawer on click — not all expanded inline. |
-| Immediate Actions checklist | New `ImmediateActionsChecklist` component | Renders from `List[ImmediateAction]` schema. Owner chip + deadline badge + one-line "why it matters". Not built until schema compliance confirmed (M5). |
-| Risk block: top 3 + expand | Risk section | Top 3 risks in main view with `stop/go` condition each. Remainder in "See all risks" expand. |
-| Assumptions panel per option | New `AssumptionsPanel` component | Renders from `key_assumptions` field. Collapsed by default. Essential for CFO challenge scenario (M6). |
-| Status Quo column in options table | Strategic Options table | Option 0 (Cost of Inaction baseline) with negative ROI, $0 cost, trajectory risk — gives a reference column. |
-| Audit metadata footer | Briefing footer | `Model: Claude Sonnet 4.6 · Data: BigQuery YTD 2026 vs YTD 2025 · Council: McKinsey, Deloitte, Accenture, KPMG · Generated: [datetime] · Confidence: High` |
+| Deliverable | File | Status |
+|------------|------|--------|
+| Top block above the fold | new `components/briefing/DecisionAskBlock.tsx` | ✅ Situation (≤3 bullets: problem + top 2 variance contributors with their dimension labels) + `DecisionAsk` + recommended path + impact range. Screen-only — print already opens with its own Flash Briefing |
+| CoI above recommendation | `ExecutiveBriefing.tsx` | ✅ **was already satisfied** — the banner has sat above the hero card since Cat 1. No change needed |
+| Options tight table + drill-down | new `components/briefing/OptionDetailDrawer.tsx` | ✅ Narrative (arguments for/against, stakeholder perspectives, prerequisites, triggers) moved behind "View full analysis" into a right-hand drawer; Esc + backdrop close. **Print keeps the narrative inline** — there is no drawer to open on paper |
+| Immediate Actions checklist | new `components/briefing/ImmediateActionsChecklist.tsx` | ✅ Owner chip + deadline badge + "why it matters". A missing owner renders visibly as *unassigned* rather than being filled in — M5 puts that fix in the prompt, not the component |
+| Risk block: top 3 + expand | `ExecutiveBriefing.tsx` | ✅ Top 3 + "See all N risks". **`stop/go` condition per risk NOT built — no field backs it** (see notes) |
+| Assumptions panel per option | new `components/briefing/AssumptionsPanel.tsx` | ✅ grounded/inferred split, confidence, `validated_by`, provenance. Collapsed on screen, **always expanded in print** — M6 has to hold on the copy that gets forwarded and challenged |
+| Status Quo column in options table | `ExecutiveBriefing.tsx` | ✅ Option 0 derived by `deriveStatusQuo()` from the same `kpiData` slice the CoI banner projects from. Leads the table as the reference column, and is **excluded from `axisDiscrimination`** (see notes) |
+| Audit metadata footer | `ExecutiveBriefing.tsx` | ✅ KPI · Data (source system + resolved window + version, from `MeasurementContext`) · Council (de-branded) · Model · Confidence · Generated. **Every field read from the payload** — the spec's example line named a specific model version and data window; hardcoding either would make the audit strip assert something no run established |
+
+**The finding that set the build order.** The schema fields were being *produced and then dropped one
+`map()` short of the screen*, not missing from the backend. The synthesis JSON template already
+requests `decision_ask` and `immediate_actions`
+(`a9_solution_finder_agent.py:1638-1646`) and `_parse_decision_ask`/`_parse_immediate_actions` read
+them back on the **shared** path — so none of this waited on the `use_structured_output` flip.
+`workflows.py:380` `model_dump()`s the whole response. But `buildExecutiveBriefing` never carried
+`decision_ask` or `immediate_actions`, and its per-option map dropped `key_assumptions` and
+`flagged_side_effects`. That plumbing was step 0; every component was blocked on it.
+
+**Evidence the fields are actually populated, not just typed:** `decision_quality.py`'s
+`l6_commitment` passes only when `decision_ask.decision_text` **and** `decision_owner` **and** a
+non-empty `immediate_actions` are all present — and Phase 15 closed at **13/13** on link 6. Stage E's
+`flagged_side_effects` now render on the option card (count) and in the drawer (full list); they had
+been parsed, typed and carried through the API without ever reaching a screen.
+
+**Three spec deviations, each deliberate:**
+1. **No `stop/go` condition per risk.** Nothing in the payload carries one. Risks are assembled from
+   `blind_spots` and `unresolved_tensions`, whose mitigations are already keyword-derived in
+   `briefingUtils`; generating a stop/go gate on top of that would be a fabricated control sitting in
+   the section a reader trusts most. The recommended option's `implementation_triggers` are the real
+   article and already render in the drawer.
+2. **No "role in sequence" column.** Same reason — no per-option field expresses it. The table keeps
+   Strategy / Est. ROI / Investment / Timeline / Reversibility / Risk, all payload-backed.
+3. **Option 0 is excluded from the `axisDiscrimination` calculation.** Its values differ from every
+   proposal almost by construction ($0 investment, a negative return), so folding it in would turn
+   "all three proposals score the same here" into a cheerful "3 of 4 distinct" and suppress the exact
+   finding that annotation was built (Aug 2026, off live briefings) to make.
+
+**Also fixed in passing:** the hero card's duplicate recommendation title and owner/deadline row
+(both now live in the block above it — the same duplication Cat 1 removed once already); the
+hardcoded "Three strategic pathways" intro, which said three regardless of how many the run produced;
+and a `print:`-variant trap — the Export button rasterises the live DOM through html2pdf and sees no
+print media, so collapsed risk rows needed an explicit `.risk-overflow-row` rule in the
+pdf-export-mode stylesheet or the PDF would have silently shipped a shorter risk list than the screen.
+
+**Not built, and why:** Cat 4's role-adaptive collapse depth. It adds a principal-dependent render
+path that cannot be confirmed in the same walkthrough as everything above, and Cat 4's substantive
+half (prompt-side adaptation) already shipped in Stage C.
 
 #### Category 4 — Principal-adaptive output
 
@@ -1755,6 +1822,56 @@ SA assessment results (already computed per run) ──────────�
 **Build order:** Category 1 bugs → Category 2 SF prompt + schema definitions → Category 2 schema compliance testing → Category 3 UI → Category 4 principal adaptation.
 
 **Prerequisite:** `ImmediateAction` and `DecisionAsk` Pydantic models schema-tested before any Category 3 UI work begins.
+
+**Remaining in Phase 13:** Cat 4's role-adaptive UI depth (collapse-by-default for C-level with an
+always-available full-view toggle, M1). Everything else in the phase is closed.
+
+**Verification state (2026-08-16).** `npm run build` passes; the 94-test mocked e2e suite
+(`briefing-*`, `debate-moderator-render`) passes unchanged, so the DOM restructure broke no existing
+assertion. Two LIVE runs were driven end to end against lubricants / `cfo_001` on BigQuery:
+
+| | control (`live-briefing-cat3.spec.ts`) | refinement arm (`live-briefing-cat3-refined.spec.ts`) |
+|---|---|---|
+| refinement interview | skipped | conducted — 9 refine calls, 6 topics, 2 constraints captured |
+| decision ask | present, 16 words | present, 16 words |
+| immediate actions | 4 payload / 4 rendered | 4 / 4 |
+| assumptions panels | 3 / 3 | 3 / 3 |
+| critic side-effect chips | 3 / 3 | 3 / 3 |
+| Option 0 column | present | present |
+| firm names on page | none | 🔴 **"Bain" leaked** (see Cat 2 correction) |
+| result | **passed** | **failed** on the firm-name sweep only |
+
+Every payload-vs-DOM count matched in both arms — the four fields that were being dropped now reach
+the screen, on real output. Stage E's critic findings rendered for the first time since they shipped
+in July.
+
+**Still not verified:** the two export paths (Print and html2pdf Export) against a collapsed risk
+section, and an absent-`decision_ask` run (both live runs produced one, so the honest-absence path
+has still never rendered). Neither is reachable from an automated run without fabricating input.
+
+**Decision Quality (`scripts/score_dq_run.py`, new — wraps `decision_quality.score_run`):**
+
+| link | control | refinement arm |
+|---|---|---|
+| L1 frame *(advisory screen)* | **FAIL** | **FAIL** — identical detail text |
+| L2 alternatives | PASS (cost_audit, pricing_corridor) | PASS (pricing_corridor, volume_for_margin) |
+| L3 information | PASS | PASS |
+| L4 tradeoffs *(advisory screen)* | PASS | PASS |
+| L5 reasoning | not-checked (no DA captured) | PASS |
+| L6 commitment | PASS | PASS |
+| chain | FAIL, capped by frame | FAIL, capped by frame |
+
+**The refinement interview did not move link 1.** Both arms fail it with the same finding — *"every
+option recovers the breached KPI within its existing structure"* — even though the interview ran
+properly and fed two real constraints into Stage 1. This is evidence for, not against, Phase 15's
+decision to hand frame to **Phase 19** rather than expect the existing refinement step to fix it: the
+one framing intervention the product ships today does not widen the frame.
+
+Read the 80% → 83% difference as instrumentation, not improvement: the control simply did not capture
+a DA payload, so its L5 was not-checked. Caveats that matter: **n=1 per arm**, the interview was
+answered by clicking the first suggested response each turn (a scripted respondent, not a person),
+and L1/L4 are advisory term screens the rubric records at a 71% false-positive rate — they want human
+adjudication, which is why the scorer prints their matched terms and does not gate on them.
 
 ---
 
@@ -2274,15 +2391,28 @@ itself is what drifted, and that is enough to require a fresh control.
 | **J** | Populate `evaluation_criteria` from the **enterprise's** declared strategy so `_rank_options` stops using `A9_Solution_Finder_Agent_Config.weight_*`. Two fields on `A9_PS_BusinessContext`: `strategic_posture` (the justification) + `tradeoff_weights` (the operative numbers). Closes DQ link 4 | Phase 15 | ✅ **BUILT** — 27 tests (`test_sf_stage_j_tradeoff_weights.py`), 1202 suite pass. **No migration** — both fields ride the existing `business_contexts.metadata` JSONB |
 
 **🔴 Naming corrected — `tradeoff_weights`, NOT `lens_weights`. The name was already taken.**
-`principal_lens_weighting_design.md` defines `lens_weights` as
+`principal_perspective_weighting_design.md` defines `perspective_weights` as
 `{"plan": 1.0, "trend": 0.6, "peer": 0.3, "value_gap": 0.8, "bridge": 0.9}` — weights over the **five
-comparison lenses** (L1 vs Plan · L2 vs Trend · L3 vs Peer · L4 vs Full potential · L5 Bridge), an
+comparison Perspectives** (L1 vs Plan · L2 vs Trend · L3 vs Peer · L4 vs Full potential · L5 Bridge), an
 SA/DA concept governing how a KPI situation is *appraised and prioritised*. That is a different
 feature, still unbuilt, and **the earlier claim in this entry that "the design already exists, only the
 wiring is missing" was wrong.** Three things were called "lens" at once: those comparison lenses,
 `PerspectiveAnalysis.lens` (`"Financial"`/`"Operational"`/`"Strategic"` argument sets on each option),
 and this. Renamed to match what it actually feeds — `tradeoff_weights` → `TradeOffCriterion` →
-`TradeOffMatrix`. `organization_priorities` was considered and rejected: `A9_PS_BusinessContext`
+`TradeOffMatrix`.
+
+> ✅ **The other two were settled 2026-08-16 (owner decision), so all three now have distinct names:**
+> the appraisal concept is a **Perspective** (`perspective_weights`, `PrincipalPerspectiveProfile`,
+> doc renamed to `principal_perspective_weighting_design.md`), and the council concept keeps **lens**
+> (`PerspectiveAnalysis` → `LensView`, `SolutionOption.perspectives` → `lens_views`, UI heading
+> "Stakeholder Perspectives" → "Council Lenses"). Mnemonic: a **lens** is who is looking; a
+> **Perspective** is what they compare against. Read paths accept the legacy `perspectives` key —
+> briefing snapshots persisted to Supabase and localStorage predate the rename — via
+> `AliasChoices` on the model and an explicit fallback in `briefingUtils`, `TradeOffAnalysis` and
+> `decision_quality._option_blob` (that last one matters because the scorer is run against archived
+> payloads, where dropping the old key would silently shrink the text blob for every historical run).
+> This was cheap only because the Perspective half had no implementation — the collision was caught
+> while one side was still paper. `organization_priorities` was considered and rejected: `A9_PS_BusinessContext`
 already carries `strategic_priorities`, so it would have collided with a field on the same model, and
 it overclaims — these three numbers break ties between options that all already address the problem,
 which is a tiebreaker, not a priority.
@@ -2304,7 +2434,7 @@ have been sitting in this codebase; **Stage J follows `_rank_options` (relative,
 that is now stated in the model docstring. Retiring the dead pair is a cleanup candidate.
 
 **🔴 Design corrected mid-build, on the user's challenge — weights are ENTERPRISE, not PRINCIPAL.**
-The first cut followed `principal_lens_weighting_design.md` and hung the field off
+The first cut followed `principal_perspective_weighting_design.md` and hung the field off
 `PrincipalProfile`. The user pushed back before it went further: *a cash cow, an M&A mover and a
 growth-stage business each have optimal weights that follow from corporate strategy and should impact
 every decision the same.* Correct, and the codebase already said so — **the M1 invariant written into
@@ -2473,7 +2603,7 @@ for it would mean holding it open for work it structurally cannot do. → **Phas
 | D grounding + constraints | ✅ live (`enable_causal_grounding=true`; migration **is** applied — the old "not applied" note was stale and is corrected below) |
 | E critic pass | ✅ live |
 | F bets → VA | ✅ core wiring |
-| **G briefing UI** | ❌ **not built → returned to Phase 13** (settlement 1) |
+| **G briefing UI** | ❌ at close: not built → returned to Phase 13 (settlement 1). **Subsequently built there, 2026-08-16** — see Phase 13 Cat 3 |
 | H moderator | ✅ live, adopted on scope elicitation (27/27 vs 0/12) |
 | I persona framing | closed at B-2; lens-swap comparison **unreadable** pending control replication |
 | **J tradeoff weights** | ✅ built + live-verified; first link-4 pass on record |
@@ -2501,7 +2631,7 @@ the register. Corrected in the stage table above.
 
 | item | goes to |
 |---|---|
-| Briefing UI (ex-Stage G) | **Phase 13 Cat 3** |
+| Briefing UI (ex-Stage G) | **Phase 13 Cat 3** — ✅ built there 2026-08-16 |
 | `use_structured_output` flip + prose-path deletion | follow-on commit, recommendation above |
 | Critic dual-duty risk proposal | Stage H follow-on list |
 | Moderator rubric coverage for links 1 + 2 | decide-or-drop; blocked on Phase 19 |
@@ -2885,8 +3015,13 @@ fallbacks.
 - `uiConstants.ts:45-47` — persona picker entries `{ id: "mckinsey", label: "McKinsey", type: "firm" }`,
   each with an approximation of the real firm's brand colour (blue / green / red)
 - `uiConstants.ts:37,39` — council presets described as "McKinsey, BCG, Bain" and "Accenture, Deloitte, BCG"
-- `ExecutiveBriefing.tsx:457-460` — **full legal names in the briefing itself** ("McKinsey & Company",
-  "Bain & Company") with per-firm bar/border/badge/dot colour sets
+- `ExecutiveBriefing.tsx:457-460` — full legal names in the briefing itself — **CHROME cleared
+  2026-08-16, CONTENT still leaking.** Phase 13 Cat 3 removed `FIRM_DISPLAY_NAMES`/`FIRM_STYLES`;
+  names now come from `utils/personaLabels.ts` (the analytical tradition, not the firm), colours are
+  assigned by position from a neutral palette, and the audit footer no longer title-cases raw ids
+  onto the exported PDF as "Mckinsey · Bcg · Bain". **But the de-branding is incomplete, because the
+  MODEL writes firm names into option prose and that prose renders verbatim** — see the Cat 2 gap
+  below. An earlier revision of this line claimed the item was cleared outright; that was wrong.
 - `CouncilDebatePage.tsx:11` — per-firm styling keyed by id
 - `CouncilDebate.tsx` — **fabricated dialogue naming real firms**: *"Reviewing BCG proposal: does the
   experience curve logic hold at this volume?"*, *"Stress-testing Bain's implementation timeline…"*,
@@ -2921,9 +3056,77 @@ functional defect, not styling, and it is the single highest-priority line item 
 | **2** | Make persona display data-driven — label, colour and description resolved from the persona registry rather than `uiConstants.ts` literals and `FIRM_NAMES` maps in two components | M |
 | **3** | Per-lens thought scripts + colours so `commercial`/`operational`/`structural` do not render grey with generic text | M |
 | **4** | Retire the fabricated firm dialogue in `CouncilDebate.tsx`; replace with lens-appropriate progress text that does not impersonate anyone | S |
-| **5** | `ProblemRefinementChat.tsx:29` — `decision_style` badge shows the style ("Analytical"), not a firm | S |
-| **6** | `ExecutiveBriefing.tsx` — persona attribution and colours from the registry; no legal entity names in output | M |
+| **5** | `ProblemRefinementChat.tsx:29` — `decision_style` badge shows the style ("Analytical"), not a firm | S — ✅ **DONE 2026-08-16** |
+| **6** | `ExecutiveBriefing.tsx` — persona attribution and colours from the registry; no legal entity names in output | M — ⚠️ **CHROME DONE 2026-08-16, content not** |
 | **7** | Decide the fate of the branded personas themselves: retire from the registry, or keep selectable and unadvertised | Decision |
+| **8** | 🔴 **NEW** — `a9_deep_analysis_agent._recommend_diverse_council` hardcodes `PARTNER_RULES`: eight real firms with full legal names, keyword affinities and role mappings. This is a **backend** source of firm identity the original inventory missed | M |
+| **9** | 🔴 **NEW** — Cat 2 prompt rule: stop the model writing firm names into option prose | S — ✅ **DONE 2026-08-16** |
+
+#### Inventory correction (2026-08-16) — firm identity is FIVE layers, not one
+
+The original inventory above is UI-only, which made the problem look like a labelling exercise. Found
+by walking the live app during Phase 13 Cat 3:
+
+| # | layer | site | state |
+|---|---|---|---|
+| 1 | **Council recommender** | `a9_deep_analysis_agent.py` `_recommend_diverse_council` → `PARTNER_RULES` | untouched — produces the *"AI Recommends — Boston Consulting Group · PwC Strategy& · Accenture · KPMG Advisory"* panel, with "Matched: market, competitive" rationales |
+| 2 | **Persona registry** | `consulting_personas_registry.yaml` — 8 firm personas by legal name + the `mbb_council` / `big4_council` presets | untouched |
+| 3 | **UI chrome** | briefing, refinement badge | ✅ done (items 5, 6-chrome) |
+| 3b | **UI chrome** | persona picker, presets, `CouncilDebate.tsx` fabricated dialogue, `DeepFocusView` fallback roster | untouched (items 1–4) |
+| 4 | **SF prompt** | council profiles name each firm and instruct "apply signature frameworks" | ✅ constrained by item 9 — names still reach the prompt as reasoning anchors, but output text is now forbidden to carry them |
+| 5 | **Model output** | firm names written into `options_ranked[].description` / `.rationale` | ✅ addressed by item 9, **unverified** — see below |
+
+**The lesson worth keeping: de-branding one layer makes the others more visible, not less.** Cat 3
+cleaned the briefing chrome and the very next walkthrough surfaced a firm badge in the refinement
+panel and a firm roster in the council picker. To a user there is no "scoped surface" — a partially
+de-branded product reads as a bug, not as staged work. Either finish the sweep or leave it whole.
+
+**Item 9 shipped without a verification run, deliberately and on the record.** The prompt constraint
+is in place and 66 SF unit tests pass, but no live synthesis has been run against it. The leak is
+intermittent (one clean run, one leaking, same pipeline), so a single green run would not have proved
+anything anyway — absence of a run at least does not manufacture confidence. The firm-name sweep in
+`live-briefing-cat3.spec.ts` / `live-briefing-cat3-refined.spec.ts` is the standing regression test;
+the next live run either shows it holding or does not.
+
+#### The substitute already exists
+
+`consulting_personas_registry.yaml:350` — `lens_council`, *"Commercial / Operational / Structural —
+method-defined, not firm-branded"*, with three fully-defined personas (`commercial`, `operational`,
+`structural`) at lines 258 / 289 / 319. Item 7 is therefore not "design a replacement"; it is "decide
+whether to make the existing replacement the default", and that decision is gated on the analytical
+comparison being readable — see Not in scope, below, and `decision_quality_rubric.md` §9.
+
+#### 🔴 The lens roster is DOMAIN-SCOPED and expected to grow (owner, 2026-08-16)
+
+**There are three lenses because the launch domain is Finance KPIs.** Commercial / Operational /
+Structural is a decomposition of *"margin fell"*, and the registry definitions say so outright —
+Price-Volume-Mix, Customer Profitability, Cost-to-Serve, Overhead Absorption, Portfolio
+Participation, Structural-Decline-vs-Cyclical-Dip. **Organizational and other lenses are expected
+later, as the domains they serve are onboarded.** The set is a launch-domain roster, not a claim
+about how many perspectives exist.
+
+**This corrects how the coverage assessment below should be read.** Capital & liquidity, risk /
+compliance / contractual, and competitive response are not holes in a roster that should have been
+complete — they are lenses that arrive with their domains. The assessment's own conclusion ("coverage
+is relative to the problem class, and there is no universal set") was right; what it lacked was the
+consequence, which is that the roster is *designed* to be extended rather than merely *observed* to
+be incomplete.
+
+**Design consequence for item 7, and it is a real one.** The firm roster was universal by pretence —
+any firm will advise on any problem, so a global default council was coherent even though it was
+meaningless. A lens roster is honest by construction: a lens is *defined by the analytical territory
+it covers*, so a global default is incoherent the moment a second domain exists. Swapping
+`mbb_council` → `lens_council` is therefore **not a like-for-like substitution**. It needs a
+selection mechanism keyed to the problem's domain — most naturally the KPI's data product or business
+process, both already on the registry record. Item 7 should be re-scoped to include that resolver,
+otherwise the first non-finance KPI gets a finance council and nothing in the system notices.
+
+⚠️ **Naming collision to settle before Phase 18 writes more "lens" text.** "Lens" already means
+something else here: `principal_perspective_weighting_design.md` §2 defines **five comparison lenses**
+(Plan / Trend / Peer / Value-gap / Bridge) — *appraisal* lenses controlling which comparison a
+principal's role weights. The council lenses are *analytical-territory* lenses. Two unrelated
+concepts, one word, and the same document set. Pick distinct names now; renaming after both are
+built across prompts, registry ids and UI copy costs far more.
 
 #### Not in scope
 - Category A citations (keep) and Category B marketing copy (owner call, not engineering).
