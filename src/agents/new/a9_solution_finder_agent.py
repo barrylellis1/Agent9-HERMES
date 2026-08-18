@@ -22,7 +22,7 @@ from src.agents.models.solution_finder_models import (
     SolutionOption,
     TradeOffCriterion,
     TradeOffMatrix,
-    PerspectiveAnalysis,
+    LensView,
     UnresolvedTension,
     # Phase 15 Stage B — unified trust/output schema
     SolutionAssumption,
@@ -1474,6 +1474,33 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "- Each perspective must cite its reasoning basis\n"
                         "- MUST respect Principal Input constraints/vetoes if provided\n"
                         f"- MUST populate cross_review with SPECIFIC critiques and endorsements from each consulting firm ({persona_names}). Each firm should critique at least one option and endorse at least one option with concrete reasoning.\n"
+                        # ── Phase 13 Cat 2: firm names are reasoning anchors, not copy ──
+                        #
+                        # This deliverable was recorded as shipped and was never built.
+                        # Caught by a live e2e run on 2026-08-16, which rendered "This is
+                        # Bain's Full Potential Transformation applied as a multi-year
+                        # margin-architecture reset" straight onto an executive briefing,
+                        # alongside "McKinsey's MECE cost-driver framing" in the
+                        # recommendation rationale and "BCG's Growth-Share/Experience-Curve
+                        # lens argues..." opening an option rationale.
+                        #
+                        # The prompt does not merely permit this — the council profiles
+                        # above name each firm and tell you to apply its signature
+                        # frameworks, so naming the firm in the answer is the obvious
+                        # reading. This rule is the correction, and it is deliberately
+                        # about the OUTPUT TEXT only: the persona identity still drives
+                        # the reasoning and is still carried structurally by the
+                        # cross_review / moderator_grades keys. Nothing about which
+                        # frameworks you apply changes.
+                        #
+                        # Why it matters commercially: the briefing is exported to PDF and
+                        # forwarded. A real firm's name on analysis that firm did not
+                        # produce is a diligence exposure, and the UI cannot strip it —
+                        # once it is inside free prose there is no label to swap.
+                        "- FIRM NAMES MUST NOT APPEAR IN ANY OUTPUT TEXT. Do not write 'McKinsey', 'BCG', 'Boston Consulting Group', 'Bain', 'Deloitte', 'Accenture', 'KPMG', 'EY-Parthenon', 'PwC' or 'Strategy&' in any field you return — not in titles, descriptions, rationales, the recommendation, next_steps, decision_ask, immediate_actions, critiques, or endorsements.\n"
+                        "  * Name the METHOD, never the firm that is associated with it. Write 'portfolio segmentation by volume and margin', not \"BCG's Growth-Share Matrix\". Write 'a mutually-exclusive cost-driver decomposition', not \"McKinsey's MECE framing\". Write 'a multi-year margin-architecture reset', not \"Bain's Full Potential Transformation\".\n"
+                        "  * This applies to possessives and paraphrases equally — \"the Bain approach\" and \"a McKinsey-style teardown\" are both violations. If a method has no firm-neutral name, describe what it does in plain words.\n"
+                        "  * Keep using each council member's distinct methodology and priorities. This rule governs the WORDS YOU RETURN, not the analysis you perform.\n"
                         "- CRITICAL: The Deep Analysis is COMPLETE. Do NOT suggest 'more data gathering' or 'implementing analytics' as a primary solution. Focus on OPERATIONAL INTERVENTIONS to address the identified drivers.\n"
                         f"- CONTEXT: The analysis focuses on '{target_kpi}'. Ensure the Problem Reframe explicitly mentions this KPI.\n"
                         "- QUANTIFIED IMPACT REQUIREMENT: For each option, populate 'impact_estimate' using the actual numbers from the SITUATION METRICS section:\n"
@@ -1538,7 +1565,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "      \"rationale\": \"...\",\n"
                         "      \"time_to_value\": \"...\",\n"
                         "      \"reversibility\": \"high|medium|low\",\n"
-                        "      \"perspectives\": [\n"
+                        "      \"lens_views\": [\n"
                         "        {\n"
                         "          \"lens\": \"Financial\",\n"
                         "          \"arguments_for\": [\"<complete sentence describing a specific benefit, e.g. 'Directly targets the highest-impact cost driver identified in the analysis'>\"],\n"
@@ -1569,7 +1596,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "      \"rationale\": \"...\",\n"
                         "      \"time_to_value\": \"...\",\n"
                         "      \"reversibility\": \"high|medium|low\",\n"
-                        "      \"perspectives\": [\n"
+                        "      \"lens_views\": [\n"
                         "        {\n"
                         "          \"lens\": \"Financial\",\n"
                         "          \"arguments_for\": [\"<complete sentence describing a specific benefit, e.g. 'Directly targets the highest-impact cost driver identified in the analysis'>\"],\n"
@@ -1600,7 +1627,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "      \"rationale\": \"...\",\n"
                         "      \"time_to_value\": \"...\",\n"
                         "      \"reversibility\": \"high|medium|low\",\n"
-                        "      \"perspectives\": [\n"
+                        "      \"lens_views\": [\n"
                         "        {\n"
                         "          \"lens\": \"Financial\",\n"
                         "          \"arguments_for\": [\"<complete sentence describing a specific benefit, e.g. 'Directly targets the highest-impact cost driver identified in the analysis'>\"],\n"
@@ -2763,14 +2790,21 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     if isinstance(parsed, dict) and parsed.get("options"):
                         for idx, o in enumerate(parsed.get("options", []) or []):
                             try:
-                                # Construct perspectives
+                                # Construct lens views.
+                                #
+                                # Accepts BOTH keys. The prompt now asks for
+                                # `lens_views`, but a model does not always honour a
+                                # renamed key first time, and an in-flight request
+                                # issued against the previous prompt would otherwise
+                                # parse to zero views with no error — the silent-drop
+                                # failure this codebase keeps rediscovering.
                                 pers_list = []
-                                for p_dict in o.get("perspectives", []):
+                                for p_dict in (o.get("lens_views") or o.get("perspectives") or []):
                                     try:
-                                        pers_list.append(PerspectiveAnalysis(**p_dict))
-                                    except:
+                                        pers_list.append(LensView(**p_dict))
+                                    except Exception:
                                         # Fallback for partial data
-                                        pers_list.append(PerspectiveAnalysis(lens=p_dict.get("lens", "Unknown"), arguments_for=p_dict.get("arguments_for", [])))
+                                        pers_list.append(LensView(lens=p_dict.get("lens", "Unknown"), arguments_for=p_dict.get("arguments_for", [])))
 
                                 # PM-7: record the contradiction the parser is about to
                                 # quietly correct (enterprise scope + named segment label
@@ -2797,7 +2831,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                         # New Fields
                                         time_to_value=o.get("time_to_value"),
                                         reversibility=o.get("reversibility"),
-                                        perspectives=pers_list,
+                                        lens_views=pers_list,
                                         implementation_triggers=o.get("implementation_triggers", []),
                                         prerequisites=o.get("prerequisites", []),
                                         impact_estimate=_parse_impact_estimate(o.get("impact_estimate")),
@@ -2817,15 +2851,27 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         immediate_actions_list = _parse_immediate_actions(parsed.get("immediate_actions"))
 
                         # Extract other top-level fields
+                        #
+                        # DO NOT REINSTATE A FALLBACK problem_reframe HERE.
+                        #
+                        # This branch used to fabricate one when the model's response
+                        # carried none: "question": "How to mitigate risk?" (a frame
+                        # nobody asked, asserted as a constant) plus
+                        # "key_assumptions": ["Data is accurate"] (a FABRICATED
+                        # assumption — with the AssumptionsPanel now rendering
+                        # key_assumptions with grounded/inferred provenance, that
+                        # invented entry would have displayed as if the model made a
+                        # real, gradeable claim). Same defect as the DA-side SCQA
+                        # fallback removed the same day, one hop downstream: a frame
+                        # with no author, hidden on a failure path where nobody would
+                        # look. See problem_framing_design.md.
+                        #
+                        # Absence is the honest output. `problem_reframe` is already
+                        # read defensively everywhere it's consumed (briefingUtils'
+                        # `sol?.problem_reframe?.situation` etc.) — a genuine None
+                        # degrades those reads exactly as designed. A fabricated
+                        # dict is indistinguishable from a real one to every consumer.
                         problem_reframe = parsed.get("problem_reframe")
-                        if not problem_reframe and da_summary.get("scqa_summary"):
-                             # Fallback: Construct reframe from SCQA
-                             problem_reframe = {
-                                 "situation": da_summary.get("kpi_name") + " analysis",
-                                 "complication": da_summary.get("scqa_summary", "Anomaly detected"),
-                                 "question": "How to mitigate risk?",
-                                 "key_assumptions": ["Data is accurate"]
-                             }
                         
                         unresolved_tensions_list = []
                         for t in parsed.get("unresolved_tensions", []):

@@ -2266,23 +2266,19 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     except Exception:
                         when_started = None
 
-            try:
-                scqa_summary = await self._generate_scqa_summary(
-                    plan=plan,
-                    kt=kt,
-                    change_points=change_points,
-                    spec=spec_main,
-                    principal_id=getattr(plan, "principal_id", "system"),
-                    analysis_mode=getattr(plan, "analysis_mode", "problem"),
-                    alert_type=getattr(plan, "alert_type", None),
-                    compound_pattern=getattr(plan, "compound_pattern", None),
-                    matrix_ran=matrix_ran,
-                    comparator_secondary=comparator_secondary,
-                    kpi_unit=getattr(kpi_def, "unit", None),
-                )
-            except Exception as _scqa_err:
-                self.logger.warning("[DA] SCQA generation failed: %s", _scqa_err)
-                scqa_summary = f"Situation: Reviewing {getattr(plan, 'kpi_name', 'KPI')}. Complication: Variance detected vs target. Question: Which segments drive the change?"
+            scqa_summary = await self._safe_generate_scqa_summary(
+                plan=plan,
+                kt=kt,
+                change_points=change_points,
+                spec=spec_main,
+                principal_id=getattr(plan, "principal_id", "system"),
+                analysis_mode=getattr(plan, "analysis_mode", "problem"),
+                alert_type=getattr(plan, "alert_type", None),
+                compound_pattern=getattr(plan, "compound_pattern", None),
+                matrix_ran=matrix_ran,
+                comparator_secondary=comparator_secondary,
+                kpi_unit=getattr(kpi_def, "unit", None),
+            )
             # 11I-D: append bounded secondary-fact flags for the alert types that are NOT columns in
             # the matrix (temporal/relational: projected_breach, acceleration, compound). When the
             # matrix ran, threshold_breach + plan_variance are the two matrix columns and are narrated
@@ -3153,6 +3149,40 @@ If nothing relevant is found for a category, use an empty list."""
             self.logger.warning(f"LLM extraction failed, using simple extraction: {e}")
         
         return self._simple_extraction(user_message, current_topic)
+
+    async def _safe_generate_scqa_summary(self, **kwargs) -> Optional[str]:
+        """Call `_generate_scqa_summary`; on any exception, return None rather
+        than a fabricated frame.
+
+        Extracted from `execute_deep_analysis()` (2026-08-17) so this specific
+        behavior — absence on failure, never a hardcoded question — is unit
+        testable on its own. Nothing in this test suite drives
+        `execute_deep_analysis()` end to end (it is an ~850-line orchestration
+        method), so the try/except living inline there was, in practice,
+        untestable; a regression could only ever have been caught live.
+
+        DO NOT REINSTATE A FALLBACK QUESTION HERE.
+
+        This used to emit:
+          "... Question: Which segments drive the change?"
+
+        SCQA is a framing device — its Q *is* the frame — so that line asserted
+        a dimensional-attribution frame as a CONSTANT whenever generation
+        failed, and every downstream stage (the council, the moderator, HITL)
+        then answered it faithfully. A frame with no author is the exact defect
+        `problem_framing_design.md` exists to close, and this was its worst
+        instance: not merely unexamined, but hardcoded on the error path where
+        nobody would look.
+
+        Absence is the honest output. Downstream already treats a missing
+        scqa_summary as missing; a fabricated one is indistinguishable from a
+        real one to every consumer.
+        """
+        try:
+            return await self._generate_scqa_summary(**kwargs)
+        except Exception as _scqa_err:
+            self.logger.warning("[DA] SCQA generation failed: %s", _scqa_err)
+            return None
 
     async def _generate_scqa_summary(
         self,

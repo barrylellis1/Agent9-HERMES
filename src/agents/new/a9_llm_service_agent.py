@@ -875,10 +875,36 @@ Also include an overall "rationale" field explaining your reasoning process.
                 rankings = eval_data.get("rankings", [])
                 rationale = eval_data.get("rationale", "")
             except json.JSONDecodeError:
-                # Fallback if response is not valid JSON
-                rankings = [{"option": opt, "rank": i+1, "score": 5.0, "rationale": "Error parsing response"} 
-                           for i, opt in enumerate(request.options)]
-                rationale = "Error parsing LLM response."
+                # DO NOT REINSTATE A FABRICATED rankings LIST HERE.
+                #
+                # This used to synthesize a full ranking on unparseable output --
+                # one entry per input option, rank = input order, score = 5.0 for
+                # every one -- under status="success". None of those numbers came
+                # from the model; a caller checking rank/score sees a plausible,
+                # fully-populated evaluation that is entirely invented. The one
+                # honest signal ("rationale": "Error parsing response") was buried
+                # inside each fabricated entry rather than surfaced as the failure
+                # it was. Same defect class as the SF/DA fallback frames removed
+                # 2026-08-16 -- fabricated content on an LLM-failure path,
+                # indistinguishable downstream from real output.
+                #
+                # The correct answer already exists two branches up in this same
+                # method: status="error" with rankings=[]. Route here instead of
+                # inventing scores no one computed.
+                logger.error(
+                    f"[LLM Service] evaluate() response was not valid JSON -- "
+                    f"returning status=error rather than a fabricated ranking. "
+                    f"request_id={request.request_id}"
+                )
+                return A9_LLM_EvaluationResponse(
+                    status="error",
+                    request_id=request.request_id,
+                    error_message="Evaluation response could not be parsed as JSON. No ranking was produced.",
+                    rankings=[],
+                    model_used=response.model_used,
+                    usage=response.usage,
+                    rationale=""
+                )
             
             # Create and return evaluation response
             return A9_LLM_EvaluationResponse(
