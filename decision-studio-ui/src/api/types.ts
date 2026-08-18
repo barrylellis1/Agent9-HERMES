@@ -397,6 +397,11 @@ export interface ProblemRefinementRequest {
    */
   prior_constraint_items?: ConstraintItem[];
   prior_exclusions?: RefinementExclusion[];
+  /**
+   * Phase 19 — present only on the turn that submits the mandatory framing
+   * gate. Mirrors src/api/routes/workflows.py's ProblemRefinementRequest.
+   */
+  framing_decision?: FramingDecision | null;
 }
 
 export interface ConstraintItem {
@@ -432,6 +437,90 @@ export interface MarketConflict {
   summary?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Problem Framing Gate (Phase 19)
+//
+// Mirrors src/agents/models/deep_analysis_models.py — see that file for the
+// full rationale on each field. The framing question is the mandatory first
+// topic of the refinement interview: "Generate Solutions" is unreachable
+// until it's answered, and SCQA generation defers until the frame is chosen.
+// ---------------------------------------------------------------------------
+
+/**
+ * One candidate objective offered at the framing gate. `source` discriminates
+ * which fields are populated — a causal-graph neighbour (1–2 hops, shown
+ * UNFILTERED BY DIRECTION; `direction_confirmed` is always false, the graph
+ * schema is undirected) or a detected Market Analysis conflict (`kpi_id` is
+ * null — a market alternative isn't anchored to a neighbour KPI; `mechanism`
+ * is always null — MA's conflict carries no causal mechanism, only a
+ * directional observation).
+ */
+export interface FramingAlternative {
+  source: 'causal_graph' | 'market_signal';
+  kpi_id?: string | null;
+  objective_text: string;
+  hops?: number | null;
+  relationship_type?: string | null;
+  conflict_direction?: string | null;
+  lag_periods?: number | null;
+  causal_rung?: string | null;
+  /** Categorical (high/moderate/low) for causal_graph; a percentage string ("72%") for market_signal. */
+  confidence?: string | null;
+  mechanism?: string | null;
+  direction_confirmed: boolean;
+  provenance?: string | null;
+  provenance_caveat?: string | null;
+  evidence_caveats: string[];
+}
+
+/** A previously recorded framing decision — re-presented with its reasoning and falsifier, never pre-ticked. */
+export interface PriorFrameRecord {
+  id?: string | null;
+  choice: 'confirm_stated' | 'alternative' | 'other';
+  chosen_objective_text: string;
+  falsification_criterion?: string | null;
+  decided_by_role?: string | null;
+  decided_by_is_owner?: boolean | null;
+  decided_at?: string | null;
+}
+
+/** Everything the UI renders for the mandatory framing gate. */
+export interface FramingPrompt {
+  kpi_id?: string | null;
+  kpi_name?: string | null;
+  stated_objective_text: string;
+  question: string;
+  alternatives: FramingAlternative[];
+  active_constraints: ConstraintItem[];
+  owner_role?: string | null;
+  viewer_role?: string | null;
+  /** Server-computed — never trust a client-supplied claim of ownership. */
+  viewer_is_owner?: boolean | null;
+  prior_frame?: PriorFrameRecord | null;
+  requires_falsification_criterion: boolean;
+}
+
+/** The principal's submission at the framing gate — a structured submit, not a free-text chat turn. */
+export interface FramingDecision {
+  choice: 'confirm_stated' | 'alternative' | 'other';
+  /** Required when choice='alternative' — must match an offered FramingAlternative.kpi_id. */
+  chosen_kpi_id?: string | null;
+  chosen_objective_text: string;
+  /** Required on EVERY submission, including confirm_stated. */
+  falsification_criterion: string;
+  other_text?: string | null;
+}
+
+/** The write receipt for a framing decision — never a silent claim of success. */
+export interface FramingRecord {
+  persisted: boolean;
+  persist_error?: string | null;
+  assumption_id?: string | null;
+  decided_by_role?: string | null;
+  decided_by_is_owner?: boolean | null;
+  decided_at?: string | null;
+}
+
 export interface ProblemRefinementResult {
   agent_message: string;
   suggested_responses: string[];
@@ -463,6 +552,18 @@ export interface ProblemRefinementResult {
   topic_routing_rules_applied?: string[];
   /** Accumulated constraints with provenance. `constraints` remains the flat union of texts. */
   constraint_items?: ConstraintItem[];
+  /**
+   * Phase 19 — the mandatory framing gate. `framing_required` is the one
+   * signal every UI gate should read, returned on EVERY turn (not just the
+   * turn that presents the prompt) — supersedes `topic_complete` (never
+   * actually consumed by any gating decision) rather than reviving it.
+   */
+  framing_prompt?: FramingPrompt | null;
+  framing_decision?: FramingDecision | null;
+  framing_record?: FramingRecord | null;
+  /** The frame-aware SCQA narrative, present once generate_scqa_for_frame has run. */
+  scqa_summary?: string | null;
+  framing_required?: boolean;
 }
 
 // ---------------------------------------------------------------------------

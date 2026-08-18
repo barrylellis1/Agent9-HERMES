@@ -1,6 +1,22 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MessageCircle, Send, SkipForward, AlertCircle, Loader2 } from 'lucide-react';
-import { refineProblem, ProblemRefinementResult, ProblemRefinementRequest, MarketSignal } from '../api/client';
+import { refineProblem, ProblemRefinementResult, ProblemRefinementRequest, MarketSignal, FramingDecision } from '../api/client';
+import { FramingGateCard } from './FramingGateCard';
+
+/**
+ * Phase 19 — the progress-lifting plumbing that didn't exist before this:
+ * `currentTopic`/`topicsCompleted` were component-local, surfaced to the
+ * parent only via the all-or-nothing `onComplete`/`onCancel`. DeepFocusView
+ * (Slice 6) needs `framingRequired` on EVERY turn, live, to grey out
+ * "Generate Solutions" and the other two bypass paths while the gate is
+ * pending — not just once, at the end.
+ */
+export interface RefinementProgress {
+  currentTopic: string;
+  topicsCompleted: string[];
+  framingRequired: boolean;
+  scqaSummary?: string | null;
+}
 
 interface ProblemRefinementChatProps {
   deepAnalysisOutput: any;
@@ -9,6 +25,7 @@ interface ProblemRefinementChatProps {
   onComplete: (result: ProblemRefinementResult) => void;
   onCancel: () => void;
   initialMarketSignals?: MarketSignal[];
+  onTopicProgress?: (progress: RefinementProgress) => void;
 }
 
 const TOPIC_LABELS: Record<string, string> = {
@@ -60,6 +77,7 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
   onComplete,
   onCancel,
   initialMarketSignals: _initialMarketSignals,
+  onTopicProgress,
 }) => {
   const [messages, setMessages] = useState<Array<{ role: string; content: string; transparency_tier?: number; tier_label?: string }>>([]);
   const [inputValue, setInputValue] = useState('');
@@ -67,6 +85,9 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
   const [currentTopic, setCurrentTopic] = useState<string>('hypothesis_validation');
   const [topicsCompleted, setTopicsCompleted] = useState<string[]>([]);
   const [turnCount, setTurnCount] = useState(0);
+  // Phase 19 — the framing gate's own submit state, separate from the normal
+  // chat input row (which is hidden entirely while this is truthy).
+  const [isSubmittingFraming, setIsSubmittingFraming] = useState(false);
   // Turns spent on the CURRENT topic, reset whenever the topic changes. The
   // server judges topic completion per topic; it used to count every assistant
   // message in the conversation, so from turn 3 onward each topic completed the
@@ -116,6 +137,19 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
     setTurnCount(result.turn_count);
     setSuggestedResponses(result.suggested_responses || []);
     setRefinementState(result);
+    setIsSubmittingFraming(false);
+
+    // Phase 19 — lift progress to the parent on EVERY turn, not just at
+    // completion. DeepFocusView needs framingRequired live to keep
+    // "Generate Solutions" (and the other two bypass paths) blocked for as
+    // long as the gate is pending, not just retroactively once the whole
+    // interview finishes.
+    onTopicProgress?.({
+      currentTopic: result.current_topic,
+      topicsCompleted: result.topics_completed,
+      framingRequired: !!result.framing_required,
+      scqaSummary: result.scqa_summary,
+    });
 
     // Check if refinement is complete
     if (result.ready_for_solutions) {
@@ -192,6 +226,41 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
     }
   };
 
+  /**
+   * Phase 19 — parallel to sendMessage, but a structured submit: no
+   * user_message (a framing decision is not free text), framing_decision
+   * carries the whole submission. Deliberately does NOT add a "user"
+   * message bubble to the chat — the FramingGateCard IS the record of what
+   * was submitted; a duplicated text bubble would be redundant with it.
+   */
+  const submitFraming = async (decision: FramingDecision) => {
+    if (isSubmittingFraming) return;
+    setIsSubmittingFraming(true);
+    setError(null);
+
+    try {
+      const request: ProblemRefinementRequest = {
+        principal_id: principalId,
+        deep_analysis_output: deepAnalysisOutput,
+        principal_context: principalContext,
+        conversation_history: messages,
+        current_topic: currentTopic,
+        turn_count: turnCount,
+        topics_completed: topicsCompleted,
+        turns_on_current_topic: turnsOnCurrentTopic,
+        prior_constraint_items: refinementState.constraint_items || [],
+        prior_exclusions: refinementState.exclusions || [],
+        framing_decision: decision,
+      };
+
+      const result = await refineProblem(request);
+      handleRefinementResult(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to record the framing decision');
+      setIsSubmittingFraming(false);
+    }
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -206,6 +275,10 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
   const handleSkipToSolutions = () => {
     sendMessage('Proceed to solutions');
   };
+
+  // The one signal every UI gate should read (Phase 19) — supersedes
+  // topic_complete, which nothing here ever actually consumed for gating.
+  const framingRequired = !!refinementState.framing_required;
 
   const hasBenchmarks = (
     deepAnalysisOutput?.execution?.kt_is_is_not?.benchmark_segments?.some(
@@ -313,8 +386,12 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
 
       {/* Sticky footer */}
       <div className="flex-shrink-0">
-      {/* Suggested responses */}
-      {suggestedResponses.length > 0 && !isLoading && (
+      {/* Suggested responses — NEVER shown while the framing gate is pending
+          (framingRequired implies suggested_responses=[] server-side too,
+          this is belt-and-suspenders: a chip is a click, and the whole
+          point of the structured submit is that a click can't stand in for
+          a considered choice). */}
+      {suggestedResponses.length > 0 && !isLoading && !framingRequired && (
         <div className="px-3 py-1.5 border-t border-slate-700">
           <div className="flex flex-col gap-1">
             {suggestedResponses.map((response, idx) => (
@@ -363,35 +440,53 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
         </div>
       )}
 
-      {/* Input area */}
-      <div className="px-3 py-2 border-t border-slate-700">
-        <div className="flex items-center gap-1.5">
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Type your response..."
-            disabled={isLoading}
-            className="flex-1 px-3 py-1.5 text-sm bg-slate-700 text-white border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-slate-800 placeholder-slate-400"
+      {/* Phase 19 — the framing gate replaces the input row entirely while
+          pending. No free-text path around it: this is the ONLY thing
+          rendered here in that state, not an addition alongside the normal
+          input. */}
+      {refinementState.framing_prompt ? (
+        <div className="border-t border-slate-700 max-h-[70vh]">
+          <FramingGateCard
+            prompt={refinementState.framing_prompt}
+            onSubmit={submitFraming}
+            isSubmitting={isSubmittingFraming}
           />
-          <button
-            onClick={() => sendMessage(inputValue)}
-            disabled={!inputValue.trim() || isLoading}
-            className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
-          >
-            <Send className="w-5 h-5" />
-          </button>
-          <button
-            onClick={handleSkipToSolutions}
-            disabled={isLoading}
-            className="p-2 text-slate-400 hover:text-indigo-400 hover:bg-slate-700 rounded-lg transition-colors"
-            title="Skip to Solutions"
-          >
-            <SkipForward className="w-5 h-5" />
-          </button>
         </div>
-      </div>
+      ) : (
+        <div className="px-3 py-2 border-t border-slate-700">
+          {/* framingRequired but no framing_prompt to show is the rare
+              _build_framing_prompt failure case (registry/provider down) —
+              the backend still blocks regardless of what's typed here, but
+              disabling the row too avoids a confusing "it looks like I can
+              type, but nothing I say matters" moment. */}
+          <div className="flex items-center gap-1.5">
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder={framingRequired ? 'Waiting on the framing step to become available...' : 'Type your response...'}
+              disabled={isLoading || framingRequired}
+              className="flex-1 px-3 py-1.5 text-sm bg-slate-700 text-white border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-slate-800 placeholder-slate-400"
+            />
+            <button
+              onClick={() => sendMessage(inputValue)}
+              disabled={!inputValue.trim() || isLoading || framingRequired}
+              className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
+            >
+              <Send className="w-5 h-5" />
+            </button>
+            <button
+              onClick={handleSkipToSolutions}
+              disabled={isLoading || framingRequired}
+              className="p-2 text-slate-400 hover:text-indigo-400 hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              title={framingRequired ? 'Confirm the objective first' : 'Skip to Solutions'}
+            >
+              <SkipForward className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );
