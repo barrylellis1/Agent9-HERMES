@@ -3290,6 +3290,35 @@ SF expressing the reframe), each independently committable behind `DA_ENABLE_FRA
 grading the recorded decision) is explicitly carried forward, not part of this build — the plan ships
 the decision record and the gate; re-pointing `decision_quality.py` at it is a follow-on.
 
+✅ **Slices 1–6 shipped.** Both register migrations applied to production Supabase (with a real
+migration-tooling gotcha found and fixed along the way — two same-day migrations collided on
+Supabase's version key, since it tracks by leading numeric prefix only, not the full filename; fixed
+by renaming one and re-verified against production via a read-only schema dump before AND after).
+
+🔴 **A bigger pre-existing gap than the plan anticipated, found and fixed during Slice 6.**
+`useDecisionStudio.ts`'s `handleStartDebate` — the function the plan assumed carries
+`refinement_result` (and would carry `framing_decision`) to Solution Finder — has **zero callers
+anywhere in the codebase**. It is dead code. The actual live SF dispatch path is
+`DeepFocusView.tsx` navigating to `/debate/:id` with a `debateConfig` object that
+`CouncilDebatePage.tsx` reads to build the request — and that object never carried refinement data
+at all, only `selectedPersonas`/`councilType`/`selectedPreset`/`useHybridCouncil`/`resolvedAnalysisMode`.
+**In production, Solution Finder has never received refinement's constraints, exclusions, or
+hypotheses, independent of framing** — confirmed the receiving side was correct and simply unfed:
+`a9_solution_finder_agent.py` already reads `preferences.get("refinement_result")` and its
+sub-fields correctly (constraint exposure, market signal routing), it just never arrived. Fixed by
+threading a `refinementResult` object (including `framing_decision`, sourced from
+`refinementResult.framing_decision ?? framingDecision` since only the ONE turn that submits it
+carries the field) through `debateConfig` → `CouncilDebatePage.tsx`'s `preferencesBase.refinement_result`
+— the same wiring point both fixes needed, done together rather than split.
+
+**Frame-required determination is DERIVED, not a hand-defaulted flag**: before any refinement turn
+runs this session, `useDecisionStudio.ts` computes `framingRequired` from
+`currentAnalysis.scqa_deferred && !currentAnalysis.scqa_summary` — DA's own response already says
+whether the gate is genuinely active for this analysis, so the frontend never has to guess the
+backend flag's value out of band (correctly `false` for every flag-off deployment, correctly `true`
+only when the gate is real and unresolved). Once a live refinement turn reports a value, that takes
+over as the authority for the rest of the session.
+
 **Stated falsifier** (from the design note, recorded before any build): if the frame is examined and
 confirmed unchanged in nearly every run, this is an expensive way to write `frame_examined: true`, and
 the honest conclusion is that the frame really is determined by the KPI that breached. **Not what

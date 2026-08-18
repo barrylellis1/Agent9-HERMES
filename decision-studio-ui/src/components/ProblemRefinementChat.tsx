@@ -16,6 +16,14 @@ export interface RefinementProgress {
   topicsCompleted: string[];
   framingRequired: boolean;
   scqaSummary?: string | null;
+  /**
+   * Present only on the turn that submitted it — later turns' results don't
+   * re-echo it. The parent must remember this itself (it does — see
+   * useDecisionStudio.ts's `framingDecision` state) since by the time the
+   * interview finishes, the LAST turn's own framing_decision field is back
+   * to undefined.
+   */
+  framingDecision?: FramingDecision | null;
 }
 
 interface ProblemRefinementChatProps {
@@ -149,6 +157,7 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
       topicsCompleted: result.topics_completed,
       framingRequired: !!result.framing_required,
       scqaSummary: result.scqa_summary,
+      framingDecision: result.framing_decision,
     });
 
     // Check if refinement is complete

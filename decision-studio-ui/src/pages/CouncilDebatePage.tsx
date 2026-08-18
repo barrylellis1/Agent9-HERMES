@@ -260,6 +260,21 @@ export const CouncilDebatePage: React.FC = () => {
       if (debateConfig.resolvedAnalysisMode) {
         preferencesBase.analysis_mode = debateConfig.resolvedAnalysisMode;
       }
+      // Phase 19 — this is the fix for a real, pre-existing gap found while
+      // building the framing gate: `debateConfig` never carried refinement's
+      // constraints/exclusions/hypotheses to Solution Finder AT ALL before
+      // this (DeepFocusView.tsx's `dispatchToSolutionFinder` is what now
+      // populates `debateConfig.refinementResult` — see that function's own
+      // comment for why `useDecisionStudio.ts`'s `handleStartDebate`, which
+      // LOOKED like the place this happened, turned out to be dead code with
+      // zero callers). `SolutionFinderRequest.preferences` is a free-form
+      // dict server-side, so nesting it here reaches the backend as
+      // `preferences.refinement_result` — matching what
+      // a9_solution_finder_agent.py already reads for constraint exposure,
+      // and what Slice 7 reads for `refinement_result.framing_decision`.
+      if (debateConfig.refinementResult) {
+        preferencesBase.refinement_result = debateConfig.refinementResult;
+      }
 
       let lastRequestId: string | null = null;
 

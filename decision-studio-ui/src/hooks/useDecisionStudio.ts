@@ -10,8 +10,10 @@ import {
   getPrincipalActions,
   ProblemRefinementResult,
   Situation,
-  OpportunitySignal
+  OpportunitySignal,
+  FramingDecision
 } from '../api/client';
+import type { RefinementProgress } from '../components/ProblemRefinementChat';
 import {
   AVAILABLE_PRINCIPALS,
   AVAILABLE_COUNCILS,
@@ -87,6 +89,19 @@ export function useDecisionStudio() {
   const [refinementResult, setRefinementResult] = useState<ProblemRefinementResult | null>(null);
   const [marketSignals, setMarketSignals] = useState<MarketSignal[]>([]);
   const [marketConflict, setMarketConflict] = useState<MarketConflict | null>(null);
+  // Phase 19 — the framing gate's own decision, remembered independently of
+  // `refinementResult`. `refinementResult` only updates ONCE, when the whole
+  // interview finishes (ProblemRefinementChat's onComplete fires once, at
+  // ready_for_solutions=true) — so by the time the LAST topic's response
+  // arrives, `framing_decision` has usually gone back to undefined on that
+  // specific turn's payload (only the turn that SUBMITTED it carries the
+  // field; the agent doesn't re-echo it on every later turn). Without this,
+  // framing_decision would silently be lost by the time SF is dispatched.
+  const [framingDecision, setFramingDecision] = useState<FramingDecision | null>(null);
+  // `null` = "no live refinement turn has reported a value yet this
+  // session" — the derived fallback below covers that window. Once a real
+  // turn reports a value it takes over and stays authoritative.
+  const [liveFramingRequired, setLiveFramingRequired] = useState<boolean | null>(null);
   
   // Solution Finder / Council
   const [findingSolutions, setFindingSolutions] = useState(false);
@@ -202,6 +217,16 @@ export function useDecisionStudio() {
   // Derived
   const currentPrincipal = availablePrincipals.find(p => p.id === selectedPrincipal) || availablePrincipals[0] || AVAILABLE_PRINCIPALS[0];
   const currentAnalysis = selectedSituation ? analysisResults[selectedSituation.situation_id] : null;
+  // Phase 19 — DERIVED, not a hand-defaulted flag. Before any refinement
+  // turn has run this session, fall back to what DA's OWN response already
+  // says: `scqa_deferred` is only ever true when the backend's
+  // enable_framing_gate flag is genuinely on for THIS analysis, so this is
+  // correct in both directions without the frontend needing to guess the
+  // flag's value out of band — false (today's exact behavior) in every
+  // flag-off deployment, true only when the gate is real AND unresolved.
+  // Once a live refinement turn reports framingRequired, that value takes
+  // over as the authority (liveFramingRequired stops being null).
+  const framingRequired = liveFramingRequired ?? (!!currentAnalysis?.scqa_deferred && !currentAnalysis?.scqa_summary);
 
   // --- Actions ---
 
@@ -218,6 +243,8 @@ export function useDecisionStudio() {
     setApproveState('idle');
     setShowPersonaSelector(false);
     setRefinementResult(null); // Reset refinement
+    setFramingDecision(null);
+    setLiveFramingRequired(null);
 
     try {
       // Use proper comparison type based on timeframe
@@ -358,6 +385,15 @@ export function useDecisionStudio() {
     priorityText?: string,
     constraintText?: string
   ) => {
+    // Phase 19 — last line of defence. The real dispatch path in production
+    // today is CouncilDebatePage.tsx (navigated to from DeepFocusView, not
+    // this function — this function has no callers as of the framing-gate
+    // build, kept correct anyway in case it's revived), which has its own
+    // equivalent guard. Both must independently refuse to bypass the gate.
+    if (framingRequired) {
+        setAnalysisError('The framing question must be answered before generating solutions.');
+        return;
+    }
     setFindingSolutions(true);
     setShowPersonaSelector(false);
     setDebatePhase(1);
@@ -400,6 +436,11 @@ export function useDecisionStudio() {
                 recommended_council_type: refinementResult.recommended_council_type,
                 council_routing_rationale: refinementResult.council_routing_rationale,
                 recommended_council_members: refinementResult.recommended_council_members,
+                // Phase 19 — refinementResult.framing_decision only survives on
+                // the ONE turn that submitted it; every later turn's result
+                // doesn't re-echo it. framingDecision (state, set live via
+                // applyRefinementProgress) is the durable copy.
+                framing_decision: refinementResult.framing_decision ?? framingDecision,
             } : null
         };
 
@@ -511,6 +552,34 @@ export function useDecisionStudio() {
     }
   };
 
+  /**
+   * Phase 19 — the progress-lifting sink for ProblemRefinementChat's
+   * onTopicProgress, fired on EVERY turn (not just completion). Two jobs:
+   * (1) keep `liveFramingRequired` current so "Generate Solutions" and the
+   * other bypass paths stay blocked for exactly as long as the gate is
+   * actually pending, not just retroactively once the whole interview ends;
+   * (2) merge an arriving frame-aware SCQA into `analysisResults` — ONE
+   * merge point that feeds ScqaBlock, the SF dispatch payload, and (once
+   * this reaches the backend via the SF/briefing path) `_build_briefing_context`
+   * with no further plumbing needed anywhere else.
+   */
+  const applyRefinementProgress = useCallback((situationId: string, progress: RefinementProgress) => {
+    setLiveFramingRequired(progress.framingRequired);
+    if (progress.framingDecision) {
+        setFramingDecision(progress.framingDecision);
+    }
+    if (progress.scqaSummary) {
+        setAnalysisResults(prev => {
+            const existing = prev[situationId];
+            if (!existing) return prev;
+            return {
+                ...prev,
+                [situationId]: { ...existing, scqa_summary: progress.scqaSummary, scqa_deferred: false },
+            };
+        });
+    }
+  }, []);
+
   const handleApproveSolution = useCallback(async (optionId: string) => {
     if (!solutionRequestId) return;
     setApproveState('approving');
@@ -544,6 +613,8 @@ export function useDecisionStudio() {
     refinementResult,
     marketSignals,
     marketConflict,
+    framingRequired,
+    framingDecision,
     findingSolutions,
     solutions,
     solutionRequestId,
@@ -586,6 +657,7 @@ export function useDecisionStudio() {
     handleCompare,
     handleStartDebate,
     handleApproveSolution,
+    applyRefinementProgress,
 
     // Constants
     AVAILABLE_COUNCILS,

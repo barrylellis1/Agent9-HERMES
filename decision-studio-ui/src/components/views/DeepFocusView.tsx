@@ -17,11 +17,11 @@ import {
   SplitSquareHorizontal,
   ExternalLink
 } from 'lucide-react';
-import { Situation, ProblemRefinementResult, MarketSignal, MarketConflict } from '../../api/types';
+import { Situation, ProblemRefinementResult, MarketSignal, MarketConflict, FramingDecision } from '../../api/types';
 import { runDeepAnalysis } from '../../api/client';
 import { COUNCIL_PRESET_PERSONAS } from '../../config/uiConstants';
 import { formatExecutive } from '../../utils/formatExecutive';
-import { ProblemRefinementChat } from '../ProblemRefinementChat';
+import { ProblemRefinementChat, RefinementProgress } from '../ProblemRefinementChat';
 import { IsIsNotExhibit } from '../visualizations/DivergingBarChart';
 import { BrandLogo } from '../BrandLogo';
 
@@ -134,6 +134,13 @@ interface DeepFocusViewProps {
   onRefinementComplete: (result: ProblemRefinementResult) => void;
   onRefinementCancel: () => void;
   onStartRefinement: () => void;
+  // Phase 19 — the mandatory framing gate. framingRequired is DERIVED by the
+  // parent (useDecisionStudio.ts) from DA's own scqa_deferred field before
+  // any refinement turn has run, then kept live from the interview's own
+  // per-turn reports — see that hook for the full reasoning.
+  framingRequired: boolean;
+  framingDecision: FramingDecision | null;
+  onTopicProgress: (progress: RefinementProgress) => void;
   // Council Config
   useHybridCouncil: boolean;
   setUseHybridCouncil: (val: boolean) => void;
@@ -170,6 +177,9 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   onRefinementComplete,
   onRefinementCancel,
   onStartRefinement,
+  framingRequired,
+  framingDecision,
+  onTopicProgress,
   useHybridCouncil,
   setUseHybridCouncil,
   councilType,
@@ -257,6 +267,76 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   // The mode that will be handed to the debate — resolvedAnalysisMode when mixed, else analysisMode
   const effectiveDebateMode: 'problem' | 'opportunity' =
     resolvedAnalysisMode ?? (analysisMode !== 'mixed' ? analysisMode : 'problem');
+
+  /**
+   * Phase 19 — the single, shared entry point into the ACTUAL live SF
+   * dispatch (CouncilDebatePage.tsx, navigated to below), replacing two
+   * near-identical inline handlers that each independently built
+   * `debateConfig` and repeated the same localStorage + navigate sequence.
+   *
+   * Two things fixed here together, deliberately (they share this exact
+   * wiring point):
+   * 1. The general gap: `debateConfig` never carried refinement's
+   *    constraints/exclusions/hypotheses to Solution Finder AT ALL —
+   *    `useDecisionStudio.ts`'s `handleStartDebate`, the only place that DID
+   *    assemble a `refinement_result` object, has zero callers anywhere in
+   *    the codebase (confirmed by search — it's dead code). This is the
+   *    function that actually runs in production.
+   * 2. The framing-specific piece Phase 19 needs: `framing_decision`,
+   *    sourced from `refinementResult.framing_decision` when the interview
+   *    JUST finished on the framing-submitting turn, falling back to the
+   *    separately-remembered `framingDecision` prop otherwise (later turns'
+   *    results don't re-echo it — see useDecisionStudio.ts).
+   *
+   * `framingRequired` is checked here as the LAST LINE OF DEFENCE — every
+   * caller of this function is already visually gated, but a functional
+   * guard at the one place that actually fires `navigate()` doesn't depend
+   * on every caller staying correctly gated forever.
+   */
+  const dispatchToSolutionFinder = (opts: {
+    selectedPersonas: string[];
+    councilTypeOverride: 'preset' | 'custom';
+    selectedPresetOverride: string;
+    useHybridCouncilOverride: boolean;
+  }) => {
+    if (framingRequired) {
+      console.warn('[FRAMING] blocked navigation to Solution Finder — framing not yet resolved');
+      return;
+    }
+    const debateConfig = {
+      selectedPersonas: opts.selectedPersonas,
+      councilType: opts.councilTypeOverride,
+      selectedPreset: opts.selectedPresetOverride,
+      useHybridCouncil: opts.useHybridCouncilOverride,
+      resolvedAnalysisMode: effectiveDebateMode,
+      refinementResult: refinementResult ? {
+        exclusions: refinementResult.exclusions,
+        external_context: refinementResult.external_context,
+        constraints: refinementResult.constraints,
+        constraint_items: refinementResult.constraint_items,
+        validated_hypotheses: refinementResult.validated_hypotheses,
+        invalidated_hypotheses: refinementResult.invalidated_hypotheses,
+        refined_problem_statement: refinementResult.refined_problem_statement,
+        recommended_council_type: refinementResult.recommended_council_type,
+        council_routing_rationale: refinementResult.council_routing_rationale,
+        recommended_council_members: refinementResult.recommended_council_members,
+        framing_decision: refinementResult.framing_decision ?? framingDecision,
+      } : (framingDecision ? { framing_decision: framingDecision } : null),
+    };
+    try {
+      localStorage.setItem(`situation_${situation.situation_id}`, JSON.stringify(situation));
+      localStorage.setItem(`analysis_${situation.situation_id}`, JSON.stringify(currentAnalysis));
+      localStorage.setItem(`market_signals_${situation.situation_id}`, JSON.stringify(initialMarketSignals || []));
+      localStorage.setItem(`principal_context_${situation.situation_id}`, JSON.stringify(principalContext || {}));
+      localStorage.setItem(`debate_config_${situation.situation_id}`, JSON.stringify(debateConfig));
+    } catch (_) { /* quota exceeded */ }
+    navigate(`/debate/${situation.situation_id}`, {
+      state: {
+        situation, analysis: currentAnalysis, marketSignals: initialMarketSignals || [],
+        principalContext: principalContext || {}, debateConfig,
+      },
+    });
+  };
 
   // Accordion state — Situation Summary and Root Cause expanded by default
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['situation-summary', 'root-cause']));
@@ -875,13 +955,28 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                            >
                                Start Refinement Session
                            </button>
-                           <button
-                               onClick={() => setShowPersonaSelector(true)}
-                               className="w-full mt-2 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded font-medium flex items-center justify-center gap-2"
-                           >
+                           {/* Phase 19 — "Start Refinement" above stays enabled regardless
+                               (it's the only way to REACH the framing gate); this direct
+                               bypass path specifically is what closes. Same visual grammar
+                               as the mixed-mode disabled block below it — greyed, inert,
+                               one way of saying "blocked" everywhere in this view. */}
+                           {framingRequired ? (
+                             <div
+                               className="w-full mt-2 py-2 bg-slate-800 text-slate-600 rounded font-medium flex items-center justify-center gap-2 opacity-40 pointer-events-none select-none"
+                               title="Confirm the framing objective first"
+                             >
                                <CircleDot className="w-3 h-3" />
                                Generate Solutions →
-                           </button>
+                             </div>
+                           ) : (
+                             <button
+                                 onClick={() => setShowPersonaSelector(true)}
+                                 className="w-full mt-2 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded font-medium flex items-center justify-center gap-2"
+                             >
+                                 <CircleDot className="w-3 h-3" />
+                                 Generate Solutions →
+                             </button>
+                           )}
                        </div>
                      )}
 
@@ -927,6 +1022,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                              onComplete={onRefinementComplete}
                              onCancel={onRefinementCancel}
                              initialMarketSignals={initialMarketSignals}
+                             onTopicProgress={(progress) => onTopicProgress(progress)}
                          />
                      </div>
                  )}
@@ -964,23 +1060,12 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                     ))}
                                 </div>
                                 <button
-                                    onClick={() => {
-                                      const debateConfig = {
-                                        selectedPersonas: refinementResult?.recommended_council_members?.map(m => m.persona_id) ?? ['mckinsey', 'bcg', 'bain'],
-                                        councilType: 'preset',
-                                        selectedPreset: 'recommended',
-                                        useHybridCouncil: false,
-                                        resolvedAnalysisMode: effectiveDebateMode,
-                                      };
-                                      try {
-                                        localStorage.setItem(`situation_${situation.situation_id}`, JSON.stringify(situation));
-                                        localStorage.setItem(`analysis_${situation.situation_id}`, JSON.stringify(currentAnalysis));
-                                        localStorage.setItem(`market_signals_${situation.situation_id}`, JSON.stringify(initialMarketSignals || []));
-                                        localStorage.setItem(`principal_context_${situation.situation_id}`, JSON.stringify(principalContext || {}));
-                                        localStorage.setItem(`debate_config_${situation.situation_id}`, JSON.stringify(debateConfig));
-                                      } catch (_) { /* quota exceeded */ }
-                                      navigate(`/debate/${situation.situation_id}`, { state: { situation, analysis: currentAnalysis, marketSignals: initialMarketSignals || [], principalContext: principalContext || {}, debateConfig } });
-                                    }}
+                                    onClick={() => dispatchToSolutionFinder({
+                                      selectedPersonas: refinementResult?.recommended_council_members?.map(m => m.persona_id) ?? ['mckinsey', 'bcg', 'bain'],
+                                      councilTypeOverride: 'preset',
+                                      selectedPresetOverride: 'recommended',
+                                      useHybridCouncilOverride: false,
+                                    })}
                                     className="w-full py-2 bg-purple-700 hover:bg-purple-600 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
                                 >
                                     <CircleDot className="w-3 h-3" />
@@ -1075,23 +1160,12 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                              )}
 
                              <button
-                                 onClick={() => {
-                                   const debateConfig = {
-                                     selectedPersonas: useHybridCouncil ? selectedPersonas : (refinementResult?.recommended_council_members?.map(m => m.persona_id) ?? ['mckinsey', 'bcg', 'bain']),
-                                     councilType: councilType,
-                                     selectedPreset: selectedPreset,
-                                     useHybridCouncil: useHybridCouncil,
-                                     resolvedAnalysisMode: effectiveDebateMode,
-                                   };
-                                   try {
-                                     localStorage.setItem(`situation_${situation.situation_id}`, JSON.stringify(situation));
-                                     localStorage.setItem(`analysis_${situation.situation_id}`, JSON.stringify(currentAnalysis));
-                                     localStorage.setItem(`market_signals_${situation.situation_id}`, JSON.stringify(initialMarketSignals || []));
-                                     localStorage.setItem(`principal_context_${situation.situation_id}`, JSON.stringify(principalContext || {}));
-                                     localStorage.setItem(`debate_config_${situation.situation_id}`, JSON.stringify(debateConfig));
-                                   } catch (_) { /* quota exceeded */ }
-                                   navigate(`/debate/${situation.situation_id}`, { state: { situation, analysis: currentAnalysis, marketSignals: initialMarketSignals || [], principalContext: principalContext || {}, debateConfig } });
-                                 }}
+                                 onClick={() => dispatchToSolutionFinder({
+                                   selectedPersonas: useHybridCouncil ? selectedPersonas : (refinementResult?.recommended_council_members?.map(m => m.persona_id) ?? ['mckinsey', 'bcg', 'bain']),
+                                   councilTypeOverride: councilType,
+                                   selectedPresetOverride: selectedPreset,
+                                   useHybridCouncilOverride: useHybridCouncil,
+                                 })}
                                  className="w-full mt-2 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-medium flex items-center justify-center gap-2"
                              >
                                  <Users className="w-4 h-4" />

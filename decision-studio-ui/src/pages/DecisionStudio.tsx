@@ -22,6 +22,8 @@ export function DecisionStudio() {
     refinementResult,
     marketSignals,
     marketConflict,
+    framingRequired,
+    framingDecision,
     showPersonaSelector,
     useHybridCouncil,
     councilType,
@@ -41,6 +43,7 @@ export function DecisionStudio() {
     setDaViewMode,
     setShowRefinementChat,
     setRefinementResult,
+    applyRefinementProgress,
     setShowPersonaSelector,
     setUseHybridCouncil,
     setCouncilType,
@@ -71,14 +74,23 @@ export function DecisionStudio() {
         // Refinement
         showRefinementChat={showRefinementChat}
         refinementResult={refinementResult}
+        framingRequired={framingRequired}
+        framingDecision={framingDecision}
+        onTopicProgress={(progress) => {
+            if (selectedSituation) applyRefinementProgress(selectedSituation.situation_id, progress);
+        }}
         onRefinementComplete={(result) => {
             setRefinementResult(result);
             setShowRefinementChat(false);
             setShowPersonaSelector(true);
         }}
+        // Phase 19 / real pre-existing bug fixed alongside it: Cancel used to
+        // ALSO open the persona selector — advancing toward Solution Finder
+        // on cancel, independent of this feature and also a clean gate
+        // bypass (framing pending or not, Cancel got you to State D anyway).
+        // Cancel now only closes the chat, full stop.
         onRefinementCancel={() => {
             setShowRefinementChat(false);
-            setShowPersonaSelector(true);
         }}
         onStartRefinement={() => setShowRefinementChat(true)}
 
