@@ -272,26 +272,58 @@ regardless, but it only *reports* a frame that is still inherited. Detection wit
 competing — but it changes what SA emits for every card in the system, which is a much larger blast
 radius than one interview topic. Worth revisiting if the interview route proves insufficient.
 
-## 8. Open decisions — settle before any code
+## 8. Open decisions — ✅ all settled 2026-08-16 (owner); build prerequisites remain in §9
 
 1. ~~**Does `problem_framing` join `PROTECTED_TOPICS`?**~~ ✅ **Closed by unbundling (§4).** It is not
    a sequence entry at all, so the cap and the protected set are untouched and the Stage I B-1 routed
    topics keep their slots.
-2. **How is the prior frame re-presented?** §4b's mitigation only works if the UI shows the prior
-   reasoning and its falsification criterion. A pre-ticked "same as last time" recreates the
-   unexamined default with extra steps — the failure this whole note exists to prevent.
-3. **When does a frame expire by default?** `expiry` exists on the model; nothing says whether a frame
-   should carry one always, or only when the principal names a condition. Always-expire is safer and
-   noisier.
-4. **What happens when the frame IS changed?** Does DA re-run against a different KPI? Does SF receive
-   the original decomposition with a reframed objective? The cheap version — carry the decision as
-   context and let SF act on it — is probably right, but it means SF reasons about base-oil exposure
-   using a gross-margin decomposition, and that mismatch should be stated rather than discovered.
-5. **Does the frame decision reach VA?** A solution accepted under a reframed objective must be
-   measured against *that* objective, not the original KPI.
-6. **Is a "no, the frame is right" answer recorded?** It must be. An examined-and-confirmed frame
-   passes link 1; an unexamined one does not, and the two are indistinguishable unless the confirmation
-   is written down. This is the `not-checked is never pass` rule applied to the frame.
+2. ✅ **DECIDED (owner, 2026-08-16) — the frame is a "Framing Statement" attached to the Situation
+   Card for that KPI.** It becomes a named, attributable artefact the reader sees as a frame, rather
+   than a frame absorbed implicitly through SCQA prose. This also does part of §1c's work: the
+   hierarchy stops being inverted when the frame is the labelled thing at the top.
+   > ⚠️ **Guardrail this needs, or it will be violated within a phase.** SA is a *sensor* — facts
+   > only; DA owns interpretation. A Framing Statement is an interpretation, so the card **carries**
+   > a human-authored statement, it never *generates* one. If a later change has SA compose the
+   > Framing Statement, the frame is authored by machine again and this whole note is undone.
+3. ✅ **DECIDED — the frame expires when Value Assurance resolves the bet: a solution it governed is
+   validated OR fails.** Event-based, not calendar-based, and better than the date `expiry` this doc
+   originally assumed. Both outcomes are genuine re-examination triggers: a failure makes the frame
+   suspect, and a success means the problem it named is solved, so the next breach deserves a fresh
+   look rather than inheriting a frame that has already done its job.
+   > 🔴 **Two consequences to handle.** (a) `Assumption.expiry` is typed as an **ISO datetime string**;
+   > an event trigger needs either a new field or VA writing the resolution back to the record. The
+   > model does not support this today. (b) **A frame whose solution is never accepted never
+   > expires** — the commonest case in a low-adoption pilot. Needs a backstop trigger (no approved
+   > solution within N assessment cycles, or re-detection on materially changed evidence), or the
+   > accretion ladder quietly becomes the permanent default it was designed to prevent.
+4. ✅ **DECIDED — a changed frame starts a NEW Situation Card carrying the corrected frame.** This is
+   the stronger answer and it dissolves the mismatch this entry worried about, rather than
+   documenting it: SF never reasons about base-oil exposure using a gross-margin decomposition,
+   because the decomposition is redone under the chosen frame.
+   > 🔴 **The new card must link back to the one it reframed.** Without that link the audit trail
+   > shows two unrelated cards and **the evidence that the frame was examined is lost** — which is
+   > precisely what link 1 scores. The reframe is the finding; an unlinked pair hides it.
+   > ⚠️ **Open mechanical question:** a reframed card may target a KPI that never breached a
+   > threshold (base-oil exposure when gross margin is what tripped). Today a card exists *because* a
+   > threshold breached. SA needs a legitimate provenance for a card created by reframe.
+5. ✅ **DECIDED — yes, the frame decision reaches VA.** A solution accepted under a reframed objective
+   is measured against *that* objective, not the original KPI. Note this closes the loop with #3: VA
+   is both the consumer of the frame and the trigger for its expiry.
+6. ✅ **DECIDED — a "no, the frame is right" answer is recorded.** Examined-and-confirmed passes link
+   1; unexamined does not; the two are indistinguishable unless the confirmation is written down.
+   The `not-checked is never pass` rule, applied to the frame.
+7. ✅ **DECIDED — the frame is owned by the KPI OWNER.** This settles the whose-frame question and
+   removes the shard-divergence risk `theory_layer_design.md:97` warns about: one owner per KPI, one
+   frame, so two principals cannot drive two different objectives from the same situation. Consistent
+   with the dimensional KPI-accountability model.
+   > **Implementable today** — `KPI.owner_role` exists (`src/registry/models/kpi.py:143`) and is
+   > populated on all 15 lubricants KPIs with real variation (CFO on `ecommerce_revenue`, Finance
+   > Manager on `base_oil_cost`), so this is not a new registry field.
+   > ⚠️ Two follow-ons. (a) It is a **role**, not a principal id, so owner resolution runs through the
+   > role→principal path already logged as tech debt in CLAUDE.md ("Principal ID vs Role-Based
+   > Lookup"). (b) A non-owner viewing the KPI sees the owner's frame and cannot change it — correct
+   > for consistency, but it needs a **"request reframe"** path, or non-owners will work around it
+   > and divergence returns through the back door.
 
 ## 9. How it would be measured, and what would falsify it
 
