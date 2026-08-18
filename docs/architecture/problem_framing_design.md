@@ -339,3 +339,73 @@ should not be argued away.
 **Prerequisite that has not moved:** all 39 scored options are one KPI on one Deep Analysis result.
 Frame conclusions stay provisional until a second problem shape is scored — ideally `distributed` or
 `no-control`, where the right frame is genuinely less obvious than it is on a single dominant driver.
+
+---
+
+## 10. The adjudication ran (2026-08-17) — first prerequisite closed, second still open
+
+§9 called for reading the corpus before building anything. That happened — all 13
+`tools/ab_harness/scope_arm_*.json` runs read verbatim (`situation`/`complication`/`question`
+fields), plus 4 fresh live e2e runs this session (MBB control, MBB+refinement, and the first-ever
+live `lens_council` run). 17 runs total, 0 showing evidence the frame was ever offered as a choice.
+
+**Verdict: right call, essentially never examined — not wrong call.** Every one of the 17 assumed
+recovering `gross_margin_pct` as the objective and varied only *how*. But the case for that objective
+being correct is genuinely strong on this data: a single confirmed external cost shock (an 18% Q2
+base-oil spike), a hard contractual constraint (the anchor-account price-lock), no serious ambiguity
+about whether something real happened. This is not a corpus of bad calls that examination would have
+caught. It is a corpus where a real, specific, non-hypothetical alternative — *"is the objective
+recovering margin, or reducing base-oil exposure?"*, exactly §4's worked example — sat in every
+situation block's own stated root cause and was never once raised for the KPI owner to accept or
+reject. One arm (C1) came closest: an *option* proposed de-risking anchor-account concentration, but
+nested as a tactic serving the same unexamined objective, not offered as an alternate frame.
+
+**This sharpens the falsifier in §9, not just satisfies it.** §9's stated falsifier was "examined and
+confirmed unchanged in nearly every run." What actually happened is thinner than that — not
+*confirmed* unchanged, *never asked*. That is the stronger case for building the gate, not the weaker
+one: there is a real question sitting unexamined, not a rubber stamp waiting to happen.
+
+**Caution for whoever builds this next, surfaced in the same conversation that ran the adjudication:**
+none of "requested the DA," "read the rendered `ScqaBlock`," "completed the (optional) refinement
+interview," or "selected a council" can be read as evidence of examination, and this was checked
+empirically, not just argued. The refinement-interview arm ran a genuine 9-turn conversation and
+captured two real constraints — and still failed the frame link identically to the arm that skipped
+refinement outright. Council selection happens *after* the frame is already fixed (DA generates SCQA
+before SF ever sees a persona/council choice), so it cannot carry information about the frame by
+construction. This is why §8 decision 6 (a confirmed "frame is right" answer must be *recorded*) is
+load-bearing rather than a nice-to-have: every available behavioral proxy for examination was tested
+against this corpus and produced zero variance. An inferred signal cannot substitute for an explicit
+one here — the two are observationally identical (a principal who skimmed and one who read carefully
+both simply proceed), so no amount of instrumenting the surrounding flow can recover the distinction.
+Only asking directly can.
+
+**Second prerequisite — a second problem shape — still has not moved.** All 13 corpus runs and all 4
+live runs this session are the same recurring situation: one dominant segment, one confirmed external
+mechanism, no healthy segment anywhere in the dataset. That last detail is not incidental — see the
+VA finding immediately below, which was found by checking it directly rather than assumed.
+
+**Side finding, worth its own paragraph because it wasn't anticipated: this situation shape may not
+have a control group for VA either.** Checked directly against a live captured DA payload for this
+exact recurring situation: `kt_is_is_not.where_is_not` and `.benchmark_segments` both empty (count 0).
+`workflows.py` derives VA's `control_group_segments` straight from that field
+(`kt.get("benchmark_segments")`, filtered to `benchmark_type == "control_group"`) — independently of
+DA's own `has_control_group` routing signal, which is never read outside `_route_refinement_topics`
+and was confirmed to have no other consumer. So on this recurring situation, any solution VA evaluates
+would register with `control_group_segments=None`. **Checked how VA handles that, and it degrades
+correctly rather than overclaiming** — `evaluate_solution_impact` (`a9_value_assurance_agent.py`)
+counts `signals_present` across control group / market recovery / seasonal estimate, and with zero
+present, confidence explicitly drops to LOW with the rationale stated in the record itself: *"No
+control group or external estimates provided; attributable impact equals total KPI change."* This is
+not a bug in VA — it is VA correctly reporting a limitation of the data it was handed. But it does
+mean: (a) nothing approved against this exact situation could ever produce a HIGH-confidence DiD
+verdict, and (b) the field-test plan discussed for lens-vs-MBB ("let VA's real outcome decide") needs
+a situation with a genuine control group to mean anything — a gap in addition to the missing
+council-provenance field already flagged for that plan. Whether this is a structural property of this
+one situation or a broader pattern in the KPI/registry data is unchecked — worth resolving alongside
+the second-problem-shape search, since a shape search that also turns up a genuine control group would
+close two open items at once.
+
+**Where this leaves the build:** first prerequisite (adjudicate before building) — done, and the
+result argues FOR building the gate. Second prerequisite (a second problem shape) — still open, and is
+now doing double duty: it also determines whether the VA control-group gap is a one-situation artifact
+or a real limitation on how the eventual field signal can work.

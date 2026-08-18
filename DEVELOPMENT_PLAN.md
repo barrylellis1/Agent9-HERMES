@@ -3229,18 +3229,38 @@ inherited by everything downstream.
 | **6** | SF synthesis task text must be able to *express* a reframed objective | today it requires every option to name "the primary driver of THIS KPI situation" |
 | **7** | DQ link 1 grades the **recorded decision**, retiring the term screen | also retires a screen with a known 71% FPR on this class |
 
-**🔴 Prerequisite, currently in no phase — score a second problem shape.** All 39 scored options are
-one KPI on one DA result, so *"frame fails 11 of 13"* stays consistent with **this problem has one
-right frame**. A `distributed` or `no-control` shape — where the right frame is genuinely less obvious
-than on a single dominant driver — is cheap (a few DA+SF runs) and de-risks the entire phase. **Do
-this before item 1.**
+**Two prerequisites — one closed, one open (2026-08-17).**
+
+✅ **Adjudicate the corpus before building — done.** All 13 `scope_arm_*.json` runs plus 4 fresh live
+e2e runs (MBB control, MBB+refinement, first-ever live `lens_council` run) read verbatim, not just
+scored. Verdict: **right call, essentially never examined — not a wrong call.** A real, specific
+alternative (recover margin vs. reduce base-oil exposure — the confirmed root cause) sat unexamined in
+every one of 17 runs. Sharpens the phase's own falsifier rather than triggering it: not "confirmed
+unchanged," *never asked*. Full writeup: `problem_framing_design.md` §10.
+
+🔴 **Score a second problem shape — still open, now the sole blocker.** All 39 corpus options plus
+everything scored this session are one KPI on one DA result (`gross_margin_pct`, one dominant segment,
+one confirmed external mechanism), so *"frame fails 11 of 13"* stays consistent with **this problem has
+one right frame** until a `distributed` or `no-control` shape is scored. Cheap (a few DA+SF runs).
+**Do this before item 1** — now doing double duty, since it also determines whether a side finding
+(below) is a one-situation artifact or a broader limitation.
+
+**Side finding (2026-08-17), not anticipated when this prerequisite was written:** the same recurring
+situation may have no control group for VA either — `kt_is_is_not.where_is_not` /
+`.benchmark_segments` both empty on a checked live payload, so `control_group_segments=None` at VA
+registration. VA degrades correctly (confidence drops to LOW with the reason stated in the record,
+verified in `evaluate_solution_impact` — not a bug), but it means nothing approved against this exact
+situation can produce a HIGH-confidence DiD verdict, and it adds a second gap (alongside the missing
+council-provenance field) to the "let VA's real outcome settle lens-vs-MBB" field-test plan from Phase
+18. Detail: `problem_framing_design.md` §10.
 
 **Sequencing note.** Item 3 is a UI change and item 1 is a UX addition, so this phase overlaps Phase
 18's console work. Worth landing them together rather than editing `DeepFocusView.tsx` twice.
 
 **Stated falsifier** (from the design note, recorded before any build): if the frame is examined and
 confirmed unchanged in nearly every run, this is an expensive way to write `frame_examined: true`, and
-the honest conclusion is that the frame really is determined by the KPI that breached.
+the honest conclusion is that the frame really is determined by the KPI that breached. **Not what
+happened** — see the adjudication above; the frame was never asked, not confirmed unchanged.
 
 ---
 
