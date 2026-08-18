@@ -25,10 +25,32 @@ const TOPIC_LABELS: Record<string, string> = {
   comparison_baseline: 'Comparison Baseline',
 };
 
+/**
+ * The principal's decision style, labelled as the decision style.
+ *
+ * De-branded 2026-08-16 (Phase 18 Category C; `ProblemRefinementChat.tsx:29` in
+ * that inventory). This previously read `analytical -> "McKinsey"`, `visionary ->
+ * "BCG"`, `pragmatic -> "Bain"`, each with an approximation of that firm's brand
+ * colour — so a PERSON's decision style rendered as a consulting firm's identity,
+ * with no persona involved anywhere in the mapping.
+ *
+ * That is a stranger claim than the briefing's firm attribution was. The briefing
+ * at least named firms whose frameworks the council prompt genuinely invokes;
+ * this badge asserted that Sarah Chen, who is analytical, *is* McKinsey.
+ *
+ * The label now states the attribute it was always derived from, which is also
+ * more useful to the reader: it tells them which style the interview is adapting
+ * to. Colours are neutral and chosen only to keep the three distinguishable.
+ *
+ * NOTE: `decision_style` currently resolves to "analytical" for effectively every
+ * principal in production — nothing seeds `metadata.decision_style`, per the
+ * A9_Principal_Context_Agent audit. So this badge is near-constant today. It is
+ * at least now near-constantly TRUE.
+ */
 const STYLE_LABELS: Record<string, { label: string; color: string }> = {
-  analytical: { label: 'McKinsey', color: 'bg-blue-100 text-blue-800' },
-  visionary: { label: 'BCG', color: 'bg-purple-100 text-purple-800' },
-  pragmatic: { label: 'Bain', color: 'bg-green-100 text-green-800' },
+  analytical: { label: 'Analytical', color: 'bg-blue-100 text-blue-800' },
+  visionary: { label: 'Visionary', color: 'bg-purple-100 text-purple-800' },
+  pragmatic: { label: 'Pragmatic', color: 'bg-green-100 text-green-800' },
 };
 
 export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({

@@ -13,6 +13,11 @@ import { projectKpiTrend, condenseTimeToValue, truncateProse, endsSentence, axis
 import { ValueAssurancePanel } from '../components/ValueAssurancePanel'
 import { AttributionBreakdown } from '../components/AttributionBreakdown'
 import { BrandLogo } from '../components/BrandLogo'
+import { DecisionAskBlock } from '../components/briefing/DecisionAskBlock'
+import { ImmediateActionsChecklist } from '../components/briefing/ImmediateActionsChecklist'
+import { AssumptionsPanel } from '../components/briefing/AssumptionsPanel'
+import { OptionDetailDrawer } from '../components/briefing/OptionDetailDrawer'
+import { personaDisplayLabel, councilCompositionLabel } from '../utils/personaLabels'
 import type { AcceptedSolution as VASolution } from '../types/valueAssurance'
 
 // ─────────────────────────────────────────────────
@@ -254,6 +259,19 @@ function DecisionChat({
                 <p className="text-[10px] text-emerald-500">Value Assurance tracking initiated</p>
               </div>
             </div>
+          ) : data?.analysis_degraded ? (
+            // The red banner further up the page explains WHY; this is where the
+            // reader would otherwise act on it anyway. A warning that can be
+            // scrolled past while the button beneath it still works is not a
+            // guard — this is the discoverable half, handleApprove's own check
+            // is the one that cannot be bypassed.
+            <div className="flex items-start gap-2 px-3 py-2 bg-red-950/40 border border-red-700/60 rounded-lg">
+              <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+              <p className="text-[10px] text-red-300 leading-snug">
+                Approval is disabled — these options were not produced by the analysis.
+                Re-run once the underlying problem is resolved.
+              </p>
+            </div>
           ) : (
             <button
               onClick={() => onApprove(selectedOption)}
@@ -289,6 +307,10 @@ export function ExecutiveBriefing() {
   const [vaSolutionId, setVaSolutionId] = useState<string | null>(null)
   const [vaData, setVaData] = useState<VASolution | null>(null)
   const [showAttribution, setShowAttribution] = useState(false)
+  // Index into data.options; null = closed. Held as an index rather than the
+  // option object so a re-fetch cannot leave a stale copy open.
+  const [drawerIdx, setDrawerIdx] = useState<number | null>(null)
+  const [showAllRisks, setShowAllRisks] = useState(false)
   const [openSections, setOpenSections] = useState<Set<string>>(
     new Set(['options', 'recommendation', 'roadmap'])
   )
@@ -314,6 +336,10 @@ export function ExecutiveBriefing() {
       .pdf-export-mode { background: white !important; color: black !important; overflow: visible !important; }
       .pdf-export-mode .print\\:hidden { display: none !important; }
       .pdf-export-mode .hidden.print\\:block { display: block !important; }
+      /* Risks 4+ are collapsed on screen. html2pdf rasterises the live DOM and
+         sees no print media, so without this the export inherits the collapse
+         and silently ships a shorter risk list than the briefing on screen. */
+      .pdf-export-mode .risk-overflow-row { display: table-row !important; }
       .pdf-export-mode .accordion-content { display: block !important; background: white !important; }
       .pdf-export-mode .accordion-content button { display: none !important; }
       .pdf-export-mode [class*="bg-slate-9"], .pdf-export-mode [class*="bg-slate-8"] { background: white !important; }
@@ -346,6 +372,24 @@ export function ExecutiveBriefing() {
   }, [situationId])
 
   const handleApprove = useCallback(async (optionId: string) => {
+    // REAL guard, not just the banner. `analysis_degraded` runs (llm_yielded_no_options
+    // in particular) return status="completed" with the fabricated
+    // "Tighten spend controls"/"Optimize pricing" stub still sitting in `options` —
+    // by design, so Stage 1 hypotheses survive a truncated synthesis rather than
+    // being discarded. The red banner at the top of this page said so, but nothing
+    // stopped the click: a user could approve the stub into real Value Assurance
+    // tracking with nothing to distinguish it from a genuine recommendation
+    // afterward. This function is the one place that actually calls
+    // approveSolution(), so it is the one place a refusal cannot be bypassed —
+    // the disabled button below is the discoverable half, this is the load-bearing
+    // half. Checked here rather than trusting the UI state alone.
+    if (briefing?.analysis_degraded) {
+      console.error(
+        '[ExecutiveBriefing] Blocked approve on a degraded run — options were not produced by the analysis.',
+        { degraded_reason: briefing?.degraded_reason }
+      )
+      return
+    }
     const requestId = localStorage.getItem(`solution_request_${situationId}`)
     if (!requestId) return
     setApproveState('approving')
@@ -453,23 +497,35 @@ export function ExecutiveBriefing() {
 
   const data = briefing
 
-  const FIRM_DISPLAY_NAMES: Record<string, string> = {
-    mckinsey: 'McKinsey & Company', bcg: 'BCG', bain: 'Bain & Company', mbb: 'MBB Council',
-  }
-  const FIRM_STYLES: Record<string, { bar: string; border: string; badge: string; dot: string }> = {
-    mckinsey:     { bar: 'bg-blue-700',    border: 'border-l-blue-700',    badge: 'bg-blue-50 text-blue-800',      dot: 'bg-blue-700' },
-    bcg:          { bar: 'bg-emerald-600', border: 'border-l-emerald-600', badge: 'bg-emerald-50 text-emerald-800', dot: 'bg-emerald-600' },
-    bain:         { bar: 'bg-red-600',     border: 'border-l-red-600',     badge: 'bg-red-50 text-red-800',         dot: 'bg-red-600' },
-    deloitte:     { bar: 'bg-green-700',   border: 'border-l-green-700',   badge: 'bg-green-50 text-green-800',     dot: 'bg-green-700' },
-    accenture:    { bar: 'bg-purple-600',  border: 'border-l-purple-600',  badge: 'bg-purple-50 text-purple-800',   dot: 'bg-purple-600' },
-    ey_parthenon: { bar: 'bg-yellow-600',  border: 'border-l-yellow-600',  badge: 'bg-yellow-50 text-yellow-800',   dot: 'bg-yellow-600' },
-    kpmg:         { bar: 'bg-sky-700',     border: 'border-l-sky-700',     badge: 'bg-sky-50 text-sky-800',         dot: 'bg-sky-700' },
-    pwc_strategy: { bar: 'bg-orange-600',  border: 'border-l-orange-600',  badge: 'bg-orange-50 text-orange-800',   dot: 'bg-orange-600' },
+  // ── Council persona styling ────────────────────────────────────────────────
+  //
+  // De-branded 2026-08-16 (Phase 13 / Phase 18 reconciliation, resolved in favour
+  // of Phase 18). This block previously held full legal names — "McKinsey &
+  // Company", "Bain & Company" — each paired with an approximation of that firm's
+  // real brand colour, on the artifact an executive exports to PDF and forwards.
+  //
+  // Names now come from personaDisplayLabel(), which states the analytical
+  // tradition the persona prompt encodes rather than the firm that inspired it.
+  // The palette is assigned by POSITION, so a run keeps stable per-persona colours
+  // without any of them being a trademark approximation.
+  //
+  // Nothing about generation changes: the persona id is still the reasoning
+  // anchor inside the prompt (M3's substantive point, kept).
+  const PERSONA_PALETTE: Array<{ bar: string; border: string; badge: string; dot: string }> = [
+    { bar: 'bg-indigo-600',  border: 'border-l-indigo-600',  badge: 'bg-indigo-50 text-indigo-800',   dot: 'bg-indigo-600' },
+    { bar: 'bg-teal-600',    border: 'border-l-teal-600',    badge: 'bg-teal-50 text-teal-800',       dot: 'bg-teal-600' },
+    { bar: 'bg-amber-600',   border: 'border-l-amber-600',   badge: 'bg-amber-50 text-amber-800',     dot: 'bg-amber-600' },
+    { bar: 'bg-sky-700',     border: 'border-l-sky-700',     badge: 'bg-sky-50 text-sky-800',         dot: 'bg-sky-700' },
+    { bar: 'bg-violet-600',  border: 'border-l-violet-600',  badge: 'bg-violet-50 text-violet-800',   dot: 'bg-violet-600' },
+  ]
+  const personaOrder: string[] = Object.keys(data.stage_1_hypotheses || {})
+  const personaStyle = (personaId: string) => {
+    const idx = personaOrder.indexOf(personaId)
+    return PERSONA_PALETTE[(idx >= 0 ? idx : 0) % PERSONA_PALETTE.length]
   }
   const convictionStyle: Record<string, string> = {
     High: 'bg-emerald-100 text-emerald-800', Medium: 'bg-amber-100 text-amber-800', Low: 'bg-slate-100 text-slate-600',
   }
-  const defaultFirmStyle = { bar: 'bg-indigo-600', border: 'border-l-indigo-600', badge: 'bg-indigo-50 text-indigo-800', dot: 'bg-indigo-600' }
 
   return (
     <div className="h-screen flex flex-col bg-slate-950 overflow-hidden print:h-auto print:overflow-visible print:text-black print:bg-white">
@@ -737,6 +793,42 @@ export function ExecutiveBriefing() {
               </div>
             )}
 
+            {/* ── Above the fold: situation, the ask, the path, the impact ─────
+                Phase 13 Cat 3. The 2-minute read. Everything below this — the
+                options table, the council stages, the risk section — is
+                supporting detail for a reader who wants it.
+
+                Screen only. The print path already opens with its own Flash
+                Briefing and Situation & Context blocks above; rendering this as
+                well would put the same three facts on the page twice, which is
+                the duplicate-recommendation defect Cat 1 fixed once already. */}
+            <div className="print:hidden">
+              {(() => {
+                const recOption = data.options?.find((o: any) => o.recommended) ?? data.options?.[0]
+                // At most three, and the problem statement leads. Variance
+                // contributors carry their dimension label for the same reason
+                // the detail section does — "National Auto Parts Chain A" without
+                // it reads as a division.
+                const bullets: string[] = []
+                if (data.situation?.problem) bullets.push(String(data.situation.problem))
+                ;(data.situation?.rootCauses ?? []).slice(0, 2).forEach((c: any) => {
+                  const dim = c?.dimension ? ` (${c.dimension})` : ''
+                  const impact = c?.impact ? ` — ${c.impact}` : ''
+                  if (c?.driver) bullets.push(`${c.driver}${dim}${impact}`)
+                })
+                return (
+                  <DecisionAskBlock
+                    situationBullets={bullets.slice(0, 3)}
+                    decisionAsk={data.decision_ask ?? null}
+                    recommendedPath={recOption?.title ?? null}
+                    impactRange={recOption?.roi ?? null}
+                    fallbackOwner={data.recommendation?.decisionOwner}
+                    fallbackDeadline={data.recommendation?.deadline}
+                  />
+                )
+              })()}
+            </div>
+
             {/* Cost of Inaction — shown pre-approval when KPI data is available */}
             {approveState !== 'approved' && data.kpiData?.current_value != null && (() => {
               const kd = data.kpiData
@@ -778,26 +870,27 @@ export function ExecutiveBriefing() {
                   {/* Kicker */}
                   <div className="flex items-center gap-3 mb-3">
                     <div className="h-px flex-1 bg-slate-700" />
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500">Council Recommendation</span>
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500">Recommendation at a glance</span>
                     <div className="h-px flex-1 bg-slate-700" />
                   </div>
-                  {/* Main card */}
+                  {/* Main card.
+                      The option TITLE and the owner/deadline row used to live here
+                      as well. Both now sit in the block above the Cost of Inaction
+                      banner, so this card carries only what that block does not:
+                      the four metrics and the approval state. Repeating the
+                      recommendation two panels apart is the duplicate-headline
+                      defect Cat 1 removed from the Hero Card once already. */}
                   <div className="border border-slate-700 border-l-4 border-l-emerald-500 bg-slate-900 rounded-xl p-6">
-                    {/* Top row */}
-                    <div className="flex items-start justify-between gap-4 mb-4">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-mono uppercase tracking-widest text-slate-500 mb-1">Recommended Path</p>
-                        <h2 className="text-lg font-bold text-white leading-snug">{recOption.title}</h2>
-                      </div>
-                      {approveState === 'approved' && (
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-900/50 border border-emerald-600 rounded-full flex-shrink-0">
+                    {approveState === 'approved' && (
+                      <div className="flex justify-end mb-3">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-900/50 border border-emerald-600 rounded-full">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                           <span className="text-xs font-semibold text-emerald-300">Approved</span>
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                     {/* 4-metric grid */}
-                    <div className="grid grid-cols-4 gap-3 mb-5">
+                    <div className="grid grid-cols-4 gap-3">
                       <div className="bg-slate-800/60 rounded-lg p-3">
                         <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Est. ROI</p>
                         <p className="text-sm font-bold text-emerald-400">{formatROI(roi)}</p>
@@ -819,23 +912,6 @@ export function ExecutiveBriefing() {
                         <p className={`text-sm font-bold ${riskColor}`}>{risk}</p>
                       </div>
                     </div>
-                    {/* Footer strip */}
-                    {(data.recommendation?.decisionOwner || data.recommendation?.deadline) && (
-                      <div className="flex items-center justify-between pt-4 border-t border-slate-700 text-xs text-slate-400">
-                        {data.recommendation?.decisionOwner && (
-                          <div>
-                            <span className="text-slate-600 uppercase tracking-wider text-[10px] font-mono">Decision Owner</span>
-                            <p className="text-slate-300 font-semibold mt-0.5">{data.recommendation.decisionOwner}</p>
-                          </div>
-                        )}
-                        {data.recommendation?.deadline && (
-                          <div className="text-right">
-                            <span className="text-slate-600 uppercase tracking-wider text-[10px] font-mono">Deadline</span>
-                            <p className="text-slate-300 font-semibold mt-0.5">{data.recommendation.deadline}</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
               )
@@ -846,13 +922,28 @@ export function ExecutiveBriefing() {
               badge={`${data.options?.length || 0} options`}
               icon={<Target className="w-4 h-4 text-slate-400" />}>
               <div className="p-5">
-                <p className="text-slate-400 text-sm mb-4 print:text-slate-600">Three strategic pathways evaluated against financial impact, complexity, risk, and priority alignment.</p>
+                {/* Was hardcoded to "Three strategic pathways" regardless of how
+                    many the run produced. */}
+                <p className="text-slate-400 text-sm mb-4 print:text-slate-600">
+                  {data.options?.length || 0} strategic pathway{data.options?.length === 1 ? '' : 's'} evaluated against
+                  financial impact, complexity, risk, and priority alignment
+                  {data.statusQuo ? ', measured against doing nothing (Option 0)' : ''}.
+                </p>
                 {/* Comparison table */}
                 <div className="overflow-x-auto rounded-lg border border-slate-700 mb-6 print:border-slate-200">
                   <table className="w-full text-xs text-left">
                     <thead className="bg-slate-800 text-slate-300 font-bold uppercase print:bg-slate-100 print:text-slate-900">
                       <tr>
                         <th className="p-3 border-b border-slate-700 min-w-[120px] print:border-slate-200">Criteria</th>
+                        {/* Option 0 leads, on the left, because it is the reference
+                            the other columns are measured against — not a fourth
+                            candidate appended after them. */}
+                        {data.statusQuo && (
+                          <th data-testid="status-quo-column" className="p-3 border-b border-r-2 border-slate-700 border-r-slate-600 min-w-[150px] bg-slate-800/40 print:border-slate-200 print:bg-slate-50">
+                            <div className="text-[9px] text-slate-500 mb-0.5">BASELINE</div>
+                            Option 0
+                          </th>
+                        )}
                         {data.options?.map((opt: any, i: number) => (
                           <th key={i} className={`p-3 border-b border-slate-700 min-w-[160px] print:border-slate-200 ${opt.recommended ? 'bg-emerald-900/30 print:bg-emerald-50 print:text-emerald-800' : ''}`}>
                             {opt.recommended && <div className="text-[9px] text-emerald-400 mb-0.5 flex items-center gap-1 print:text-emerald-600"><CheckCircle className="w-2.5 h-2.5" /> RECOMMENDED</div>}
@@ -877,24 +968,36 @@ export function ExecutiveBriefing() {
                         // made this table misleading — two options carried the SAME Est.
                         // ROI and all three the same effort and risk.
                         const shown = (data.options ?? []).map((o: any) => key === 'roi' ? formatROI(o[key]) : o[key])
+                        // Discrimination is computed over the PROPOSED options only.
+                        // Option 0 is a reference, and its values differ from all of
+                        // them almost by construction ($0 investment, a negative
+                        // return) — folding it in would turn "all three proposals
+                        // score the same here" into a cheerful "3 of 4 distinct" and
+                        // suppress the exact finding this annotation exists to make.
                         const disc = axisDiscrimination(shown)
+                        const sqValue = data.statusQuo ? (data.statusQuo as any)[key] : null
                         return (
                         <tr key={key}>
                           <td className="p-3 font-semibold text-slate-400 bg-slate-900/50 print:text-slate-700 print:bg-slate-50">
                             {label}
                             {disc.uniform && (
                               <div className="text-[9px] font-normal text-amber-500/90 mt-0.5 print:text-amber-700"
-                                   title="Every option scores the same here, so this row cannot separate them.">
+                                   title="Every proposed option scores the same here, so this row cannot separate them.">
                                 same for all — does not inform the choice
                               </div>
                             )}
                             {disc.partial && (
                               <div className="text-[9px] font-normal text-slate-500 mt-0.5 print:text-slate-500"
-                                   title="Some options are identical on this criterion.">
+                                   title="Some proposed options are identical on this criterion.">
                                 {disc.distinct} of {disc.total} distinct
                               </div>
                             )}
                           </td>
+                          {data.statusQuo && (
+                            <td className="p-3 border-r-2 border-slate-600 bg-slate-800/20 text-slate-400 print:bg-slate-50 print:text-slate-600">
+                              {sqValue ?? '—'}
+                            </td>
+                          )}
                           {data.options?.map((opt: any, i: number) => (
                             <td key={i} className={`p-3 ${cls} ${opt.recommended ? 'bg-emerald-900/10 print:bg-emerald-50/30' : ''}`}>
                               {shown[i] ?? '—'}
@@ -904,6 +1007,16 @@ export function ExecutiveBriefing() {
                       )})}
                       <tr>
                         <td className="p-3 font-semibold text-slate-400 bg-slate-900/50 print:text-slate-700 print:bg-slate-50">Risk</td>
+                        {data.statusQuo && (
+                          <td className="p-3 border-r-2 border-slate-600 bg-slate-800/20 print:bg-slate-50">
+                            {/* Deliberately NOT badged Low/Medium/High. The status
+                                quo's risk is a trajectory, not a score on the same
+                                scale as an intervention's execution risk, and giving
+                                it a matching pill would invite a comparison that the
+                                two quantities do not support. */}
+                            <span className="text-[10px] text-slate-400 print:text-slate-600">{data.statusQuo.riskLevel}</span>
+                          </td>
+                        )}
                         {data.options?.map((opt: any, i: number) => (
                           <td key={i} className={`p-3 ${opt.recommended ? 'bg-emerald-900/10 print:bg-emerald-50/30' : ''}`}>
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -917,6 +1030,16 @@ export function ExecutiveBriefing() {
                     </tbody>
                   </table>
                 </div>
+                {/* Option 0's caveat travels with the column. A baseline showing
+                    "Flat — no measured drift" or "Improving without intervention"
+                    changes how every other column should be read, and that is
+                    exactly the case where the reader must not have to infer it. */}
+                {data.statusQuo?.caveat && (
+                  <p className="-mt-4 mb-6 text-xs text-slate-500 print:text-slate-600">
+                    <span className="font-semibold text-slate-400 print:text-slate-700">Option 0 — </span>
+                    {data.statusQuo.caveat}
+                  </p>
+                )}
                 {/* Option detail cards */}
                 <div className="space-y-6">
                   {data.options?.map((option: any, i: number) => (
@@ -953,6 +1076,13 @@ export function ExecutiveBriefing() {
                             </div>
                           ))}
                         </div>
+                        {/* ── Full narrative: PRINT ONLY ────────────────────────
+                            On screen this moves into the option drawer. Three
+                            complete analyses expanded inline is what pushed the
+                            briefing past a 2-minute read (Cat 3). On paper there is
+                            no drawer to open, so print keeps them where they were —
+                            the exported PDF loses nothing. */}
+                        <div className="hidden print:block">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <h4 className="font-semibold text-slate-300 mb-2 flex items-center gap-1.5 text-sm print:text-slate-700">
@@ -981,13 +1111,13 @@ export function ExecutiveBriefing() {
                             </ul>
                           </div>
                         </div>
-                        {option.perspectives && (
+                        {option.lens_views && (
                           <div className="mt-4 pt-4 border-t border-slate-700 print:border-slate-200">
                             <h4 className="font-semibold text-slate-200 mb-2 flex items-center gap-1.5 text-sm print:text-slate-900">
-                              <Users className="w-3.5 h-3.5" /> Stakeholder Perspectives
+                              <Users className="w-3.5 h-3.5" /> Council Lenses
                             </h4>
                             <div className="grid grid-cols-3 gap-3">
-                              {option.perspectives.map((p: any, j: number) => (
+                              {option.lens_views.map((p: any, j: number) => (
                                 <div key={j} className="bg-slate-800/60 p-2.5 rounded-lg print:bg-slate-50">
                                   <p className="font-medium text-slate-200 text-xs print:text-slate-900">{p.role}</p>
                                   <p className="text-xs text-slate-400 mt-0.5 print:text-slate-600">{p.view}</p>
@@ -996,6 +1126,37 @@ export function ExecutiveBriefing() {
                             </div>
                           </div>
                         )}
+                        </div>
+
+                        {/* Critic-pass findings stay ON the card, not behind the
+                            drawer click. A flagged side effect is a reason to look
+                            harder at an option; hiding it one interaction deeper
+                            than the option's own sales pitch inverts that. */}
+                        {option.flagged_side_effects?.length > 0 && (
+                          <div data-testid="side-effects-chip" className="print:hidden mt-3 flex items-start gap-2 rounded-lg border border-amber-700/50 bg-amber-950/20 px-3 py-2">
+                            <Zap className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                            <p className="text-xs text-amber-200/90">
+                              {option.flagged_side_effects.length} side effect{option.flagged_side_effects.length === 1 ? '' : 's'} flagged
+                              against the causal model — see full analysis.
+                            </p>
+                          </div>
+                        )}
+
+                        {/* M6: the ROI range above does not stand alone — and that
+                            has to hold on the exported PDF too, which is the copy
+                            that gets forwarded and challenged. The panel prints
+                            fully expanded (its toggle is print:hidden, its body
+                            print:block), so it is deliberately NOT wrapped in a
+                            print:hidden div like the rest of the screen-only chrome. */}
+                        <AssumptionsPanel assumptions={option.key_assumptions || []} impactLabel={formatROI(option.roi)} />
+
+                        <button
+                          onClick={() => setDrawerIdx(i)}
+                          className="print:hidden mt-4 inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white"
+                        >
+                          View full analysis
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </motion.div>
                   ))}
@@ -1011,16 +1172,18 @@ export function ExecutiveBriefing() {
                 <div className="bg-slate-900 border border-slate-700 text-white p-6 rounded-xl print:bg-white print:border-l-4 print:border-slate-800 print:rounded-none print:pl-5 print:pr-0 print:py-3">
                   <h3 className="text-lg font-bold mb-3 print:text-slate-900">{data.recommendation?.headline}</h3>
                   <p className="text-slate-300 leading-relaxed text-sm mb-5 print:text-slate-700">{data.recommendation?.rationale}</p>
+                  {/* Cat 3 / M5. The typed List[ImmediateAction] wins when the run
+                      produced one — it carries an owner and a deadline per action.
+                      `nextSteps` is the legacy prose list and is partly assembled by
+                      briefingUtils itself (a KPI-tracking step, a leadership-review
+                      step), so it is a fallback, never a merge: mixing model-authored
+                      actions with UI-authored ones in one numbered list makes the two
+                      indistinguishable to the reader. */}
                   <div className="bg-slate-800/60 rounded-lg p-4 mb-5 print:bg-transparent print:p-0">
-                    <h4 className="font-semibold mb-2 text-sm text-slate-200 print:text-slate-800">Immediate Actions Required:</h4>
-                    <ol className="space-y-1.5">
-                      {(data.recommendation?.nextSteps || []).map((step: string, i: number) => (
-                        <li key={i} className="flex items-start gap-2.5">
-                          <span className="w-5 h-5 bg-emerald-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 print:bg-slate-800">{i + 1}</span>
-                          <span className="text-sm text-slate-300 print:text-slate-700">{step}</span>
-                        </li>
-                      ))}
-                    </ol>
+                    <ImmediateActionsChecklist
+                      actions={data.immediate_actions || []}
+                      fallbackSteps={data.recommendation?.nextSteps || []}
+                    />
                   </div>
                   <div className="flex items-center justify-between pt-3 border-t border-slate-700 text-sm print:border-slate-300">
                     <div>
@@ -1291,17 +1454,17 @@ export function ExecutiveBriefing() {
               </AccordionSection>
             )}
 
-            {/* [J] Stage 1: Independent Firm Proposals */}
+            {/* [J] Stage 1: Independent Proposals */}
             {data.stage_1_hypotheses && (
-              <AccordionSection id="stage1" title="Stage 1: Independent Firm Proposals" openSections={openSections} onToggle={toggleSection}
+              <AccordionSection id="stage1" title="Stage 1: Independent Proposals" openSections={openSections} onToggle={toggleSection}
                 icon={<Users className="w-4 h-4 text-slate-400" />}>
                 <div className="p-5">
-                  <p className="text-slate-400 text-sm mb-4 print:text-slate-600">Each firm independently analyzed the problem and proposed an intervention using their signature framework.</p>
+                  <p className="text-slate-400 text-sm mb-4 print:text-slate-600">Each perspective analysed the problem independently and proposed an intervention using its own framework.</p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 print:block print:space-y-4">
                     {Object.entries(data.stage_1_hypotheses).map(([firmId, hyp]: [string, any]) => {
-                      const s = FIRM_STYLES[firmId] ?? defaultFirmStyle
+                      const s = personaStyle(firmId)
                       const conviction = hyp.conviction || 'High'
-                      const displayName = FIRM_DISPLAY_NAMES[firmId.toLowerCase()] ?? (firmId.charAt(0).toUpperCase() + firmId.slice(1).replace(/_/g, ' '))
+                      const displayName = personaDisplayLabel(firmId)
                       return (
                         // print:break-inside-avoid — a persona card that straddles a page
                         // boundary was CLIPPED rather than flowed, because `overflow-hidden`
@@ -1365,7 +1528,7 @@ export function ExecutiveBriefing() {
               <AccordionSection id="crossreview" title="Stage 2: Cross-Review" openSections={openSections} onToggle={toggleSection}
                 icon={<ShieldCheck className="w-4 h-4 text-slate-400" />}>
                 <div className="p-5">
-                  <p className="text-slate-400 text-sm mb-4 print:text-slate-600">Each firm reviewed the others' hypotheses to surface blind spots and tensions.</p>
+                  <p className="text-slate-400 text-sm mb-4 print:text-slate-600">Each perspective reviewed the others' hypotheses to surface blind spots and tensions.</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {Object.entries(data.cross_review).map(([personaId, review]: [string, any]) => (
                       <div key={personaId} className="bg-slate-900 border border-slate-700 rounded-lg p-4 print:bg-slate-50 print:border-slate-200">
@@ -1375,7 +1538,7 @@ export function ExecutiveBriefing() {
                           </div>
                           <div>
                             <h4 className="font-bold text-slate-200 text-sm print:text-slate-900">
-                              {FIRM_DISPLAY_NAMES[personaId.toLowerCase()] ?? (personaId.charAt(0).toUpperCase() + personaId.slice(1).replace(/_/g, ' '))}
+                              {personaDisplayLabel(personaId)}
                             </h4>
                             <p className="text-xs text-slate-500">Council Member</p>
                           </div>
@@ -1492,6 +1655,14 @@ export function ExecutiveBriefing() {
               <AccordionSection id="risks" title="Risk Analysis & Mitigation" openSections={openSections} onToggle={toggleSection}
                 icon={<AlertTriangle className="w-4 h-4 text-slate-400" />}>
                 <div className="p-5">
+                  {/* Cat 3: top 3 in the main view, the rest behind "See all risks".
+                      Rows 4+ carry `risk-overflow-row` rather than a bare `hidden`,
+                      because this page has TWO output paths and they do not share a
+                      mechanism: window.print() honours `print:` variants, while the
+                      Export button rasterises the live DOM via html2pdf and sees no
+                      print media at all. The class is unhidden explicitly in the
+                      pdf-export-mode stylesheet so a collapsed section cannot silently
+                      ship a shorter risk list than the one on screen. */}
                   <div className="overflow-hidden rounded-lg border border-slate-700 print:border-slate-200">
                     <table className="w-full text-xs">
                       <thead className="bg-slate-800 print:bg-slate-100">
@@ -1503,7 +1674,8 @@ export function ExecutiveBriefing() {
                       </thead>
                       <tbody>
                         {data.risks.map((risk: any, i: number) => (
-                          <tr key={i} className="border-t border-slate-700 print:border-slate-200">
+                          <tr key={i} className={`border-t border-slate-700 print:border-slate-200 ${
+                            i >= 3 && !showAllRisks ? 'risk-overflow-row hidden print:table-row' : ''}`}>
                             <td className="p-3 text-slate-400 print:text-slate-700">{risk.risk}</td>
                             <td className="p-3">
                               <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${risk.likelihood === 'High' ? 'bg-red-900/40 text-red-400 print:bg-red-100 print:text-red-700' : risk.likelihood === 'Medium' ? 'bg-amber-900/40 text-amber-400 print:bg-amber-100 print:text-amber-700' : 'bg-emerald-900/40 text-emerald-400 print:bg-emerald-100 print:text-emerald-700'}`}>{risk.likelihood}</span>
@@ -1517,6 +1689,14 @@ export function ExecutiveBriefing() {
                       </tbody>
                     </table>
                   </div>
+                  {data.risks.length > 3 && (
+                    <button
+                      onClick={() => setShowAllRisks(v => !v)}
+                      className="print:hidden mt-3 text-xs font-medium text-slate-400 transition-colors hover:text-slate-200"
+                    >
+                      {showAllRisks ? 'Show top 3 only' : `See all ${data.risks.length} risks`}
+                    </button>
+                  )}
                 </div>
               </AccordionSection>
             )}
@@ -1601,17 +1781,54 @@ export function ExecutiveBriefing() {
               <p className="mt-1 print:text-slate-500">
                 Provided as decision support. Human judgment is required for final decisions.
               </p>
+              {/* ── Audit metadata (Cat 3) ──────────────────────────────────────
+                  Every field is read from the payload. Nothing here is a constant
+                  dressed as provenance: the spec's example line named a specific
+                  model version and a specific data window, and hardcoding either
+                  would make the audit strip assert something no run established.
+                  Where a fact is absent it is omitted, not filled in.
+
+                  Council names are de-branded via personaLabels — see that module
+                  for the Phase 13 M3 / Phase 18 reconciliation. This footer used to
+                  title-case the raw persona ids, printing "Mckinsey · Bcg · Bain"
+                  onto the exported PDF. */}
               <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[10px] text-slate-700 font-mono">
                 {data.kpiData?.kpi_name && <span>KPI: {data.kpiData.kpi_name}</span>}
-                {data.stage_1_hypotheses && (
-                  <span>Council: {Object.keys(data.stage_1_hypotheses).map(f => f.charAt(0).toUpperCase() + f.slice(1)).join(' · ')}</span>
+                {(() => {
+                  const ctx = data.kpiData?.context
+                  if (!ctx?.window_start && !ctx?.source_system) return null
+                  const window = ctx?.window_start && ctx?.window_end
+                    ? `${ctx.window_start} → ${ctx.window_end}`
+                    : null
+                  const comparison = ctx?.comparison_window_start && ctx?.comparison_window_end
+                    ? ` vs ${ctx.comparison_window_start} → ${ctx.comparison_window_end}`
+                    : ''
+                  return (
+                    <span>
+                      Data: {ctx?.source_system || 'source not stated'}
+                      {window ? ` ${window}${comparison}` : ''}
+                      {ctx?.version ? ` (${ctx.version})` : ''}
+                    </span>
+                  )
+                })()}
+                {councilCompositionLabel(personaOrder) && (
+                  <span>Council: {councilCompositionLabel(personaOrder)}</span>
                 )}
                 <span>Model: Claude (Anthropic)</span>
-                <span>{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                {data.metrics?.confidence && <span>Confidence: {data.metrics.confidence}</span>}
+                <span>Generated: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
               </div>
             </footer>
           </div>
         </div>
+
+        {/* Option narrative, on demand. Index-addressed so a stale object can
+            never be left open behind a re-render. */}
+        <OptionDetailDrawer
+          option={drawerIdx != null ? (data.options?.[drawerIdx] ?? null) : null}
+          optionLabel={drawerIdx != null ? `Option ${String.fromCharCode(65 + drawerIdx)}` : ''}
+          onClose={() => setDrawerIdx(null)}
+        />
 
         {/* ── Right: Decision Workspace ── */}
         <div className="w-80 flex-shrink-0 border-l border-slate-800 print:hidden">

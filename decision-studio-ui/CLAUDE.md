@@ -31,6 +31,9 @@ src/
 ├── components/
 │   ├── visualizations/         — DivergingBarChart, TradeOffAnalysis, etc.
 │   ├── dashboard/KPITile.tsx   — KPI display tile
+│   ├── briefing/               — Executive Briefing blocks (Phase 13 Cat 3):
+│   │                             DecisionAskBlock, ImmediateActionsChecklist,
+│   │                             AssumptionsPanel, OptionDetailDrawer
 │   └── (root)                  — CouncilDebate, VarianceDrawer, SituationCard, etc.
 ├── hooks/
 │   └── useDecisionStudio.ts    — 3-stage debate flow + full SA→DA→Solutions state
@@ -50,7 +53,13 @@ The 3-stage debate flow (`hypothesis` → `cross_review` → `synthesis`) is man
 Any change to debate sequencing or state flow starts here.
 
 **`utils/briefingUtils.ts`**
-Formats `impact_estimate`, `cost`, and `risk` scores into display strings for the briefing.
+`buildExecutiveBriefing` is the single transform from the SF response into the briefing payload —
+**if a backend field is not carried here, no component can render it, however well typed it is in
+`types.ts`.** That is exactly how `decision_ask`, `immediate_actions`, per-option `key_assumptions`
+and `flagged_side_effects` went unrendered for months: produced, typed, dumped by the API, dropped
+here. Check this file first when a field "exists" but never appears.
+
+Also formats `impact_estimate`, `cost`, and `risk` scores into display strings for the briefing.
 - `recovery_range` → `"+1.2 to +2.8%"` (if non-zero)
 - Fallback: `expected_impact` float → `"High Impact Potential"` / `"Moderate"` / `"Incremental"`
 - `cost` float → `"High Effort"` (≥0.7) / `"Moderate Effort"` (≥0.4) / `"Low Effort"`

@@ -224,6 +224,73 @@ export function projectKpiTrend(currentValue: number, percentChange: number | nu
   }
 }
 
+/**
+ * Option 0 — the status quo, as a comparable column in the options table.
+ *
+ * WHY IT IS DERIVED HERE AND NOT GENERATED
+ * ----------------------------------------
+ * The baseline must come from the SAME slice the Cost of Inaction banner
+ * projects from. A baseline computed off a different number than the banner
+ * sitting above it is a second baseline for the same question, which is the
+ * defect class that put an FY-2025 headline next to YTD-2025 segments in a
+ * shipped briefing. So this consumes `kpiData` — the resolved slice — rather
+ * than re-deriving a trajectory of its own.
+ *
+ * It is never asked of the model: "what happens if we do nothing" is arithmetic
+ * on a measured trend, and an LLM estimate would be a fabricated column dressed
+ * as a reference point.
+ *
+ * M4 applies — the column is ALWAYS returned, never blank and never suppressed.
+ * When the trend does not support a projection it says so in words instead of
+ * printing a number it cannot stand behind.
+ */
+export interface StatusQuoOption {
+  id: 'opt_0'
+  title: string
+  roi: string
+  investment: string
+  timeline: string
+  riskLevel: string
+  reversibility: string
+  /** Null when a real projection was produced; otherwise why there is none. */
+  caveat: string | null
+}
+
+export function deriveStatusQuo(
+  kpiData: { current_value?: number | null; percent_change?: number | null; comparison_value?: number | null } | null,
+  formatValue: (n: number) => string,
+): StatusQuoOption {
+  const base: StatusQuoOption = {
+    id: 'opt_0',
+    title: 'Do nothing (status quo)',
+    roi: 'No projection available',
+    investment: '$0',
+    timeline: 'Immediate — already in effect',
+    riskLevel: 'Trajectory continues',
+    reversibility: 'n/a',
+    caveat: 'The measured trend does not support a 90-day projection.',
+  }
+
+  if (!kpiData || typeof kpiData.current_value !== 'number') return base
+
+  const { projected90d, trend } = projectKpiTrend(
+    kpiData.current_value, kpiData.percent_change, kpiData.comparison_value,
+  )
+  const delta = projected90d - kpiData.current_value
+
+  if (trend === 'stable' || delta === 0) {
+    return { ...base, roi: 'Flat — no measured drift', riskLevel: 'Holds at current level',
+             caveat: 'No deterioration measured, so doing nothing has no projected cost. That is a finding, not a missing number.' }
+  }
+  // A recovering slice makes the status quo a genuinely defensible option. Saying
+  // so is the point of the column: it exists to be a reference, not a strawman.
+  if (trend === 'recovering') {
+    return { ...base, roi: `${formatValue(delta)} by day 90`, riskLevel: 'Improving without intervention',
+             caveat: 'This slice is recovering on its own. Weigh any option against that, not against a decline.' }
+  }
+  return { ...base, roi: `${formatValue(delta)} by day 90`, riskLevel: 'Deterioration continues', caveat: null }
+}
+
 export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, marketSignals?: any[]) => {
     const kpiName = situation?.kpi_name || analysis?.kpi_name || sol?.problem_reframe?.situation || 'KPI'
     const kpiUnit: string = situation?.kpi_value?.unit || ''
@@ -535,17 +602,39 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       })(),
       reversibility: opt?.reversibility || 'medium',
       recommended: idx === 0 || ((sol?.recommendation?.id && opt?.id) ? sol.recommendation.id === opt.id : false),
-      prosDetailed: Array.isArray(opt?.perspectives?.[0]?.arguments_for)
-        ? opt.perspectives[0].arguments_for.slice(0, 3).map((p: string) => ({ point: p, detail: '' }))
-        : [],
-      consDetailed: Array.isArray(opt?.perspectives?.[0]?.arguments_against)
-        ? opt.perspectives[0].arguments_against.slice(0, 3).map((c: string) => ({ point: c, detail: '' }))
-        : [],
-      perspectives: Array.isArray(opt?.perspectives)
-        ? opt.perspectives.slice(0, 3).map((p: any) => ({ role: p?.lens || 'Perspective', view: (p?.key_questions || []).join(' ') }))
-        : [],
+      // `lens_views` is the current key; `perspectives` is the pre-2026-08-16 one
+      // and still arrives from briefing snapshots replayed out of Supabase or
+      // localStorage. Resolved once here so the three read sites below cannot
+      // drift apart.
+      ...(() => {
+        const views: any[] = Array.isArray(opt?.lens_views) ? opt.lens_views
+          : Array.isArray(opt?.perspectives) ? opt.perspectives : []
+        return {
+          prosDetailed: Array.isArray(views[0]?.arguments_for)
+            ? views[0].arguments_for.slice(0, 3).map((p: string) => ({ point: p, detail: '' }))
+            : [],
+          consDetailed: Array.isArray(views[0]?.arguments_against)
+            ? views[0].arguments_against.slice(0, 3).map((c: string) => ({ point: c, detail: '' }))
+            : [],
+          lens_views: views.slice(0, 3).map((p: any) => ({
+            role: p?.lens || 'Lens', view: (p?.key_questions || []).join(' '),
+          })),
+        }
+      })(),
       prerequisites: opt?.prerequisites || [],
       implementation_triggers: opt?.implementation_triggers || [],
+      // Phase 13 Cat 3 — these two were produced by SF and dropped here.
+      //
+      // key_assumptions is the typed SolutionAssumption list (Phase 15 Stage B):
+      // what the option BETS ON, with grounded-vs-inferred and provenance. The
+      // AssumptionsPanel renders it; M6 makes it the answer to "where does that
+      // number come from", so an ROI range with no panel behind it is not shown.
+      //
+      // flagged_side_effects is the critic pass (Stage E) tracing the option's
+      // levers through the causal graph. It was parsed, typed, carried through
+      // the API — and then discarded one map() short of the screen.
+      key_assumptions: Array.isArray(opt?.key_assumptions) ? opt.key_assumptions : [],
+      flagged_side_effects: Array.isArray(opt?.flagged_side_effects) ? opt.flagged_side_effects : [],
     }))
 
     const buildTitle = (): string => {
@@ -688,6 +777,19 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       options,
       roadmap,
       risks,
+      // Phase 13 Cat 3 — the one decision being asked for, and the first tasks.
+      //
+      // Both are produced TODAY on the default prose path: the synthesis JSON
+      // template requests them and _parse_decision_ask/_parse_immediate_actions
+      // read them back, so neither waits on the use_structured_output flip.
+      // They were typed in types.ts, dumped by the API, and then dropped right
+      // here — which is why nothing has ever rendered them.
+      //
+      // Read straight through, never defaulted. A fabricated decision ask is
+      // worse than an absent one: M2 exists because the ask is the single line
+      // an executive acts on, and a manufactured one is unattributable.
+      decision_ask: sol?.decision_ask || null,
+      immediate_actions: Array.isArray(sol?.immediate_actions) ? sol.immediate_actions : [],
       recommendation: {
         headline: sol?.recommendation?.title
           ? `Proceed with: ${sol.recommendation.title}`
@@ -782,6 +884,18 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       })(),
       principalId: situation?.principal_id || null,
     }
-    
-    return transformed
+
+    // Option 0 is built AFTER `transformed` so it reads the resolved kpiData
+    // slice rather than a parallel derivation of it — see deriveStatusQuo.
+    const statusQuo = deriveStatusQuo(transformed.kpiData, (n: number) => {
+      if (_isRatioKpi) return formatDelta(n, 'delta')
+      const abs = Math.abs(n)
+      const sign = n > 0 ? '+' : '-'
+      const money = kpiUnit === '$'
+      if (abs >= 1_000_000) return `${sign}${money ? '$' : ''}${(abs / 1_000_000).toFixed(1)}M`
+      if (abs >= 1_000) return `${sign}${money ? '$' : ''}${(abs / 1_000).toFixed(0)}K`
+      return `${sign}${money ? '$' : ''}${abs.toFixed(0)}`
+    })
+
+    return { ...transformed, statusQuo }
   }
