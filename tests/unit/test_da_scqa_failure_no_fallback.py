@@ -105,3 +105,29 @@ class TestSafeGenerateScqaSummary:
             await da._safe_generate_scqa_summary(plan=None, kt=None, change_points=[], spec=None)
 
         assert any("SCQA generation failed" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_frame_kwarg_passes_through_unchanged(self, monkeypatch):
+        """Phase 19, Slice 3: `_generate_scqa_summary` gained a `frame`
+        parameter. `_safe_generate_scqa_summary`'s **kwargs forwarding needs
+        no change to carry it — this pins that assumption rather than leaving
+        it implicit, since a future refactor of the forwarding could silently
+        drop an unlisted kwarg."""
+        da = _make_da_stub()
+        received = {}
+
+        async def _capture(**kwargs):
+            received.update(kwargs)
+            return "Situation: s. Complication: c. Question: q. Answer: a."
+
+        monkeypatch.setattr(da, "_generate_scqa_summary", _capture)
+
+        from src.agents.models.deep_analysis_models import FramingDecision
+        frame = FramingDecision(
+            choice="confirm_stated", chosen_objective_text="Recovering net_revenue",
+            falsification_criterion="x",
+        )
+        await da._safe_generate_scqa_summary(
+            plan=None, kt=None, change_points=[], spec=None, frame=frame,
+        )
+        assert received.get("frame") is frame

@@ -156,6 +156,7 @@ class A9_Deep_Analysis_Agent_Config(BaseModel):
     max_dimensions: int = 5
     max_groups_per_dim: int = 10
     enable_percent_growth: bool = False
+    enable_framing_gate: bool = False  # Phase 19 — see below
     require_orchestrator: bool = True
     log_all_requests: bool = True
 ```
@@ -570,3 +571,98 @@ The outer `try/except` around the call to `_generate_scqa_summary()` in `execute
 **Do not confuse this with `_generate_scqa_summary`'s own internal fallback.** That method has a separate, legitimate `_fallback()` closure used when the LLM call *inside* it fails — it reconstructs a narrative from real, measured `change_points`/`kt` data (is/is-not segments, matrix tiers), never fabricates content with no data behind it, and is unchanged. The outer catch-all fixed here only fires when the whole method call raises — a bug, bad input, or something outside that method's own error handling.
 
 **Extracted into `_safe_generate_scqa_summary()`** so this is independently testable — nothing in this suite drives the ~850-line `execute_deep_analysis()` end to end, so the inline `try/except` was untestable in principle before this. Pure extraction, no behavior change to the success path. New test: `tests/unit/test_da_scqa_failure_no_fallback.py` — asserts the exception path returns `None` (never the old string), the happy path passes through unchanged, and the failure is still logged (absence must stay observable, not silent).
+
+## Phase 19 — Problem Framing Gate (Aug 2026, in progress)
+
+**Goal:** the problem frame (what SCQA's Question asserts as the objective) is chosen by a human
+and recorded, not authored by DA and inherited unexamined by everything downstream. Full design:
+`docs/architecture/problem_framing_design.md`. Build sequencing: the implementation plan referenced
+from `DEVELOPMENT_PLAN.md` Phase 19. Gated behind `enable_framing_gate` (env `DA_ENABLE_FRAMING_GATE`,
+default `false`) — every change below is a no-op with the flag off.
+
+**Mechanism (decided, being built in independently-committable slices):** the framing question
+becomes the mandatory first topic (`problem_framing`) of the existing Problem Refinement interview,
+not a standalone pre-DA step. "Generate Solutions" is unreachable until it's answered. SCQA generation
+is **deferred** until the frame is chosen, then generated *against* the chosen objective.
+
+### Slice 2 — `_build_framing_prompt(da_output, principal_ctx)` (unwired — nothing calls it yet)
+
+Builds the evidence shown at the gate from TWO sources, never conflated:
+- **Causal graph** (`KPIRelationshipProvider.get_causal_neighbourhood`, 1–2 hops, **unfiltered by
+  direction** — the schema is undirected, `direction_confirmed` is always `False`). Replays the
+  provider's own visited-set BFS order to identify one alternative per distinct neighbour KPI,
+  shortest-hop de-duplicated.
+- **Market Analysis conflict** (Decision #12 of the implementation plan): reads
+  `da_output["market_conflict"]` directly — MA's call timing is **unchanged** (still fires once in
+  `workflows.py`, after DA's Is/Is-Not + change points exist); what changes is that its output now
+  feeds DA's own framing construction, not only Problem Refinement's `initial_external_context` seed
+  and SF's synthesis prompt as a passive sidecar. A detected conflict becomes a distinct
+  `source="market_signal"` `FramingAlternative`, never fabricated on a missing/negative/malformed
+  signal.
+
+New `_FRAMING_PROVENANCE_CAVEAT` module dict — deliberately **new human-facing copy**, not
+`a9_solution_finder_agent.py`'s `_PROVENANCE_CAVEAT` (that dict is LLM-instruction language — "respect
+the caveat" — addressed to a model; this is addressed directly to the person deciding the frame).
+
+**ONE outer `try/except`** around the whole method body — a provider exception anywhere (KPI lookup,
+causal graph, constraints, prior frame) returns `None` for the WHOLE prompt, same posture as SF's
+existing causal-grounding block. No partial degradation, unlike `_build_causal_context_section`'s
+per-field tolerance.
+
+New models in `deep_analysis_models.py`: `FramingAlternative`, `PriorFrameRecord`, `FramingPrompt`,
+`FramingDecision`, `FramingRecord`. `Assumption` (`src/registry/models/assumption.py`) gained
+`record_type="framing"`, `source="da_hitl"`, `expiry_event` (event-based expiry — a frame expires on a
+VA verdict, not a calendar date), and attribution fields `framing_choice`/`decided_by_role`/
+`decided_by_is_owner` (the last three found necessary mid-build: re-presenting a prior frame needs to
+know which kind of decision it was and who made it, which isn't recoverable from `text` without
+parsing prose). Two additive migrations, **not yet applied to live Supabase**:
+`20260818_framing_records.sql`, `20260818_framing_decision_attribution.sql`.
+
+### Slice 3 — SCQA deferral + `generate_scqa_for_frame()` (unwired — nothing calls the new method yet)
+
+`execute_deep_analysis`'s inline SCQA call is now conditional on `enable_framing_gate`: off is
+byte-identical to before; on sets `scqa_summary=None`, `DeepAnalysisResponse.scqa_deferred=True`, and
+populates `.scqa_inputs` (`comparison_type`/`inverse_logic`/`kpi_unit` — the scalars
+`_generate_scqa_summary` needs that aren't otherwise serialized on the response).
+
+New `generate_scqa_for_frame(da_output, principal_id, frame, decided_by_role=None)` reconstructs
+`_generate_scqa_summary`'s inputs from a serialized `da_output` dict (same reconstruction-from-dict
+approach `_build_kt_summary` already uses), calls the existing `_safe_generate_scqa_summary` (not
+`_generate_scqa_summary` directly — the "never fabricate on failure" wrapper isn't duplicated), and
+prefixes the result with `"Frame (chosen by {role}): {objective}"`.
+
+`_generate_scqa_summary` gained `frame: Optional[FramingDecision] = None`. LLM path: a `CHOSEN FRAME`
+instruction block is prepended to the prompt (best-effort steering, same posture as every other
+framing rule in that prompt). Deterministic fallback: a new `_question_line(default)` helper replaces
+**all 6** hardcoded `"Question: ..."` constructions across every branch (matrix, opportunity, mixed
+×3 magnitude cases, problem-mode default) — `frame` present ⇒ every branch emits
+`f"Question: {frame.chosen_objective_text}"` instead of its own guess; `frame=None` (every existing
+call site) reproduces the original text exactly. This is the single highest-risk detail in the whole
+build — skipping any one of the 6 sites reintroduces, one layer up, the exact fabricated-frame defect
+`_safe_generate_scqa_summary` (above) was extracted to fix.
+
+**Pre-existing production bug found and fixed in this slice's audit, unrelated to the flag being
+on:** `_create_final_result` (the refinement's terminal result), `_determine_council_type`, and
+`_recommend_diverse_council` all read `da_output.get("scqa_summary")` at the **top level** — but the
+client sends `{"plan": ..., "execution": ...}` with `scqa_summary` nested under `"execution"` (same
+shape `_build_kt_summary` has always read correctly). This had been silently returning `"Analysis
+complete."` as the refined problem statement for every refinement session in production, and starving
+council-type keyword matching of the SCQA text entirely. Fixed to read the correct nesting level, with
+`or ""` added at the two keyword-matching sites since a corrected read can now legitimately be a real
+`None` (deferred SCQA) rather than merely absent, and `" ".join([None, ...])` raises.
+`_build_briefing_context` (`workflows.py`) had the identical bug in its `problem_statement` fallback,
+fixed alongside.
+
+`workflows.py`'s MA `kpi_context` (the string MA searches on) upgrades from "bare KPI name" to "KPI
+name + top-3 `where_is` driver keys" whenever `scqa_summary` is absent — necessary once the flag is on
+(scqa_summary genuinely won't exist yet at MA-call-time), and a real quality improvement regardless
+(commit `c7cf144` already showed DA's structural facts sharpen MA's signal specificity; this extends
+the same principle to the fallback path). Built only from `kt_is_is_not`'s top drivers, never from the
+`analysis_mode`/scqa conclusion — preserves the "conclusion firewall" MA's own card documents.
+
+### Not yet built (see the implementation plan for remaining slices)
+Slice 1 (register support) and Slices 2–3 above are committed. Still to come: wiring
+`_build_framing_prompt`/`generate_scqa_for_frame` into `refine_analysis` as the mandatory first
+interview topic with server-side bypass guards (Slice 4); frontend types + the framing card (Slice 5);
+closing the three Solution-Finder bypass paths + a pre-existing Cancel-button bug (Slice 6); Solution
+Finder expressing the reframe in its task text (Slice 7).

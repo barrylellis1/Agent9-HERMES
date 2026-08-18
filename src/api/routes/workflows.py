@@ -512,15 +512,22 @@ def _build_briefing_context(record: WorkflowRecord) -> str:
     payload = record.payload or {}
     sections: List[str] = []
 
+    da = payload.get("deep_analysis_output") or {}
+    exec_da = da.get("execution", da)
+
     problem = (
         payload.get("problem_statement")
-        or (payload.get("deep_analysis_output") or {}).get("scqa_summary")
+        # Same wrong-nesting-level bug as _create_final_result's (Phase 19
+        # audit, fixed alongside it) -- scqa_summary lives under "execution",
+        # not at deep_analysis_output's top level. This fallback is rarely
+        # exercised (problem_statement is normally present), but a fallback
+        # that silently never fires is exactly the kind of gap this session's
+        # scqa_summary=None consumer audit exists to catch.
+        or exec_da.get("scqa_summary")
         or "Not available"
     )
     sections.append(f"## Problem Statement\n{problem}")
 
-    da = payload.get("deep_analysis_output") or {}
-    exec_da = da.get("execution", da)
     kpi = exec_da.get("kpi_name") or da.get("kpi_id") or ""
     if kpi:
         sections.append(f"## KPI Under Analysis\n{kpi}")
@@ -1198,7 +1205,33 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
         try:
             from src.agents.models.market_analysis_models import MarketAnalysisRequest
             _kpi_name = request.scope.kpi_id or "KPI"
-            _scqa = getattr(response, "scqa_summary", None) or str(_kpi_name)
+            _scqa = getattr(response, "scqa_summary", None)
+            if not _scqa:
+                # SCQA absent -- either generation failed, or (Phase 19)
+                # enable_framing_gate deferred it until a human chooses the
+                # frame. Either way, MA still needs SOMETHING more specific
+                # than the bare KPI name to search on (commit c7cf144: DA's
+                # structural facts measurably sharpen signal specificity —
+                # generic "oil market" signals vs. segment-named ones like
+                # "Base Oil Group II/III pricing"). Build a situation
+                # description from data DA has ALREADY computed
+                # (kt_is_is_not's top drivers) rather than fall back to the
+                # bare KPI name — Decision #8 of the framing implementation
+                # plan. This is itself the same "conclusion firewall" MA's
+                # own card documents: top-driver SEGMENT NAMES, never the
+                # scqa/analysis_mode conclusion, so blind signal generation
+                # stays blind regardless of which path produced this string.
+                _top_driver_keys: list[str] = []
+                _kt_for_fallback = getattr(response, "kt_is_is_not", None)
+                if _kt_for_fallback:
+                    for _r in (getattr(_kt_for_fallback, "where_is", []) or [])[:3]:
+                        _k = _r.get("key") if isinstance(_r, dict) else None
+                        if _k and _k not in _top_driver_keys:
+                            _top_driver_keys.append(_k)
+                _scqa = (
+                    f"{_kpi_name} variance concentrated in: {', '.join(_top_driver_keys)}"
+                    if _top_driver_keys else str(_kpi_name)
+                )
             _industry = None
             _business_context_dict = None
             if principal_context and isinstance(principal_context, dict):

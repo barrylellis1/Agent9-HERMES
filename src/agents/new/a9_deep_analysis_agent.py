@@ -2289,36 +2289,51 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     except Exception:
                         when_started = None
 
-            scqa_summary = await self._safe_generate_scqa_summary(
-                plan=plan,
-                kt=kt,
-                change_points=change_points,
-                spec=spec_main,
-                principal_id=getattr(plan, "principal_id", "system"),
-                analysis_mode=getattr(plan, "analysis_mode", "problem"),
-                alert_type=getattr(plan, "alert_type", None),
-                compound_pattern=getattr(plan, "compound_pattern", None),
-                matrix_ran=matrix_ran,
-                comparator_secondary=comparator_secondary,
-                kpi_unit=getattr(kpi_def, "unit", None),
-            )
-            # 11I-D: append bounded secondary-fact flags for the alert types that are NOT columns in
-            # the matrix (temporal/relational: projected_breach, acceleration, compound). When the
-            # matrix ran, threshold_breach + plan_variance are the two matrix columns and are narrated
-            # by the SCQA itself, so exclude them from the appendix to avoid double-narration.
-            try:
-                _merged_for_appendix = getattr(plan, "merged_alert_types", None)
-                if matrix_ran and _merged_for_appendix:
-                    _merged_for_appendix = [a for a in _merged_for_appendix if a not in ("threshold_breach", "plan_variance")]
-                _appendix = self._build_secondary_alert_appendix(
-                    getattr(plan, "alert_type", None),
-                    _merged_for_appendix,
-                    getattr(plan, "secondary_alert_facts", None),
+            # Phase 19: when the framing gate is on, SCQA generation is DEFERRED
+            # until a human has chosen the frame — see generate_scqa_for_frame()
+            # and problem_framing_design.md §1b ("SCQA is the OUTPUT of framing,
+            # not an input to it"). Flag off is byte-identical to pre-Phase-19
+            # behavior; this is a full backend reorder, not a UI-only mitigation.
+            scqa_deferred = bool(getattr(self.config, "enable_framing_gate", False))
+            scqa_inputs: Optional[Dict[str, Any]] = None
+            if scqa_deferred:
+                scqa_summary = None
+                scqa_inputs = {
+                    "comparison_type": (spec_main or {}).get("comparison_type"),
+                    "inverse_logic": (spec_main or {}).get("inverse_logic"),
+                    "kpi_unit": getattr(kpi_def, "unit", None),
+                }
+            else:
+                scqa_summary = await self._safe_generate_scqa_summary(
+                    plan=plan,
+                    kt=kt,
+                    change_points=change_points,
+                    spec=spec_main,
+                    principal_id=getattr(plan, "principal_id", "system"),
+                    analysis_mode=getattr(plan, "analysis_mode", "problem"),
+                    alert_type=getattr(plan, "alert_type", None),
+                    compound_pattern=getattr(plan, "compound_pattern", None),
+                    matrix_ran=matrix_ran,
+                    comparator_secondary=comparator_secondary,
+                    kpi_unit=getattr(kpi_def, "unit", None),
                 )
-                if _appendix:
-                    scqa_summary = f"{scqa_summary}{_appendix}"
-            except Exception:
-                pass
+                # 11I-D: append bounded secondary-fact flags for the alert types that are NOT columns in
+                # the matrix (temporal/relational: projected_breach, acceleration, compound). When the
+                # matrix ran, threshold_breach + plan_variance are the two matrix columns and are narrated
+                # by the SCQA itself, so exclude them from the appendix to avoid double-narration.
+                try:
+                    _merged_for_appendix = getattr(plan, "merged_alert_types", None)
+                    if matrix_ran and _merged_for_appendix:
+                        _merged_for_appendix = [a for a in _merged_for_appendix if a not in ("threshold_breach", "plan_variance")]
+                    _appendix = self._build_secondary_alert_appendix(
+                        getattr(plan, "alert_type", None),
+                        _merged_for_appendix,
+                        getattr(plan, "secondary_alert_facts", None),
+                    )
+                    if _appendix:
+                        scqa_summary = f"{scqa_summary}{_appendix}"
+                except Exception:
+                    pass
             # Ensure plan has non-empty counters for UI summary even if DP path didn't run
             try:
                 if not getattr(plan, "dimensions", None):
@@ -2483,6 +2498,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 request_id=req_id,
                 plan=plan,
                 scqa_summary=scqa_summary,
+                scqa_deferred=scqa_deferred,
+                scqa_inputs=scqa_inputs,
                 kt_is_is_not=kt,
                 change_points=change_points,
                 percent_growth_enabled=False,
@@ -3400,6 +3417,106 @@ If nothing relevant is found for a category, use an empty list."""
             self.logger.warning("[DA] SCQA generation failed: %s", _scqa_err)
             return None
 
+    async def generate_scqa_for_frame(
+        self,
+        da_output: Dict[str, Any],
+        principal_id: str,
+        frame: "FramingDecision",
+        decided_by_role: Optional[str] = None,
+    ) -> Optional[str]:
+        """Generate the frame-aware SCQA once the mandatory framing gate has
+        been answered (Phase 19, Slice 3).
+
+        Reconstructs `_generate_scqa_summary`'s inputs from the serialized
+        `da_output` dict — same reconstruction-from-dict approach
+        `_build_kt_summary` already uses for the refinement LLM's prompt
+        context, and `_build_framing_prompt` (Slice 2) uses for
+        `plan`/`client_id` resolution. Called from `refine_analysis` (Slice 4)
+        once a `FramingDecision` is submitted — nothing calls this yet.
+
+        Returns None on any failure — reconstruction error, LLM failure inside
+        `_safe_generate_scqa_summary` (already non-fatal there), or missing
+        plan data. Never a partial or fabricated SCQA.
+        """
+        try:
+            execution = da_output.get("execution", da_output)
+            plan_dict = da_output.get("plan") or execution.get("plan") or {}
+            if not plan_dict:
+                self.logger.info("[FRAMING] cannot generate frame-aware SCQA — no plan data in da_output")
+                return None
+            plan = DeepAnalysisPlan(**plan_dict)
+
+            kt_dict = execution.get("kt_is_is_not") or {}
+            kt = KTIsIsNot(**kt_dict) if kt_dict else KTIsIsNot()
+
+            change_points: List[ChangePoint] = []
+            for cp in (execution.get("change_points") or []):
+                if not isinstance(cp, dict):
+                    continue
+                try:
+                    change_points.append(ChangePoint(**cp))
+                except Exception:
+                    continue  # malformed entry skipped, not raised — same discipline as the plan calls for
+
+            scqa_inputs = execution.get("scqa_inputs") or {}
+            kpi_unit = scqa_inputs.get("kpi_unit")
+            if not scqa_inputs:
+                # Old-shaped payload (predates this slice, or the flag was off
+                # when this DA run happened) — fall back to a live KPI lookup,
+                # the same source _build_kt_summary already uses, rather than
+                # assume a unit.
+                kpi_rec = self._lookup_kpi_scoped(plan.kpi_name, plan.client_id) if plan.kpi_name else None
+                kpi_unit = getattr(kpi_rec, "unit", None) if kpi_rec else None
+            spec = {
+                "comparison_type": scqa_inputs.get("comparison_type", "previous"),
+                "inverse_logic": bool(scqa_inputs.get("inverse_logic", False)),
+            }
+
+            matrix_ran = bool(execution.get("matrix_ran"))
+            comparator_secondary = execution.get("comparator_secondary")
+
+            scqa = await self._safe_generate_scqa_summary(
+                plan=plan,
+                kt=kt,
+                change_points=change_points,
+                spec=spec,
+                principal_id=principal_id or "system",
+                analysis_mode=getattr(plan, "analysis_mode", "problem"),
+                alert_type=getattr(plan, "alert_type", None),
+                compound_pattern=getattr(plan, "compound_pattern", None),
+                matrix_ran=matrix_ran,
+                comparator_secondary=comparator_secondary,
+                kpi_unit=kpi_unit,
+                frame=frame,
+            )
+            if not scqa:
+                return None
+
+            # Same appendix logic as the immediate (non-deferred) path in
+            # execute_deep_analysis — reused via the existing @staticmethod
+            # rather than duplicated.
+            try:
+                _merged = getattr(plan, "merged_alert_types", None)
+                if matrix_ran and _merged:
+                    _merged = [a for a in _merged if a not in ("threshold_breach", "plan_variance")]
+                _appendix = self._build_secondary_alert_appendix(
+                    getattr(plan, "alert_type", None), _merged, getattr(plan, "secondary_alert_facts", None),
+                )
+                if _appendix:
+                    scqa = f"{scqa}{_appendix}"
+            except Exception:
+                pass  # appendix is bonus context, never worth losing the SCQA itself over
+
+            # "role" in the prefix means whoever decided, in the most specific
+            # form available — decided_by_role when Slice 4 has resolved it
+            # (the real case), principal_id as a fallback for direct callers
+            # (e.g. this method's own unit tests) that don't have a role yet.
+            role_label = decided_by_role or principal_id or "the principal"
+            return f"Frame (chosen by {role_label}): {frame.chosen_objective_text}\n\n{scqa}"
+        except Exception as e:
+            self.logger.info(f"[FRAMING] frame-aware SCQA generation failed (non-fatal): {e}")
+            return None
+
     async def _generate_scqa_summary(
         self,
         plan: "DeepAnalysisPlan",
@@ -3413,6 +3530,7 @@ If nothing relevant is found for a category, use an empty list."""
         matrix_ran: bool = False,
         comparator_secondary: Optional[str] = None,
         kpi_unit: Optional[str] = None,
+        frame: Optional["FramingDecision"] = None,
     ) -> str:
         """Generate a Situation-Complication-Question-Answer narrative via LLM.
 
@@ -3421,6 +3539,17 @@ If nothing relevant is found for a category, use an empty list."""
         with `confirmed` segments (adverse on both bases), flagging `basis_specific` ones as
         probable comparison artifacts, and surfacing any `secondary_only` segments — rather
         than diagnosing a single basis.
+
+        `frame` (Phase 19): when a framing decision has been made, the Question
+        this method produces MUST *be* that decision, not a fresh guess —
+        SCQA is the OUTPUT of framing, not an input to it
+        (problem_framing_design.md §1b). Applied on BOTH paths: the LLM prompt
+        gets a prepended instruction naming the chosen objective (best-effort
+        steering, like every other framing rule below), and — the part that
+        actually matters — every hardcoded `Question:` line in the
+        deterministic fallback is overridden verbatim via `_question_line()`.
+        `frame=None` (the default) leaves every existing call site, and every
+        line of output, byte-identical to pre-Phase-19 behavior.
         """
         import json as _json
 
@@ -3460,6 +3589,21 @@ If nothing relevant is found for a category, use an empty list."""
             direction = "over" if inv else "under"
 
         # Deterministic fallback (used when LLM unavailable or fails)
+        def _question_line(default_text: str) -> str:
+            """When a frame has been chosen (Phase 19), the Question IS the
+            chosen objective, in EVERY branch below — not just a default one.
+            frame=None (pre-Phase-19 behavior, or the flag off) returns
+            default_text unchanged, so every branch stays byte-identical to
+            today until this is actually wired to a real decision (Slice 4).
+            DO NOT reinstate a hardcoded question on any path once frame is
+            set — see _safe_generate_scqa_summary's docstring for why a
+            fabricated frame on a failure/default path is this codebase's
+            worst-shipped instance of this exact bug class.
+            """
+            if frame is not None:
+                return f"Question: {frame.chosen_objective_text}"
+            return default_text
+
         def _fallback() -> str:
             is_str = ", ".join(is_items) if is_items else "leading segments"
             is_not_str = ", ".join(is_not_items) if is_not_items else "remaining segments"
@@ -3485,7 +3629,7 @@ If nothing relevant is found for a category, use an empty list."""
                         f"Also: {', '.join(_secondary_only)} look fine vs {_prim} but are adverse vs {_sec} — surfaced only by the second basis."
                     )
                 parts.append(
-                    f"Question: What actions address the {_conf_str} problem confirmed across both bases?"
+                    _question_line(f"Question: What actions address the {_conf_str} problem confirmed across both bases?")
                 )
                 return " ".join(parts)
             if analysis_mode == "opportunity":
@@ -3493,7 +3637,7 @@ If nothing relevant is found for a category, use an empty list."""
                     f"Situation: {plan.kpi_name} is {direction}-performing vs. {comparator}. "
                     f"Complication: The outperformance is concentrated in {is_str} — creating a replication opportunity in {is_not_str}. "
                     f"Key drivers: {cp_str}. "
-                    f"Question: How do we scale the {is_str} performance across {is_not_str}?"
+                    f"{_question_line(f'Question: How do we scale the {is_str} performance across {is_not_str}?')}"
                 )
             if analysis_mode == "mixed":
                 _where_is_rows = [r for r in (getattr(kt, "where_is", []) or []) if isinstance(r, dict)]
@@ -3507,20 +3651,20 @@ If nothing relevant is found for a category, use an empty list."""
                 # when the opportunity is the materially larger number (same net-delta
                 # comparison the Action Center's "Let Agent9 Decide" button already makes).
                 if net_opp > net_problem * 3:
-                    question = f"Question: How do we scale the {opp_str} performance while keeping {prob_str} from widening further?"
+                    question = _question_line(f"Question: How do we scale the {opp_str} performance while keeping {prob_str} from widening further?")
                     answer = (
                         f"Answer: Prioritise scaling the {opp_str} playbook — the opportunity "
                         f"({_fmt_delta(net_opp)} combined) is far larger than the drag from {prob_str} "
                         f"({_fmt_delta(net_problem)} combined), which merits monitoring but not the primary response."
                     )
                 elif net_problem > net_opp * 3:
-                    question = f"Question: How do we arrest the decline in {prob_str} before addressing the smaller {opp_str} opportunity?"
+                    question = _question_line(f"Question: How do we arrest the decline in {prob_str} before addressing the smaller {opp_str} opportunity?")
                     answer = (
                         f"Answer: Prioritise recovery in {prob_str} — the drag ({_fmt_delta(net_problem)} combined) "
                         f"far outweighs the {opp_str} opportunity ({_fmt_delta(net_opp)} combined) this period."
                     )
                 else:
-                    question = "Question: How do we address the laggards while scaling the leaders simultaneously?"
+                    question = _question_line("Question: How do we address the laggards while scaling the leaders simultaneously?")
                     answer = (
                         f"Answer: Prioritise recovery in {prob_str} and replicate the {opp_str} playbook across similar "
                         f"segments — the two are comparable in size ({_fmt_delta(net_problem)} vs {_fmt_delta(net_opp)}) "
@@ -3570,7 +3714,7 @@ If nothing relevant is found for a category, use an empty list."""
                 f"{situation_prefix} "
                 f"{complication} "
                 f"Key drivers: {cp_str}. "
-                f"Question: What actions can address the identified contributors?"
+                f"{_question_line('Question: What actions can address the identified contributors?')}"
             )
 
         try:
@@ -3694,6 +3838,18 @@ If nothing relevant is found for a category, use an empty list."""
                     f"Output exactly 4 labelled sentences: 'Situation: ...', 'Complication: ...', "
                     f"'Question: ...', 'Answer: ...'. Be specific and quantitative. No bullet points."
                 )
+
+            if frame is not None:
+                # Best-effort steering, same posture as every other framing rule
+                # above — the guarantee that actually matters is the deterministic
+                # fallback's exact substitution via _question_line(), not this.
+                prompt = (
+                    f"CHOSEN FRAME (already decided by the principal — do not re-derive or second-guess it): "
+                    f"the objective is '{frame.chosen_objective_text}'. The Question you output MUST be this "
+                    f"objective, stated as a question if it isn't already one. The Situation and Complication "
+                    f"should still describe the underlying data; only the Question and Answer must reflect "
+                    f"this chosen objective rather than a fresh guess.\n\n"
+                ) + prompt
 
             req = A9_LLM_Request(
                 request_id=str(uuid.uuid4()),
@@ -4047,10 +4203,20 @@ OUTPUT REQUIREMENTS:
         """Determine recommended Solution Council type based on context."""
         role = principal_ctx.get("role", "")
         style = principal_ctx.get("decision_style", "analytical").lower()
-        
-        # Combine all text for keyword matching
+
+        # Combine all text for keyword matching.
+        # scqa_summary lives under "execution" (client sends {"plan":...,
+        # "execution":...}), NOT at da_output's top level — a top-level
+        # .get() silently returned "" for every call in production
+        # (pre-existing bug, fixed here — same wrong-nesting-level class as
+        # _create_final_result's, verified separately). `or ""` guards
+        # against a real None too: once the nesting is corrected, a
+        # deferred-SCQA run (Phase 19, enable_framing_gate) legitimately has
+        # scqa_summary=None with the key PRESENT, and `.get(key, "")` only
+        # substitutes its default when the key is ABSENT — "".join([None, ...])
+        # would raise.
         all_text = " ".join([
-            da_output.get("scqa_summary", ""),
+            (da_output.get("execution") or da_output).get("scqa_summary") or "",
             " ".join(accumulated.external_context),
             " ".join(accumulated.constraints),
             " ".join(accumulated.validated_hypotheses),
@@ -4150,10 +4316,11 @@ OUTPUT REQUIREMENTS:
         }
         
         role = principal_ctx.get("role", "")
-        
-        # Combine all text for keyword matching
+
+        # Combine all text for keyword matching. Same wrong-nesting-level +
+        # None-safety fix as _determine_council_type above — see its comment.
         all_text = " ".join([
-            da_output.get("scqa_summary", ""),
+            (da_output.get("execution") or da_output).get("scqa_summary") or "",
             " ".join(accumulated.external_context),
             " ".join(accumulated.constraints),
             " ".join(accumulated.validated_hypotheses),
@@ -4233,8 +4400,22 @@ OUTPUT REQUIREMENTS:
         )
         self.logger.info(f"Diverse council recommendation: {diverse_council}")
         
-        # Build refined problem statement
-        scqa = da_output.get("scqa_summary", "")
+        # Build refined problem statement.
+        #
+        # PRE-EXISTING PRODUCTION BUG, FIXED HERE (verified before this slice
+        # was written, per the implementation plan): this read da_output at
+        # the top level, but the client sends {"plan": ..., "execution": ...}
+        # with scqa_summary nested under "execution" — confirmed against
+        # DeepFocusView.tsx's actual payload shape. Every refinement session
+        # has been silently falling through to "Analysis complete." instead
+        # of the real narrative, the same wrong-nesting-level bug class fixed
+        # at _determine_council_type/_recommend_diverse_council above.
+        #
+        # Phase 19: once Slice 4 wires framing decisions in, a frame-aware
+        # SCQA (generate_scqa_for_frame's output) should be preferred here
+        # over the immediate-path one when both exist — not yet possible,
+        # since nothing writes that field into da_output until Slice 4.
+        scqa = (da_output.get("execution") or da_output).get("scqa_summary") or ""
         problem_parts = [scqa[:500] if scqa else "Analysis complete."]
         
         if accumulated.exclusions:
