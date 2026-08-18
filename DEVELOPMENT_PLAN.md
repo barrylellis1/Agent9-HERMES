@@ -3319,6 +3319,24 @@ backend flag's value out of band (correctly `false` for every flag-off deploymen
 only when the gate is real and unresolved). Once a live refinement turn reports a value, that takes
 over as the authority for the rest of the session.
 
+✅ **Slice 7 shipped — the 8-slice build is code-complete.** New `_build_chosen_frame_section()`
+reuses `stage1_allow_frame_challenge`'s shape (permission, already tested insufficient) driven by a
+recorded decision instead (never tested until now) — injected into both Stage 1 (per-persona) and
+synthesis prompts, gated on data presence (`framing_decision` can only exist once the mandatory gate
+was actually answered), not a separate flag. `tests/unit/` sits at **1295 passed, 3 skipped** (was
+1205 at the plan's own stated baseline) with every slice landing its own tests plus real bugs found
+and fixed along the way, none regressed.
+
+🟡 **Still open before `DA_ENABLE_FRAMING_GATE` can be considered ready to flip on anywhere**: the
+plan's own Verification section calls for a manual live walkthrough (both flag states, via
+`restart_decision_studio_ui.ps1`), a purpose-built live e2e spec proving the three SF bypass paths
+stay genuinely closed end-to-end, and the measurement Phase 19 exists for — re-scoring DQ link 1 on
+a post-gate live run against this session's own 17-run baseline. None of these have run yet. Unit
+tests and two clean `npm run build`/`tsc --noEmit` passes are real evidence the code is coherent;
+they are not the same claim as "verified live," and this session's own established discipline
+(`feedback_verify_config_reaches_the_live_call_path`, the Slice 4/6 dead-code findings) is exactly
+why that distinction is being written down rather than assumed away here.
+
 **Stated falsifier** (from the design note, recorded before any build): if the frame is examined and
 confirmed unchanged in nearly every run, this is an expensive way to write `frame_examined: true`, and
 the honest conclusion is that the frame really is determined by the KPI that breached. **Not what
