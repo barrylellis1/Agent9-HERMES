@@ -4,7 +4,11 @@ Phase 19 — framing record model tests (2026-08-18).
 Covers Slice 1 of the framing implementation plan (see
 docs/architecture/problem_framing_design.md and the plan file referenced from
 DEVELOPMENT_PLAN.md Phase 19): the Assumption model's new record_type='framing'
-value, new source='da_hitl' value, and the new expiry_event field.
+value, new source='da_hitl' value, and the new expiry_event field. Also covers
+the framing_choice/decided_by_role/decided_by_is_owner attribution fields
+added mid-Slice-2, once building the framing prompt's prior-frame
+re-presentation showed the register couldn't reconstruct a prior decision
+without them.
 
 No DB/provider integration here — same posture as
 test_theory_layer_causal_schema.py, which this file directly extends. The
@@ -80,6 +84,39 @@ def test_da_hitl_source_still_rejected_for_unrelated_invalid_values():
 
 
 # ---------------------------------------------------------------------------
+# framing_choice / decided_by_role / decided_by_is_owner
+# ---------------------------------------------------------------------------
+
+def test_framing_choice_round_trips_for_each_legal_value():
+    for choice in ("confirm_stated", "alternative", "other"):
+        a = _assumption(record_type="framing", framing_choice=choice)
+        assert a.framing_choice == choice
+
+
+def test_framing_choice_rejects_invalid_value():
+    with pytest.raises(ValidationError):
+        _assumption(record_type="framing", framing_choice="maybe")
+
+
+def test_decided_by_fields_round_trip():
+    a = _assumption(
+        record_type="framing",
+        framing_choice="alternative",
+        decided_by_role="Finance Manager",
+        decided_by_is_owner=False,
+    )
+    assert a.decided_by_role == "Finance Manager"
+    assert a.decided_by_is_owner is False
+
+
+def test_attribution_fields_default_to_none():
+    a = _assumption(record_type="assumption")
+    assert a.framing_choice is None
+    assert a.decided_by_role is None
+    assert a.decided_by_is_owner is None
+
+
+# ---------------------------------------------------------------------------
 # Migration text — read the .sql, assert the constraint strings, no live DB
 # needed. Same pattern as test_theory_layer_causal_schema.py's coverage of
 # 20260723_theory_layer_causal_schema.sql (that file has no dedicated test of
@@ -132,3 +169,28 @@ def test_migration_documents_the_unbackstopped_expiry_gap():
     # this is the kind of thing that gets silently forgotten a phase later.
     text = _MIGRATION_PATH.read_text(encoding="utf-8")
     assert "never expires" in text
+
+
+# ---------------------------------------------------------------------------
+# Second migration -- attribution fields (framing_choice, decided_by_*)
+# ---------------------------------------------------------------------------
+
+_ATTRIBUTION_MIGRATION_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "supabase" / "migrations" / "20260818_framing_decision_attribution.sql"
+)
+
+
+def test_attribution_migration_file_exists():
+    assert _ATTRIBUTION_MIGRATION_PATH.exists(), f"expected migration at {_ATTRIBUTION_MIGRATION_PATH}"
+
+
+def test_attribution_migration_adds_all_three_columns():
+    text = _ATTRIBUTION_MIGRATION_PATH.read_text(encoding="utf-8")
+    for column in ("framing_choice", "decided_by_role", "decided_by_is_owner"):
+        assert f"ADD COLUMN IF NOT EXISTS {column}" in text
+
+
+def test_attribution_migration_constrains_framing_choice():
+    text = _ATTRIBUTION_MIGRATION_PATH.read_text(encoding="utf-8")
+    assert "framing_choice IN ('confirm_stated', 'alternative', 'other')" in text

@@ -4,7 +4,7 @@ Pydantic models for the Deep Analysis Agent (A2A-compliant).
 from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from src.agents.shared.a9_agent_base_model import (
     A9AgentBaseModel,
@@ -242,6 +242,22 @@ class DeepAnalysisResponse(A9AgentBaseResponse):
 
     # Analysis outputs
     scqa_summary: Optional[str] = None
+    # Phase 19 — True when enable_framing_gate deferred SCQA generation rather
+    # than running it inline. Distinguishes "absent because the gate owns it"
+    # from "absent because generation failed" — both would otherwise present
+    # identically as scqa_summary=None, and only one of them is a problem.
+    scqa_deferred: bool = Field(
+        False, description="True when SCQA generation was deferred pending a framing decision (Phase 19)"
+    )
+    scqa_inputs: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "The scalars _generate_scqa_summary() needs that aren't otherwise serialized on this "
+            "response — comparison_type, inverse_logic, kpi_unit. Populated only when scqa_deferred "
+            "is True, so generate_scqa_for_frame() can reconstruct the same inputs later without a "
+            "second KPI lookup."
+        ),
+    )
     kt_is_is_not: Optional[KTIsIsNot] = None
     change_points: List[ChangePoint] = Field(default_factory=list)
     timeframe_mapping: Optional[Dict[str, str]] = Field(default=None, description="{'current': 'X', 'previous': 'Y'}")
@@ -342,6 +358,150 @@ class ConstraintItem(A9AgentBaseModel):
     turn_index: Optional[int] = Field(None, description="Refinement turn that produced this")
 
 
+# ============================================================================
+# Problem Framing Gate (Phase 19)
+#
+# See docs/architecture/problem_framing_design.md and the implementation plan
+# referenced from DEVELOPMENT_PLAN.md Phase 19. The framing question becomes
+# the mandatory first topic of the refinement interview: "Generate Solutions"
+# is unreachable until it is answered, SCQA generation defers until the frame
+# is chosen, then generates against it.
+# ============================================================================
+
+class FramingAlternative(A9AgentBaseModel):
+    """One candidate objective offered at the framing gate.
+
+    Two sources, one shape — `source` discriminates which fields are
+    populated, matching the Assumption/ConstraintItem pattern of one model
+    with a source-driven field subset rather than a subclass per source:
+
+    - 'causal_graph': one neighbour KPI reached via
+      KPIRelationshipProvider.get_causal_neighbourhood() (1-2 hops, shown
+      UNFILTERED BY DIRECTION -- the graph schema is undirected, so
+      `direction_confirmed` is always False; `mechanism` carries direction
+      when the edge has one, an explicit caveat when it doesn't). kpi_id,
+      hops, relationship_type, conflict_direction, lag_periods, causal_rung,
+      provenance are passthrough from KPIRelationship.
+    - 'market_signal': a detected Market Analysis conflict (Decision #12 of
+      the implementation plan -- MA repositioned as an input to DA's own
+      framing/SCQA construction, not a sidecar between DA and SF). kpi_id is
+      None (a market alternative isn't anchored to a neighbour KPI);
+      mechanism is deliberately left None (MA's conflict shape carries no
+      causal mechanism, only a directional observation -- do not backfill
+      one the evidence doesn't support).
+
+    Never fabricated on an empty/failed source -- an empty causal graph or an
+    undetected market conflict must produce zero alternatives of that kind,
+    not a placeholder one (same "no invented defaults" discipline as
+    theory_layer_design.md and every LLM-failure-path fix this session).
+    """
+    source: Literal["causal_graph", "market_signal"] = Field(
+        ..., description="Which evidence source produced this alternative"
+    )
+    kpi_id: Optional[str] = Field(None, description="Neighbour KPI id — causal_graph only")
+    objective_text: str = Field(
+        ..., description="Plain-language candidate objective — becomes the SCQA Question and Assumption.text if chosen"
+    )
+    hops: Optional[int] = Field(None, description="Shortest distance from the analysed KPI — causal_graph only")
+    relationship_type: Optional[str] = Field(None, description="KPIRelationship.relationship_type — causal_graph only")
+    conflict_direction: Optional[str] = Field(None, description="KPIRelationship.conflict_direction — causal_graph only")
+    lag_periods: Optional[int] = Field(None, description="KPIRelationship.lag_periods — causal_graph only")
+    causal_rung: Optional[str] = Field(None, description="KPIRelationship.causal_rung — causal_graph only")
+    confidence: Optional[str] = Field(None, description="Categorical confidence — causal_graph edge confidence, or MA's conflict.confidence")
+    mechanism: Optional[str] = Field(None, description="Free-text causal pathway if known — causal_graph only, never backfilled for market_signal")
+    direction_confirmed: bool = Field(
+        False,
+        description="Always False — the causal graph schema is undirected (kpi_relationship.py). Never set True from a guess."
+    )
+    provenance: Optional[str] = Field(None, description="KPIRelationship.provenance rung — causal_graph only")
+    provenance_caveat: Optional[str] = Field(
+        None, description="Human-facing copy for `provenance`, from _FRAMING_PROVENANCE_CAVEAT — NOT the LLM-instruction text in a9_solution_finder_agent.py's _PROVENANCE_CAVEAT"
+    )
+    evidence_caveats: List[str] = Field(
+        default_factory=list,
+        description="Plain-language caveats a reader needs before treating this as a real alternative (e.g. mechanism unconfirmed, independently-generated market signal)"
+    )
+
+
+class PriorFrameRecord(A9AgentBaseModel):
+    """A previously recorded framing decision for this KPI, re-presented with
+    its reasoning and falsifier — never as a pre-ticked default (Decision #5:
+    the accretion-hardening risk this shape exists specifically to mitigate).
+    """
+    id: Optional[str] = None
+    choice: Literal["confirm_stated", "alternative", "other"]
+    chosen_objective_text: str
+    falsification_criterion: Optional[str] = None
+    decided_by_role: Optional[str] = None
+    decided_by_is_owner: Optional[bool] = None
+    decided_at: Optional[str] = None
+
+
+class FramingPrompt(A9AgentBaseModel):
+    """Everything the UI renders for the mandatory framing gate."""
+    kpi_id: Optional[str] = None
+    kpi_name: Optional[str] = None
+    stated_objective_text: str = Field(..., description="The objective DA would otherwise have assumed, e.g. 'Recovering Gross Margin %'")
+    question: str = Field(..., description="The framing question shown to the principal")
+    alternatives: List[FramingAlternative] = Field(default_factory=list)
+    active_constraints: List[ConstraintItem] = Field(
+        default_factory=list,
+        description="Existing register constraints for this KPI — ConstraintItem.source='assumption_register' entries from AssumptionProvider.get_active_constraints()"
+    )
+    owner_role: Optional[str] = Field(None, description="KPI.owner_role — whose frame this is (Decision #7 of problem_framing_design.md §8)")
+    viewer_role: Optional[str] = None
+    viewer_is_owner: Optional[bool] = Field(None, description="Server-computed — never trust a client-supplied claim of ownership")
+    prior_frame: Optional[PriorFrameRecord] = None
+    requires_falsification_criterion: bool = Field(True, description="Always True in the current design — Decision #6, uniform across confirm and reframe")
+
+
+class FramingDecision(A9AgentBaseModel):
+    """The principal's submission at the framing gate — a structured submit,
+    not a free-text chat turn (Decision #4: the existing chat mechanism
+    cannot distinguish a considered choice from a skim-and-click)."""
+    choice: Literal["confirm_stated", "alternative", "other"] = Field(
+        ..., description="No default — an unconsidered submission must never silently resolve to any specific choice"
+    )
+    chosen_kpi_id: Optional[str] = Field(
+        None, description="Required when choice='alternative' — must match an offered FramingAlternative.kpi_id"
+    )
+    chosen_objective_text: str = Field(
+        ..., description="The objective as chosen — becomes the SCQA Question (Slice 3) and the Assumption.text"
+    )
+    falsification_criterion: str = Field(
+        ..., description="Required on EVERY submission (Decision #6), including confirm_stated with zero alternatives offered"
+    )
+    other_text: Optional[str] = Field(None, description="Free text supplied when choice='other'")
+
+    @model_validator(mode="after")
+    def _falsification_criterion_required(self) -> "FramingDecision":
+        if not (self.falsification_criterion or "").strip():
+            raise ValueError(
+                "falsification_criterion is required on every framing submission — "
+                "including confirming the stated objective (Decision #6)"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _alternative_choice_requires_kpi_id(self) -> "FramingDecision":
+        if self.choice == "alternative" and not self.chosen_kpi_id:
+            raise ValueError("choice='alternative' requires chosen_kpi_id to identify which offered alternative was selected")
+        return self
+
+
+class FramingRecord(A9AgentBaseModel):
+    """The write receipt for a framing decision — never a silent claim of
+    success. The interview must still proceed on a write failure (losing the
+    register write is a smaller failure than losing the chat), but the UI and
+    any consumer must be able to tell the two apart."""
+    persisted: bool = Field(..., description="Whether the Assumption write succeeded")
+    persist_error: Optional[str] = Field(None, description="Present only when persisted=False")
+    assumption_id: Optional[str] = None
+    decided_by_role: Optional[str] = None
+    decided_by_is_owner: Optional[bool] = None
+    decided_at: Optional[str] = None
+
+
 class ProblemRefinementInput(A9AgentBaseModel):
     """Input for problem refinement chat."""
     deep_analysis_output: Dict[str, Any] = Field(..., description="KT IS/IS-NOT results from execute_deep_analysis")
@@ -386,6 +546,13 @@ class ProblemRefinementInput(A9AgentBaseModel):
     initial_external_context: List[str] = Field(
         default_factory=list,
         description="MA-derived external context strings to seed the refinement (turn 0 only)."
+    )
+    # Phase 19 — set only on the turn that submits the framing gate. Absent on
+    # every other turn, including the one that RECEIVES the FramingPrompt (that
+    # turn has no user_message either — the gate is a structured submit, not a
+    # chat turn, Decision #4).
+    framing_decision: Optional[FramingDecision] = Field(
+        None, description="The principal's framing submission, present only on the turn that submits it"
     )
 
 
@@ -471,4 +638,36 @@ class ProblemRefinementResult(A9AgentBaseModel):
     topic_routing_rules_applied: List[str] = Field(
         default_factory=list,
         description="Which routing rules fired and what each did. Empty means the default sequence was used."
+    )
+
+    # Phase 19 — the mandatory framing gate. `framing_required` is the one
+    # signal every UI gate should read, returned on EVERY turn (not just the
+    # turn that presents the prompt) — deliberately supersedes the
+    # currently-dead `topic_complete` field above rather than reviving it,
+    # since that field was never actually consumed by any gating decision.
+    framing_prompt: Optional[FramingPrompt] = Field(
+        None, description="Present when the framing gate has something to show — i.e. it is the current, unanswered topic"
+    )
+    framing_decision: Optional[FramingDecision] = Field(
+        None, description="Echoes back the decision once submitted, for a client that wants to display what was chosen"
+    )
+    framing_record: Optional[FramingRecord] = Field(
+        None, description="The write receipt for the decision, present on the turn that submits one"
+    )
+    scqa_summary: Optional[str] = Field(
+        None,
+        description=(
+            "The frame-aware SCQA narrative, generated by generate_scqa_for_frame() once the gate "
+            "is answered. None before that — NOT the same as generation failure; see "
+            "DeepAnalysisResponse.scqa_deferred for that distinction on the DA side."
+        ),
+    )
+    framing_required: bool = Field(
+        False,
+        description=(
+            "True whenever the framing gate is on and not yet answered for this KPI. The UI must "
+            "treat this, not `topic_complete` or `ready_for_solutions`, as the authority on whether "
+            "'Generate Solutions' may be reachable — server-side bypass guards enforce the same rule "
+            "independently, so a client that ignores this is still blocked, not just badly informed."
+        ),
     )

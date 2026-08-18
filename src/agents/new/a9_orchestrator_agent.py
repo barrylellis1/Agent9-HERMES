@@ -1368,6 +1368,12 @@ async def create_and_connect_agents(orchestrator: A9_Orchestrator_Agent, registr
     da_agent_config = {
         "orchestrator": orchestrator,
         "registry_factory": registry_factory,
+        # Phase 19: kept in sync with src/api/runtime.py's DA config dict, the
+        # actual live path for the production API server -- this function's
+        # callers (tests/conftest.py, decision_studio.py) are real but
+        # secondary, so the flag must behave identically wherever DA is
+        # created rather than only where it's most commonly exercised.
+        "enable_framing_gate": os.getenv("DA_ENABLE_FRAMING_GATE", "false").lower() == "true",
     }
     da_agent = await orchestrator.create_agent_with_dependencies("A9_Deep_Analysis_Agent", da_agent_config)
     agents["A9_Deep_Analysis_Agent"] = da_agent

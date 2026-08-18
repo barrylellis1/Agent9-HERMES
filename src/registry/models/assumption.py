@@ -88,6 +88,31 @@ class Assumption(BaseModel):
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
+    # --- record_type='framing' attribution (Phase 19) ---------------------
+    # Discovered mid-implementation (Slice 2, 2026-08-18): building the
+    # framing-gate's PriorFrameRecord re-presentation ("show a prior frame
+    # WITH its reasoning, never pre-ticked") needs to know WHICH kind of
+    # choice was made and WHO made it relative to KPI ownership — neither is
+    # recoverable from the fields above without parsing `text` as prose,
+    # which this codebase's discipline treats as unacceptable (never infer
+    # what should be recorded explicitly). Generic field names, not
+    # framing-specific ones, in case a future HITL surface wants the same
+    # "who decided, and were they the owner" attribution.
+    framing_choice: Optional[Literal["confirm_stated", "alternative", "other"]] = Field(
+        None,
+        description=(
+            "Which kind of framing decision this was — mirrors FramingDecision.choice. "
+            "Only populated for record_type='framing'. Needed so a prior frame can be "
+            "re-presented accurately rather than re-derived by comparing text strings."
+        ),
+    )
+    decided_by_role: Optional[str] = Field(
+        None, description="The role that submitted this decision — server-computed from principal_context, never client-claimed"
+    )
+    decided_by_is_owner: Optional[bool] = Field(
+        None, description="Whether decided_by_role matched the KPI's owner_role at submission time (Decision #5: non-owners may submit, with attribution)"
+    )
+
     @model_validator(mode="after")
     def _explanation_requires_expiry(self) -> "Assumption":
         if self.record_type == "explanation" and not self.expiry:

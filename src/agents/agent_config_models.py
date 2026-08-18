@@ -406,6 +406,16 @@ class A9_Deep_Analysis_Agent_Config(BaseModel):
         False, description="Include percent growth alongside delta comparisons when true"
     )
 
+    # Phase 19: mandatory problem-framing gate. Default False — the framing
+    # question becomes the mandatory first topic of the refinement interview
+    # and SCQA generation defers until the frame is chosen only when this is
+    # on; off is byte-identical to pre-Phase-19 behavior. See
+    # docs/architecture/problem_framing_design.md and the implementation plan
+    # referenced from DEVELOPMENT_PLAN.md Phase 19.
+    enable_framing_gate: bool = Field(
+        False, description="Gate 'Generate Solutions' behind a mandatory framing decision and defer SCQA generation until the frame is chosen (Phase 19)"
+    )
+
     # Orchestration & logging
     require_orchestrator: bool = Field(
         True, description="All calls must be orchestrator-driven"

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Dict, List, TYPE_CHECKING
 
@@ -114,6 +115,21 @@ class AgentRuntime:
                 {
                     "orchestrator": self._orchestrator,
                     "registry_factory": self._registry_factory,
+                    # Phase 19: THIS is the live agent-creation path for DA in the
+                    # real FastAPI server (started via restart_decision_studio_ui.ps1)
+                    # -- DA is created eagerly here, once, at process startup, unlike
+                    # SF's lazily-created-on-first-call pattern in
+                    # a9_orchestrator_agent.py's orchestrate_solution_finding.
+                    # Verified 2026-08-18: the eager create_and_connect_agents()
+                    # helper in a9_orchestrator_agent.py that used to look like DA's
+                    # equivalent bootstrap path is NOT dead for every caller (still
+                    # used by tests/conftest.py and the legacy decision_studio.py
+                    # Streamlit app -- wired identically below for both, so behavior
+                    # doesn't diverge by entry point), but the production API server
+                    # started per CLAUDE.md's mandatory restart script only ever goes
+                    # through THIS dict. Env-var gated, same opt-in-by-default
+                    # posture as every other Phase 15/19 flag.
+                    "enable_framing_gate": os.getenv("DA_ENABLE_FRAMING_GATE", "false").lower() == "true",
                 },
             ),
             (

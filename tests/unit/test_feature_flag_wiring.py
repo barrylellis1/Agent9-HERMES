@@ -79,3 +79,24 @@ class TestConfigFieldsExistForWiredFlags:
         assert cfg.use_structured_output is False
         enabled = A9_Solution_Finder_Agent_Config(use_structured_output=True)  # arch-allow-agent-ctor — config model, not an agent
         assert enabled.use_structured_output is True
+
+    def test_enable_framing_gate_is_a_real_config_field(self):
+        from src.agents.agent_config_models import A9_Deep_Analysis_Agent_Config  # noqa: PLC0415
+        cfg = A9_Deep_Analysis_Agent_Config()  # arch-allow-agent-ctor — config model, not an agent
+        assert cfg.enable_framing_gate is False
+        enabled = A9_Deep_Analysis_Agent_Config(enable_framing_gate=True)  # arch-allow-agent-ctor — config model, not an agent
+        assert enabled.enable_framing_gate is True
+
+    def test_da_enable_framing_gate_is_read_in_the_real_api_server_path(self):
+        """DA is created eagerly at server startup (src/api/runtime.py), unlike
+        SF's lazily-created-on-first-call pattern in a9_orchestrator_agent.py.
+        The parametrized test above only proves the flag is read SOMEWHERE
+        (a9_orchestrator_agent.py, exercised by tests/conftest.py and the
+        legacy decision_studio.py Streamlit app) — this pins the specific
+        file the production API server (started via
+        restart_decision_studio_ui.ps1) actually goes through, so the gap
+        this whole file exists to catch cannot reopen one file over."""
+        runtime_src = (
+            Path(__file__).resolve().parents[2] / "src" / "api" / "runtime.py"
+        ).read_text(encoding="utf-8")
+        assert 'os.getenv("DA_ENABLE_FRAMING_GATE", "false")' in runtime_src

@@ -32,6 +32,11 @@ from src.agents.models.deep_analysis_models import (
     ExtractedRefinements,
     ConstraintItem,
     constraint_id,
+    FramingAlternative,
+    PriorFrameRecord,
+    FramingPrompt,
+    FramingDecision,
+    FramingRecord,
 )
 from src.agents.models.data_governance_models import KPIDataProductMappingRequest
 from src.agents.utils.data_quality_filter import DataQualityFilter, filter_anomalies
@@ -155,6 +160,24 @@ def effective_turn_budget(topic_sequence: List[str]) -> int:
     completely unchanged.
     """
     return max(MAX_TOTAL_TURNS, TURNS_PER_TOPIC_BUDGET * len(topic_sequence or []))
+
+
+# ============================================================================
+# Problem Framing Gate Constants (Phase 19)
+# ============================================================================
+
+# Human-facing copy for the provenance ladder, shown at the framing gate.
+# Deliberately NEW TEXT, not a9_solution_finder_agent.py's _PROVENANCE_CAVEAT
+# — that dict is an LLM INSTRUCTION ("respect the caveat", addressed to a
+# model that will paraphrase it into a prompt); this is addressed to the
+# person deciding the frame and needs to read correctly on its own, with no
+# model in between to soften or contextualize it.
+_FRAMING_PROVENANCE_CAVEAT = {
+    "template": "An unconfirmed industry pattern, not yet checked against this client's own data.",
+    "confirmed": "Confirmed by this client directly.",
+    "hitl_proposed": "Surfaced from how the system has been used here, not yet confirmed by anyone.",
+    "va_validated": "Outcome-tested by Value Assurance on a solution that used this relationship — the strongest evidence available, though still 'consistent with', never 'proved'.",
+}
 
 STYLE_GUIDANCE = {
     "analytical": """McKinsey-style: hypothesis-driven, MECE decomposition, statistical confidence.
@@ -2839,6 +2862,199 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             summary_parts.append(f"Issue started: {when_started}")
         
         return "\n\n".join(summary_parts) if summary_parts else "No KT analysis data available."
+
+    async def _build_framing_prompt(
+        self, da_output: Dict[str, Any], principal_ctx: Dict[str, Any]
+    ) -> Optional[FramingPrompt]:
+        """Build the mandatory framing gate's prompt (Phase 19), unwired —
+        nothing calls this yet (Slice 2 of the implementation plan).
+
+        Two evidence sources, shown together, never conflated (Decision #12):
+        - the internal causal graph, 1-2 hops, UNFILTERED BY DIRECTION (the
+          schema is undirected — see KPIRelationship's own docstring)
+        - a Market Analysis conflict, when one was actually detected — MA's
+          call timing is unchanged (still fires once, after DA's Is/Is-Not +
+          change points exist, in workflows.py); what changes is that its
+          output now feeds DA's own framing construction rather than only
+          reaching Problem Refinement's external_context seed and SF's prompt.
+
+        Returns None on ANY failure — no client_id, no resolvable KPI, a cold
+        registry pool, a missing migration, a provider exception. ONE outer
+        try/except around the whole body, deliberately — same posture as SF's
+        existing causal-grounding block (a9_solution_finder_agent.py, the
+        `if enable_causal_grounding:` block), which pre-initializes empty
+        results and lets a single try/except cover the entire gather. Never
+        partially fabricates a prompt; the caller must treat None as "the
+        gate has nothing to show on this turn", not as an error to surface
+        to the principal — a transient failure here means the gate simply
+        doesn't render this turn, not that the interview breaks.
+        """
+        try:
+            execution = da_output.get("execution", da_output)
+            plan = da_output.get("plan") or {}
+            situation = da_output.get("situation_context", {}) or {}
+            kpi_ref = plan.get("kpi_name") or situation.get("kpi_name")
+            client_id = plan.get("client_id") or situation.get("client_id")
+            if not kpi_ref or not client_id:
+                self.logger.info(
+                    "[FRAMING] cannot build framing prompt — kpi_ref=%s client_id=%s", kpi_ref, client_id
+                )
+                return None
+
+            kpi_rec = self._lookup_kpi_scoped(kpi_ref, client_id)
+            if kpi_rec is None:
+                self.logger.info(f"[FRAMING] KPI '{kpi_ref}' not resolvable for client '{client_id}'")
+                return None
+            kpi_id = getattr(kpi_rec, "id", None)
+            kpi_name = getattr(kpi_rec, "name", None) or kpi_ref
+            owner_role = getattr(kpi_rec, "owner_role", None)
+            if not kpi_id:
+                return None
+
+            viewer_role = (principal_ctx or {}).get("role")
+            viewer_is_owner = None
+            if owner_role and viewer_role:
+                viewer_is_owner = str(owner_role).strip().lower() == str(viewer_role).strip().lower()
+
+            from src.registry.providers.kpi_relationship_provider import KPIRelationshipProvider
+            from src.registry.providers.assumption_provider import AssumptionProvider
+
+            alternatives: List[FramingAlternative] = []
+
+            # --- Causal-graph alternatives: zero filtering, shortest-hop de-duplicated ---
+            # No local try/except — a provider exception here (e.g. an
+            # unmigrated schema) propagates to the outer catch and the whole
+            # method returns None. Deliberate: see the docstring above.
+            neighbourhood = await KPIRelationshipProvider().get_causal_neighbourhood(
+                kpi_id, client_id, max_hops=2
+            )
+
+            # Replay the same visited-set walk get_causal_neighbourhood used
+            # internally (its return shape doesn't expose which endpoint was
+            # "new" at each hop) to identify, per edge, the neighbour KPI it
+            # introduced. An edge connecting two already-visited nodes (a
+            # cross-link) introduces no new candidate objective and is
+            # skipped for THIS purpose — it doesn't stop being real evidence,
+            # it's just not a distinct alternative.
+            _visited = {kpi_id}
+            for edge, hop in neighbourhood:
+                neighbour = None
+                if edge.kpi_id not in _visited:
+                    neighbour = edge.kpi_id
+                elif edge.related_kpi_id not in _visited:
+                    neighbour = edge.related_kpi_id
+                if neighbour is None:
+                    continue
+                _visited.add(neighbour)
+
+                neighbour_rec = self._lookup_kpi_scoped(neighbour, client_id)
+                neighbour_name = getattr(neighbour_rec, "name", None) or neighbour
+                mechanism = getattr(edge, "mechanism", None)
+                provenance = getattr(edge, "provenance", None) or "template"
+                evidence_caveats: List[str] = []
+                if not mechanism:
+                    evidence_caveats.append(
+                        "No causal mechanism recorded for this relationship — direction and pathway are not established."
+                    )
+                hop_word = "hop" if hop == 1 else "hops"
+                alternatives.append(FramingAlternative(
+                    source="causal_graph",
+                    kpi_id=neighbour,
+                    objective_text=(
+                        f"Addressing {neighbour_name} instead of {kpi_name} directly — "
+                        f"connected {hop} {hop_word} away in the causal graph"
+                    ),
+                    hops=hop,
+                    relationship_type=getattr(edge, "relationship_type", None),
+                    conflict_direction=getattr(edge, "conflict_direction", None),
+                    lag_periods=getattr(edge, "lag_periods", None),
+                    causal_rung=getattr(edge, "causal_rung", None),
+                    confidence=getattr(edge, "confidence", None),
+                    mechanism=mechanism,
+                    direction_confirmed=False,
+                    provenance=provenance,
+                    provenance_caveat=_FRAMING_PROVENANCE_CAVEAT.get(provenance, ""),
+                    evidence_caveats=evidence_caveats,
+                ))
+
+            # --- Market-signal alternative (Decision #12) ---
+            # da_output carries `market_conflict` at the TOP level (sibling to
+            # "plan"/"execution", not nested under "execution") — confirmed
+            # against workflows.py's result_payload construction, the same
+            # shape _build_kt_summary already reads "plan"/"situation_context"
+            # from. Malformed or absent input produces zero alternatives here,
+            # never a fabricated one — matches the empty-graph discipline above.
+            market_conflict = da_output.get("market_conflict")
+            if isinstance(market_conflict, dict) and market_conflict.get("detected") is True:
+                summary_text = market_conflict.get("summary")
+                if isinstance(summary_text, str) and summary_text.strip():
+                    raw_confidence = market_conflict.get("confidence")
+                    confidence_str = None
+                    if isinstance(raw_confidence, (int, float)) and not isinstance(raw_confidence, bool):
+                        confidence_str = f"{raw_confidence:.0%}"
+                    alternatives.append(FramingAlternative(
+                        source="market_signal",
+                        kpi_id=None,
+                        objective_text=summary_text.strip(),
+                        hops=None,
+                        confidence=confidence_str,
+                        mechanism=None,
+                        direction_confirmed=False,
+                        evidence_caveats=[
+                            "Independently generated by Market Analysis before comparison to this "
+                            "KPI's conclusion — an external signal, not a causal claim about this KPI."
+                        ],
+                    ))
+                else:
+                    self.logger.info("[FRAMING] market_conflict.detected=True but summary missing/blank — skipping")
+
+            # --- Active constraints (existing register entries for this KPI) ---
+            # No local try/except — same reasoning as the causal graph above.
+            active_constraints: List[ConstraintItem] = []
+            _constraint_assumptions = await AssumptionProvider().get_active_constraints(client_id, scope=kpi_id)
+            for a in (_constraint_assumptions or []):
+                active_constraints.append(ConstraintItem(
+                    id=constraint_id(a.text),
+                    text=a.text,
+                    source="assumption_register",
+                ))
+
+            # --- Prior frame, if one exists — never pre-ticked (Decision #5) ---
+            prior_frame: Optional[PriorFrameRecord] = None
+            _prior = await AssumptionProvider().get_active_framing(client_id, kpi_id)
+            if _prior is not None:
+                prior_frame = PriorFrameRecord(
+                    id=_prior.id,
+                    choice=_prior.framing_choice or "confirm_stated",
+                    chosen_objective_text=_prior.text,
+                    falsification_criterion=_prior.falsification_criterion,
+                    decided_by_role=_prior.decided_by_role,
+                    decided_by_is_owner=_prior.decided_by_is_owner,
+                    decided_at=_prior.created_at,
+                )
+
+            stated_objective_text = f"Recovering {kpi_name}"
+            question = (
+                f"Is recovering {kpi_name} the right objective here, or does the evidence below "
+                f"point to a different one?"
+            )
+
+            return FramingPrompt(
+                kpi_id=kpi_id,
+                kpi_name=kpi_name,
+                stated_objective_text=stated_objective_text,
+                question=question,
+                alternatives=alternatives,
+                active_constraints=active_constraints,
+                owner_role=owner_role,
+                viewer_role=viewer_role,
+                viewer_is_owner=viewer_is_owner,
+                prior_frame=prior_frame,
+                requires_falsification_criterion=True,
+            )
+        except Exception as e:
+            self.logger.info(f"[FRAMING] framing prompt unavailable (non-fatal): {e}")
+            return None
 
     def _has_internal_benchmarks(self, da_output: Dict[str, Any]) -> bool:
         """True when DA classified at least one IS-NOT segment as a replication target."""
