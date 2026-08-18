@@ -186,6 +186,37 @@ _FRAMING_PROVENANCE_CAVEAT = {
     "va_validated": "Outcome-tested by Value Assurance on a solution that used this relationship — the strongest evidence available, though still 'consistent with', never 'proved'.",
 }
 
+# Found live 2026-08-18: KPI.owner_role in the registry uses short codes
+# ("CFO", "COO") but principal_context.role, as sent by the frontend, is the
+# principal's full TITLE (useDecisionStudio.ts / DecisionStudio.tsx:
+# `role: currentPrincipal.title`) — "Chief Financial Officer", not "CFO". A
+# real CFO viewing a CFO-owned KPI live reported viewer_is_owner=False under
+# plain string equality. This is a narrow, LOCAL normalization for the
+# framing gate's owner comparison specifically — not a fix to the broader
+# role-vs-principal-ID tech debt CLAUDE.md already tracks ("Principal ID vs
+# Role-Based Lookup"), which needs a real registry-level resolution.
+_ROLE_ABBREVIATION_EXPANSIONS = {
+    "ceo": "chief executive officer",
+    "cfo": "chief financial officer",
+    "coo": "chief operating officer",
+    "cto": "chief technology officer",
+    "cmo": "chief marketing officer",
+    "cio": "chief information officer",
+}
+
+
+def _roles_match(role_a: Optional[str], role_b: Optional[str]) -> bool:
+    """Compare two role strings for equivalence, tolerating the common
+    abbreviation-vs-full-title mismatch. Blank/None never matches anything —
+    absence of a role must never be silently treated as a match."""
+    a = str(role_a or "").strip().lower()
+    b = str(role_b or "").strip().lower()
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    return _ROLE_ABBREVIATION_EXPANSIONS.get(a, a) == _ROLE_ABBREVIATION_EXPANSIONS.get(b, b)
+
 STYLE_GUIDANCE = {
     "analytical": """McKinsey-style: hypothesis-driven, MECE decomposition, statistical confidence.
 Use precise, quantitative language. Focus on falsification criteria.""",
@@ -2919,7 +2950,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         decided_by_role = (principal_ctx or {}).get("role")
         decided_by_is_owner = None
         if owner_role and decided_by_role:
-            decided_by_is_owner = str(owner_role).strip().lower() == str(decided_by_role).strip().lower()
+            decided_by_is_owner = _roles_match(owner_role, decided_by_role)
 
         persisted = False
         persist_error: Optional[str] = None
@@ -3249,7 +3280,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             viewer_role = (principal_ctx or {}).get("role")
             viewer_is_owner = None
             if owner_role and viewer_role:
-                viewer_is_owner = str(owner_role).strip().lower() == str(viewer_role).strip().lower()
+                viewer_is_owner = _roles_match(owner_role, viewer_role)
 
             from src.registry.providers.kpi_relationship_provider import KPIRelationshipProvider
             from src.registry.providers.assumption_provider import AssumptionProvider

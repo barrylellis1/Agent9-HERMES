@@ -352,8 +352,57 @@ class TestConstraintsAndPriorFrame:
         assert result.viewer_is_owner is False
 
     @pytest.mark.asyncio
+    async def test_owner_attribution_tolerates_full_title_vs_short_code(self):
+        """Found live 2026-08-18: useDecisionStudio.ts sends
+        principal_context.role as the principal's full TITLE
+        ('Chief Financial Officer'), but KPI.owner_role in the registry is a
+        short code ('CFO'). The original test above used 'CFO' for BOTH
+        sides, which is why it passed while the real bug shipped — this
+        reproduces the actual live shape."""
+        da = _make_da_stub()
+        with _registry_patch([_kpi("gross_margin_pct", "hess", owner_role="CFO")]), \
+             _providers(neighbourhood=[]):
+            result = await da._build_framing_prompt(_da_output(), {"role": "Chief Financial Officer"})
+        assert result is not None
+        assert result.viewer_is_owner is True
+
+    @pytest.mark.asyncio
     async def test_requires_falsification_criterion_always_true(self):
         da = _make_da_stub()
         with _registry_patch([_kpi("gross_margin_pct", "hess")]), _providers(neighbourhood=[]):
             result = await da._build_framing_prompt(_da_output(), {})
         assert result.requires_falsification_criterion is True
+
+
+# ---------------------------------------------------------------------------
+# _roles_match — the abbreviation-vs-full-title normalization
+# ---------------------------------------------------------------------------
+
+class TestRolesMatch:
+    def test_exact_match(self):
+        from src.agents.new.a9_deep_analysis_agent import _roles_match
+        assert _roles_match("CFO", "CFO") is True
+        assert _roles_match("Finance Manager", "Finance Manager") is True
+
+    def test_case_and_whitespace_insensitive(self):
+        from src.agents.new.a9_deep_analysis_agent import _roles_match
+        assert _roles_match("  CFO ", "cfo") is True
+
+    def test_abbreviation_matches_full_title(self):
+        from src.agents.new.a9_deep_analysis_agent import _roles_match
+        assert _roles_match("CFO", "Chief Financial Officer") is True
+        assert _roles_match("Chief Financial Officer", "CFO") is True
+        assert _roles_match("CEO", "Chief Executive Officer") is True
+        assert _roles_match("COO", "Chief Operating Officer") is True
+
+    def test_genuinely_different_roles_do_not_match(self):
+        from src.agents.new.a9_deep_analysis_agent import _roles_match
+        assert _roles_match("CFO", "Finance Manager") is False
+        assert _roles_match("CFO", "Chief Operating Officer") is False
+
+    def test_blank_or_none_never_matches(self):
+        from src.agents.new.a9_deep_analysis_agent import _roles_match
+        assert _roles_match(None, "CFO") is False
+        assert _roles_match("CFO", None) is False
+        assert _roles_match("", "") is False
+        assert _roles_match(None, None) is False

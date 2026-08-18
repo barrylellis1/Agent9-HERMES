@@ -55,6 +55,8 @@ function AlternativeCard({
   return (
     <button
       type="button"
+      data-testid="framing-alternative"
+      data-source={alt.source}
       onClick={onSelect}
       className={`w-full text-left rounded-lg border px-3 py-2.5 transition-colors ${
         selected
@@ -200,6 +202,7 @@ export function FramingGateCard({ prompt, onSubmit, isSubmitting = false }: Fram
       <div className="space-y-2">
         <button
           type="button"
+          data-testid="framing-confirm-stated"
           onClick={() => setChoice('confirm_stated')}
           className={`w-full text-left rounded-lg border px-3 py-2.5 transition-colors ${
             choice === 'confirm_stated'
@@ -265,6 +268,7 @@ export function FramingGateCard({ prompt, onSubmit, isSubmitting = false }: Fram
           What would tell you this frame was wrong? <span className="text-red-400">*</span>
         </label>
         <textarea
+          data-testid="framing-falsifier-input"
           value={falsifier}
           onChange={e => setFalsifier(e.target.value)}
           placeholder="e.g. If the metric doesn't recover after this action, the objective was misidentified."
@@ -275,6 +279,7 @@ export function FramingGateCard({ prompt, onSubmit, isSubmitting = false }: Fram
 
       <button
         type="button"
+        data-testid="framing-submit"
         onClick={handleSubmit}
         disabled={!isValid || isSubmitting}
         className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"

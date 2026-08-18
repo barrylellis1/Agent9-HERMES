@@ -739,3 +739,17 @@ failure still proceeding the chat; an unresolvable KPI still proceeding without 
 Slices 1–4 above are committed. Still to come: frontend types + the framing card (Slice 5); closing
 the three Solution-Finder bypass paths + a pre-existing Cancel-button bug (Slice 6); Solution Finder
 expressing the reframe in its task text (Slice 7).
+
+### Owner-attribution role matching (found live 2026-08-18, fixed)
+`decided_by_is_owner` and `viewer_is_owner` (both set from `owner_role` vs. `principal_ctx["role"]`)
+originally used plain case-insensitive string equality. Live e2e verification found a real CFO
+viewing a CFO-owned KPI reported `viewer_is_owner=False`, because the registry's `KPI.owner_role`
+is a short code ("CFO") while `principal_context.role`, as sent by the frontend, is the principal's
+full title ("Chief Financial Officer") — see `useDecisionStudio.ts` / `DecisionStudio.tsx`
+(`role: currentPrincipal.title`). Fixed with a module-level `_roles_match(role_a, role_b)` helper
+(a small abbreviation↔full-title expansion table for CEO/CFO/COO/CTO/CMO/CIO; blank/None never
+matches) used at both comparison sites. This is a narrow, local fix scoped to the framing gate's
+owner comparison only — it does not touch the broader role-vs-principal-ID lookup tech debt already
+tracked in the top-level `CLAUDE.md` ("Principal ID vs Role-Based Lookup"), which needs a real
+registry-level (ID-based) resolution. Covered by `TestRolesMatch` and
+`test_owner_attribution_tolerates_full_title_vs_short_code` in `tests/unit/test_da_framing_prompt.py`.
