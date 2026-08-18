@@ -464,3 +464,37 @@ concentrated/threshold-breach/prior-period shape and a distributed/plan-variance
 The gate can now be built on a basis broader than one recurring situation. The VA control-group
 question is a separate, still-open thread — worth its own investigation (structural data fact vs.
 pipeline gap), not a blocker on the framing build.
+
+---
+
+## 12. VA control-group investigation, closed (2026-08-18) — mode-specific, not dataset-wide
+
+Checked directly rather than left as an open thread. Traced `_benchmark_source`'s selection logic in
+`a9_deep_analysis_agent.py` (~line 2340): the field VA actually reads (`benchmark_segments`) is derived
+differently per DA's effective analysis mode — `problem` mode sources it from `where_is_not`;
+`opportunity` mode from `where_is`; `mixed` mode from `where_is` items tagged
+`segment_type="opportunity"`, specifically *because* mixed mode deliberately empties `where_is_not`
+(merges it into `where_is`) earlier in the same method. **`where_is_not` is not VA's signal — it is a
+`problem`-mode-only intermediate that the §10/§11 findings mistook for a general one.**
+
+**Verified live:** dispatched DA directly (API only, no SF needed) on `ecommerce_revenue` — an
+`opportunity`-adjacent card unrelated to the base-oil shock, resolving to `analysis_mode="mixed"`.
+Result: `where_is_not=0` (as expected for mixed mode — confirms the mechanism, not a new gap) but
+`benchmark_segments=17`, of which **10 are genuinely `control_group`-tagged**, with real segment names
+and deltas (`National Auto Parts Chain A`, `Chemicals & Additives`, `Synthetic Blend Engine Oil`...).
+This is exactly what `workflows.py` filters into VA's `control_group_segments` at registration.
+
+**Corrected conclusion.** §10/§11's "2/2 shapes lack a control group, shifting toward a broader dataset
+property" was premature — both tested shapes happened to be `problem` mode, and the absence is a
+property of that mode's data model (a genuine uniform-cost-shock read on those two specific KPIs), not
+the client's data generally. The VA field-test plan's control-group gap is real **only** for
+`problem`-mode runs on KPIs downstream of the shared base-oil shock (gross margin, net revenue, and
+presumably EBITDA/gross profit/operating income/premium mix — the other cards likely riding the same
+mechanism). Any `opportunity`- or `mixed`-mode KPI, verified against `ecommerce_revenue`, has real
+control-group segments available. **No code change indicated** — the mechanism is correct and
+mode-appropriate; the gap was in reading `where_is_not` as VA's signal when `benchmark_segments` always
+was.
+
+**Practical takeaway for the field-test plan:** point it at an opportunity/mixed-mode situation, not a
+problem-mode one downstream of the cost shock, and VA's DiD attribution has a genuine counterfactual to
+work with.

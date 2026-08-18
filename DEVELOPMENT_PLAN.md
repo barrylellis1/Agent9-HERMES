@@ -3257,16 +3257,26 @@ and its `key_assumptions` stated their own uncertainty rather than asserting the
 Different axis than L1 entirely, but worth the gate's design being aware sharper causal reasoning does
 not substitute for the objective actually being asked about — the two can and did vary independently.
 
-**Side finding (2026-08-17), generalized 2-for-2 on the second-shape run.** Both shapes tested show no
-control group for VA — `kt_is_is_not.where_is_not` / `.benchmark_segments` empty on both a concentrated
-and a distributed shape, so `control_group_segments=None` at VA registration either way. VA degrades
-correctly (confidence drops to LOW with the reason stated in the record, verified in
-`evaluate_solution_impact` — not a bug), but this is no longer a single-situation curiosity: 2/2 shapes
-tested lack a control group, shifting the likely explanation toward a broader dataset property or a
-computation gap rather than one recurring situation's bad luck. Adds to the "let VA's real outcome
-settle lens-vs-MBB" field-test plan's open gaps (alongside the missing council-provenance field), and
-is its own worthwhile investigation — structural fact vs. pipeline gap — independent of the framing
-gate build. Detail: `problem_framing_design.md` §10–11.
+✅ **VA control-group side finding — investigated and CLOSED (2026-08-18), correcting the note below.**
+The original observation (2/2 shapes showing `where_is_not` empty) was real, but the "shifting toward
+a broader dataset property" conclusion was premature — checked and it does not generalize. Traced
+`_benchmark_source` in `a9_deep_analysis_agent.py`: VA's actual signal is `benchmark_segments`, and
+`problem` mode sources that from `where_is_not` while `opportunity`/`mixed` modes source it from
+`where_is` instead (mixed mode deliberately empties `where_is_not`, retagging its content rather than
+losing it). Both tested shapes happened to be `problem` mode. Dispatched DA directly (API only) on
+`ecommerce_revenue` — a `mixed`-mode KPI unrelated to the shared base-oil shock — and got 17
+`benchmark_segments`, **10 genuinely `control_group`-tagged** with real names and deltas (`National
+Auto Parts Chain A`, `Chemicals & Additives`...), exactly what `workflows.py` would register onto a VA
+solution. **No code change indicated.** The gap is real only for `problem`-mode KPIs downstream of the
+base-oil shock (margin, revenue, and presumably the P&L rollups riding the same mechanism) — not the
+client's data generally. Field-test plan takeaway: point it at an opportunity/mixed-mode situation, and
+VA has a genuine counterfactual. Detail: `problem_framing_design.md` §12.
+
+~~Adds to the "let VA's real outcome settle lens-vs-MBB" field-test plan's open gaps (alongside the
+missing council-provenance field), and is its own worthwhile investigation — structural fact vs.
+pipeline gap — independent of the framing gate build.~~ (superseded by the paragraph above — kept,
+struck through, so the correction is visible rather than silently overwriting what was believed a day
+earlier.) Second-shape detail remains at `problem_framing_design.md` §10–11; the VA correction is §12.
 
 **Sequencing note.** Item 3 is a UI change and item 1 is a UX addition, so this phase overlaps Phase
 18's console work. Worth landing them together rather than editing `DeepFocusView.tsx` twice.
