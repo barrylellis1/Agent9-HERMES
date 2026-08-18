@@ -3229,7 +3229,7 @@ inherited by everything downstream.
 | **6** | SF synthesis task text must be able to *express* a reframed objective | today it requires every option to name "the primary driver of THIS KPI situation" |
 | **7** | DQ link 1 grades the **recorded decision**, retiring the term screen | also retires a screen with a known 71% FPR on this class |
 
-**Two prerequisites — one closed, one open (2026-08-17).**
+**Both prerequisites now closed (2026-08-17).** The build is unblocked for the first time this session.
 
 ✅ **Adjudicate the corpus before building — done.** All 13 `scope_arm_*.json` runs plus 4 fresh live
 e2e runs (MBB control, MBB+refinement, first-ever live `lens_council` run) read verbatim, not just
@@ -3238,21 +3238,35 @@ alternative (recover margin vs. reduce base-oil exposure — the confirmed root 
 every one of 17 runs. Sharpens the phase's own falsifier rather than triggering it: not "confirmed
 unchanged," *never asked*. Full writeup: `problem_framing_design.md` §10.
 
-🔴 **Score a second problem shape — still open, now the sole blocker.** All 39 corpus options plus
-everything scored this session are one KPI on one DA result (`gross_margin_pct`, one dominant segment,
-one confirmed external mechanism), so *"frame fails 11 of 13"* stays consistent with **this problem has
-one right frame** until a `distributed` or `no-control` shape is scored. Cheap (a few DA+SF runs).
-**Do this before item 1** — now doing double duty, since it also determines whether a side finding
-(below) is a one-situation artifact or a broader limitation.
+✅ **Score a second problem shape — done.** Deliberately targeted Net Revenue's plan-variance card
+(*"$20.2M / -16.2% below budget"*) over another year-over-year decline, specifically for its different
+comparator mechanism (`plan_variance`/budget, not `threshold_breach`/prior-period) and unknown
+concentration pattern. Confirmed genuinely different on two independent axes computed directly from
+`kt_is_is_not`: 60 segments analyzed (vs. single digits), dominance ratio 1.76 — **below DA's own 2.0
+"concentrated" threshold**, i.e. `distributed`, not `concentrated`. **The framing gap holds across
+both shapes identically** — L1 fails on adjudication both times (5/6, capped by frame), the objective
+is never offered as a choice either time, and each shape carries its own specific unexamined
+alternative (base-oil exposure on shape 1; whether the shortfall is real or a budget-setting artifact
+on shape 2). *"Frame fails N of 13"* no longer rests on testing one recurring situation. Full writeup:
+`problem_framing_design.md` §11.
 
-**Side finding (2026-08-17), not anticipated when this prerequisite was written:** the same recurring
-situation may have no control group for VA either — `kt_is_is_not.where_is_not` /
-`.benchmark_segments` both empty on a checked live payload, so `control_group_segments=None` at VA
-registration. VA degrades correctly (confidence drops to LOW with the reason stated in the record,
-verified in `evaluate_solution_impact` — not a bug), but it means nothing approved against this exact
-situation can produce a HIGH-confidence DiD verdict, and it adds a second gap (alongside the missing
-council-provenance field) to the "let VA's real outcome settle lens-vs-MBB" field-test plan from Phase
-18. Detail: `problem_framing_design.md` §10.
+**One genuine difference worth carrying into the build, found on shape 2 and not shape 1:** the
+frame's *reasoning quality* — not whether the objective was examined — was visibly sharper. Shape 2's
+`COMPLICATION` explicitly separated confirmed problem segments from likely budget-artifact segments,
+and its `key_assumptions` stated their own uncertainty rather than asserting the root cause as settled.
+Different axis than L1 entirely, but worth the gate's design being aware sharper causal reasoning does
+not substitute for the objective actually being asked about — the two can and did vary independently.
+
+**Side finding (2026-08-17), generalized 2-for-2 on the second-shape run.** Both shapes tested show no
+control group for VA — `kt_is_is_not.where_is_not` / `.benchmark_segments` empty on both a concentrated
+and a distributed shape, so `control_group_segments=None` at VA registration either way. VA degrades
+correctly (confidence drops to LOW with the reason stated in the record, verified in
+`evaluate_solution_impact` — not a bug), but this is no longer a single-situation curiosity: 2/2 shapes
+tested lack a control group, shifting the likely explanation toward a broader dataset property or a
+computation gap rather than one recurring situation's bad luck. Adds to the "let VA's real outcome
+settle lens-vs-MBB" field-test plan's open gaps (alongside the missing council-provenance field), and
+is its own worthwhile investigation — structural fact vs. pipeline gap — independent of the framing
+gate build. Detail: `problem_framing_design.md` §10–11.
 
 **Sequencing note.** Item 3 is a UI change and item 1 is a UX addition, so this phase overlaps Phase
 18's console work. Worth landing them together rather than editing `DeepFocusView.tsx` twice.

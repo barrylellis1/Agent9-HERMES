@@ -409,3 +409,58 @@ close two open items at once.
 result argues FOR building the gate. Second prerequisite (a second problem shape) — still open, and is
 now doing double duty: it also determines whether the VA control-group gap is a one-situation artifact
 or a real limitation on how the eventual field signal can work.
+
+---
+
+## 11. Second problem shape scored (2026-08-17) — both prerequisites now closed
+
+Targeted deliberately, not incidentally: a fresh SA scan surfaced 11 cards, most plausibly downstream
+of the same base-oil shock (EBITDA, Gross Profit, Premium Product Mix % all likely reflect the same
+root cause via different P&L rollups). **Net Revenue** — *"$20.2M (-16.2%) below budget"* — was chosen
+specifically because it runs a different comparator mechanism (`plan_variance`/`budget`, not
+`threshold_breach`/prior-period) with an unknown concentration pattern, since Revenue and Margin are
+driven by different segment structures. Council left at the MBB default deliberately, to isolate
+problem shape as the one variable under test rather than conflate it with the lens_council question.
+
+**Confirmed genuinely different on two independent axes**, computed directly from `kt_is_is_not` (the
+same method used for the shape-1 VA finding, since `concentration`/`has_control_group` are DA-internal
+routing signals never persisted into the response):
+
+| | shape 1 (gross margin) | shape 2 (net revenue) |
+|---|---|---|
+| alert_type / comparator | `threshold_breach` / prior-period | `plan_variance` / **budget** |
+| segments analyzed (`where_is`) | single digits | **60** |
+| dominance ratio (top two deltas) | one dominant driver | **1.76** — below DA's own 2.0 "concentrated" threshold |
+| concentration | concentrated | **distributed** |
+| `where_is_not` (control group) | 0 | **0** |
+
+**DQ result: same cap, for the same underlying reason.** L1 fails on adjudication (not just the raw
+screen — the QUESTION field asks *how to sequence* the response, never *whether* recovering Net
+Revenue is the right objective). L2–L6 all pass. 5/6, capped by frame — identical shape to every prior
+run this session.
+
+**What's genuinely different: the frame's own reasoning quality, not whether the objective got
+examined.** This run's `COMPLICATION` explicitly separates real problems from budget artifacts —
+*"the five largest absolute-dollar shortfalls... are adverse only versus budget, not versus prior
+year, indicating likely budget-setting or timing artifacts rather than true deterioration"* — versus
+segments *"confirmed... adverse on BOTH bases."* Its `key_assumptions` state their own uncertainty
+plainly (*"inferred... but not yet segment-verified"*) rather than asserting the root cause as settled
+fact, which every shape-1 run did. That is real epistemic work, on a different axis than L1 entirely —
+sharper reasoning *inside* an unexamined objective, not examination of the objective itself. This
+shape's own analogous unexamined alternative: *is the objective recovering the revenue number, or
+fixing a budget-setting process that appears to be generating part of the "shortfall" itself?* Never
+asked, structurally the same gap as shape 1's base-oil-exposure question, just a different specific
+candidate.
+
+**The VA control-group finding generalizes — 2 for 2, not 1.** `where_is_not` empty on both a
+concentrated shape and a distributed one. Shifts the likely explanation: less "this one recurring
+situation happens to lack a comparison group," more a broader property of this dataset or a gap in how
+`benchmark_segments` gets computed generally. Still n=2 — worth its own dedicated check — but no longer
+a single-shape curiosity, and the shape search did NOT turn up a genuine control group as hoped.
+
+**Both build prerequisites are now closed.** Adjudicate before building (§10) — done, argues for the
+gate. Score a second shape before concluding "one right frame" — done: the framing gap holds across a
+concentrated/threshold-breach/prior-period shape and a distributed/plan-variance/budget shape alike.
+The gate can now be built on a basis broader than one recurring situation. The VA control-group
+question is a separate, still-open thread — worth its own investigation (structural data fact vs.
+pipeline gap), not a blocker on the framing build.
