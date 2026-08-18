@@ -80,6 +80,11 @@ recommendation — are already written and shipped downstream.
 *against the chosen frame*. The rejected alternative was letting the gate rewrite an
 already-generated SCQA, which keeps a discarded frame in the payload and in the reader's head.
 
+> **Executed by a full backend reorder** (Phase 19 implementation plan, 2026-08-18): SCQA generation
+> in `execute_deep_analysis()` becomes conditional and deferred behind `enable_framing_gate`, with a
+> new `generate_scqa_for_frame()` producing it later, against the chosen objective, once the gate
+> (mechanism B, §8 item 1 below) has fired. Not a UI-only reordering of when the SCQA block renders.
+
 This is the correct reading of what SCQA *is*. Situation–Complication–**Question**–Answer is a framing
 device whose Q is the frame; generating it before the frame is chosen means the framing device is
 doing the framing. Once the order is right, SCQA becomes the artefact that *records* the chosen frame,
@@ -231,8 +236,8 @@ that is a frame assumption written to this register. The intent is connected; no
 
 | surface | change |
 |---|---|
-| **framing gate** | new, **mandatory**, fires before SF regardless of whether the interview runs. NOT a `REFINEMENT_TOPIC_SEQUENCE` entry — unbundling means `PROTECTED_TOPICS` and `MAX_TOPICS_IN_SEQUENCE` are untouched, and the Stage I B-1 routed topics keep their slots |
-| `_generate_scqa_summary()` + DA recommendation | **move to after the gate**, generated against the chosen frame (§1b decision) |
+| **framing gate** | new, **mandatory**, fires before SF regardless of whether the rest of the interview runs. ~~NOT a `REFINEMENT_TOPIC_SEQUENCE` entry~~ — 🔁 **superseded (2026-08-18):** IS a sequence entry now, `problem_framing` at index 0 (mechanism B, §8 item 1) — but the practical guarantee is unchanged: `PROTECTED_TOPICS`/`MAX_TOPICS_IN_SEQUENCE` stay untouched, and the Stage I B-1 routed topics keep their slots |
+| `_generate_scqa_summary()` + DA recommendation | **move to after the gate**, generated against the chosen frame (§1b decision) — executed by a full backend reorder behind `enable_framing_gate`, not a UI-only mitigation |
 | `DeepFocusView.tsx` — `ScqaBlock` | 🔴 **must not render pre-gate.** Today it shows the answer first as "Recommendation" in `text-lg text-white` and the Q last in `text-slate-500 italic text-xs`, anchoring the reader on a frame nobody chose. Pre-gate the panel shows evidence only: KT Is/Is-Not, change points, dimensions analysed, §4.5 exclusions |
 | `Assumption` register | the frame decision is written here with `falsification_criterion` + `expiry` (§4b). No new model needed |
 | `RefinementResult` | carries the frame decision + whether it was changed, when the interview does run |
@@ -274,9 +279,17 @@ radius than one interview topic. Worth revisiting if the interview route proves 
 
 ## 8. Open decisions — ✅ all settled 2026-08-16 (owner); build prerequisites remain in §9
 
-1. ~~**Does `problem_framing` join `PROTECTED_TOPICS`?**~~ ✅ **Closed by unbundling (§4).** It is not
+1. ~~**Does `problem_framing` join `PROTECTED_TOPICS`?**~~ ~~✅ **Closed by unbundling (§4).** It is not
    a sequence entry at all, so the cap and the protected set are untouched and the Stage I B-1 routed
-   topics keep their slots.
+   topics keep their slots.~~
+   > 🔁 **Superseded (2026-08-18) — mechanism B chosen over the unbundled gate.** The framing question
+   > is instead the **mandatory first topic** (`problem_framing`) of the existing Problem Refinement
+   > interview — a real `REFINEMENT_TOPIC_SEQUENCE` entry at index 0, inserted *after* the existing cap
+   > block so it cannot be trimmed. `PROTECTED_TOPICS`/`MAX_TOPICS_IN_SEQUENCE` stay untouched (adding
+   > framing to the protected set would be a no-op, since the cap has already run by the time it's
+   > inserted) — so the practical conclusion above (Stage I B-1 routed topics keep their slots) still
+   > holds, just via a different mechanism than "not a sequence entry at all." Full detail: Phase 19
+   > implementation plan (2026-08-18), Slice 4.
 2. ✅ **DECIDED (owner, 2026-08-16) — the frame is a "Framing Statement" attached to the Situation
    Card for that KPI.** It becomes a named, attributable artefact the reader sees as a frame, rather
    than a frame absorbed implicitly through SCQA prose. This also does part of §1c's work: the
@@ -498,3 +511,14 @@ was.
 **Practical takeaway for the field-test plan:** point it at an opportunity/mixed-mode situation, not a
 problem-mode one downstream of the cost shock, and VA's DiD attribution has a genuine counterfactual to
 work with.
+
+---
+
+## 13. Build started (2026-08-18) — Phase 19 implementation plan approved
+
+Both build prerequisites (§10, §11) closed; the mandatory-gate mechanism, evidence direction, and
+submission model were settled in the same planning pass. The 8-slice implementation plan — including
+Decision #12, repositioning Market Analysis as an input to DA's own framing prompt and (deferred) SCQA
+rather than a sidecar attached between DA and SF, at no added call cost — lives outside this doc's
+narrative-history format; see `C:\Users\Blell\.claude\plans\with-this-now-in-goofy-meteor.md` for the
+build sequencing and `DEVELOPMENT_PLAN.md` Phase 19 for status tracking going forward.

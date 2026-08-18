@@ -3221,13 +3221,14 @@ inherited by everything downstream.
 
 | # | Work | Notes |
 |---|---|---|
-| **1** | Mandatory one-question framing gate, fires before SF **independently of the refinement interview** | unbundled — `REFINEMENT_TOPIC_SEQUENCE` / `PROTECTED_TOPICS` / `MAX_TOPICS_IN_SEQUENCE` untouched |
-| **2** | Move `_generate_scqa_summary()` + DA's recommendation to **after** the gate | SCQA is the *output* of framing (decided 2026-08-16) |
+| **1** | ~~Mandatory one-question framing gate, fires before SF **independently of the refinement interview**~~ 🔁 **superseded (2026-08-18) — mechanism B:** the framing question is the **mandatory first topic** (`problem_framing`) of the existing refinement interview instead, gating "Generate Solutions" until answered | `REFINEMENT_TOPIC_SEQUENCE` / `PROTECTED_TOPICS` / `MAX_TOPICS_IN_SEQUENCE` — practical guarantee unchanged (framing inserted after the cap runs), mechanism changed |
+| **2** | Move `_generate_scqa_summary()` + DA's recommendation to **after** the gate | SCQA is the *output* of framing (decided 2026-08-16); executed by a full backend reorder behind `enable_framing_gate` |
 | **3** | 🔴 `DeepFocusView.tsx` must not render `ScqaBlock` pre-gate | today it shows the answer first as "Recommendation" in `text-lg text-white` and the frame last in `text-slate-500 italic text-xs` — an anchored "yes" that still reports `frame_examined: true` |
-| **4** | Frame decision written to the `Assumption` register with `falsification_criterion` + `expiry` | no new model; provenance ladder already exists |
+| **4** | Frame decision written to the `Assumption` register with `falsification_criterion` + `expiry_event` | no new model; provenance ladder already exists; `expiry_event` (not calendar `expiry`) since the trigger is a VA verdict |
 | **5** | Re-present a prior frame **with its reasoning and falsifier**, never as a pre-ticked default | the accretion-hardening risk; this is the whole mitigation |
 | **6** | SF synthesis task text must be able to *express* a reframed objective | today it requires every option to name "the primary driver of THIS KPI situation" |
-| **7** | DQ link 1 grades the **recorded decision**, retiring the term screen | also retires a screen with a known 71% FPR on this class |
+| **7** | DQ link 1 grades the **recorded decision**, retiring the term screen | also retires a screen with a known 71% FPR on this class — **carried forward, not built in the current plan** (see below) |
+| **8** | Market Analysis repositioned as an input to DA's own framing/SCQA construction, not a sidecar between DA and SF | same MA call timing, no added latency/cost — Decision #12 of the implementation plan |
 
 **Both prerequisites now closed (2026-08-17).** The build is unblocked for the first time this session.
 
@@ -3280,6 +3281,14 @@ earlier.) Second-shape detail remains at `problem_framing_design.md` §10–11; 
 
 **Sequencing note.** Item 3 is a UI change and item 1 is a UX addition, so this phase overlaps Phase
 18's console work. Worth landing them together rather than editing `DeepFocusView.tsx` twice.
+
+✅ **Implementation plan approved, build started (2026-08-18).** 8-slice plan (register support →
+framing prompt builder → SCQA deferral → wiring into the interview with server-side bypass guards →
+frontend types + `FramingGateCard` → closing the three SF bypass paths + the pre-existing Cancel bug →
+SF expressing the reframe), each independently committable behind `DA_ENABLE_FRAMING_GATE` (default
+`false`). Plan: `C:\Users\Blell\.claude\plans\with-this-now-in-goofy-meteor.md`. Item 7 above (DQ link 1
+grading the recorded decision) is explicitly carried forward, not part of this build — the plan ships
+the decision record and the gate; re-pointing `decision_quality.py` at it is a follow-on.
 
 **Stated falsifier** (from the design note, recorded before any build): if the frame is examined and
 confirmed unchanged in nearly every run, this is an expensive way to write `frame_examined: true`, and
