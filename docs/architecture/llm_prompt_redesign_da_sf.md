@@ -22,7 +22,7 @@ Three controlled A/B rounds and a HITL conversational A/B (Sonnet 4.6 / Sonnet 5
 2. **Context contract, explicitly consumed.** Every context block injected must be paired with an instruction that says what to *do* with it. Data without direction is tokens wasted.
 3. **Strict tenancy, no generic fallbacks.** A missing business-context record produces an explicit "no business context available" line — never invented defaults. (Same principle as the `_lookup_kpi_scoped` fix.)
 4. **De-prescribe for current-generation models.** State the goal, the accuracy constraints, and the audience; stop enumerating steps. A/B every deletion — the CONSISTENCY CHECK and grounding rules are analytical (keep); the format rules are scaffolding (remove once schemas land).
-5. **Principal lens at every LLM touchpoint** — not just persona selection. This is the product's stated differentiator (principal-lens weighting design) and is currently unwired at the reasoning layer.
+5. **Principal Perspective at every LLM touchpoint** — not just persona selection. This is the product's stated differentiator (principal-Perspective weighting design) and is currently unwired at the reasoning layer.
 
 ## 3. Solution Finder changes
 

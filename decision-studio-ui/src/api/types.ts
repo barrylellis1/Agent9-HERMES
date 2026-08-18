@@ -175,7 +175,17 @@ export interface DeepAnalysisResult {
   replication_constraints?: string[];
 }
 
-export interface Perspective {
+/**
+ * One council lens's reading of an option. Mirrors `LensView` in
+ * src/agents/models/solution_finder_models.py.
+ *
+ * RENAMED FROM `Perspective` (2026-08-16). "Lens" and "Perspective" were both
+ * being used for two unrelated concepts; the convention is now:
+ *   lens        = WHO is looking (commercial / operational / structural)
+ *   Perspective = WHAT they compare against (Plan / Trend / Peer / Value-gap /
+ *                 Bridge — see principal_lens_weighting_design.md, design-stage)
+ */
+export interface LensView {
   lens: string;
   key_questions: string[];
   arguments_for: string[];
@@ -252,7 +262,10 @@ export interface SolutionOption {
   risk: number;
   time_to_value: string;
   reversibility: 'low' | 'medium' | 'high';
-  perspectives: Perspective[];
+  lens_views: LensView[];
+  /** Pre-2026-08-16 spelling. Still present on briefing snapshots persisted to
+   *  Supabase and in localStorage, so read paths must tolerate it. */
+  perspectives?: LensView[];
   prerequisites: string[];
   implementation_triggers: string[];
   expected_impact?: number; // Alias for impact

@@ -135,10 +135,12 @@ export const TradeOffAnalysis: React.FC<TradeOffAnalysisProps> = ({
                     </div>
                 </div>
 
-                {/* Council Perspectives (Compact) */}
+                {/* Council Lenses (Compact) */}
                 <div className="mt-auto pt-4 border-t border-slate-800/50">
                     <div className="space-y-2">
-                        {opt.perspectives.slice(0, 2).map((p, i) => ( // Show top 2 perspectives
+                        {/* Legacy `perspectives` fallback: this component also renders
+                            briefing snapshots written before the 2026-08-16 rename. */}
+                        {((opt.lens_views ?? opt.perspectives) ?? []).slice(0, 2).map((p, i) => ( // Show top 2 lenses
                             <div key={i} className="flex gap-2">
                                 <div className="min-w-[4px] w-[4px] rounded-full bg-slate-700" />
                                 <div>

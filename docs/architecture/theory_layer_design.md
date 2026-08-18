@@ -1,7 +1,7 @@
 # The Theory Layer — Design Sketch
 
 **Status:** Design direction (July 2026). Not scheduled. P0 items are candidates for near-term scheduling; everything else is gated (see §10).
-**Companion docs:** `principal_lens_weighting_design.md` (five lenses, role weighting, Value Driver Tree V1), `analytical_methodology_positioning.md` (KT/MBB framing), DEVELOPMENT_PLAN.md Phase 12 (12A–12E).
+**Companion docs:** `principal_perspective_weighting_design.md` (five lenses, role weighting, Value Driver Tree V1), `analytical_methodology_positioning.md` (KT/MBB framing), DEVELOPMENT_PLAN.md Phase 12 (12A–12E).
 **Part of the unified SF build spine — DEVELOPMENT_PLAN.md Phase 15:** this doc's §5.2 / §8 / §10 are **Stages D–F** (grounding + constraint input, critic pass, "bets on" → VA). The SF prompt/schema half — **Stages A–C** — is `llm_prompt_redesign_da_sf.md`. The unified `SolutionAssumption` (Stage B) also absorbs Phase 11J P1.
 
 ---
@@ -259,7 +259,7 @@ The flywheel (usage → theory → sharper output → trust → usage) fails at 
 
 Avoid two failure modes: the force-directed causal hairball (executives reject on sight) and the pure financial driver tree (arithmetic, not causal). Use one as the skeleton of the other:
 
-**Spine** = Value Driver Tree per `principal_lens_weighting_design.md` §7: objective (12C) → apex metric per principal → decomposition branches → KPIs; node color = worst attached situation severity; node weight = value-at-stake. Deterministic layout, DuPont-familiar.
+**Spine** = Value Driver Tree per `principal_perspective_weighting_design.md` §7: objective (12C) → apex metric per principal → decomposition branches → KPIs; node color = worst attached situation severity; node weight = value-at-stake. Deterministic layout, DuPont-familiar.
 
 **Toggleable overlays:**
 1. **External ports** — off-tree nodes (Base Oil, rates, competitor capacity) docking into tree nodes, edges badged with lag + buffer. Renders the Lubricants anchor scenario literally.

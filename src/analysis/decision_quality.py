@@ -171,7 +171,12 @@ def _norm(text: Optional[str]) -> str:
 def _option_blob(option: Dict[str, Any]) -> str:
     parts = [str(option.get(k) or "") for k in ("title", "description", "rationale")]
     parts += [str(p) for p in (option.get("prerequisites") or [])]
-    for persp in option.get("perspectives") or []:
+    # Both keys: `lens_views` is the current name, `perspectives` the pre-2026-08-16
+    # one. This scorer is run against ARCHIVED payloads as well as fresh ones — the
+    # whole point of a captured corpus is that old runs stay comparable — so
+    # dropping the legacy key here would silently shrink the text blob for every
+    # historical run and move its link-1/link-3 screens for no real reason.
+    for persp in (option.get("lens_views") or option.get("perspectives") or []):
         if isinstance(persp, dict):
             parts += [str(a) for a in (persp.get("arguments_for") or [])]
             parts += [str(a) for a in (persp.get("arguments_against") or [])]

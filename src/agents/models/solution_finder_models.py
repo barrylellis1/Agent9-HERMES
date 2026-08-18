@@ -4,7 +4,7 @@ Pydantic models for the Solution Finder Agent (A2A-compliant).
 from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator
 
 from src.agents.shared.a9_agent_base_model import (
     A9AgentBaseModel,
@@ -118,11 +118,31 @@ class TradeOffCriterion(A9AgentBaseModel):
     weight: float = 1.0
 
 
-class PerspectiveAnalysis(A9AgentBaseModel):
+class LensView(A9AgentBaseModel):
+    """One council lens's reading of an option.
+
+    RENAMED FROM `PerspectiveAnalysis` (2026-08-16) to settle a vocabulary
+    collision. "Lens" and "Perspective" were both being used for both of two
+    unrelated concepts:
+
+      * **Lens** — an *analytical territory* a council member reasons from
+        (`commercial` / `operational` / `structural`). This class.
+      * **Perspective** — a *comparison basis* for appraising a KPI
+        (Plan / Trend / Peer / Value-gap / Bridge), per
+        `principal_lens_weighting_design.md`. Design-stage; no code yet.
+
+    The convention is now: lens = who is looking, Perspective = what they compare
+    against. This class was the one built site holding the wrong word.
+    """
     lens: str  # "Financial", "Operational", "Strategic", etc.
     arguments_for: List[str] = Field(default_factory=list)
     arguments_against: List[str] = Field(default_factory=list)
     key_questions: List[str] = Field(default_factory=list)
+
+
+# Import-compatibility alias. Cheap to keep, and an external caller or a pickled
+# object referencing the old name should not explode on a vocabulary change.
+PerspectiveAnalysis = LensView
 
 
 class UnresolvedTension(A9AgentBaseModel):
@@ -146,7 +166,15 @@ class SolutionOption(A9AgentBaseModel):
     # Enhanced Decision Briefing Fields
     time_to_value: Optional[str] = None
     reversibility: Optional[str] = None  # high/medium/low
-    perspectives: List[PerspectiveAnalysis] = Field(default_factory=list)
+    # Renamed from `perspectives` (2026-08-16) — see LensView. The alias is NOT
+    # decoration: briefing snapshots are persisted to Supabase and replayed by the
+    # Portfolio view, and localStorage holds more of them, so payloads written
+    # under the old key must keep loading. Reading accepts either spelling;
+    # everything written from here on uses `lens_views`.
+    lens_views: List[LensView] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("lens_views", "perspectives"),
+    )
     implementation_triggers: List[str] = Field(default_factory=list)
     prerequisites: List[str] = Field(default_factory=list)
     impact_estimate: Optional[ImpactEstimate] = None  # business-unit (dollar/pp) recovery range — distinct from expected_impact above

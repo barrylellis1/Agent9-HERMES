@@ -188,8 +188,9 @@ produced was ranked against a system constant, and it renders as a fully-populat
 that passes any presence check — which is why nobody caught it. DQ's fourth link asks whether *this
 decision maker's* values were made explicit; the answer has always been no.
 
-This is the finding with a design already waiting for it: `principal_lens_weighting_design.md`
-specifies role-based lens weighting per principal. The intent exists; the wiring does not.
+This is the finding with a design already waiting for it: `principal_perspective_weighting_design.md`
+specifies role-based Perspective weighting per principal (renamed from "lens" 2026-08-16 — see that
+document's vocabulary note). The intent exists; the wiring does not.
 
 ### Finding 2 — the moderator is structurally blind to every failing link
 
