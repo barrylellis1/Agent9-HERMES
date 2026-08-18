@@ -736,6 +736,46 @@ def _format_market_signals(da_ctx: Any, refinement_result: Any, limit: int = _MA
         "; ".join(out[:limit])
 
 
+def _build_chosen_frame_section(framing_decision: Any) -> str:
+    """Phase 19, Slice 7 — the reframe SF must express once a framing
+    decision has been recorded, or the whole feature is hollow: the decision
+    would be recorded and displayed but never acted on.
+
+    Reuses the SHAPE of the existing `stage1_allow_frame_challenge` branch
+    (~line 2188 in this file) — that branch phrases an alternative frame as
+    *permission* ("you MAY instead propose a portfolio-level response"),
+    already tested and found insufficient (persona_council_experiments.md
+    §7b / the D-arm null: permission alone changed nothing measurable). This
+    is the same underlying idea — an option may serve an objective other
+    than raw KPI recovery — but driven by a RECORDED DECISION instead of
+    optional per-persona license, which has never been tested until this.
+
+    "" when no decision was recorded — never fabricates a frame nobody
+    chose, same discipline as every other LLM-failure-path fix this session.
+    Deliberately does not distinguish confirm_stated from alternative in
+    whether the section appears (both are examined decisions worth stating
+    explicitly) — only in the note explaining WHY the objective is what it is.
+    """
+    if not isinstance(framing_decision, dict):
+        return ""
+    objective = framing_decision.get("chosen_objective_text")
+    if not isinstance(objective, str) or not objective.strip():
+        return ""
+    choice = framing_decision.get("choice")
+    if choice == "confirm_stated":
+        _note = "The principal was shown specific alternative framings (from the causal graph and/or market signals) and confirmed this objective is correct."
+    else:
+        _note = "The principal examined specific alternative framings and chose this objective instead of the KPI's own raw recovery."
+    return (
+        "## CHOSEN FRAME (decided by the principal — do not re-derive or second-guess it)\n"
+        f"The objective for this analysis is: {objective.strip()}\n"
+        f"{_note}\n"
+        "Every option you propose MUST serve this objective. Do not propose an option that would "
+        "only make sense under a different framing (e.g. raw KPI recovery, if a different objective "
+        "was chosen instead) — that framing was considered and not chosen.\n\n"
+    )
+
+
 # How far to walk the causal graph from the analysed KPI. 2 reaches the upstream
 # cause (base_oil_cost -> cogs -> gross_margin_pct on the lubricants seed) without
 # pulling in the whole client graph. Raising this widens the prompt and weakens
@@ -1729,6 +1769,14 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         if refinement_result:
                             self.logger.info(f"[SF] Refinement keys: {list(refinement_result.keys()) if isinstance(refinement_result, dict) else 'not a dict'}")
 
+                    # Phase 19, Slice 7 — computed ONCE here (persona-invariant text),
+                    # closed over by Stage 1's per-persona _run_stage1 below and used
+                    # again directly in the synthesis prompt. "" when no decision was
+                    # recorded, so both prompts are byte-identical to today in that case.
+                    chosen_frame_section = _build_chosen_frame_section(
+                        refinement_result.get("framing_decision") if isinstance(refinement_result, dict) else None
+                    )
+
                     trimmed_da = _trim_deep_analysis_context(da_ctx)
                     # da_summary already extracted above
 
@@ -2248,6 +2296,7 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                     f"{decision_maker_section}"
                                     f"{causal_context_section_s1}"
                                     f"{principal_constraints_section}"
+                                    f"{chosen_frame_section}"
                                     "## YOUR TASK\n"
                                     f"{_s1_task}"
                                     f"## OUTPUT (JSON only, no markdown):\n{s1_schema}"
@@ -2642,6 +2691,12 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     # This ensures the LLM sees the constraints BEFORE the data
                     full_prompt = (
                         f"{debate_spec}\n\n"
+                        # Phase 19, Slice 7 — placed first among the directive sections,
+                        # right after debate_spec: the chosen frame governs how every
+                        # other section (causal context, critic findings, moderator
+                        # rubric) should be read, not the other way around. "" when no
+                        # decision was recorded — byte-identical to today in that case.
+                        f"{chosen_frame_section}"
                         f"{decision_maker_synthesis_section}"
                         f"{causal_context_section}"
                         f"{critic_findings_section}"

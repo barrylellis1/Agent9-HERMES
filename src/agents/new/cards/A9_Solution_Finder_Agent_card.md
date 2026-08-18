@@ -516,3 +516,37 @@ Observed behaviour on a live run: 2 of 9 assumptions claimed `grounded`, both tr
 **Firm names must not appear in output text (Phase 13 Cat 2).** Recorded as shipped via Phase 15 Stages A–B; never actually built. A live e2e run rendered *"This is Bain's Full Potential Transformation..."* into an option description and *"McKinsey's MECE cost-driver framing"* into the recommendation rationale — the council profiles name each firm and instruct "apply signature frameworks," so naming the firm in the answer was the obvious reading. New CONSTRAINTS-block rule forbids firm names (and possessives/paraphrases of them) in every returned field, while keeping persona identity as the reasoning anchor — this changes the words returned, not the analysis performed. Shipped without a dedicated live verification run: the leak is intermittent (one clean run, one leaking, same pipeline), so a single green run would not have proven much either way. `live-briefing-cat3.spec.ts`/`live-briefing-cat3-refined.spec.ts`'s firm-name sweep is the standing regression test.
 
 **`PerspectiveAnalysis` → `LensView`, `SolutionOption.perspectives` → `lens_views`.** Settles a vocabulary collision — see `docs/architecture/principal_perspective_weighting_design.md`'s new disambiguation note. The synthesis prompt's JSON template key was renamed to match; the parser accepts EITHER key (`o.get("lens_views") or o.get("perspectives")`) so a model that hasn't fully adopted the renamed key, or an in-flight request against the old prompt, doesn't silently parse to zero lens views. Verified live: a real synthesis call returned `lens_views`, payload-vs-DOM count matched in the briefing drawer.
+
+## Phase 19, Slice 7 — Solution Finder expresses the reframe (Aug 2026)
+
+Without this, DA's framing gate (`A9_Deep_Analysis_Agent_card.md`) records and displays a
+chosen objective but SF never acts on it — the whole feature would be hollow. New module
+function `_build_chosen_frame_section(framing_decision) -> str` reads
+`preferences.get("refinement_result", {}).get("framing_decision")` (a raw dict — the shape
+`FramingDecision` serializes to over the wire: `choice`/`chosen_kpi_id`/`chosen_objective_text`/
+`falsification_criterion`/`other_text`) and returns a `## CHOSEN FRAME` section stating the
+objective and that every option MUST serve it, or `""` when no decision was recorded (never
+fabricates a frame nobody chose — same discipline as the `problem_reframe` fix above).
+Computed ONCE (persona-invariant text) right after `refinement_result` is extracted, closed
+over by Stage 1's per-persona `_run_stage1` and reused directly in the synthesis prompt —
+injected last among Stage 1's directive sections (after `principal_constraints_section`, right
+before `## YOUR TASK`) and first among synthesis's (right after `debate_spec`, before
+`decision_maker_synthesis_section` — the chosen frame governs how every other section should
+be read, not the reverse).
+
+**Reuses the SHAPE of `stage1_allow_frame_challenge` (below), not its mechanism.** That flag
+phrases an alternative frame as *permission* ("you MAY instead propose a portfolio-level
+response") — already tested and found insufficient
+(`docs/architecture/persona_council_experiments.md` §7b, the D-arm null: permission alone
+changed nothing measurable across 21 real-run options). This is the same underlying idea — an
+option may serve an objective other than raw KPI recovery — but driven by a *recorded
+decision* instead of optional per-persona license, which had never been tested until this. No
+separate config flag gates it: the natural gate is data presence, since `framing_decision` can
+only be non-None once a principal has actually submitted DA's mandatory gate.
+
+Tests: `tests/unit/test_sf_chosen_frame_section.py` — the pure function (empty on
+None/non-dict/blank objective, correctly labeled for `confirm_stated` vs `alternative`/`other`)
+and, via the same `_CapturingOrchestrator` stub-harness `test_sf_stage_d_causal_grounding.py`
+established, an end-to-end proof the section reaches BOTH the synthesis prompt AND every Stage
+1 persona's prompt when a decision is present, and reaches neither when it's absent (the
+flag-off-equivalent control).
