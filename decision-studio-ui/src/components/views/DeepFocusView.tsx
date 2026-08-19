@@ -548,6 +548,23 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                 );
                             })()}
 
+                            {/* Phase 19 — while the framing gate defers the full (frame-aware)
+                                SCQA, this panel would otherwise be completely empty: the change-
+                                points fallback below is dead whenever a Variance Breakdown
+                                accordion already exists, which it does in the common case. Show
+                                the facts-only Situation+Complication DA already has — it names no
+                                recommendation, so there's nothing here for the framing decision to
+                                pre-empt. Found live 2026-08-19. */}
+                            {!currentAnalysis.scqa_summary && currentAnalysis.situation_complication_summary && (
+                                <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-2">
+                                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Preliminary Analysis</p>
+                                    <p className="text-slate-300 text-sm leading-relaxed">{currentAnalysis.situation_complication_summary}</p>
+                                    <p className="text-slate-500 italic text-xs">
+                                        A full recommendation will be available once you choose the objective in a Refinement Session.
+                                    </p>
+                                </div>
+                            )}
+
                             {/* §4.5 — a deny-list exclusion must never be silent. Shown whenever DA
                                 dropped a dimension because slice-validity flagged it, so "why isn't
                                 X in this breakdown" always has a visible answer. */}

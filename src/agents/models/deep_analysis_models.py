@@ -258,6 +258,18 @@ class DeepAnalysisResponse(A9AgentBaseResponse):
             "second KPI lookup."
         ),
     )
+    situation_complication_summary: Optional[str] = Field(
+        None,
+        description=(
+            "Facts-only Situation+Complication narrative — the half of SCQA that names no "
+            "recommendation and needs no chosen frame. Populated ONLY when scqa_deferred is True "
+            "(found live 2026-08-19: the framing gate deferring the whole scqa_summary blob left "
+            "the frontend's 'Analysis' panel completely empty pre-framing, even though DA already "
+            "has real facts — see _build_situation_complication_facts()). Deterministic, not an "
+            "LLM call: zero added latency/cost. Once a frame is chosen, the full frame-aware "
+            "scqa_summary supersedes this field; the frontend prefers scqa_summary when present."
+        ),
+    )
     kt_is_is_not: Optional[KTIsIsNot] = None
     change_points: List[ChangePoint] = Field(default_factory=list)
     timeframe_mapping: Optional[Dict[str, str]] = Field(default=None, description="{'current': 'X', 'previous': 'Y'}")

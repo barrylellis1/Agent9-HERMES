@@ -159,6 +159,14 @@ export interface KTIsIsNotData {
 
 export interface DeepAnalysisExecution {
   scqa_summary?: string;
+  /**
+   * Facts-only Situation+Complication narrative, populated only while scqa_deferred
+   * is true (Phase 19 framing gate) — see A9_Deep_Analysis_Agent_card.md. Names no
+   * recommendation, so it's safe to show before a frame is chosen. Once scqa_summary
+   * arrives (post-framing), prefer it — it supersedes this field.
+   */
+  situation_complication_summary?: string | null;
+  scqa_deferred?: boolean;
   change_points?: ChangePoint[];
   kt_is_is_not?: KTIsIsNotData;
   when_started?: string;

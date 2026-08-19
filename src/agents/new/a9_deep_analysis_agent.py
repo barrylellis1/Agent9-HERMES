@@ -2334,6 +2334,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             # behavior; this is a full backend reorder, not a UI-only mitigation.
             scqa_deferred = bool(getattr(self.config, "enable_framing_gate", False))
             scqa_inputs: Optional[Dict[str, Any]] = None
+            situation_complication_summary: Optional[str] = None
             if scqa_deferred:
                 scqa_summary = None
                 scqa_inputs = {
@@ -2341,6 +2342,24 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     "inverse_logic": (spec_main or {}).get("inverse_logic"),
                     "kpi_unit": getattr(kpi_def, "unit", None),
                 }
+                # Facts, not a recommendation — safe to show before a frame is chosen.
+                # Non-fatal: an empty Analysis panel is a worse look than a missing one,
+                # but neither should ever raise and abort the whole DA run.
+                try:
+                    situation_complication_summary = self._build_situation_complication_facts(
+                        plan=plan,
+                        kt=kt,
+                        change_points=change_points,
+                        spec=spec_main,
+                        analysis_mode=getattr(plan, "analysis_mode", "problem"),
+                        alert_type=getattr(plan, "alert_type", None),
+                        compound_pattern=getattr(plan, "compound_pattern", None),
+                        matrix_ran=matrix_ran,
+                        comparator_secondary=comparator_secondary,
+                    )
+                except Exception as e:
+                    self.logger.info(f"[FRAMING] situation_complication_summary build failed (non-fatal): {e}")
+                    situation_complication_summary = None
             else:
                 scqa_summary = await self._safe_generate_scqa_summary(
                     plan=plan,
@@ -2538,6 +2557,7 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 scqa_summary=scqa_summary,
                 scqa_deferred=scqa_deferred,
                 scqa_inputs=scqa_inputs,
+                situation_complication_summary=situation_complication_summary,
                 kt_is_is_not=kt,
                 change_points=change_points,
                 percent_growth_enabled=False,
@@ -3894,6 +3914,144 @@ If nothing relevant is found for a category, use an empty list."""
         except Exception as e:
             self.logger.info(f"[FRAMING] frame-aware SCQA generation failed (non-fatal): {e}")
             return None
+
+    def _build_situation_complication_facts(
+        self,
+        plan: "DeepAnalysisPlan",
+        kt: "KTIsIsNot",
+        change_points: List["ChangePoint"],
+        spec: Optional[Dict[str, Any]],
+        analysis_mode: str = "problem",
+        alert_type: Optional[str] = None,
+        compound_pattern: Optional[str] = None,
+        matrix_ran: bool = False,
+        comparator_secondary: Optional[str] = None,
+    ) -> str:
+        """Deterministic, facts-only Situation+Complication narrative.
+
+        Found live 2026-08-19: with `enable_framing_gate` on, `execute_deep_analysis`
+        defers the WHOLE scqa_summary blob (Situation+Complication+Question+Answer)
+        until a frame is chosen, leaving DeepFocusView's "Analysis" panel completely
+        empty pre-framing — its only other content sources (a change-points fallback,
+        a dimensions_excluded warning) are both dead whenever a normal Variance
+        Breakdown accordion exists. But Situation+Complication are pure facts: they
+        never referenced the chosen frame even in _generate_scqa_summary's own
+        _fallback() (only the Question line does, via _question_line()). So there's
+        no reason they need to wait.
+
+        Deliberately duplicates (rather than refactors) _fallback()'s per-mode
+        branches, stopping before the Question/Answer: this function only needs to
+        be called at DA-completion time and never touches the LLM, so keeping it
+        separate from the already-tested _generate_scqa_summary avoids any risk of
+        changing that function's behavior. If you change one, check whether the
+        other needs the same fix — see test_da_scqa_deferral.py.
+        """
+        def _basis_label(c: Optional[str]) -> str:
+            return "Budget/Plan" if c == "budget" else "prior period"
+
+        _rows_all = [r for r in ((getattr(kt, "where_is", []) or []) + (getattr(kt, "where_is_not", []) or [])) if isinstance(r, dict)]
+        _confirmed = [r.get("key", "") for r in _rows_all if r.get("basis_agreement") == "confirmed"][:5]
+        _basis_specific = [r.get("key", "") for r in _rows_all if r.get("basis_agreement") == "basis_specific"][:5]
+        _secondary_only = [r.get("key", "") for r in _rows_all if r.get("basis_agreement") == "secondary_only"][:5]
+
+        is_items = [r.get("key", "") for r in (getattr(kt, "where_is", []) or []) if isinstance(r, dict)][:5]
+        is_not_items = [r.get("key", "") for r in (getattr(kt, "where_is_not", []) or []) if isinstance(r, dict)][:5]
+        top_cps = [
+            f"{cp.dimension}={cp.key} ({cp.delta:+.1f})" if cp.delta is not None else f"{cp.dimension}={cp.key}"
+            for cp in (change_points or [])[:4]
+            if cp.dimension and cp.key
+        ]
+        comparator = (spec or {}).get("comparison_type", "prior period")
+        inv = (spec or {}).get("inverse_logic", False)
+        if analysis_mode == "opportunity":
+            direction = "under" if inv else "over"
+        else:
+            direction = "over" if inv else "under"
+
+        is_str = ", ".join(is_items) if is_items else "leading segments"
+        is_not_str = ", ".join(is_not_items) if is_not_items else "remaining segments"
+        cp_str = "; ".join(top_cps) if top_cps else "key contributors identified"
+
+        # Matrix branch takes priority — mirrors _fallback()'s ordering.
+        if matrix_ran and (_confirmed or _basis_specific):
+            _prim = _basis_label(comparator)
+            _sec = _basis_label(comparator_secondary)
+            _conf_str = ", ".join(_confirmed) if _confirmed else "no segments"
+            _bs_str = ", ".join(_basis_specific) if _basis_specific else None
+            parts = [
+                f"Situation: {plan.kpi_name} breached on two bases — vs {_prim} and vs {_sec}.",
+                (f"Complication: {_conf_str} are adverse on BOTH bases — the genuine problem to solve."
+                 if _confirmed else
+                 f"Complication: no segment is adverse on both bases — the breach is basis-specific."),
+            ]
+            if _bs_str:
+                parts.append(
+                    f"Note: {_bs_str} are adverse vs {_prim} but on-track vs {_sec} — likely a comparison-timing artifact, not a root-cause problem."
+                )
+            if _secondary_only:
+                parts.append(
+                    f"Also: {', '.join(_secondary_only)} look fine vs {_prim} but are adverse vs {_sec} — surfaced only by the second basis."
+                )
+            return " ".join(parts)
+
+        if analysis_mode == "opportunity":
+            return (
+                f"Situation: {plan.kpi_name} is {direction}-performing vs. {comparator}. "
+                f"Complication: The outperformance is concentrated in {is_str} — creating a replication opportunity in {is_not_str}. "
+                f"Key drivers: {cp_str}."
+            )
+
+        if analysis_mode == "mixed":
+            _where_is_rows = [r for r in (getattr(kt, "where_is", []) or []) if isinstance(r, dict)]
+            problem_segs = [r.get("key", "") for r in _where_is_rows if r.get("segment_type") == "problem"][:3]
+            opp_segs = [r.get("key", "") for r in _where_is_rows if r.get("segment_type") == "opportunity"][:3]
+            prob_str = ", ".join(problem_segs) if problem_segs else "underperforming segments"
+            opp_str = ", ".join(opp_segs) if opp_segs else "outperforming segments"
+            return (
+                f"Situation: {plan.kpi_name} shows mixed performance vs. the comparison period. "
+                f"Complication: Performance is bifurcated — {prob_str} are dragging results while "
+                f"{opp_str} are outperforming."
+            )
+
+        # Problem mode — apply alert-type-aware framing (mirrors _fallback()).
+        if compound_pattern:
+            complication = (
+                f"Complication: {compound_pattern} — "
+                f"the cross-KPI divergence suggests a structural issue beyond a single segment. "
+                f"Dimensional breakdown: {is_str}."
+            )
+        elif alert_type == "projected_breach":
+            complication = (
+                f"Complication: The trend is on trajectory to breach the threshold in the next period(s) — "
+                f"deterioration is concentrated in {is_str}."
+            )
+        elif alert_type == "plan_variance":
+            complication = (
+                f"Complication: Performance is tracking below plan, with the budget gap driven by {is_str}, "
+                f"while {is_not_str} are on target."
+            )
+        elif alert_type == "acceleration":
+            complication = (
+                f"Complication: The rate of decline is accelerating — the variance in {is_str} "
+                f"is widening period-over-period, not just persisting."
+            )
+        else:
+            complication = (
+                f"Complication: The variance is concentrated in {is_str}, while {is_not_str} are within range."
+            )
+
+        if alert_type == "projected_breach":
+            situation_prefix = f"Situation: {plan.kpi_name} is trending toward a threshold breach vs. {comparator}."
+        elif alert_type == "plan_variance":
+            situation_prefix = f"Situation: {plan.kpi_name} is tracking below plan vs. {comparator}."
+        else:
+            situation_prefix = f"Situation: {plan.kpi_name} is {direction}-performing vs. {comparator}."
+
+        return (
+            f"{situation_prefix} "
+            f"{complication} "
+            f"Key drivers: {cp_str}."
+        )
 
     async def _generate_scqa_summary(
         self,

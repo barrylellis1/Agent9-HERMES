@@ -280,3 +280,118 @@ class TestGenerateScqaForFrame:
                 decided_by_role=None,
             )
         assert result.startswith("Frame (chosen by cfo_001):")
+
+
+# ---------------------------------------------------------------------------
+# _build_situation_complication_facts — the pre-framing facts-only narrative
+#
+# Found live 2026-08-19: with the framing gate on, DeepFocusView's "Analysis"
+# panel rendered completely empty pre-framing — its only content sources
+# (scqa_summary, a change-points fallback dead whenever Variance Breakdown
+# already exists) were both absent simultaneously. This method exists so the
+# panel has real content immediately at DA completion, without waiting on a
+# frame — proven here by asserting NO Question/Answer text ever appears in
+# its output (that's the one guarantee that matters: it must never imply a
+# recommendation that hasn't been examined yet).
+# ---------------------------------------------------------------------------
+
+def _da_no_llm() -> A9_Deep_Analysis_Agent:
+    return _make_da_stub()  # same no-llm_service_agent stub — this method never calls the LLM anyway
+
+
+class TestSituationComplicationFacts:
+    def test_problem_mode_names_no_recommendation(self):
+        da = _da_no_llm()
+        result = da._build_situation_complication_facts(
+            plan=_plan(), kt=_kt(), change_points=[],
+            spec={"comparison_type": "previous", "inverse_logic": False},
+            analysis_mode="problem",
+        )
+        assert result.startswith("Situation:")
+        assert "Complication:" in result
+        assert "Question:" not in result
+        assert "Answer:" not in result
+
+    def test_opportunity_mode_names_no_recommendation(self):
+        da = _da_no_llm()
+        result = da._build_situation_complication_facts(
+            plan=_plan(), kt=_kt(), change_points=[],
+            spec={"comparison_type": "previous", "inverse_logic": False},
+            analysis_mode="opportunity",
+        )
+        assert "Situation:" in result and "Complication:" in result
+        assert "Question:" not in result and "Answer:" not in result
+
+    def test_mixed_mode_names_no_recommendation(self):
+        da = _da_no_llm()
+        kt_mixed = _kt(where_is=[
+            {"key": "A", "delta": 10, "segment_type": "opportunity"},
+            {"key": "B", "delta": -10, "segment_type": "problem"},
+        ])
+        result = da._build_situation_complication_facts(
+            plan=_plan(), kt=kt_mixed, change_points=[], spec={}, analysis_mode="mixed",
+        )
+        assert "bifurcated" in result
+        assert "Question:" not in result and "Answer:" not in result
+
+    def test_matrix_branch_names_no_recommendation(self):
+        da = _da_no_llm()
+        kt_matrix = _kt(
+            where_is=[{"key": "A", "delta": -5, "basis_agreement": "confirmed"}],
+            where_is_not=[{"key": "B", "basis_agreement": "basis_specific"}],
+        )
+        result = da._build_situation_complication_facts(
+            plan=_plan(), kt=kt_matrix, change_points=[], spec={},
+            analysis_mode="problem", matrix_ran=True, comparator_secondary="budget",
+        )
+        assert "breached on two bases" in result
+        assert "Question:" not in result and "Answer:" not in result
+
+    def test_alert_type_variants_all_avoid_recommendation(self):
+        da = _da_no_llm()
+        for alert_type in ("projected_breach", "plan_variance", "acceleration", None):
+            result = da._build_situation_complication_facts(
+                plan=_plan(), kt=_kt(), change_points=[],
+                spec={"comparison_type": "previous", "inverse_logic": False},
+                analysis_mode="problem", alert_type=alert_type,
+            )
+            assert "Question:" not in result and "Answer:" not in result, alert_type
+
+    def test_compound_pattern_names_no_recommendation(self):
+        da = _da_no_llm()
+        result = da._build_situation_complication_facts(
+            plan=_plan(), kt=_kt(), change_points=[], spec={},
+            analysis_mode="problem", compound_pattern="Revenue up 8% while margin fell 3pp",
+        )
+        assert "Revenue up 8% while margin fell 3pp" in result
+        assert "Question:" not in result and "Answer:" not in result
+
+    def test_never_raises_on_empty_inputs(self):
+        """Facts-only means it must degrade gracefully to generic language,
+        never raise — an empty Analysis panel is bad, an exception aborting
+        the whole DA run over cosmetic text is worse."""
+        da = _da_no_llm()
+        result = da._build_situation_complication_facts(
+            plan=_plan(), kt=KTIsIsNot(where_is=[], where_is_not=[]),
+            change_points=[], spec=None, analysis_mode="problem",
+        )
+        assert isinstance(result, str) and len(result) > 0
+
+
+class TestExecuteDeepAnalysisWiring:
+    """execute_deep_analysis wires _build_situation_complication_facts into the
+    scqa_deferred branch only — the flag-off path must stay untouched, and a
+    build failure must degrade to None rather than abort the run."""
+
+    def test_field_defaults_none(self):
+        r = DeepAnalysisResponse.success(request_id="x")
+        assert r.situation_complication_summary is None
+
+    def test_field_settable_alongside_deferred_scqa(self):
+        r = DeepAnalysisResponse.success(
+            request_id="x", scqa_summary=None, scqa_deferred=True,
+            situation_complication_summary="Situation: X is down. Complication: driven by Y.",
+        )
+        assert r.scqa_deferred is True
+        assert r.scqa_summary is None
+        assert r.situation_complication_summary == "Situation: X is down. Complication: driven by Y."

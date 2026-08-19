@@ -753,3 +753,21 @@ owner comparison only — it does not touch the broader role-vs-principal-ID loo
 tracked in the top-level `CLAUDE.md` ("Principal ID vs Role-Based Lookup"), which needs a real
 registry-level (ID-based) resolution. Covered by `TestRolesMatch` and
 `test_owner_attribution_tolerates_full_title_vs_short_code` in `tests/unit/test_da_framing_prompt.py`.
+
+### Pre-framing Analysis panel was empty (found live 2026-08-19, fixed)
+With `enable_framing_gate` on, `execute_deep_analysis` defers the entire 4-part SCQA blob
+(Situation/Complication/Question/Answer) as one field until a frame is chosen. The frontend's
+"Analysis" accordion (`DeepFocusView.tsx`) has no other content source once a Variance Breakdown
+accordion already exists (its change-points fallback only fires when there's no Is/Is-Not
+breakdown) — so the panel rendered completely empty pre-framing, a real regression its own
+in-code comment ("the sole situation narrative once DA completes") predates. Fixed by observing
+that Situation+Complication are pure facts — `_generate_scqa_summary`'s own deterministic
+`_fallback()` never references the chosen frame for those two parts, only for the Question line
+(via `_question_line()`). New `_build_situation_complication_facts()` mirrors (does not refactor)
+those per-mode branches up to the Question line, called unconditionally in the `scqa_deferred`
+branch of `execute_deep_analysis` (deterministic, no LLM call, no added cost/latency) and exposed
+as `DeepAnalysisResponse.situation_complication_summary`. The frontend renders it as a
+"Preliminary Analysis" block whenever `scqa_summary` is absent but this field is present;
+`scqa_summary` supersedes it automatically once framing is submitted. Covered by
+`TestSituationComplicationFacts` / `TestExecuteDeepAnalysisWiring` in `tests/unit/test_da_scqa_deferral.py`
+— every mode/alert-type branch is asserted to never contain "Question:"/"Answer:" text.
