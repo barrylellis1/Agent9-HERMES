@@ -406,3 +406,312 @@ class TestRolesMatch:
         assert _roles_match("CFO", None) is False
         assert _roles_match("", "") is False
         assert _roles_match(None, None) is False
+
+
+# ---------------------------------------------------------------------------
+# Phase 20 — _first_numeric_value (module-level scalar parser)
+# ---------------------------------------------------------------------------
+
+class TestFirstNumericValue:
+    def test_dict_row_takes_last_column(self):
+        from src.agents.new.a9_deep_analysis_agent import _first_numeric_value
+        result = {"columns": ["value"], "rows": [{"value": 42.5}]}
+        assert _first_numeric_value(result) == 42.5
+
+    def test_list_row_takes_last_column(self):
+        from src.agents.new.a9_deep_analysis_agent import _first_numeric_value
+        result = {"columns": ["value"], "rows": [[42.5]]}
+        assert _first_numeric_value(result) == 42.5
+
+    def test_no_rows_returns_none(self):
+        from src.agents.new.a9_deep_analysis_agent import _first_numeric_value
+        assert _first_numeric_value({"columns": ["value"], "rows": []}) is None
+
+    def test_not_a_dict_returns_none(self):
+        from src.agents.new.a9_deep_analysis_agent import _first_numeric_value
+        assert _first_numeric_value(None) is None
+        assert _first_numeric_value("not a dict") is None
+
+    def test_unparseable_value_returns_none_not_raise(self):
+        from src.agents.new.a9_deep_analysis_agent import _first_numeric_value
+        result = {"columns": ["value"], "rows": [{"value": "not-a-number"}]}
+        assert _first_numeric_value(result) is None
+
+    def test_null_value_returns_none(self):
+        from src.agents.new.a9_deep_analysis_agent import _first_numeric_value
+        result = {"columns": ["value"], "rows": [{"value": None}]}
+        assert _first_numeric_value(result) is None
+
+
+# ---------------------------------------------------------------------------
+# Phase 20 — _fetch_neighbour_snapshot (the lightweight rollup fetch)
+# ---------------------------------------------------------------------------
+
+def _dpa_stub(cur_val=None, prev_val=None, gen_success=True, exec_side_effect=None):
+    """A minimal data_product_agent double: generate_sql_for_kpi always
+    'succeeds' with a distinguishable SQL string per comparison_period, and
+    execute_sql returns cur_val/prev_val keyed off which SQL was requested —
+    same call-shape DA's own dimensional queries already use."""
+    dpa = MagicMock()
+
+    async def _gen(kpi_definition, timeframe=None, filters=None, comparison_period=False, **kw):
+        if not gen_success:
+            return {"success": False}
+        return {"success": True, "sql": "PREV_SQL" if comparison_period else "CUR_SQL"}
+
+    async def _exec(sql, data_product_id=None, **kw):
+        if exec_side_effect is not None:
+            return exec_side_effect(sql)
+        val = prev_val if sql == "PREV_SQL" else cur_val
+        if val is None:
+            return {"columns": ["value"], "rows": []}
+        return {"columns": ["value"], "rows": [{"value": val}]}
+
+    dpa.generate_sql_for_kpi = AsyncMock(side_effect=_gen)
+    dpa.execute_sql = AsyncMock(side_effect=_exec)
+    return dpa
+
+
+class TestFetchNeighbourSnapshot:
+    @pytest.mark.asyncio
+    async def test_no_data_product_agent_returns_none(self):
+        da = _make_da_stub()
+        da.data_product_agent = None
+        result = await da._fetch_neighbour_snapshot(_kpi("cogs", "hess"))
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_success_computes_percent_change(self):
+        da = _make_da_stub()
+        da.data_product_agent = _dpa_stub(cur_val=110.0, prev_val=100.0)
+        result = await da._fetch_neighbour_snapshot(_kpi("cogs", "hess"))
+        assert result is not None
+        assert result.value == 110.0
+        assert result.comparison_value == 100.0
+        assert result.percent_change == pytest.approx(10.0)
+
+    @pytest.mark.asyncio
+    async def test_zero_comparison_value_does_not_divide_by_zero(self):
+        da = _make_da_stub()
+        da.data_product_agent = _dpa_stub(cur_val=50.0, prev_val=0.0)
+        result = await da._fetch_neighbour_snapshot(_kpi("cogs", "hess"))
+        assert result is not None
+        assert result.percent_change is None  # never raises ZeroDivisionError
+
+    @pytest.mark.asyncio
+    async def test_generate_sql_failure_returns_none(self):
+        da = _make_da_stub()
+        da.data_product_agent = _dpa_stub(gen_success=False)
+        result = await da._fetch_neighbour_snapshot(_kpi("cogs", "hess"))
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_unparseable_execution_result_returns_none_not_raise(self):
+        da = _make_da_stub()
+        da.data_product_agent = _dpa_stub(exec_side_effect=lambda sql: {"columns": [], "rows": []})
+        result = await da._fetch_neighbour_snapshot(_kpi("cogs", "hess"))
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_execute_sql_raises_returns_none_not_propagate(self):
+        da = _make_da_stub()
+        dpa = MagicMock()
+        dpa.generate_sql_for_kpi = AsyncMock(return_value={"success": True, "sql": "X"})
+        dpa.execute_sql = AsyncMock(side_effect=RuntimeError("BigQuery timeout"))
+        da.data_product_agent = dpa
+        result = await da._fetch_neighbour_snapshot(_kpi("cogs", "hess"))
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Phase 20 — _fetch_neighbour_monthly_trend (BigQuery-only trend series)
+# ---------------------------------------------------------------------------
+
+def _bq_kpi(kpi_id="cogs", client_id="hess"):
+    return SimpleNamespace(
+        id=kpi_id, client_id=client_id, name=kpi_id,
+        sql_query="SELECT SUM(amount) AS value FROM `proj.dataset.financials` WHERE transaction_date BETWEEN '2026-01-01' AND '2026-08-31'",
+        calculation=None,
+        data_product_id="dp_lubricants_financials",
+        metadata={"date_column": "transaction_date"},
+    )
+
+
+class TestFetchNeighbourMonthlyTrend:
+    @pytest.mark.asyncio
+    async def test_non_bigquery_kpi_returns_none(self):
+        """No backtick-quoted table reference -> not detected as BigQuery ->
+        None, never a fabricated/wrong-dialect query attempt."""
+        da = _make_da_stub()
+        da.data_product_agent = MagicMock()
+        kpi = SimpleNamespace(id="cogs", sql_query="SELECT SUM([Amount]) FROM [dbo].[Financials]", calculation=None, data_product_id="dp1", metadata={})
+        result = await da._fetch_neighbour_monthly_trend(kpi)
+        assert result is None
+        da.data_product_agent.execute_sql.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_success_parses_period_value_rows(self):
+        da = _make_da_stub()
+        dpa = MagicMock()
+        dpa.execute_sql = AsyncMock(return_value={
+            "columns": ["period", "value"],
+            "rows": [{"period": "2026-06", "value": 100.0}, {"period": "2026-07", "value": 110.0}],
+        })
+        da.data_product_agent = dpa
+        result = await da._fetch_neighbour_monthly_trend(_bq_kpi())
+        assert result == [{"period": "2026-06", "value": 100.0}, {"period": "2026-07", "value": 110.0}]
+
+    @pytest.mark.asyncio
+    async def test_malformed_row_skipped_not_raised(self):
+        da = _make_da_stub()
+        dpa = MagicMock()
+        dpa.execute_sql = AsyncMock(return_value={
+            "columns": ["period", "value"],
+            "rows": [{"period": "2026-06", "value": "not-a-number"}, {"period": "2026-07", "value": 110.0}],
+        })
+        da.data_product_agent = dpa
+        result = await da._fetch_neighbour_monthly_trend(_bq_kpi())
+        assert result == [{"period": "2026-07", "value": 110.0}]
+
+    @pytest.mark.asyncio
+    async def test_no_rows_returns_none(self):
+        da = _make_da_stub()
+        dpa = MagicMock()
+        dpa.execute_sql = AsyncMock(return_value={"columns": ["period", "value"], "rows": []})
+        da.data_product_agent = dpa
+        result = await da._fetch_neighbour_monthly_trend(_bq_kpi())
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_execute_sql_raises_returns_none_not_propagate(self):
+        da = _make_da_stub()
+        dpa = MagicMock()
+        dpa.execute_sql = AsyncMock(side_effect=RuntimeError("BigQuery timeout"))
+        da.data_product_agent = dpa
+        result = await da._fetch_neighbour_monthly_trend(_bq_kpi())
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Phase 20 — ranking, cap, disclosure, primary_snapshot (integration through
+# _build_framing_prompt)
+# ---------------------------------------------------------------------------
+
+class TestFramingPromptRankingAndSnapshots:
+    @pytest.mark.asyncio
+    async def test_snapshot_attached_to_each_alternative_and_primary(self):
+        da = _make_da_stub()
+        da.data_product_agent = _dpa_stub(cur_val=110.0, prev_val=100.0)
+        edge = _relationship()
+        with _registry_patch([_kpi("gross_margin_pct", "hess"), _kpi("cogs", "hess")]), \
+             _providers(neighbourhood=[(edge, 1)]):
+            result = await da._build_framing_prompt(_da_output(), {})
+        assert result is not None
+        assert len(result.alternatives) == 1
+        assert result.alternatives[0].neighbour_snapshot is not None
+        assert result.alternatives[0].neighbour_snapshot.percent_change == pytest.approx(10.0)
+        assert result.primary_snapshot is not None
+
+    @pytest.mark.asyncio
+    async def test_a_failed_snapshot_never_drops_the_alternative(self):
+        da = _make_da_stub()
+        da.data_product_agent = None  # every fetch fails
+        edge = _relationship()
+        with _registry_patch([_kpi("gross_margin_pct", "hess"), _kpi("cogs", "hess")]), \
+             _providers(neighbourhood=[(edge, 1)]):
+            result = await da._build_framing_prompt(_da_output(), {})
+        assert result is not None
+        assert len(result.alternatives) == 1  # still present
+        assert result.alternatives[0].neighbour_snapshot is None  # just no context
+        assert result.primary_snapshot is None
+
+    @pytest.mark.asyncio
+    async def test_ranking_hop_tier_first_then_magnitude(self):
+        """Two hop-1 candidates (one moving a lot, one flat) and one hop-2
+        candidate moving a lot: hop-1 slots fill before hop-2 regardless of
+        magnitude, and within hop-1 the mover ranks above the flat one."""
+        da = _make_da_stub()
+
+        async def _exec(sql, data_product_id=None, **kw):
+            # kpi encoded in the generated SQL string via a stub gen below
+            return {"columns": ["value"], "rows": [{"value": 0.0}]}
+
+        # Distinguish per-KPI current/comparison values by kpi_definition.id
+        vals = {
+            "cogs_mover": (150.0, 100.0),      # hop 1, +50%
+            "premium_mix_flat": (100.0, 100.0),  # hop 1, 0%
+            "base_oil_mover": (200.0, 100.0),   # hop 2, +100%
+        }
+
+        async def _gen(kpi_definition, timeframe=None, filters=None, comparison_period=False, **kw):
+            kid = getattr(kpi_definition, "id", None)
+            return {"success": True, "sql": f"{kid}|{'prev' if comparison_period else 'cur'}"}
+
+        async def _exec2(sql, data_product_id=None, **kw):
+            kid, which = sql.split("|")
+            cur, prev = vals[kid]
+            v = prev if which == "prev" else cur
+            return {"columns": ["value"], "rows": [{"value": v}]}
+
+        dpa = MagicMock()
+        dpa.generate_sql_for_kpi = AsyncMock(side_effect=_gen)
+        dpa.execute_sql = AsyncMock(side_effect=_exec2)
+        da.data_product_agent = dpa
+
+        edge_mover_1hop = _relationship(kpi_id="gross_margin_pct", related_kpi_id="cogs_mover")
+        edge_flat_1hop = _relationship(kpi_id="gross_margin_pct", related_kpi_id="premium_mix_flat")
+        edge_mover_2hop_a = _relationship(kpi_id="gross_margin_pct", related_kpi_id="premium_mix_flat")
+        edge_mover_2hop_b = _relationship(kpi_id="premium_mix_flat", related_kpi_id="base_oil_mover")
+
+        with _registry_patch([
+            _kpi("gross_margin_pct", "hess"), _kpi("cogs_mover", "hess"),
+            _kpi("premium_mix_flat", "hess"), _kpi("base_oil_mover", "hess"),
+        ]), _providers(neighbourhood=[
+            (edge_mover_1hop, 1), (edge_flat_1hop, 1), (edge_mover_2hop_b, 2),
+        ]):
+            result = await da._build_framing_prompt(_da_output(), {})
+
+        assert result is not None
+        order = [a.kpi_id for a in result.alternatives]
+        # Both hop-1 candidates rank ahead of the hop-2 one, regardless of
+        # the hop-2 candidate's much larger magnitude.
+        assert order.index("cogs_mover") < order.index("base_oil_mover")
+        assert order.index("premium_mix_flat") < order.index("base_oil_mover")
+        # Within hop-1, the mover ranks ahead of the flat one.
+        assert order.index("cogs_mover") < order.index("premium_mix_flat")
+
+    @pytest.mark.asyncio
+    async def test_cap_and_disclosure_count(self):
+        """More than the list cap's worth of causal alternatives — the extras
+        are disclosed via additional_causal_measures_count, never silently
+        dropped with no trace."""
+        da = _make_da_stub()
+        da.data_product_agent = None  # snapshots irrelevant to this test
+        edges = [
+            _relationship(kpi_id="gross_margin_pct", related_kpi_id=f"neighbour_{i}")
+            for i in range(7)
+        ]
+        kpis = [_kpi("gross_margin_pct", "hess")] + [_kpi(f"neighbour_{i}", "hess") for i in range(7)]
+        with _registry_patch(kpis), _providers(neighbourhood=[(e, 1) for e in edges]):
+            result = await da._build_framing_prompt(_da_output(), {})
+        assert result is not None
+        assert len(result.alternatives) == da._FRAMING_ALTERNATIVES_LIST_CAP
+        assert result.additional_causal_measures_count == 7 - da._FRAMING_ALTERNATIVES_LIST_CAP
+
+    @pytest.mark.asyncio
+    async def test_market_signal_alternative_never_counted_against_the_cap(self):
+        """The market-signal alternative is a separate category (Decision #12)
+        — it must survive the causal-graph cap untouched, appended after."""
+        da = _make_da_stub()
+        da.data_product_agent = None
+        edges = [
+            _relationship(kpi_id="gross_margin_pct", related_kpi_id=f"neighbour_{i}")
+            for i in range(7)
+        ]
+        kpis = [_kpi("gross_margin_pct", "hess")] + [_kpi(f"neighbour_{i}", "hess") for i in range(7)]
+        conflict = {"detected": True, "confidence": 0.6, "summary": "Market signals diverge from the internal read."}
+        with _registry_patch(kpis), _providers(neighbourhood=[(e, 1) for e in edges]):
+            result = await da._build_framing_prompt(_da_output(market_conflict=conflict), {})
+        assert result is not None
+        assert len(result.alternatives) == da._FRAMING_ALTERNATIVES_LIST_CAP + 1
+        assert result.alternatives[-1].source == "market_signal"

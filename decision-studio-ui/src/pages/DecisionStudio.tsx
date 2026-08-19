@@ -22,8 +22,10 @@ export function DecisionStudio() {
     refinementResult,
     marketSignals,
     marketConflict,
+    marketSynthesis,
     framingRequired,
     framingDecision,
+    framingPrompt,
     showPersonaSelector,
     useHybridCouncil,
     councilType,
@@ -76,6 +78,7 @@ export function DecisionStudio() {
         refinementResult={refinementResult}
         framingRequired={framingRequired}
         framingDecision={framingDecision}
+        framingPrompt={framingPrompt}
         onTopicProgress={(progress) => {
             if (selectedSituation) applyRefinementProgress(selectedSituation.situation_id, progress);
         }}
@@ -112,6 +115,7 @@ export function DecisionStudio() {
         principalId={selectedPrincipal}
         initialMarketSignals={marketSignals}
         initialMarketConflict={marketConflict}
+        initialMarketSynthesis={marketSynthesis}
         principalContext={{
             principal_id: selectedPrincipal,
             // CouncilDebatePage reads this object back (router state / localStorage) and

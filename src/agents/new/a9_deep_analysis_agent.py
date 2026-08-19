@@ -8,6 +8,7 @@ A9 Deep Analysis Agent (MVP skeleton)
 # doc-sync-skip
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 import os
@@ -37,6 +38,7 @@ from src.agents.models.deep_analysis_models import (
     FramingPrompt,
     FramingDecision,
     FramingRecord,
+    NeighbourSnapshot,
 )
 from src.agents.models.data_governance_models import KPIDataProductMappingRequest
 from src.agents.utils.data_quality_filter import DataQualityFilter, filter_anomalies
@@ -216,6 +218,29 @@ def _roles_match(role_a: Optional[str], role_b: Optional[str]) -> bool:
     if a == b:
         return True
     return _ROLE_ABBREVIATION_EXPANSIONS.get(a, a) == _ROLE_ABBREVIATION_EXPANSIONS.get(b, b)
+
+
+def _first_numeric_value(exec_result: Optional[Dict[str, Any]]) -> Optional[float]:
+    """Extract the single scalar value from a non-dimensional (no GROUP BY)
+    execute_sql result — exactly one row, one meaningful value column. Mirrors
+    the column-index convention this file's _as_map closures use elsewhere
+    (the value lives in the LAST column) without needing a full key->value
+    map for a query that never had a grouping key to begin with. Returns None
+    on any shape mismatch — a malformed result must degrade, never raise."""
+    if not isinstance(exec_result, dict):
+        return None
+    rows = exec_result.get("rows") or []
+    cols = exec_result.get("columns") or []
+    if not rows or not cols:
+        return None
+    row = rows[0]
+    val_idx = len(cols) - 1
+    try:
+        val = row.get(str(cols[val_idx])) if isinstance(row, dict) else row[val_idx]
+        return float(val) if val is not None else None
+    except (ValueError, TypeError, IndexError, KeyError):
+        return None
+
 
 STYLE_GUIDANCE = {
     "analytical": """McKinsey-style: hypothesis-driven, MECE decomposition, statistical confidence.
@@ -3249,6 +3274,201 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         
         return "\n\n".join(summary_parts) if summary_parts else "No KT analysis data available."
 
+    # Phase 20 §14 decision 4 — cap on causal_graph FramingAlternatives actually
+    # shown; the rest are disclosed via additional_causal_measures_count, never
+    # silently dropped. 5, not 3: the chart component caps its own plotted
+    # lines at 3 independently (CausalTrendChart.tsx MAX_SECONDARY_SERIES) —
+    # text is cheaper to scan than an extra chart line, so the list stays
+    # slightly more generous than what gets drawn.
+    _FRAMING_ALTERNATIVES_LIST_CAP = 5
+
+    async def _fetch_neighbour_snapshot(
+        self,
+        kpi_definition: Any,
+        timeframe: Optional[str] = None,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> Optional[NeighbourSnapshot]:
+        """One non-dimensional rollup query (current + comparison period) for a
+        single KPI — a causal neighbour, or the analysed KPI itself used as the
+        chart's primary line. NOT execute_deep_analysis: see
+        problem_framing_design.md §14 decision 1 for the cost reasoning (~3-4x
+        latency/query count per framing decision, measured not estimated, if the
+        full dimensional pipeline ran on every candidate). Reuses the exact
+        same DPA call pattern execute_deep_analysis already uses for its own
+        KPI's rollup totals (generate_sql_for_kpi with breakdown left False, no
+        override_group_by) — just for a different KPI and without the
+        dimensional loop, so DPA's own source_system routing (Tier 1 registry
+        lookup, Tier 2 regex fallback) is reused unchanged rather than
+        reimplemented here.
+
+        Always compares against the immediately preceding period
+        (comparison_period=True) regardless of what basis the primary KPI's own
+        analysis used — not every neighbour has a budget variant registered,
+        and this is deliberately a lightweight, best-effort signal, not an
+        exact-basis match (§14 decision 1).
+
+        Non-fatal: returns None on any failure, a missing data_product_agent,
+        or an unparseable result. A missing snapshot must never drop the
+        alternative/KPI it would have decorated.
+        """
+        if self.data_product_agent is None:
+            return None
+        kpi_name_for_log = getattr(kpi_definition, "name", None) or getattr(kpi_definition, "id", "?")
+        try:
+            dp_id = getattr(kpi_definition, "data_product_id", None)
+            gen_cur = await self.data_product_agent.generate_sql_for_kpi(
+                kpi_definition, timeframe=timeframe, filters=filters, comparison_period=False,
+            )
+            if not gen_cur.get("success"):
+                return None
+            gen_prev = await self.data_product_agent.generate_sql_for_kpi(
+                kpi_definition, timeframe=timeframe, filters=filters, comparison_period=True,
+            )
+            if not gen_prev.get("success"):
+                return None
+            cur_exec = await self.data_product_agent.execute_sql(gen_cur.get("sql"), data_product_id=dp_id)
+            prev_exec = await self.data_product_agent.execute_sql(gen_prev.get("sql"), data_product_id=dp_id)
+            cur_val = _first_numeric_value(cur_exec)
+            prev_val = _first_numeric_value(prev_exec)
+            if cur_val is None or prev_val is None:
+                return None
+            percent_change = (cur_val - prev_val) / abs(prev_val) * 100.0 if prev_val != 0 else None
+            return NeighbourSnapshot(
+                value=cur_val,
+                comparison_value=prev_val,
+                percent_change=percent_change,
+                unit=getattr(kpi_definition, "unit", None),
+                inverse_logic=bool(getattr(kpi_definition, "inverse_logic", False)),
+            )
+        except Exception as e:
+            self.logger.info(f"[FRAMING] neighbour snapshot fetch failed for '{kpi_name_for_log}' (non-fatal): {e}")
+            return None
+
+    def _bq_neighbour_monthly_series_sql(self, base_sql: str, date_col: str = "transaction_date", num_months: int = 9) -> str:
+        """Deliberately duplicated from
+        A9_Situation_Awareness_Agent._bq_monthly_series_sql — identical logic
+        (a pure string transform with no DB/agent-state dependency beyond
+        self.logger). Copied rather than shared to avoid any risk to SA's
+        already-shipped, tested method; if a third consumer ever needs this,
+        promote it to a shared utility module instead of a third copy (see
+        problem_framing_design.md §14).
+        """
+        match = re.match(
+            r'SELECT\s+(.+?)\s+AS\s+\w+\s+FROM\s+'
+            r'((?:`[^`]+`|"[^"]+"|\w+)(?:\.(?:`[^`]+`|"[^"]+"|\w+))*)'
+            r'(.*)',
+            base_sql,
+            re.IGNORECASE | re.DOTALL,
+        )
+        if not match:
+            self.logger.info(f"[FRAMING] could not parse base SQL for neighbour monthly series: {base_sql[:200]}")
+            return ""
+
+        agg_expr = match.group(1).strip()
+        table_ref = match.group(2).strip()
+        rest = match.group(3).strip()
+
+        where_match = re.search(r'\bWHERE\b(.*)', rest, re.IGNORECASE | re.DOTALL)
+        where_clause = ("WHERE" + where_match.group(1)) if where_match else rest
+
+        bare_date_col = date_col.strip('"')
+
+        if where_clause.upper().startswith("WHERE"):
+            existing_conditions = where_clause[5:].strip()
+            date_col_pattern = rf'"?{re.escape(bare_date_col)}"?'
+            cleaned = re.sub(
+                rf'(?:\bAND\s+)?{date_col_pattern}\s+'
+                rf'(?:BETWEEN\s+[\'"\d\-T]+\s+AND\s+[\'"\d\-T]+|[<>]=?\s*[\'"\d\-T]+)',
+                '',
+                existing_conditions,
+                flags=re.IGNORECASE,
+            ).strip().lstrip(',').strip()
+            cleaned = re.sub(r'^AND\s+', '', cleaned, flags=re.IGNORECASE).strip()
+            non_date_where = f"WHERE {cleaned}" if cleaned else ""
+        else:
+            non_date_where = ""
+
+        return (
+            f"SELECT period, value FROM ("
+            f"SELECT LEFT({bare_date_col}, 7) AS period, "
+            f"{agg_expr} AS value "
+            f"FROM {table_ref} "
+            f"{non_date_where} "
+            f"GROUP BY period "
+            f"ORDER BY period DESC "
+            f"LIMIT {num_months}"
+            f") ORDER BY period ASC"
+        )
+
+    async def _fetch_neighbour_monthly_trend(
+        self, kpi_definition: Any, num_months: int = 9,
+    ) -> Optional[List[Dict[str, Any]]]:
+        """BigQuery-backed KPIs only in this pass — hardening the live demo
+        path (100% BigQuery today) rather than duplicating SA's SQL Server /
+        Snowflake monthly-series builders speculatively before they're needed
+        here. A non-BigQuery neighbour still gets its scalar snapshot via
+        _fetch_neighbour_snapshot, just no trend-chart line — disclosed by
+        `monthly_values` staying None, never a fabricated flat line.
+
+        Non-fatal: None on any failure, missing data_product_agent, or a KPI
+        whose stored SQL doesn't match the BigQuery backtick-table pattern
+        (the same Tier-2 detection already sanctioned elsewhere in this
+        codebase for "is this a BQ KPI" decisions — gating which monthly-SQL
+        dialect to attempt, not the actual execution routing, which
+        execute_sql still resolves independently via DPA).
+        """
+        if self.data_product_agent is None:
+            return None
+        kpi_name_for_log = getattr(kpi_definition, "name", None) or getattr(kpi_definition, "id", "?")
+        try:
+            raw_sql = getattr(kpi_definition, "calculation", None) or getattr(kpi_definition, "sql_query", None) or ""
+            if not raw_sql or not re.search(r'`[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_.-]+`', raw_sql):
+                return None
+            metadata = getattr(kpi_definition, "metadata", None)
+            date_col = (metadata or {}).get("date_column", "transaction_date") if isinstance(metadata, dict) else "transaction_date"
+            monthly_sql = self._bq_neighbour_monthly_series_sql(raw_sql, date_col=date_col, num_months=num_months)
+            if not monthly_sql:
+                return None
+            dp_id = getattr(kpi_definition, "data_product_id", None)
+            result = await self.data_product_agent.execute_sql(monthly_sql, data_product_id=dp_id)
+            rows = (result or {}).get("rows") or []
+            if not rows:
+                return None
+            vals: List[Dict[str, Any]] = []
+            for row in rows:
+                if isinstance(row, dict):
+                    row = {k.lower(): v for k, v in row.items()}
+                    period, val = row.get("period"), row.get("value")
+                elif isinstance(row, (list, tuple)) and len(row) >= 2:
+                    period, val = row[0], row[1]
+                else:
+                    continue
+                if period is None or val is None:
+                    continue
+                try:
+                    vals.append({"period": str(period), "value": float(val)})
+                except (ValueError, TypeError):
+                    continue
+            return vals or None
+        except Exception as e:
+            self.logger.info(f"[FRAMING] neighbour monthly trend fetch failed for '{kpi_name_for_log}' (non-fatal): {e}")
+            return None
+
+    async def _fetch_neighbour_evidence(
+        self, kpi_definition: Any, timeframe: Optional[str] = None, filters: Optional[Dict[str, Any]] = None,
+    ) -> Optional[NeighbourSnapshot]:
+        """Combines the scalar snapshot (any backend) with the monthly trend
+        (BigQuery only) into one NeighbourSnapshot. Independent fetches — a
+        non-BigQuery KPI still returns a populated snapshot, just with
+        monthly_values left None."""
+        snapshot = await self._fetch_neighbour_snapshot(kpi_definition, timeframe=timeframe, filters=filters)
+        if snapshot is None:
+            return None
+        monthly = await self._fetch_neighbour_monthly_trend(kpi_definition)
+        if monthly:
+            snapshot.monthly_values = monthly
+        return snapshot
+
     async def _build_framing_prompt(
         self, da_output: Dict[str, Any], principal_ctx: Dict[str, Any]
     ) -> Optional[FramingPrompt]:
@@ -3419,6 +3639,57 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     decided_at=_prior.created_at,
                 )
 
+            # --- Phase 20: lightweight snapshot/trend evidence + ranking (§14) ---
+            # Fetched CONCURRENTLY (bounded) across every causal-graph
+            # alternative PLUS the primary KPI itself (for the chart's primary
+            # line) — never sequentially, which would reintroduce the exact
+            # latency problem this design exists to avoid (decision 1).
+            # Non-fatal per candidate: a failed fetch just means that one
+            # line/inline stat is missing, never that the whole framing
+            # prompt fails — return_exceptions=True on the gather backstops
+            # this even if a fetch raises past its own try/except.
+            _causal_alts = [a for a in alternatives if a.source == "causal_graph"]
+            _market_alts = [a for a in alternatives if a.source != "causal_graph"]
+            _plan_timeframe = plan.get("timeframe")
+            _plan_filters = plan.get("filters")
+
+            _sem = asyncio.Semaphore(6)
+
+            async def _bounded_fetch(kref: str) -> Optional[NeighbourSnapshot]:
+                async with _sem:
+                    rec = self._lookup_kpi_scoped(kref, client_id)
+                    if rec is None:
+                        return None
+                    return await self._fetch_neighbour_evidence(rec, timeframe=_plan_timeframe, filters=_plan_filters)
+
+            _fetch_targets = [a.kpi_id for a in _causal_alts if a.kpi_id] + [kpi_id]
+            _fetch_results = await asyncio.gather(
+                *[_bounded_fetch(k) for k in _fetch_targets], return_exceptions=True
+            )
+            _snapshots: Dict[str, Optional[NeighbourSnapshot]] = {}
+            for kref, res in zip(_fetch_targets, _fetch_results):
+                _snapshots[kref] = res if isinstance(res, NeighbourSnapshot) else None
+
+            for a in _causal_alts:
+                a.neighbour_snapshot = _snapshots.get(a.kpi_id) if a.kpi_id else None
+            primary_snapshot = _snapshots.get(kpi_id)
+
+            # Rank: hop-tier first (fill 1-hop slots before 2-hop), then
+            # |percent_change| within a tier — confidence/provenance are a
+            # floor/tiebreaker, not the sort key (decision 3). A missing
+            # snapshot/percent_change sorts last within its tier (magnitude
+            # -1.0 is always beaten by a real 0%+ reading), never crashes.
+            def _rank_key(a: FramingAlternative):
+                hop = a.hops if a.hops is not None else 99
+                snap = a.neighbour_snapshot
+                magnitude = abs(snap.percent_change) if (snap and snap.percent_change is not None) else -1.0
+                return (hop, -magnitude)
+
+            _causal_alts.sort(key=_rank_key)
+            additional_causal_measures_count = max(0, len(_causal_alts) - self._FRAMING_ALTERNATIVES_LIST_CAP)
+            _causal_alts = _causal_alts[: self._FRAMING_ALTERNATIVES_LIST_CAP]
+            alternatives = _causal_alts + _market_alts
+
             stated_objective_text = f"Recovering {kpi_name}"
             question = (
                 f"Is recovering {kpi_name} the right objective here, or does the evidence below "
@@ -3437,6 +3708,8 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                 viewer_is_owner=viewer_is_owner,
                 prior_frame=prior_frame,
                 requires_falsification_criterion=True,
+                primary_snapshot=primary_snapshot,
+                additional_causal_measures_count=additional_causal_measures_count,
             )
         except Exception as e:
             self.logger.info(f"[FRAMING] framing prompt unavailable (non-fatal): {e}")

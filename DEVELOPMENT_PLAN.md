@@ -3327,20 +3327,58 @@ was actually answered), not a separate flag. `tests/unit/` sits at **1295 passed
 1205 at the plan's own stated baseline) with every slice landing its own tests plus real bugs found
 and fixed along the way, none regressed.
 
-🟡 **Still open before `DA_ENABLE_FRAMING_GATE` can be considered ready to flip on anywhere**: the
-plan's own Verification section calls for a manual live walkthrough (both flag states, via
-`restart_decision_studio_ui.ps1`), a purpose-built live e2e spec proving the three SF bypass paths
-stay genuinely closed end-to-end, and the measurement Phase 19 exists for — re-scoring DQ link 1 on
-a post-gate live run against this session's own 17-run baseline. None of these have run yet. Unit
-tests and two clean `npm run build`/`tsc --noEmit` passes are real evidence the code is coherent;
-they are not the same claim as "verified live," and this session's own established discipline
-(`feedback_verify_config_reaches_the_live_call_path`, the Slice 4/6 dead-code findings) is exactly
-why that distinction is being written down rather than assumed away here.
+✅ **Live-verified 2026-08-19** — two full live Playwright runs (`live-framing-gate.spec.ts`,
+`live-framing-gate-ecommerce.spec.ts`) against the real running app, both passing, screenshots
+inspected directly: `gross_margin_pct` (owner viewing own KPI, problem mode, 6 causal + 1 market-signal
+alternative, reframe chosen and expressed by SF's Stage 1 personas) and `ecommerce_revenue`
+(non-owner CEO viewer, mixed mode, zero causal-graph alternatives — confirms empty-graph never
+fabricates). Two real bugs found and fixed live: owner-attribution role-abbreviation mismatch
+(`_roles_match`), and local Supabase missing the Phase 19 migrations. A third, found by the user's own
+manual testing right after: the pre-framing "Analysis" panel rendered completely empty because the
+whole SCQA blob (not just Question/Answer) was deferred — fixed via `_build_situation_complication_facts()`
+(facts-only, no LLM call). 🟡 **Still open**: the measurement Phase 19 exists for — re-scoring DQ link 1
+on a post-gate live run against this session's own 17-run baseline.
 
 **Stated falsifier** (from the design note, recorded before any build): if the frame is examined and
 confirmed unchanged in nearly every run, this is an expensive way to write `frame_examined: true`, and
 the honest conclusion is that the frame really is determined by the KPI that breached. **Not what
 happened** — see the adjudication above; the frame was never asked, not confirmed unchanged.
+
+---
+
+### Phase 20: Causal-neighbourhood evidence + Market Analysis field wiring (in progress, 2026-08-19)
+
+Live use of Phase 19 surfaced that `FramingAlternative` carries only relationship metadata for each
+causal neighbour — never its own current value or trend — and that `FramingGateCard`'s narrow Action
+Center column can't legibly host the richer evidence a framing decision actually needs. Full decision
+record: `docs/architecture/problem_framing_design.md` §14 (9 decisions — neighbour evidence depth,
+ranking criteria, the top-3 cap + disclosure, no new graph viz, MA field wiring scope, trend-chart
+design, the evidence/decision panel split, evidence-before-prompt timing). Build sequence:
+
+✅ **Backend**: `_fetch_neighbour_snapshot()` + `_fetch_neighbour_monthly_trend()` (BigQuery-only this
+pass) + `_fetch_neighbour_evidence()` (DA) — one non-dimensional rollup query per neighbour, reusing
+DA's own DPA-calling pattern (not a new SA RPC); concurrent across alternatives (bounded
+`asyncio.Semaphore(6)`), non-fatal per neighbour (`return_exceptions=True`). Ranking (hop-tier first,
+then `|percent_change|`) + top-5 list cap + `additional_causal_measures_count` disclosure wired into
+`_build_framing_prompt`. New `NeighbourSnapshot` model; `FramingAlternative.neighbour_snapshot`,
+`FramingPrompt.primary_snapshot`/`.additional_causal_measures_count`. 50 new/extended unit tests in
+`test_da_framing_prompt.py` (ranking order, cap+disclosure, non-fatal degradation, market-signal
+alternative never counted against the cap) — 1332 passing, no regressions.
+✅ **Backend**: `workflows.py` MA field wiring — `synthesis`/`confidence`/`sources_queried` (already
+computed by MA, previously dropped at the `market_signals`/`market_conflict` assembly point) now reach
+`da_output.market_synthesis`. No new LLM/API call.
+✅ **Frontend**: `CausalTrendChart.tsx` promoted from its throwaway prototype route (removed, along with
+`ChartPrototype.tsx`) into the real component tree. New `CausalNeighbourhoodEvidence.tsx` (the LEFT-panel
+evidence — chart + detailed per-alternative cards) rendered in a new "Causal Neighbourhood" accordion in
+`DeepFocusView.tsx` that auto-expands the moment the framing gate activates (decision 9). `FramingGateCard.tsx`
+slimmed to a compact color-dot + short-label list (decision 8) — mechanism/hop/confidence/provenance detail
+moved to the evidence section. New `utils/causalColors.ts` (shared color/label assignment — the connective
+tissue between the two panels) and `utils/causalTrendSeries.ts` (raw monthly_values → indexed % change,
+each series baselined to its own first available point). `market_synthesis` surfaced in the Market
+Intelligence accordion. `tsc --noEmit` and `npm run build` both clean.
+🟡 **Live verification**: in progress (see this session's own live-verification discipline — code-complete
+and unit-tested is not the same claim as "verified live").
+Card update + commit: pending completion of live verification.
 
 ---
 

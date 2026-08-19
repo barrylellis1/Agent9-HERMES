@@ -180,6 +180,9 @@ export interface DeepAnalysisResult {
   plan?: any;
   execution: DeepAnalysisExecution;
   market_signals?: MarketSignal[];
+  market_conflict?: MarketConflict | null;
+  /** Phase 20 §14 decision 6 */
+  market_synthesis?: MarketSynthesis | null;
   replication_constraints?: string[];
 }
 
@@ -445,6 +448,18 @@ export interface MarketConflict {
   summary?: string;
 }
 
+/**
+ * Phase 20 §14 decision 6 — MA's executive-narrative synthesis, agent-level
+ * confidence, and sources queried. These were already computed by MA and
+ * silently dropped before this fix (workflows.py never serialized them into
+ * da_output) — no new LLM/API call, pure wiring.
+ */
+export interface MarketSynthesis {
+  summary: string;
+  confidence?: number | null;
+  sources_queried?: string[];
+}
+
 // ---------------------------------------------------------------------------
 // Problem Framing Gate (Phase 19)
 //
@@ -463,6 +478,24 @@ export interface MarketConflict {
  * is always null — MA's conflict carries no causal mechanism, only a
  * directional observation).
  */
+/**
+ * Phase 20 — lightweight current-value/trend context for a KPI shown at the
+ * framing gate. Deliberately NOT a full dimensional analysis — see
+ * problem_framing_design.md §14 decision 1. Populated best-effort: any/all
+ * fields may be null on a fetch failure, and monthly_values may be null
+ * (BigQuery-backed KPIs only in this pass) while value/comparison_value are
+ * still populated — treat them as independent, not all-or-nothing.
+ */
+export interface NeighbourSnapshot {
+  value?: number | null;
+  comparison_value?: number | null;
+  percent_change?: number | null;
+  unit?: string | null;
+  inverse_logic: boolean;
+  /** Period series for the trend chart — {period, value}, oldest first, RAW (not indexed). */
+  monthly_values?: Array<{ period: string; value: number }> | null;
+}
+
 export interface FramingAlternative {
   source: 'causal_graph' | 'market_signal';
   kpi_id?: string | null;
@@ -479,6 +512,8 @@ export interface FramingAlternative {
   provenance?: string | null;
   provenance_caveat?: string | null;
   evidence_caveats: string[];
+  /** Phase 20 — causal_graph only, populated best-effort. */
+  neighbour_snapshot?: NeighbourSnapshot | null;
 }
 
 /** A previously recorded framing decision — re-presented with its reasoning and falsifier, never pre-ticked. */
@@ -506,6 +541,10 @@ export interface FramingPrompt {
   viewer_is_owner?: boolean | null;
   prior_frame?: PriorFrameRecord | null;
   requires_falsification_criterion: boolean;
+  /** Phase 20 — the analysed KPI's own snapshot/trend, the chart's primary line. */
+  primary_snapshot?: NeighbourSnapshot | null;
+  /** Phase 20 §14 decision 4 — causal candidates evaluated but not in `alternatives` after ranking + the list cap. Never silently dropped — disclose as "N more evaluated, not shown". */
+  additional_causal_measures_count: number;
 }
 
 /** The principal's submission at the framing gate — a structured submit, not a free-text chat turn. */

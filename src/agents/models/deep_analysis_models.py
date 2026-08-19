@@ -380,6 +380,30 @@ class ConstraintItem(A9AgentBaseModel):
 # is chosen, then generates against it.
 # ============================================================================
 
+class NeighbourSnapshot(A9AgentBaseModel):
+    """Phase 20 — lightweight current-value/trend context for a KPI shown at the
+    framing gate (a causal neighbour, or the analysed KPI itself as the chart's
+    primary line). Deliberately NOT a full dimensional analysis: one
+    non-dimensional rollup query (current + comparison) plus, BigQuery-backed
+    KPIs only in this pass, a short monthly series for the trend chart — see
+    problem_framing_design.md §14 decision 1 for why the full
+    execute_deep_analysis pipeline is out of scope here (~3-4x latency/query
+    cost per framing decision, measured not estimated). Populated best-effort:
+    every field is optional, and a fetch failure produces a fully-None instance
+    rather than raising — a missing snapshot must never drop the alternative or
+    KPI it would have decorated.
+    """
+    value: Optional[float] = Field(None, description="Current-period value")
+    comparison_value: Optional[float] = Field(None, description="Prior-period value — always the previous-period comparator, regardless of what basis the primary KPI's own analysis used (Decision 1: simplicity over exact basis matching, since not every neighbour has a budget variant registered)")
+    percent_change: Optional[float] = Field(None, description="(value - comparison_value) / abs(comparison_value) * 100 — used for both display and the magnitude-ranking signal (Decision 3)")
+    unit: Optional[str] = None
+    inverse_logic: bool = Field(False, description="True for cost/expense KPIs where a positive change is bad — carried through so the UI never has to re-derive it")
+    monthly_values: Optional[List[Dict[str, Any]]] = Field(
+        None,
+        description="Period series for the trend chart — [{period, value}], oldest first, raw (not indexed — the frontend computes % change from the first period). None when unavailable (non-BigQuery backend in this pass, or fetch failure) — never an empty list standing in for 'not fetched'."
+    )
+
+
 class FramingAlternative(A9AgentBaseModel):
     """One candidate objective offered at the framing gate.
 
@@ -433,6 +457,9 @@ class FramingAlternative(A9AgentBaseModel):
         default_factory=list,
         description="Plain-language caveats a reader needs before treating this as a real alternative (e.g. mechanism unconfirmed, independently-generated market signal)"
     )
+    neighbour_snapshot: Optional[NeighbourSnapshot] = Field(
+        None, description="Phase 20 — lightweight current-value/trend context, causal_graph only, populated best-effort"
+    )
 
 
 class PriorFrameRecord(A9AgentBaseModel):
@@ -465,6 +492,13 @@ class FramingPrompt(A9AgentBaseModel):
     viewer_is_owner: Optional[bool] = Field(None, description="Server-computed — never trust a client-supplied claim of ownership")
     prior_frame: Optional[PriorFrameRecord] = None
     requires_falsification_criterion: bool = Field(True, description="Always True in the current design — Decision #6, uniform across confirm and reframe")
+    primary_snapshot: Optional[NeighbourSnapshot] = Field(
+        None, description="Phase 20 — the analysed KPI's own snapshot/monthly trend, for the primary (white) line in the causal trend chart. Same NeighbourSnapshot shape reused for the primary KPI, not a separate model."
+    )
+    additional_causal_measures_count: int = Field(
+        0,
+        description="Phase 20 §14 decision 4 — count of causal-graph candidates evaluated but not included in `alternatives` after ranking + the list cap. Never silently dropped: disclosed here so the UI can say 'N more evaluated, not shown' rather than imply the graph was exhaustively small."
+    )
 
 
 class FramingDecision(A9AgentBaseModel):

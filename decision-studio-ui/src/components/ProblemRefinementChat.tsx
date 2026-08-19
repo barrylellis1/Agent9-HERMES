@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MessageCircle, Send, SkipForward, AlertCircle, Loader2 } from 'lucide-react';
-import { refineProblem, ProblemRefinementResult, ProblemRefinementRequest, MarketSignal, FramingDecision } from '../api/client';
+import { refineProblem, ProblemRefinementResult, ProblemRefinementRequest, MarketSignal, FramingDecision, FramingPrompt } from '../api/client';
 import { FramingGateCard } from './FramingGateCard';
 
 /**
@@ -24,6 +24,15 @@ export interface RefinementProgress {
    * to undefined.
    */
   framingDecision?: FramingDecision | null;
+  /**
+   * Phase 20 — lifted so DeepFocusView's LEFT-panel "Causal Neighbourhood"
+   * evidence section can render the same alternatives/snapshots the compact
+   * right-panel FramingGateCard shows, off the SAME turn-0 response (§14
+   * decision 9: evidence and the question arrive atomically, never a
+   * separate lazy fetch). Present on the presentation turn; undefined once
+   * framing is answered (matches framingDecision's own only-that-turn shape).
+   */
+  framingPrompt?: FramingPrompt | null;
 }
 
 interface ProblemRefinementChatProps {
@@ -158,6 +167,7 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
       framingRequired: !!result.framing_required,
       scqaSummary: result.scqa_summary,
       framingDecision: result.framing_decision,
+      framingPrompt: result.framing_prompt,
     });
 
     // Check if refinement is complete

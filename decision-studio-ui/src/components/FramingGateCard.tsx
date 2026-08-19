@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Target, Newspaper, ShieldCheck, HelpCircle, Lock, History, User } from 'lucide-react';
-import type { FramingPrompt, FramingAlternative, FramingDecision } from '../api/client';
+import { Target, Newspaper, Lock, History, User } from 'lucide-react';
+import type { FramingPrompt, FramingDecision } from '../api/client';
+import { orderedCausalKpiIds, causalColorFor, alternativeShortLabel } from '../utils/causalColors';
 
 /**
  * The mandatory framing gate (Phase 19) — a genuinely new visual moment, not
@@ -10,13 +11,15 @@ import type { FramingPrompt, FramingAlternative, FramingDecision } from '../api/
  * (Decision #4 of the implementation plan) is that a click cannot be
  * mistaken for a considered choice.
  *
- * Visual sibling to components/briefing/AssumptionsPanel.tsx — same
- * grounded/inferred badge language and confidence-tone coloring — but NOT a
- * reuse of that component: its `validated_by` prop is a closed 3-value union
- * tied to SolutionAssumption that doesn't fit causal-chain evidence, and
- * widening it would make a shipped component serve two masters. This also
- * lives in ProblemRefinementChat's dark-slate palette, not the briefing's
- * light/print one.
+ * Phase 20 §14 decision 8 — this card is deliberately LEAN. It used to carry
+ * mechanism text, hop/confidence/provenance badges, and caveats per
+ * alternative, crammed into the Action Center's narrow column. That evidence
+ * now lives in DeepFocusView's LEFT-panel "Causal Neighbourhood" section
+ * (CausalNeighbourhoodEvidence.tsx), where there's room for it — plus the
+ * trend chart, which never fit here at all. This card asks a question and
+ * collects a decision; it doesn't argue the case. Each option is a color dot
+ * (matching the LEFT panel's chart/evidence via utils/causalColors.ts) and a
+ * short label — someone answering here references the rich evidence there.
  *
  * NOTHING is pre-selected. Submit stays disabled until a choice is made AND
  * the falsification criterion is non-blank — both are required on every
@@ -29,90 +32,14 @@ interface FramingGateCardProps {
   isSubmitting?: boolean;
 }
 
-const CONFIDENCE_TONE: Record<string, string> = {
-  high: 'text-emerald-400 border-emerald-700',
-  moderate: 'text-amber-400 border-amber-700',
-  low: 'text-red-400 border-red-700',
-};
-
 type Choice = 'confirm_stated' | { alternative: string } | 'other';
-
-function AlternativeCard({
-  alt,
-  selected,
-  onSelect,
-}: {
-  alt: FramingAlternative;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const isMarket = alt.source === 'market_signal';
-  const confirmed = !!alt.mechanism;
-  const confidenceClass = alt.confidence && CONFIDENCE_TONE[alt.confidence]
-    ? CONFIDENCE_TONE[alt.confidence]
-    : 'text-slate-400 border-slate-600';
-
-  return (
-    <button
-      type="button"
-      data-testid="framing-alternative"
-      data-source={alt.source}
-      onClick={onSelect}
-      className={`w-full text-left rounded-lg border px-3 py-2.5 transition-colors ${
-        selected
-          ? 'border-indigo-500 bg-indigo-950/40'
-          : 'border-slate-700 bg-slate-800/40 hover:bg-slate-800/70 hover:border-slate-600'
-      }`}
-    >
-      <div className="flex items-start gap-2">
-        <span className="mt-0.5 flex-shrink-0">
-          {isMarket ? (
-            <Newspaper className="h-3.5 w-3.5 text-cyan-400" />
-          ) : confirmed ? (
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-          ) : (
-            <HelpCircle className="h-3.5 w-3.5 text-slate-500" />
-          )}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm leading-snug text-slate-100">{alt.objective_text}</p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <span className="rounded border border-slate-600 px-1.5 py-px text-[9px] uppercase tracking-wider text-slate-400">
-              {isMarket ? 'external signal' : 'causal graph'}
-            </span>
-            {!isMarket && alt.hops != null && (
-              <span className="rounded border border-slate-600 px-1.5 py-px text-[9px] uppercase tracking-wider text-slate-400">
-                {alt.hops} hop{alt.hops === 1 ? '' : 's'} away
-              </span>
-            )}
-            {alt.confidence && (
-              <span className={`rounded border px-1.5 py-px text-[9px] uppercase tracking-wider ${confidenceClass}`}>
-                {alt.confidence}
-              </span>
-            )}
-            {alt.provenance && (
-              <span className="text-[9px] font-mono text-slate-500">· {alt.provenance}</span>
-            )}
-          </div>
-          {alt.mechanism && (
-            <p className="mt-1 text-[11px] text-slate-400">Mechanism: {alt.mechanism}</p>
-          )}
-          {alt.provenance_caveat && (
-            <p className="mt-1 text-[11px] italic text-slate-500">{alt.provenance_caveat}</p>
-          )}
-          {alt.evidence_caveats?.map((c, i) => (
-            <p key={i} className="mt-1 text-[11px] italic text-amber-500/80">{c}</p>
-          ))}
-        </div>
-      </div>
-    </button>
-  );
-}
 
 export function FramingGateCard({ prompt, onSubmit, isSubmitting = false }: FramingGateCardProps) {
   const [choice, setChoice] = useState<Choice | null>(null);
   const [otherText, setOtherText] = useState('');
   const [falsifier, setFalsifier] = useState('');
+
+  const ordered = orderedCausalKpiIds(prompt.alternatives);
 
   const isValid = choice !== null && falsifier.trim().length > 0 &&
     (choice !== 'other' || otherText.trim().length > 0);
@@ -198,26 +125,30 @@ export function FramingGateCard({ prompt, onSubmit, isSubmitting = false }: Fram
         </div>
       )}
 
+      {prompt.alternatives.length > 0 && (
+        <p className="text-[11px] text-slate-500">
+          See <span className="text-slate-400">Causal Neighbourhood</span> on the left for the evidence behind each option below.
+        </p>
+      )}
+
       {/* The stated objective — one clearly-labelled option among the others, not pre-selected */}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <button
           type="button"
           data-testid="framing-confirm-stated"
           onClick={() => setChoice('confirm_stated')}
-          className={`w-full text-left rounded-lg border px-3 py-2.5 transition-colors ${
+          className={`w-full text-left rounded-lg border px-3 py-2 transition-colors ${
             choice === 'confirm_stated'
               ? 'border-indigo-500 bg-indigo-950/40'
               : 'border-slate-700 bg-slate-800/40 hover:bg-slate-800/70 hover:border-slate-600'
           }`}
         >
-          <div className="flex items-start gap-2">
-            <Target className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-indigo-400" />
-            <div>
-              <p className="text-sm leading-snug text-slate-100">{prompt.stated_objective_text}</p>
-              <span className="mt-1 inline-block rounded border border-indigo-800 px-1.5 py-px text-[9px] uppercase tracking-wider text-indigo-400">
-                stated objective
-              </span>
-            </div>
+          <div className="flex items-center gap-2">
+            <Target className="h-3 w-3 flex-shrink-0 text-indigo-400" />
+            <span className="text-sm leading-snug text-slate-100">{prompt.stated_objective_text}</span>
+            <span className="ml-auto flex-shrink-0 rounded border border-indigo-800 px-1.5 py-px text-[9px] uppercase tracking-wider text-indigo-400">
+              stated
+            </span>
           </div>
         </button>
 
@@ -228,18 +159,46 @@ export function FramingGateCard({ prompt, onSubmit, isSubmitting = false }: Fram
           </p>
         )}
 
-        {prompt.alternatives.map((alt, i) => (
-          <AlternativeCard
-            key={`${alt.source}-${alt.kpi_id ?? i}`}
-            alt={alt}
-            selected={isAlternativeSelected(alt.kpi_id)}
-            onSelect={() => alt.kpi_id && setChoice({ alternative: alt.kpi_id })}
-          />
-        ))}
+        {prompt.alternatives.map((alt, i) => {
+          const isMarket = alt.source === 'market_signal';
+          const selected = isAlternativeSelected(alt.kpi_id);
+          const dotColor = isMarket ? null : causalColorFor(alt.kpi_id, ordered);
+          return (
+            <button
+              key={`${alt.source}-${alt.kpi_id ?? i}`}
+              type="button"
+              data-testid="framing-alternative"
+              data-source={alt.source}
+              data-kpi-id={alt.kpi_id ?? ''}
+              onClick={() => alt.kpi_id && setChoice({ alternative: alt.kpi_id })}
+              disabled={!alt.kpi_id}
+              className={`w-full text-left rounded-lg border px-3 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                selected
+                  ? 'border-indigo-500 bg-indigo-950/40'
+                  : 'border-slate-700 bg-slate-800/40 hover:bg-slate-800/70 hover:border-slate-600'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {isMarket ? (
+                  <Newspaper className="h-3 w-3 flex-shrink-0 text-cyan-400" />
+                ) : (
+                  <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: dotColor ?? undefined }} />
+                )}
+                <span className="text-sm leading-snug text-slate-100 truncate">{alternativeShortLabel(alt)}</span>
+                {alt.neighbour_snapshot?.percent_change != null && (
+                  <span className="ml-auto flex-shrink-0 text-[11px] text-slate-400">
+                    {alt.neighbour_snapshot.percent_change > 0 ? '+' : ''}
+                    {alt.neighbour_snapshot.percent_change.toFixed(1)}%
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
 
         {/* "Other" free-text option */}
         <div
-          className={`rounded-lg border px-3 py-2.5 transition-colors ${
+          className={`rounded-lg border px-3 py-2 transition-colors ${
             choice === 'other' ? 'border-indigo-500 bg-indigo-950/40' : 'border-slate-700 bg-slate-800/40'
           }`}
         >

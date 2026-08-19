@@ -771,3 +771,57 @@ as `DeepAnalysisResponse.situation_complication_summary`. The frontend renders i
 `scqa_summary` supersedes it automatically once framing is submitted. Covered by
 `TestSituationComplicationFacts` / `TestExecuteDeepAnalysisWiring` in `tests/unit/test_da_scqa_deferral.py`
 — every mode/alert-type branch is asserted to never contain "Question:"/"Answer:" text.
+
+## Phase 20 — causal-neighbourhood evidence + Market Analysis field wiring (2026-08-19)
+
+Full decision record: `docs/architecture/problem_framing_design.md` §14. `FramingAlternative` carried
+only relationship metadata (hops, mechanism, confidence enum) for each causal neighbour — never its own
+current value or trend. Fixed with a lightweight, non-dimensional evidence fetch — deliberately NOT
+`execute_deep_analysis`'s full pipeline (measured ~3-4x latency/query cost per framing decision if run
+on every candidate).
+
+**New methods** (all on `A9_Deep_Analysis_Agent`, called from `_build_framing_prompt`):
+- `_fetch_neighbour_snapshot(kpi_definition, timeframe, filters)` — one current + one comparison-period
+  rollup query via `self.data_product_agent.generate_sql_for_kpi(..., breakdown left False)` /
+  `execute_sql` — the exact same DPA call pattern this agent already uses for its own KPI's rollup
+  totals, just for a different KPI, no dimensional loop. Always compares vs. the immediately preceding
+  period, regardless of what basis the primary KPI's own analysis used (not every neighbour has a
+  budget variant registered — a deliberate simplification, not an oversight).
+- `_fetch_neighbour_monthly_trend(kpi_definition, num_months=9)` — **BigQuery-backed KPIs only in this
+  pass** (hardening the live demo path, 100% BigQuery today, rather than speculatively duplicating SA's
+  SQL Server/Snowflake monthly-series builders before they're needed here). `_bq_neighbour_monthly_series_sql`
+  is a **deliberate duplicate** of `A9_Situation_Awareness_Agent._bq_monthly_series_sql` — same pure
+  string-transform logic, copied rather than shared to avoid any risk to SA's already-shipped, tested
+  method. If a third consumer ever needs this, promote to a shared utility module instead of a third copy.
+- `_fetch_neighbour_evidence(...)` — combines both into one `NeighbourSnapshot`; independent fetches (a
+  non-BigQuery KPI still gets its scalar snapshot, just no trend line).
+- Module-level `_first_numeric_value(exec_result)` — parses a non-dimensional `execute_sql` result's
+  single scalar (mirrors the `_as_map` closures' value-lives-in-the-last-column convention elsewhere in
+  this file, without needing a full key→value map for a query that never had a grouping key).
+
+**Concurrency**: fetched via `asyncio.Semaphore(6)`-bounded `asyncio.gather(..., return_exceptions=True)`
+across every causal-graph alternative PLUS the primary KPI itself (for the chart's primary line) — never
+sequentially, which would reintroduce the latency problem this design exists to avoid. `return_exceptions=True`
+is load-bearing: it's what makes a raised exception (including `AttributeError` from a test stub with no
+`data_product_agent` set) degrade to a `None` snapshot instead of aborting the whole framing prompt.
+
+**Ranking + cap** (`_FRAMING_ALTERNATIVES_LIST_CAP = 5`): hop-tier first (fill 1-hop slots before
+2-hop), then `|percent_change|` within a tier — confidence/provenance are a floor/tiebreaker, not the
+sort key. Whatever doesn't make the cut is disclosed via `FramingPrompt.additional_causal_measures_count`,
+never silently dropped. The market-signal alternative (if any) is exempt from this cap — appended after,
+untouched. The chart component (`CausalTrendChart.tsx`) caps its own plotted lines at 3 independently —
+5 vs. 3 is deliberate: text is cheaper to scan than an extra overlapping chart line.
+
+**Frontend evidence/decision split** (§14 decision 8): `FramingGateCard.tsx` (Action Center, right panel)
+was slimmed to a compact color-dot + short-label list — the mechanism/hop/confidence/provenance detail it
+used to carry moved to a new `CausalNeighbourhoodEvidence.tsx`, rendered in a new "Causal Neighbourhood"
+accordion in `DeepFocusView.tsx`'s left (primary) pane that **auto-expands** the moment the framing gate
+activates (§14 decision 9 — evidence must be *seen*, not just fetched-and-collapsed). Color continuity
+between the two panels (`decision-studio-ui/src/utils/causalColors.ts`) is the connective tissue — no
+scroll-sync needed.
+
+Covered by 50 new/extended tests in `tests/unit/test_da_framing_prompt.py` (`TestFirstNumericValue`,
+`TestFetchNeighbourSnapshot`, `TestFetchNeighbourMonthlyTrend`, `TestFramingPromptRankingAndSnapshots`) —
+ranking order (hop-tier beats magnitude), the cap + disclosure count, non-fatal degradation on every
+failure mode (no `data_product_agent`, `generate_sql_for_kpi` failure, `execute_sql` raising, malformed
+rows), and the market-signal alternative surviving the cap untouched.

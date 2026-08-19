@@ -11,7 +11,8 @@ import {
   ProblemRefinementResult,
   Situation,
   OpportunitySignal,
-  FramingDecision
+  FramingDecision,
+  FramingPrompt
 } from '../api/client';
 import type { RefinementProgress } from '../components/ProblemRefinementChat';
 import {
@@ -20,7 +21,7 @@ import {
   AVAILABLE_PERSONAS,
   COUNCIL_PRESET_PERSONAS
 } from '../config/uiConstants';
-import { Client, Principal, MarketSignal, MarketConflict } from '../api/types';
+import { Client, Principal, MarketSignal, MarketConflict, MarketSynthesis } from '../api/types';
 import { buildExecutiveBriefing } from '../utils/briefingUtils';
 
 // ── Principal mapping helpers ─────────────────────────────────────────────────
@@ -89,6 +90,9 @@ export function useDecisionStudio() {
   const [refinementResult, setRefinementResult] = useState<ProblemRefinementResult | null>(null);
   const [marketSignals, setMarketSignals] = useState<MarketSignal[]>([]);
   const [marketConflict, setMarketConflict] = useState<MarketConflict | null>(null);
+  // Phase 20 §14 decision 6 — synthesis/confidence/sources_queried, already
+  // computed by MA but silently dropped before this fix.
+  const [marketSynthesis, setMarketSynthesis] = useState<MarketSynthesis | null>(null);
   // Phase 19 — the framing gate's own decision, remembered independently of
   // `refinementResult`. `refinementResult` only updates ONCE, when the whole
   // interview finishes (ProblemRefinementChat's onComplete fires once, at
@@ -102,6 +106,11 @@ export function useDecisionStudio() {
   // session" — the derived fallback below covers that window. Once a real
   // turn reports a value it takes over and stays authoritative.
   const [liveFramingRequired, setLiveFramingRequired] = useState<boolean | null>(null);
+  // Phase 20 — the turn-0 framing_prompt itself (alternatives, snapshots,
+  // additional_causal_measures_count), lifted so DeepFocusView's LEFT-panel
+  // "Causal Neighbourhood" evidence section can render off the SAME data the
+  // compact right-panel FramingGateCard uses — never a separate fetch.
+  const [framingPrompt, setFramingPrompt] = useState<FramingPrompt | null>(null);
   
   // Solution Finder / Council
   const [findingSolutions, setFindingSolutions] = useState(false);
@@ -245,6 +254,7 @@ export function useDecisionStudio() {
     setRefinementResult(null); // Reset refinement
     setFramingDecision(null);
     setLiveFramingRequired(null);
+    setFramingPrompt(null);
 
     try {
       // Use proper comparison type based on timeframe
@@ -336,6 +346,7 @@ export function useDecisionStudio() {
         const signals: MarketSignal[] = result.market_signals || [];
         setMarketSignals(signals);
         setMarketConflict(result.market_conflict?.detected ? result.market_conflict : null);
+        setMarketSynthesis(result.market_synthesis ?? null);
 
     } catch (err) {
         console.error("Analysis Failed", err);
@@ -568,6 +579,12 @@ export function useDecisionStudio() {
     if (progress.framingDecision) {
         setFramingDecision(progress.framingDecision);
     }
+    // Present only on the presentation turn (matches framingDecision's own
+    // only-that-turn shape) — once framing is answered, later turns don't
+    // re-echo it, so this correctly stops updating rather than being nulled.
+    if (progress.framingPrompt) {
+        setFramingPrompt(progress.framingPrompt);
+    }
     if (progress.scqaSummary) {
         setAnalysisResults(prev => {
             const existing = prev[situationId];
@@ -613,8 +630,10 @@ export function useDecisionStudio() {
     refinementResult,
     marketSignals,
     marketConflict,
+    marketSynthesis,
     framingRequired,
     framingDecision,
+    framingPrompt,
     findingSolutions,
     solutions,
     solutionRequestId,

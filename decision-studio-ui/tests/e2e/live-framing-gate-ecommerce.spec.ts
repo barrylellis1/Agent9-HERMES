@@ -232,7 +232,13 @@ test.describe('Live — Phase 19 framing gate (ecommerce_revenue, non-owner CEO 
     let chosenObjectiveText: string;
     if (altCount > 0) {
       chosenChoice = 'alternative';
-      chosenObjectiveText = (await altButtons.first().innerText()).split('\n')[0].trim();
+      // Phase 20: the button's visible text is now a short label
+      // (alternativeShortLabel), not the full objective_text sent to the
+      // backend — read the real value from the already-captured payload via
+      // data-kpi-id rather than parsing the DOM.
+      const chosenKpiId = await altButtons.first().getAttribute('data-kpi-id');
+      const chosenAlt = (framingPrompt?.alternatives ?? []).find((a: any) => a.kpi_id === chosenKpiId);
+      chosenObjectiveText = chosenAlt?.objective_text ?? '';
       await altButtons.first().click();
     } else {
       chosenChoice = 'confirm_stated';

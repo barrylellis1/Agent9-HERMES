@@ -17,13 +17,14 @@ import {
   SplitSquareHorizontal,
   ExternalLink
 } from 'lucide-react';
-import { Situation, ProblemRefinementResult, MarketSignal, MarketConflict, FramingDecision } from '../../api/types';
+import { Situation, ProblemRefinementResult, MarketSignal, MarketConflict, MarketSynthesis, FramingDecision, FramingPrompt } from '../../api/types';
 import { runDeepAnalysis } from '../../api/client';
 import { COUNCIL_PRESET_PERSONAS } from '../../config/uiConstants';
 import { formatExecutive } from '../../utils/formatExecutive';
 import { ProblemRefinementChat, RefinementProgress } from '../ProblemRefinementChat';
 import { IsIsNotExhibit } from '../visualizations/DivergingBarChart';
 import { BrandLogo } from '../BrandLogo';
+import { CausalNeighbourhoodEvidence } from '../CausalNeighbourhoodEvidence';
 
 // ─── SCQA parser — extracts Answer/Situation/Complication/Question from flat text ───
 function parseScqa(raw: string): Record<string, string> {
@@ -140,6 +141,10 @@ interface DeepFocusViewProps {
   // per-turn reports — see that hook for the full reasoning.
   framingRequired: boolean;
   framingDecision: FramingDecision | null;
+  // Phase 20 — the turn-0 framing_prompt itself, lifted so the LEFT-panel
+  // "Causal Neighbourhood" evidence section can render off the same data
+  // the compact right-panel FramingGateCard uses.
+  framingPrompt: FramingPrompt | null;
   onTopicProgress: (progress: RefinementProgress) => void;
   // Council Config
   useHybridCouncil: boolean;
@@ -159,6 +164,8 @@ interface DeepFocusViewProps {
   principalId: string;
   initialMarketSignals?: MarketSignal[];
   initialMarketConflict?: MarketConflict | null;
+  // Phase 20 §14 decision 6
+  initialMarketSynthesis?: MarketSynthesis | null;
   // Phase 11I-D on-demand comparator drill
   clientId?: string;
   timeframe?: string;
@@ -179,6 +186,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   onStartRefinement,
   framingRequired,
   framingDecision,
+  framingPrompt,
   onTopicProgress,
   useHybridCouncil,
   setUseHybridCouncil,
@@ -196,6 +204,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
   principalId,
   initialMarketSignals,
   initialMarketConflict,
+  initialMarketSynthesis,
   clientId,
   timeframe,
 }) => {
@@ -340,6 +349,18 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
 
   // Accordion state — Situation Summary and Root Cause expanded by default
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['situation-summary', 'root-cause']));
+
+  // Phase 20 §14 decision 9 — "there before the question is presented" must
+  // mean SEEN, not just fetched-and-collapsed. Auto-expand "Causal
+  // Neighbourhood" the moment the framing gate activates, mirroring the
+  // existing precedent that "Analysis" (root-cause) is open by default while
+  // Variance Breakdown / Market Intelligence stay collapsed until clicked —
+  // same "skimming isn't examining" reasoning Phase 19 exists for at all.
+  useEffect(() => {
+    if (framingPrompt) {
+      setOpenSections(prev => (prev.has('causal-neighbourhood') ? prev : new Set(prev).add('causal-neighbourhood')));
+    }
+  }, [framingPrompt]);
 
   const toggleSection = (id: string) => {
     setOpenSections(prev => {
@@ -759,6 +780,29 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                         summary={initialMarketSignals && initialMarketSignals.length > 0 ? `${initialMarketSignals.length} signal${initialMarketSignals.length === 1 ? '' : 's'}` : 'conflict detected'}
                     >
                         <div className="space-y-3">
+                            {/* Phase 20 §14 decision 6 — MA's executive-narrative synthesis, already
+                                computed but silently dropped before this fix. Answer-first, same
+                                pattern as the SCQA Recommendation block. */}
+                            {initialMarketSynthesis?.summary && (
+                              <div className="bg-slate-950 border border-slate-800 rounded-lg p-4">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                                    Market Synthesis
+                                  </span>
+                                  {initialMarketSynthesis.confidence != null && (
+                                    <span className="text-[10px] text-slate-500">
+                                      {Math.round(initialMarketSynthesis.confidence * 100)}% confidence
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-slate-300 leading-relaxed">{initialMarketSynthesis.summary}</p>
+                                {initialMarketSynthesis.sources_queried && initialMarketSynthesis.sources_queried.length > 0 && (
+                                  <span className="text-[10px] text-slate-600 mt-2 block">
+                                    Sources: {initialMarketSynthesis.sources_queried.join(', ')}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             {/* Conflict banner — shown at top when MA signals contradict DA conclusion */}
                             {initialMarketConflict?.detected && initialMarketConflict.summary && (
                               <div className="flex gap-3 bg-amber-950/40 border border-amber-600/30 rounded-lg px-4 py-3">
@@ -797,6 +841,25 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                 </div>
                             ))}
                         </div>
+                    </AccordionSection>
+                )}
+
+                {/* Phase 20 §14 decision 8 — the evidence half of the evidence/decision
+                    split: FramingGateCard (right panel) stays a compact color-dot +
+                    label dialog; this accordion holds the trend chart and the detailed
+                    per-alternative evidence that dialog used to cram into its own
+                    narrow column. Rendered only once the framing gate has actually
+                    produced a prompt (turn 0 of refinement) — not a placeholder shown
+                    pre-refinement, since there's nothing to evaluate yet. Auto-expands
+                    via the openSections effect above (decision 9). */}
+                {framingPrompt && (
+                    <AccordionSection
+                        id="causal-neighbourhood"
+                        title="Causal Neighbourhood"
+                        icon={<SplitSquareHorizontal className="w-4 h-4 text-indigo-400" />}
+                        summary={`${framingPrompt.alternatives.length} candidate${framingPrompt.alternatives.length === 1 ? '' : 's'}`}
+                    >
+                        <CausalNeighbourhoodEvidence prompt={framingPrompt} kpiName={framingPrompt.kpi_name || situation.kpi_name} />
                     </AccordionSection>
                 )}
             </div>

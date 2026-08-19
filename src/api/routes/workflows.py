@@ -1221,6 +1221,7 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
         # Pass analysis_mode so the MA LLM can assess signal alignment vs internal conclusion
         market_signals = None
         market_conflict = None
+        market_synthesis = None
         _ma_resp = None
         try:
             from src.agents.models.market_analysis_models import MarketAnalysisRequest
@@ -1308,6 +1309,18 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
                 market_signals = [s.model_dump() for s in _ma_resp.signals]
             if _ma_resp and hasattr(_ma_resp, "conflict") and _ma_resp.conflict:
                 market_conflict = _ma_resp.conflict
+            # Phase 20 §14 decision 6 — synthesis/confidence/sources_queried were
+            # already computed by MA and silently dropped here before this fix:
+            # never serialized into da_output, never typed on the frontend,
+            # never rendered. No new LLM/API call — pure wiring of fields that
+            # already exist on _ma_resp. competitor_context stays out
+            # (permanently None today — see problem_framing_design.md §14).
+            if _ma_resp and hasattr(_ma_resp, "synthesis") and _ma_resp.synthesis:
+                market_synthesis = {
+                    "summary": _ma_resp.synthesis,
+                    "confidence": getattr(_ma_resp, "confidence", None),
+                    "sources_queried": getattr(_ma_resp, "sources_queried", None) or [],
+                }
         except Exception as _mae:
             import logging as _lg
             import traceback as _tb
@@ -1324,6 +1337,7 @@ async def _run_deep_analysis_workflow(request_id: str, runtime: AgentRuntime, re
             "execution": execution_serialized,
             "market_signals": market_signals,
             "market_conflict": market_conflict,
+            "market_synthesis": market_synthesis,
         }
         
         status = "failed" if response.status == "error" else "completed"

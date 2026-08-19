@@ -522,3 +522,118 @@ Decision #12, repositioning Market Analysis as an input to DA's own framing prom
 rather than a sidecar attached between DA and SF, at no added call cost — lives outside this doc's
 narrative-history format; see `C:\Users\Blell\.claude\plans\with-this-now-in-goofy-meteor.md` for the
 build sequencing and `DEVELOPMENT_PLAN.md` Phase 19 for status tracking going forward.
+
+---
+
+## 14. Phase 20 — causal-neighbourhood evidence + Market Analysis field wiring (2026-08-19)
+
+Live verification of Phase 19 (§13) surfaced a real gap: `FramingAlternative` carries only relationship
+*metadata* for each causal neighbour (hops, mechanism text, confidence enum) — never the neighbour's
+own current value or trend. A principal deciding whether to reframe "Gross Margin %" as "Cost of Goods
+Sold" today sees a text description of the causal claim but no evidence of whether COGS is actually
+moving right now. Investigated and designed in conversation (not a formal planning pass) before build;
+decisions below are load-bearing and should not be re-litigated without new evidence, same convention as
+§8's decision table.
+
+**Decisions:**
+
+1. **Neighbour evidence depth: lightweight snapshot/trend, not full dimensional analysis.** Running
+   `execute_deep_analysis`'s full Is/Is-Not pipeline on 2-3 causal neighbours would ~3-4x both latency
+   (~23s → 90s+) and BigQuery query count (~10 → 30-40) per framing decision — measured, not estimated
+   (see the DA dimensional-analysis-scope investigation this session). Instead: one non-dimensional
+   rollup query per neighbour (no `GROUP BY`, matching SA's own `_fetch_monthly()` cost class), reusing
+   the same `source_system`-routing tiering DA already applies to its own KPI, called directly against
+   DPA — **not** a new SA protocol entrypoint (DA already talks to DPA directly for its own queries;
+   this is the same pattern, not new inter-agent RPC). Fetched **concurrently** (`asyncio.gather`)
+   across all candidate alternatives, never sequentially — sequential fetching would reintroduce the
+   cost problem this design avoids. Non-fatal per neighbour: a failed snapshot omits that neighbour's
+   trend context but never drops the alternative itself.
+
+2. **Checked, not assumed: SA's per-scan `kpi_details` is NOT a free source for this.** SA computes a
+   full `KPIValue` for every KPI in a principal's *own* scan (no threshold-based short-circuit), but two
+   independent things exclude most causal neighbours: the accountability filter drops KPIs owned by a
+   *different* principal (and a causal driver KPI is often owned by a different function than the
+   outcome KPI it drives — COGS/COO vs. Gross Margin/CFO — so this is the common case, not an edge
+   case), and even the rare same-owner survivor is discarded by the frontend (`client.ts` strips
+   `kpi_details` before it reaches React state — a separate, minor, not-yet-fixed bug). Net: the fresh
+   per-neighbour snapshot fetch in Decision 1 is the general-purpose mechanism; it is not optional just
+   because SA "already has this somewhere."
+
+3. **Selection/ranking criteria for which neighbours get shown — combines two independent signals,
+   neither sufficient alone.** *Causal confidence* (hop-tier, `confidence`, `causal_rung`, `provenance`
+   — "how much do we trust this mechanism") and *current materiality* (magnitude of the neighbour's own
+   recent % change, from Decision 1's snapshot — "is this actually happening right now"). A
+   `confirmed`/`high-confidence` edge to a KPI that's flat this period isn't a useful framing candidate;
+   a KPI moving a lot on a `template`/`low-confidence` two-hop edge might be coincidental. Rank
+   **within hop-tier first** (fill 1-hop slots before 2-hop), **by `|percent_change|` within a tier**;
+   confidence/provenance act as a floor/tiebreaker, not the primary sort key.
+
+4. **Cap at top-3 secondary series, never silently.** Three is not arbitrary — it's the dataviz skill's
+   own validated cap for a categorical palette in a multi-line (all-pairs-adjacent) chart form. Whatever
+   didn't make the cut is disclosed, not dropped: *"N more causal measures evaluated, not shown — ranked
+   lower by current relevance."* The text alternative list may show a couple more than the chart plots
+   (chart caps at 3 for legibility; text is cheaper to scan) — same disclosure rule applies to whatever
+   remains beyond the list's own cap.
+
+5. **No new causal-graph (node-link/force) visualization.** This need is real but already has a home:
+   `theory_layer_design.md` §7's Value Driver Tree, deliberately gated to an unscheduled later phase
+   (P3/P4) specifically to avoid "the new spider chart — weeks of custom SVG executives glance at once"
+   (its own pre-mortem, §10 pre-mortem item 6). This session's finding is recorded there as evidence
+   toward that gate, not built as a second, competing visualization effort. The new visual element this
+   phase DOES add is a standard indexed multi-line **trend** chart (see Decision 7) — not a graph.
+
+6. **Market Analysis field wiring — the free win, scoped narrowly.** `MarketAnalysisResponse.synthesis`
+   (the executive narrative), `.confidence` (agent-level), and `.sources_queried` are already computed
+   by MA and silently dropped at `workflows.py:1307-1310` — never serialized into `da_output`, never
+   typed on the frontend, never rendered. Wiring these through costs nothing (no new LLM/API call).
+   Quantified peer/competitor benchmarks (`competitor_context`, permanently `None` today) stay
+   explicitly **out of scope** — that's a separate, already-tracked open question in
+   `principal_perspective_weighting_design.md` (needs MA prompt/model changes, possibly a curated
+   benchmark source; not decided there, not decided here either).
+
+7. **Trend chart design** — prototyped and visually validated (`decision-studio-ui/src/pages/
+   ChartPrototype.tsx`, a throwaway route removed once this ships for real) before wiring to live data:
+   indexed to "% change from the first period shown" so KPIs of different scale/units plot together;
+   **raw direction, never sign-flipped** for inverse-logic KPIs like COGS (mechanism/complication text
+   carries the "up is bad" interpretation — a silently-transformed axis would mislead a reader who
+   trusts the chart without reading the caption); primary KPI in ink-white (not a categorical hue, so
+   "the KPI being framed" is never confused with "a candidate being compared to it"); up to 3 secondary
+   series in dataviz-skill categorical slots 1-3 (blue/orange/aqua, dark-mode steps — validated with the
+   skill's own validator against this app's actual `#020617` surface, all six checks pass); legend
+   always present; end-labels show **value only** (name is the legend's job — "lines → value at the
+   end" per the skill); hover tooltip lists every series at the crosshair X, values leading; a missing
+   period creates a genuine gap in the line (`LinePath`'s `defined` accessor) — coercing a null to 0 was
+   caught and fixed during prototyping, since it would have silently reported "no change" for "no data,"
+   the same missing-data-poses-as-a-real-value bug class this session fixed twice elsewhere (§Slice 3's
+   SCQA fallback, and the live-verification-driven `situation_complication_summary` fix on the DA card).
+
+8. **Information architecture: evidence and decision are different surfaces, not one cramped column.**
+   `FramingGateCard` today crams mechanism text, hop/confidence/provenance badges, and caveats into the
+   narrow Action Center column — a pre-existing density problem the trend chart would only have made
+   undeniable. Split instead:
+   - **Right panel (Action Center) stays a compact dialog**: question text, owner-attribution notice, a
+     selectable list of **color dot + short label only** per alternative, the falsifier textarea,
+     submit. It asks; it doesn't argue the case.
+   - **Left panel (primary DA pane) gets a new "Causal Neighbourhood" evidence section**, sibling to
+     Analysis / Variance Breakdown / Market Intelligence: the trend chart at full width, plus the
+     detailed per-alternative evidence (mechanism, hops, confidence, provenance, caveats) relocated out
+     of the narrow card.
+   - **Color continuity is the connective tissue**: the same categorical hue for a given KPI is reused
+     in both the compact right-panel list and the left-panel chart/evidence — lets someone answering a
+     compact question on the right reference rich evidence on the left with no scroll-sync or new
+     interaction plumbing, just the dataviz skill's own "color follows the entity" rule applied across
+     panes instead of within one chart.
+
+9. **Evidence must be there — meaning seen, not just fetched — before the question is presented.** Data
+   timing is already guaranteed by the architecture: the neighbourhood evidence (Decision 1's snapshot
+   fetch) happens inside the same server call that produces `framing_prompt` itself, so both panels'
+   content arrives in one atomic response — there is no code path where the question renders before the
+   evidence exists, as long as the frontend renders both off that single response rather than a separate
+   lazy fetch for the chart. The part that isn't automatic: **visibility**. "There" must mean the
+   evidence is actually seen, not sitting fetched-but-collapsed in an accordion nobody opens — exactly
+   the "skimming isn't examining" failure mode Phase 19 exists to close (§ this doc's own Context
+   section). Fix: **"Causal Neighbourhood" auto-expands specifically when the framing gate activates**,
+   mirroring the existing precedent that "Analysis" auto-expands by default on the DA console while
+   "Variance Breakdown"/"Market Intelligence" stay collapsed until clicked.
+
+Build sequencing for these decisions is tracked in `DEVELOPMENT_PLAN.md` under Phase 20.
