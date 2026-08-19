@@ -4,29 +4,39 @@ import * as path from 'path';
 import { requireFeatureFlag } from './helpers/live-preflight';
 
 /**
- * LIVE run — Phase 19 mandatory framing gate, against a real lubricants
- * pipeline with DA_ENABLE_FRAMING_GATE=true.
+ * LIVE run #2 — Phase 19 mandatory framing gate, deliberately chosen to be
+ * the STRUCTURAL OPPOSITE of live-framing-gate.spec.ts (gross_margin_pct):
  *
- * WHAT THIS IS ACTUALLY TESTING
- * -----------------------------
- * Every mechanism here already has unit coverage (test_da_framing_gate.py,
- * test_da_framing_prompt.py, test_sf_chosen_frame_section.py) against
- * mocked providers and a stub LLM. What those CANNOT prove:
- *   1. The frontend genuinely blocks every bypass path against the REAL
- *      running app, not a test harness's idea of it — no enabled "Generate
- *      Solutions" button reachable before framing, the framing card
- *      replacing the input row exactly as designed, the sequence being
- *      right (framing first, before any other topic, before SCQA).
- *   2. The wiring gap found and fixed in Slice 6 — debateConfig carrying
- *      refinementResult.framing_decision to Solution Finder — actually
- *      fires end to end against a real dispatch, not a mocked one.
- *   3. Real causal-graph / market-signal alternatives (not synthetic
- *      fixtures) render sensibly and the falsifier gate genuinely blocks
- *      submission.
- * Screenshots at every step are the primary evidence — this run exists to
- * be LOOKED AT, not just asserted against.
+ *   gross_margin_pct                          ecommerce_revenue
+ *   ---------------------------------------   ---------------------------------------
+ *   problem mode                              mixed/opportunity-adjacent mode
+ *   owned by the viewer (CFO viewing CFO KPI) owned by CFO, viewed by CEO (non-owner)
+ *   6 causal-graph neighbours (1-2 hops)      0 causal-graph rows in kpi_relationships
+ *                                              (verified via direct query before this
+ *                                              run — see docs/architecture/
+ *                                              problem_framing_design.md §12)
+ *   10 genuine control_group-tagged           no control-group signal (problem mode
+ *   benchmark_segments (DiD-shaped)           empties where_is_not)
  *
- * Run:  npx playwright test --config=playwright.live.config.ts live-framing-gate
+ * What run #1 could not prove and this run targets specifically:
+ *   1. The non-owner attribution path (Decision #5) — "you own this KPI" must NOT
+ *      render, and the payload's viewer_is_owner must be false while owner_role
+ *      stays CFO — this is the live-verification counterpart to the
+ *      _roles_match true-positive case run #1 already proved.
+ *   2. The empty-causal-graph path — alternatives must be 0-1 (market-signal only,
+ *      if MA detected a conflict) and NEVER fabricated, so this run is expected to
+ *      exercise the confirm_stated branch rather than the alternative-reframe
+ *      branch run #1 exercised.
+ *   3. A mixed-mode analysis (not problem-mode) still produces a coherent framing
+ *      prompt and reaches SF correctly — proves the gate isn't problem-mode-only.
+ *
+ * ceo_001 was picked over coo_001 specifically because SA situation-card
+ * relevance is filtered by principal.business_process_ids ∩ kpi.business_process_ids
+ * (finance_revenue_growth_analysis) — verified directly against principal_profiles
+ * before this run: COO does not have that business process and would see no card
+ * for this KPI at all; CEO does.
+ *
+ * Run:  npx playwright test --config=playwright.live.config.ts live-framing-gate-ecommerce
  * Requires the backend running with DA_ENABLE_FRAMING_GATE=true (verify via
  * GET /healthz -> features.da_enable_framing_gate before running this).
  */
@@ -35,14 +45,14 @@ const SCAN_TIMEOUT = 240_000;
 const DA_TIMEOUT = 300_000;
 const SF_TIMEOUT = 1_800_000;
 
-test.describe('Live — Phase 19 framing gate (gross_margin_pct)', () => {
+test.describe('Live — Phase 19 framing gate (ecommerce_revenue, non-owner CEO viewer, mixed-mode)', () => {
   test.describe.configure({ mode: 'serial', timeout: 40 * 60_000 });
 
   test.beforeAll(async () => {
     await requireFeatureFlag('da_enable_framing_gate');
   });
 
-  test('the gate blocks, presents real alternatives, and the decision reaches SF', async ({ page }, testInfo) => {
+  test('the gate handles a non-owner viewer and an empty causal graph without fabricating alternatives', async ({ page }, testInfo) => {
     const consoleErrors: string[] = [];
     page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
     page.on('pageerror', e => consoleErrors.push(`pageerror: ${e.message}`));
@@ -78,10 +88,11 @@ test.describe('Live — Phase 19 framing gate (gross_margin_pct)', () => {
       } catch { /* non-JSON polls expected */ }
     });
 
-    // ── Login as the lubricants CFO (owner of gross_margin_pct — tests the "you own this KPI" path) ──
+    // ── Login as the lubricants CEO — does NOT own ecommerce_revenue (CFO does), ──
+    // ── but shares its business process so the card is actually reachable ────────
     await page.goto('/login?mode=demo');
-    await page.waitForSelector('[data-testid="principal-card-cfo_001"]', { timeout: 30_000 });
-    await page.locator('[data-testid="principal-card-cfo_001"]').click();
+    await page.waitForSelector('[data-testid="principal-card-ceo_001"]', { timeout: 30_000 });
+    await page.locator('[data-testid="principal-card-ceo_001"]').click();
     await page.locator('[data-testid="demo-enter-btn"]').click();
     await page.waitForURL('**/dashboard', { timeout: 30_000 });
 
@@ -95,13 +106,14 @@ test.describe('Live — Phase 19 framing gate (gross_margin_pct)', () => {
     for (let i = 0; i < cardCount; i++) {
       cardText.push(((await cards.nth(i).innerText()) || '').replace(/\s+/g, ' ').trim());
     }
-    const preferred = ['gross margin'];
-    let target = 0;
+    const preferred = ['e-commerce', 'ecommerce'];
+    let target = -1;
     outer: for (const term of preferred) {
       for (let i = 0; i < cardCount; i++) {
         if (cardText[i].toLowerCase().includes(term)) { target = i; break outer; }
       }
     }
+    expect(target, 'no situation card matched e-commerce/ecommerce for ceo_001 — check business_process_ids overlap').toBeGreaterThanOrEqual(0);
     console.log(`[framing] driving card [${target}]: ${cardText[target].slice(0, 120)}`);
     await cards.nth(target).click();
 
@@ -119,12 +131,7 @@ test.describe('Live — Phase 19 framing gate (gross_margin_pct)', () => {
     // The DA workflow record flips to "completed" only after Market Analysis
     // enrichment finishes too (it runs synchronously after execute_deep_analysis,
     // inside the same workflow) — the UI can briefly still read as locked/
-    // re-analyzing for tens of seconds after daLocked's count first hits 0. Same
-    // resilient-retry shape live-briefing-cat3.spec.ts already uses for exactly
-    // this gap, applied to whichever of the refinement/mixed-mode-resolution
-    // buttons this analysis actually resolves to — a flat 30s single check
-    // (this file's first attempt) is not equivalent and failed live on a
-    // COMPOUND-alert card.
+    // re-analyzing for tens of seconds after daLocked's count first hits 0.
     const startRefinement = page.getByRole('button', { name: /start refinement session/i });
     const focusRecovery = page.getByRole('button', { name: /focus on recovery/i });
     const focusOpportunity = page.getByRole('button', { name: /focus on opportunity/i });
@@ -136,10 +143,10 @@ test.describe('Live — Phase 19 framing gate (gross_margin_pct)', () => {
       expect(nStart + nRec + nOpp + nDec).toBeGreaterThan(0);
     }).toPass({ timeout: 120_000, intervals: [2_000] });
 
-    // Mixed-mode resolution gate, if this card resolved to one — orthogonal to
-    // framing (it must be cleared BEFORE framing can be meaningfully tested,
-    // otherwise "Generate Solutions is blocked" would be true for the wrong
-    // reason and prove nothing about the framing gate specifically).
+    // Mixed-mode resolution gate — expected here (this KPI resolves to
+    // analysis_mode="mixed" per the §12 investigation) and must be cleared
+    // BEFORE framing can be meaningfully tested, otherwise "Generate
+    // Solutions is blocked" would be true for the wrong reason.
     if (await letAgent9Decide.count()) {
       console.log('[framing] mixed-mode resolution gate present — resolving via "Let Agent9 Decide"');
       await letAgent9Decide.first().click();
@@ -148,13 +155,15 @@ test.describe('Live — Phase 19 framing gate (gross_margin_pct)', () => {
       console.log('[framing] mixed-mode resolution gate present — resolving via "Focus on Recovery"');
       await focusRecovery.first().click();
       await page.waitForTimeout(1_000);
+    } else if (await focusOpportunity.count()) {
+      console.log('[framing] mixed-mode resolution gate present — resolving via "Focus on Opportunity"');
+      await focusOpportunity.first().click();
+      await page.waitForTimeout(1_000);
     }
 
     await expect(startRefinement, 'Start Refinement Session must be reachable once mixed-mode (if any) is resolved').toBeVisible({ timeout: 60_000 });
 
     // ── CHECK 1: pre-gate DA console — real evidence visible, no SCQA block ──
-    // ScqaBlock needs no code change (it's already conditional on scqa_summary)
-    // — this is the live proof that holds, against a real deferred response.
     await page.screenshot({ path: testInfo.outputPath('01-da-pregate-top.png') });
     const rootCauseHeading = page.getByRole('button', { name: /^analysis/i }).first();
     if (await rootCauseHeading.count()) {
@@ -165,10 +174,6 @@ test.describe('Live — Phase 19 framing gate (gross_margin_pct)', () => {
     console.log(`[framing] SCQA label visible pre-gate (should be 0 while deferred): ${scqaPresentPreGate}`);
 
     // ── CHECK 2: no ENABLED "Generate Solutions" BUTTON reachable directly ──
-    // The disabled variant is a <div>, not a <button> — getByRole('button')
-    // matching zero IS the assertion (a real <button> only renders in the
-    // enabled branch of DeepFocusView.tsx). Now meaningful: mixed-mode (if
-    // any) is already resolved above, so this is specifically about framing.
     const enabledGenerateButton = page.getByRole('button', { name: /^generate solutions/i });
     const enabledCount = await enabledGenerateButton.count();
     console.log(`[framing] enabled "Generate Solutions" buttons visible pre-gate (should be 0): ${enabledCount}`);
@@ -191,11 +196,20 @@ test.describe('Live — Phase 19 framing gate (gross_margin_pct)', () => {
     const framingPrompt = turn0.response?.framing_prompt;
     expect(framingPrompt, 'no framing_prompt in the turn-0 response').toBeTruthy();
 
-    // ── CHECK 4: owner attribution — CFO owns gross_margin_pct ───────────────
+    // ── CHECK 4: owner attribution — CFO owns ecommerce_revenue, CEO is viewing ──
+    // This is the non-owner counterpart to run #1's CFO/CFO true-positive case.
     const ownerText = await page.getByText(/you own this kpi/i).count();
     console.log(`[framing] "you own this KPI" shown: ${!!ownerText} (payload owner_role=${framingPrompt?.owner_role}, viewer_is_owner=${framingPrompt?.viewer_is_owner})`);
+    expect(framingPrompt?.owner_role, 'owner_role must still be CFO regardless of who is viewing').toBe('CFO');
+    expect(framingPrompt?.viewer_is_owner, 'CEO must not be reported as the owner of a CFO-owned KPI').toBe(false);
+    expect(ownerText, '"you own this KPI" must not render for a non-owner viewer').toBe(0);
 
-    // ── CHECK 5: alternatives — real causal-graph / market-signal data ──────
+    // ── CHECK 5: alternatives — verified live via direct SQL query before this run ──
+    // that kpi_relationships has ZERO rows for ecommerce_revenue on lubricants in
+    // either direction, so causal-graph alternatives MUST be empty here — any
+    // alternative present must be market_signal-sourced only. This is the empty-
+    // graph "never fabricate" path the unit tests assert with mocks; this proves
+    // it against the real registry.
     const altButtons = page.getByTestId('framing-alternative');
     const altCount = await altButtons.count();
     console.log(`[framing] alternatives offered: payload=${framingPrompt?.alternatives?.length ?? 0} rendered=${altCount}`);
@@ -203,14 +217,17 @@ test.describe('Live — Phase 19 framing gate (gross_margin_pct)', () => {
     for (const a of (framingPrompt?.alternatives ?? [])) {
       console.log(`  - [${a.source}] ${a.objective_text} (hops=${a.hops ?? 'n/a'}, provenance=${a.provenance ?? 'n/a'}, confidence=${a.confidence ?? 'n/a'})`);
     }
+    const causalAlternatives = (framingPrompt?.alternatives ?? []).filter((a: any) => a.source === 'causal_graph');
+    expect(causalAlternatives.length, 'kpi_relationships has zero rows for ecommerce_revenue — no causal-graph alternative should have been fabricated').toBe(0);
 
     // ── CHECK 6: submit is disabled until BOTH a choice AND a falsifier are given ──
     const submitBtn = page.getByTestId('framing-submit');
     await expect(submitBtn, 'submit must start disabled — nothing pre-selected').toBeDisabled();
 
-    // Pick the first real alternative if one exists (more informative than
-    // confirming — exercises the reframe path SF Slice 7 depends on); fall
-    // back to confirming the stated objective if the graph offered none.
+    // Expected to be the confirm_stated branch (no causal alternatives; a
+    // market-signal one may or may not be present depending on whether MA
+    // detected a live conflict for this KPI/period) — but stay generic and
+    // follow whatever the real payload actually offers, same as run #1.
     let chosenChoice: 'alternative' | 'confirm_stated';
     let chosenObjectiveText: string;
     if (altCount > 0) {
@@ -244,7 +261,8 @@ test.describe('Live — Phase 19 framing gate (gross_margin_pct)', () => {
     expect(turn1.response?.current_topic, 'the interview must advance to a real next topic, not stall').not.toBe('problem_framing');
 
     const framingRecord = turn1.response?.framing_record;
-    console.log(`[framing] framing_record: persisted=${framingRecord?.persisted} persist_error=${framingRecord?.persist_error ?? 'none'} decided_by_role=${framingRecord?.decided_by_role}`);
+    console.log(`[framing] framing_record: persisted=${framingRecord?.persisted} persist_error=${framingRecord?.persist_error ?? 'none'} decided_by_role=${framingRecord?.decided_by_role} decided_by_is_owner=${framingRecord?.decided_by_is_owner}`);
+    expect(framingRecord?.decided_by_is_owner, 'CEO deciding on a CFO-owned KPI must be stamped as a non-owner decision').toBe(false);
 
     await page.waitForTimeout(1_000);
     await page.screenshot({ path: testInfo.outputPath('05-post-framing-next-topic.png'), fullPage: true });
@@ -253,13 +271,6 @@ test.describe('Live — Phase 19 framing gate (gross_margin_pct)', () => {
     await expect(framingCard, 'framing card must not still be showing after submission').toHaveCount(0);
 
     // ── Skip to Solutions is now enabled — jump straight there ──────────────
-    // "Proceed to solutions" completes the interview server-side
-    // (ready_for_solutions=true), and DecisionStudio.tsx's onRefinementComplete
-    // opens the persona selector (State D, "Assemble Council") DIRECTLY —
-    // there is no separate outer "Generate Solutions" click to make first in
-    // this entry path, unlike entering via DeepFocusView's main panel button.
-    // One real "Generate Solutions" button (State D's own, wired to
-    // dispatchToSolutionFinder) is what's actually present here.
     const skipButton = page.getByTitle(/skip to solutions/i);
     await expect(skipButton, 'Skip to Solutions must be enabled once framing is answered').toBeEnabled({ timeout: 30_000 });
     await skipButton.click();
@@ -301,7 +312,8 @@ test.describe('Live — Phase 19 framing gate (gross_margin_pct)', () => {
       JSON.stringify({ request: sfRequestBody, response: sfPayload }, null, 2), 'utf-8',
     );
     const summary = {
-      kpi: 'gross_margin_pct',
+      kpi: 'ecommerce_revenue',
+      viewer_principal: 'ceo_001',
       chosen_choice: chosenChoice,
       chosen_objective_text: chosenObjectiveText,
       alternatives_offered: framingPrompt?.alternatives?.map((a: any) => ({ source: a.source, objective_text: a.objective_text, hops: a.hops })) ?? [],
