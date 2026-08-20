@@ -727,6 +727,7 @@ class A9_Orchestrator_Agent:
                 ownership_payload = {
                     "request_id": request.request_id,
                     "principal_id": request.principal_id,
+                    "client_id": request.client_id,
                     "data_product_id": request.data_product_id,
                     "candidate_owner_ids": request.candidate_owner_ids or [],
                     "fallback_roles": request.fallback_roles or [],

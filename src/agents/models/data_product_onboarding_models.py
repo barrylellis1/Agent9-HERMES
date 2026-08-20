@@ -397,6 +397,20 @@ class BusinessProcessMappingResponse(A9AgentBaseResponse):
 class PrincipalOwnershipRequest(A9AgentBaseRequest):
     """Request to identify accountable principal ownership for a data product."""
 
+    client_id: Optional[str] = Field(
+        None,
+        description=(
+            "Tenant this data product belongs to. REQUIRED for safe resolution — "
+            "principal IDs (e.g. 'coo_001') are reused across clients by design "
+            "(CLAUDE.md Rule 8, uniqueness is the composite (client_id, id) key), "
+            "so without this, candidate/fallback/business-process matching can "
+            "silently resolve to a different tenant's principal. Found live, Aug "
+            "2026: a Lubricants data product resolved to a Hess principal as owner "
+            "because this field didn't exist yet. When absent, "
+            "identify_data_product_owner skips auto-matching entirely rather than "
+            "guess across tenants."
+        ),
+    )
     data_product_id: str = Field(..., description="Identifier for the onboarded data product")
     candidate_owner_ids: List[str] = Field(
         default_factory=list,

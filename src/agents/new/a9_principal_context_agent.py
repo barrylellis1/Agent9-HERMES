@@ -405,6 +405,7 @@ class A9_Principal_Context_Agent:
         ownership_chain: List[OwnershipChainEntry] = []
         owner_principal_id: Optional[str] = None
         owner_profile: Dict[str, Any] = {}
+        client_id = request.client_id
 
         def _record_chain(principal_id: str, role: Optional[str], reason: str) -> None:
             ownership_chain.append(
@@ -413,6 +414,32 @@ class A9_Principal_Context_Agent:
                     role=role,
                     reason=reason,
                 )
+            )
+
+        # TENANT ISOLATION (CLAUDE.md Rule 7 / 8) — principal IDs like "coo_001" are
+        # reused across clients BY DESIGN (uniqueness is the composite (client_id, id)
+        # key). Every branch below must strict-match client_id, not just "is not None".
+        # Found live, Aug 2026: without this, a Lubricants data product's ownership
+        # resolved to a Hess principal via the bare-ID candidate lookup. Fail closed
+        # when client_id is missing — skip auto-matching entirely rather than guess
+        # across every loaded tenant.
+        if not client_id:
+            self.logger.warning(
+                "identify_data_product_owner called without client_id for data "
+                "product '%s' — skipping auto-matching to avoid a cross-tenant "
+                "owner assignment; manual assignment required.",
+                request.data_product_id,
+            )
+            notes.append(
+                "No client_id provided — auto-matching skipped to avoid a "
+                "cross-tenant assignment. Manual assignment required."
+            )
+            return PrincipalOwnershipResponse.pending(
+                request_id=request_id,
+                owner_principal_id=None,
+                owner_profile={},
+                ownership_chain=ownership_chain,
+                notes=notes,
             )
 
         # 1. Direct nominee lookup by principal ID
@@ -425,6 +452,14 @@ class A9_Principal_Context_Agent:
                 except Exception as err:
                     self.logger.warning(f"Candidate lookup failed for {candidate_id}: {err}")
                     provider_profile = None
+                if provider_profile and getattr(provider_profile, "client_id", None) != client_id:
+                    self.logger.warning(
+                        "Candidate owner '%s' belongs to client_id '%s', not the "
+                        "requesting client_id '%s' — rejected, not a valid nominee "
+                        "for this tenant.",
+                        candidate_id, getattr(provider_profile, "client_id", None), client_id,
+                    )
+                    continue
                 if provider_profile:
                     owner_profile = self._normalize_profile_data(provider_profile)
                     owner_principal_id = owner_profile.get("id", candidate_id)
@@ -436,7 +471,7 @@ class A9_Principal_Context_Agent:
         # 2. Fallback to role-based resolution when no direct nominee found
         if not owner_principal_id and request.fallback_roles:
             for role in request.fallback_roles:
-                profile = self._get_profile_case_insensitive(role)
+                profile = self._get_profile_case_insensitive(role, client_id=client_id)
                 if profile:
                     owner_profile = self._normalize_profile_data(profile)
                     owner_principal_id = owner_profile.get("id") or owner_profile.get("principal_id") or role
@@ -450,7 +485,7 @@ class A9_Principal_Context_Agent:
             target_processes = {bp.lower() for bp in request.business_process_context if bp}
             best_candidate: Optional[Dict[str, Any]] = None
             best_match_count = 0
-            for profile_data in self._iter_principal_profiles():
+            for profile_data in self._iter_principal_profiles(client_id=client_id):
                 business_processes = profile_data.get("business_processes", []) or []
                 overlap = target_processes.intersection({bp.lower() for bp in business_processes})
                 if overlap and len(overlap) > best_match_count:
@@ -470,9 +505,9 @@ class A9_Principal_Context_Agent:
                     + ", ".join(request.business_process_context)
                 )
 
-        # 4. Last-resort fallback to the first available profile
+        # 4. Last-resort fallback to the first available profile for THIS tenant
         if not owner_principal_id:
-            fallback_profile = next(self._iter_principal_profiles(), None)
+            fallback_profile = next(self._iter_principal_profiles(client_id=client_id), None)
             if fallback_profile:
                 owner_profile = fallback_profile
                 owner_principal_id = fallback_profile.get("id") or fallback_profile.get("principal_id")
@@ -530,19 +565,88 @@ class A9_Principal_Context_Agent:
         # This would be implemented in a full version
         pass
         
-    def _get_profile_case_insensitive(self, role_key: str) -> Dict[str, Any]:
+    def _normalize_profile_data(self, profile: Any) -> Dict[str, Any]:
+        """Normalize a principal profile into a flat, .get()-able dict.
+
+        PrincipalProfileProvider.get()/.get_all() return validated PrincipalProfile
+        Pydantic instances, not dicts — .get() is not defined on them. This was the
+        root cause of a live AttributeError in identify_data_product_owner (found
+        running the real onboarding pipeline end to end, Aug 2026): this method was
+        called but never defined, written against an assumed dict-shaped profile
+        that predates the current Supabase-backed PrincipalProfile model.
+
+        Accepts a PrincipalProfile, a plain dict (defensive — some callers may
+        already have one), or None.
+        """
+        if profile is None:
+            return {}
+        if isinstance(profile, dict):
+            data = dict(profile)
+        elif hasattr(profile, "model_dump"):
+            data = profile.model_dump()
+        else:
+            data = dict(getattr(profile, "__dict__", {}) or {})
+
+        data.setdefault("id", data.get("id") or data.get("principal_id"))
+        # PrincipalProfile has no "role" field — "title" (e.g. "Chief Financial
+        # Officer") is the closest analogue, and is NOT the same convention as the
+        # short role codes ("CFO") used elsewhere in this codebase (KPI.owner_role
+        # etc). Aliased here so existing .get("role") call sites get something
+        # rather than nothing; does not resolve that naming mismatch — a caller
+        # matching fallback_roles=["CFO"] against this will not match "Chief
+        # Financial Officer". Known, not silently papered over.
+        data.setdefault("role", data.get("title"))
+        return data
+
+    def _iter_principal_profiles(self, client_id: Optional[str] = None):
+        """Yield every loaded principal profile normalized to a flat dict.
+
+        self.principal_profiles is a List[PrincipalProfile] in the common case
+        (see _load_principal_profiles), but has historically also been populated
+        as a dict keyed by id/role — handled here too. Also called-but-undefined
+        before this fix, same root cause as _normalize_profile_data.
+
+        client_id, when given, STRICT-matches (CLAUDE.md Rule 7) — principal_profiles
+        holds every loaded tenant's profiles, not just the caller's, so an unfiltered
+        iteration is a cross-tenant leak risk for any caller that doesn't filter
+        results itself. Pass None only when the caller genuinely needs every tenant
+        (rare — verify that's actually intended, not an oversight).
+        """
+        profiles = self.principal_profiles
+        if isinstance(profiles, dict):
+            profiles = profiles.values()
+        for profile in (profiles or []):
+            normalized = self._normalize_profile_data(profile)
+            if client_id and normalized.get("client_id") != client_id:
+                continue
+            yield normalized
+
+    def _get_profile_case_insensitive(
+        self, role_key: str, client_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         """
         Get a profile using case-insensitive matching with multiple format attempts.
-        
+
+        Matches against each profile's id AND role (aliased from title — see
+        _normalize_profile_data). Previously matched via `hasattr(profile, 'get')`
+        guards that were always False against real PrincipalProfile instances, so
+        this silently returned None on every call — no exception, no match, ever.
+
+        client_id, when given, STRICT-matches (CLAUDE.md Rule 7) — principal_profiles
+        holds every loaded tenant's profiles, so an unfiltered match risks returning
+        a different tenant's principal for the same role name (e.g. "CFO" exists for
+        every client). Pass None only when a cross-tenant match is genuinely intended.
+
         Args:
             role_key: The role key to look up (can be in any case format)
-            
+            client_id: Restrict matches to this tenant
+
         Returns:
-            The profile if found, or None if not found
+            The normalized profile dict if found, or None if not found
         """
         if not role_key:
             return None
-            
+
         # Try different formats of the role key
         formats_to_try = [
             role_key,                              # Original format
@@ -552,32 +656,23 @@ class A9_Principal_Context_Agent:
             role_key.title(),                      # Title Case
             role_key.replace("_", " ").title(),     # Title Case With Spaces
         ]
-        
-        # Try each format against profile keys and role values
-        for fmt in formats_to_try:
-            # Direct key match
-            if fmt in self.principal_profiles:
-                return self.principal_profiles[fmt]
-                
-            # Check lowercase keys - ensure principal_profiles is a dictionary
-            if isinstance(self.principal_profiles, dict):
-                for key, profile in self.principal_profiles.items():
-                    # Match against key
-                    if key.lower() == fmt.lower():
-                        return profile
-                        
-                    # Match against role attribute if it exists
-                    if hasattr(profile, 'get') and profile.get('role', '').lower() == fmt.lower():
-                        return profile
-            elif isinstance(self.principal_profiles, list):
-                # Handle case where principal_profiles is a list
-                for profile in self.principal_profiles:
-                    # Try to get a key or identifier from the profile
-                    if hasattr(profile, 'get'):
-                        profile_role = profile.get('role', '')
-                        if profile_role.lower() == fmt.lower():
-                            return profile
-                    
+        fmt_lower_set = {fmt.lower() for fmt in formats_to_try if fmt}
+
+        profiles = self.principal_profiles
+        items = profiles.items() if isinstance(profiles, dict) else enumerate(profiles or [])
+        for key, raw_profile in items:
+            profile = self._normalize_profile_data(raw_profile)
+            if client_id and profile.get("client_id") != client_id:
+                continue
+            candidates = {
+                str(key).lower() if isinstance(profiles, dict) else "",
+                str(profile.get("id") or "").lower(),
+                str(profile.get("role") or "").lower(),
+            }
+            candidates.discard("")
+            if candidates & fmt_lower_set:
+                return profile
+
         # No match found
         return None
         

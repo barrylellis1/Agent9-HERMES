@@ -128,6 +128,15 @@ await orchestrator.orchestrate_data_product_onboarding(
 # Delegates to: A9_Data_Product_Agent (step execution), A9_Data_Governance_Agent (validation)
 ```
 
+**client_id must reach every step, not just registration (Aug 2026):** the principal-ownership
+step's `ownership_payload` did not include `request.client_id` — found live, running this
+workflow end to end for the first time, when it resolved a different tenant's principal as
+owner. Fixed by threading `client_id` into `ownership_payload`; see
+`A9_Principal_Context_Agent_card.md`'s Aug 2026 entry for the full fix (also required changes
+inside that agent — this was not a one-line fix). When adding a new conditional step to this
+workflow, don't assume `client_id` is already reachable at that step just because it's on the
+top-level request — check the step's own payload dict explicitly includes it.
+
 ---
 
 ### Batch / Headless Helpers
