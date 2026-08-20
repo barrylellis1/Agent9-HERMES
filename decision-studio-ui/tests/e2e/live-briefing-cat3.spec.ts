@@ -61,12 +61,20 @@ test.describe('Live — Phase 13 Cat 3 briefing UI', () => {
     // written yet.
     let synthesisRequestId: string | null = null;
     let sfPayload: any = null;
+    let daPayload: any = null;
+    let daRequestId: string | null = null;
     const stagesSeen: string[] = [];
 
     page.on('response', async res => {
       const u = res.url();
       try {
-        if (u.includes('/workflows/solutions/run') && res.request().method() === 'POST') {
+        if (u.includes('/workflows/deep-analysis/run') && res.request().method() === 'POST') {
+          const j = await res.json();
+          daRequestId = j?.data?.request_id ?? j?.request_id ?? null;
+        } else if (daRequestId && u.includes(`/workflows/deep-analysis/${daRequestId}/status`)) {
+          const j = await res.json();
+          if (j?.data?.state === 'completed' && j?.data?.result) daPayload = j.data.result;
+        } else if (u.includes('/workflows/solutions/run') && res.request().method() === 'POST') {
           const body = JSON.parse(res.request().postData() || '{}');
           const stage = body?.preferences?.debate_stage ?? 'unspecified';
           stagesSeen.push(stage);
@@ -121,19 +129,60 @@ test.describe('Live — Phase 13 Cat 3 briefing UI', () => {
     const openActionCenter = page.getByRole('button', { name: /open action center/i });
     if (await openActionCenter.count()) await openActionCenter.first().click();
 
-    // ── SF: four interactions, none of which dispatch on their own ────────────
+    // ── Phase 19 mandatory framing gate — must be answered before Generate
+    // Solutions unlocks (DA_ENABLE_FRAMING_GATE is on in this environment).
+    // Same resilient mixed-mode-then-framing pattern as live-framing-gate.spec.ts;
+    // this run doesn't assert on framing content, it just needs to get past the
+    // gate with a real answer so the briefing reflects genuine framing-informed
+    // synthesis, not a bypassed/stale flow.
+    const startRefinement = page.getByRole('button', { name: /start refinement session/i });
     const focusRecovery = page.getByRole('button', { name: /focus on recovery/i });
-    const generate = page.getByRole('button', { name: /^generate solutions/i });
+    const focusOpportunity = page.getByRole('button', { name: /focus on opportunity/i });
+    const letAgent9Decide = page.getByRole('button', { name: /let agent9 decide/i });
     await expect(async () => {
-      const [nR, nG] = await Promise.all([focusRecovery.count(), generate.count()]);
-      expect(nR + nG).toBeGreaterThan(0);
-    }).toPass({ timeout: 120_000, intervals: [1_000] });
+      const [nStart, nRec, nOpp, nDec] = await Promise.all([
+        startRefinement.count(), focusRecovery.count(), focusOpportunity.count(), letAgent9Decide.count(),
+      ]);
+      expect(nStart + nRec + nOpp + nDec).toBeGreaterThan(0);
+    }).toPass({ timeout: 120_000, intervals: [2_000] });
 
-    if (await focusRecovery.count()) await focusRecovery.first().click();
-    await generate.waitFor({ state: 'visible', timeout: 60_000 });
-    await generate.click();
-    await page.getByRole('heading', { name: /assemble council/i })
-      .waitFor({ state: 'visible', timeout: 60_000 });
+    if (await letAgent9Decide.count()) {
+      await letAgent9Decide.first().click();
+      await page.waitForTimeout(1_000);
+    } else if (await focusRecovery.count()) {
+      await focusRecovery.first().click();
+      await page.waitForTimeout(1_000);
+    }
+    await expect(startRefinement, 'Start Refinement Session must be reachable once mixed-mode (if any) is resolved').toBeVisible({ timeout: 60_000 });
+
+    await startRefinement.click();
+    const framingCard = page.getByTestId('framing-gate-card');
+    await framingCard.waitFor({ state: 'visible', timeout: 90_000 });
+    const altButtons = page.getByTestId('framing-alternative');
+    if (await altButtons.count() > 0) {
+      await altButtons.first().click();
+    } else {
+      await page.getByTestId('framing-confirm-stated').click();
+    }
+    await page.getByTestId('framing-falsifier-input').fill(
+      'If this KPI does not move as expected within two assessment cycles after acting on this objective, this frame was wrong.'
+    );
+    const framingSubmit = page.getByTestId('framing-submit');
+    await expect(framingSubmit).toBeEnabled();
+    await framingSubmit.click();
+    await expect(framingCard, 'framing card must not still be showing after submission').toHaveCount(0);
+    console.log('[cat3] framing gate answered');
+
+    // "Skip to Solutions" opens the persona selector (State D) directly —
+    // one real "Generate Solutions" click there, not the two-click pattern
+    // the pre-framing-gate entry path used.
+    const skipButton = page.getByTitle(/skip to solutions/i);
+    await expect(skipButton, 'Skip to Solutions must be enabled once framing is answered').toBeEnabled({ timeout: 30_000 });
+    await skipButton.click();
+    await page.getByRole('heading', { name: /assemble council/i }).waitFor({ state: 'visible', timeout: 60_000 });
+
+    const generate = page.getByRole('button', { name: /^generate solutions/i });
+    await generate.waitFor({ state: 'visible', timeout: 30_000 });
     await generate.click();
     await page.waitForURL('**/debate/**', { timeout: 60_000 });
 
@@ -147,6 +196,11 @@ test.describe('Live — Phase 13 Cat 3 briefing UI', () => {
       path.join(testInfo.outputDir, 'sf-synthesis-payload.json'),
       JSON.stringify(sfPayload, null, 2), 'utf-8',
     );
+    fs.writeFileSync(
+      path.join(testInfo.outputDir, 'da-payload.json'),
+      JSON.stringify(daPayload, null, 2), 'utf-8',
+    );
+    console.log(`[cat3] DA payload captured: ${daPayload !== null}`);
     console.log(`[cat3] stages: ${stagesSeen.join(' -> ')}`);
 
     // ── Into the briefing ─────────────────────────────────────────────────────
