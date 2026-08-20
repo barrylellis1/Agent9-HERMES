@@ -333,7 +333,7 @@ def onboard_client(
             "id", "name", "domain", "description", "owner", "version", "source_system",
             "related_business_processes", "tags", "metadata", "tables", "views",
             "yaml_contract_path", "output_path", "last_updated", "reviewed",
-            "staging", "language", "documentation", "client_id",
+            "staging", "language", "documentation", "client_id", "time_dimensions",
         }
         raw_dp_rows = [mod.DATA_PRODUCT]
         if isinstance(getattr(mod, "DATA_PRODUCTS", None), list):
@@ -341,9 +341,23 @@ def onboard_client(
 
         def _prep_dp_row(row: dict) -> dict:
             out = {k: v for k, v in row.items() if k in _DP_COLS}
-            # time_dimensions has no dedicated column — persist inside metadata JSONB
-            # so the DA agent can retrieve it without a schema migration.
+            # time_dimensions DOES have a dedicated top-level column (confirmed live
+            # Aug 2026 — this comment used to say otherwise and was wrong). The
+            # DataProduct model's _backfill_fields only reads metadata['time_dimensions']
+            # as a fallback WHEN the top-level list is empty (data_product.py:137) — so a
+            # seed script that writes only to metadata is silently SHADOWED the moment
+            # anything else (e.g. the live onboarding pipeline's register_data_product,
+            # which writes its own auto-inferred guess to the top-level column) touches
+            # this row again. Found live: re-onboarding dp_lubricants_sales through
+            # /workflows/data-product-onboarding/run replaced the hand-curated
+            # fiscal_year_period primary time dimension with an auto-inferred
+            # year-granularity guess, and re-running this seed script did NOT restore it,
+            # because it only ever wrote metadata.time_dimensions, never the shadowing
+            # top-level column. Write both: the top-level column is now the one that
+            # actually wins, metadata stays as a redundant copy for anything still
+            # reading it from there.
             if row.get("time_dimensions"):
+                out["time_dimensions"] = row["time_dimensions"]
                 meta = dict(out.get("metadata") or {})
                 meta["time_dimensions"] = row["time_dimensions"]
                 out["metadata"] = meta
