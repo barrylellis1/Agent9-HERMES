@@ -163,19 +163,49 @@ class A9_Principal_Context_Agent:
             self.registry_factory = RegistryFactory()
             self._principal_provider = None
             self._business_process_provider = None
-            
-            # Try to get the principal profile provider from the registry factory
+
+            # Ensure the registry is actually bootstrapped before asking it for
+            # anything. RegistryBootstrap.initialize() is idempotent and
+            # self-healing — it re-verifies principal_profile/business_glossary/
+            # data_product/kpi and only re-runs what's missing — so this is a
+            # cheap no-op on the normal path (app startup already ran it) and a
+            # correct, on-demand bootstrap on the abnormal one (this agent
+            # connecting before that startup sequence finished).
+            #
+            # Previously, when get_principal_profile_provider() returned None,
+            # this method manufactured its own PrincipalProfileProvider() (a
+            # flat, in-memory, bare-ID-keyed class with none of
+            # DatabaseRegistryProvider's client_id-aware filtering) and
+            # REGISTERED it into the shared factory — which could pre-empt
+            # RegistryBootstrap's own registration for the rest of the process,
+            # since RegistryBootstrap only registers a provider "if existing is
+            # None". That startup race was confirmed live, Aug 2026: this agent
+            # ended up permanently holding the non-tenant-aware fallback while
+            # other routes (which re-resolve the factory per request) correctly
+            # got the real one — see identify_data_product_owner's card entry
+            # for the cross-tenant leak that produced.
+            try:
+                from src.registry.bootstrap import RegistryBootstrap
+                await RegistryBootstrap.initialize()
+            except Exception as e:
+                self.logger.warning(f"RegistryBootstrap.initialize() failed: {e}")
+
+            # Try to get the principal profile provider from the (now-bootstrapped) factory
             try:
                 self._principal_provider = self.registry_factory.get_principal_profile_provider()
                 if not self._principal_provider:
-                    self.logger.warning("Principal profile provider not found, creating default provider")
+                    # RegistryBootstrap ran and STILL found nothing — a real failure
+                    # (e.g. DB unreachable), not a race. Fall back for local
+                    # degraded operation only; deliberately NOT registered into
+                    # the shared factory, so it can never be handed to any other
+                    # consumer as if it were the real, tenant-aware provider.
+                    self.logger.error(
+                        "No principal_profile provider after RegistryBootstrap.initialize() — "
+                        "using a local, unregistered, non-tenant-aware fallback. Ownership "
+                        "resolution and role-based lookup will be degraded until this resolves."
+                    )
                     self._principal_provider = PrincipalProfileProvider()
-                    self.registry_factory.register_provider("principal_profile", self._principal_provider)
-                    # Explicitly load the provider data
                     await self._principal_provider.load()
-                    # Mark as initialized in factory so UI status checks pass
-                    if hasattr(self.registry_factory, "_provider_initialization_status"):
-                        self.registry_factory._provider_initialization_status["principal_profile"] = True
                 else:
                     # If provider exists but not marked initialized, load now
                     init = getattr(self.registry_factory, "_provider_initialization_status", {})
@@ -193,7 +223,7 @@ class A9_Principal_Context_Agent:
                 self.logger.info("Successfully retrieved principal profile provider from registry factory")
             except Exception as e:
                 self.logger.warning(f"Failed to get principal profile provider: {str(e)}")
-                self.logger.info("Initializing default principal profile provider")
+                self.logger.info("Initializing local, unregistered fallback principal profile provider")
                 self._principal_provider = PrincipalProfileProvider()
                 # Load default profiles
                 await self._principal_provider.load()
@@ -448,7 +478,19 @@ class A9_Principal_Context_Agent:
                 if not candidate_id:
                     continue
                 try:
-                    provider_profile = self._principal_provider.get(candidate_id)
+                    # Prefer a client_id-scoped lookup — DatabaseRegistryProvider
+                    # supports it directly and resolves the RIGHT tenant's copy of
+                    # a colliding ID deterministically, rather than whichever one
+                    # happens to be returned by a bare id-only lookup (confirmed
+                    # live: get('cfo_001') with no client_id returned a different
+                    # tenant's profile). Falls back to the bare call for any
+                    # provider that doesn't accept the kwarg (e.g. the degraded,
+                    # unregistered local fallback in connect()) — the strict
+                    # client_id check just below still guards that path.
+                    try:
+                        provider_profile = self._principal_provider.get(candidate_id, client_id=client_id)
+                    except TypeError:
+                        provider_profile = self._principal_provider.get(candidate_id)
                 except Exception as err:
                     self.logger.warning(f"Candidate lookup failed for {candidate_id}: {err}")
                     provider_profile = None

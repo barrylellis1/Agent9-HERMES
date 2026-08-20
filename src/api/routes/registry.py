@@ -38,10 +38,22 @@ def error_response(code: str, message: str, details: Optional[Dict[str, Any]] = 
 
 
 async def get_registry_factory() -> RegistryFactory:
-    factory = RegistryFactory()
-    if not factory.is_initialized:
-        await factory.initialize()
-    return factory
+    """Return the shared, properly-bootstrapped RegistryFactory.
+
+    Routes through RegistryBootstrap.initialize() — idempotent and self-healing
+    (it re-verifies principal_profile/business_glossary/data_product/kpi providers
+    and only re-runs what's actually missing) — rather than RegistryFactory's own
+    plain .initialize(), which only LOADS DATA for providers already registered
+    and does nothing if none are. Every registry CRUD route was implicitly relying
+    on RegistryBootstrap having already run via the app's startup sequence before
+    any request arrived; this makes that guarantee explicit instead of assumed.
+    Found live, Aug 2026, tracing the same startup-ordering gap that let
+    A9_Principal_Context_Agent register a non-tenant-aware fallback provider —
+    see that agent's connect() and its card for the full finding.
+    """
+    from src.registry.bootstrap import RegistryBootstrap
+    await RegistryBootstrap.initialize()
+    return RegistryFactory()
 
 
 def serialize(value: Any) -> Any:
