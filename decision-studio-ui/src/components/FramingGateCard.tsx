@@ -76,7 +76,7 @@ export function FramingGateCard({ prompt, onSubmit, isSubmitting = false }: Fram
     typeof choice === 'object' && choice !== null && 'alternative' in choice && choice.alternative === kpiId;
 
   return (
-    <div data-testid="framing-gate-card" className="flex flex-col gap-3 overflow-y-auto p-4">
+    <div data-testid="framing-gate-card" className="flex flex-1 min-h-0 flex-col gap-3 overflow-y-auto p-4">
       <div className="flex items-start gap-2">
         <Target className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-400" />
         <div>

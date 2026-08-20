@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -246,6 +246,33 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
     setResolvedAnalysisMode(null);
     setAgentDecisionMessage(null);
   }, [analysisResults?.kpi_name, analysisResults?.analysis_mode]);
+
+  // Auto-launch the refinement session (and therefore the framing gate) as
+  // soon as DA results are ready, instead of waiting for an explicit "Start
+  // Refinement Session" click. There isn't much to see on first DA display
+  // otherwise, and the gate's first turn costs nothing extra to fetch — its
+  // framing prompt (_build_framing_prompt) is pure registry/causal-graph
+  // lookups, no LLM call. Mirrors the exact condition the manual button below
+  // gates on (line ~911/1025): mixed-mode situations must resolve
+  // problem-vs-opportunity first. Fires once per analysis — guarded by a ref
+  // keyed the same way the mode-resolution effect above resets, so it never
+  // re-fires after an explicit Cancel (showRefinementChat/refinementResult
+  // aren't part of the guard key, only gate whether it's currently eligible
+  // to fire) and never reopens an already-completed refinement.
+  const autoLaunchedForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!currentAnalysis || showPersonaSelector) return;
+    const analysisKey = `${analysisResults?.kpi_name ?? ''}::${analysisResults?.analysis_mode ?? ''}`;
+    if (autoLaunchedForRef.current === analysisKey) return;
+    if (showRefinementChat || refinementResult) return;
+    const modeResolved = analysisMode !== 'mixed' || resolvedAnalysisMode !== null;
+    if (!modeResolved) return;
+    autoLaunchedForRef.current = analysisKey;
+    onStartRefinement();
+  }, [
+    currentAnalysis, showPersonaSelector, analysisResults?.kpi_name, analysisResults?.analysis_mode,
+    analysisMode, resolvedAnalysisMode, showRefinementChat, refinementResult, onStartRefinement,
+  ]);
 
   // Net absolute delta per segment type — drives the "Let Agent9 Decide" logic.
   // These are raw deltas in the KPI's own unit (percentage points for a %

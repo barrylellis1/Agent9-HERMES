@@ -403,8 +403,21 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Sticky footer */}
-      <div className="flex-shrink-0">
+      {/* Sticky footer — EXCEPT while the framing gate is showing: that card's
+          content (up to 6+ alternatives, prior-frame box, constraints,
+          falsifier field, submit button) routinely exceeds the space below
+          the messages area. flex-shrink-0 here means this wrapper takes
+          whatever height its content wants, uncapped by the panel — so with
+          FramingGateCard's own overflow-y-auto never actually receiving a
+          bounded height to scroll within, the excess just overflows past this
+          wrapper and gets hard-clipped by DeepFocusView's overflow-hidden
+          ancestor. The submit button (and often the falsifier textarea above
+          it) landed below that clip line — genuinely unreachable, not just
+          hard to find, however far the page scrolled elsewhere. Found live,
+          Aug 2026. flex-1 min-h-0 here instead lets the footer take exactly
+          the remaining panel space and hands FramingGateCard's own
+          overflow-y-auto a real height to scroll inside. */}
+      <div className={refinementState.framing_prompt ? 'flex-1 min-h-0 flex flex-col overflow-hidden' : 'flex-shrink-0'}>
       {/* Suggested responses — NEVER shown while the framing gate is pending
           (framingRequired implies suggested_responses=[] server-side too,
           this is belt-and-suspenders: a chip is a click, and the whole
@@ -464,7 +477,7 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
           rendered here in that state, not an addition alongside the normal
           input. */}
       {refinementState.framing_prompt ? (
-        <div className="border-t border-slate-700 max-h-[70vh]">
+        <div className="border-t border-slate-700 flex-1 min-h-0 flex flex-col overflow-hidden">
           <FramingGateCard
             prompt={refinementState.framing_prompt}
             onSubmit={submitFraming}
