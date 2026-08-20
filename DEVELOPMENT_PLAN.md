@@ -3386,6 +3386,7 @@ Card update + commit: pending completion of live verification.
 
 | Initiative | When |
 |-----------|------|
+| **Strategic causal graph** — `docs/architecture/strategic_causal_graph_design.md` (design note, not built). DQ link 1 (frame) failed 3/3 live runs 2026-08-19 because the causal graph is operational-only; a principal can never be offered a strategic/portfolio alternative at the framing gate. Highest-value consequence: converts L1 from a 71%-false-positive text screen into a real check. | After demo cycle — lock the open decisions in that doc first (node model, provenance vocabulary, per-client curation), ideally after confirming L1's failure rate beyond n=3 |
 | Extended Solution Finding (Risk, Stakeholder, Solution Architect agents) | After Phase 12 |
 | Innovation Driver (proactive pattern application from VA history) | After multiple VA cycles |
 | Decision Journal (institutional decision memory) | Enterprise tier only |
