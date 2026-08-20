@@ -254,7 +254,7 @@ def _fiscal_period(m: int) -> str:
 # Transaction generator
 # ---------------------------------------------------------------------------
 
-def generate_transactions() -> List[Dict]:
+def generate_transactions(sales_lines: List[Dict] = None) -> List[Dict]:
     """Generate ~50-60K financial transactions with engineered scenarios.
 
     Revenue transactions are generated per channel x customer x product to create
@@ -262,6 +262,14 @@ def generate_transactions() -> List[Dict]:
 
     COGS uses a flatter seasonal curve (production-schedule-based) so that the
     engineered Q4 2025 base-oil spike is clearly visible vs Q3.
+
+    sales_lines: optional list to append raw revenue-invoice-line dicts to, one per
+    generated revenue split (customer_id, product_id, channel_id, profit_center_id,
+    fiscal_year, fiscal_month, amount). Purely additive -- when None (every existing
+    caller), this changes nothing about the returned `rows` or the random sequence.
+    generate_lubricants_sales_data.py uses this to build Sales Orders that reconcile
+    exactly to Net Revenue, since it is a decomposition of the same basis rather than
+    an independently sampled dataset.
     """
     rows: List[Dict] = []
     txn_counter = 0
@@ -380,6 +388,16 @@ def generate_transactions() -> List[Dict]:
                             pc_id=pc_id, ch_id=channel_id,
                             yr=yr, mo=mo, amt=amt,
                         ))
+                        if sales_lines is not None:
+                            sales_lines.append({
+                                "customer_id": cust_id,
+                                "product_id": prod_id,
+                                "channel_id": channel_id,
+                                "profit_center_id": pc_id,
+                                "fiscal_year": yr,
+                                "fiscal_month": mo,
+                                "amount": round(amt, 2),
+                            })
 
                     # Record the basis at full dimensional grain for COGS allocation.
                     _key = (cust_id, prod_id, pc_id, channel_id)
