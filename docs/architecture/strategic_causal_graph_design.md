@@ -102,12 +102,17 @@ cost-management one."*
 2. **Provenance vocabulary for strategic edges.** `strategic_judgment` above is a placeholder, not a
    decision. Does it need levels (e.g. `principal_proposed` vs. `board_ratified`)? Does "confidence" even
    make sense here, or is the honest field something more like "who owns this judgment and when did they
-   last affirm it"?
-3. **Who curates these, and when.** Onboarding-time only (client's strategy team names 1-3 strategic
-   postures per major KPI cluster), or can a principal add one ad hoc at a framing gate ("actually, is
-   exiting this segment on the table?") the way HITL-accreted assumptions already work elsewhere in the
-   theory layer? The latter is more aligned with this project's existing accretion pattern
-   (`theory_layer_design.md`) but is a bigger interaction-design lift.
+   last affirm it"? One tier is now decided, not open: an LLM-drafted candidate that hasn't been through
+   human onboarding review yet needs its own explicitly-lower rung — reuse the existing
+   `causal_rung="intervention_hypothesized"` concept (already means "proposed, untested" for SF's own
+   proposals) rather than inventing a parallel vocabulary for the same idea.
+3. **Who curates these, and when — resolved, see §"LLM-assisted candidate generation" below.**
+   LLM-drafted candidates, human-finalized at onboarding, same shape as `A9_KPI_Assistant_Agent`.
+   Still open within that: whether a principal can *also* add one ad hoc at a live framing gate
+   ("actually, is exiting this segment on the table?") the way HITL-accreted assumptions already work
+   elsewhere in the theory layer. More aligned with this project's existing accretion pattern
+   (`theory_layer_design.md`) but a bigger interaction-design lift — worth a second pass once
+   onboarding-time drafting is proven.
 4. **UI treatment.** No snapshot, no trend chart — `_fetch_neighbour_snapshot`/`_fetch_neighbour_monthly_trend`
    (Phase 20) should skip strategic alternatives outright rather than attempt a fetch that can't
    succeed. `CausalNeighbourhoodEvidence.tsx` needs a visibly different card treatment (no "+X% this
@@ -124,17 +129,56 @@ cost-management one."*
    consequence of building this, and probably the actual design center of the next pass, not an
    afterthought.
 
+## LLM-assisted candidate generation — grounded, not freelance (resolved 2026-08-20)
+
+Raised and worked through directly: can the LLM propose candidate strategic edges using MBB-style
+reasoning, rather than requiring a client strategy team to author them unaided? First pass at this
+question wrongly treated it as a re-run of the already-rejected "compute the frame from the causal
+graph" move (`problem_framing_design.md` §"Compute the frame..." — "same defect as a computed weight
+vector: nobody chose it"). It isn't the same move: that rejection was about the *system* deriving and
+presenting a frame with no human choosing among alternatives. Here, an LLM would draft *candidates*; a
+human still explicitly reviews, edits, and approves before anything reaches the registry, and a
+principal still explicitly chooses at the framing gate via the same structured `FramingDecision` submit
+every other alternative uses. The real question isn't "is a human still deciding" (yes) — it's "is the
+LLM's draft grounded in real facts about this client, or freelancing from generic training-data
+narratives."
+
+**Checked what's actually knowable, rather than assuming a strategic judgment is inherently ungrounded:**
+- **Customer/segment concentration is already knowable and already used.** Live tonight, unprompted:
+  *"The five largest anchor accounts represent a large enough share of Synthetic Blend/Conventional
+  volume that renegotiated pass-through clauses meaningfully move segment-level COGS."* That's real
+  DA/DPA segment data, already flowing into synthesis today. A strategic-candidate drafter should be
+  handed the same facts, not asked to guess.
+- **Competitive position is partially knowable via an agent that already exists for exactly this.**
+  `A9_Market_Analysis_Agent` does live web search for market/competitor signals — not hypothetical, it's
+  what produces tonight's `market_signal` framing alternatives. The specific gap is narrow and already
+  tracked: `MarketAnalysisResponse.competitor_context` is a permanent stub today ("Reserved for future
+  enrichment," never populated) — one unbuilt field, not a structural wall.
+- **Capital constraints / board risk appetite are the genuinely thin one.** No existing mechanism
+  captures this today. The closest pattern, proving the *shape* already exists, is the assumption/
+  constraint register (`AssumptionProvider.get_active_constraints` — where "cannot raise list prices
+  mid-quarter" already lives). It has just never been asked to hold a "strategic constraints" category.
+  This is an onboarding-completeness gap, not a fundamental limit.
+
+**Resolved design**: an LLM-assisted *drafting* step at client onboarding — same shape
+`A9_KPI_Assistant_Agent` already uses for KPIs (LLM suggestions → conversational refinement → human
+finalization), not a new pattern. The drafter is handed real fetched facts (DA's customer-concentration
+data, MA's competitive signals once `competitor_context` is wired, the constraint register), reasons
+over them with MBB-style frameworks, and proposes 2-4 candidate strategic postures for a human to edit
+and approve. Approved candidates are written with human-curated provenance; unreviewed drafts carry
+`causal_rung="intervention_hypothesized"` (decision 2 above) so nothing LLM-authored is ever presented
+with the same confidence as a real relationship before a human has seen it. **Never** generate one live,
+per-framing-gate-turn, unsupervised — that would reproduce the rejected pattern one layer removed.
+
 ## Explicitly out of scope for this note
 
 - The exact schema/migration for a `StrategicAlternative` model — decision 1 above needs to be locked
   first.
-- Whether an LLM can be trusted to *propose* candidate strategic alternatives for human review (cheaper
-  to scale, but importing exactly the "computed weight vector, nobody chose it" failure mode
-  `problem_framing_design.md` §"Compute the frame from the causal graph" already rejected for the
-  operational case) versus pure human curation at onboarding.
 - Any change to `decision_quality.py`'s `score_run()` — decision 5 above is a real design direction, not
   a build plan.
-- A revised onboarding checklist entry — follows once decisions 2-3 are locked.
+- A revised onboarding checklist entry — follows once decisions 1-3 are locked.
+- Building `MarketAnalysisResponse.competitor_context` itself — a real prerequisite for the competitive-
+  position input above, tracked separately, not part of this note's scope.
 
 ## Falsifiable prediction, before any build (per `persona_council_experiments.md`'s own transferable
 method: predict before running, one variable at a time)
