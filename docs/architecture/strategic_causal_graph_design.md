@@ -120,6 +120,22 @@ At the framing gate: not *"Addressing Cost of Goods Sold instead of Gross Margin
 *"Addressing commodity-grade portfolio participation instead of Gross Margin % directly — a structural
 exposure question, not a cost-management one."*
 
+**What would make this dependable, not just plausible — checked directly (2026-08-20), not assumed.**
+This example needs real inventory/production-mix data, not an LLM guess. The natural source is **SAP
+MM** (Materials Management — inventory, materials, procurement) — its schema already encodes exactly
+"inventory," the Layer-1 content this project's own theory-layer table names. Checked what's actually in
+this codebase today: only SAP **FI** (Financial Accounting) exists, as `fi_star_schema.yaml` — grepped
+the whole repo for SD or MM and found nothing. The DPA card's "Datasphere adapter" is a connectivity
+scaffold, explicitly not built ("will be added as needed"). So this example is dependable *in principle*
+(MM's schema is well-documented and standardized) but not dependable *today* — building it means a real
+SAP MM connector and data product, comparable in scope to the MCP connectivity work this project already
+deferred on identical grounds (`project_mcp_activation_state_and_estimate` memory: "connectivity is
+table-stakes, don't boil the ocean — build on demand when a real deal needs it"). "Capacity, throughput"
+specifically (the other half of Layer 1's content) lives in SAP PP or a MES, not MM — even a full MM
+build wouldn't cover that piece; scope this example to inventory/materials-driven mix questions, not
+production-capacity ones, until PP/MES is separately justified. **Recommendation: defer, gated on a real
+SAP-running prospect's deal actually needing it — do not build speculatively.**
+
 **Layer 3 (Commitment) — new, found via the theory-layer reframing, not in the original pass:**
 
 ```
@@ -139,7 +155,13 @@ confidence: null
 
 The data behind this second example already exists — it's the same constraint the framing gate already
 shows under "Known Constraints." The only missing piece is presenting it as something a decision can
-target, not only something a decision must obey.
+target, not only something a decision must obey. **Dependable today, no new data collection required** —
+unlike the layer-1 example above, this is a presentation change on a fact this system already curates,
+already trusts, and already uses as a hard constraint (which is itself the proof it's dependable — an
+undependable constraint would already be causing bad decisions today). If a client's contract data later
+comes from SAP SD instead of manual curation, SD's structured pricing-condition/contract tables would be
+a *better* source for this than the current assumption-register text field — but that's an upgrade path,
+not a prerequisite; this example works with what's curated today.
 
 ## Open decisions — not locked, listed so the next pass doesn't re-derive them from zero
 
@@ -233,6 +255,8 @@ per-framing-gate-turn, unsupervised — that would reproduce the rejected patter
 - A revised onboarding checklist entry — follows once decisions 1-3 are locked.
 - Building `MarketAnalysisResponse.competitor_context` itself — a real prerequisite for the competitive-
   position input above, tracked separately, not part of this note's scope.
+- **A SAP MM (or PP/MES) connector and data product** — the layer-1 example's real prerequisite,
+  explicitly deferred (see "Recommended sequencing" below) until a real SAP-running prospect needs it.
 
 ## Falsifiable prediction, before any build (per `persona_council_experiments.md`'s own transferable
 method: predict before running, one variable at a time)
@@ -248,9 +272,21 @@ applies to the operational reframe question. If principals confirm the stated ob
 run even once the strategic option exists, that is itself the honest finding to report, not a result to
 argue away.
 
-## Recommended sequencing
+## Recommended sequencing — split by layer, not one initiative (resolved 2026-08-20)
 
-Not started. Recommended as the next real initiative after the current demo cycle, sequenced through the
-same discipline `problem_framing_design.md` used: lock the open decisions above (ideally after
-adjudicating a few more live DQ runs so L1's failure rate is confirmed beyond n=3, not assumed), write
-the slice-by-slice build plan, then implement.
+Asked directly: is this whole note boiling the ocean? The honest answer is **only if layer 1 and layer 3
+are treated as one initiative — they have completely different costs and should be split:**
+
+- **Layer 3 (constraint-as-lever): the near-term recommendation.** No new data collection — it reframes
+  a fact this system already curates, already trusts, and already uses as a hard constraint. Genuinely
+  cheap, genuinely dependable today. This is the one to actually build first, once the open decisions
+  above (node model, provenance vocabulary) are locked.
+- **Layer 1 (portfolio/capacity, via SAP MM): explicitly deferred, not part of the near-term build.**
+  Dependable *in principle* (MM's schema is real and well-documented) but requires a genuine new
+  connector + data product that doesn't exist in this codebase today (only FI does). Same class of
+  investment as the MCP connectivity work already deferred on identical grounds — build when a real
+  SAP-running prospect's deal needs it, not speculatively ahead of demand.
+
+Not started. Once layer 3 is locked and built, sequence it through the same discipline
+`problem_framing_design.md` used: adjudicate a few more live DQ runs first so L1's failure rate is
+confirmed beyond n=3, not assumed, then write the slice-by-slice build plan.
