@@ -3344,62 +3344,6 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             self.logger.info(f"[FRAMING] neighbour snapshot fetch failed for '{kpi_name_for_log}' (non-fatal): {e}")
             return None
 
-    def _bq_neighbour_monthly_series_sql(self, base_sql: str, date_col: str = "transaction_date", num_months: int = 9) -> str:
-        """Deliberately duplicated from
-        A9_Situation_Awareness_Agent._bq_monthly_series_sql — identical logic
-        (a pure string transform with no DB/agent-state dependency beyond
-        self.logger). Copied rather than shared to avoid any risk to SA's
-        already-shipped, tested method; if a third consumer ever needs this,
-        promote it to a shared utility module instead of a third copy (see
-        problem_framing_design.md §14).
-        """
-        match = re.match(
-            r'SELECT\s+(.+?)\s+AS\s+\w+\s+FROM\s+'
-            r'((?:`[^`]+`|"[^"]+"|\w+)(?:\.(?:`[^`]+`|"[^"]+"|\w+))*)'
-            r'(.*)',
-            base_sql,
-            re.IGNORECASE | re.DOTALL,
-        )
-        if not match:
-            self.logger.info(f"[FRAMING] could not parse base SQL for neighbour monthly series: {base_sql[:200]}")
-            return ""
-
-        agg_expr = match.group(1).strip()
-        table_ref = match.group(2).strip()
-        rest = match.group(3).strip()
-
-        where_match = re.search(r'\bWHERE\b(.*)', rest, re.IGNORECASE | re.DOTALL)
-        where_clause = ("WHERE" + where_match.group(1)) if where_match else rest
-
-        bare_date_col = date_col.strip('"')
-
-        if where_clause.upper().startswith("WHERE"):
-            existing_conditions = where_clause[5:].strip()
-            date_col_pattern = rf'"?{re.escape(bare_date_col)}"?'
-            cleaned = re.sub(
-                rf'(?:\bAND\s+)?{date_col_pattern}\s+'
-                rf'(?:BETWEEN\s+[\'"\d\-T]+\s+AND\s+[\'"\d\-T]+|[<>]=?\s*[\'"\d\-T]+)',
-                '',
-                existing_conditions,
-                flags=re.IGNORECASE,
-            ).strip().lstrip(',').strip()
-            cleaned = re.sub(r'^AND\s+', '', cleaned, flags=re.IGNORECASE).strip()
-            non_date_where = f"WHERE {cleaned}" if cleaned else ""
-        else:
-            non_date_where = ""
-
-        return (
-            f"SELECT period, value FROM ("
-            f"SELECT LEFT({bare_date_col}, 7) AS period, "
-            f"{agg_expr} AS value "
-            f"FROM {table_ref} "
-            f"{non_date_where} "
-            f"GROUP BY period "
-            f"ORDER BY period DESC "
-            f"LIMIT {num_months}"
-            f") ORDER BY period ASC"
-        )
-
     async def _fetch_neighbour_monthly_trend(
         self, kpi_definition: Any, num_months: int = 9,
     ) -> Optional[List[Dict[str, Any]]]:
@@ -3410,27 +3354,25 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
         _fetch_neighbour_snapshot, just no trend-chart line — disclosed by
         `monthly_values` staying None, never a fabricated flat line.
 
-        Non-fatal: None on any failure, missing data_product_agent, or a KPI
-        whose stored SQL doesn't match the BigQuery backtick-table pattern
-        (the same Tier-2 detection already sanctioned elsewhere in this
-        codebase for "is this a BQ KPI" decisions — gating which monthly-SQL
-        dialect to attempt, not the actual execution routing, which
-        execute_sql still resolves independently via DPA).
+        SQL GENERATION happens in DPA (`generate_monthly_series_sql`), not
+        here — this method's job is only to call DPA and shape the result.
+        (Found live 2026-08-19: the first version of this method built the
+        SQL itself, entirely outside DPA — a real violation of this
+        project's own SQL Backend Routing rule, fixed same-day. See
+        A9_Data_Product_Agent_card.md's Phase 20 entry for the full story.)
+
+        Non-fatal: None on any failure, a missing data_product_agent, or DPA
+        reporting the KPI isn't BigQuery-backed.
         """
         if self.data_product_agent is None:
             return None
         kpi_name_for_log = getattr(kpi_definition, "name", None) or getattr(kpi_definition, "id", "?")
         try:
-            raw_sql = getattr(kpi_definition, "calculation", None) or getattr(kpi_definition, "sql_query", None) or ""
-            if not raw_sql or not re.search(r'`[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_.-]+`', raw_sql):
-                return None
-            metadata = getattr(kpi_definition, "metadata", None)
-            date_col = (metadata or {}).get("date_column", "transaction_date") if isinstance(metadata, dict) else "transaction_date"
-            monthly_sql = self._bq_neighbour_monthly_series_sql(raw_sql, date_col=date_col, num_months=num_months)
-            if not monthly_sql:
+            gen = self.data_product_agent.generate_monthly_series_sql(kpi_definition, num_months=num_months)
+            if not gen.get("success"):
                 return None
             dp_id = getattr(kpi_definition, "data_product_id", None)
-            result = await self.data_product_agent.execute_sql(monthly_sql, data_product_id=dp_id)
+            result = await self.data_product_agent.execute_sql(gen["sql"], data_product_id=dp_id)
             rows = (result or {}).get("rows") or []
             if not rows:
                 return None

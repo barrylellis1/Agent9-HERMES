@@ -537,57 +537,71 @@ def _bq_kpi(kpi_id="cogs", client_id="hess"):
     )
 
 
+def _dpa_monthly_stub(gen_success=True, gen_sql="SELECT period, value FROM (...)", exec_result=None, exec_side_effect=None):
+    """DA no longer builds monthly-series SQL itself (Phase 20 cleanup,
+    2026-08-19) — it calls DPA's (synchronous) generate_monthly_series_sql
+    then (async) execute_sql. Mock both steps explicitly rather than one
+    bare MagicMock, which silently swallowed the real behavior into an
+    unrelated exception path before this fix."""
+    dpa = MagicMock()
+    dpa.generate_monthly_series_sql = MagicMock(return_value={"success": gen_success, "sql": gen_sql if gen_success else ""})
+    if exec_side_effect is not None:
+        dpa.execute_sql = AsyncMock(side_effect=exec_side_effect)
+    else:
+        dpa.execute_sql = AsyncMock(return_value=exec_result if exec_result is not None else {"columns": ["period", "value"], "rows": []})
+    return dpa
+
+
 class TestFetchNeighbourMonthlyTrend:
     @pytest.mark.asyncio
-    async def test_non_bigquery_kpi_returns_none(self):
-        """No backtick-quoted table reference -> not detected as BigQuery ->
-        None, never a fabricated/wrong-dialect query attempt."""
+    async def test_dpa_reports_non_bigquery_returns_none_without_calling_execute(self):
+        """DPA is the one deciding backend eligibility now — DA just relays
+        that decision, it never re-derives it. execute_sql must not even be
+        attempted when DPA couldn't generate anything."""
         da = _make_da_stub()
-        da.data_product_agent = MagicMock()
-        kpi = SimpleNamespace(id="cogs", sql_query="SELECT SUM([Amount]) FROM [dbo].[Financials]", calculation=None, data_product_id="dp1", metadata={})
-        result = await da._fetch_neighbour_monthly_trend(kpi)
+        da.data_product_agent = _dpa_monthly_stub(gen_success=False)
+        result = await da._fetch_neighbour_monthly_trend(_bq_kpi())
         assert result is None
         da.data_product_agent.execute_sql.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_success_parses_period_value_rows(self):
         da = _make_da_stub()
-        dpa = MagicMock()
-        dpa.execute_sql = AsyncMock(return_value={
+        da.data_product_agent = _dpa_monthly_stub(exec_result={
             "columns": ["period", "value"],
             "rows": [{"period": "2026-06", "value": 100.0}, {"period": "2026-07", "value": 110.0}],
         })
-        da.data_product_agent = dpa
         result = await da._fetch_neighbour_monthly_trend(_bq_kpi())
         assert result == [{"period": "2026-06", "value": 100.0}, {"period": "2026-07", "value": 110.0}]
 
     @pytest.mark.asyncio
     async def test_malformed_row_skipped_not_raised(self):
         da = _make_da_stub()
-        dpa = MagicMock()
-        dpa.execute_sql = AsyncMock(return_value={
+        da.data_product_agent = _dpa_monthly_stub(exec_result={
             "columns": ["period", "value"],
             "rows": [{"period": "2026-06", "value": "not-a-number"}, {"period": "2026-07", "value": 110.0}],
         })
-        da.data_product_agent = dpa
         result = await da._fetch_neighbour_monthly_trend(_bq_kpi())
         assert result == [{"period": "2026-07", "value": 110.0}]
 
     @pytest.mark.asyncio
     async def test_no_rows_returns_none(self):
         da = _make_da_stub()
-        dpa = MagicMock()
-        dpa.execute_sql = AsyncMock(return_value={"columns": ["period", "value"], "rows": []})
-        da.data_product_agent = dpa
+        da.data_product_agent = _dpa_monthly_stub(exec_result={"columns": ["period", "value"], "rows": []})
         result = await da._fetch_neighbour_monthly_trend(_bq_kpi())
         assert result is None
 
     @pytest.mark.asyncio
     async def test_execute_sql_raises_returns_none_not_propagate(self):
         da = _make_da_stub()
-        dpa = MagicMock()
-        dpa.execute_sql = AsyncMock(side_effect=RuntimeError("BigQuery timeout"))
-        da.data_product_agent = dpa
+        da.data_product_agent = _dpa_monthly_stub(exec_side_effect=RuntimeError("BigQuery timeout"))
+        result = await da._fetch_neighbour_monthly_trend(_bq_kpi())
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_no_data_product_agent_returns_none(self):
+        da = _make_da_stub()
+        da.data_product_agent = None
         result = await da._fetch_neighbour_monthly_trend(_bq_kpi())
         assert result is None
 

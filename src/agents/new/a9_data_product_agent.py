@@ -5250,6 +5250,120 @@ class A9_Data_Product_Agent(DataProductProtocol):
             self.logger.error(f"[TXN:{transaction_id}] Error generating SQL for KPI {kpi_name}: {str(e)}\n{traceback.format_exc()}")
             return {"sql": "", "kpi_name": kpi_name, "transaction_id": transaction_id, "success": False, "message": str(e), "error": str(e)}
 
+    def generate_monthly_series_sql(self, kpi_definition: Any, num_months: int = 9) -> Dict[str, Any]:
+        """Phase 20 cleanup (2026-08-19) — monthly time-series SQL generation
+        belongs here, not in a calling agent. Found live: DA's original
+        implementation built this SQL directly via regex on the KPI's raw
+        `sql_query`, entirely outside DPA (only handing DPA the finished
+        string to execute) — a duplicate of an identical, already-flagged
+        violation in A9_Situation_Awareness_Agent's `_bq_monthly_series_sql`,
+        which `docs/architecture/problem_framing_design.md`'s Phase 10C
+        decision record names as **dead code to be removed**, not a pattern
+        to extend. See CLAUDE.md's SQL Backend Routing rule (§9) and this
+        agent's own Overview: "responsible for contract-driven SQL
+        orchestration." Moved here as the immediate, minimal-risk fix;
+        SA's own duplicate is deliberately left untouched in this pass (a
+        pre-existing, separately-tracked item, not something to refactor
+        the night before a demo — see problem_framing_design.md §14).
+
+        BigQuery-backed KPIs only in this pass, matching the scope this was
+        built and live-verified against tonight — same non-goal as before,
+        not a new limitation introduced by this move. Returns `{"success":
+        False}` (never raises) for a non-BigQuery KPI, an unparseable raw
+        SQL string, or any other failure — the caller treats that as "no
+        trend line for this KPI," never a fabricated one.
+        """
+        import re as _re
+        kpi_name = getattr(kpi_definition, "name", None) or getattr(kpi_definition, "id", "unknown")
+        try:
+            dp_id = getattr(kpi_definition, "data_product_id", None)
+            source_system = self._resolve_source_system(dp_id)
+            raw_sql = getattr(kpi_definition, "calculation", None) or getattr(kpi_definition, "sql_query", None) or ""
+            if not raw_sql:
+                return {"success": False, "sql": "", "kpi_name": kpi_name, "message": "No stored SQL for this KPI"}
+
+            # Tier 2 fallback, same convention as generate_sql_for_kpi above —
+            # only when the registry lookup didn't resolve a source_system.
+            if not source_system:
+                if _re.search(r'`[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_.-]+`', raw_sql):
+                    source_system = 'bigquery'
+
+            if source_system != 'bigquery':
+                return {"success": False, "sql": "", "kpi_name": kpi_name, "message": f"Monthly series generation not yet implemented for source_system={source_system!r}"}
+
+            metadata = getattr(kpi_definition, "metadata", None)
+            date_col = (metadata or {}).get("date_column", "transaction_date") if isinstance(metadata, dict) else "transaction_date"
+            sql = self._build_bq_monthly_series_sql(raw_sql, date_col=date_col, num_months=num_months)
+            if not sql:
+                return {"success": False, "sql": "", "kpi_name": kpi_name, "message": "Could not parse base SQL for monthly series"}
+            return {"success": True, "sql": sql, "kpi_name": kpi_name, "data_product_id": dp_id, "source_system": "bigquery"}
+        except Exception as e:
+            self.logger.warning(f"generate_monthly_series_sql failed for '{kpi_name}': {e}")
+            return {"success": False, "sql": "", "kpi_name": kpi_name, "message": str(e), "error": str(e)}
+
+    def _build_bq_monthly_series_sql(self, base_sql: str, date_col: str = "transaction_date", num_months: int = 9) -> str:
+        """Generate SQL returning the most recent N monthly aggregates for a
+        KPI. Same technique as A9_Situation_Awareness_Agent's identically-named
+        (module-private) method — that duplicate is pre-existing, separately
+        tracked, deliberately untouched in this pass (see
+        generate_monthly_series_sql's docstring above). This IS the
+        DPA-owned copy going forward for any new caller.
+
+        No hard-coded date window — ORDER BY period DESC LIMIT N, then wrap
+        to ascending, so it works regardless of what calendar period the
+        dataset covers. Non-date WHERE conditions (version, account_type,
+        etc.) are preserved; any existing date range filter is stripped —
+        the subquery LIMIT handles recency.
+        """
+        import re as _re
+
+        match = _re.match(
+            r'SELECT\s+(.+?)\s+AS\s+\w+\s+FROM\s+'
+            r'((?:`[^`]+`|"[^"]+"|\w+)(?:\.(?:`[^`]+`|"[^"]+"|\w+))*)'
+            r'(.*)',
+            base_sql,
+            _re.IGNORECASE | _re.DOTALL,
+        )
+        if not match:
+            self.logger.warning(f"[MonthlySeries] Could not parse base SQL: {base_sql[:200]}")
+            return ""
+
+        agg_expr = match.group(1).strip()
+        table_ref = match.group(2).strip()
+        rest = match.group(3).strip()
+
+        where_match = _re.search(r'\bWHERE\b(.*)', rest, _re.IGNORECASE | _re.DOTALL)
+        where_clause = ("WHERE" + where_match.group(1)) if where_match else rest
+
+        bare_date_col = date_col.strip('"')
+
+        if where_clause.upper().startswith("WHERE"):
+            existing_conditions = where_clause[5:].strip()
+            date_col_pattern = rf'"?{_re.escape(bare_date_col)}"?'
+            cleaned = _re.sub(
+                rf'(?:\bAND\s+)?{date_col_pattern}\s+'
+                rf'(?:BETWEEN\s+[\'"\d\-T]+\s+AND\s+[\'"\d\-T]+|[<>]=?\s*[\'"\d\-T]+)',
+                '',
+                existing_conditions,
+                flags=_re.IGNORECASE,
+            ).strip().lstrip(',').strip()
+            cleaned = _re.sub(r'^AND\s+', '', cleaned, flags=_re.IGNORECASE).strip()
+            non_date_where = f"WHERE {cleaned}" if cleaned else ""
+        else:
+            non_date_where = ""
+
+        return (
+            f"SELECT period, value FROM ("
+            f"SELECT LEFT({bare_date_col}, 7) AS period, "
+            f"{agg_expr} AS value "
+            f"FROM {table_ref} "
+            f"{non_date_where} "
+            f"GROUP BY period "
+            f"ORDER BY period DESC "
+            f"LIMIT {num_months}"
+            f") ORDER BY period ASC"
+        )
+
     async def get_kpi_definition(self, kpi_name: str, *, include_mapping: bool = False) -> Optional[Any]:
         """Retrieve a KPI definition using orchestrator-provisioned providers.
 

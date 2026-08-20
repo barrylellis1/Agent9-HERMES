@@ -118,3 +118,43 @@ The breakdown branch had always honoured the flag. Only the scalar path did not,
 **All four backends, not just BigQuery (Aug 2026).** The `comparison_period` defect above was originally fixed only in `_build_bq_dimensional_sql`. The identical bug was present in the Snowflake, SQL Server and Databricks builders — which are what Apex and Hess actually run on, so those tenants would have received a confident "0.00pp" overall movement. All four now honour the flag, with a parametrised regression test across every builder (`TestComparisonPeriodHonouredOnEveryBackend`). Fixing one backend and leaving three is how a bug returns wearing a different client's name.
 
 `include_total` / ROLLUP remains wired on the BigQuery builder only. That is deliberate and currently harmless: the parameter is not threaded to the other builders, so they ignore it, and the overall total on every backend comes from Deep Analysis's path-independent scalar pair rather than from a ROLLUP row. Add the one-line grouping switch to a given builder only when there is a way to verify it against that warehouse.
+
+## `generate_monthly_series_sql` — SQL generation belongs here, not in a calling agent (Aug 2026)
+
+**Found live, mid-build, from a direct question: "isn't all SQL supposed to go through the DPA?"**
+`A9_Deep_Analysis_Agent`'s new Phase 20 causal-neighbourhood trend chart (see that agent's own card)
+needed a monthly time-series query for KPIs other than its own. Its first implementation built that SQL
+directly in DA via regex on the KPI's raw `sql_query`, then only handed DPA the finished string to
+`execute_sql` — DPA ran it, but never generated it. That's exactly the split CLAUDE.md's SQL Backend
+Routing rule (§9) and this card's own Overview line ("responsible for contract-driven SQL
+orchestration") exist to prevent.
+
+**It gets worse before it gets better.** The pattern DA copied — build monthly-series SQL via regex
+directly in the calling agent — wasn't invented for this feature. `A9_Situation_Awareness_Agent` already
+had an identical method, `_bq_monthly_series_sql`, doing the same thing for its own KPI-tile trend
+sparklines. And this project's own Phase 10C architectural decision (`docs/architecture/` — MCP-first
+connectivity) had **already named that exact SA method as dead code to be removed**, years before this
+session, not a pattern to extend. DA's new method copied a violation the codebase had already flagged
+and never cleaned up. Two independent instances of the same class of bug is why this got a same-day fix
+rather than a backlog item.
+
+**The fix**: `generate_monthly_series_sql(kpi_definition, num_months=9) -> Dict[str, Any]` (sync — no I/O
+of its own, matches the sync convention of this agent's other internal SQL builders like
+`_build_bq_dimensional_sql`) and its helper `_build_bq_monthly_series_sql(base_sql, date_col,
+num_months)` now live here, as the one place this SQL text gets generated for any caller. Same
+`{"success", "sql", ...}` return shape as `generate_sql_for_kpi`. Uses the same Tier-1 (`_resolve_source_system`
+registry lookup) / Tier-2 (backtick-table regex fallback) routing convention already established in
+`generate_sql_for_kpi` immediately above. **BigQuery-backed KPIs only in this pass** — not a new
+limitation, the scope this feature was built and live-verified against; a non-BigQuery KPI gets
+`{"success": False}`, never a wrong-dialect query attempt or a raised exception.
+
+**Deliberately NOT fixed in this pass**: `A9_Situation_Awareness_Agent._bq_monthly_series_sql` (and its
+SQL Server/Snowflake siblings `_ss_monthly_series_sql`/`_sf_monthly_series_sql`) are left exactly where
+they were — pre-existing, already-flagged-for-removal (Phase 10C), but genuinely live and feeding the
+dashboard's KPI-tile trend sparklines. Refactoring SA to call this new DPA method instead is the correct
+next step, but it touches a currently-stable, demo-relied-upon path and was deliberately deferred rather
+than rushed the night before a demo. Tracked, not forgotten.
+
+Tests: `tests/unit/test_data_product_agent_kpi_methods.py::TestGenerateMonthlySeriesSql` (BigQuery
+detection via both Tier 1 and Tier 2, non-BigQuery/no-SQL/unparseable-SQL all fail gracefully rather than
+raise, custom `date_column` from KPI metadata honoured, non-date `WHERE` conditions preserved).

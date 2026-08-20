@@ -788,11 +788,20 @@ on every candidate).
   period, regardless of what basis the primary KPI's own analysis used (not every neighbour has a
   budget variant registered — a deliberate simplification, not an oversight).
 - `_fetch_neighbour_monthly_trend(kpi_definition, num_months=9)` — **BigQuery-backed KPIs only in this
-  pass** (hardening the live demo path, 100% BigQuery today, rather than speculatively duplicating SA's
-  SQL Server/Snowflake monthly-series builders before they're needed here). `_bq_neighbour_monthly_series_sql`
-  is a **deliberate duplicate** of `A9_Situation_Awareness_Agent._bq_monthly_series_sql` — same pure
-  string-transform logic, copied rather than shared to avoid any risk to SA's already-shipped, tested
-  method. If a third consumer ever needs this, promote to a shared utility module instead of a third copy.
+  pass** (hardening the live demo path, 100% BigQuery today, rather than speculatively covering SQL
+  Server/Snowflake before they're needed here). Calls DPA's `generate_monthly_series_sql()` for the SQL
+  text and `execute_sql()` to run it — this method's own job is only to call DPA and shape the result.
+  **Corrected same-day (2026-08-19):** the original version of this method built the monthly-series SQL
+  itself, directly in DA, bypassing DPA entirely — a real violation of CLAUDE.md's SQL Backend Routing
+  rule (§9) and this agent's own stated boundary ("Uses Data Product Agent for deterministic grouped/
+  timeframe comparisons," this file's header). Found live, mid-build, when a user asked "isn't all SQL
+  supposed to go through the DPA?" The SQL-generation logic now lives in
+  `A9_Data_Product_Agent.generate_monthly_series_sql`/`_build_bq_monthly_series_sql` — see that agent's
+  own card for the full story, including the sobering detail that the method copied from
+  (`A9_Situation_Awareness_Agent._bq_monthly_series_sql`) had already been named **dead code to be
+  removed** in this project's own Phase 10C decision record, not a pattern to extend. SA's duplicate is
+  deliberately left untouched in this pass (pre-existing, separately tracked — not refactored the night
+  before a demo).
 - `_fetch_neighbour_evidence(...)` — combines both into one `NeighbourSnapshot`; independent fetches (a
   non-BigQuery KPI still gets its scalar snapshot, just no trend line).
 - Module-level `_first_numeric_value(exec_result)` — parses a non-dimensional `execute_sql` result's
