@@ -142,13 +142,50 @@ SALES_DATA_PRODUCT: Dict[str, Any] = {
         "bigquery_dataset": "LubricantsBusiness",
         "reconciles_to": "dp_lubricants_financials.net_revenue",
     },
+    # Three genuinely distinct dates live on this data product (order / delivery /
+    # revenue-recognition), and they disagree: 90.2% of line items have delivery_date
+    # in a DIFFERENT fiscal month than the period their revenue was actually
+    # recognized in (verified live, Aug 2026 -- a 15-60 day shipping lag routinely
+    # crosses a month boundary). fiscal_year_period is PRIMARY because 4 of the 5
+    # Sales KPIs below (order count, units sold, avg order value) are volume/value
+    # metrics that must reconcile to Finance's recognition period, matching
+    # dp_lubricants_financials' own time_dimensions convention exactly (same
+    # fiscal_year_start_month=1 default, same zero-padded fiscal_period format).
+    # order_date and delivery_date are kept as non-primary entries -- captured for
+    # a genuinely delivery-keyed KPI (e.g. order_fulfillment_rate) once per-KPI time
+    # dimension selection exists; see docs/architecture/data_product_time_dimension_planning.md.
+    # DPA's _resolve_time_spec (a9_data_product_agent.py) only consults the PRIMARY
+    # entry today -- there is no per-KPI override yet, so order_fulfillment_rate and
+    # order_cancellation_rate below are ALSO filtered by fiscal_year_period for now,
+    # not by their own more-correct date. Known, tracked, not silently accepted.
     "time_dimensions": [
+        {
+            "type": "fiscal_year_period",
+            "year_column": "fiscal_year",
+            "period_column": "fiscal_period",
+            "period_column_type": "string",
+            "period_type": "month",
+            "column": "",
+            "source_columns": ["fiscal_year", "fiscal_period"],
+            "display_expr": "CONCAT(CAST(fiscal_year AS STRING), '-', fiscal_period)",
+            "sort_expr": "fiscal_year * 100 + CAST(fiscal_period AS INT64)",
+            "label": "Fiscal Period (Revenue Recognition)",
+            "granularity": "month",
+            "primary": True,
+        },
+        {
+            "type": "date",
+            "column": "order_date",
+            "label": "Order Date",
+            "granularity": "month",
+            "primary": False,
+        },
         {
             "type": "date",
             "column": "delivery_date",
             "label": "Delivery Date",
             "granularity": "month",
-            "primary": True,
+            "primary": False,
         },
     ],
 }

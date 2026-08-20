@@ -257,7 +257,14 @@ SELECT
   soi.QUANTITY AS quantity,
   soi.QUANTITYUNIT AS quantity_unit,
   soi.DELIVERYDATE AS delivery_date,
-  soi.fiscal_year, soi.fiscal_month,
+  soi.fiscal_year,
+  soi.fiscal_month,
+  -- fiscal_period matches Finance's convention exactly (LubricantsStarSchemaView /
+  -- generate_lubricants_demo_data.py's _fiscal_period()): zero-padded 3-digit STRING.
+  -- This is the RECOGNITION period the underlying revenue basis was generated in --
+  -- NOT delivery_date, which lags it by 15-60 days ~90% of the time (see
+  -- scripts/clients/lubricants.py's SALES_DATA_PRODUCT time_dimensions comment).
+  FORMAT('%03d', soi.fiscal_month) AS fiscal_period,
   soi.channel_id, soi.profit_center_id,
   so.CREATEDAT AS order_date,
   so.PARTNERID AS partner_id,
