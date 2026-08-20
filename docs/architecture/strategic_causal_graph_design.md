@@ -32,12 +32,42 @@ decision quality — the confidence-building instrument this session's testing w
 that structurally cannot surface a strategic alternative is measuring operational-response quality, not
 decision quality, no matter how well synthesis performs within that narrower scope.
 
-## The problem, precisely
+## The problem, precisely — reframed against this project's own three theory layers (2026-08-20)
 
-Every alternative offered at the framing gate today is anchored to an existing `KPIDefinition` — the
+`theory_layer_design.md` §2.2 already defines the client's internal machine as three layers, not two:
+
+| Layer | Contents | Role |
+|---|---|---|
+| **Physical/operational** | Capacity, throughput, people, pipeline, inventory, customer trust | Where causes **live** |
+| **Economic** | Price, mix, cost structure, working capital | Where causes get **measured** (arithmetic over layer 1) |
+| **Commitment** | Plan, budget, guidance, covenants, contracts | Why causes **matter** (promises about layer 2) |
+
+Every node in today's causal graph — COGS, Net Revenue, Gross Margin %, Premium Mix % — is an Economic-
+layer (layer 2) construct: arithmetic over the physical machine, not the machine itself. §2.1 of that
+same doc names this precisely: a system confined to layer 2 measures "explained variance... noise
+regardless of magnitude" — tactical rearrangement within one layer, never reaching down to where the
+cause lives or up to what makes it matter. **This is the sharper statement of the problem this whole
+note exists to fix: not "the graph lacks a strategic option," but "the graph cannot represent an
+alternative outside layer 2 at all."**
+
+Two concrete gaps follow from this, not one:
+
+- **Layer 1 (Physical/operational) is entirely absent.** "Should we reduce participation in
+  commodity-exposed grades" is a capacity/production-allocation question — a stocks-and-flows fact about
+  the physical machine, arithmetically summarized by (not identical to) `gross_margin_pct`. This is what
+  the original "strategic alternative" example below actually is: a layer-1 reach, not a fourth new
+  category.
+- **Layer 3 (Commitment) exists in the system today but only passively.** The price-lock clause already
+  shown in "Known Constraints" at the framing gate is a genuine layer-3 object — a *contract*. It is used
+  exclusively as a fixed **boundary** solutions must respect. It has never been offered as something a
+  decision could **actively target** — "renegotiate the covenant" is a legitimate layer-3 alternative,
+  and the underlying fact (the constraint itself) is already sitting in the assumption register today;
+  only the "constraint as lever, not just boundary" framing is missing.
+
+Every alternative offered at the framing gate today is also anchored to an existing `KPIDefinition` — the
 `FramingAlternative`/`KPIRelationship` shape assumes "the other end of this edge is a KPI with a current
-value and a trend." A strategic alternative ("should we reduce participation in commodity-exposed
-grades") is not a KPI in that sense — it doesn't have a period-over-period value, it has a *posture*.
+value and a trend." A layer-1 or layer-3 alternative is not a KPI in that sense — it doesn't have a
+period-over-period value, it has a *posture* (layer 1) or a *commitment* (layer 3).
 
 ## Why this is a real initiative, not a registry seed
 
@@ -67,29 +97,49 @@ row" the wrong instinct:
    dynamics and board risk appetite — it likely needs a human to actively re-confirm it on a cadence,
    not sit as a static row that's "true until someone notices it's stale."
 
-## Concrete example
+## Concrete examples — one per layer the graph currently cannot reach
 
-Today's graph for `gross_margin_pct` has only operational nodes. A strategic node looks structurally
-different:
+**Layer 1 (Physical/operational) — the original example, now correctly labeled:**
 
 ```
 kpi_id: "gross_margin_pct"
-related_kpi_id: "commodity_grade_portfolio_participation"   # not a KPI — a portfolio construct
-relationship_type: "structural_exposure"                     # new type; none of the existing four fit
+related_kpi_id: "commodity_grade_portfolio_participation"   # not a KPI — a portfolio/capacity construct
+relationship_type: "structural_exposure"                     # layer-1 reach; none of the existing four fit
+theory_layer: "physical_operational"                          # NEW field — see Open decision 1
 mechanism: "Commodity-exposed grades (Synthetic Blend, Conventional Engine Oil, Compressor Oil,
   Hydraulic Oil, Manual Gear Oil) carry base-oil-cost pass-through risk with no differentiation
   premium to absorb volatility. Sustained participation at current mix caps margin recovery to
-  whatever cost-management levers alone can achieve — a ceiling on the OPERATIONAL fix, not a claim
-  that hedging or repricing doesn't work."
+  whatever cost-management levers alone can achieve — a ceiling on the layer-2 (economic/cost-
+  management) fix, not a claim that hedging or repricing doesn't work."
 causal_rung: null            # not an empirical claim in Pearl's sense — see provenance below
 provenance: "strategic_judgment"   # NEW value, not reusing the empirical ladder — open question below
 confidence: null              # confidence-in-a-fact doesn't apply; conviction-in-a-judgment might, TBD
 ```
 
-At the framing gate this becomes a visibly different KIND of alternative: not *"Addressing Cost of
-Goods Sold instead of Gross Margin % directly"* but something like *"Addressing commodity-grade
-portfolio participation instead of Gross Margin % directly — a structural exposure question, not a
-cost-management one."*
+At the framing gate: not *"Addressing Cost of Goods Sold instead of Gross Margin % directly"* but
+*"Addressing commodity-grade portfolio participation instead of Gross Margin % directly — a structural
+exposure question, not a cost-management one."*
+
+**Layer 3 (Commitment) — new, found via the theory-layer reframing, not in the original pass:**
+
+```
+kpi_id: "gross_margin_pct"
+related_kpi_id: "anchor_account_price_lock_covenant"   # the SAME contract already in "Known Constraints"
+relationship_type: "commitment_lever"                    # new type — the constraint AS a lever, not a boundary
+theory_layer: "commitment"
+mechanism: "The mid-quarter price-lock clause on Lubricants anchor accounts is currently treated as a
+  fixed boundary every option must respect. It is itself a commitment that could be renegotiated at
+  the next contract cycle — trading price-lock protection (valuable to the customer) for a shorter
+  reset cadence (valuable to margin recovery speed) is a legitimate alternative, not just a constraint
+  to work around."
+causal_rung: null
+provenance: "strategic_judgment"
+confidence: null
+```
+
+The data behind this second example already exists — it's the same constraint the framing gate already
+shows under "Known Constraints." The only missing piece is presenting it as something a decision can
+target, not only something a decision must obey.
 
 ## Open decisions — not locked, listed so the next pass doesn't re-derive them from zero
 
@@ -98,7 +148,11 @@ cost-management one."*
    provenance vocabulary, no `causal_rung`, no snapshot-fetch expectation) rather than stretching a
    model built for empirical KPI pairs. Leaning toward the distinct model — same reasoning
    `problem_framing_design.md` used for `FramingAlternative`'s `source`-discriminated shape (market
-   signal vs. causal graph) rather than forcing one schema to mean two things.
+   signal vs. causal graph) rather than forcing one schema to mean two things. Whatever the shape, it
+   needs a `theory_layer: Literal["physical_operational", "economic", "commitment"]` field (used in both
+   worked examples above) — not decorative: it's what would let the framing gate present layer-1 and
+   layer-3 alternatives as visibly distinct kinds of question from the layer-2 ones, and what would let
+   a future DQ check confirm the *menu*, not just one option, actually spans more than one layer.
 2. **Provenance vocabulary for strategic edges.** `strategic_judgment` above is a placeholder, not a
    decision. Does it need levels (e.g. `principal_proposed` vs. `board_ratified`)? Does "confidence" even
    make sense here, or is the honest field something more like "who owns this judgment and when did they
