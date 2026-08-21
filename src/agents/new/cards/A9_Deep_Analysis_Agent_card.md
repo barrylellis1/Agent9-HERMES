@@ -879,3 +879,18 @@ regardless of direction, and `"bidirectional"` confirming either walk. Two pre-e
 `test_ranking_hop_tier_first_then_magnitude`) needed their stub edges given an explicit
 `causal_direction` to keep passing — their 2-hop stubs previously defaulted to `"unknown"`, which this
 fix now correctly excludes; not a regression, a corrected assumption.
+
+**Same-day follow-up: hop 1 needed the same exclusion, not just hop 2+.** Net Revenue and Gross
+Margin % were still offering each other as framing-gate alternatives after the above — hop 1 stayed
+unfiltered by design (decision #3, reasonable when direction only lived in unparseable mechanism
+prose, less so with `causal_direction` as a real field). Corrected: `net_revenue↔gross_margin_pct`'s
+`causal_direction` set to `"kpi_causes_related"` (structural, not a guessed mechanism — Gross Margin %
+is literally calculated from Net Revenue and COGS, so revenue is definitionally an input, never an
+effect, of its own ratio). `_build_framing_prompt`'s hop-1 branch now excludes a neighbour the edge
+confirms is the EFFECT (not the cause) of the analysed KPI, same reasoning as the hop-2+ path-validity
+check — `"unknown"`-direction edges still show unfiltered at hop 1 (no evidence either way, no
+presumption to hide). Verified live: `net_revenue`'s framing gate now returns zero causal-graph
+alternatives; `gross_margin_pct`'s is unaffected. 1 new test
+(`test_hop_one_excluded_when_neighbour_is_confirmed_effect`, both directions of the real case);
+`test_hop_two_excluded_when_second_edge_walked_backward` reworked onto a scenario this refinement
+doesn't also touch, so it still isolates what it was written to test.

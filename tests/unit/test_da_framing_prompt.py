@@ -252,21 +252,49 @@ class TestCausalDirectionFiltering:
     @pytest.mark.asyncio
     async def test_hop_two_excluded_when_second_edge_walked_backward(self):
         """Both edges individually well-directed is not sufficient -- the
-        SECOND edge must point the right way too. gross_margin_pct's edge to
-        net_revenue is confirmed (net_revenue causes margin), but the
-        margin<->cogs edge says COGS causes margin -- walking from margin TO
-        cogs at hop 2 walks that edge backward and must be excluded."""
+        SECOND edge must point the right way too, even when hop 1 is a
+        validly-upstream neighbour (cogs causes gross_margin_pct, correctly
+        shown). The hop-2 edge here says cogs causes base_oil_cost -- the
+        wrong direction (really base_oil_cost causes cogs) -- so walking
+        from cogs TO base_oil_cost at hop 2 must be excluded even though
+        hop 1 is fine."""
         da = _make_da_stub()
-        hop1 = _relationship(kpi_id="net_revenue", related_kpi_id="gross_margin_pct", causal_direction="kpi_causes_related")
-        hop2 = _relationship(kpi_id="gross_margin_pct", related_kpi_id="cogs", causal_direction="related_causes_kpi")  # cogs causes margin, not the reverse
+        hop1 = _relationship(kpi_id="gross_margin_pct", related_kpi_id="cogs", causal_direction="related_causes_kpi")  # cogs causes margin -- valid, cogs shown
+        hop2 = _relationship(kpi_id="cogs", related_kpi_id="base_oil_cost", causal_direction="kpi_causes_related")  # says cogs causes base_oil_cost -- backward
         with _registry_patch([
-            _kpi("net_revenue", "hess"), _kpi("gross_margin_pct", "hess"), _kpi("cogs", "hess"),
+            _kpi("gross_margin_pct", "hess"), _kpi("cogs", "hess"), _kpi("base_oil_cost", "hess"),
         ]), _providers(neighbourhood=[(hop1, 1), (hop2, 2)]):
-            result = await da._build_framing_prompt(_da_output(kpi_name="net_revenue"), {})
+            result = await da._build_framing_prompt(_da_output(), {})
         assert result is not None
         kpi_ids = {a.kpi_id for a in result.alternatives}
-        assert kpi_ids == {"gross_margin_pct"}
-        assert "cogs" not in kpi_ids
+        assert kpi_ids == {"cogs"}
+        assert "base_oil_cost" not in kpi_ids
+
+    @pytest.mark.asyncio
+    async def test_hop_one_excluded_when_neighbour_is_confirmed_effect(self):
+        """Even at hop 1: once a direction is confirmed, a neighbour the
+        edge confirms is the EFFECT (not the cause) of the analysed KPI must
+        be excluded -- not just left unfiltered like the 'unknown' case.
+        Real example: Gross Margin % is calculated FROM Net Revenue, so
+        Net Revenue is a legitimate root-cause candidate for Gross Margin %,
+        but Gross Margin % is never a legitimate root-cause candidate for
+        Net Revenue -- a derived ratio isn't upstream of one of its own
+        inputs."""
+        da = _make_da_stub()
+        edge = _relationship(kpi_id="net_revenue", related_kpi_id="gross_margin_pct", causal_direction="kpi_causes_related")
+        with _registry_patch([_kpi("net_revenue", "hess"), _kpi("gross_margin_pct", "hess")]), \
+             _providers(neighbourhood=[(edge, 1)]):
+            # Analysing net_revenue: gross_margin_pct is a confirmed EFFECT -- excluded.
+            result_from_revenue = await da._build_framing_prompt(_da_output(kpi_name="net_revenue"), {})
+        assert result_from_revenue is not None
+        assert result_from_revenue.alternatives == []
+
+        with _registry_patch([_kpi("net_revenue", "hess"), _kpi("gross_margin_pct", "hess")]), \
+             _providers(neighbourhood=[(edge, 1)]):
+            # Analysing gross_margin_pct: net_revenue is a confirmed CAUSE -- included.
+            result_from_margin = await da._build_framing_prompt(_da_output(kpi_name="gross_margin_pct"), {})
+        assert result_from_margin is not None
+        assert {a.kpi_id for a in result_from_margin.alternatives} == {"net_revenue"}
 
     @pytest.mark.asyncio
     async def test_hop_two_included_when_full_chain_confirmed(self):

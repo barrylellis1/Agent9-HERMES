@@ -3485,19 +3485,32 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             # skipped for THIS purpose — it doesn't stop being real evidence,
             # it's just not a distinct alternative.
             #
-            # Path-validity for hop > 1 (causal_edge_direction_and_magnitude_design.md):
-            # a multi-hop alternative claims "N is an upstream cause reachable
-            # from the analysed KPI" — that claim only holds if EVERY edge on
-            # the path back to the origin, read toward the origin, is a
+            # Path-validity (causal_edge_direction_and_magnitude_design.md):
+            #
+            # hop > 1: a multi-hop alternative claims "N is an upstream cause
+            # reachable from the analysed KPI" — that only holds if EVERY edge
+            # on the path back to the origin, read toward the origin, is a
             # confirmed cause-of relationship. One unknown-direction edge
             # anywhere on the path breaks the whole chain, regardless of how
             # well-directed the edges beyond it are — found live: COGS was
             # offered as a 2-hop alternative for Net Revenue via
             # gross_margin_pct, even though gross_margin_pct's own edge back
-            # to net_revenue has no recorded mechanism at all. hop == 1 stays
-            # unfiltered by design (decision #3 of the framing gate plan) —
-            # this only gates whether a hop-1 node may be used as a stepping
-            # stone for hop 2+, not whether it's shown itself.
+            # to net_revenue had no recorded mechanism at all.
+            #
+            # hop == 1: unfiltered when the edge's direction is genuinely
+            # unknown (decision #3 of the framing gate plan — don't presume
+            # to hide something we can't evidence either way). But once a
+            # direction IS confirmed, a hop-1 neighbour that the edge
+            # confirms is the EFFECT (not the cause) of the analysed KPI must
+            # still be excluded — offering a known downstream effect as a
+            # reframing objective is wrong in exactly the same way a
+            # backward-walked 2-hop chain is, just more directly evidenced.
+            # Corrected same day as the hop>1 fix, from a live example: Net
+            # Revenue and Gross Margin % were both offering each other as
+            # alternatives, but Gross Margin % is CALCULATED FROM Net Revenue
+            # (a structural fact, not just a recorded mechanism) — revenue is
+            # a legitimate root-cause candidate for margin, margin is never a
+            # legitimate root-cause candidate for revenue.
             def _confirms_neighbour_causes_known(edge, neighbour_id: str) -> bool:
                 direction = getattr(edge, "causal_direction", None) or "unknown"
                 if direction == "bidirectional":
@@ -3523,7 +3536,20 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
                     continue
                 _visited.add(neighbour)
 
+                direction = getattr(edge, "causal_direction", None) or "unknown"
                 edge_confirms_upstream = _confirms_neighbour_causes_known(edge, neighbour)
+                # A one-way-confirmed direction that does NOT confirm the
+                # neighbour as upstream necessarily confirms the reverse —
+                # the neighbour is a known downstream effect. "unknown" and
+                # "bidirectional" are never this case (no claim, or both
+                # directions genuinely hold).
+                neighbour_is_confirmed_effect = (
+                    direction in ("kpi_causes_related", "related_causes_kpi")
+                    and not edge_confirms_upstream
+                )
+                if neighbour_is_confirmed_effect:
+                    _validly_reached[neighbour] = False
+                    continue
                 if hop > 1:
                     if not (_validly_reached.get(known_node, False) and edge_confirms_upstream):
                         _validly_reached[neighbour] = False

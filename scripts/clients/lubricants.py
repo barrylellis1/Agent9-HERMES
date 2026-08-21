@@ -765,13 +765,23 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "relationship_type": "volume_margin",
         "conflict_direction": "diverging",
         "description": "Rising revenue with falling margin signals mix shift or pricing pressure",
-        # No mechanism recorded for this edge -- "unknown" is the honest
-        # classification, not a guess. This is what correctly stops the
-        # framing gate from extending past gross_margin_pct into COGS/premium
-        # mix when analysing net_revenue (causal_edge_direction_and_magnitude_design.md):
-        # nothing here establishes gross_margin_pct as upstream of net_revenue,
-        # so nothing reached only THROUGH it can be validated either.
-        "causal_direction": "unknown",
+        # Corrected 2026-08-20: originally left "unknown" for lack of a
+        # recorded mechanism, but the direction here doesn't need one --
+        # it's structural. Gross Margin % is CALCULATED FROM Net Revenue and
+        # COGS ((Revenue - COGS) / Revenue): revenue movements (volume,
+        # price, mix) move the ratio, the ratio cannot move revenue. Net
+        # Revenue is therefore a legitimate root-cause candidate when
+        # analysing Gross Margin %; Gross Margin % is never a legitimate
+        # root-cause candidate when analysing Net Revenue -- a derived ratio
+        # isn't an upstream cause of one of its own inputs. This is what
+        # correctly removes "Addressing Gross Margin %" from Net Revenue's
+        # own framing gate (previously shown, unfiltered, at hop 1) while
+        # keeping "Addressing Net Revenue" available from Gross Margin %'s.
+        "mechanism": "Gross Margin % is calculated from Net Revenue and COGS; revenue movements (volume, price, mix) move the ratio directly, not the reverse.",
+        "causal_rung": "correlational",
+        "provenance": "confirmed",
+        "confidence": "high",
+        "causal_direction": "kpi_causes_related",
     },
     {
         "kpi_id": "product_sales_revenue",
