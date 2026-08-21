@@ -862,6 +862,65 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         # distribution_cost (kpi_id) causes cogs (related_kpi_id).
         "causal_direction": "kpi_causes_related",
     },
+    # ------------------------------------------------------------------
+    # Cross-data-product: Sales (dp_lubricants_sales) volume/price drivers
+    # of Net Revenue (dp_lubricants_financials), added Aug 2026.
+    #
+    # NOT arithmetic in disguise, despite Sales SUM(net_amount) reconciling
+    # to net_revenue exactly by construction (see
+    # generate_lubricants_sales_data.py). These three are genuine
+    # decomposition DRIVERS, the same epistemic shape as premium_mix_pct's
+    # existing edge into gross_margin_pct: each is ONE factor (volume, order
+    # frequency, price/mix), not the whole story, and each carries real
+    # information -- knowing units_sold rose doesn't by itself tell you
+    # net_revenue rose (price/mix could move the other way). order_fulfillment_rate
+    # and order_cancellation_rate deliberately NOT mapped here -- their
+    # relationship to revenue is real but more indirect, and needs its own
+    # look at whether cancelled/unfulfilled orders are already excluded
+    # from units_sold's own count before claiming a clean edge.
+    # ------------------------------------------------------------------
+    {
+        "kpi_id": "units_sold",
+        "related_kpi_id": "net_revenue",
+        "client_id": CLIENT_ID,
+        "relationship_type": "custom",
+        "conflict_direction": "diverging",
+        "description": "Units sold moving opposite to net revenue signals a price or mix problem",
+        "mechanism": "Net Revenue is a function of units sold and price/mix; more units sold, price and mix held constant, drives higher revenue. Sales order line data carries unit volume directly, decomposing a revenue move into its volume component.",
+        "lag_periods": 0,
+        "causal_rung": "correlational",
+        "provenance": "confirmed",
+        "confidence": "high",
+        "causal_direction": "kpi_causes_related",
+    },
+    {
+        "kpi_id": "sales_order_count",
+        "related_kpi_id": "net_revenue",
+        "client_id": CLIENT_ID,
+        "relationship_type": "custom",
+        "conflict_direction": "diverging",
+        "description": "Order count moving opposite to net revenue signals an order-size or mix problem",
+        "mechanism": "More completed orders, average order value held constant, drives higher revenue -- the transaction-frequency component, distinct from order size.",
+        "lag_periods": 0,
+        "causal_rung": "correlational",
+        "provenance": "confirmed",
+        "confidence": "high",
+        "causal_direction": "kpi_causes_related",
+    },
+    {
+        "kpi_id": "average_order_value",
+        "related_kpi_id": "net_revenue",
+        "client_id": CLIENT_ID,
+        "relationship_type": "custom",
+        "conflict_direction": "diverging",
+        "description": "Average order value moving opposite to net revenue signals an order-volume problem",
+        "mechanism": "Higher average order value, order count held constant, drives higher revenue -- the price/mix component, distinct from order volume.",
+        "lag_periods": 0,
+        "causal_rung": "correlational",
+        "provenance": "confirmed",
+        "confidence": "high",
+        "causal_direction": "kpi_causes_related",
+    },
 ]
 
 
