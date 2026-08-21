@@ -1215,6 +1215,67 @@ ACCOUNTABILITY: List[Dict[str, Any]] = [
         "created_by": "seed",
     },
     # ------------------------------------------------------------------
+    # COO (Rachel Kim) — accountable for Sales KPIs (dp_lubricants_sales,
+    # Aug 2026), matching the owner_role="COO" already set on each of these
+    # 5 KPI records — order volume/fulfillment are operational levers, the
+    # same domain as the cost/delivery KPIs above.
+    # ------------------------------------------------------------------
+    {
+        "id": "acc_lub_coo_sales_order_count",
+        "client_id": CLIENT_ID,
+        "kpi_id": "sales_order_count",
+        "principal_id": "coo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "COO accountable for order volume.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_coo_units_sold",
+        "client_id": CLIENT_ID,
+        "kpi_id": "units_sold",
+        "principal_id": "coo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "COO accountable for units shipped.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_coo_average_order_value",
+        "client_id": CLIENT_ID,
+        "kpi_id": "average_order_value",
+        "principal_id": "coo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "COO accountable for order economics.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_coo_order_fulfillment_rate",
+        "client_id": CLIENT_ID,
+        "kpi_id": "order_fulfillment_rate",
+        "principal_id": "coo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "COO accountable for fulfillment/delivery performance.",
+        "created_by": "seed",
+    },
+    {
+        "id": "acc_lub_coo_order_cancellation_rate",
+        "client_id": CLIENT_ID,
+        "kpi_id": "order_cancellation_rate",
+        "principal_id": "coo_001",
+        "scope_dimension": None,
+        "scope_value": None,
+        "role": "accountable",
+        "notes": "COO accountable for order-processing quality.",
+        "created_by": "seed",
+    },
+    # ------------------------------------------------------------------
     # Finance Manager (Marcus Webb) — responsible for detailed revenue
     # tracking KPIs and gross_margin_pct
     # ------------------------------------------------------------------
