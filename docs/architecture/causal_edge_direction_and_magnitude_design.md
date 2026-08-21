@@ -1,11 +1,21 @@
 # Causal Edge Direction and Magnitude
 
-**Status: Design note, not built.** Extends the causal-edge model
-`theory_layer_design.md` already ships (`KPIRelationship`,
+**Status: Direction — built and live (2026-08-20). Magnitude/curve — design
+note, not built.** Extends the causal-edge model `theory_layer_design.md`
+already ships (`KPIRelationship`,
 `supabase/migrations/20260723_theory_layer_causal_schema.sql`) and its
 already-scheduled P1 write-back plan (VA adjudication HITL + assumption
 verdicts + **lag** write-back) — this note is about the two things that plan
 does not yet cover: direction and magnitude.
+
+**Direction shipped same day**: `causal_direction` field + migration
+(`20260820_kpi_relationship_causal_direction.sql`), lubricants' 6 existing
+edges backfilled from their own mechanism text, and the path-validity filter
+in `_build_framing_prompt` (not the shared BFS — see
+`A9_Deep_Analysis_Agent_card.md`'s "Causal direction filtering" entry for the
+full implementation record, including a provider round-trip bug found and
+fixed in the same pass). Magnitude (`magnitude_category`/`magnitude_coefficient`)
+and curve/non-linearity remain design-only, not built — see below.
 
 ## Found live, Aug 20 2026 — the incoherent chain that started this
 
@@ -171,19 +181,32 @@ record, not silence.
 
 | Piece | Cost | Recommendation |
 |---|---|---|
-| `causal_direction` field + backfill existing edges | Small — one field, a handful of edges per client to re-read and classify from their own mechanism text | Near-term |
-| Direction filter in `_build_framing_prompt` (not the shared BFS) | Small — one consumption-site check, doesn't touch SA's undirected use | Near-term, same change as above |
+| `causal_direction` field + backfill existing edges | Small — one field, a handful of edges per client to re-read and classify from their own mechanism text | **Done (2026-08-20)** — lubricants' 6 edges |
+| Direction filter in `_build_framing_prompt` (not the shared BFS) | Small — one consumption-site check, doesn't touch SA's undirected use | **Done (2026-08-20)** |
 | `magnitude_category` (estimated, LLM-assisted, human-reviewed) | Small–moderate — one field + reuse of the onboarding-time drafting pattern already proposed for strategic candidates | Near-term |
 | `magnitude_coefficient` (va_validated only) | Blocked — needs a real Granger implementation that doesn't exist | Deferred, not scheduled |
 | Non-linear / curve treatment | Not justified by any concrete case yet | Explicitly out of scope |
 
-## Falsifiable prediction
+## Not yet done — other clients' edges
 
-If the direction filter is built and re-run against the Net Revenue situation
-that motivated this note, COGS should no longer appear as a candidate
-alternative for Net Revenue at all (the only path to it walks the
-`gross_margin_pct↔cogs` edge backward) — while Gross Margin % itself, COGS's
-own framing gate, and the legitimate `base_oil_cost → cogs → gross_margin_pct`
-chain should be unaffected. If COGS still appears, the direction backfill was
-wrong for that edge, not the filter logic — worth checking which, not
-assuming the fix failed.
+Only lubricants' 6 `KPI_RELATIONSHIPS` edges were backfilled. Hess, bicycle, and apex_lubricants'
+edges still default to `causal_direction="unknown"` — additive and safe (their hop-1 alternatives are
+unaffected; their hop-2+ alternatives simply won't extend past an unreviewed edge, same conservative
+behavior lubricants had before its own backfill), but their framing gates won't get the benefit of this
+fix until someone reads each edge's own `mechanism` text and classifies it, the same pass done here.
+
+## Falsifiable prediction — confirmed (2026-08-20)
+
+Predicted: if the direction filter is built and re-run against the Net
+Revenue situation that motivated this note, COGS should no longer appear as a
+candidate alternative for Net Revenue at all, while the legitimate
+`base_oil_cost → cogs → gross_margin_pct` chain should be unaffected.
+
+Verified live against the real lubricants causal graph: analysing
+`net_revenue` now returns only `gross_margin_pct` (1 hop) — COGS and Premium
+Product Mix % (both previously 2-hop candidates through the same
+unvalidated edge) are correctly excluded. Analysing `gross_margin_pct`
+directly still returns `base_oil_cost` and `distribution_cost` at 2 hops, and
+additionally now correctly excludes `product_sales_revenue` at 2 hops — its
+own connecting edge to `cogs` has no recorded direction either, a case this
+note's own reasoning predicted but hadn't explicitly named before building it.

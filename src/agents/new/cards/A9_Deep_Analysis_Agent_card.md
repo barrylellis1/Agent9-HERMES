@@ -834,3 +834,48 @@ Covered by 50 new/extended tests in `tests/unit/test_da_framing_prompt.py` (`Tes
 ranking order (hop-tier beats magnitude), the cap + disclosure count, non-fatal degradation on every
 failure mode (no `data_product_agent`, `generate_sql_for_kpi` failure, `execute_sql` raising, malformed
 rows), and the market-signal alternative surviving the cap untouched.
+
+## Causal direction filtering for hop 2+ alternatives (2026-08-20)
+
+Found live: a Net Revenue framing gate offered COGS as a candidate alternative objective. COGS has no
+real relationship to Net Revenue — the only path is two hops through `gross_margin_pct`, and the
+connecting edge's own `mechanism` text says COGS causes margin, not the reverse; `get_causal_neighbourhood`
+walked it backward because `KPIRelationship` had no field for which KPI causes which. Full design:
+`docs/architecture/causal_edge_direction_and_magnitude_design.md`.
+
+**Model + migration**: `KPIRelationship.causal_direction: Literal["kpi_causes_related",
+"related_causes_kpi", "bidirectional", "unknown"]`, default `"unknown"` (additive — an edge nobody has
+reviewed just can't be used as a stepping stone, not silently wrong). Migration
+`20260820_kpi_relationship_causal_direction.sql`. **Same trap the causal-typing fields above already
+warn about**: `KPIRelationshipProvider._row_to_model` and its `upsert()` INSERT/UPDATE both had an
+explicit field allow-list that didn't know about the new column — reads silently defaulted back to
+`"unknown"` regardless of what the DB actually held, exactly the failure mode the existing comment in
+that file warns about. Fixed in the same commit; verified live by checking the DB directly (correct
+values) against what the provider actually returned (wrong, until fixed).
+
+**Filter lives in `_build_framing_prompt`, not `get_causal_neighbourhood`'s BFS.** The BFS stays
+undirected on purpose — SA's compound-alert detection is right that two KPIs breaching together are
+worth flagging regardless of which is upstream. `_build_framing_prompt`'s own visited-set replay now
+also tracks `_validly_reached: Dict[str, bool]`, seeded `{kpi_id: True}`: hop 1 stays completely
+unfiltered (decision #3, unchanged — a direct neighbour is shown regardless of its edge's direction).
+For hop 2+, an alternative is only offered if **both** (a) the node being extended from was itself
+validly reached, and (b) the current edge's `causal_direction`, read toward the origin, confirms the new
+neighbour causes the known node. One unknown-direction edge anywhere on the path kills everything beyond
+it, regardless of how well-directed the edges past that point are — chaining through a combining/ratio
+node (like `gross_margin_pct`, which has both a revenue-side and a cost-side edge) doesn't compose into
+a real inference about the original KPI unless every link back is confirmed.
+
+Verified live against the real lubricants graph, not just unit-tested: analysing `net_revenue` now
+returns only `gross_margin_pct` (1 hop); analysing `gross_margin_pct` still returns `base_oil_cost` and
+`distribution_cost` at 2 hops (the 11F anchor scenario `get_causal_neighbourhood`'s own docstring was
+written to support) while correctly excluding `product_sales_revenue` at 2 hops (its connecting edge to
+`cogs` has no recorded direction).
+
+5 new tests in `tests/unit/test_da_framing_prompt.py::TestCausalDirectionFiltering` — the real bug
+reproduced directly (unknown-direction connecting edge), a second case where both edges are individually
+directed but the second one is walked backward, the 11F chain staying included, hop-1 staying unfiltered
+regardless of direction, and `"bidirectional"` confirming either walk. Two pre-existing tests
+(`test_two_hop_edge_preserves_hop_distance_not_flattened`,
+`test_ranking_hop_tier_first_then_magnitude`) needed their stub edges given an explicit
+`causal_direction` to keep passing — their 2-hop stubs previously defaulted to `"unknown"`, which this
+fix now correctly excludes; not a regression, a corrected assumption.

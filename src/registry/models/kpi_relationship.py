@@ -54,6 +54,21 @@ class KPIRelationship(BaseModel):
         None, description="Categorical, matching SolutionAssumption.confidence -- deliberately not a float."
     )
 
+    # --- causal_edge_direction_and_magnitude_design.md (Aug 2026) ---
+    causal_direction: Literal["kpi_causes_related", "related_causes_kpi", "bidirectional", "unknown"] = Field(
+        "unknown",
+        description=(
+            "Which end of the edge is upstream. Default 'unknown' preserves pre-existing "
+            "undirected behavior for any edge not yet reviewed -- an edge that hasn't been "
+            "classified doesn't silently become wrong, it just can't be used as a stepping "
+            "stone for a multi-hop framing-gate alternative (see "
+            "A9_Deep_Analysis_Agent._build_framing_prompt). get_causal_neighbourhood's BFS "
+            "itself stays undirected -- SA's compound-alert detection is right that two KPIs "
+            "breaching together are worth flagging regardless of which is upstream; this field "
+            "is consumed only by the framing-gate-specific path-validity check."
+        ),
+    )
+
     @model_validator(mode="after")
     def _intervention_tested_requires_va_validated(self) -> "KPIRelationship":
         """Epistemic guardrail (2026-07-26): human confirmation is agreement

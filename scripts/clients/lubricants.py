@@ -765,6 +765,13 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "relationship_type": "volume_margin",
         "conflict_direction": "diverging",
         "description": "Rising revenue with falling margin signals mix shift or pricing pressure",
+        # No mechanism recorded for this edge -- "unknown" is the honest
+        # classification, not a guess. This is what correctly stops the
+        # framing gate from extending past gross_margin_pct into COGS/premium
+        # mix when analysing net_revenue (causal_edge_direction_and_magnitude_design.md):
+        # nothing here establishes gross_margin_pct as upstream of net_revenue,
+        # so nothing reached only THROUGH it can be validated either.
+        "causal_direction": "unknown",
     },
     {
         "kpi_id": "product_sales_revenue",
@@ -773,6 +780,9 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "relationship_type": "cost_revenue",
         "conflict_direction": "diverging",
         "description": "Revenue growing slower than COGS indicates eroding unit economics",
+        # Describes a co-movement (revenue vs. COGS growth rates), not a
+        # recorded cause -- "unknown", same honesty as above.
+        "causal_direction": "unknown",
     },
     {
         "kpi_id": "gross_margin_pct",
@@ -786,6 +796,9 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "causal_rung": "correlational",
         "provenance": "confirmed",
         "confidence": "high",
+        # The mechanism is explicit: COGS (via base oil) drives margin, not
+        # the reverse. related_kpi_id (cogs) causes kpi_id (gross_margin_pct).
+        "causal_direction": "related_causes_kpi",
     },
     {
         # The 11F anchor scenario, now expressible as an internal edge because
@@ -802,6 +815,10 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "causal_rung": "correlational",
         "provenance": "confirmed",
         "confidence": "high",
+        # base_oil_cost (kpi_id) causes cogs (related_kpi_id) -- this is the
+        # edge that lets base_oil_cost validly reach a gross_margin_pct
+        # analysis at 2 hops (through the cogs edge above, both confirmed).
+        "causal_direction": "kpi_causes_related",
     },
     {
         "kpi_id": "premium_mix_pct",
@@ -817,6 +834,8 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "causal_rung": "correlational",
         "provenance": "template",
         "confidence": "moderate",
+        # premium_mix_pct (kpi_id) causes gross_margin_pct (related_kpi_id).
+        "causal_direction": "kpi_causes_related",
     },
     {
         "kpi_id": "distribution_cost",
@@ -830,6 +849,8 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "causal_rung": "correlational",
         "provenance": "template",
         "confidence": "moderate",
+        # distribution_cost (kpi_id) causes cogs (related_kpi_id).
+        "causal_direction": "kpi_causes_related",
     },
 ]
 

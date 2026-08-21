@@ -3484,16 +3484,51 @@ class A9_Deep_Analysis_Agent(DeepAnalysisProtocol):
             # cross-link) introduces no new candidate objective and is
             # skipped for THIS purpose — it doesn't stop being real evidence,
             # it's just not a distinct alternative.
+            #
+            # Path-validity for hop > 1 (causal_edge_direction_and_magnitude_design.md):
+            # a multi-hop alternative claims "N is an upstream cause reachable
+            # from the analysed KPI" — that claim only holds if EVERY edge on
+            # the path back to the origin, read toward the origin, is a
+            # confirmed cause-of relationship. One unknown-direction edge
+            # anywhere on the path breaks the whole chain, regardless of how
+            # well-directed the edges beyond it are — found live: COGS was
+            # offered as a 2-hop alternative for Net Revenue via
+            # gross_margin_pct, even though gross_margin_pct's own edge back
+            # to net_revenue has no recorded mechanism at all. hop == 1 stays
+            # unfiltered by design (decision #3 of the framing gate plan) —
+            # this only gates whether a hop-1 node may be used as a stepping
+            # stone for hop 2+, not whether it's shown itself.
+            def _confirms_neighbour_causes_known(edge, neighbour_id: str) -> bool:
+                direction = getattr(edge, "causal_direction", None) or "unknown"
+                if direction == "bidirectional":
+                    return True
+                if neighbour_id == edge.kpi_id:
+                    return direction == "kpi_causes_related"
+                if neighbour_id == edge.related_kpi_id:
+                    return direction == "related_causes_kpi"
+                return False
+
             _visited = {kpi_id}
+            _validly_reached: Dict[str, bool] = {kpi_id: True}
             for edge, hop in neighbourhood:
                 neighbour = None
+                known_node = None
                 if edge.kpi_id not in _visited:
                     neighbour = edge.kpi_id
+                    known_node = edge.related_kpi_id
                 elif edge.related_kpi_id not in _visited:
                     neighbour = edge.related_kpi_id
+                    known_node = edge.kpi_id
                 if neighbour is None:
                     continue
                 _visited.add(neighbour)
+
+                edge_confirms_upstream = _confirms_neighbour_causes_known(edge, neighbour)
+                if hop > 1:
+                    if not (_validly_reached.get(known_node, False) and edge_confirms_upstream):
+                        _validly_reached[neighbour] = False
+                        continue
+                _validly_reached[neighbour] = edge_confirms_upstream
 
                 neighbour_rec = self._lookup_kpi_scoped(neighbour, client_id)
                 neighbour_name = getattr(neighbour_rec, "name", None) or neighbour

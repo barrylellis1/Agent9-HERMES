@@ -164,8 +164,12 @@ class TestCausalGraphAlternatives:
         # cogs -> gross_margin_pct would be hop... construct directly as a
         # 2-hop return from the provider (mirrors what get_causal_neighbourhood
         # itself would produce for a 2-hop BFS).
-        hop1 = _relationship(kpi_id="gross_margin_pct", related_kpi_id="cogs", provenance="confirmed")
-        hop2 = _relationship(kpi_id="cogs", related_kpi_id="base_oil_cost", provenance="template", mechanism="cost pass-through")
+        # causal_direction="related_causes_kpi" on both: cogs causes
+        # gross_margin_pct, and base_oil_cost causes cogs -- a valid path
+        # back to the origin, required since Aug 2026 for a hop-2 alternative
+        # to be offered at all (causal_edge_direction_and_magnitude_design.md).
+        hop1 = _relationship(kpi_id="gross_margin_pct", related_kpi_id="cogs", provenance="confirmed", causal_direction="related_causes_kpi")
+        hop2 = _relationship(kpi_id="cogs", related_kpi_id="base_oil_cost", provenance="template", mechanism="cost pass-through", causal_direction="related_causes_kpi")
         with _registry_patch([
             _kpi("gross_margin_pct", "hess"), _kpi("cogs", "hess"), _kpi("base_oil_cost", "hess"),
         ]), _providers(neighbourhood=[(hop1, 1), (hop2, 2)]):
@@ -215,6 +219,99 @@ class TestCausalGraphAlternatives:
         caveat = result.alternatives[0].provenance_caveat
         assert caveat != SF_CAVEAT["template"]
         assert "do not assert as fact" not in caveat
+
+
+# ---------------------------------------------------------------------------
+# Causal direction filtering (causal_edge_direction_and_magnitude_design.md,
+# Aug 2026) — found live: a Net Revenue framing gate offered COGS as an
+# alternative objective via a 2-hop path through gross_margin_pct, even
+# though the connecting edge's own mechanism says the direction runs the
+# other way (COGS causes margin, not the reverse). hop 1 stays unfiltered by
+# design (decision #3); these tests cover hop 2+ path validity.
+# ---------------------------------------------------------------------------
+
+class TestCausalDirectionFiltering:
+    @pytest.mark.asyncio
+    async def test_hop_two_excluded_when_connecting_edge_direction_unknown(self):
+        """The exact real-world case: net_revenue -> gross_margin_pct (no
+        recorded mechanism, causal_direction defaults to 'unknown') ->
+        cogs. Nothing establishes gross_margin_pct as upstream of
+        net_revenue, so cogs must not be offered as a 2-hop alternative."""
+        da = _make_da_stub()
+        hop1 = _relationship(kpi_id="net_revenue", related_kpi_id="gross_margin_pct")  # causal_direction defaults to "unknown"
+        hop2 = _relationship(kpi_id="gross_margin_pct", related_kpi_id="cogs", causal_direction="related_causes_kpi")
+        with _registry_patch([
+            _kpi("net_revenue", "hess"), _kpi("gross_margin_pct", "hess"), _kpi("cogs", "hess"),
+        ]), _providers(neighbourhood=[(hop1, 1), (hop2, 2)]):
+            result = await da._build_framing_prompt(_da_output(kpi_name="net_revenue"), {})
+        assert result is not None
+        kpi_ids = {a.kpi_id for a in result.alternatives}
+        assert kpi_ids == {"gross_margin_pct"}  # hop-1 still shown, unfiltered
+        assert "cogs" not in kpi_ids
+
+    @pytest.mark.asyncio
+    async def test_hop_two_excluded_when_second_edge_walked_backward(self):
+        """Both edges individually well-directed is not sufficient -- the
+        SECOND edge must point the right way too. gross_margin_pct's edge to
+        net_revenue is confirmed (net_revenue causes margin), but the
+        margin<->cogs edge says COGS causes margin -- walking from margin TO
+        cogs at hop 2 walks that edge backward and must be excluded."""
+        da = _make_da_stub()
+        hop1 = _relationship(kpi_id="net_revenue", related_kpi_id="gross_margin_pct", causal_direction="kpi_causes_related")
+        hop2 = _relationship(kpi_id="gross_margin_pct", related_kpi_id="cogs", causal_direction="related_causes_kpi")  # cogs causes margin, not the reverse
+        with _registry_patch([
+            _kpi("net_revenue", "hess"), _kpi("gross_margin_pct", "hess"), _kpi("cogs", "hess"),
+        ]), _providers(neighbourhood=[(hop1, 1), (hop2, 2)]):
+            result = await da._build_framing_prompt(_da_output(kpi_name="net_revenue"), {})
+        assert result is not None
+        kpi_ids = {a.kpi_id for a in result.alternatives}
+        assert kpi_ids == {"gross_margin_pct"}
+        assert "cogs" not in kpi_ids
+
+    @pytest.mark.asyncio
+    async def test_hop_two_included_when_full_chain_confirmed(self):
+        """The 11F anchor scenario this design was built to preserve:
+        base_oil_cost -> cogs -> gross_margin_pct, both edges confirmed in
+        the direction that makes base_oil_cost a valid 2-hop upstream cause
+        of gross_margin_pct."""
+        da = _make_da_stub()
+        hop1 = _relationship(kpi_id="gross_margin_pct", related_kpi_id="cogs", causal_direction="related_causes_kpi")
+        hop2 = _relationship(kpi_id="base_oil_cost", related_kpi_id="cogs", causal_direction="kpi_causes_related")
+        with _registry_patch([
+            _kpi("gross_margin_pct", "hess"), _kpi("cogs", "hess"), _kpi("base_oil_cost", "hess"),
+        ]), _providers(neighbourhood=[(hop1, 1), (hop2, 2)]):
+            result = await da._build_framing_prompt(_da_output(), {})
+        assert result is not None
+        kpi_ids = {a.kpi_id for a in result.alternatives}
+        assert kpi_ids == {"cogs", "base_oil_cost"}
+
+    @pytest.mark.asyncio
+    async def test_hop_one_unfiltered_regardless_of_direction(self):
+        """Decision #3, unchanged: a direct (hop-1) neighbour is shown
+        regardless of its own edge's causal_direction -- filtering only
+        gates whether it may be used as a stepping stone for hop 2+."""
+        da = _make_da_stub()
+        edge = _relationship(kpi_id="gross_margin_pct", related_kpi_id="cogs")  # "unknown"
+        with _registry_patch([_kpi("gross_margin_pct", "hess"), _kpi("cogs", "hess")]), \
+             _providers(neighbourhood=[(edge, 1)]):
+            result = await da._build_framing_prompt(_da_output(), {})
+        assert result is not None
+        assert {a.kpi_id for a in result.alternatives} == {"cogs"}
+
+    @pytest.mark.asyncio
+    async def test_bidirectional_direction_confirms_either_walk(self):
+        """A 'bidirectional' edge is a real claim (both directions hold),
+        not a placeholder for ignorance -- it must confirm extension in
+        either direction, unlike 'unknown'."""
+        da = _make_da_stub()
+        hop1 = _relationship(kpi_id="gross_margin_pct", related_kpi_id="cogs", causal_direction="bidirectional")
+        hop2 = _relationship(kpi_id="cogs", related_kpi_id="base_oil_cost", causal_direction="bidirectional")
+        with _registry_patch([
+            _kpi("gross_margin_pct", "hess"), _kpi("cogs", "hess"), _kpi("base_oil_cost", "hess"),
+        ]), _providers(neighbourhood=[(hop1, 1), (hop2, 2)]):
+            result = await da._build_framing_prompt(_da_output(), {})
+        assert result is not None
+        assert {a.kpi_id for a in result.alternatives} == {"cogs", "base_oil_cost"}
 
 
 # ---------------------------------------------------------------------------
@@ -673,9 +770,13 @@ class TestFramingPromptRankingAndSnapshots:
         da.data_product_agent = dpa
 
         edge_mover_1hop = _relationship(kpi_id="gross_margin_pct", related_kpi_id="cogs_mover")
-        edge_flat_1hop = _relationship(kpi_id="gross_margin_pct", related_kpi_id="premium_mix_flat")
-        edge_mover_2hop_a = _relationship(kpi_id="gross_margin_pct", related_kpi_id="premium_mix_flat")
-        edge_mover_2hop_b = _relationship(kpi_id="premium_mix_flat", related_kpi_id="base_oil_mover")
+        # related_causes_kpi on the flat 1-hop edge and the 2-hop edge:
+        # premium_mix_flat causes gross_margin_pct, base_oil_mover causes
+        # premium_mix_flat -- a valid path, required for base_oil_mover's
+        # hop-2 alternative to be offered at all (see hop-1 test above).
+        edge_flat_1hop = _relationship(kpi_id="gross_margin_pct", related_kpi_id="premium_mix_flat", causal_direction="related_causes_kpi")
+        edge_mover_2hop_a = _relationship(kpi_id="gross_margin_pct", related_kpi_id="premium_mix_flat", causal_direction="related_causes_kpi")
+        edge_mover_2hop_b = _relationship(kpi_id="premium_mix_flat", related_kpi_id="base_oil_mover", causal_direction="related_causes_kpi")
 
         with _registry_patch([
             _kpi("gross_margin_pct", "hess"), _kpi("cogs_mover", "hess"),
