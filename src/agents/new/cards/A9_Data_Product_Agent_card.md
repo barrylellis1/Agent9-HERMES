@@ -158,3 +158,8 @@ than rushed the night before a demo. Tracked, not forgotten.
 Tests: `tests/unit/test_data_product_agent_kpi_methods.py::TestGenerateMonthlySeriesSql` (BigQuery
 detection via both Tier 1 and Tier 2, non-BigQuery/no-SQL/unparseable-SQL all fail gracefully rather than
 raise, custom `date_column` from KPI metadata honoured, non-date `WHERE` conditions preserved).
+
+## `_resolve_attribute_name` bypassed the registry factory entirely for glossary lookups (Aug 2026)
+- Found auditing for other instances of the `A9_Principal_Context_Agent` startup-race bug shape: this method never called `registry_factory.get_provider("business_glossary")` at all — every call constructed a fresh `BusinessGlossaryProvider()`, which loads directly from `src/registry/data/business_glossary.yaml` (a `yaml.safe_load()` in an agent file — the exact pattern rule 6 in root `CLAUDE.md` prohibits). This ran regardless of whether `RegistryBootstrap` had already hydrated and registered a Supabase-backed instance into the shared factory.
+- Fixed: now checks `self.registry_factory.get_provider("business_glossary")` first — same pattern `A9_Data_Governance_Agent.connect()` already uses — and only falls back to the raw YAML-backed instance if the factory has none registered.
+- Business glossary terms are intentionally shared across all clients by design (`client_id=None` at Supabase hydration, per-client override supported via `client_id`/`get_by_client()` for terms that need it) — this fix does not change that; it only stops silently maintaining a second, always-stale, never-Supabase-synced copy alongside the real one.

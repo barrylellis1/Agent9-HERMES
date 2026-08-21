@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 
 # Import registry providers
 from src.registry.factory import RegistryFactory
+from src.registry.bootstrap import RegistryBootstrap
 from src.registry.providers.business_glossary_provider import BusinessGlossaryProvider, BusinessTerm
 from src.registry.providers.business_process_provider import BusinessProcessProvider
 from src.registry.providers.kpi_provider import KPIProvider
@@ -538,7 +539,24 @@ class A9_Data_Governance_Agent:
 
             bp_provider = self.registry_factory.get_business_process_provider()
             if not bp_provider:
-                bp_provider = BusinessProcessProvider()
+                # Same shape as the principal-provider startup race fixed Aug 2026
+                # (a9_principal_context_agent.py): don't manufacture a flat,
+                # non-tenant-aware provider on an empty factory slot — that's how
+                # this codebase already had a cross-tenant leak once. Self-heal via
+                # RegistryBootstrap first (idempotent, re-verifies what's missing);
+                # only degrade to the flat fallback — and log it as a real failure,
+                # not a silent substitution — if it's still empty afterward.
+                try:
+                    await RegistryBootstrap.initialize()
+                except Exception as e:
+                    self.logger.warning(f"RegistryBootstrap.initialize() failed: {e}")
+                bp_provider = self.registry_factory.get_business_process_provider()
+                if not bp_provider:
+                    self.logger.error(
+                        "No business_process provider after RegistryBootstrap.initialize() — "
+                        "using a local, unregistered, non-tenant-aware fallback for this call only."
+                    )
+                    bp_provider = BusinessProcessProvider()
 
             applied: List[Any] = []
             skipped: List[str] = []

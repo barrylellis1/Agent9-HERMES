@@ -3517,7 +3517,15 @@ class A9_Data_Product_Agent(DataProductProtocol):
             # Try neutral business glossary mapping first
             try:
                 if not hasattr(self, '_glossary_provider') or self._glossary_provider is None:
-                    self._glossary_provider = BusinessGlossaryProvider()
+                    # Prefer the Supabase-hydrated provider RegistryBootstrap already
+                    # registered into the shared factory (same pattern as DGA's
+                    # connect() — a9_data_governance_agent.py:128-134). Only fall
+                    # back to a fresh, YAML-backed instance if the factory has none —
+                    # this used to construct the YAML fallback unconditionally, every
+                    # time, bypassing Supabase entirely regardless of factory state.
+                    factory = getattr(self, "registry_factory", None)
+                    provider = factory.get_provider("business_glossary") if factory else None
+                    self._glossary_provider = provider or BusinessGlossaryProvider()
                 tech = self._glossary_provider.get_technical_mapping(raw_attr, system="duckdb")
                 if isinstance(tech, str) and tech.strip():
                     safe = tech.replace('"', '""')
