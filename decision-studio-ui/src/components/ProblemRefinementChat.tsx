@@ -351,8 +351,16 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
 
       {/* Market Intelligence signals moved to left panel (DeepFocusView) */}
 
-      {/* Messages */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+      {/* Messages — capped, not flex-1, while the framing gate is showing.
+          Two flex-1 min-h-0 siblings in the same column (this + the footer
+          below) split the remaining space 50/50 regardless of content, so
+          the framing gate — which routinely needs most of the panel — was
+          still being squeezed into half of it even after making it properly
+          scrollable. During framing there's typically only the one
+          intro message here; capping it frees the rest for the gate. */}
+      <div className={refinementState.framing_prompt
+        ? 'flex-shrink-0 max-h-28 overflow-y-auto p-4 space-y-4'
+        : 'flex-1 min-h-0 overflow-y-auto p-4 space-y-4'}>
         {messages.map((msg, idx) => {
           // Tier badge color map
           const tierColor =
