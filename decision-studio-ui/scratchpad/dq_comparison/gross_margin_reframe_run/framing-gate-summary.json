@@ -1,0 +1,35 @@
+{
+  "kpi": "gross_margin_pct",
+  "client": "lubricants",
+  "principal": "cfo_001",
+  "chosen_choice": "alternative",
+  "chosen_kpi_id": "cogs",
+  "chosen_objective_text": "Addressing Cost of Goods Sold instead of Gross Margin % directly — connected 1 hop away in the causal graph",
+  "alternatives_offered": [
+    { "source": "causal_graph", "objective_text": "Addressing Cost of Goods Sold instead of Gross Margin % directly — connected 1 hop away in the causal graph", "hops": 1, "basis": "accounting_identity (reclassified 2026-08-22, kpi_relationship_basis_design.md)" },
+    { "source": "causal_graph", "objective_text": "Addressing Net Revenue instead of Gross Margin % directly — connected 1 hop away in the causal graph", "hops": 1, "basis": "accounting_identity (reclassified 2026-08-22)" },
+    { "source": "causal_graph", "objective_text": "Addressing Premium Product Mix % instead of Gross Margin % directly — connected 1 hop away in the causal graph", "hops": 1, "basis": "causal_estimate" },
+    { "source": "causal_graph", "objective_text": "Addressing Raw Materials Cost instead of Gross Margin % directly — connected 2 hops away in the causal graph", "hops": 2, "basis": "accounting_identity (reclassified 2026-08-22)" },
+    { "source": "causal_graph", "objective_text": "Addressing Average Order Value instead of Gross Margin % directly — connected 2 hops away in the causal graph", "hops": 2, "basis": "causal_estimate" },
+    { "source": "market_signal", "objective_text": "While three of four signals confirm the internal margin-compression problem in Synthetic Blend and Conventional Engine Oil, the Compressor Oil segment shows a tailwind (industrial capex recovery, pricing power) that partially contradicts the uniformly negative internal classification.", "hops": null }
+  ],
+  "owner_role": "CFO",
+  "viewer_is_owner": true,
+  "framing_record": {
+    "persisted": true,
+    "persist_error": null,
+    "assumption_id": "762a2e52-5767-4d35-8d2b-300bc36b04b4",
+    "decided_by_role": "Chief Financial Officer",
+    "decided_by_is_owner": true,
+    "decided_at": "2026-08-22T16:46:45.488032+00:00"
+  },
+  "scqa_after_submission_present": true,
+  "framing_decision_reached_sf": true,
+  "stages": ["stage1_only", "synthesis"],
+  "sf_options": [
+    "Immediate Base Oil Procurement Renegotiation & Supplier Consolidation",
+    "Forward-Contract Hedging & Base Oil Cost Stabilization Program",
+    "Structural SKU Simplification & Specification Consolidation in Commodity Engine Oils"
+  ],
+  "_provenance_note": "Reconstructed 2026-08-22 from the live test's console log and this conversation's own transcript, NOT re-extracted from the raw test artifacts -- the screenshots, refinement-turns.json, and sf-request-and-response.json for this run were destroyed when three subsequent `npx playwright test` invocations (running live-framing-gate-ecommerce.spec.ts to fix an unrelated auto-launch race) wiped the shared playwright-results-live output directory before this run's artifacts were archived. sf-synthesis-payload.json (the DQ-scoreable payload) survived because it was extracted to scratch immediately after this run finished, before the wipe. Lost, not fabricated: source data for every field above is the live console output and the conversation transcript capturing this run's cat'd JSON output, not invented."
+}

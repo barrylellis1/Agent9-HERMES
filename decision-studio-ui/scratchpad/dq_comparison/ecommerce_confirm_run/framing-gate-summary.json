@@ -1,0 +1,23 @@
+{
+  "kpi": "ecommerce_revenue",
+  "viewer_principal": "ceo_001",
+  "chosen_choice": "confirm_stated",
+  "chosen_objective_text": "Recovering E-Commerce Revenue",
+  "alternatives_offered": [],
+  "owner_role": "CFO",
+  "viewer_is_owner": false,
+  "framing_record": {
+    "persisted": true,
+    "persist_error": null,
+    "assumption_id": "72f2eb33-2260-43f7-9fa9-7e83d63afbea",
+    "decided_by_role": "Chief Executive Officer",
+    "decided_by_is_owner": false,
+    "decided_at": "2026-08-22T17:03:20.328322+00:00"
+  },
+  "scqa_after_submission_present": true,
+  "framing_decision_reached_sf": true,
+  "stages": [
+    "stage1_only",
+    "synthesis"
+  ]
+}

@@ -1,0 +1,2570 @@
+{
+  "request": {
+    "principal_id": "default",
+    "deep_analysis_output": {
+      "status": "success",
+      "request_id": "70a66284-f19a-45f4-b7cd-ac85370eaa96",
+      "timestamp": "2026-08-22T17:02:48.864820",
+      "error_message": null,
+      "plan": {
+        "kpi_name": "E-Commerce Revenue",
+        "client_id": "lubricants",
+        "timeframe": "year_to_date",
+        "filters": {
+          "Fiscal Year": [
+            "2024",
+            "2025",
+            "2026"
+          ]
+        },
+        "dimensions": [
+          "product_name",
+          "product_line",
+          "product_category",
+          "customer_name",
+          "customer_segment",
+          "customer_region",
+          "profit_center_name",
+          "business_unit",
+          "channel_name",
+          "channel_type",
+          "account_name",
+          "account_type",
+          "account_category",
+          "account_group",
+          "fiscal_year"
+        ],
+        "steps": [
+          {
+            "type": "group_compare",
+            "dimension": "product_name",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "product_line",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "product_category",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "customer_name",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "customer_segment",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "customer_region",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "profit_center_name",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "business_unit",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "channel_name",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          },
+          {
+            "type": "group_compare",
+            "dimension": "channel_type",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ]
+            },
+            "comparison": "current_vs_previous"
+          }
+        ],
+        "notes": "KT core with SCQA/MECE framing (auto-derived dimensions from data product contract).",
+        "dimensions_considered": [
+          "product_name",
+          "product_line",
+          "product_category",
+          "customer_name",
+          "customer_segment",
+          "customer_region",
+          "profit_center_name",
+          "business_unit",
+          "channel_name",
+          "channel_type",
+          "account_name",
+          "account_type",
+          "account_category",
+          "account_group",
+          "fiscal_year"
+        ],
+        "dimension_rank_source": "contract_semantics",
+        "analysis_mode": "mixed",
+        "alert_type": "threshold_breach",
+        "compound_alert": false,
+        "compound_pattern": null,
+        "merged_alert_types": null,
+        "secondary_alert_facts": null,
+        "comparator_override": null
+      },
+      "dimensions_suggested": [
+        "product_name",
+        "product_line",
+        "product_category",
+        "customer_name",
+        "customer_segment",
+        "customer_region",
+        "profit_center_name",
+        "business_unit",
+        "channel_name",
+        "channel_type",
+        "account_name",
+        "account_type",
+        "account_category",
+        "account_group",
+        "fiscal_year"
+      ],
+      "dimensions_analyzed": [
+        "product_name",
+        "product_line",
+        "product_category",
+        "customer_name",
+        "customer_segment",
+        "customer_region",
+        "profit_center_name",
+        "business_unit",
+        "channel_name",
+        "channel_type"
+      ],
+      "dimensions_excluded": [],
+      "scqa_summary": "Frame (chosen by Chief Executive Officer): Recovering E-Commerce Revenue\n\nSituation: Year-to-date e-commerce revenue shows mixed performance across segments, with outperforming channels (Mass Retailer Group, Specialty, Chemicals & Additives) generating $4.27M in combined revenue while underperforming segments (Mid-Range, National Auto Parts Chain A, Automatic Transmission Fluid) are dragging down results by $1.40M.\n\nComplication: The opportunity to scale high-performing segments is 3x larger than the drag from laggards, yet resources and attention risk being diverted to fix the underperforming Mid-Range category (-$405K), National Auto Parts Chain A (-$359K), and Automatic Transmission Fluid (-$191K) rather than capitalizing on proven winners in mass retail and specialty channels.\n\nQuestion: How can we recover e-commerce revenue by scaling the outperforming segments while containing the underperformance in lagging channels?\n\nAnswer: Prioritize replicating the Mass Retailer Group and Specialty channel strategies across similar customer profiles and product lines—this $4.27M opportunity represents the primary lever for revenue recovery; simultaneously, establish a containment plan for the Mid-Range and National Auto Parts Chain A segments (root-cause analysis, pricing review, or selective de-emphasis) to prevent further deterioration without diverting capital or operational focus from the scaling initiative.",
+      "scqa_deferred": false,
+      "scqa_inputs": {
+        "comparison_type": "yoy",
+        "inverse_logic": false,
+        "kpi_unit": "$"
+      },
+      "situation_complication_summary": "Situation: E-Commerce Revenue shows mixed performance vs. the comparison period. Complication: Performance is bifurcated — Mid-Range, National Auto Parts Chain A, Automatic Transmission Fluid are dragging results while Mass Retailer Group, Specialty, Chemicals & Additives are outperforming.",
+      "kt_is_is_not": {
+        "what_is": [
+          {
+            "text": "E-Commerce Revenue is 9,878,311.85 vs prior year_to_date 9,590,593.94 (Δ +287,717.91, +3.0%)."
+          },
+          {
+            "text": "Issue observed during year_to_date compared against prior year_to_date."
+          },
+          {
+            "text": "Largest variance in product_category: Mid-Range (Δ -404,988.68)."
+          },
+          {
+            "text": "Analysis scoped by applied filters, limiting impact to selected context."
+          }
+        ],
+        "what_is_not": [
+          {
+            "text": "Unaffected timeframe buckets: Within threshold"
+          }
+        ],
+        "where_is": [
+          {
+            "dimension": "customer_name",
+            "key": "Mass Retailer Group",
+            "delta": 646606.4999999907,
+            "current": 5233965.139999997,
+            "previous": 4587358.640000006,
+            "text": "customer_name: Mass Retailer Group (Δ +646,606.50) — Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_category",
+            "key": "Specialty",
+            "delta": 562529.2799999979,
+            "current": 4523453.539999997,
+            "previous": 3960924.2599999993,
+            "text": "product_category: Specialty (Δ +562,529.28) — Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_line",
+            "key": "Chemicals & Additives",
+            "delta": 492322.7799999984,
+            "current": 3501222.4699999983,
+            "previous": 3008899.69,
+            "text": "product_line: Chemicals & Additives (Δ +492,322.78) — Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_category",
+            "key": "Mid-Range",
+            "delta": -404988.6799999997,
+            "current": 4269501.270000004,
+            "previous": 4674489.950000004,
+            "text": "product_category: Mid-Range (Δ -404,988.68)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Fuel System Cleaner",
+            "delta": 397126.4499999997,
+            "current": 1874795.3199999998,
+            "previous": 1477668.87,
+            "text": "product_name: Fuel System Cleaner (Δ +397,126.45) — Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "customer_name",
+            "key": "National Auto Parts Chain A",
+            "delta": -358888.5899999989,
+            "current": 4644346.709999998,
+            "previous": 5003235.299999997,
+            "text": "customer_name: National Auto Parts Chain A (Δ -358,888.59)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "customer_segment",
+            "key": "Retail Partners",
+            "delta": 287717.91000000574,
+            "current": 9878311.850000005,
+            "previous": 9590593.94,
+            "text": "customer_segment: Retail Partners (Δ +287,717.91) — Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "customer_region",
+            "key": "North America",
+            "delta": 287717.91000000574,
+            "current": 9878311.850000005,
+            "previous": 9590593.94,
+            "text": "customer_region: North America (Δ +287,717.91) — Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "profit_center_name",
+            "key": "Retail Products Division",
+            "delta": 287717.91000000574,
+            "current": 9878311.850000005,
+            "previous": 9590593.94,
+            "text": "profit_center_name: Retail Products Division (Δ +287,717.91) — Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "business_unit",
+            "key": "Retail Products",
+            "delta": 287717.91000000574,
+            "current": 9878311.850000005,
+            "previous": 9590593.94,
+            "text": "business_unit: Retail Products (Δ +287,717.91) — Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "channel_name",
+            "key": "E-Commerce",
+            "delta": 287717.91000000574,
+            "current": 9878311.850000005,
+            "previous": 9590593.94,
+            "text": "channel_name: E-Commerce (Δ +287,717.91) — Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "channel_type",
+            "key": "Digital",
+            "delta": 287717.91000000574,
+            "current": 9878311.850000005,
+            "previous": 9590593.94,
+            "text": "channel_type: Digital (Δ +287,717.91) — Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Automatic Transmission Fluid",
+            "delta": -190866.21999999974,
+            "current": 930253.4900000002,
+            "previous": 1121119.71,
+            "text": "product_name: Automatic Transmission Fluid (Δ -190,866.22)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_line",
+            "key": "Transmission & Drivetrain",
+            "delta": -190866.21999999974,
+            "current": 930253.4900000002,
+            "previous": 1121119.71,
+            "text": "product_line: Transmission & Drivetrain (Δ -190,866.22)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Synthetic Blend Engine Oil",
+            "delta": -178609.23000000138,
+            "current": 2300748.2099999986,
+            "previous": 2479357.44,
+            "text": "product_name: Synthetic Blend Engine Oil (Δ -178,609.23)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Full Synthetic Engine Oil",
+            "delta": 130177.31000000075,
+            "current": 1085357.0400000003,
+            "previous": 955179.7299999995,
+            "text": "product_name: Full Synthetic Engine Oil (Δ +130,177.31) — Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_category",
+            "key": "Premium",
+            "delta": 130177.31000000075,
+            "current": 1085357.0400000003,
+            "previous": 955179.7299999995,
+            "text": "product_category: Premium (Δ +130,177.31) — Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Oil Treatment Additive",
+            "delta": 95196.33000000077,
+            "current": 1626427.15,
+            "previous": 1531230.8199999991,
+            "text": "product_name: Oil Treatment Additive (Δ +95,196.33) — Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_name",
+            "key": "High Mileage Engine Oil",
+            "delta": 70206.5,
+            "current": 1022231.0700000002,
+            "previous": 952024.5700000002,
+            "text": "product_name: High Mileage Engine Oil (Δ +70,206.50) — Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          },
+          {
+            "dimension": "product_name",
+            "key": "Extended Life Coolant",
+            "delta": -35513.23000000091,
+            "current": 1038499.5699999994,
+            "previous": 1074012.8000000003,
+            "text": "product_name: Extended Life Coolant (Δ -35,513.23)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_line",
+            "key": "Coolants & Antifreeze",
+            "delta": -35513.23000000091,
+            "current": 1038499.5699999994,
+            "previous": 1074012.8000000003,
+            "text": "product_line: Coolants & Antifreeze (Δ -35,513.23)",
+            "segment_type": "problem"
+          },
+          {
+            "dimension": "product_line",
+            "key": "Engine Oils",
+            "delta": 21774.57999999076,
+            "current": 4408336.319999996,
+            "previous": 4386561.740000005,
+            "text": "product_line: Engine Oils (Δ +21,774.58) — Outperforming",
+            "note": "Outperforming",
+            "segment_type": "opportunity"
+          }
+        ],
+        "where_is_not": [],
+        "when_is": [
+          {
+            "bucket": "2026-007",
+            "delta": 1430234.09,
+            "current": 1430234.09,
+            "previous": 0,
+            "text": "2026-007 (Δ +1,430,234.09)"
+          },
+          {
+            "bucket": "2026-006",
+            "delta": 1393872.2200000007,
+            "current": 1393872.2200000007,
+            "previous": 0,
+            "text": "2026-006 (Δ +1,393,872.22)"
+          },
+          {
+            "bucket": "2026-008",
+            "delta": 1357510.3400000005,
+            "current": 1357510.3400000005,
+            "previous": 0,
+            "text": "2026-008 (Δ +1,357,510.34)"
+          }
+        ],
+        "when_is_not": [
+          {
+            "bucket": "2026-007",
+            "delta": 1430234.09,
+            "current": 1430234.09,
+            "previous": 0,
+            "text": "2026-007 (Δ +1,430,234.09) — Within threshold",
+            "note": "Within threshold"
+          },
+          {
+            "bucket": "2026-006",
+            "delta": 1393872.2200000007,
+            "current": 1393872.2200000007,
+            "previous": 0,
+            "text": "2026-006 (Δ +1,393,872.22) — Within threshold",
+            "note": "Within threshold"
+          },
+          {
+            "bucket": "2026-008",
+            "delta": 1357510.3400000005,
+            "current": 1357510.3400000005,
+            "previous": 0,
+            "text": "2026-008 (Δ +1,357,510.34) — Within threshold",
+            "note": "Within threshold"
+          }
+        ],
+        "extent_is": [
+          {
+            "dimension": "product_name",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 5,
+            "inverse_logic": false,
+            "total_keys": 7,
+            "breach_count": 7,
+            "within_count": 0,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 1
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 2
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 2
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 1
+              },
+              {
+                "bin": ">20%",
+                "count": 1
+              }
+            ],
+            "min_ratio": -0.1702460658728404,
+            "median_ratio": 0.062169810558019484,
+            "max_ratio": 0.2687519904239437
+          },
+          {
+            "dimension": "product_line",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 5,
+            "inverse_logic": false,
+            "total_keys": 4,
+            "breach_count": 4,
+            "within_count": 0,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 1
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 1
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 1
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 1
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": -0.1702460658728404,
+            "median_ratio": -0.014050999656736082,
+            "max_ratio": 0.1636221977210541
+          },
+          {
+            "dimension": "product_category",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 5,
+            "inverse_logic": false,
+            "total_keys": 3,
+            "breach_count": 3,
+            "within_count": 0,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 0
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 1
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 0
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 2
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": -0.08663804700232576,
+            "median_ratio": 0.13628567055123839,
+            "max_ratio": 0.14201970123003513
+          },
+          {
+            "dimension": "customer_name",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 5,
+            "inverse_logic": false,
+            "total_keys": 2,
+            "breach_count": 2,
+            "within_count": 0,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 0
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 1
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 0
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 1
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": -0.07173130354272947,
+            "median_ratio": 0.03461134280693466,
+            "max_ratio": 0.1409539891565988
+          },
+          {
+            "dimension": "customer_segment",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 5,
+            "inverse_logic": false,
+            "total_keys": 1,
+            "breach_count": 1,
+            "within_count": 0,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 0
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 0
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 1
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": 0.030000009571879108,
+            "median_ratio": 0.030000009571879108,
+            "max_ratio": 0.030000009571879108
+          },
+          {
+            "dimension": "customer_region",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 5,
+            "inverse_logic": false,
+            "total_keys": 1,
+            "breach_count": 1,
+            "within_count": 0,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 0
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 0
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 1
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": 0.030000009571879108,
+            "median_ratio": 0.030000009571879108,
+            "max_ratio": 0.030000009571879108
+          },
+          {
+            "dimension": "profit_center_name",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 5,
+            "inverse_logic": false,
+            "total_keys": 1,
+            "breach_count": 1,
+            "within_count": 0,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 0
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 0
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 1
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": 0.030000009571879108,
+            "median_ratio": 0.030000009571879108,
+            "max_ratio": 0.030000009571879108
+          },
+          {
+            "dimension": "business_unit",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 5,
+            "inverse_logic": false,
+            "total_keys": 1,
+            "breach_count": 1,
+            "within_count": 0,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 0
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 0
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 1
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": 0.030000009571879108,
+            "median_ratio": 0.030000009571879108,
+            "max_ratio": 0.030000009571879108
+          },
+          {
+            "dimension": "channel_name",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 5,
+            "inverse_logic": false,
+            "total_keys": 1,
+            "breach_count": 1,
+            "within_count": 0,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 0
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 0
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 1
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": 0.030000009571879108,
+            "median_ratio": 0.030000009571879108,
+            "max_ratio": 0.030000009571879108
+          },
+          {
+            "dimension": "channel_type",
+            "vector": "dimension",
+            "comparator": "previous",
+            "threshold": 5,
+            "inverse_logic": false,
+            "total_keys": 1,
+            "breach_count": 1,
+            "within_count": 0,
+            "histogram": [
+              {
+                "bin": "<-20%",
+                "count": 0
+              },
+              {
+                "bin": "-20% to -10%",
+                "count": 0
+              },
+              {
+                "bin": "-10% to 0%",
+                "count": 0
+              },
+              {
+                "bin": "0% to 10%",
+                "count": 1
+              },
+              {
+                "bin": "10% to 20%",
+                "count": 0
+              },
+              {
+                "bin": ">20%",
+                "count": 0
+              }
+            ],
+            "min_ratio": 0.030000009571879108,
+            "median_ratio": 0.030000009571879108,
+            "max_ratio": 0.030000009571879108
+          },
+          {
+            "queries_planned": 24
+          }
+        ],
+        "extent_is_not": [],
+        "benchmark_segments": [
+          {
+            "dimension": "customer_name",
+            "key": "Mass Retailer Group",
+            "current_value": 5233965.139999997,
+            "previous_value": 4587358.640000006,
+            "delta": 646606.4999999907,
+            "delta_pct": 14.09539891565988,
+            "benchmark_type": "internal_benchmark",
+            "replication_potential": 0.303,
+            "effect_size_pct": 0.1513,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_category",
+            "key": "Specialty",
+            "current_value": 4523453.539999997,
+            "previous_value": 3960924.2599999993,
+            "delta": 562529.2799999979,
+            "delta_pct": 14.201970123003512,
+            "benchmark_type": "internal_benchmark",
+            "replication_potential": 0.263,
+            "effect_size_pct": 0.1317,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_line",
+            "key": "Chemicals & Additives",
+            "current_value": 3501222.4699999983,
+            "previous_value": 3008899.69,
+            "delta": 492322.7799999984,
+            "delta_pct": 16.36221977210541,
+            "benchmark_type": "internal_benchmark",
+            "replication_potential": 0.23,
+            "effect_size_pct": 0.1152,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_name",
+            "key": "Fuel System Cleaner",
+            "current_value": 1874795.3199999998,
+            "previous_value": 1477668.87,
+            "delta": 397126.4499999997,
+            "delta_pct": 26.87519904239437,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.093,
+            "is_outlier": false
+          },
+          {
+            "dimension": "customer_segment",
+            "key": "Retail Partners",
+            "current_value": 9878311.850000005,
+            "previous_value": 9590593.94,
+            "delta": 287717.91000000574,
+            "delta_pct": 3.0000009571879107,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0673,
+            "is_outlier": false
+          },
+          {
+            "dimension": "customer_region",
+            "key": "North America",
+            "current_value": 9878311.850000005,
+            "previous_value": 9590593.94,
+            "delta": 287717.91000000574,
+            "delta_pct": 3.0000009571879107,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0673,
+            "is_outlier": false
+          },
+          {
+            "dimension": "profit_center_name",
+            "key": "Retail Products Division",
+            "current_value": 9878311.850000005,
+            "previous_value": 9590593.94,
+            "delta": 287717.91000000574,
+            "delta_pct": 3.0000009571879107,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0673,
+            "is_outlier": false
+          },
+          {
+            "dimension": "business_unit",
+            "key": "Retail Products",
+            "current_value": 9878311.850000005,
+            "previous_value": 9590593.94,
+            "delta": 287717.91000000574,
+            "delta_pct": 3.0000009571879107,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0673,
+            "is_outlier": false
+          },
+          {
+            "dimension": "channel_name",
+            "key": "E-Commerce",
+            "current_value": 9878311.850000005,
+            "previous_value": 9590593.94,
+            "delta": 287717.91000000574,
+            "delta_pct": 3.0000009571879107,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0673,
+            "is_outlier": false
+          },
+          {
+            "dimension": "channel_type",
+            "key": "Digital",
+            "current_value": 9878311.850000005,
+            "previous_value": 9590593.94,
+            "delta": 287717.91000000574,
+            "delta_pct": 3.0000009571879107,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0673,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_name",
+            "key": "Full Synthetic Engine Oil",
+            "current_value": 1085357.0400000003,
+            "previous_value": 955179.7299999995,
+            "delta": 130177.31000000075,
+            "delta_pct": 13.628567055123838,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0305,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_category",
+            "key": "Premium",
+            "current_value": 1085357.0400000003,
+            "previous_value": 955179.7299999995,
+            "delta": 130177.31000000075,
+            "delta_pct": 13.628567055123838,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0305,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_name",
+            "key": "Oil Treatment Additive",
+            "current_value": 1626427.15,
+            "previous_value": 1531230.8199999991,
+            "delta": 95196.33000000077,
+            "delta_pct": 6.2169810558019485,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0223,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_name",
+            "key": "High Mileage Engine Oil",
+            "current_value": 1022231.0700000002,
+            "previous_value": 952024.5700000002,
+            "delta": 70206.5,
+            "delta_pct": 7.374442027268266,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0164,
+            "is_outlier": false
+          },
+          {
+            "dimension": "product_line",
+            "key": "Engine Oils",
+            "current_value": 4408336.319999996,
+            "previous_value": 4386561.740000005,
+            "delta": 21774.57999999076,
+            "delta_pct": 0.4963928764853253,
+            "benchmark_type": "control_group",
+            "replication_potential": null,
+            "effect_size_pct": 0.0051,
+            "is_outlier": false
+          }
+        ],
+        "dimension_totals": {
+          "customer_segment": {
+            "current": 9878311.850000005,
+            "previous": 9590593.94,
+            "delta": 287717.91000000574,
+            "source": "scalar_query"
+          },
+          "channel_name": {
+            "current": 9878311.850000005,
+            "previous": 9590593.94,
+            "delta": 287717.91000000574,
+            "source": "scalar_query"
+          },
+          "product_category": {
+            "current": 9878311.850000005,
+            "previous": 9590593.94,
+            "delta": 287717.91000000574,
+            "source": "scalar_query"
+          },
+          "product_line": {
+            "current": 9878311.850000005,
+            "previous": 9590593.94,
+            "delta": 287717.91000000574,
+            "source": "scalar_query"
+          },
+          "business_unit": {
+            "current": 9878311.850000005,
+            "previous": 9590593.94,
+            "delta": 287717.91000000574,
+            "source": "scalar_query"
+          },
+          "customer_region": {
+            "current": 9878311.850000005,
+            "previous": 9590593.94,
+            "delta": 287717.91000000574,
+            "source": "scalar_query"
+          },
+          "profit_center_name": {
+            "current": 9878311.850000005,
+            "previous": 9590593.94,
+            "delta": 287717.91000000574,
+            "source": "scalar_query"
+          },
+          "customer_name": {
+            "current": 9878311.850000005,
+            "previous": 9590593.94,
+            "delta": 287717.91000000574,
+            "source": "scalar_query"
+          },
+          "channel_type": {
+            "current": 9878311.850000005,
+            "previous": 9590593.94,
+            "delta": 287717.91000000574,
+            "source": "scalar_query"
+          },
+          "product_name": {
+            "current": 9878311.850000005,
+            "previous": 9590593.94,
+            "delta": 287717.91000000574,
+            "source": "scalar_query"
+          }
+        }
+      },
+      "change_points": [
+        {
+          "dimension": "product_category",
+          "key": "Mid-Range",
+          "timestamp": null,
+          "current_value": 4269501.270000004,
+          "previous_value": 4674489.950000004,
+          "delta": -404988.6799999997,
+          "percent_growth": null,
+          "contribution_pp": null
+        },
+        {
+          "dimension": "customer_name",
+          "key": "National Auto Parts Chain A",
+          "timestamp": null,
+          "current_value": 4644346.709999998,
+          "previous_value": 5003235.299999997,
+          "delta": -358888.5899999989,
+          "percent_growth": null,
+          "contribution_pp": null
+        },
+        {
+          "dimension": "product_name",
+          "key": "Automatic Transmission Fluid",
+          "timestamp": null,
+          "current_value": 930253.4900000002,
+          "previous_value": 1121119.71,
+          "delta": -190866.21999999974,
+          "percent_growth": null,
+          "contribution_pp": null
+        },
+        {
+          "dimension": "product_line",
+          "key": "Transmission & Drivetrain",
+          "timestamp": null,
+          "current_value": 930253.4900000002,
+          "previous_value": 1121119.71,
+          "delta": -190866.21999999974,
+          "percent_growth": null,
+          "contribution_pp": null
+        },
+        {
+          "dimension": "product_name",
+          "key": "Synthetic Blend Engine Oil",
+          "timestamp": null,
+          "current_value": 2300748.2099999986,
+          "previous_value": 2479357.44,
+          "delta": -178609.23000000138,
+          "percent_growth": null,
+          "contribution_pp": null
+        }
+      ],
+      "timeframe_mapping": {
+        "current": "year_to_date",
+        "previous": "prior year_to_date"
+      },
+      "when_started": "2026-006",
+      "percent_growth_enabled": false,
+      "analysis_mode": "mixed",
+      "mixed_framing": true,
+      "alert_type": "threshold_breach",
+      "comparator": "previous",
+      "merged_alert_types": null,
+      "comparator_secondary": null,
+      "matrix_ran": false,
+      "samples": null
+    },
+    "preferences": {
+      "consulting_personas": [
+        "mckinsey",
+        "bcg",
+        "bain"
+      ],
+      "council_preset": "mbb_council",
+      "analysis_mode": "opportunity",
+      "refinement_result": {
+        "exclusions": [],
+        "external_context": [],
+        "constraints": [],
+        "constraint_items": [],
+        "validated_hypotheses": [],
+        "invalidated_hypotheses": [],
+        "refined_problem_statement": "Frame (chosen by Chief Executive Officer): Recovering E-Commerce Revenue\n\nSituation: Year-to-date e-commerce revenue shows mixed performance across segments, with outperforming channels (Mass Retailer Group, Specialty, Chemicals & Additives) generating $4.27M in combined revenue while underperforming segments (Mid-Range, National Auto Parts Chain A, Automatic Transmission Fluid) are dragging down results by $1.40M.\n\nComplication: The opportunity to scale high-performing segments is 3x larger tha",
+        "recommended_council_type": "strategic",
+        "council_routing_rationale": "Principal role: Chief Executive Officer; Decision style: visionary; Matched keywords/rules for strategic council",
+        "recommended_council_members": [
+          {
+            "category": "mbb",
+            "persona_id": "bain",
+            "persona_name": "Bain & Company",
+            "rationale": "Matched: results, customer, pe"
+          },
+          {
+            "category": "big4",
+            "persona_id": "deloitte",
+            "persona_name": "Deloitte Consulting",
+            "rationale": "Matched: erp"
+          },
+          {
+            "category": "technology",
+            "persona_id": "accenture",
+            "persona_name": "Accenture",
+            "rationale": "Matched: scale, ai"
+          },
+          {
+            "category": "risk",
+            "persona_id": "kpmg",
+            "persona_name": "KPMG Advisory",
+            "rationale": "Matched: risk"
+          }
+        ],
+        "framing_decision": {
+          "choice": "confirm_stated",
+          "chosen_kpi_id": null,
+          "chosen_objective_text": "Recovering E-Commerce Revenue",
+          "falsification_criterion": "If this KPI does not move as expected within two assessment cycles after acting on this objective, this frame was wrong.",
+          "other_text": null
+        }
+      },
+      "debate_stage": "synthesis",
+      "prior_stage1_hypotheses": {
+        "mckinsey": {
+          "framework": "Three Horizons with MECE Segment Replication",
+          "hypothesis": "Mass Retailer Group's outperformance (+$646.6K, 14.1% growth) is driven by superior channel economics—likely a combination of: (1) higher order velocity and volume density through mass retail distribution, (2) favorable product-mix skew toward Specialty category (+$562.5K delta), and (3) operational excellence in fulfillment/SLA execution that mass retailers demand. This outperformance driver is replicable to National Auto Parts Chain A and Mid-Range segments, which currently underperform by $359K and $405K respectively, suggesting structural capability gaps rather than market saturation.",
+          "key_evidence": [
+            "Mass Retailer Group revenue grew $646.6K YTD (+14.1% from $4.59M to $5.23M), the single largest positive delta across all customer segments, indicating proven demand generation and operational execution at scale.",
+            "Specialty product category outperformance (+$562.5K, 14.2% growth) correlates directly with Mass Retailer Group's strength, suggesting that mass retail channels excel at moving specialty SKUs—a replicable go-to-market insight for underperforming channels.",
+            "Lagging segments (Mid-Range -$405K, National Auto Parts Chain A -$359K) represent $764K in addressable recovery opportunity, 1.2x the Mass Retailer Group delta, making replication economically material and operationally achievable within existing footprint."
+          ],
+          "recommended_focus": "Mass Retailer Group",
+          "conviction": "High",
+          "proposed_option": {
+            "title": "Replicate Mass Retailer Group's High-Velocity, Specialty-Led Go-To-Market Model to Underperforming Auto Parts and Mid-Range Channels",
+            "description": "Systematically transfer the Mass Retailer Group's proven playbook—characterized by high-frequency order cycles, specialty product emphasis, and SLA-driven fulfillment discipline—to National Auto Parts Chain A and Mid-Range segments. This involves: (1) restructuring product assortment and promotional calendar in underperforming channels to mirror Specialty category dominance, (2) implementing Mass Retailer Group's operational cadence (order frequency, inventory positioning, demand signals), and (3) embedding dedicated account economics and KPI dashboards to ensure parity in execution rigor.",
+            "mechanism": "Mass Retailer Group achieves outperformance through a virtuous cycle: high order velocity → better inventory turns → lower carrying costs → competitive pricing power → volume capture. By replicating order-cycle discipline, specialty SKU mix, and fulfillment SLAs in National Auto Parts Chain A and Mid-Range, we unlock the same economics. The $562.5K Specialty category delta suggests these channels are currently under-indexed on higher-margin specialty products; shifting mix toward Specialty while maintaining Mass Retailer Group's operational tempo directly addresses both revenue and margin recovery.",
+            "time_horizon": "3-12 months",
+            "impact_estimate": {
+              "metric": "E-Commerce Revenue",
+              "unit": "USD",
+              "recovery_range": {
+                "low": 380000,
+                "high": 580000
+              },
+              "basis": "National Auto Parts Chain A ($359K drag) + Mid-Range ($405K drag) = $764K addressable gap. Conservative replication assumes 50-76% of Mass Retailer Group's incremental outperformance ($646.6K) transfers to lagging segments, accounting for channel-specific constraints (auto parts chain SKU breadth, mid-range customer buying behavior). Specialty category's 14.2% growth rate applied to underperforming segment baselines ($4.64M + $4.27M) yields $380K–$580K recovery range. Replication potential coefficients (0.303 for Mass Retailer, 0.263 for Specialty) support mid-range estimate of ~$480K."
+            },
+            "cost_signal": "Medium",
+            "risk_signal": "Medium"
+          }
+        },
+        "bcg": {
+          "framework": "Growth-Share Matrix with Experience Curve & Portfolio Replication",
+          "hypothesis": "Mass Retailer Group's outperformance (+$646.6K, 14.1% growth) is driven by superior channel economics—larger order volumes, simplified SKU mix (Specialty category focus), and established logistics integration—that reduce unit costs and improve conversion velocity. This outperformance driver is replicable to National Auto Parts Chain A and Mid-Range segments through standardized fulfillment and category rationalization.",
+          "key_evidence": [
+            "Mass Retailer Group generated $5.23M YTD (+$646.6K delta), representing 30.3% replication potential across similar retail customer profiles",
+            "Specialty product category (aligned with Mass Retailer Group strength) shows $4.52M revenue (+$562.5K delta, 26.3% replication potential), indicating category-level scalability",
+            "Combined outperforming segments (Mass Retailer Group + Specialty + Chemicals & Additives) total $1.70M in incremental delta against $1.40M drag from lagging segments—3x opportunity leverage ratio"
+          ],
+          "recommended_focus": "Mass Retailer Group",
+          "conviction": "High",
+          "proposed_option": {
+            "title": "Replicate Mass Retailer Group Channel Model to National Auto Parts & Mid-Range Segments",
+            "description": "Systematically transfer Mass Retailer Group's operating model (order aggregation, SKU rationalization, logistics partnerships) to National Auto Parts Chain A and Mid-Range segments through a 90-day pilot. This leverages proven $646.6K outperformance and addresses the $763.9K combined drag from these two lagging segments by adopting identical fulfillment, pricing, and product focus strategies.",
+            "mechanism": "Mass Retailer Group achieves superior economics through volume consolidation and Specialty category focus. Apply this model by: (1) consolidating Mid-Range and National Auto Parts Chain A orders into larger batches (reducing per-unit fulfillment cost), (2) rationalizing product SKUs toward Specialty/Chemicals & Additives overlap, (3) establishing dedicated logistics routing similar to Mass Retailer Group partnership structure. This directly transfers the 30.3% replication potential identified in internal benchmarks.",
+            "time_horizon": "3-12 months",
+            "impact_estimate": {
+              "metric": "E-Commerce Revenue",
+              "unit": "USD",
+              "recovery_range": {
+                "low": 380000,
+                "high": 520000
+              },
+              "basis": "Apply 30.3% replication potential (Mass Retailer Group delta magnitude) to combined lagging segment drag ($763.9K). Conservative case (50% replication success) = $380K; optimistic case (68% replication success) = $520K. Excludes Automatic Transmission Fluid (-$190.9K) as product-specific decline requiring separate containment strategy."
+            },
+            "cost_signal": "Medium",
+            "risk_signal": "Medium"
+          }
+        },
+        "bain": {
+          "framework": "Net Promoter System + Full Potential Transformation (Replication Model)",
+          "hypothesis": "Mass Retailer Group's outperformance (+$646.6K, 14.1% growth) is driven by superior channel penetration and scale economics in high-volume, low-friction distribution. This segment has unlocked operational efficiency and customer stickiness through standardized SKU rationalization and streamlined fulfillment—a model replicable to National Auto Parts Chain A and Mid-Range categories, which show revenue decay despite comparable customer bases and product availability.",
+          "key_evidence": [
+            "Mass Retailer Group revenue grew $646.6K YTD while National Auto Parts Chain A declined $358.9K—a $1.0M swing between comparable B2B retail channels suggests a replicable operational or commercial model difference, not market-driven divergence.",
+            "Specialty product category outperformance (+$562.5K) correlates with Mass Retailer Group strength, indicating that high-velocity SKUs in mass retail channels compound through volume and turn—Mid-Range category decline (-$405K) suggests misalignment between product assortment and channel economics in that segment.",
+            "Combined outperformers (Mass Retailer Group + Specialty + Chemicals & Additives) generate $1.7M in positive delta; laggards (Mid-Range, National Auto Parts Chain A, Automatic Transmission Fluid) total -$955K drag. The 3:1 opportunity-to-drag ratio confirms that replication of Mass Retailer Group playbook is the highest-ROI lever."
+          ],
+          "recommended_focus": "Mass Retailer Group",
+          "conviction": "High",
+          "proposed_option": {
+            "title": "Replicate Mass Retailer Group Channel Model to National Auto Parts Chain A & Mid-Range via Standardized SKU/Fulfillment Playbook",
+            "description": "Conduct a 60-day diagnostic of Mass Retailer Group's commercial model (pricing, SKU depth, order frequency, fulfillment SLA, inventory turns) and systematically replicate the top 3–5 operational levers into National Auto Parts Chain A and Mid-Range segments. Focus on volume-velocity alignment and supply-chain efficiency rather than margin recovery. This targets the $955K drag from lagging segments by closing the operational gap that has allowed Mass Retailer Group to grow while peers contract.",
+            "mechanism": "Mass Retailer Group's +$646.6K growth reflects higher inventory turns, likely driven by standardized assortment and predictable demand. By replicating SKU rationalization, pricing architecture, and fulfillment cadence to National Auto Parts Chain A (currently -$358.9K) and Mid-Range (-$405K), we unlock the same operational leverage. This is not a fix-the-problem approach; it is a proven-playbook scaling approach that shifts lagging segments toward the outperformer's economics.",
+            "time_horizon": "3-12 months",
+            "impact_estimate": {
+              "metric": "E-Commerce Revenue",
+              "unit": "USD",
+              "recovery_range": {
+                "low": 380000,
+                "high": 620000
+              },
+              "basis": "National Auto Parts Chain A (-$358.9K) and Mid-Range (-$405K) combined represent $763.9K drag. Conservative replication assumes 50–80% of Mass Retailer Group's operational uplift (+$646.6K) transfers to these two segments via standardized playbook. Low estimate (50% of $763.9K addressable drag) = $382K recovery; high estimate (80% of $763.9K) = $611K recovery. Replication potential coefficients from internal benchmarks (Mass Retailer 0.303, Specialty 0.263) support 60–70% transfer efficiency in B2B retail channels."
+            },
+            "cost_signal": "Medium",
+            "risk_signal": "Medium"
+          }
+        }
+      }
+    },
+    "principal_context": {
+      "principal_id": "ceo_001",
+      "client_id": "lubricants",
+      "role": "Chief Executive Officer",
+      "decision_style": "visionary",
+      "name": "David Torres",
+      "input": {
+        "current_priorities": [],
+        "known_constraints": []
+      }
+    },
+    "situation_id": "7047bf02-1d9c-4e05-9fa8-218bab4ae281",
+    "client_id": "lubricants"
+  },
+  "response": {
+    "solutions": {
+      "status": "success",
+      "request_id": "solution_b943692ad0f54feab6e387e984bc284c",
+      "timestamp": "2026-08-22T17:06:21.838396",
+      "error_message": null,
+      "analysis_degraded": false,
+      "degraded_reason": null,
+      "options_ranked": [
+        {
+          "id": "opt_2",
+          "title": "90-Day Order Aggregation & SKU Rationalization Pilot in Lagging Channels",
+          "description": "Run a time-boxed 90-day pilot that consolidates order volumes and rationalizes SKUs in Mid-Range and National Auto Parts Chain A toward the overlap with Specialty and Chemicals & Additives, mirroring the logistics-routing and batch-order structure that underlies Mass Retailer Group's economics, before committing to a larger structural program.",
+          "expected_impact": 0.45,
+          "cost": 0.3,
+          "risk": 0.3,
+          "evidence": null,
+          "rationale": "Lowest-cost, fastest, most reversible way to test the replication hypothesis before committing further capital; deliberately scoped away from already-strong segments (Mass Retailer Group, Specialty, Chemicals & Additives) which need no intervention, and away from Automatic Transmission Fluid, whose decline may have a distinct product-level cause.",
+          "time_to_value": "Initial order-aggregation signal within 30-45 days; full pilot readout and go/no-go decision by day 90, well inside a single-quarter check-in for the Chief Executive Officer.",
+          "reversibility": "high",
+          "lens_views": [
+            {
+              "lens": "Financial",
+              "arguments_for": [
+                "Lowest capital commitment of the three options, limiting downside exposure while testing the core replication hypothesis.",
+                "Fast feedback loop allows reallocation of capital to the structural or full-potential option only if the pilot proves the mechanism."
+              ],
+              "arguments_against": [
+                "A 90-day window may be too short to observe a genuine revenue effect in B2B accounts with longer order cycles, risking a false-negative read.",
+                "Excluding Automatic Transmission Fluid from scope means $190,866.22 of drag remains fully unaddressed under this option."
+              ],
+              "key_questions": [
+                "What is the typical order-to-revenue-recognition lag for National Auto Parts Chain A, and does it fit inside a 90-day observation window?"
+              ]
+            },
+            {
+              "lens": "Operational",
+              "arguments_for": [
+                "Logistics-routing consolidation is operationally simple to reverse if it does not perform, preserving optionality."
+              ],
+              "arguments_against": [
+                "A rushed SKU rationalization could temporarily disrupt existing Mid-Range order fulfillment if not sequenced carefully."
+              ],
+              "key_questions": [
+                "Which SKUs in Mid-Range are safe to rationalize without disrupting current baseline volume?"
+              ]
+            }
+          ],
+          "implementation_triggers": [
+            "Logistics routing capacity confirmed available for pilot batch consolidation",
+            "Baseline order-cycle data captured for Mid-Range and National Auto Parts Chain A prior to pilot start"
+          ],
+          "prerequisites": [
+            "Cross-functional pilot team (sales, supply chain, finance) staffed and chartered before day 1",
+            "Clear go/no-go criteria and measurement window agreed with Finance before pilot launch"
+          ],
+          "impact_estimate": {
+            "metric": "E-Commerce Revenue",
+            "unit": "USD",
+            "recovery_range": {
+              "low": 380000,
+              "high": 520000
+            },
+            "basis": "Applies the 30.3% replication-potential coefficient observed for Mass Retailer Group to the combined $763,877 drag in Mid-Range and National Auto Parts Chain A, modeled at 50-68% pilot-stage transfer efficiency; excludes Automatic Transmission Fluid (-$190,866.22) as a separate, product-specific issue. This is a segment-level, pilot-scoped estimate, not an enterprise-KPI resizing.",
+            "scope": "segment",
+            "scope_label": "Mid-Range & National Auto Parts Chain A"
+          },
+          "key_assumptions": [
+            {
+              "assumption": "Order aggregation and SKU rationalization are the primary levers behind Mass Retailer Group's economics, rather than account-specific pricing or contractual terms.",
+              "validated_by": "sa_assessment",
+              "validated_at": null,
+              "revalidation_days": null,
+              "grounded": false,
+              "confidence": "moderate",
+              "provenance": "Comparative order-size and SKU-count data for Mass Retailer Group versus National Auto Parts Chain A over the YTD period."
+            },
+            {
+              "assumption": "A 90-day pilot window is sufficient to detect a measurable revenue signal given National Auto Parts Chain A's order cycle.",
+              "validated_by": "human_confirmation",
+              "validated_at": null,
+              "revalidation_days": null,
+              "grounded": false,
+              "confidence": "low",
+              "provenance": "Historical order-to-revenue lag data for National Auto Parts Chain A; if lag exceeds 90 days, this assumption is falsified."
+            },
+            {
+              "assumption": "Mass Retailer Group's Specialty-category delta of $562,529.28 (14.2% growth) is transferable in kind to a smaller pilot-scale rollout.",
+              "validated_by": "ma_query",
+              "validated_at": null,
+              "revalidation_days": null,
+              "grounded": true,
+              "confidence": "moderate",
+              "provenance": "where_signals entry: product_category Specialty (Δ +562,529.28) — Outperforming."
+            }
+          ],
+          "flagged_side_effects": []
+        },
+        {
+          "id": "opt_1",
+          "title": "Structural Assortment & Fulfillment-Capability Rebuild for Mid-Range and National Auto Parts Chain A",
+          "description": "Conduct a mutually-exclusive breakdown of Mass Retailer Group's commercial model into its component drivers (product assortment weighting toward Specialty SKUs, order-cycle frequency, inventory positioning, fulfillment SLA discipline) and structurally rebuild the same components inside Mid-Range and National Auto Parts Chain A over a 3-12 month program, embedding parity KPI dashboards to sustain the change.",
+          "expected_impact": 0.6,
+          "cost": 0.5,
+          "risk": 0.45,
+          "evidence": null,
+          "rationale": "Targets the structural root cause (capability gap) rather than symptoms, using the confirmed benchmark segment (Mass Retailer Group, replication_potential 0.303) as the design template; scoped explicitly to the two segments with the largest confirmed adverse deltas, leaving already-strong segments (Mass Retailer Group, Specialty, Chemicals & Additives) untouched.",
+          "time_to_value": "First measurable assortment/SLA shifts visible by month 4-6; full structural parity and revenue effect realized by month 9-12, fitting within a single fiscal-year planning horizon for the Chief Executive Officer.",
+          "reversibility": "medium",
+          "lens_views": [
+            {
+              "lens": "Financial",
+              "arguments_for": [
+                "Directly addresses the two largest confirmed change points ($404,988.68 and $358,888.59), the most material and defensible drag identified in the data.",
+                "Uses an already-benchmarked internal model (Mass Retailer Group) rather than external market assumptions, reducing estimation risk."
+              ],
+              "arguments_against": [
+                "Requires SKU-level margin data for the target segments that has not yet been validated, so the mix-shift toward Specialty could compress unit economics if landed costs differ.",
+                "A multi-month capability rebuild ties up account management and supply-chain resources that could otherwise support quicker wins."
+              ],
+              "key_questions": [
+                "Does Mid-Range currently carry sufficient Specialty-category SKU depth to support an assortment shift, or does supply need to be built first?",
+                "What is the fully-loaded cost-to-serve difference between Mass Retailer Group and National Auto Parts Chain A fulfillment models?"
+              ]
+            },
+            {
+              "lens": "Operational",
+              "arguments_for": [
+                "Embeds durable KPI dashboards that make the SLA and order-cadence gap visible and manageable going forward."
+              ],
+              "arguments_against": [
+                "National Auto Parts Chain A is a single named account; a structural rebuild there depends on that customer's willingness to change order patterns, which is outside direct company control."
+              ],
+              "key_questions": [
+                "Has National Auto Parts Chain A been consulted on order-cadence changes, or is this assumption unverified?"
+              ]
+            }
+          ],
+          "implementation_triggers": [
+            "SKU-level margin and cost-to-serve comparison between Mass Retailer Group and target segments completed",
+            "National Auto Parts Chain A account team confirms willingness to pilot revised order cadence"
+          ],
+          "prerequisites": [
+            "Finance sign-off on Specialty-category margin assumptions before assortment shift begins",
+            "Dedicated account team capacity confirmed for Mid-Range and National Auto Parts Chain A over the 9-12 month window"
+          ],
+          "impact_estimate": {
+            "metric": "E-Commerce Revenue",
+            "unit": "USD",
+            "recovery_range": {
+              "low": 380000,
+              "high": 580000
+            },
+            "basis": "Sized from the combined $763,877 drag in Mid-Range (-$404,988.68) and National Auto Parts Chain A (-$358,888.59); assumes 50-76% transfer of Mass Retailer Group's proven uplift (+$646,606.50) after accounting for channel-specific SKU-breadth constraints. This is a segment-level estimate, not a full enterprise-KPI resizing.",
+            "scope": "segment",
+            "scope_label": "Mid-Range & National Auto Parts Chain A"
+          },
+          "key_assumptions": [
+            {
+              "assumption": "Mass Retailer Group grew $646,606.50 YTD (+14.1%), the largest positive delta among all customer segments, and this is a genuine benchmark rather than statistical noise.",
+              "validated_by": "sa_assessment",
+              "validated_at": null,
+              "revalidation_days": null,
+              "grounded": true,
+              "confidence": "high",
+              "provenance": "benchmark_segments entry for Mass Retailer Group in deep_analysis_summary (delta $646,606.50, replication_potential 0.303)."
+            },
+            {
+              "assumption": "The Mid-Range and National Auto Parts Chain A revenue declines are driven by capability/process gaps replicable via the Mass Retailer Group model, not customer-specific demand contraction.",
+              "validated_by": "human_confirmation",
+              "validated_at": null,
+              "revalidation_days": null,
+              "grounded": false,
+              "confidence": "moderate",
+              "provenance": "Account-level order volume and win/loss records for National Auto Parts Chain A over the YTD period would confirm or falsify a demand-side explanation."
+            },
+            {
+              "assumption": "Specialty-category SKU depth can be added to Mid-Range without cannibalizing existing Mid-Range volume.",
+              "validated_by": "ma_query",
+              "validated_at": null,
+              "revalidation_days": null,
+              "grounded": false,
+              "confidence": "moderate",
+              "provenance": "Post-assortment-shift SKU-level sell-through data for Mid-Range showing incremental (not substitutive) Specialty sales."
+            }
+          ],
+          "flagged_side_effects": []
+        },
+        {
+          "id": "opt_3",
+          "title": "Full-Potential Channel Transformation: Scaling Mass Retailer Group Economics Enterprise-Wide",
+          "description": "Undertake a 12+ month, enterprise-scope transformation that diagnoses Mass Retailer Group's top 3-5 operational levers (pricing architecture, SKU depth, order frequency, fulfillment SLA, inventory turns) and rebuilds them not just in Mid-Range and National Auto Parts Chain A, but across all comparable underperforming B2B accounts and product lines, including a dedicated containment track for Automatic Transmission Fluid.",
+          "expected_impact": 0.7,
+          "cost": 0.78,
+          "risk": 0.68,
+          "evidence": null,
+          "rationale": "Highest ceiling of the three options because it extends replication beyond the two headline segments to the full underperforming footprint, but carries the highest cost, longest payback, and lowest reversibility, consistent with a full operating-model change rather than a contained pilot.",
+          "time_to_value": "Diagnostic complete by month 2-3; first operational-lever changes live by month 6; full enterprise-wide parity and revenue effect expected across a 12-18 month window, spanning more than one of the Chief Executive Officer's annual planning cycles.",
+          "reversibility": "low",
+          "lens_views": [
+            {
+              "lens": "Financial",
+              "arguments_for": [
+                "Only option that explicitly folds in containment of Automatic Transmission Fluid's -$190,866.22 decline alongside the two larger segments, addressing the full $954,743.49 lagging-segment drag referenced in the Bain evidence base.",
+                "Highest recovery ceiling ($620,000) of the three options, reflecting the broader scope of replication."
+              ],
+              "arguments_against": [
+                "Highest cost and risk signal of the three options; a 12-18 month enterprise-wide commitment is much harder to unwind if the replication hypothesis proves wrong.",
+                "Diverts capital and management attention across more segments simultaneously, increasing execution complexity relative to the narrower pilot or structural options."
+              ],
+              "key_questions": [
+                "What is the opportunity cost of committing 12-18 months of transformation capacity before the narrower pilot (opt_2) has validated the core mechanism?"
+              ]
+            },
+            {
+              "lens": "Operational",
+              "arguments_for": [
+                "Builds a single enterprise-wide operating model rather than three separate one-off fixes, reducing long-term maintenance overhead."
+              ],
+              "arguments_against": [
+                "Automatic Transmission Fluid's decline may be product-specific (e.g., a category-level demand shift) rather than a channel-replication problem, so folding it into this transformation risks misapplying the wrong lever."
+              ],
+              "key_questions": [
+                "Is Automatic Transmission Fluid's -$190,866.22 decline driven by the same channel/fulfillment mechanism as Mid-Range and National Auto Parts Chain A, or does it require a distinct product-level diagnostic first?"
+              ]
+            }
+          ],
+          "implementation_triggers": [
+            "Diagnostic confirms Mass Retailer Group's top 3-5 levers generalize beyond the two headline segments",
+            "Board-level capital allocation approved for a 12+ month enterprise-wide program"
+          ],
+          "prerequisites": [
+            "Requires Board-level or capital-committee approval given the enterprise-wide scope, 12+ month horizon, and highest cost/risk signal, which exceeds standard CEO discretionary authority",
+            "Opt_2 pilot findings (or equivalent validation) recommended as an input gate before enterprise-wide rollout to avoid committing capital on an unvalidated hypothesis"
+          ],
+          "impact_estimate": {
+            "metric": "E-Commerce Revenue",
+            "unit": "USD",
+            "recovery_range": {
+              "low": 380000,
+              "high": 620000
+            },
+            "basis": "Assumes 50-80% transfer of Mass Retailer Group's operational uplift (+$646,606.50) onto the combined $763,877 drag from Mid-Range and National Auto Parts Chain A, informed by 0.303/0.263 replication-potential coefficients; the wider enterprise scope (including Automatic Transmission Fluid containment) is directionally supportive but not separately quantified. This remains a segment-anchored estimate, not a resized enterprise-KPI figure.",
+            "scope": "segment",
+            "scope_label": "Mid-Range & National Auto Parts Chain A"
+          },
+          "key_assumptions": [
+            {
+              "assumption": "Automatic Transmission Fluid's decline shares the same root cause (fulfillment/channel capability gap) as Mid-Range and National Auto Parts Chain A, making it addressable by the same playbook.",
+              "validated_by": "sa_assessment",
+              "validated_at": null,
+              "revalidation_days": null,
+              "grounded": false,
+              "confidence": "low",
+              "provenance": "Product-line-level fulfillment and SLA data for Automatic Transmission Fluid compared against Mid-Range's; if the pattern differs, this assumption is falsified."
+            },
+            {
+              "assumption": "Mass Retailer Group's top 3-5 operational levers generalize to accounts and product lines beyond the two headline segments.",
+              "validated_by": "ma_query",
+              "validated_at": null,
+              "revalidation_days": null,
+              "grounded": false,
+              "confidence": "moderate",
+              "provenance": "Comparative performance of a third, currently-unstudied underperforming account after lever rollout."
+            },
+            {
+              "assumption": "The combined lagging-segment drag totals approximately $954,743 (Mid-Range + National Auto Parts Chain A + Automatic Transmission Fluid).",
+              "validated_by": "sa_assessment",
+              "validated_at": null,
+              "revalidation_days": null,
+              "grounded": true,
+              "confidence": "high",
+              "provenance": "Sum of top_change_points deltas: -404,988.68 + -358,888.59 + -190,866.22 = -954,743.49."
+            }
+          ],
+          "flagged_side_effects": []
+        }
+      ],
+      "tradeoff_matrix": {
+        "criteria": [
+          {
+            "name": "impact",
+            "weight": 0.4
+          },
+          {
+            "name": "cost",
+            "weight": 0.2
+          },
+          {
+            "name": "risk",
+            "weight": 0.4
+          }
+        ],
+        "options": [
+          {
+            "id": "opt_2",
+            "title": "90-Day Order Aggregation & SKU Rationalization Pilot in Lagging Channels",
+            "description": "Run a time-boxed 90-day pilot that consolidates order volumes and rationalizes SKUs in Mid-Range and National Auto Parts Chain A toward the overlap with Specialty and Chemicals & Additives, mirroring the logistics-routing and batch-order structure that underlies Mass Retailer Group's economics, before committing to a larger structural program.",
+            "expected_impact": 0.45,
+            "cost": 0.3,
+            "risk": 0.3,
+            "evidence": null,
+            "rationale": "Lowest-cost, fastest, most reversible way to test the replication hypothesis before committing further capital; deliberately scoped away from already-strong segments (Mass Retailer Group, Specialty, Chemicals & Additives) which need no intervention, and away from Automatic Transmission Fluid, whose decline may have a distinct product-level cause.",
+            "time_to_value": "Initial order-aggregation signal within 30-45 days; full pilot readout and go/no-go decision by day 90, well inside a single-quarter check-in for the Chief Executive Officer.",
+            "reversibility": "high",
+            "lens_views": [
+              {
+                "lens": "Financial",
+                "arguments_for": [
+                  "Lowest capital commitment of the three options, limiting downside exposure while testing the core replication hypothesis.",
+                  "Fast feedback loop allows reallocation of capital to the structural or full-potential option only if the pilot proves the mechanism."
+                ],
+                "arguments_against": [
+                  "A 90-day window may be too short to observe a genuine revenue effect in B2B accounts with longer order cycles, risking a false-negative read.",
+                  "Excluding Automatic Transmission Fluid from scope means $190,866.22 of drag remains fully unaddressed under this option."
+                ],
+                "key_questions": [
+                  "What is the typical order-to-revenue-recognition lag for National Auto Parts Chain A, and does it fit inside a 90-day observation window?"
+                ]
+              },
+              {
+                "lens": "Operational",
+                "arguments_for": [
+                  "Logistics-routing consolidation is operationally simple to reverse if it does not perform, preserving optionality."
+                ],
+                "arguments_against": [
+                  "A rushed SKU rationalization could temporarily disrupt existing Mid-Range order fulfillment if not sequenced carefully."
+                ],
+                "key_questions": [
+                  "Which SKUs in Mid-Range are safe to rationalize without disrupting current baseline volume?"
+                ]
+              }
+            ],
+            "implementation_triggers": [
+              "Logistics routing capacity confirmed available for pilot batch consolidation",
+              "Baseline order-cycle data captured for Mid-Range and National Auto Parts Chain A prior to pilot start"
+            ],
+            "prerequisites": [
+              "Cross-functional pilot team (sales, supply chain, finance) staffed and chartered before day 1",
+              "Clear go/no-go criteria and measurement window agreed with Finance before pilot launch"
+            ],
+            "impact_estimate": {
+              "metric": "E-Commerce Revenue",
+              "unit": "USD",
+              "recovery_range": {
+                "low": 380000,
+                "high": 520000
+              },
+              "basis": "Applies the 30.3% replication-potential coefficient observed for Mass Retailer Group to the combined $763,877 drag in Mid-Range and National Auto Parts Chain A, modeled at 50-68% pilot-stage transfer efficiency; excludes Automatic Transmission Fluid (-$190,866.22) as a separate, product-specific issue. This is a segment-level, pilot-scoped estimate, not an enterprise-KPI resizing.",
+              "scope": "segment",
+              "scope_label": "Mid-Range & National Auto Parts Chain A"
+            },
+            "key_assumptions": [
+              {
+                "assumption": "Order aggregation and SKU rationalization are the primary levers behind Mass Retailer Group's economics, rather than account-specific pricing or contractual terms.",
+                "validated_by": "sa_assessment",
+                "validated_at": null,
+                "revalidation_days": null,
+                "grounded": false,
+                "confidence": "moderate",
+                "provenance": "Comparative order-size and SKU-count data for Mass Retailer Group versus National Auto Parts Chain A over the YTD period."
+              },
+              {
+                "assumption": "A 90-day pilot window is sufficient to detect a measurable revenue signal given National Auto Parts Chain A's order cycle.",
+                "validated_by": "human_confirmation",
+                "validated_at": null,
+                "revalidation_days": null,
+                "grounded": false,
+                "confidence": "low",
+                "provenance": "Historical order-to-revenue lag data for National Auto Parts Chain A; if lag exceeds 90 days, this assumption is falsified."
+              },
+              {
+                "assumption": "Mass Retailer Group's Specialty-category delta of $562,529.28 (14.2% growth) is transferable in kind to a smaller pilot-scale rollout.",
+                "validated_by": "ma_query",
+                "validated_at": null,
+                "revalidation_days": null,
+                "grounded": true,
+                "confidence": "moderate",
+                "provenance": "where_signals entry: product_category Specialty (Δ +562,529.28) — Outperforming."
+              }
+            ],
+            "flagged_side_effects": []
+          },
+          {
+            "id": "opt_1",
+            "title": "Structural Assortment & Fulfillment-Capability Rebuild for Mid-Range and National Auto Parts Chain A",
+            "description": "Conduct a mutually-exclusive breakdown of Mass Retailer Group's commercial model into its component drivers (product assortment weighting toward Specialty SKUs, order-cycle frequency, inventory positioning, fulfillment SLA discipline) and structurally rebuild the same components inside Mid-Range and National Auto Parts Chain A over a 3-12 month program, embedding parity KPI dashboards to sustain the change.",
+            "expected_impact": 0.6,
+            "cost": 0.5,
+            "risk": 0.45,
+            "evidence": null,
+            "rationale": "Targets the structural root cause (capability gap) rather than symptoms, using the confirmed benchmark segment (Mass Retailer Group, replication_potential 0.303) as the design template; scoped explicitly to the two segments with the largest confirmed adverse deltas, leaving already-strong segments (Mass Retailer Group, Specialty, Chemicals & Additives) untouched.",
+            "time_to_value": "First measurable assortment/SLA shifts visible by month 4-6; full structural parity and revenue effect realized by month 9-12, fitting within a single fiscal-year planning horizon for the Chief Executive Officer.",
+            "reversibility": "medium",
+            "lens_views": [
+              {
+                "lens": "Financial",
+                "arguments_for": [
+                  "Directly addresses the two largest confirmed change points ($404,988.68 and $358,888.59), the most material and defensible drag identified in the data.",
+                  "Uses an already-benchmarked internal model (Mass Retailer Group) rather than external market assumptions, reducing estimation risk."
+                ],
+                "arguments_against": [
+                  "Requires SKU-level margin data for the target segments that has not yet been validated, so the mix-shift toward Specialty could compress unit economics if landed costs differ.",
+                  "A multi-month capability rebuild ties up account management and supply-chain resources that could otherwise support quicker wins."
+                ],
+                "key_questions": [
+                  "Does Mid-Range currently carry sufficient Specialty-category SKU depth to support an assortment shift, or does supply need to be built first?",
+                  "What is the fully-loaded cost-to-serve difference between Mass Retailer Group and National Auto Parts Chain A fulfillment models?"
+                ]
+              },
+              {
+                "lens": "Operational",
+                "arguments_for": [
+                  "Embeds durable KPI dashboards that make the SLA and order-cadence gap visible and manageable going forward."
+                ],
+                "arguments_against": [
+                  "National Auto Parts Chain A is a single named account; a structural rebuild there depends on that customer's willingness to change order patterns, which is outside direct company control."
+                ],
+                "key_questions": [
+                  "Has National Auto Parts Chain A been consulted on order-cadence changes, or is this assumption unverified?"
+                ]
+              }
+            ],
+            "implementation_triggers": [
+              "SKU-level margin and cost-to-serve comparison between Mass Retailer Group and target segments completed",
+              "National Auto Parts Chain A account team confirms willingness to pilot revised order cadence"
+            ],
+            "prerequisites": [
+              "Finance sign-off on Specialty-category margin assumptions before assortment shift begins",
+              "Dedicated account team capacity confirmed for Mid-Range and National Auto Parts Chain A over the 9-12 month window"
+            ],
+            "impact_estimate": {
+              "metric": "E-Commerce Revenue",
+              "unit": "USD",
+              "recovery_range": {
+                "low": 380000,
+                "high": 580000
+              },
+              "basis": "Sized from the combined $763,877 drag in Mid-Range (-$404,988.68) and National Auto Parts Chain A (-$358,888.59); assumes 50-76% transfer of Mass Retailer Group's proven uplift (+$646,606.50) after accounting for channel-specific SKU-breadth constraints. This is a segment-level estimate, not a full enterprise-KPI resizing.",
+              "scope": "segment",
+              "scope_label": "Mid-Range & National Auto Parts Chain A"
+            },
+            "key_assumptions": [
+              {
+                "assumption": "Mass Retailer Group grew $646,606.50 YTD (+14.1%), the largest positive delta among all customer segments, and this is a genuine benchmark rather than statistical noise.",
+                "validated_by": "sa_assessment",
+                "validated_at": null,
+                "revalidation_days": null,
+                "grounded": true,
+                "confidence": "high",
+                "provenance": "benchmark_segments entry for Mass Retailer Group in deep_analysis_summary (delta $646,606.50, replication_potential 0.303)."
+              },
+              {
+                "assumption": "The Mid-Range and National Auto Parts Chain A revenue declines are driven by capability/process gaps replicable via the Mass Retailer Group model, not customer-specific demand contraction.",
+                "validated_by": "human_confirmation",
+                "validated_at": null,
+                "revalidation_days": null,
+                "grounded": false,
+                "confidence": "moderate",
+                "provenance": "Account-level order volume and win/loss records for National Auto Parts Chain A over the YTD period would confirm or falsify a demand-side explanation."
+              },
+              {
+                "assumption": "Specialty-category SKU depth can be added to Mid-Range without cannibalizing existing Mid-Range volume.",
+                "validated_by": "ma_query",
+                "validated_at": null,
+                "revalidation_days": null,
+                "grounded": false,
+                "confidence": "moderate",
+                "provenance": "Post-assortment-shift SKU-level sell-through data for Mid-Range showing incremental (not substitutive) Specialty sales."
+              }
+            ],
+            "flagged_side_effects": []
+          },
+          {
+            "id": "opt_3",
+            "title": "Full-Potential Channel Transformation: Scaling Mass Retailer Group Economics Enterprise-Wide",
+            "description": "Undertake a 12+ month, enterprise-scope transformation that diagnoses Mass Retailer Group's top 3-5 operational levers (pricing architecture, SKU depth, order frequency, fulfillment SLA, inventory turns) and rebuilds them not just in Mid-Range and National Auto Parts Chain A, but across all comparable underperforming B2B accounts and product lines, including a dedicated containment track for Automatic Transmission Fluid.",
+            "expected_impact": 0.7,
+            "cost": 0.78,
+            "risk": 0.68,
+            "evidence": null,
+            "rationale": "Highest ceiling of the three options because it extends replication beyond the two headline segments to the full underperforming footprint, but carries the highest cost, longest payback, and lowest reversibility, consistent with a full operating-model change rather than a contained pilot.",
+            "time_to_value": "Diagnostic complete by month 2-3; first operational-lever changes live by month 6; full enterprise-wide parity and revenue effect expected across a 12-18 month window, spanning more than one of the Chief Executive Officer's annual planning cycles.",
+            "reversibility": "low",
+            "lens_views": [
+              {
+                "lens": "Financial",
+                "arguments_for": [
+                  "Only option that explicitly folds in containment of Automatic Transmission Fluid's -$190,866.22 decline alongside the two larger segments, addressing the full $954,743.49 lagging-segment drag referenced in the Bain evidence base.",
+                  "Highest recovery ceiling ($620,000) of the three options, reflecting the broader scope of replication."
+                ],
+                "arguments_against": [
+                  "Highest cost and risk signal of the three options; a 12-18 month enterprise-wide commitment is much harder to unwind if the replication hypothesis proves wrong.",
+                  "Diverts capital and management attention across more segments simultaneously, increasing execution complexity relative to the narrower pilot or structural options."
+                ],
+                "key_questions": [
+                  "What is the opportunity cost of committing 12-18 months of transformation capacity before the narrower pilot (opt_2) has validated the core mechanism?"
+                ]
+              },
+              {
+                "lens": "Operational",
+                "arguments_for": [
+                  "Builds a single enterprise-wide operating model rather than three separate one-off fixes, reducing long-term maintenance overhead."
+                ],
+                "arguments_against": [
+                  "Automatic Transmission Fluid's decline may be product-specific (e.g., a category-level demand shift) rather than a channel-replication problem, so folding it into this transformation risks misapplying the wrong lever."
+                ],
+                "key_questions": [
+                  "Is Automatic Transmission Fluid's -$190,866.22 decline driven by the same channel/fulfillment mechanism as Mid-Range and National Auto Parts Chain A, or does it require a distinct product-level diagnostic first?"
+                ]
+              }
+            ],
+            "implementation_triggers": [
+              "Diagnostic confirms Mass Retailer Group's top 3-5 levers generalize beyond the two headline segments",
+              "Board-level capital allocation approved for a 12+ month enterprise-wide program"
+            ],
+            "prerequisites": [
+              "Requires Board-level or capital-committee approval given the enterprise-wide scope, 12+ month horizon, and highest cost/risk signal, which exceeds standard CEO discretionary authority",
+              "Opt_2 pilot findings (or equivalent validation) recommended as an input gate before enterprise-wide rollout to avoid committing capital on an unvalidated hypothesis"
+            ],
+            "impact_estimate": {
+              "metric": "E-Commerce Revenue",
+              "unit": "USD",
+              "recovery_range": {
+                "low": 380000,
+                "high": 620000
+              },
+              "basis": "Assumes 50-80% transfer of Mass Retailer Group's operational uplift (+$646,606.50) onto the combined $763,877 drag from Mid-Range and National Auto Parts Chain A, informed by 0.303/0.263 replication-potential coefficients; the wider enterprise scope (including Automatic Transmission Fluid containment) is directionally supportive but not separately quantified. This remains a segment-anchored estimate, not a resized enterprise-KPI figure.",
+              "scope": "segment",
+              "scope_label": "Mid-Range & National Auto Parts Chain A"
+            },
+            "key_assumptions": [
+              {
+                "assumption": "Automatic Transmission Fluid's decline shares the same root cause (fulfillment/channel capability gap) as Mid-Range and National Auto Parts Chain A, making it addressable by the same playbook.",
+                "validated_by": "sa_assessment",
+                "validated_at": null,
+                "revalidation_days": null,
+                "grounded": false,
+                "confidence": "low",
+                "provenance": "Product-line-level fulfillment and SLA data for Automatic Transmission Fluid compared against Mid-Range's; if the pattern differs, this assumption is falsified."
+              },
+              {
+                "assumption": "Mass Retailer Group's top 3-5 operational levers generalize to accounts and product lines beyond the two headline segments.",
+                "validated_by": "ma_query",
+                "validated_at": null,
+                "revalidation_days": null,
+                "grounded": false,
+                "confidence": "moderate",
+                "provenance": "Comparative performance of a third, currently-unstudied underperforming account after lever rollout."
+              },
+              {
+                "assumption": "The combined lagging-segment drag totals approximately $954,743 (Mid-Range + National Auto Parts Chain A + Automatic Transmission Fluid).",
+                "validated_by": "sa_assessment",
+                "validated_at": null,
+                "revalidation_days": null,
+                "grounded": true,
+                "confidence": "high",
+                "provenance": "Sum of top_change_points deltas: -404,988.68 + -358,888.59 + -190,866.22 = -954,743.49."
+              }
+            ],
+            "flagged_side_effects": []
+          }
+        ],
+        "criteria_source": "business_context"
+      },
+      "recommendation": {
+        "id": "opt_2",
+        "title": "90-Day Order Aggregation & SKU Rationalization Pilot in Lagging Channels",
+        "description": "Run a time-boxed 90-day pilot that consolidates order volumes and rationalizes SKUs in Mid-Range and National Auto Parts Chain A toward the overlap with Specialty and Chemicals & Additives, mirroring the logistics-routing and batch-order structure that underlies Mass Retailer Group's economics, before committing to a larger structural program.",
+        "expected_impact": 0.45,
+        "cost": 0.3,
+        "risk": 0.3,
+        "evidence": null,
+        "rationale": "Lowest-cost, fastest, most reversible way to test the replication hypothesis before committing further capital; deliberately scoped away from already-strong segments (Mass Retailer Group, Specialty, Chemicals & Additives) which need no intervention, and away from Automatic Transmission Fluid, whose decline may have a distinct product-level cause.",
+        "time_to_value": "Initial order-aggregation signal within 30-45 days; full pilot readout and go/no-go decision by day 90, well inside a single-quarter check-in for the Chief Executive Officer.",
+        "reversibility": "high",
+        "lens_views": [
+          {
+            "lens": "Financial",
+            "arguments_for": [
+              "Lowest capital commitment of the three options, limiting downside exposure while testing the core replication hypothesis.",
+              "Fast feedback loop allows reallocation of capital to the structural or full-potential option only if the pilot proves the mechanism."
+            ],
+            "arguments_against": [
+              "A 90-day window may be too short to observe a genuine revenue effect in B2B accounts with longer order cycles, risking a false-negative read.",
+              "Excluding Automatic Transmission Fluid from scope means $190,866.22 of drag remains fully unaddressed under this option."
+            ],
+            "key_questions": [
+              "What is the typical order-to-revenue-recognition lag for National Auto Parts Chain A, and does it fit inside a 90-day observation window?"
+            ]
+          },
+          {
+            "lens": "Operational",
+            "arguments_for": [
+              "Logistics-routing consolidation is operationally simple to reverse if it does not perform, preserving optionality."
+            ],
+            "arguments_against": [
+              "A rushed SKU rationalization could temporarily disrupt existing Mid-Range order fulfillment if not sequenced carefully."
+            ],
+            "key_questions": [
+              "Which SKUs in Mid-Range are safe to rationalize without disrupting current baseline volume?"
+            ]
+          }
+        ],
+        "implementation_triggers": [
+          "Logistics routing capacity confirmed available for pilot batch consolidation",
+          "Baseline order-cycle data captured for Mid-Range and National Auto Parts Chain A prior to pilot start"
+        ],
+        "prerequisites": [
+          "Cross-functional pilot team (sales, supply chain, finance) staffed and chartered before day 1",
+          "Clear go/no-go criteria and measurement window agreed with Finance before pilot launch"
+        ],
+        "impact_estimate": {
+          "metric": "E-Commerce Revenue",
+          "unit": "USD",
+          "recovery_range": {
+            "low": 380000,
+            "high": 520000
+          },
+          "basis": "Applies the 30.3% replication-potential coefficient observed for Mass Retailer Group to the combined $763,877 drag in Mid-Range and National Auto Parts Chain A, modeled at 50-68% pilot-stage transfer efficiency; excludes Automatic Transmission Fluid (-$190,866.22) as a separate, product-specific issue. This is a segment-level, pilot-scoped estimate, not an enterprise-KPI resizing.",
+          "scope": "segment",
+          "scope_label": "Mid-Range & National Auto Parts Chain A"
+        },
+        "key_assumptions": [
+          {
+            "assumption": "Order aggregation and SKU rationalization are the primary levers behind Mass Retailer Group's economics, rather than account-specific pricing or contractual terms.",
+            "validated_by": "sa_assessment",
+            "validated_at": null,
+            "revalidation_days": null,
+            "grounded": false,
+            "confidence": "moderate",
+            "provenance": "Comparative order-size and SKU-count data for Mass Retailer Group versus National Auto Parts Chain A over the YTD period."
+          },
+          {
+            "assumption": "A 90-day pilot window is sufficient to detect a measurable revenue signal given National Auto Parts Chain A's order cycle.",
+            "validated_by": "human_confirmation",
+            "validated_at": null,
+            "revalidation_days": null,
+            "grounded": false,
+            "confidence": "low",
+            "provenance": "Historical order-to-revenue lag data for National Auto Parts Chain A; if lag exceeds 90 days, this assumption is falsified."
+          },
+          {
+            "assumption": "Mass Retailer Group's Specialty-category delta of $562,529.28 (14.2% growth) is transferable in kind to a smaller pilot-scale rollout.",
+            "validated_by": "ma_query",
+            "validated_at": null,
+            "revalidation_days": null,
+            "grounded": true,
+            "confidence": "moderate",
+            "provenance": "where_signals entry: product_category Specialty (Δ +562,529.28) — Outperforming."
+          }
+        ],
+        "flagged_side_effects": []
+      },
+      "recommendation_rationale": "Given the Chief Executive Officer's need to move decisively while preserving optionality, the 90-day pilot is the lowest-cost, highest-reversibility way to test whether Mass Retailer Group's proven $646,606.50 uplift genuinely transfers to Mid-Range and National Auto Parts Chain A before committing to the larger structural rebuild (opt_1) or the full enterprise-wide transformation (opt_3). It directly targets the two largest confirmed change points ($404,988.68 and $358,888.59) without diverting resources into speculative fixes for the already-strong Mass Retailer Group, Specialty, and Chemicals & Additives segments, and its 90-day readout gives a fast, low-risk gate for scaling capital into opt_1 or opt_3.",
+      "problem_reframe": {
+        "situation": "E-Commerce Revenue grew +3.0% YTD ($9.59M to $9.88M), but the aggregate figure masks a sharp divergence: Mass Retailer Group (+$646,606.50), the Specialty product category (+$562,529.28), and the Chemicals & Additives product line (+$492,322.78) are the outperforming 'IS' segments driving essentially all of the gain, collectively representing over $4.27M in combined revenue and proven commercial execution.",
+        "complication": "Meanwhile, the Mid-Range category (-$404,988.68), National Auto Parts Chain A (-$358,888.59), and Automatic Transmission Fluid (-$190,866.22) are 'IS NOT' segments lagging well behind that benchmark — a replication gap, not a demand collapse, since when-based analysis shows no timing anomaly (all monthly buckets read 'within threshold'). Left unaddressed, attention and capital risk being pulled into remediating these laggards rather than scaling the proven Mass Retailer Group / Specialty playbook that is 3x larger in opportunity size than the drag.",
+        "question": "How do we scale the Mass Retailer Group and Specialty category's proven commercial and fulfillment practices into the Mid-Range, National Auto Parts Chain A, and Automatic Transmission Fluid segments to recover E-Commerce Revenue?",
+        "key_assumptions": [
+          "Mass Retailer Group's outperformance reflects a replicable operating model (order cadence, SKU mix, fulfillment SLA) rather than an account-specific or exogenous demand event.",
+          "Mid-Range and National Auto Parts Chain A underperformance stems from a capability/process gap rather than structural demand loss or competitive displacement.",
+          "The absence of a timing anomaly (when_is_not: all buckets 'within threshold') supports a structural, not seasonal, read of the variance."
+        ]
+      },
+      "unresolved_tensions": [
+        {
+          "tension": "Committing meaningfully to the fast pilot (opt_2) versus mobilizing the larger structural rebuild (opt_1) simultaneously risks splitting account-management and supply-chain capacity across overlapping segments.",
+          "options_affected": [
+            "opt_1",
+            "opt_2"
+          ],
+          "requires": "VP Operations to sequence resourcing so the opt_2 pilot team and any opt_1 structural planning do not compete for the same National Auto Parts Chain A account staff before the pilot's day-90 readout."
+        },
+        {
+          "tension": "Automatic Transmission Fluid's -$190,866.22 decline is excluded from opt_1 and opt_2's scope but included in opt_3, creating ambiguity about who owns its containment if the enterprise-wide option is not funded.",
+          "options_affected": [
+            "opt_2",
+            "opt_3"
+          ],
+          "requires": "Product Line Manager for Transmission & Drivetrain to complete a standalone diagnostic on Automatic Transmission Fluid's decline drivers by the end of the opt_2 pilot window, independent of the transformation funding decision."
+        }
+      ],
+      "blind_spots": [
+        "No SKU-level margin or cost-to-serve data currently distinguishes whether Mass Retailer Group's outperformance is margin-accretive or volume-driven at lower unit economics; all three options assume the mix is at least margin-neutral.",
+        "National Auto Parts Chain A is a single named account; its decline could reflect a bilateral relationship or contract issue not solvable by internal process replication, which none of the three options directly investigates.",
+        "The when_signals show the three largest monthly deltas (2026-006, 2026-007, 2026-008) even though when_is_not marks them 'within threshold' — this labeling should be reconciled before treating the variance as purely structural rather than partly seasonal.",
+        "No option quantifies the risk that pulling Specialty-category inventory toward Mid-Range and National Auto Parts Chain A could constrain supply available to the already-outperforming Specialty segment itself."
+      ],
+      "next_steps": [
+        "VP Sales Operations to stand up the cross-functional 90-day pilot team (sales, supply chain, finance) and finalize go/no-go success criteria before pilot launch (by end of Week 2)",
+        "Finance team to complete SKU-level margin and cost-to-serve comparison between Mass Retailer Group and Mid-Range/National Auto Parts Chain A before any assortment shift begins (by end of Week 3)",
+        "Product Line Manager for Transmission & Drivetrain to deliver a standalone root-cause diagnostic on Automatic Transmission Fluid's -$190,866.22 decline, independent of the pilot (by end of Week 4)",
+        "Account Director for National Auto Parts Chain A to confirm the customer's willingness to test revised order cadence and batch sizing as part of the pilot (by end of Week 2)",
+        "CFO to review opt_2 pilot readout and issue a go/no-go recommendation on scaling into opt_1 or opt_3 (by day 90)"
+      ],
+      "cross_review": null,
+      "stage_1_hypotheses": {
+        "mckinsey": {
+          "framework": "Three Horizons with MECE Segment Replication",
+          "hypothesis": "Mass Retailer Group's outperformance (+$646.6K, 14.1% growth) is driven by superior channel economics—likely a combination of: (1) higher order velocity and volume density through mass retail distribution, (2) favorable product-mix skew toward Specialty category (+$562.5K delta), and (3) operational excellence in fulfillment/SLA execution that mass retailers demand. This outperformance driver is replicable to National Auto Parts Chain A and Mid-Range segments, which currently underperform by $359K and $405K respectively, suggesting structural capability gaps rather than market saturation.",
+          "key_evidence": [
+            "Mass Retailer Group revenue grew $646.6K YTD (+14.1% from $4.59M to $5.23M), the single largest positive delta across all customer segments, indicating proven demand generation and operational execution at scale.",
+            "Specialty product category outperformance (+$562.5K, 14.2% growth) correlates directly with Mass Retailer Group's strength, suggesting that mass retail channels excel at moving specialty SKUs—a replicable go-to-market insight for underperforming channels.",
+            "Lagging segments (Mid-Range -$405K, National Auto Parts Chain A -$359K) represent $764K in addressable recovery opportunity, 1.2x the Mass Retailer Group delta, making replication economically material and operationally achievable within existing footprint."
+          ],
+          "recommended_focus": "Mass Retailer Group",
+          "conviction": "High"
+        },
+        "bcg": {
+          "framework": "Growth-Share Matrix with Experience Curve & Portfolio Replication",
+          "hypothesis": "Mass Retailer Group's outperformance (+$646.6K, 14.1% growth) is driven by superior channel economics—larger order volumes, simplified SKU mix (Specialty category focus), and established logistics integration—that reduce unit costs and improve conversion velocity. This outperformance driver is replicable to National Auto Parts Chain A and Mid-Range segments through standardized fulfillment and category rationalization.",
+          "key_evidence": [
+            "Mass Retailer Group generated $5.23M YTD (+$646.6K delta), representing 30.3% replication potential across similar retail customer profiles",
+            "Specialty product category (aligned with Mass Retailer Group strength) shows $4.52M revenue (+$562.5K delta, 26.3% replication potential), indicating category-level scalability",
+            "Combined outperforming segments (Mass Retailer Group + Specialty + Chemicals & Additives) total $1.70M in incremental delta against $1.40M drag from lagging segments—3x opportunity leverage ratio"
+          ],
+          "recommended_focus": "Mass Retailer Group",
+          "conviction": "High"
+        },
+        "bain": {
+          "framework": "Net Promoter System + Full Potential Transformation (Replication Model)",
+          "hypothesis": "Mass Retailer Group's outperformance (+$646.6K, 14.1% growth) is driven by superior channel penetration and scale economics in high-volume, low-friction distribution. This segment has unlocked operational efficiency and customer stickiness through standardized SKU rationalization and streamlined fulfillment—a model replicable to National Auto Parts Chain A and Mid-Range categories, which show revenue decay despite comparable customer bases and product availability.",
+          "key_evidence": [
+            "Mass Retailer Group revenue grew $646.6K YTD while National Auto Parts Chain A declined $358.9K—a $1.0M swing between comparable B2B retail channels suggests a replicable operational or commercial model difference, not market-driven divergence.",
+            "Specialty product category outperformance (+$562.5K) correlates with Mass Retailer Group strength, indicating that high-velocity SKUs in mass retail channels compound through volume and turn—Mid-Range category decline (-$405K) suggests misalignment between product assortment and channel economics in that segment.",
+            "Combined outperformers (Mass Retailer Group + Specialty + Chemicals & Additives) generate $1.7M in positive delta; laggards (Mid-Range, National Auto Parts Chain A, Automatic Transmission Fluid) total -$955K drag. The 3:1 opportunity-to-drag ratio confirms that replication of Mass Retailer Group playbook is the highest-ROI lever."
+          ],
+          "recommended_focus": "Mass Retailer Group",
+          "conviction": "High"
+        }
+      },
+      "moderator_grades": {
+        "opt_1": {
+          "constraint_survival": "insufficient_data",
+          "violated_constraints": [],
+          "causal_grounding": "insufficient_data",
+          "arithmetic_consistency": "pass",
+          "arithmetic_note": "",
+          "critic_findings_response": [],
+          "grade_rationale": "With 0 active constraints and 0 verified causal edges registered for this KPI, neither constraint_survival nor causal_grounding can be scored as pass; both are marked insufficient_data per protocol. The recovery_range ($380K-$580K) stays below the $763,877 combined drag in Mid-Range and National Auto Parts Chain A that it targets, so arithmetic_consistency is consistent with the stated change-point magnitudes."
+        },
+        "opt_2": {
+          "constraint_survival": "insufficient_data",
+          "violated_constraints": [],
+          "causal_grounding": "insufficient_data",
+          "arithmetic_consistency": "pass",
+          "arithmetic_note": "",
+          "critic_findings_response": [],
+          "grade_rationale": "No active constraints or verified causal edges are registered for E-Commerce Revenue, so both checks resolve to insufficient_data rather than pass. The $380K-$520K recovery range is the smallest of the three options and stays well under the $763,877 combined segment drag it draws on, consistent with the data."
+        },
+        "opt_3": {
+          "constraint_survival": "insufficient_data",
+          "violated_constraints": [],
+          "causal_grounding": "insufficient_data",
+          "arithmetic_consistency": "pass",
+          "arithmetic_note": "",
+          "critic_findings_response": [],
+          "grade_rationale": "As with the other two options, 0 registered constraints and 0 causal edges mean these checks cannot be scored pass and are marked insufficient_data. The $380K-$620K range, though the highest ceiling of the three, remains below the $954,743 combined lagging-segment drag (including Automatic Transmission Fluid) that this broader-scope option references, so arithmetic_consistency holds."
+        }
+      },
+      "constraint_exposure": {
+        "union_size": 0,
+        "by_persona": {
+          "mckinsey": {
+            "seen": [],
+            "unseen": []
+          },
+          "bcg": {
+            "seen": [],
+            "unseen": []
+          },
+          "bain": {
+            "seen": [],
+            "unseen": []
+          }
+        },
+        "by_option": {
+          "opt_2": {
+            "originating_persona": null,
+            "constraints_seen": [],
+            "constraints_unseen": []
+          },
+          "opt_1": {
+            "originating_persona": null,
+            "constraints_seen": [],
+            "constraints_unseen": []
+          },
+          "opt_3": {
+            "originating_persona": null,
+            "constraints_seen": [],
+            "constraints_unseen": []
+          }
+        },
+        "moderator_checked": true
+      },
+      "framing_context": {
+        "decision_style": "visionary",
+        "personas_used": [
+          "mckinsey",
+          "bcg",
+          "bain"
+        ],
+        "presentation_note": "Solutions presented per your visionary decision style preferences.",
+        "disclaimer": "Consulting perspectives are analytical frameworks, not colleague opinions.",
+        "alternative_views_available": [
+          "analytical",
+          "visionary",
+          "pragmatic"
+        ]
+      },
+      "market_intelligence": null,
+      "decision_ask": {
+        "decision_text": "Approve funding and launch of the 90-day order-aggregation pilot in Mid-Range and National Auto Parts Chain A.",
+        "decision_owner": "Chief Executive Officer",
+        "deadline": "by end of Week 2",
+        "approval_type": "go/no-go and budget approval"
+      },
+      "immediate_actions": [
+        {
+          "action_text": "Charter the cross-functional pilot team and define the 90-day measurement window",
+          "owner": "VP Sales Operations",
+          "due_by_days": 14,
+          "why_it_matters": "Establishes the fastest, lowest-risk path to validate whether Mass Retailer Group's model transfers before committing larger capital."
+        },
+        {
+          "action_text": "Pull SKU-level margin data for Mass Retailer Group versus Mid-Range and National Auto Parts Chain A",
+          "owner": "Finance team",
+          "due_by_days": 21,
+          "why_it_matters": "Prevents a mix-shift toward Specialty SKUs that could inadvertently compress margins if landed costs differ."
+        },
+        {
+          "action_text": "Open a direct dialogue with National Auto Parts Chain A on proposed order-cadence changes",
+          "owner": "Account Director",
+          "due_by_days": 14,
+          "why_it_matters": "The pilot's core assumption depends on customer willingness to change ordering behavior, which is currently unverified."
+        },
+        {
+          "action_text": "Launch standalone diagnostic on Automatic Transmission Fluid's decline",
+          "owner": "Product Line Manager, Transmission & Drivetrain",
+          "due_by_days": 28,
+          "why_it_matters": "This segment is excluded from the pilot's scope and needs its own root-cause path to avoid being deprioritized indefinitely."
+        }
+      ],
+      "pending_market_signals": null,
+      "human_action_required": true,
+      "human_action_type": "approval",
+      "human_action_context": {
+        "summary": "Review ranked options and approve or select an alternative. No constraints were captured for this analysis.",
+        "constraint_union": [],
+        "recommended_option_unseen_constraints": [],
+        "constraint_check_performed": true
+      },
+      "human_action_result": null,
+      "human_action_timestamp": null,
+      "audit_log": [
+        {
+          "event": "ranked_options",
+          "count": 3
+        },
+        {
+          "event": "causal_context",
+          "kpi_id": "ecommerce_revenue",
+          "max_hops": 2,
+          "edges": 0,
+          "direct": 0,
+          "indirect": 0,
+          "constraints": 0,
+          "market_signals": 0
+        },
+        {
+          "event": "llm_debate_analysis_req",
+          "principal_context": {
+            "principal_id": "ceo_001",
+            "client_id": "lubricants",
+            "role": "Chief Executive Officer",
+            "decision_style": "visionary",
+            "name": "David Torres",
+            "input": {
+              "current_priorities": [],
+              "known_constraints": []
+            }
+          },
+          "situation_context": null,
+          "business_context": {
+            "enterprise_name": "Lubricants Business",
+            "industry": "Oil & Gas / Specialty Chemicals",
+            "subindustry": "Automotive & Industrial Lubricants",
+            "strategic_posture": "margin defense",
+            "tradeoff_weights": {
+              "impact": 0.4,
+              "cost": 0.2,
+              "risk": 0.4
+            }
+          },
+          "data_payload": {
+            "problem_statement": "E-Commerce Revenue shows opportunity (Leading segment current level: 4,269,501.27, advantage: 404,988.68). [ANALYSIS_MODE: OPPORTUNITY] The leading IS segment is 'Mid-Range' within the product_category dimension — the goal is to replicate its outperformance. Analysis period: year_to_date. Contributing factors identified: customer_name: Mass Retailer Group (Δ +646,606.50) — Outperforming, product_category: Specialty (Δ +562,529.28) — Outperforming. \n\nAdditional Context: Frame (chosen by Chief Executive Officer): Recovering E-Commerce Revenue\n\nSituation: Year-to-date e-commerce revenue shows mixed performance across segments, with outperforming channels (Mass Retailer Group, Specialty, Chemicals & Additives) generating $4.27M in combined revenue while underperforming segments (Mid-Range, National Auto Parts Chain A, Automatic Transmission Fluid) are dragging down results by $1.40M.\n\nComplication: The opportunity to scale high-performing segments is 3x larger than the drag from laggards, yet resources and attention risk being diverted to fix the underperforming Mid-Range category (-$405K), National Auto Parts Chain A (-$359K), and Automatic Transmission Fluid (-$191K) rather than capitalizing on proven winners in mass retail and specialty channels.\n\nQuestion: How can we recover e-commerce revenue by scaling the outperforming segments while containing the underperformance in lagging channels?\n\nAnswer: Prioritize replicating the Mass Retailer Group and Specialty channel strategies across similar customer profiles and product lines—this $4.27M opportunity represents the primary lever for revenue recovery; simultaneously, establish a containment plan for the Mid-Range and National Auto Parts Chain A segments (root-cause analysis, pricing review, or selective de-emphasis) to prevent further deterioration without diverting capital or operational focus from the scaling initiative.",
+            "situation_metadata": null,
+            "decision_maker": {
+              "name": "David Torres",
+              "role": "Chief Executive Officer",
+              "decision_style": "visionary"
+            },
+            "business_context": {
+              "enterprise_name": "Lubricants Business",
+              "industry": "Oil & Gas / Specialty Chemicals",
+              "subindustry": "Automotive & Industrial Lubricants",
+              "strategic_posture": "margin defense"
+            },
+            "deep_analysis_summary": {
+              "client_id": "lubricants",
+              "kpi_name": "E-Commerce Revenue",
+              "timeframe": "year_to_date",
+              "comparison_timeframe": "prior year_to_date",
+              "scqa_summary": "Frame (chosen by Chief Executive Officer): Recovering E-Commerce Revenue\n\nSituation: Year-to-date e-commerce revenue shows mixed performance across segments, with outperforming channels (Mass Retailer Group, Specialty, Chemicals & Additives) generating $4.27M in combined revenue while underperforming segments (Mid-Range, National Auto Parts Chain A, Automatic Transmission Fluid) are dragging down results by $1.40M.\n\nComplication: The opportunity to scale high-performing segments is 3x larger than the drag from laggards, yet resources and attention risk being diverted to fix the underperforming Mid-Range category (-$405K), National Auto Parts Chain A (-$359K), and Automatic Transmission Fluid (-$191K) rather than capitalizing on proven winners in mass retail and specialty channels.\n\nQuestion: How can we recover e-commerce revenue by scaling the outperforming segments while containing the underperformance in lagging channels?\n\nAnswer: Prioritize replicating the Mass Retailer Group and Specialty channel strategies across similar customer profiles and product lines—this $4.27M opportunity represents the primary lever for revenue recovery; simultaneously, establish a containment plan for the Mid-Range and National Auto Parts Chain A segments (root-cause analysis, pricing review, or selective de-emphasis) to prevent further deterioration without diverting capital or operational focus from the scaling initiative.",
+              "dimension_focus": [
+                "product_name",
+                "product_line",
+                "product_category",
+                "customer_name",
+                "customer_segment",
+                "customer_region"
+              ],
+              "top_change_points": [
+                {
+                  "dimension": "product_category",
+                  "key": "Mid-Range",
+                  "delta": -404988.6799999997,
+                  "current_value": 4269501.270000004,
+                  "previous_value": 4674489.950000004,
+                  "percent_growth": null
+                },
+                {
+                  "dimension": "customer_name",
+                  "key": "National Auto Parts Chain A",
+                  "delta": -358888.5899999989,
+                  "current_value": 4644346.709999998,
+                  "previous_value": 5003235.299999997,
+                  "percent_growth": null
+                },
+                {
+                  "dimension": "product_name",
+                  "key": "Automatic Transmission Fluid",
+                  "delta": -190866.21999999974,
+                  "current_value": 930253.4900000002,
+                  "previous_value": 1121119.71,
+                  "percent_growth": null
+                },
+                {
+                  "dimension": "product_line",
+                  "key": "Transmission & Drivetrain",
+                  "delta": -190866.21999999974,
+                  "current_value": 930253.4900000002,
+                  "previous_value": 1121119.71,
+                  "percent_growth": null
+                },
+                {
+                  "dimension": "product_name",
+                  "key": "Synthetic Blend Engine Oil",
+                  "delta": -178609.23000000138,
+                  "current_value": 2300748.2099999986,
+                  "previous_value": 2479357.44,
+                  "percent_growth": null
+                }
+              ],
+              "what_is_highlights": [
+                "E-Commerce Revenue is 9,878,311.85 vs prior year_to_date 9,590,593.94 (Δ +287,717.91, +3.0%).",
+                "Issue observed during year_to_date compared against prior year_to_date.",
+                "Largest variance in product_category: Mid-Range (Δ -404,988.68).",
+                "Analysis scoped by applied filters, limiting impact to selected context."
+              ],
+              "where_signals": [
+                "customer_name: Mass Retailer Group (Δ +646,606.50) — Outperforming",
+                "product_category: Specialty (Δ +562,529.28) — Outperforming",
+                "product_line: Chemicals & Additives (Δ +492,322.78) — Outperforming",
+                "product_category: Mid-Range (Δ -404,988.68)"
+              ],
+              "when_signals": [
+                "2026-007 (Δ +1,430,234.09)",
+                "2026-006 (Δ +1,393,872.22)",
+                "2026-008 (Δ +1,357,510.34)"
+              ],
+              "what_is_not": [
+                "Unaffected timeframe buckets: Within threshold"
+              ],
+              "when_is_not": [
+                "2026-007 (Δ +1,430,234.09) — Within threshold",
+                "2026-006 (Δ +1,393,872.22) — Within threshold",
+                "2026-008 (Δ +1,357,510.34) — Within threshold"
+              ],
+              "benchmark_segments": [
+                {
+                  "dimension": "customer_name",
+                  "key": "Mass Retailer Group",
+                  "current_value": 5233965.139999997,
+                  "previous_value": 4587358.640000006,
+                  "delta": 646606.4999999907,
+                  "replication_potential": 0.303
+                },
+                {
+                  "dimension": "product_category",
+                  "key": "Specialty",
+                  "current_value": 4523453.539999997,
+                  "previous_value": 3960924.2599999993,
+                  "delta": 562529.2799999979,
+                  "replication_potential": 0.263
+                },
+                {
+                  "dimension": "product_line",
+                  "key": "Chemicals & Additives",
+                  "current_value": 3501222.4699999983,
+                  "previous_value": 3008899.69,
+                  "delta": 492322.7799999984,
+                  "replication_potential": 0.23
+                }
+              ],
+              "when_started": "2026-006",
+              "key_highlights": [
+                "Frame (chosen by Chief Executive Officer): Recovering E-Commerce Revenue\n\nSituation: Year-to-date e-commerce revenue shows mixed performance across segments, with outperforming channels (Mass Retailer Group, Specialty, Chemicals & Additives) generating $4.27M in combined revenue while underperforming segments (Mid-Range, National Auto Parts Chain A, Automatic Transmission Fluid) are dragging down results by $1.40M.\n\nComplication: The opportunity to scale high-performing segments is 3x larger than the drag from laggards, yet resources and attention risk being diverted to fix the underperforming Mid-Range category (-$405K), National Auto Parts Chain A (-$359K), and Automatic Transmission Fluid (-$191K) rather than capitalizing on proven winners in mass retail and specialty channels.\n\nQuestion: How can we recover e-commerce revenue by scaling the outperforming segments while containing the underperformance in lagging channels?\n\nAnswer: Prioritize replicating the Mass Retailer Group and Specialty channel strategies across similar customer profiles and product lines—this $4.27M opportunity represents the primary lever for revenue recovery; simultaneously, establish a containment plan for the Mid-Range and National Auto Parts Chain A segments (root-cause analysis, pricing review, or selective de-emphasis) to prevent further deterioration without diverting capital or operational focus from the scaling initiative.",
+                "Driver: customer_name: Mass Retailer Group (Δ +646,606.50) — Outperforming",
+                "Driver: product_category: Specialty (Δ +562,529.28) — Outperforming",
+                "Driver: product_line: Chemicals & Additives (Δ +492,322.78) — Outperforming",
+                "Change point: product_category / Mid-Range; Δ -404,988.68; current 4,269,501.27 vs prev 4,674,489.95",
+                "Change point: customer_name / National Auto Parts Chain A; Δ -358,888.59; current 4,644,346.71 vs prev 5,003,235.30"
+              ]
+            },
+            "dataset_recap": [
+              "KPI analyzed: E-Commerce Revenue",
+              "Timeframe: year_to_date vs prior year_to_date",
+              "Evidence: Frame (chosen by Chief Executive Officer): Recovering E-Commerce Revenue\n\nSituation: Year-to-date e-commerce revenue shows mixed performance across segments, with outperforming channels (Mass Retailer Group, Specialty, Chemicals & Additives) generating $4.27M in combined revenue while underperforming segments (Mid-Range, National Auto Parts Chain A, Automatic Transmission Fluid) are dragging down results by $1.40M.\n\nComplication: The opportunity to scale high-performing segments is 3x larger than the drag from laggards, yet resources and attention risk being diverted to fix the underperforming Mid-Range category (-$405K), National Auto Parts Chain A (-$359K), and Automatic Transmission Fluid (-$191K) rather than capitalizing on proven winners in mass retail and specialty channels.\n\nQuestion: How can we recover e-commerce revenue by scaling the outperforming segments while containing the underperformance in lagging channels?\n\nAnswer: Prioritize replicating the Mass Retailer Group and Specialty channel strategies across similar customer profiles and product lines—this $4.27M opportunity represents the primary lever for revenue recovery; simultaneously, establish a containment plan for the Mid-Range and National Auto Parts Chain A segments (root-cause analysis, pricing review, or selective de-emphasis) to prevent further deterioration without diverting capital or operational focus from the scaling initiative.",
+              "Evidence: Driver: customer_name: Mass Retailer Group (Δ +646,606.50) — Outperforming",
+              "Evidence: Driver: product_category: Specialty (Δ +562,529.28) — Outperforming",
+              "CONFIRMED ROOT CAUSES: customer_name: Mass Retailer Group (Δ +646,606.50) — Outperforming; product_category: Specialty (Δ +562,529.28) — Outperforming; product_line: Chemicals & Additives (Δ +492,322.78) — Outperforming",
+              "Change points: product_category / Mid-Range; Δ -404,988.68; current 4,269,501.27 vs prev 4,674,489.95; customer_name / National Auto Parts Chain A; Δ -358,888.59; current 4,644,346.71 vs prev 5,003,235.30; product_name / Automatic Transmission Fluid; Δ -190,866.22; current 930,253.49 vs prev 1,121,119.71",
+              "REFINED PROBLEM: Frame (chosen by Chief Executive Officer): Recovering E-Commerce Revenue\n\nSituation: Year-to-date e-commerce revenue shows mixed performance across segments, with outperforming channels (Mass Retailer Group, Specialty, Chemicals & Additives) generating $4.27M in combined revenue while underperforming segments (Mid-Range, National Auto Parts Chain A, Automatic Transmission Fluid) are dragging down results by $1.40M.\n\nComplication: The opportunity to scale high-performing segments is 3x larger tha"
+            ],
+            "user_context": null,
+            "principal_input": null,
+            "stage_1_persona_hypotheses": {
+              "mckinsey": {
+                "framework": "Three Horizons with MECE Segment Replication",
+                "hypothesis": "Mass Retailer Group's outperformance (+$646.6K, 14.1% growth) is driven by superior channel economics—likely a combination of: (1) higher order velocity and volume density through mass retail distribution, (2) favorable product-mix skew toward Specialty category (+$562.5K delta), and (3) operational excellence in fulfillment/SLA execution that mass retailers demand. This outperformance driver is replicable to National Auto Parts Chain A and Mid-Range segments, which currently underperform by $359K and $405K respectively, suggesting structural capability gaps rather than market saturation.",
+                "key_evidence": [
+                  "Mass Retailer Group revenue grew $646.6K YTD (+14.1% from $4.59M to $5.23M), the single largest positive delta across all customer segments, indicating proven demand generation and operational execution at scale.",
+                  "Specialty product category outperformance (+$562.5K, 14.2% growth) correlates directly with Mass Retailer Group's strength, suggesting that mass retail channels excel at moving specialty SKUs—a replicable go-to-market insight for underperforming channels.",
+                  "Lagging segments (Mid-Range -$405K, National Auto Parts Chain A -$359K) represent $764K in addressable recovery opportunity, 1.2x the Mass Retailer Group delta, making replication economically material and operationally achievable within existing footprint."
+                ],
+                "recommended_focus": "Mass Retailer Group",
+                "conviction": "High",
+                "proposed_option": {
+                  "title": "Replicate Mass Retailer Group's High-Velocity, Specialty-Led Go-To-Market Model to Underperforming Auto Parts and Mid-Range Channels",
+                  "description": "Systematically transfer the Mass Retailer Group's proven playbook—characterized by high-frequency order cycles, specialty product emphasis, and SLA-driven fulfillment discipline—to National Auto Parts Chain A and Mid-Range segments. This involves: (1) restructuring product assortment and promotional calendar in underperforming channels to mirror Specialty category dominance, (2) implementing Mass Retailer Group's operational cadence (order frequency, inventory positioning, demand signals), and (3) embedding dedicated account economics and KPI dashboards to ensure parity in execution rigor.",
+                  "mechanism": "Mass Retailer Group achieves outperformance through a virtuous cycle: high order velocity → better inventory turns → lower carrying costs → competitive pricing power → volume capture. By replicating order-cycle discipline, specialty SKU mix, and fulfillment SLAs in National Auto Parts Chain A and Mid-Range, we unlock the same economics. The $562.5K Specialty category delta suggests these channels are currently under-indexed on higher-margin specialty products; shifting mix toward Specialty while maintaining Mass Retailer Group's operational tempo directly addresses both revenue and margin recovery.",
+                  "time_horizon": "3-12 months",
+                  "impact_estimate": {
+                    "metric": "E-Commerce Revenue",
+                    "unit": "USD",
+                    "recovery_range": {
+                      "low": 380000,
+                      "high": 580000
+                    },
+                    "basis": "National Auto Parts Chain A ($359K drag) + Mid-Range ($405K drag) = $764K addressable gap. Conservative replication assumes 50-76% of Mass Retailer Group's incremental outperformance ($646.6K) transfers to lagging segments, accounting for channel-specific constraints (auto parts chain SKU breadth, mid-range customer buying behavior). Specialty category's 14.2% growth rate applied to underperforming segment baselines ($4.64M + $4.27M) yields $380K–$580K recovery range. Replication potential coefficients (0.303 for Mass Retailer, 0.263 for Specialty) support mid-range estimate of ~$480K."
+                  },
+                  "cost_signal": "Medium",
+                  "risk_signal": "Medium"
+                }
+              },
+              "bcg": {
+                "framework": "Growth-Share Matrix with Experience Curve & Portfolio Replication",
+                "hypothesis": "Mass Retailer Group's outperformance (+$646.6K, 14.1% growth) is driven by superior channel economics—larger order volumes, simplified SKU mix (Specialty category focus), and established logistics integration—that reduce unit costs and improve conversion velocity. This outperformance driver is replicable to National Auto Parts Chain A and Mid-Range segments through standardized fulfillment and category rationalization.",
+                "key_evidence": [
+                  "Mass Retailer Group generated $5.23M YTD (+$646.6K delta), representing 30.3% replication potential across similar retail customer profiles",
+                  "Specialty product category (aligned with Mass Retailer Group strength) shows $4.52M revenue (+$562.5K delta, 26.3% replication potential), indicating category-level scalability",
+                  "Combined outperforming segments (Mass Retailer Group + Specialty + Chemicals & Additives) total $1.70M in incremental delta against $1.40M drag from lagging segments—3x opportunity leverage ratio"
+                ],
+                "recommended_focus": "Mass Retailer Group",
+                "conviction": "High",
+                "proposed_option": {
+                  "title": "Replicate Mass Retailer Group Channel Model to National Auto Parts & Mid-Range Segments",
+                  "description": "Systematically transfer Mass Retailer Group's operating model (order aggregation, SKU rationalization, logistics partnerships) to National Auto Parts Chain A and Mid-Range segments through a 90-day pilot. This leverages proven $646.6K outperformance and addresses the $763.9K combined drag from these two lagging segments by adopting identical fulfillment, pricing, and product focus strategies.",
+                  "mechanism": "Mass Retailer Group achieves superior economics through volume consolidation and Specialty category focus. Apply this model by: (1) consolidating Mid-Range and National Auto Parts Chain A orders into larger batches (reducing per-unit fulfillment cost), (2) rationalizing product SKUs toward Specialty/Chemicals & Additives overlap, (3) establishing dedicated logistics routing similar to Mass Retailer Group partnership structure. This directly transfers the 30.3% replication potential identified in internal benchmarks.",
+                  "time_horizon": "3-12 months",
+                  "impact_estimate": {
+                    "metric": "E-Commerce Revenue",
+                    "unit": "USD",
+                    "recovery_range": {
+                      "low": 380000,
+                      "high": 520000
+                    },
+                    "basis": "Apply 30.3% replication potential (Mass Retailer Group delta magnitude) to combined lagging segment drag ($763.9K). Conservative case (50% replication success) = $380K; optimistic case (68% replication success) = $520K. Excludes Automatic Transmission Fluid (-$190.9K) as product-specific decline requiring separate containment strategy."
+                  },
+                  "cost_signal": "Medium",
+                  "risk_signal": "Medium"
+                }
+              },
+              "bain": {
+                "framework": "Net Promoter System + Full Potential Transformation (Replication Model)",
+                "hypothesis": "Mass Retailer Group's outperformance (+$646.6K, 14.1% growth) is driven by superior channel penetration and scale economics in high-volume, low-friction distribution. This segment has unlocked operational efficiency and customer stickiness through standardized SKU rationalization and streamlined fulfillment—a model replicable to National Auto Parts Chain A and Mid-Range categories, which show revenue decay despite comparable customer bases and product availability.",
+                "key_evidence": [
+                  "Mass Retailer Group revenue grew $646.6K YTD while National Auto Parts Chain A declined $358.9K—a $1.0M swing between comparable B2B retail channels suggests a replicable operational or commercial model difference, not market-driven divergence.",
+                  "Specialty product category outperformance (+$562.5K) correlates with Mass Retailer Group strength, indicating that high-velocity SKUs in mass retail channels compound through volume and turn—Mid-Range category decline (-$405K) suggests misalignment between product assortment and channel economics in that segment.",
+                  "Combined outperformers (Mass Retailer Group + Specialty + Chemicals & Additives) generate $1.7M in positive delta; laggards (Mid-Range, National Auto Parts Chain A, Automatic Transmission Fluid) total -$955K drag. The 3:1 opportunity-to-drag ratio confirms that replication of Mass Retailer Group playbook is the highest-ROI lever."
+                ],
+                "recommended_focus": "Mass Retailer Group",
+                "conviction": "High",
+                "proposed_option": {
+                  "title": "Replicate Mass Retailer Group Channel Model to National Auto Parts Chain A & Mid-Range via Standardized SKU/Fulfillment Playbook",
+                  "description": "Conduct a 60-day diagnostic of Mass Retailer Group's commercial model (pricing, SKU depth, order frequency, fulfillment SLA, inventory turns) and systematically replicate the top 3–5 operational levers into National Auto Parts Chain A and Mid-Range segments. Focus on volume-velocity alignment and supply-chain efficiency rather than margin recovery. This targets the $955K drag from lagging segments by closing the operational gap that has allowed Mass Retailer Group to grow while peers contract.",
+                  "mechanism": "Mass Retailer Group's +$646.6K growth reflects higher inventory turns, likely driven by standardized assortment and predictable demand. By replicating SKU rationalization, pricing architecture, and fulfillment cadence to National Auto Parts Chain A (currently -$358.9K) and Mid-Range (-$405K), we unlock the same operational leverage. This is not a fix-the-problem approach; it is a proven-playbook scaling approach that shifts lagging segments toward the outperformer's economics.",
+                  "time_horizon": "3-12 months",
+                  "impact_estimate": {
+                    "metric": "E-Commerce Revenue",
+                    "unit": "USD",
+                    "recovery_range": {
+                      "low": 380000,
+                      "high": 620000
+                    },
+                    "basis": "National Auto Parts Chain A (-$358.9K) and Mid-Range (-$405K) combined represent $763.9K drag. Conservative replication assumes 50–80% of Mass Retailer Group's operational uplift (+$646.6K) transfers to these two segments via standardized playbook. Low estimate (50% of $763.9K addressable drag) = $382K recovery; high estimate (80% of $763.9K) = $611K recovery. Replication potential coefficients from internal benchmarks (Mass Retailer 0.303, Specialty 0.263) support 60–70% transfer efficiency in B2B retail channels."
+                  },
+                  "cost_signal": "Medium",
+                  "risk_signal": "Medium"
+                }
+              }
+            }
+          },
+          "debate_spec_length": 18350
+        },
+        {
+          "event": "llm_debate_completed",
+          "status": "success",
+          "model_used": "claude-sonnet-5",
+          "error": null
+        },
+        {
+          "event": "decision_briefing_generated",
+          "problem_reframe": {
+            "situation": "E-Commerce Revenue grew +3.0% YTD ($9.59M to $9.88M), but the aggregate figure masks a sharp divergence: Mass Retailer Group (+$646,606.50), the Specialty product category (+$562,529.28), and the Chemicals & Additives product line (+$492,322.78) are the outperforming 'IS' segments driving essentially all of the gain, collectively representing over $4.27M in combined revenue and proven commercial execution.",
+            "complication": "Meanwhile, the Mid-Range category (-$404,988.68), National Auto Parts Chain A (-$358,888.59), and Automatic Transmission Fluid (-$190,866.22) are 'IS NOT' segments lagging well behind that benchmark — a replication gap, not a demand collapse, since when-based analysis shows no timing anomaly (all monthly buckets read 'within threshold'). Left unaddressed, attention and capital risk being pulled into remediating these laggards rather than scaling the proven Mass Retailer Group / Specialty playbook that is 3x larger in opportunity size than the drag.",
+            "question": "How do we scale the Mass Retailer Group and Specialty category's proven commercial and fulfillment practices into the Mid-Range, National Auto Parts Chain A, and Automatic Transmission Fluid segments to recover E-Commerce Revenue?",
+            "key_assumptions": [
+              "Mass Retailer Group's outperformance reflects a replicable operating model (order cadence, SKU mix, fulfillment SLA) rather than an account-specific or exogenous demand event.",
+              "Mid-Range and National Auto Parts Chain A underperformance stems from a capability/process gap rather than structural demand loss or competitive displacement.",
+              "The absence of a timing anomaly (when_is_not: all buckets 'within threshold') supports a structural, not seasonal, read of the variance."
+            ]
+          },
+          "unresolved_tensions": [
+            {
+              "tension": "Committing meaningfully to the fast pilot (opt_2) versus mobilizing the larger structural rebuild (opt_1) simultaneously risks splitting account-management and supply-chain capacity across overlapping segments.",
+              "options_affected": [
+                "opt_1",
+                "opt_2"
+              ],
+              "requires": "VP Operations to sequence resourcing so the opt_2 pilot team and any opt_1 structural planning do not compete for the same National Auto Parts Chain A account staff before the pilot's day-90 readout."
+            },
+            {
+              "tension": "Automatic Transmission Fluid's -$190,866.22 decline is excluded from opt_1 and opt_2's scope but included in opt_3, creating ambiguity about who owns its containment if the enterprise-wide option is not funded.",
+              "options_affected": [
+                "opt_2",
+                "opt_3"
+              ],
+              "requires": "Product Line Manager for Transmission & Drivetrain to complete a standalone diagnostic on Automatic Transmission Fluid's decline drivers by the end of the opt_2 pilot window, independent of the transformation funding decision."
+            }
+          ],
+          "blind_spots": [
+            "No SKU-level margin or cost-to-serve data currently distinguishes whether Mass Retailer Group's outperformance is margin-accretive or volume-driven at lower unit economics; all three options assume the mix is at least margin-neutral.",
+            "National Auto Parts Chain A is a single named account; its decline could reflect a bilateral relationship or contract issue not solvable by internal process replication, which none of the three options directly investigates.",
+            "The when_signals show the three largest monthly deltas (2026-006, 2026-007, 2026-008) even though when_is_not marks them 'within threshold' — this labeling should be reconciled before treating the variance as purely structural rather than partly seasonal.",
+            "No option quantifies the risk that pulling Specialty-category inventory toward Mid-Range and National Auto Parts Chain A could constrain supply available to the already-outperforming Specialty segment itself."
+          ]
+        },
+        {
+          "event": "token_usage",
+          "calls": 1,
+          "input_tokens": 17663,
+          "output_tokens": 16899,
+          "total_tokens": 34562,
+          "by_call": [
+            {
+              "call": "moderator",
+              "model": "claude-sonnet-5",
+              "input_tokens": 17663,
+              "output_tokens": 16899,
+              "max_tokens": 64000
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

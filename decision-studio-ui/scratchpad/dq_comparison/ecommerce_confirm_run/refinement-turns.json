@@ -1,0 +1,4751 @@
+[
+  {
+    "request": {
+      "principal_id": "ceo_001",
+      "deep_analysis_output": {
+        "plan": {
+          "kpi_name": "E-Commerce Revenue",
+          "client_id": "lubricants",
+          "timeframe": "year_to_date",
+          "filters": {
+            "Fiscal Year": [
+              "2024",
+              "2025",
+              "2026"
+            ]
+          },
+          "dimensions": [
+            "product_name",
+            "product_line",
+            "product_category",
+            "customer_name",
+            "customer_segment",
+            "customer_region",
+            "profit_center_name",
+            "business_unit",
+            "channel_name",
+            "channel_type",
+            "account_name",
+            "account_type",
+            "account_category",
+            "account_group",
+            "fiscal_year"
+          ],
+          "steps": [
+            {
+              "type": "group_compare",
+              "dimension": "product_name",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "product_line",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "product_category",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "customer_name",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "customer_segment",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "customer_region",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "profit_center_name",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "business_unit",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "channel_name",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "channel_type",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            }
+          ],
+          "notes": "KT core with SCQA/MECE framing (auto-derived dimensions from data product contract).",
+          "dimensions_considered": [
+            "product_name",
+            "product_line",
+            "product_category",
+            "customer_name",
+            "customer_segment",
+            "customer_region",
+            "profit_center_name",
+            "business_unit",
+            "channel_name",
+            "channel_type",
+            "account_name",
+            "account_type",
+            "account_category",
+            "account_group",
+            "fiscal_year"
+          ],
+          "dimension_rank_source": "contract_semantics",
+          "analysis_mode": "mixed",
+          "alert_type": "threshold_breach",
+          "compound_alert": false,
+          "compound_pattern": null,
+          "merged_alert_types": null,
+          "secondary_alert_facts": null,
+          "comparator_override": null
+        },
+        "execution": {
+          "status": "success",
+          "request_id": "70a66284-f19a-45f4-b7cd-ac85370eaa96",
+          "timestamp": "2026-08-22T17:02:48.864820",
+          "error_message": null,
+          "plan": {
+            "kpi_name": "E-Commerce Revenue",
+            "client_id": "lubricants",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ]
+            },
+            "dimensions": [
+              "product_name",
+              "product_line",
+              "product_category",
+              "customer_name",
+              "customer_segment",
+              "customer_region",
+              "profit_center_name",
+              "business_unit",
+              "channel_name",
+              "channel_type",
+              "account_name",
+              "account_type",
+              "account_category",
+              "account_group",
+              "fiscal_year"
+            ],
+            "steps": [
+              {
+                "type": "group_compare",
+                "dimension": "product_name",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "product_line",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "product_category",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "customer_name",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "customer_segment",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "customer_region",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "profit_center_name",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "business_unit",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "channel_name",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "channel_type",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              }
+            ],
+            "notes": "KT core with SCQA/MECE framing (auto-derived dimensions from data product contract).",
+            "dimensions_considered": [
+              "product_name",
+              "product_line",
+              "product_category",
+              "customer_name",
+              "customer_segment",
+              "customer_region",
+              "profit_center_name",
+              "business_unit",
+              "channel_name",
+              "channel_type",
+              "account_name",
+              "account_type",
+              "account_category",
+              "account_group",
+              "fiscal_year"
+            ],
+            "dimension_rank_source": "contract_semantics",
+            "analysis_mode": "mixed",
+            "alert_type": "threshold_breach",
+            "compound_alert": false,
+            "compound_pattern": null,
+            "merged_alert_types": null,
+            "secondary_alert_facts": null,
+            "comparator_override": null
+          },
+          "dimensions_suggested": [
+            "product_name",
+            "product_line",
+            "product_category",
+            "customer_name",
+            "customer_segment",
+            "customer_region",
+            "profit_center_name",
+            "business_unit",
+            "channel_name",
+            "channel_type",
+            "account_name",
+            "account_type",
+            "account_category",
+            "account_group",
+            "fiscal_year"
+          ],
+          "dimensions_analyzed": [
+            "product_name",
+            "product_line",
+            "product_category",
+            "customer_name",
+            "customer_segment",
+            "customer_region",
+            "profit_center_name",
+            "business_unit",
+            "channel_name",
+            "channel_type"
+          ],
+          "dimensions_excluded": [],
+          "scqa_summary": null,
+          "scqa_deferred": true,
+          "scqa_inputs": {
+            "comparison_type": "yoy",
+            "inverse_logic": false,
+            "kpi_unit": "$"
+          },
+          "situation_complication_summary": "Situation: E-Commerce Revenue shows mixed performance vs. the comparison period. Complication: Performance is bifurcated — Mid-Range, National Auto Parts Chain A, Automatic Transmission Fluid are dragging results while Mass Retailer Group, Specialty, Chemicals & Additives are outperforming.",
+          "kt_is_is_not": {
+            "what_is": [
+              {
+                "text": "E-Commerce Revenue is 9,878,311.85 vs prior year_to_date 9,590,593.94 (Δ +287,717.91, +3.0%)."
+              },
+              {
+                "text": "Issue observed during year_to_date compared against prior year_to_date."
+              },
+              {
+                "text": "Largest variance in product_category: Mid-Range (Δ -404,988.68)."
+              },
+              {
+                "text": "Analysis scoped by applied filters, limiting impact to selected context."
+              }
+            ],
+            "what_is_not": [
+              {
+                "text": "Unaffected timeframe buckets: Within threshold"
+              }
+            ],
+            "where_is": [
+              {
+                "dimension": "customer_name",
+                "key": "Mass Retailer Group",
+                "delta": 646606.4999999907,
+                "current": 5233965.139999997,
+                "previous": 4587358.640000006,
+                "text": "customer_name: Mass Retailer Group (Δ +646,606.50) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_category",
+                "key": "Specialty",
+                "delta": 562529.2799999979,
+                "current": 4523453.539999997,
+                "previous": 3960924.2599999993,
+                "text": "product_category: Specialty (Δ +562,529.28) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_line",
+                "key": "Chemicals & Additives",
+                "delta": 492322.7799999984,
+                "current": 3501222.4699999983,
+                "previous": 3008899.69,
+                "text": "product_line: Chemicals & Additives (Δ +492,322.78) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_category",
+                "key": "Mid-Range",
+                "delta": -404988.6799999997,
+                "current": 4269501.270000004,
+                "previous": 4674489.950000004,
+                "text": "product_category: Mid-Range (Δ -404,988.68)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "product_name",
+                "key": "Fuel System Cleaner",
+                "delta": 397126.4499999997,
+                "current": 1874795.3199999998,
+                "previous": 1477668.87,
+                "text": "product_name: Fuel System Cleaner (Δ +397,126.45) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "customer_name",
+                "key": "National Auto Parts Chain A",
+                "delta": -358888.5899999989,
+                "current": 4644346.709999998,
+                "previous": 5003235.299999997,
+                "text": "customer_name: National Auto Parts Chain A (Δ -358,888.59)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "customer_segment",
+                "key": "Retail Partners",
+                "delta": 287717.91000000574,
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "text": "customer_segment: Retail Partners (Δ +287,717.91) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "customer_region",
+                "key": "North America",
+                "delta": 287717.91000000574,
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "text": "customer_region: North America (Δ +287,717.91) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "profit_center_name",
+                "key": "Retail Products Division",
+                "delta": 287717.91000000574,
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "text": "profit_center_name: Retail Products Division (Δ +287,717.91) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "business_unit",
+                "key": "Retail Products",
+                "delta": 287717.91000000574,
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "text": "business_unit: Retail Products (Δ +287,717.91) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "channel_name",
+                "key": "E-Commerce",
+                "delta": 287717.91000000574,
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "text": "channel_name: E-Commerce (Δ +287,717.91) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "channel_type",
+                "key": "Digital",
+                "delta": 287717.91000000574,
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "text": "channel_type: Digital (Δ +287,717.91) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_name",
+                "key": "Automatic Transmission Fluid",
+                "delta": -190866.21999999974,
+                "current": 930253.4900000002,
+                "previous": 1121119.71,
+                "text": "product_name: Automatic Transmission Fluid (Δ -190,866.22)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "product_line",
+                "key": "Transmission & Drivetrain",
+                "delta": -190866.21999999974,
+                "current": 930253.4900000002,
+                "previous": 1121119.71,
+                "text": "product_line: Transmission & Drivetrain (Δ -190,866.22)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "product_name",
+                "key": "Synthetic Blend Engine Oil",
+                "delta": -178609.23000000138,
+                "current": 2300748.2099999986,
+                "previous": 2479357.44,
+                "text": "product_name: Synthetic Blend Engine Oil (Δ -178,609.23)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "product_name",
+                "key": "Full Synthetic Engine Oil",
+                "delta": 130177.31000000075,
+                "current": 1085357.0400000003,
+                "previous": 955179.7299999995,
+                "text": "product_name: Full Synthetic Engine Oil (Δ +130,177.31) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_category",
+                "key": "Premium",
+                "delta": 130177.31000000075,
+                "current": 1085357.0400000003,
+                "previous": 955179.7299999995,
+                "text": "product_category: Premium (Δ +130,177.31) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_name",
+                "key": "Oil Treatment Additive",
+                "delta": 95196.33000000077,
+                "current": 1626427.15,
+                "previous": 1531230.8199999991,
+                "text": "product_name: Oil Treatment Additive (Δ +95,196.33) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_name",
+                "key": "High Mileage Engine Oil",
+                "delta": 70206.5,
+                "current": 1022231.0700000002,
+                "previous": 952024.5700000002,
+                "text": "product_name: High Mileage Engine Oil (Δ +70,206.50) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_name",
+                "key": "Extended Life Coolant",
+                "delta": -35513.23000000091,
+                "current": 1038499.5699999994,
+                "previous": 1074012.8000000003,
+                "text": "product_name: Extended Life Coolant (Δ -35,513.23)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "product_line",
+                "key": "Coolants & Antifreeze",
+                "delta": -35513.23000000091,
+                "current": 1038499.5699999994,
+                "previous": 1074012.8000000003,
+                "text": "product_line: Coolants & Antifreeze (Δ -35,513.23)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "product_line",
+                "key": "Engine Oils",
+                "delta": 21774.57999999076,
+                "current": 4408336.319999996,
+                "previous": 4386561.740000005,
+                "text": "product_line: Engine Oils (Δ +21,774.58) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              }
+            ],
+            "where_is_not": [],
+            "when_is": [
+              {
+                "bucket": "2026-007",
+                "delta": 1430234.09,
+                "current": 1430234.09,
+                "previous": 0,
+                "text": "2026-007 (Δ +1,430,234.09)"
+              },
+              {
+                "bucket": "2026-006",
+                "delta": 1393872.2200000007,
+                "current": 1393872.2200000007,
+                "previous": 0,
+                "text": "2026-006 (Δ +1,393,872.22)"
+              },
+              {
+                "bucket": "2026-008",
+                "delta": 1357510.3400000005,
+                "current": 1357510.3400000005,
+                "previous": 0,
+                "text": "2026-008 (Δ +1,357,510.34)"
+              }
+            ],
+            "when_is_not": [
+              {
+                "bucket": "2026-007",
+                "delta": 1430234.09,
+                "current": 1430234.09,
+                "previous": 0,
+                "text": "2026-007 (Δ +1,430,234.09) — Within threshold",
+                "note": "Within threshold"
+              },
+              {
+                "bucket": "2026-006",
+                "delta": 1393872.2200000007,
+                "current": 1393872.2200000007,
+                "previous": 0,
+                "text": "2026-006 (Δ +1,393,872.22) — Within threshold",
+                "note": "Within threshold"
+              },
+              {
+                "bucket": "2026-008",
+                "delta": 1357510.3400000005,
+                "current": 1357510.3400000005,
+                "previous": 0,
+                "text": "2026-008 (Δ +1,357,510.34) — Within threshold",
+                "note": "Within threshold"
+              }
+            ],
+            "extent_is": [
+              {
+                "dimension": "product_name",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 7,
+                "breach_count": 7,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 2
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 2
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 1
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 1
+                  }
+                ],
+                "min_ratio": -0.1702460658728404,
+                "median_ratio": 0.062169810558019484,
+                "max_ratio": 0.2687519904239437
+              },
+              {
+                "dimension": "product_line",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 4,
+                "breach_count": 4,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 1
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": -0.1702460658728404,
+                "median_ratio": -0.014050999656736082,
+                "max_ratio": 0.1636221977210541
+              },
+              {
+                "dimension": "product_category",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 3,
+                "breach_count": 3,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 2
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": -0.08663804700232576,
+                "median_ratio": 0.13628567055123839,
+                "max_ratio": 0.14201970123003513
+              },
+              {
+                "dimension": "customer_name",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 2,
+                "breach_count": 2,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 1
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": -0.07173130354272947,
+                "median_ratio": 0.03461134280693466,
+                "max_ratio": 0.1409539891565988
+              },
+              {
+                "dimension": "customer_segment",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 1,
+                "breach_count": 1,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": 0.030000009571879108,
+                "median_ratio": 0.030000009571879108,
+                "max_ratio": 0.030000009571879108
+              },
+              {
+                "dimension": "customer_region",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 1,
+                "breach_count": 1,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": 0.030000009571879108,
+                "median_ratio": 0.030000009571879108,
+                "max_ratio": 0.030000009571879108
+              },
+              {
+                "dimension": "profit_center_name",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 1,
+                "breach_count": 1,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": 0.030000009571879108,
+                "median_ratio": 0.030000009571879108,
+                "max_ratio": 0.030000009571879108
+              },
+              {
+                "dimension": "business_unit",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 1,
+                "breach_count": 1,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": 0.030000009571879108,
+                "median_ratio": 0.030000009571879108,
+                "max_ratio": 0.030000009571879108
+              },
+              {
+                "dimension": "channel_name",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 1,
+                "breach_count": 1,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": 0.030000009571879108,
+                "median_ratio": 0.030000009571879108,
+                "max_ratio": 0.030000009571879108
+              },
+              {
+                "dimension": "channel_type",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 1,
+                "breach_count": 1,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": 0.030000009571879108,
+                "median_ratio": 0.030000009571879108,
+                "max_ratio": 0.030000009571879108
+              },
+              {
+                "queries_planned": 24
+              }
+            ],
+            "extent_is_not": [],
+            "benchmark_segments": [
+              {
+                "dimension": "customer_name",
+                "key": "Mass Retailer Group",
+                "current_value": 5233965.139999997,
+                "previous_value": 4587358.640000006,
+                "delta": 646606.4999999907,
+                "delta_pct": 14.09539891565988,
+                "benchmark_type": "internal_benchmark",
+                "replication_potential": 0.303,
+                "effect_size_pct": 0.1513,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_category",
+                "key": "Specialty",
+                "current_value": 4523453.539999997,
+                "previous_value": 3960924.2599999993,
+                "delta": 562529.2799999979,
+                "delta_pct": 14.201970123003512,
+                "benchmark_type": "internal_benchmark",
+                "replication_potential": 0.263,
+                "effect_size_pct": 0.1317,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_line",
+                "key": "Chemicals & Additives",
+                "current_value": 3501222.4699999983,
+                "previous_value": 3008899.69,
+                "delta": 492322.7799999984,
+                "delta_pct": 16.36221977210541,
+                "benchmark_type": "internal_benchmark",
+                "replication_potential": 0.23,
+                "effect_size_pct": 0.1152,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_name",
+                "key": "Fuel System Cleaner",
+                "current_value": 1874795.3199999998,
+                "previous_value": 1477668.87,
+                "delta": 397126.4499999997,
+                "delta_pct": 26.87519904239437,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.093,
+                "is_outlier": false
+              },
+              {
+                "dimension": "customer_segment",
+                "key": "Retail Partners",
+                "current_value": 9878311.850000005,
+                "previous_value": 9590593.94,
+                "delta": 287717.91000000574,
+                "delta_pct": 3.0000009571879107,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0673,
+                "is_outlier": false
+              },
+              {
+                "dimension": "customer_region",
+                "key": "North America",
+                "current_value": 9878311.850000005,
+                "previous_value": 9590593.94,
+                "delta": 287717.91000000574,
+                "delta_pct": 3.0000009571879107,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0673,
+                "is_outlier": false
+              },
+              {
+                "dimension": "profit_center_name",
+                "key": "Retail Products Division",
+                "current_value": 9878311.850000005,
+                "previous_value": 9590593.94,
+                "delta": 287717.91000000574,
+                "delta_pct": 3.0000009571879107,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0673,
+                "is_outlier": false
+              },
+              {
+                "dimension": "business_unit",
+                "key": "Retail Products",
+                "current_value": 9878311.850000005,
+                "previous_value": 9590593.94,
+                "delta": 287717.91000000574,
+                "delta_pct": 3.0000009571879107,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0673,
+                "is_outlier": false
+              },
+              {
+                "dimension": "channel_name",
+                "key": "E-Commerce",
+                "current_value": 9878311.850000005,
+                "previous_value": 9590593.94,
+                "delta": 287717.91000000574,
+                "delta_pct": 3.0000009571879107,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0673,
+                "is_outlier": false
+              },
+              {
+                "dimension": "channel_type",
+                "key": "Digital",
+                "current_value": 9878311.850000005,
+                "previous_value": 9590593.94,
+                "delta": 287717.91000000574,
+                "delta_pct": 3.0000009571879107,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0673,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_name",
+                "key": "Full Synthetic Engine Oil",
+                "current_value": 1085357.0400000003,
+                "previous_value": 955179.7299999995,
+                "delta": 130177.31000000075,
+                "delta_pct": 13.628567055123838,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0305,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_category",
+                "key": "Premium",
+                "current_value": 1085357.0400000003,
+                "previous_value": 955179.7299999995,
+                "delta": 130177.31000000075,
+                "delta_pct": 13.628567055123838,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0305,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_name",
+                "key": "Oil Treatment Additive",
+                "current_value": 1626427.15,
+                "previous_value": 1531230.8199999991,
+                "delta": 95196.33000000077,
+                "delta_pct": 6.2169810558019485,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0223,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_name",
+                "key": "High Mileage Engine Oil",
+                "current_value": 1022231.0700000002,
+                "previous_value": 952024.5700000002,
+                "delta": 70206.5,
+                "delta_pct": 7.374442027268266,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0164,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_line",
+                "key": "Engine Oils",
+                "current_value": 4408336.319999996,
+                "previous_value": 4386561.740000005,
+                "delta": 21774.57999999076,
+                "delta_pct": 0.4963928764853253,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0051,
+                "is_outlier": false
+              }
+            ],
+            "dimension_totals": {
+              "customer_segment": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "channel_name": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "product_category": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "product_line": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "business_unit": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "customer_region": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "profit_center_name": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "customer_name": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "channel_type": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "product_name": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              }
+            }
+          },
+          "change_points": [
+            {
+              "dimension": "product_category",
+              "key": "Mid-Range",
+              "timestamp": null,
+              "current_value": 4269501.270000004,
+              "previous_value": 4674489.950000004,
+              "delta": -404988.6799999997,
+              "percent_growth": null,
+              "contribution_pp": null
+            },
+            {
+              "dimension": "customer_name",
+              "key": "National Auto Parts Chain A",
+              "timestamp": null,
+              "current_value": 4644346.709999998,
+              "previous_value": 5003235.299999997,
+              "delta": -358888.5899999989,
+              "percent_growth": null,
+              "contribution_pp": null
+            },
+            {
+              "dimension": "product_name",
+              "key": "Automatic Transmission Fluid",
+              "timestamp": null,
+              "current_value": 930253.4900000002,
+              "previous_value": 1121119.71,
+              "delta": -190866.21999999974,
+              "percent_growth": null,
+              "contribution_pp": null
+            },
+            {
+              "dimension": "product_line",
+              "key": "Transmission & Drivetrain",
+              "timestamp": null,
+              "current_value": 930253.4900000002,
+              "previous_value": 1121119.71,
+              "delta": -190866.21999999974,
+              "percent_growth": null,
+              "contribution_pp": null
+            },
+            {
+              "dimension": "product_name",
+              "key": "Synthetic Blend Engine Oil",
+              "timestamp": null,
+              "current_value": 2300748.2099999986,
+              "previous_value": 2479357.44,
+              "delta": -178609.23000000138,
+              "percent_growth": null,
+              "contribution_pp": null
+            }
+          ],
+          "timeframe_mapping": {
+            "current": "year_to_date",
+            "previous": "prior year_to_date"
+          },
+          "when_started": "2026-006",
+          "percent_growth_enabled": false,
+          "analysis_mode": "mixed",
+          "mixed_framing": true,
+          "alert_type": "threshold_breach",
+          "comparator": "previous",
+          "merged_alert_types": null,
+          "comparator_secondary": null,
+          "matrix_ran": false,
+          "samples": null
+        },
+        "market_signals": [
+          {
+            "source": "llm_knowledge",
+            "title": "Amazon and Walmart.com Automotive Category Growth Outpaces Brick-and-Mortar",
+            "summary": "Online sales of automotive lubricants and fluids, including Automatic Transmission Fluid, continue to grow faster than in-store sales at Mass Retailer Group partners like National Auto Parts Chain A, as DIY consumers increasingly research and purchase fluids online due to vehicle-specific fitment guides and subscribe-and-save pricing. This is a tailwind for E-Commerce Revenue as digital shelf space expansion accelerates.",
+            "relevance_score": 0.82,
+            "published_at": null,
+            "url": null
+          },
+          {
+            "source": "llm_knowledge",
+            "title": "Rising Digital Advertising and Marketplace Fee Costs Compress E-Commerce Margins",
+            "summary": "Retail media and marketplace platforms (Amazon Advertising, Walmart Connect) have raised CPC and referral fees 10-15% year-over-year, pressuring margins on Mid-Range and Specialty lubricant SKUs sold direct-to-consumer or through National Auto Parts Chain A's e-commerce channel, creating a headwind for profitable e-commerce revenue growth.",
+            "relevance_score": 0.78,
+            "published_at": null,
+            "url": null
+          },
+          {
+            "source": "llm_knowledge",
+            "title": "Base Oil and Additive Cost Volatility Complicates Online Price Competitiveness",
+            "summary": "Group II/III base oil prices and Chemicals & Additives inputs have seen swings of 8-12% over recent quarters due to refinery capacity shifts and feedstock costs, making it harder for e-commerce-listed Mid-Range and Automatic Transmission Fluid products to maintain stable online pricing versus aggressive third-party marketplace sellers, a headwind for e-commerce revenue predictability.",
+            "relevance_score": 0.75,
+            "published_at": null,
+            "url": null
+          },
+          {
+            "source": "llm_knowledge",
+            "title": "Growth of EV Fleet Slows Long-Term Online Demand for Conventional ATF and Engine Oils",
+            "summary": "As EV adoption incrementally reduces the addressable market for traditional Automatic Transmission Fluid and engine lubricants, some analysts project flat-to-declining unit demand growth in conventional fluid categories online over the next 3-5 years, a mild headwind offsetting near-term e-commerce channel gains, though ICE vehicle parc remains large near-term.",
+            "relevance_score": 0.68,
+            "published_at": null,
+            "url": null
+          }
+        ],
+        "situation_context": {
+          "kpi_name": "E-Commerce Revenue",
+          "description": "E-Commerce Revenue increased by 3.3% vs prior year (2026-01-01–2026-08-22 vs 2025-01-01–2025-08-22)",
+          "severity": "critical",
+          "situation_id": "7047bf02-1d9c-4e05-9fa8-218bab4ae281"
+        }
+      },
+      "principal_context": {
+        "principal_id": "ceo_001",
+        "client_id": "lubricants",
+        "role": "Chief Executive Officer",
+        "decision_style": "visionary",
+        "name": "David Torres",
+        "input": {
+          "current_priorities": [],
+          "known_constraints": []
+        }
+      },
+      "conversation_history": [],
+      "turn_count": 0,
+      "topics_completed": [],
+      "turns_on_current_topic": 0
+    },
+    "response": {
+      "agent_message": "Before generating solutions, let's confirm the objective for E-Commerce Revenue.",
+      "suggested_responses": [],
+      "exclusions": [],
+      "external_context": [],
+      "constraints": [],
+      "validated_hypotheses": [],
+      "invalidated_hypotheses": [],
+      "current_topic": "problem_framing",
+      "topic_complete": false,
+      "topics_completed": [],
+      "ready_for_solutions": false,
+      "refined_problem_statement": null,
+      "recommended_council_type": null,
+      "council_routing_rationale": null,
+      "recommended_council_members": null,
+      "turn_count": 1,
+      "conversation_history": [],
+      "market_signals": [
+        {
+          "source": "llm_knowledge",
+          "title": "Amazon and Walmart.com Automotive Category Growth Outpaces Brick-and-Mortar",
+          "summary": "Online sales of automotive lubricants and fluids, including Automatic Transmission Fluid, continue to grow faster than in-store sales at Mass Retailer Group partners like National Auto Parts Chain A, as DIY consumers increasingly research and purchase fluids online due to vehicle-specific fitment guides and subscribe-and-save pricing. This is a tailwind for E-Commerce Revenue as digital shelf space expansion accelerates.",
+          "relevance_score": 0.82,
+          "published_at": null,
+          "url": null
+        },
+        {
+          "source": "llm_knowledge",
+          "title": "Rising Digital Advertising and Marketplace Fee Costs Compress E-Commerce Margins",
+          "summary": "Retail media and marketplace platforms (Amazon Advertising, Walmart Connect) have raised CPC and referral fees 10-15% year-over-year, pressuring margins on Mid-Range and Specialty lubricant SKUs sold direct-to-consumer or through National Auto Parts Chain A's e-commerce channel, creating a headwind for profitable e-commerce revenue growth.",
+          "relevance_score": 0.78,
+          "published_at": null,
+          "url": null
+        },
+        {
+          "source": "llm_knowledge",
+          "title": "Base Oil and Additive Cost Volatility Complicates Online Price Competitiveness",
+          "summary": "Group II/III base oil prices and Chemicals & Additives inputs have seen swings of 8-12% over recent quarters due to refinery capacity shifts and feedstock costs, making it harder for e-commerce-listed Mid-Range and Automatic Transmission Fluid products to maintain stable online pricing versus aggressive third-party marketplace sellers, a headwind for e-commerce revenue predictability.",
+          "relevance_score": 0.75,
+          "published_at": null,
+          "url": null
+        },
+        {
+          "source": "llm_knowledge",
+          "title": "Growth of EV Fleet Slows Long-Term Online Demand for Conventional ATF and Engine Oils",
+          "summary": "As EV adoption incrementally reduces the addressable market for traditional Automatic Transmission Fluid and engine lubricants, some analysts project flat-to-declining unit demand growth in conventional fluid categories online over the next 3-5 years, a mild headwind offsetting near-term e-commerce channel gains, though ICE vehicle parc remains large near-term.",
+          "relevance_score": 0.68,
+          "published_at": null,
+          "url": null
+        }
+      ],
+      "replication_constraints": [],
+      "constraint_items": [],
+      "problem_profile_cell": "mixed/distributed/no-control/single",
+      "topic_sequence": [
+        "problem_framing",
+        "scope_boundaries",
+        "hypothesis_validation",
+        "comparison_baseline",
+        "external_context",
+        "constraints",
+        "success_criteria"
+      ],
+      "topic_routing_rules_applied": [
+        "R2':distributed -> scope_boundaries leads",
+        "R3:no_control_group -> add comparison_baseline",
+        "CAP:7->6 (protected: ['constraints', 'hypothesis_validation', 'success_criteria'])",
+        "PHASE19:framing_gate -> problem_framing leads"
+      ],
+      "framing_prompt": {
+        "kpi_id": "ecommerce_revenue",
+        "kpi_name": "E-Commerce Revenue",
+        "stated_objective_text": "Recovering E-Commerce Revenue",
+        "question": "Is recovering E-Commerce Revenue the right objective here, or does the evidence below point to a different one?",
+        "alternatives": [],
+        "active_constraints": [],
+        "owner_role": "CFO",
+        "viewer_role": "Chief Executive Officer",
+        "viewer_is_owner": false,
+        "prior_frame": {
+          "id": "1f74f3e1-9c92-43e8-aa1a-6ab8f9fe0940",
+          "choice": "confirm_stated",
+          "chosen_objective_text": "The objective is recovering E-Commerce Revenue.",
+          "falsification_criterion": "If this KPI does not move as expected within two assessment cycles after acting on this objective, this frame was wrong.",
+          "decided_by_role": "Chief Executive Officer",
+          "decided_by_is_owner": false,
+          "decided_at": "2026-08-18T22:26:34.198395+00:00"
+        },
+        "requires_falsification_criterion": true,
+        "primary_snapshot": {
+          "value": 9878311.850000005,
+          "comparison_value": 9590593.94,
+          "percent_change": 3.0000009571879107,
+          "unit": "$",
+          "inverse_logic": false,
+          "monthly_values": [
+            {
+              "period": "2026-04",
+              "value": 1187821.58
+            },
+            {
+              "period": "2026-05",
+              "value": 1309027.82
+            },
+            {
+              "period": "2026-06",
+              "value": 1393872.2200000007
+            },
+            {
+              "period": "2026-07",
+              "value": 1430234.09
+            },
+            {
+              "period": "2026-08",
+              "value": 1357510.3400000005
+            },
+            {
+              "period": "2026-09",
+              "value": 1236304.0599999996
+            },
+            {
+              "period": "2026-10",
+              "value": 1151459.7099999997
+            },
+            {
+              "period": "2026-11",
+              "value": 1090856.5099999995
+            },
+            {
+              "period": "2026-12",
+              "value": 1066615.2300000004
+            }
+          ]
+        },
+        "additional_causal_measures_count": 0
+      },
+      "framing_decision": null,
+      "framing_record": null,
+      "scqa_summary": null,
+      "framing_required": true
+    }
+  },
+  {
+    "request": {
+      "principal_id": "ceo_001",
+      "deep_analysis_output": {
+        "plan": {
+          "kpi_name": "E-Commerce Revenue",
+          "client_id": "lubricants",
+          "timeframe": "year_to_date",
+          "filters": {
+            "Fiscal Year": [
+              "2024",
+              "2025",
+              "2026"
+            ]
+          },
+          "dimensions": [
+            "product_name",
+            "product_line",
+            "product_category",
+            "customer_name",
+            "customer_segment",
+            "customer_region",
+            "profit_center_name",
+            "business_unit",
+            "channel_name",
+            "channel_type",
+            "account_name",
+            "account_type",
+            "account_category",
+            "account_group",
+            "fiscal_year"
+          ],
+          "steps": [
+            {
+              "type": "group_compare",
+              "dimension": "product_name",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "product_line",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "product_category",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "customer_name",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "customer_segment",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "customer_region",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "profit_center_name",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "business_unit",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "channel_name",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "channel_type",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            }
+          ],
+          "notes": "KT core with SCQA/MECE framing (auto-derived dimensions from data product contract).",
+          "dimensions_considered": [
+            "product_name",
+            "product_line",
+            "product_category",
+            "customer_name",
+            "customer_segment",
+            "customer_region",
+            "profit_center_name",
+            "business_unit",
+            "channel_name",
+            "channel_type",
+            "account_name",
+            "account_type",
+            "account_category",
+            "account_group",
+            "fiscal_year"
+          ],
+          "dimension_rank_source": "contract_semantics",
+          "analysis_mode": "mixed",
+          "alert_type": "threshold_breach",
+          "compound_alert": false,
+          "compound_pattern": null,
+          "merged_alert_types": null,
+          "secondary_alert_facts": null,
+          "comparator_override": null
+        },
+        "execution": {
+          "status": "success",
+          "request_id": "70a66284-f19a-45f4-b7cd-ac85370eaa96",
+          "timestamp": "2026-08-22T17:02:48.864820",
+          "error_message": null,
+          "plan": {
+            "kpi_name": "E-Commerce Revenue",
+            "client_id": "lubricants",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ]
+            },
+            "dimensions": [
+              "product_name",
+              "product_line",
+              "product_category",
+              "customer_name",
+              "customer_segment",
+              "customer_region",
+              "profit_center_name",
+              "business_unit",
+              "channel_name",
+              "channel_type",
+              "account_name",
+              "account_type",
+              "account_category",
+              "account_group",
+              "fiscal_year"
+            ],
+            "steps": [
+              {
+                "type": "group_compare",
+                "dimension": "product_name",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "product_line",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "product_category",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "customer_name",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "customer_segment",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "customer_region",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "profit_center_name",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "business_unit",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "channel_name",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "channel_type",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              }
+            ],
+            "notes": "KT core with SCQA/MECE framing (auto-derived dimensions from data product contract).",
+            "dimensions_considered": [
+              "product_name",
+              "product_line",
+              "product_category",
+              "customer_name",
+              "customer_segment",
+              "customer_region",
+              "profit_center_name",
+              "business_unit",
+              "channel_name",
+              "channel_type",
+              "account_name",
+              "account_type",
+              "account_category",
+              "account_group",
+              "fiscal_year"
+            ],
+            "dimension_rank_source": "contract_semantics",
+            "analysis_mode": "mixed",
+            "alert_type": "threshold_breach",
+            "compound_alert": false,
+            "compound_pattern": null,
+            "merged_alert_types": null,
+            "secondary_alert_facts": null,
+            "comparator_override": null
+          },
+          "dimensions_suggested": [
+            "product_name",
+            "product_line",
+            "product_category",
+            "customer_name",
+            "customer_segment",
+            "customer_region",
+            "profit_center_name",
+            "business_unit",
+            "channel_name",
+            "channel_type",
+            "account_name",
+            "account_type",
+            "account_category",
+            "account_group",
+            "fiscal_year"
+          ],
+          "dimensions_analyzed": [
+            "product_name",
+            "product_line",
+            "product_category",
+            "customer_name",
+            "customer_segment",
+            "customer_region",
+            "profit_center_name",
+            "business_unit",
+            "channel_name",
+            "channel_type"
+          ],
+          "dimensions_excluded": [],
+          "scqa_summary": null,
+          "scqa_deferred": true,
+          "scqa_inputs": {
+            "comparison_type": "yoy",
+            "inverse_logic": false,
+            "kpi_unit": "$"
+          },
+          "situation_complication_summary": "Situation: E-Commerce Revenue shows mixed performance vs. the comparison period. Complication: Performance is bifurcated — Mid-Range, National Auto Parts Chain A, Automatic Transmission Fluid are dragging results while Mass Retailer Group, Specialty, Chemicals & Additives are outperforming.",
+          "kt_is_is_not": {
+            "what_is": [
+              {
+                "text": "E-Commerce Revenue is 9,878,311.85 vs prior year_to_date 9,590,593.94 (Δ +287,717.91, +3.0%)."
+              },
+              {
+                "text": "Issue observed during year_to_date compared against prior year_to_date."
+              },
+              {
+                "text": "Largest variance in product_category: Mid-Range (Δ -404,988.68)."
+              },
+              {
+                "text": "Analysis scoped by applied filters, limiting impact to selected context."
+              }
+            ],
+            "what_is_not": [
+              {
+                "text": "Unaffected timeframe buckets: Within threshold"
+              }
+            ],
+            "where_is": [
+              {
+                "dimension": "customer_name",
+                "key": "Mass Retailer Group",
+                "delta": 646606.4999999907,
+                "current": 5233965.139999997,
+                "previous": 4587358.640000006,
+                "text": "customer_name: Mass Retailer Group (Δ +646,606.50) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_category",
+                "key": "Specialty",
+                "delta": 562529.2799999979,
+                "current": 4523453.539999997,
+                "previous": 3960924.2599999993,
+                "text": "product_category: Specialty (Δ +562,529.28) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_line",
+                "key": "Chemicals & Additives",
+                "delta": 492322.7799999984,
+                "current": 3501222.4699999983,
+                "previous": 3008899.69,
+                "text": "product_line: Chemicals & Additives (Δ +492,322.78) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_category",
+                "key": "Mid-Range",
+                "delta": -404988.6799999997,
+                "current": 4269501.270000004,
+                "previous": 4674489.950000004,
+                "text": "product_category: Mid-Range (Δ -404,988.68)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "product_name",
+                "key": "Fuel System Cleaner",
+                "delta": 397126.4499999997,
+                "current": 1874795.3199999998,
+                "previous": 1477668.87,
+                "text": "product_name: Fuel System Cleaner (Δ +397,126.45) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "customer_name",
+                "key": "National Auto Parts Chain A",
+                "delta": -358888.5899999989,
+                "current": 4644346.709999998,
+                "previous": 5003235.299999997,
+                "text": "customer_name: National Auto Parts Chain A (Δ -358,888.59)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "customer_segment",
+                "key": "Retail Partners",
+                "delta": 287717.91000000574,
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "text": "customer_segment: Retail Partners (Δ +287,717.91) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "customer_region",
+                "key": "North America",
+                "delta": 287717.91000000574,
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "text": "customer_region: North America (Δ +287,717.91) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "profit_center_name",
+                "key": "Retail Products Division",
+                "delta": 287717.91000000574,
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "text": "profit_center_name: Retail Products Division (Δ +287,717.91) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "business_unit",
+                "key": "Retail Products",
+                "delta": 287717.91000000574,
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "text": "business_unit: Retail Products (Δ +287,717.91) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "channel_name",
+                "key": "E-Commerce",
+                "delta": 287717.91000000574,
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "text": "channel_name: E-Commerce (Δ +287,717.91) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "channel_type",
+                "key": "Digital",
+                "delta": 287717.91000000574,
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "text": "channel_type: Digital (Δ +287,717.91) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_name",
+                "key": "Automatic Transmission Fluid",
+                "delta": -190866.21999999974,
+                "current": 930253.4900000002,
+                "previous": 1121119.71,
+                "text": "product_name: Automatic Transmission Fluid (Δ -190,866.22)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "product_line",
+                "key": "Transmission & Drivetrain",
+                "delta": -190866.21999999974,
+                "current": 930253.4900000002,
+                "previous": 1121119.71,
+                "text": "product_line: Transmission & Drivetrain (Δ -190,866.22)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "product_name",
+                "key": "Synthetic Blend Engine Oil",
+                "delta": -178609.23000000138,
+                "current": 2300748.2099999986,
+                "previous": 2479357.44,
+                "text": "product_name: Synthetic Blend Engine Oil (Δ -178,609.23)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "product_name",
+                "key": "Full Synthetic Engine Oil",
+                "delta": 130177.31000000075,
+                "current": 1085357.0400000003,
+                "previous": 955179.7299999995,
+                "text": "product_name: Full Synthetic Engine Oil (Δ +130,177.31) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_category",
+                "key": "Premium",
+                "delta": 130177.31000000075,
+                "current": 1085357.0400000003,
+                "previous": 955179.7299999995,
+                "text": "product_category: Premium (Δ +130,177.31) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_name",
+                "key": "Oil Treatment Additive",
+                "delta": 95196.33000000077,
+                "current": 1626427.15,
+                "previous": 1531230.8199999991,
+                "text": "product_name: Oil Treatment Additive (Δ +95,196.33) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_name",
+                "key": "High Mileage Engine Oil",
+                "delta": 70206.5,
+                "current": 1022231.0700000002,
+                "previous": 952024.5700000002,
+                "text": "product_name: High Mileage Engine Oil (Δ +70,206.50) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_name",
+                "key": "Extended Life Coolant",
+                "delta": -35513.23000000091,
+                "current": 1038499.5699999994,
+                "previous": 1074012.8000000003,
+                "text": "product_name: Extended Life Coolant (Δ -35,513.23)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "product_line",
+                "key": "Coolants & Antifreeze",
+                "delta": -35513.23000000091,
+                "current": 1038499.5699999994,
+                "previous": 1074012.8000000003,
+                "text": "product_line: Coolants & Antifreeze (Δ -35,513.23)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "product_line",
+                "key": "Engine Oils",
+                "delta": 21774.57999999076,
+                "current": 4408336.319999996,
+                "previous": 4386561.740000005,
+                "text": "product_line: Engine Oils (Δ +21,774.58) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              }
+            ],
+            "where_is_not": [],
+            "when_is": [
+              {
+                "bucket": "2026-007",
+                "delta": 1430234.09,
+                "current": 1430234.09,
+                "previous": 0,
+                "text": "2026-007 (Δ +1,430,234.09)"
+              },
+              {
+                "bucket": "2026-006",
+                "delta": 1393872.2200000007,
+                "current": 1393872.2200000007,
+                "previous": 0,
+                "text": "2026-006 (Δ +1,393,872.22)"
+              },
+              {
+                "bucket": "2026-008",
+                "delta": 1357510.3400000005,
+                "current": 1357510.3400000005,
+                "previous": 0,
+                "text": "2026-008 (Δ +1,357,510.34)"
+              }
+            ],
+            "when_is_not": [
+              {
+                "bucket": "2026-007",
+                "delta": 1430234.09,
+                "current": 1430234.09,
+                "previous": 0,
+                "text": "2026-007 (Δ +1,430,234.09) — Within threshold",
+                "note": "Within threshold"
+              },
+              {
+                "bucket": "2026-006",
+                "delta": 1393872.2200000007,
+                "current": 1393872.2200000007,
+                "previous": 0,
+                "text": "2026-006 (Δ +1,393,872.22) — Within threshold",
+                "note": "Within threshold"
+              },
+              {
+                "bucket": "2026-008",
+                "delta": 1357510.3400000005,
+                "current": 1357510.3400000005,
+                "previous": 0,
+                "text": "2026-008 (Δ +1,357,510.34) — Within threshold",
+                "note": "Within threshold"
+              }
+            ],
+            "extent_is": [
+              {
+                "dimension": "product_name",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 7,
+                "breach_count": 7,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 2
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 2
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 1
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 1
+                  }
+                ],
+                "min_ratio": -0.1702460658728404,
+                "median_ratio": 0.062169810558019484,
+                "max_ratio": 0.2687519904239437
+              },
+              {
+                "dimension": "product_line",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 4,
+                "breach_count": 4,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 1
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": -0.1702460658728404,
+                "median_ratio": -0.014050999656736082,
+                "max_ratio": 0.1636221977210541
+              },
+              {
+                "dimension": "product_category",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 3,
+                "breach_count": 3,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 2
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": -0.08663804700232576,
+                "median_ratio": 0.13628567055123839,
+                "max_ratio": 0.14201970123003513
+              },
+              {
+                "dimension": "customer_name",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 2,
+                "breach_count": 2,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 1
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": -0.07173130354272947,
+                "median_ratio": 0.03461134280693466,
+                "max_ratio": 0.1409539891565988
+              },
+              {
+                "dimension": "customer_segment",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 1,
+                "breach_count": 1,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": 0.030000009571879108,
+                "median_ratio": 0.030000009571879108,
+                "max_ratio": 0.030000009571879108
+              },
+              {
+                "dimension": "customer_region",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 1,
+                "breach_count": 1,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": 0.030000009571879108,
+                "median_ratio": 0.030000009571879108,
+                "max_ratio": 0.030000009571879108
+              },
+              {
+                "dimension": "profit_center_name",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 1,
+                "breach_count": 1,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": 0.030000009571879108,
+                "median_ratio": 0.030000009571879108,
+                "max_ratio": 0.030000009571879108
+              },
+              {
+                "dimension": "business_unit",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 1,
+                "breach_count": 1,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": 0.030000009571879108,
+                "median_ratio": 0.030000009571879108,
+                "max_ratio": 0.030000009571879108
+              },
+              {
+                "dimension": "channel_name",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 1,
+                "breach_count": 1,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": 0.030000009571879108,
+                "median_ratio": 0.030000009571879108,
+                "max_ratio": 0.030000009571879108
+              },
+              {
+                "dimension": "channel_type",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 1,
+                "breach_count": 1,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": 0.030000009571879108,
+                "median_ratio": 0.030000009571879108,
+                "max_ratio": 0.030000009571879108
+              },
+              {
+                "queries_planned": 24
+              }
+            ],
+            "extent_is_not": [],
+            "benchmark_segments": [
+              {
+                "dimension": "customer_name",
+                "key": "Mass Retailer Group",
+                "current_value": 5233965.139999997,
+                "previous_value": 4587358.640000006,
+                "delta": 646606.4999999907,
+                "delta_pct": 14.09539891565988,
+                "benchmark_type": "internal_benchmark",
+                "replication_potential": 0.303,
+                "effect_size_pct": 0.1513,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_category",
+                "key": "Specialty",
+                "current_value": 4523453.539999997,
+                "previous_value": 3960924.2599999993,
+                "delta": 562529.2799999979,
+                "delta_pct": 14.201970123003512,
+                "benchmark_type": "internal_benchmark",
+                "replication_potential": 0.263,
+                "effect_size_pct": 0.1317,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_line",
+                "key": "Chemicals & Additives",
+                "current_value": 3501222.4699999983,
+                "previous_value": 3008899.69,
+                "delta": 492322.7799999984,
+                "delta_pct": 16.36221977210541,
+                "benchmark_type": "internal_benchmark",
+                "replication_potential": 0.23,
+                "effect_size_pct": 0.1152,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_name",
+                "key": "Fuel System Cleaner",
+                "current_value": 1874795.3199999998,
+                "previous_value": 1477668.87,
+                "delta": 397126.4499999997,
+                "delta_pct": 26.87519904239437,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.093,
+                "is_outlier": false
+              },
+              {
+                "dimension": "customer_segment",
+                "key": "Retail Partners",
+                "current_value": 9878311.850000005,
+                "previous_value": 9590593.94,
+                "delta": 287717.91000000574,
+                "delta_pct": 3.0000009571879107,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0673,
+                "is_outlier": false
+              },
+              {
+                "dimension": "customer_region",
+                "key": "North America",
+                "current_value": 9878311.850000005,
+                "previous_value": 9590593.94,
+                "delta": 287717.91000000574,
+                "delta_pct": 3.0000009571879107,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0673,
+                "is_outlier": false
+              },
+              {
+                "dimension": "profit_center_name",
+                "key": "Retail Products Division",
+                "current_value": 9878311.850000005,
+                "previous_value": 9590593.94,
+                "delta": 287717.91000000574,
+                "delta_pct": 3.0000009571879107,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0673,
+                "is_outlier": false
+              },
+              {
+                "dimension": "business_unit",
+                "key": "Retail Products",
+                "current_value": 9878311.850000005,
+                "previous_value": 9590593.94,
+                "delta": 287717.91000000574,
+                "delta_pct": 3.0000009571879107,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0673,
+                "is_outlier": false
+              },
+              {
+                "dimension": "channel_name",
+                "key": "E-Commerce",
+                "current_value": 9878311.850000005,
+                "previous_value": 9590593.94,
+                "delta": 287717.91000000574,
+                "delta_pct": 3.0000009571879107,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0673,
+                "is_outlier": false
+              },
+              {
+                "dimension": "channel_type",
+                "key": "Digital",
+                "current_value": 9878311.850000005,
+                "previous_value": 9590593.94,
+                "delta": 287717.91000000574,
+                "delta_pct": 3.0000009571879107,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0673,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_name",
+                "key": "Full Synthetic Engine Oil",
+                "current_value": 1085357.0400000003,
+                "previous_value": 955179.7299999995,
+                "delta": 130177.31000000075,
+                "delta_pct": 13.628567055123838,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0305,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_category",
+                "key": "Premium",
+                "current_value": 1085357.0400000003,
+                "previous_value": 955179.7299999995,
+                "delta": 130177.31000000075,
+                "delta_pct": 13.628567055123838,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0305,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_name",
+                "key": "Oil Treatment Additive",
+                "current_value": 1626427.15,
+                "previous_value": 1531230.8199999991,
+                "delta": 95196.33000000077,
+                "delta_pct": 6.2169810558019485,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0223,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_name",
+                "key": "High Mileage Engine Oil",
+                "current_value": 1022231.0700000002,
+                "previous_value": 952024.5700000002,
+                "delta": 70206.5,
+                "delta_pct": 7.374442027268266,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0164,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_line",
+                "key": "Engine Oils",
+                "current_value": 4408336.319999996,
+                "previous_value": 4386561.740000005,
+                "delta": 21774.57999999076,
+                "delta_pct": 0.4963928764853253,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0051,
+                "is_outlier": false
+              }
+            ],
+            "dimension_totals": {
+              "customer_segment": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "channel_name": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "product_category": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "product_line": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "business_unit": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "customer_region": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "profit_center_name": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "customer_name": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "channel_type": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "product_name": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              }
+            }
+          },
+          "change_points": [
+            {
+              "dimension": "product_category",
+              "key": "Mid-Range",
+              "timestamp": null,
+              "current_value": 4269501.270000004,
+              "previous_value": 4674489.950000004,
+              "delta": -404988.6799999997,
+              "percent_growth": null,
+              "contribution_pp": null
+            },
+            {
+              "dimension": "customer_name",
+              "key": "National Auto Parts Chain A",
+              "timestamp": null,
+              "current_value": 4644346.709999998,
+              "previous_value": 5003235.299999997,
+              "delta": -358888.5899999989,
+              "percent_growth": null,
+              "contribution_pp": null
+            },
+            {
+              "dimension": "product_name",
+              "key": "Automatic Transmission Fluid",
+              "timestamp": null,
+              "current_value": 930253.4900000002,
+              "previous_value": 1121119.71,
+              "delta": -190866.21999999974,
+              "percent_growth": null,
+              "contribution_pp": null
+            },
+            {
+              "dimension": "product_line",
+              "key": "Transmission & Drivetrain",
+              "timestamp": null,
+              "current_value": 930253.4900000002,
+              "previous_value": 1121119.71,
+              "delta": -190866.21999999974,
+              "percent_growth": null,
+              "contribution_pp": null
+            },
+            {
+              "dimension": "product_name",
+              "key": "Synthetic Blend Engine Oil",
+              "timestamp": null,
+              "current_value": 2300748.2099999986,
+              "previous_value": 2479357.44,
+              "delta": -178609.23000000138,
+              "percent_growth": null,
+              "contribution_pp": null
+            }
+          ],
+          "timeframe_mapping": {
+            "current": "year_to_date",
+            "previous": "prior year_to_date"
+          },
+          "when_started": "2026-006",
+          "percent_growth_enabled": false,
+          "analysis_mode": "mixed",
+          "mixed_framing": true,
+          "alert_type": "threshold_breach",
+          "comparator": "previous",
+          "merged_alert_types": null,
+          "comparator_secondary": null,
+          "matrix_ran": false,
+          "samples": null
+        },
+        "market_signals": [
+          {
+            "source": "llm_knowledge",
+            "title": "Amazon and Walmart.com Automotive Category Growth Outpaces Brick-and-Mortar",
+            "summary": "Online sales of automotive lubricants and fluids, including Automatic Transmission Fluid, continue to grow faster than in-store sales at Mass Retailer Group partners like National Auto Parts Chain A, as DIY consumers increasingly research and purchase fluids online due to vehicle-specific fitment guides and subscribe-and-save pricing. This is a tailwind for E-Commerce Revenue as digital shelf space expansion accelerates.",
+            "relevance_score": 0.82,
+            "published_at": null,
+            "url": null
+          },
+          {
+            "source": "llm_knowledge",
+            "title": "Rising Digital Advertising and Marketplace Fee Costs Compress E-Commerce Margins",
+            "summary": "Retail media and marketplace platforms (Amazon Advertising, Walmart Connect) have raised CPC and referral fees 10-15% year-over-year, pressuring margins on Mid-Range and Specialty lubricant SKUs sold direct-to-consumer or through National Auto Parts Chain A's e-commerce channel, creating a headwind for profitable e-commerce revenue growth.",
+            "relevance_score": 0.78,
+            "published_at": null,
+            "url": null
+          },
+          {
+            "source": "llm_knowledge",
+            "title": "Base Oil and Additive Cost Volatility Complicates Online Price Competitiveness",
+            "summary": "Group II/III base oil prices and Chemicals & Additives inputs have seen swings of 8-12% over recent quarters due to refinery capacity shifts and feedstock costs, making it harder for e-commerce-listed Mid-Range and Automatic Transmission Fluid products to maintain stable online pricing versus aggressive third-party marketplace sellers, a headwind for e-commerce revenue predictability.",
+            "relevance_score": 0.75,
+            "published_at": null,
+            "url": null
+          },
+          {
+            "source": "llm_knowledge",
+            "title": "Growth of EV Fleet Slows Long-Term Online Demand for Conventional ATF and Engine Oils",
+            "summary": "As EV adoption incrementally reduces the addressable market for traditional Automatic Transmission Fluid and engine lubricants, some analysts project flat-to-declining unit demand growth in conventional fluid categories online over the next 3-5 years, a mild headwind offsetting near-term e-commerce channel gains, though ICE vehicle parc remains large near-term.",
+            "relevance_score": 0.68,
+            "published_at": null,
+            "url": null
+          }
+        ],
+        "situation_context": {
+          "kpi_name": "E-Commerce Revenue",
+          "description": "E-Commerce Revenue increased by 3.3% vs prior year (2026-01-01–2026-08-22 vs 2025-01-01–2025-08-22)",
+          "severity": "critical",
+          "situation_id": "7047bf02-1d9c-4e05-9fa8-218bab4ae281"
+        }
+      },
+      "principal_context": {
+        "principal_id": "ceo_001",
+        "client_id": "lubricants",
+        "role": "Chief Executive Officer",
+        "decision_style": "visionary",
+        "name": "David Torres",
+        "input": {
+          "current_priorities": [],
+          "known_constraints": []
+        }
+      },
+      "conversation_history": [
+        {
+          "role": "assistant",
+          "content": "Before generating solutions, let's confirm the objective for E-Commerce Revenue."
+        }
+      ],
+      "current_topic": "problem_framing",
+      "turn_count": 1,
+      "topics_completed": [],
+      "turns_on_current_topic": 0,
+      "prior_constraint_items": [],
+      "prior_exclusions": [],
+      "framing_decision": {
+        "choice": "confirm_stated",
+        "chosen_objective_text": "Recovering E-Commerce Revenue",
+        "falsification_criterion": "If this KPI does not move as expected within two assessment cycles after acting on this objective, this frame was wrong."
+      }
+    },
+    "response": {
+      "agent_message": "Looking at the portfolio, Mass Retailer Group (+$646K) and Specialty (+$562K) are carrying growth while Mid-Range is dragging performance down by -$405K — should the recovery mandate concentrate resources on defending and scaling the winning channels, or does Mid-Range need to be in scope given its strategic importance to the broader business?",
+      "suggested_responses": [
+        "Focus exclusively on scaling Mass Retailer and Specialty",
+        "Mid-Range must stay in scope — it's strategically critical",
+        "Address Mid-Range but only as a secondary priority",
+        "Need more context on why Mid-Range is declining before deciding"
+      ],
+      "exclusions": [],
+      "external_context": [],
+      "constraints": [],
+      "validated_hypotheses": [],
+      "invalidated_hypotheses": [],
+      "current_topic": "scope_boundaries",
+      "topic_complete": false,
+      "topics_completed": [
+        "problem_framing"
+      ],
+      "ready_for_solutions": false,
+      "refined_problem_statement": null,
+      "recommended_council_type": null,
+      "council_routing_rationale": null,
+      "recommended_council_members": null,
+      "turn_count": 2,
+      "conversation_history": [
+        {
+          "role": "assistant",
+          "content": "Before generating solutions, let's confirm the objective for E-Commerce Revenue."
+        },
+        {
+          "role": "user",
+          "content": "[Framing decision] confirm_stated: Recovering E-Commerce Revenue"
+        },
+        {
+          "role": "assistant",
+          "content": "Looking at the portfolio, Mass Retailer Group (+$646K) and Specialty (+$562K) are carrying growth while Mid-Range is dragging performance down by -$405K — should the recovery mandate concentrate resources on defending and scaling the winning channels, or does Mid-Range need to be in scope given its strategic importance to the broader business?"
+        }
+      ],
+      "market_signals": null,
+      "replication_constraints": [],
+      "constraint_items": [],
+      "problem_profile_cell": "mixed/distributed/no-control/single",
+      "topic_sequence": [
+        "problem_framing",
+        "scope_boundaries",
+        "hypothesis_validation",
+        "comparison_baseline",
+        "external_context",
+        "constraints",
+        "success_criteria"
+      ],
+      "topic_routing_rules_applied": [
+        "R2':distributed -> scope_boundaries leads",
+        "R3:no_control_group -> add comparison_baseline",
+        "CAP:7->6 (protected: ['constraints', 'hypothesis_validation', 'success_criteria'])",
+        "PHASE19:framing_gate -> problem_framing leads"
+      ],
+      "framing_prompt": null,
+      "framing_decision": {
+        "choice": "confirm_stated",
+        "chosen_kpi_id": null,
+        "chosen_objective_text": "Recovering E-Commerce Revenue",
+        "falsification_criterion": "If this KPI does not move as expected within two assessment cycles after acting on this objective, this frame was wrong.",
+        "other_text": null
+      },
+      "framing_record": {
+        "persisted": true,
+        "persist_error": null,
+        "assumption_id": "72f2eb33-2260-43f7-9fa9-7e83d63afbea",
+        "decided_by_role": "Chief Executive Officer",
+        "decided_by_is_owner": false,
+        "decided_at": "2026-08-22T17:03:20.328322+00:00"
+      },
+      "scqa_summary": "Frame (chosen by Chief Executive Officer): Recovering E-Commerce Revenue\n\nSituation: Year-to-date e-commerce revenue shows mixed performance across segments, with outperforming channels (Mass Retailer Group, Specialty, Chemicals & Additives) generating $4.27M in combined revenue while underperforming segments (Mid-Range, National Auto Parts Chain A, Automatic Transmission Fluid) are dragging down results by $1.40M.\n\nComplication: The opportunity to scale high-performing segments is 3x larger than the drag from laggards, yet resources and attention risk being diverted to fix the underperforming Mid-Range category (-$405K), National Auto Parts Chain A (-$359K), and Automatic Transmission Fluid (-$191K) rather than capitalizing on proven winners in mass retail and specialty channels.\n\nQuestion: How can we recover e-commerce revenue by scaling the outperforming segments while containing the underperformance in lagging channels?\n\nAnswer: Prioritize replicating the Mass Retailer Group and Specialty channel strategies across similar customer profiles and product lines—this $4.27M opportunity represents the primary lever for revenue recovery; simultaneously, establish a containment plan for the Mid-Range and National Auto Parts Chain A segments (root-cause analysis, pricing review, or selective de-emphasis) to prevent further deterioration without diverting capital or operational focus from the scaling initiative.",
+      "framing_required": false
+    }
+  },
+  {
+    "request": {
+      "principal_id": "ceo_001",
+      "deep_analysis_output": {
+        "plan": {
+          "kpi_name": "E-Commerce Revenue",
+          "client_id": "lubricants",
+          "timeframe": "year_to_date",
+          "filters": {
+            "Fiscal Year": [
+              "2024",
+              "2025",
+              "2026"
+            ]
+          },
+          "dimensions": [
+            "product_name",
+            "product_line",
+            "product_category",
+            "customer_name",
+            "customer_segment",
+            "customer_region",
+            "profit_center_name",
+            "business_unit",
+            "channel_name",
+            "channel_type",
+            "account_name",
+            "account_type",
+            "account_category",
+            "account_group",
+            "fiscal_year"
+          ],
+          "steps": [
+            {
+              "type": "group_compare",
+              "dimension": "product_name",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "product_line",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "product_category",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "customer_name",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "customer_segment",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "customer_region",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "profit_center_name",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "business_unit",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "channel_name",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            },
+            {
+              "type": "group_compare",
+              "dimension": "channel_type",
+              "timeframe": "year_to_date",
+              "filters": {
+                "Fiscal Year": [
+                  "2024",
+                  "2025",
+                  "2026"
+                ]
+              },
+              "comparison": "current_vs_previous"
+            }
+          ],
+          "notes": "KT core with SCQA/MECE framing (auto-derived dimensions from data product contract).",
+          "dimensions_considered": [
+            "product_name",
+            "product_line",
+            "product_category",
+            "customer_name",
+            "customer_segment",
+            "customer_region",
+            "profit_center_name",
+            "business_unit",
+            "channel_name",
+            "channel_type",
+            "account_name",
+            "account_type",
+            "account_category",
+            "account_group",
+            "fiscal_year"
+          ],
+          "dimension_rank_source": "contract_semantics",
+          "analysis_mode": "mixed",
+          "alert_type": "threshold_breach",
+          "compound_alert": false,
+          "compound_pattern": null,
+          "merged_alert_types": null,
+          "secondary_alert_facts": null,
+          "comparator_override": null
+        },
+        "execution": {
+          "status": "success",
+          "request_id": "70a66284-f19a-45f4-b7cd-ac85370eaa96",
+          "timestamp": "2026-08-22T17:02:48.864820",
+          "error_message": null,
+          "plan": {
+            "kpi_name": "E-Commerce Revenue",
+            "client_id": "lubricants",
+            "timeframe": "year_to_date",
+            "filters": {
+              "Fiscal Year": [
+                "2024",
+                "2025",
+                "2026"
+              ]
+            },
+            "dimensions": [
+              "product_name",
+              "product_line",
+              "product_category",
+              "customer_name",
+              "customer_segment",
+              "customer_region",
+              "profit_center_name",
+              "business_unit",
+              "channel_name",
+              "channel_type",
+              "account_name",
+              "account_type",
+              "account_category",
+              "account_group",
+              "fiscal_year"
+            ],
+            "steps": [
+              {
+                "type": "group_compare",
+                "dimension": "product_name",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "product_line",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "product_category",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "customer_name",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "customer_segment",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "customer_region",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "profit_center_name",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "business_unit",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "channel_name",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              },
+              {
+                "type": "group_compare",
+                "dimension": "channel_type",
+                "timeframe": "year_to_date",
+                "filters": {
+                  "Fiscal Year": [
+                    "2024",
+                    "2025",
+                    "2026"
+                  ]
+                },
+                "comparison": "current_vs_previous"
+              }
+            ],
+            "notes": "KT core with SCQA/MECE framing (auto-derived dimensions from data product contract).",
+            "dimensions_considered": [
+              "product_name",
+              "product_line",
+              "product_category",
+              "customer_name",
+              "customer_segment",
+              "customer_region",
+              "profit_center_name",
+              "business_unit",
+              "channel_name",
+              "channel_type",
+              "account_name",
+              "account_type",
+              "account_category",
+              "account_group",
+              "fiscal_year"
+            ],
+            "dimension_rank_source": "contract_semantics",
+            "analysis_mode": "mixed",
+            "alert_type": "threshold_breach",
+            "compound_alert": false,
+            "compound_pattern": null,
+            "merged_alert_types": null,
+            "secondary_alert_facts": null,
+            "comparator_override": null
+          },
+          "dimensions_suggested": [
+            "product_name",
+            "product_line",
+            "product_category",
+            "customer_name",
+            "customer_segment",
+            "customer_region",
+            "profit_center_name",
+            "business_unit",
+            "channel_name",
+            "channel_type",
+            "account_name",
+            "account_type",
+            "account_category",
+            "account_group",
+            "fiscal_year"
+          ],
+          "dimensions_analyzed": [
+            "product_name",
+            "product_line",
+            "product_category",
+            "customer_name",
+            "customer_segment",
+            "customer_region",
+            "profit_center_name",
+            "business_unit",
+            "channel_name",
+            "channel_type"
+          ],
+          "dimensions_excluded": [],
+          "scqa_summary": "Frame (chosen by Chief Executive Officer): Recovering E-Commerce Revenue\n\nSituation: Year-to-date e-commerce revenue shows mixed performance across segments, with outperforming channels (Mass Retailer Group, Specialty, Chemicals & Additives) generating $4.27M in combined revenue while underperforming segments (Mid-Range, National Auto Parts Chain A, Automatic Transmission Fluid) are dragging down results by $1.40M.\n\nComplication: The opportunity to scale high-performing segments is 3x larger than the drag from laggards, yet resources and attention risk being diverted to fix the underperforming Mid-Range category (-$405K), National Auto Parts Chain A (-$359K), and Automatic Transmission Fluid (-$191K) rather than capitalizing on proven winners in mass retail and specialty channels.\n\nQuestion: How can we recover e-commerce revenue by scaling the outperforming segments while containing the underperformance in lagging channels?\n\nAnswer: Prioritize replicating the Mass Retailer Group and Specialty channel strategies across similar customer profiles and product lines—this $4.27M opportunity represents the primary lever for revenue recovery; simultaneously, establish a containment plan for the Mid-Range and National Auto Parts Chain A segments (root-cause analysis, pricing review, or selective de-emphasis) to prevent further deterioration without diverting capital or operational focus from the scaling initiative.",
+          "scqa_deferred": false,
+          "scqa_inputs": {
+            "comparison_type": "yoy",
+            "inverse_logic": false,
+            "kpi_unit": "$"
+          },
+          "situation_complication_summary": "Situation: E-Commerce Revenue shows mixed performance vs. the comparison period. Complication: Performance is bifurcated — Mid-Range, National Auto Parts Chain A, Automatic Transmission Fluid are dragging results while Mass Retailer Group, Specialty, Chemicals & Additives are outperforming.",
+          "kt_is_is_not": {
+            "what_is": [
+              {
+                "text": "E-Commerce Revenue is 9,878,311.85 vs prior year_to_date 9,590,593.94 (Δ +287,717.91, +3.0%)."
+              },
+              {
+                "text": "Issue observed during year_to_date compared against prior year_to_date."
+              },
+              {
+                "text": "Largest variance in product_category: Mid-Range (Δ -404,988.68)."
+              },
+              {
+                "text": "Analysis scoped by applied filters, limiting impact to selected context."
+              }
+            ],
+            "what_is_not": [
+              {
+                "text": "Unaffected timeframe buckets: Within threshold"
+              }
+            ],
+            "where_is": [
+              {
+                "dimension": "customer_name",
+                "key": "Mass Retailer Group",
+                "delta": 646606.4999999907,
+                "current": 5233965.139999997,
+                "previous": 4587358.640000006,
+                "text": "customer_name: Mass Retailer Group (Δ +646,606.50) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_category",
+                "key": "Specialty",
+                "delta": 562529.2799999979,
+                "current": 4523453.539999997,
+                "previous": 3960924.2599999993,
+                "text": "product_category: Specialty (Δ +562,529.28) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_line",
+                "key": "Chemicals & Additives",
+                "delta": 492322.7799999984,
+                "current": 3501222.4699999983,
+                "previous": 3008899.69,
+                "text": "product_line: Chemicals & Additives (Δ +492,322.78) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_category",
+                "key": "Mid-Range",
+                "delta": -404988.6799999997,
+                "current": 4269501.270000004,
+                "previous": 4674489.950000004,
+                "text": "product_category: Mid-Range (Δ -404,988.68)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "product_name",
+                "key": "Fuel System Cleaner",
+                "delta": 397126.4499999997,
+                "current": 1874795.3199999998,
+                "previous": 1477668.87,
+                "text": "product_name: Fuel System Cleaner (Δ +397,126.45) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "customer_name",
+                "key": "National Auto Parts Chain A",
+                "delta": -358888.5899999989,
+                "current": 4644346.709999998,
+                "previous": 5003235.299999997,
+                "text": "customer_name: National Auto Parts Chain A (Δ -358,888.59)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "customer_segment",
+                "key": "Retail Partners",
+                "delta": 287717.91000000574,
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "text": "customer_segment: Retail Partners (Δ +287,717.91) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "customer_region",
+                "key": "North America",
+                "delta": 287717.91000000574,
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "text": "customer_region: North America (Δ +287,717.91) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "profit_center_name",
+                "key": "Retail Products Division",
+                "delta": 287717.91000000574,
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "text": "profit_center_name: Retail Products Division (Δ +287,717.91) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "business_unit",
+                "key": "Retail Products",
+                "delta": 287717.91000000574,
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "text": "business_unit: Retail Products (Δ +287,717.91) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "channel_name",
+                "key": "E-Commerce",
+                "delta": 287717.91000000574,
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "text": "channel_name: E-Commerce (Δ +287,717.91) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "channel_type",
+                "key": "Digital",
+                "delta": 287717.91000000574,
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "text": "channel_type: Digital (Δ +287,717.91) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_name",
+                "key": "Automatic Transmission Fluid",
+                "delta": -190866.21999999974,
+                "current": 930253.4900000002,
+                "previous": 1121119.71,
+                "text": "product_name: Automatic Transmission Fluid (Δ -190,866.22)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "product_line",
+                "key": "Transmission & Drivetrain",
+                "delta": -190866.21999999974,
+                "current": 930253.4900000002,
+                "previous": 1121119.71,
+                "text": "product_line: Transmission & Drivetrain (Δ -190,866.22)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "product_name",
+                "key": "Synthetic Blend Engine Oil",
+                "delta": -178609.23000000138,
+                "current": 2300748.2099999986,
+                "previous": 2479357.44,
+                "text": "product_name: Synthetic Blend Engine Oil (Δ -178,609.23)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "product_name",
+                "key": "Full Synthetic Engine Oil",
+                "delta": 130177.31000000075,
+                "current": 1085357.0400000003,
+                "previous": 955179.7299999995,
+                "text": "product_name: Full Synthetic Engine Oil (Δ +130,177.31) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_category",
+                "key": "Premium",
+                "delta": 130177.31000000075,
+                "current": 1085357.0400000003,
+                "previous": 955179.7299999995,
+                "text": "product_category: Premium (Δ +130,177.31) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_name",
+                "key": "Oil Treatment Additive",
+                "delta": 95196.33000000077,
+                "current": 1626427.15,
+                "previous": 1531230.8199999991,
+                "text": "product_name: Oil Treatment Additive (Δ +95,196.33) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_name",
+                "key": "High Mileage Engine Oil",
+                "delta": 70206.5,
+                "current": 1022231.0700000002,
+                "previous": 952024.5700000002,
+                "text": "product_name: High Mileage Engine Oil (Δ +70,206.50) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              },
+              {
+                "dimension": "product_name",
+                "key": "Extended Life Coolant",
+                "delta": -35513.23000000091,
+                "current": 1038499.5699999994,
+                "previous": 1074012.8000000003,
+                "text": "product_name: Extended Life Coolant (Δ -35,513.23)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "product_line",
+                "key": "Coolants & Antifreeze",
+                "delta": -35513.23000000091,
+                "current": 1038499.5699999994,
+                "previous": 1074012.8000000003,
+                "text": "product_line: Coolants & Antifreeze (Δ -35,513.23)",
+                "segment_type": "problem"
+              },
+              {
+                "dimension": "product_line",
+                "key": "Engine Oils",
+                "delta": 21774.57999999076,
+                "current": 4408336.319999996,
+                "previous": 4386561.740000005,
+                "text": "product_line: Engine Oils (Δ +21,774.58) — Outperforming",
+                "note": "Outperforming",
+                "segment_type": "opportunity"
+              }
+            ],
+            "where_is_not": [],
+            "when_is": [
+              {
+                "bucket": "2026-007",
+                "delta": 1430234.09,
+                "current": 1430234.09,
+                "previous": 0,
+                "text": "2026-007 (Δ +1,430,234.09)"
+              },
+              {
+                "bucket": "2026-006",
+                "delta": 1393872.2200000007,
+                "current": 1393872.2200000007,
+                "previous": 0,
+                "text": "2026-006 (Δ +1,393,872.22)"
+              },
+              {
+                "bucket": "2026-008",
+                "delta": 1357510.3400000005,
+                "current": 1357510.3400000005,
+                "previous": 0,
+                "text": "2026-008 (Δ +1,357,510.34)"
+              }
+            ],
+            "when_is_not": [
+              {
+                "bucket": "2026-007",
+                "delta": 1430234.09,
+                "current": 1430234.09,
+                "previous": 0,
+                "text": "2026-007 (Δ +1,430,234.09) — Within threshold",
+                "note": "Within threshold"
+              },
+              {
+                "bucket": "2026-006",
+                "delta": 1393872.2200000007,
+                "current": 1393872.2200000007,
+                "previous": 0,
+                "text": "2026-006 (Δ +1,393,872.22) — Within threshold",
+                "note": "Within threshold"
+              },
+              {
+                "bucket": "2026-008",
+                "delta": 1357510.3400000005,
+                "current": 1357510.3400000005,
+                "previous": 0,
+                "text": "2026-008 (Δ +1,357,510.34) — Within threshold",
+                "note": "Within threshold"
+              }
+            ],
+            "extent_is": [
+              {
+                "dimension": "product_name",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 7,
+                "breach_count": 7,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 2
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 2
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 1
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 1
+                  }
+                ],
+                "min_ratio": -0.1702460658728404,
+                "median_ratio": 0.062169810558019484,
+                "max_ratio": 0.2687519904239437
+              },
+              {
+                "dimension": "product_line",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 4,
+                "breach_count": 4,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 1
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": -0.1702460658728404,
+                "median_ratio": -0.014050999656736082,
+                "max_ratio": 0.1636221977210541
+              },
+              {
+                "dimension": "product_category",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 3,
+                "breach_count": 3,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 2
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": -0.08663804700232576,
+                "median_ratio": 0.13628567055123839,
+                "max_ratio": 0.14201970123003513
+              },
+              {
+                "dimension": "customer_name",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 2,
+                "breach_count": 2,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 1
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": -0.07173130354272947,
+                "median_ratio": 0.03461134280693466,
+                "max_ratio": 0.1409539891565988
+              },
+              {
+                "dimension": "customer_segment",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 1,
+                "breach_count": 1,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": 0.030000009571879108,
+                "median_ratio": 0.030000009571879108,
+                "max_ratio": 0.030000009571879108
+              },
+              {
+                "dimension": "customer_region",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 1,
+                "breach_count": 1,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": 0.030000009571879108,
+                "median_ratio": 0.030000009571879108,
+                "max_ratio": 0.030000009571879108
+              },
+              {
+                "dimension": "profit_center_name",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 1,
+                "breach_count": 1,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": 0.030000009571879108,
+                "median_ratio": 0.030000009571879108,
+                "max_ratio": 0.030000009571879108
+              },
+              {
+                "dimension": "business_unit",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 1,
+                "breach_count": 1,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": 0.030000009571879108,
+                "median_ratio": 0.030000009571879108,
+                "max_ratio": 0.030000009571879108
+              },
+              {
+                "dimension": "channel_name",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 1,
+                "breach_count": 1,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": 0.030000009571879108,
+                "median_ratio": 0.030000009571879108,
+                "max_ratio": 0.030000009571879108
+              },
+              {
+                "dimension": "channel_type",
+                "vector": "dimension",
+                "comparator": "previous",
+                "threshold": 5,
+                "inverse_logic": false,
+                "total_keys": 1,
+                "breach_count": 1,
+                "within_count": 0,
+                "histogram": [
+                  {
+                    "bin": "<-20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-20% to -10%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "-10% to 0%",
+                    "count": 0
+                  },
+                  {
+                    "bin": "0% to 10%",
+                    "count": 1
+                  },
+                  {
+                    "bin": "10% to 20%",
+                    "count": 0
+                  },
+                  {
+                    "bin": ">20%",
+                    "count": 0
+                  }
+                ],
+                "min_ratio": 0.030000009571879108,
+                "median_ratio": 0.030000009571879108,
+                "max_ratio": 0.030000009571879108
+              },
+              {
+                "queries_planned": 24
+              }
+            ],
+            "extent_is_not": [],
+            "benchmark_segments": [
+              {
+                "dimension": "customer_name",
+                "key": "Mass Retailer Group",
+                "current_value": 5233965.139999997,
+                "previous_value": 4587358.640000006,
+                "delta": 646606.4999999907,
+                "delta_pct": 14.09539891565988,
+                "benchmark_type": "internal_benchmark",
+                "replication_potential": 0.303,
+                "effect_size_pct": 0.1513,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_category",
+                "key": "Specialty",
+                "current_value": 4523453.539999997,
+                "previous_value": 3960924.2599999993,
+                "delta": 562529.2799999979,
+                "delta_pct": 14.201970123003512,
+                "benchmark_type": "internal_benchmark",
+                "replication_potential": 0.263,
+                "effect_size_pct": 0.1317,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_line",
+                "key": "Chemicals & Additives",
+                "current_value": 3501222.4699999983,
+                "previous_value": 3008899.69,
+                "delta": 492322.7799999984,
+                "delta_pct": 16.36221977210541,
+                "benchmark_type": "internal_benchmark",
+                "replication_potential": 0.23,
+                "effect_size_pct": 0.1152,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_name",
+                "key": "Fuel System Cleaner",
+                "current_value": 1874795.3199999998,
+                "previous_value": 1477668.87,
+                "delta": 397126.4499999997,
+                "delta_pct": 26.87519904239437,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.093,
+                "is_outlier": false
+              },
+              {
+                "dimension": "customer_segment",
+                "key": "Retail Partners",
+                "current_value": 9878311.850000005,
+                "previous_value": 9590593.94,
+                "delta": 287717.91000000574,
+                "delta_pct": 3.0000009571879107,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0673,
+                "is_outlier": false
+              },
+              {
+                "dimension": "customer_region",
+                "key": "North America",
+                "current_value": 9878311.850000005,
+                "previous_value": 9590593.94,
+                "delta": 287717.91000000574,
+                "delta_pct": 3.0000009571879107,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0673,
+                "is_outlier": false
+              },
+              {
+                "dimension": "profit_center_name",
+                "key": "Retail Products Division",
+                "current_value": 9878311.850000005,
+                "previous_value": 9590593.94,
+                "delta": 287717.91000000574,
+                "delta_pct": 3.0000009571879107,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0673,
+                "is_outlier": false
+              },
+              {
+                "dimension": "business_unit",
+                "key": "Retail Products",
+                "current_value": 9878311.850000005,
+                "previous_value": 9590593.94,
+                "delta": 287717.91000000574,
+                "delta_pct": 3.0000009571879107,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0673,
+                "is_outlier": false
+              },
+              {
+                "dimension": "channel_name",
+                "key": "E-Commerce",
+                "current_value": 9878311.850000005,
+                "previous_value": 9590593.94,
+                "delta": 287717.91000000574,
+                "delta_pct": 3.0000009571879107,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0673,
+                "is_outlier": false
+              },
+              {
+                "dimension": "channel_type",
+                "key": "Digital",
+                "current_value": 9878311.850000005,
+                "previous_value": 9590593.94,
+                "delta": 287717.91000000574,
+                "delta_pct": 3.0000009571879107,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0673,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_name",
+                "key": "Full Synthetic Engine Oil",
+                "current_value": 1085357.0400000003,
+                "previous_value": 955179.7299999995,
+                "delta": 130177.31000000075,
+                "delta_pct": 13.628567055123838,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0305,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_category",
+                "key": "Premium",
+                "current_value": 1085357.0400000003,
+                "previous_value": 955179.7299999995,
+                "delta": 130177.31000000075,
+                "delta_pct": 13.628567055123838,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0305,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_name",
+                "key": "Oil Treatment Additive",
+                "current_value": 1626427.15,
+                "previous_value": 1531230.8199999991,
+                "delta": 95196.33000000077,
+                "delta_pct": 6.2169810558019485,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0223,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_name",
+                "key": "High Mileage Engine Oil",
+                "current_value": 1022231.0700000002,
+                "previous_value": 952024.5700000002,
+                "delta": 70206.5,
+                "delta_pct": 7.374442027268266,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0164,
+                "is_outlier": false
+              },
+              {
+                "dimension": "product_line",
+                "key": "Engine Oils",
+                "current_value": 4408336.319999996,
+                "previous_value": 4386561.740000005,
+                "delta": 21774.57999999076,
+                "delta_pct": 0.4963928764853253,
+                "benchmark_type": "control_group",
+                "replication_potential": null,
+                "effect_size_pct": 0.0051,
+                "is_outlier": false
+              }
+            ],
+            "dimension_totals": {
+              "customer_segment": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "channel_name": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "product_category": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "product_line": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "business_unit": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "customer_region": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "profit_center_name": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "customer_name": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "channel_type": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              },
+              "product_name": {
+                "current": 9878311.850000005,
+                "previous": 9590593.94,
+                "delta": 287717.91000000574,
+                "source": "scalar_query"
+              }
+            }
+          },
+          "change_points": [
+            {
+              "dimension": "product_category",
+              "key": "Mid-Range",
+              "timestamp": null,
+              "current_value": 4269501.270000004,
+              "previous_value": 4674489.950000004,
+              "delta": -404988.6799999997,
+              "percent_growth": null,
+              "contribution_pp": null
+            },
+            {
+              "dimension": "customer_name",
+              "key": "National Auto Parts Chain A",
+              "timestamp": null,
+              "current_value": 4644346.709999998,
+              "previous_value": 5003235.299999997,
+              "delta": -358888.5899999989,
+              "percent_growth": null,
+              "contribution_pp": null
+            },
+            {
+              "dimension": "product_name",
+              "key": "Automatic Transmission Fluid",
+              "timestamp": null,
+              "current_value": 930253.4900000002,
+              "previous_value": 1121119.71,
+              "delta": -190866.21999999974,
+              "percent_growth": null,
+              "contribution_pp": null
+            },
+            {
+              "dimension": "product_line",
+              "key": "Transmission & Drivetrain",
+              "timestamp": null,
+              "current_value": 930253.4900000002,
+              "previous_value": 1121119.71,
+              "delta": -190866.21999999974,
+              "percent_growth": null,
+              "contribution_pp": null
+            },
+            {
+              "dimension": "product_name",
+              "key": "Synthetic Blend Engine Oil",
+              "timestamp": null,
+              "current_value": 2300748.2099999986,
+              "previous_value": 2479357.44,
+              "delta": -178609.23000000138,
+              "percent_growth": null,
+              "contribution_pp": null
+            }
+          ],
+          "timeframe_mapping": {
+            "current": "year_to_date",
+            "previous": "prior year_to_date"
+          },
+          "when_started": "2026-006",
+          "percent_growth_enabled": false,
+          "analysis_mode": "mixed",
+          "mixed_framing": true,
+          "alert_type": "threshold_breach",
+          "comparator": "previous",
+          "merged_alert_types": null,
+          "comparator_secondary": null,
+          "matrix_ran": false,
+          "samples": null
+        },
+        "market_signals": [
+          {
+            "source": "llm_knowledge",
+            "title": "Amazon and Walmart.com Automotive Category Growth Outpaces Brick-and-Mortar",
+            "summary": "Online sales of automotive lubricants and fluids, including Automatic Transmission Fluid, continue to grow faster than in-store sales at Mass Retailer Group partners like National Auto Parts Chain A, as DIY consumers increasingly research and purchase fluids online due to vehicle-specific fitment guides and subscribe-and-save pricing. This is a tailwind for E-Commerce Revenue as digital shelf space expansion accelerates.",
+            "relevance_score": 0.82,
+            "published_at": null,
+            "url": null
+          },
+          {
+            "source": "llm_knowledge",
+            "title": "Rising Digital Advertising and Marketplace Fee Costs Compress E-Commerce Margins",
+            "summary": "Retail media and marketplace platforms (Amazon Advertising, Walmart Connect) have raised CPC and referral fees 10-15% year-over-year, pressuring margins on Mid-Range and Specialty lubricant SKUs sold direct-to-consumer or through National Auto Parts Chain A's e-commerce channel, creating a headwind for profitable e-commerce revenue growth.",
+            "relevance_score": 0.78,
+            "published_at": null,
+            "url": null
+          },
+          {
+            "source": "llm_knowledge",
+            "title": "Base Oil and Additive Cost Volatility Complicates Online Price Competitiveness",
+            "summary": "Group II/III base oil prices and Chemicals & Additives inputs have seen swings of 8-12% over recent quarters due to refinery capacity shifts and feedstock costs, making it harder for e-commerce-listed Mid-Range and Automatic Transmission Fluid products to maintain stable online pricing versus aggressive third-party marketplace sellers, a headwind for e-commerce revenue predictability.",
+            "relevance_score": 0.75,
+            "published_at": null,
+            "url": null
+          },
+          {
+            "source": "llm_knowledge",
+            "title": "Growth of EV Fleet Slows Long-Term Online Demand for Conventional ATF and Engine Oils",
+            "summary": "As EV adoption incrementally reduces the addressable market for traditional Automatic Transmission Fluid and engine lubricants, some analysts project flat-to-declining unit demand growth in conventional fluid categories online over the next 3-5 years, a mild headwind offsetting near-term e-commerce channel gains, though ICE vehicle parc remains large near-term.",
+            "relevance_score": 0.68,
+            "published_at": null,
+            "url": null
+          }
+        ],
+        "situation_context": {
+          "kpi_name": "E-Commerce Revenue",
+          "description": "E-Commerce Revenue increased by 3.3% vs prior year (2026-01-01–2026-08-22 vs 2025-01-01–2025-08-22)",
+          "severity": "critical",
+          "situation_id": "7047bf02-1d9c-4e05-9fa8-218bab4ae281"
+        }
+      },
+      "principal_context": {
+        "principal_id": "ceo_001",
+        "client_id": "lubricants",
+        "role": "Chief Executive Officer",
+        "decision_style": "visionary",
+        "name": "David Torres",
+        "input": {
+          "current_priorities": [],
+          "known_constraints": []
+        }
+      },
+      "conversation_history": [
+        {
+          "role": "assistant",
+          "content": "Before generating solutions, let's confirm the objective for E-Commerce Revenue."
+        },
+        {
+          "role": "assistant",
+          "content": "Looking at the portfolio, Mass Retailer Group (+$646K) and Specialty (+$562K) are carrying growth while Mid-Range is dragging performance down by -$405K — should the recovery mandate concentrate resources on defending and scaling the winning channels, or does Mid-Range need to be in scope given its strategic importance to the broader business?"
+        },
+        {
+          "role": "user",
+          "content": "Proceed to solutions"
+        }
+      ],
+      "user_message": "Proceed to solutions",
+      "current_topic": "scope_boundaries",
+      "turn_count": 2,
+      "topics_completed": [
+        "problem_framing"
+      ],
+      "turns_on_current_topic": 0,
+      "prior_constraint_items": [],
+      "prior_exclusions": []
+    },
+    "response": {
+      "agent_message": "Thank you for the context. I have enough information to proceed to solution generation.",
+      "suggested_responses": [],
+      "exclusions": [],
+      "external_context": [],
+      "constraints": [],
+      "validated_hypotheses": [],
+      "invalidated_hypotheses": [],
+      "current_topic": "problem_framing",
+      "topic_complete": true,
+      "topics_completed": [
+        "problem_framing"
+      ],
+      "ready_for_solutions": true,
+      "refined_problem_statement": "Frame (chosen by Chief Executive Officer): Recovering E-Commerce Revenue\n\nSituation: Year-to-date e-commerce revenue shows mixed performance across segments, with outperforming channels (Mass Retailer Group, Specialty, Chemicals & Additives) generating $4.27M in combined revenue while underperforming segments (Mid-Range, National Auto Parts Chain A, Automatic Transmission Fluid) are dragging down results by $1.40M.\n\nComplication: The opportunity to scale high-performing segments is 3x larger tha",
+      "recommended_council_type": "strategic",
+      "council_routing_rationale": "Principal role: Chief Executive Officer; Decision style: visionary; Matched keywords/rules for strategic council",
+      "recommended_council_members": [
+        {
+          "category": "mbb",
+          "persona_id": "bain",
+          "persona_name": "Bain & Company",
+          "rationale": "Matched: results, customer, pe"
+        },
+        {
+          "category": "big4",
+          "persona_id": "deloitte",
+          "persona_name": "Deloitte Consulting",
+          "rationale": "Matched: erp"
+        },
+        {
+          "category": "technology",
+          "persona_id": "accenture",
+          "persona_name": "Accenture",
+          "rationale": "Matched: scale, ai"
+        },
+        {
+          "category": "risk",
+          "persona_id": "kpmg",
+          "persona_name": "KPMG Advisory",
+          "rationale": "Matched: risk"
+        }
+      ],
+      "turn_count": 2,
+      "conversation_history": [
+        {
+          "role": "assistant",
+          "content": "Before generating solutions, let's confirm the objective for E-Commerce Revenue."
+        },
+        {
+          "role": "assistant",
+          "content": "Looking at the portfolio, Mass Retailer Group (+$646K) and Specialty (+$562K) are carrying growth while Mid-Range is dragging performance down by -$405K — should the recovery mandate concentrate resources on defending and scaling the winning channels, or does Mid-Range need to be in scope given its strategic importance to the broader business?"
+        },
+        {
+          "role": "user",
+          "content": "Proceed to solutions"
+        }
+      ],
+      "market_signals": null,
+      "replication_constraints": [],
+      "constraint_items": [],
+      "problem_profile_cell": "mixed/distributed/no-control/single",
+      "topic_sequence": [
+        "problem_framing",
+        "scope_boundaries",
+        "hypothesis_validation",
+        "comparison_baseline",
+        "external_context",
+        "constraints",
+        "success_criteria"
+      ],
+      "topic_routing_rules_applied": [
+        "R2':distributed -> scope_boundaries leads",
+        "R3:no_control_group -> add comparison_baseline",
+        "CAP:7->6 (protected: ['constraints', 'hypothesis_validation', 'success_criteria'])",
+        "PHASE19:framing_gate -> problem_framing leads"
+      ],
+      "framing_prompt": null,
+      "framing_decision": null,
+      "framing_record": null,
+      "scqa_summary": null,
+      "framing_required": false
+    }
+  }
+]
