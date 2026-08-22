@@ -121,7 +121,59 @@ conversation's mockup). Not scoped further here; flagged so it isn't lost.
 
 ---
 
-## 4. Not built
+## 4. Panel structure — Spine, Edges, and Ports as conditional sections; Assumptions as a marker, not a section
+
+Resolved in conversation 2026-08-21, after the waterfall question above: the Framing Evidence
+Map isn't a fixed four-box layout mirroring the four Value Driver Tree concepts one-for-one. Two
+findings changed the shape:
+
+**A fixed four-quadrant grid would violate Phase 17's own delivery rule one level down.** That
+rule exists because a partial four-panel layout — three empty boxes beside one populated one —
+"reads as a product that does not work." A rigid grid reserving space for all four concepts on
+every KPI recreates exactly that failure at the panel level: **Spine** only exists for a primary
+with surviving `accounting_identity` neighbours (an FI-anchored KPI like Gross Margin %, not a
+pure Operational KPI like `units_sold`, which has nothing above it in a ledger). **Ports** only
+exists when Market Analysis's conflict detection actually fires that period — most periods, for
+most KPIs, it won't. Reserving a quadrant for either produces a routinely-half-empty layout for
+most real KPI/period combinations.
+
+**Assumptions was never a fourth section to begin with.** Phase 17's own text says it plainly and
+this design missed it on first pass: *"the spine is the skeleton; sections 2–4 are the
+annotation."* A holding/breaking verdict is a marker *on* an edge or *on* a framing decision, not
+independent content with its own chart. It attaches at two points once a graded-verdict field
+exists (Phase 17 T3, still gated on VA outcome data): the `prior_frame` block already rendered in
+`FramingGateCard`, and individual `causal_estimate` edge/port cards. Until T3 ships, the honest
+default is a small per-card "verdict pending" note where the badge will eventually sit — not a
+panel-wide muted strip parallel to the real sections, which overstates it into looking like a
+fourth missing feature rather than a badge with nothing to show yet.
+
+**Resolved structure:** Spine, Edges, and Ports render only when they have real content for the
+specific KPI being framed, stacked full-width in priority order (Spine → Edges → Ports) — never
+boxed into reserved space. Assumptions never occupies a section; it decorates whichever
+`causal_estimate` cards exist, once gradeable.
+
+**A KPI-specific edge case worth naming, because it's sharper than "FI-schema ⇒ has a Spine":**
+Net Revenue *does* sit on the FI ledger, but its only identity neighbour (`gross_margin_pct`) is
+correctly excluded from its own framing alternatives by this session's earlier hop-1
+confirmed-downstream-effect filter — margin % is a derived ratio, not a legitimate root-cause
+candidate when analysing revenue itself (see the `causal_direction` comment in
+`scripts/clients/lubricants.py:768-779`). So Net Revenue's Spine section is empty not because it
+lacks identity neighbours in the schema sense, but because the one it has doesn't survive the
+same path-validity filter already governing Edges. One rule — "does a neighbour survive the
+path-validity filter" — decides whether *any* section renders, Spine included; there is no
+separate carve-out needed for "is this KPI FI-schema."
+
+**Illustrative per-KPI outcomes, not hypothetical:**
+
+| Primary KPI | Spine | Edges | Ports (this period) |
+|---|---|---|---|
+| Gross Margin % | `net_revenue`, `cogs` (both identity, 1 hop) | `premium_mix_pct` (estimate) | absent unless MA's conflict fires |
+| `units_sold` | never — no ledger ancestor | whatever registered edges exist | possible |
+| Net Revenue | empty — its one identity neighbour is filtered out by the hop-1 rule above | `units_sold`/`sales_order_count`/`average_order_value` (estimate) | possible |
+
+---
+
+## 5. Not built
 
 This is a design note only. Reclassifying live edges (`net_revenue↔gross_margin_pct`,
 `gross_margin_pct↔cogs`, `base_oil_cost→cogs`, `distribution_cost→cogs`) changes what the
