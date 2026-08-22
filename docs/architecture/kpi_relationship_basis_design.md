@@ -121,7 +121,56 @@ conversation's mockup). Not scoped further here; flagged so it isn't lost.
 
 ---
 
-## 4. Panel structure — Spine, Edges, and Ports as conditional sections; Assumptions as a marker, not a section
+## 4. The Spine mechanism, corrected: a variance bridge, not a composition bridge
+
+The first mockup rendered Spine as a *composition* bridge — Net Revenue − COGS ÷ = Gross Margin
+%, decomposing the current period's value into its inputs. Caught in conversation as the wrong
+chart: the framing question is "why did this move, and is this the right KPI to be looking at" —
+inherently about the *delta* between periods, not the current value's arithmetic. A composition
+bridge doesn't answer that at all.
+
+**The data already needed for the right chart is already fetched.** `NeighbourSnapshot`
+(`deep_analysis_models.py:383-404`) carries `value` (current) *and* `comparison_value` (prior
+period) for every neighbour, and the primary KPI's own `primary_snapshot` in the same shape.
+Nothing new needs to reach the framing gate.
+
+**The bridge, exact for two identity inputs — not approximate:**
+
+```
+margin%(R, C) = (R − C) / R
+
+Revenue effect = margin%(R₁, C₀) − margin%(R₀, C₀)   -- swap revenue to current, COGS held at prior
+COGS effect    = margin%(R₁, C₁) − margin%(R₁, C₀)   -- now swap COGS to current
+
+Revenue effect + COGS effect = Current margin% − Prior margin%,  exactly -- no residual term
+```
+
+Illustrative numbers (not live — the mockup states this): R₀=100, C₀=65 → prior margin 35.0%;
+R₁=110, C₁=77 → current margin 30.0%. Revenue effect = +5.9pp, COGS effect = −10.9pp, and they
+sum to exactly the observed −5.0pp move. That closure is the property worth protecting: it holds
+for exactly two identity inputs via sequential substitution. It stops holding automatically the
+moment a third identity input joins the same bridge (splitting COGS into Raw Materials and
+Distribution, say) — order of substitution then affects the split, and either a disclosed
+convention or an order-independent method (Shapley) is needed. Not a problem today; a tripwire
+for later.
+
+**A gap this surfaces that `basis` alone doesn't close:** `accounting_identity` says an edge is
+exact arithmetic, not *which* arithmetic — add, subtract, divide, in what order. Gross Margin %'s
+formula is simple enough to hardcode as a first cut; a general mechanism needs the relationship
+(or the KPI's own `sql_query`) to express the actual operation. Left as a known gap, not solved
+here.
+
+**Why `premium_mix_pct` cannot join this same numeric bridge.** It isn't a third input to the
+margin% formula — it's a claim about *why* revenue or COGS moved, which would need an elasticity
+Phase 17 already names as missing (§"What a MATURE decomposition model does for Solution
+Finding": *"cannot say lag... elasticity... how much"*). Folding it into the same bar sequence
+would fabricate precision for a genuinely uncertain edge, the exact conflation this whole note
+exists to prevent. It stays in Edges, rendered qualitatively, never merged into the numeric
+Spine.
+
+---
+
+## 5. Panel structure — Spine, Edges, and Ports as conditional sections; Assumptions as a marker, not a section
 
 Resolved in conversation 2026-08-21, after the waterfall question above: the Framing Evidence
 Map isn't a fixed four-box layout mirroring the four Value Driver Tree concepts one-for-one. Two
@@ -173,7 +222,7 @@ separate carve-out needed for "is this KPI FI-schema."
 
 ---
 
-## 5. Not built
+## 6. Not built
 
 This is a design note only. Reclassifying live edges (`net_revenue↔gross_margin_pct`,
 `gross_margin_pct↔cogs`, `base_oil_cost→cogs`, `distribution_cost→cogs`) changes what the
