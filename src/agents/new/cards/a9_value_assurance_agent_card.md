@@ -276,3 +276,34 @@ SA (detect) → DA (Is/Is Not) → MA (market signals) → SF (solutions + HITL)
 Also confirmed while building the test: the legacy `GET /value-assurance/solutions/{solution_id}` route reads a **module-level dict in `value_assurance.py`** that the real `register_solution` flow never writes to (it writes to the VA agent singleton's own `_solutions_store` via `AgentRegistry`). That route 404s for anything registered through the real HITL path — use `GET /portfolio/{principal_id}` (which correctly resolves the singleton via `_get_va_agent()`) instead, until the legacy route is rewired or removed.
 
 **Test also simulates the real HITL lifecycle clicks**, not just approve: Approve → "Mark Implementing" → "Go Live" (`PATCH /solutions/{id}/phase`, exactly what `Portfolio.tsx`'s buttons call) → `evaluate`. This matters because the LIVE transition is what resets `actual_trend` to a fresh measurement baseline in production.
+
+## Third `kpi_id` bug in the same handler, found the same way (Aug 2026)
+
+The two Aug 2026 bugs above (`kpi_id=""`, `client_id=None`) were both fixed in `workflows.py`'s approve
+handler — but that fix still always resolved `kpi_id` from the *situation's* original KPI. Found live
+2026-08-22 testing a genuine reframe (Gross Margin % → COGS via the Phase 19 framing gate): a solution
+approved after a reframe would register and go on to be measured against `gross_margin_pct`, not the
+KPI the framing decision — and the approved solution's own mechanism — actually targeted.
+
+Fixed via `_resolve_va_kpi_id_and_framing()` (`workflows.py`, module-level and pure, deliberately
+extracted so it's unit-testable without the full route/runtime stack): prefers
+`framing_decision.chosen_kpi_id` when `choice != "confirm_stated"`, falls back to the situation's
+stated KPI otherwise. `framing_decision` reaches this handler the same way it already reaches SF's own
+dispatch (`preferences.refinement_result`) — no new plumbing, just a consumer that was missing.
+
+**New `AcceptedSolution` fields, same session:** `framing_snapshot` (a new `FramingSnapshot` model —
+`choice`/`chosen_kpi_id`/`chosen_objective_text`/`falsification_criterion`/`stated_kpi_id`, durable even
+if the causal graph is later reclassified) and `target_metric` (the approved option's own
+`impact_estimate.metric`). Both had to be threaded through **three** separate hand-maintained field
+lists to actually persist — `register_solution`'s `AcceptedSolution(...)` construction here,
+`VASolutionsStore.upsert_solution`'s `row` dict, and the new migration's columns — the same
+explicit-field-list trap that already silently dropped `KPIRelationship.causal_direction` twice
+elsewhere in this codebase. Migration `20260822_va_solutions_framing_snapshot.sql`, applied and
+verified live against local Supabase. 6 new regression tests in `test_va_registration_framing_kpi.py`.
+
+**Not yet built:** the full reframe chain (margin → COGS → base_oil_cost) still only preserves the last
+hop's decision — no `reframed_from_id` lineage field exists yet to link successive framing records.
+`alternatives_considered` (what else was offered, not just what was chosen) also isn't captured — that
+needs `framing_prompt`/`framing_record` threaded through the frontend's `debateConfig.refinementResult`
+the same way `framing_decision` already is, which doesn't happen today. See
+`docs/architecture/reframe_relaunch_and_lineage_design.md`.

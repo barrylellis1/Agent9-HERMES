@@ -5,7 +5,7 @@ import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -87,6 +87,51 @@ _workflow_store: Dict[str, WorkflowRecord] = {}
 _store_lock = asyncio.Lock()
 
 _SECRET_KEY_MARKERS = ("password", "secret", "private_key", "token", "api_key", "access_key")
+
+
+def _resolve_va_kpi_id_and_framing(
+    wf_payload: Dict[str, Any], stated_kpi_id: str
+) -> Tuple[str, Optional[Any]]:
+    """VA registration's kpi_id, corrected for a reframe — module-level and pure
+    so it's unit-testable without the full approval route/runtime stack.
+
+    Found live 2026-08-22: VA registration's kpi_id was ALWAYS `stated_kpi_id`
+    (the situation's original KPI), even after a reframe — today's own live
+    test chose COGS over Gross Margin %, and this would have registered VA
+    against gross_margin_pct regardless. `framing_decision` reaches this
+    handler the same way it reaches SF's own dispatch
+    (`preferences.refinement_result`, threaded from
+    DeepFocusView.tsx ~L348-360), since the workflow record read here IS the
+    same synthesis dispatch record SF's own request built.
+
+    Returns (kpi_id, framing_snapshot | None). Never raises — a malformed
+    framing_decision degrades to stated_kpi_id with no snapshot, same
+    non-fatal posture as every other VA-registration extraction in this
+    handler.
+    """
+    framing_decision = (
+        (wf_payload.get("preferences") or {}).get("refinement_result") or {}
+    ).get("framing_decision") or {}
+    reframed = bool(framing_decision) and framing_decision.get("choice") != "confirm_stated"
+    kpi_id = (framing_decision.get("chosen_kpi_id") if reframed else None) or stated_kpi_id
+
+    framing_snapshot = None
+    if framing_decision:
+        from src.agents.models.value_assurance_models import FramingSnapshot
+        try:
+            framing_snapshot = FramingSnapshot(
+                choice=framing_decision.get("choice", "confirm_stated"),
+                chosen_kpi_id=framing_decision.get("chosen_kpi_id"),
+                chosen_objective_text=framing_decision.get("chosen_objective_text", ""),
+                falsification_criterion=framing_decision.get("falsification_criterion", ""),
+                stated_kpi_id=stated_kpi_id or None,
+            )
+        except Exception as exc:
+            import logging as _lg3
+            _lg3.getLogger("workflows.solutions.approve").warning(
+                "[VA] framing_snapshot construction failed (non-fatal): %s", exc
+            )
+    return kpi_id, framing_snapshot
 
 
 def _redact_secrets(value: Any) -> Any:
@@ -860,6 +905,13 @@ async def _record_solution_action(
             # looks large, and the human has already approved the option. The bounds
             # are recorded as-is and the doubt is recorded alongside them — silently
             # rewriting a number the approver saw would be worse than flagging it.
+            # Phase 19 framing-gate capture (Aug 2026) — which KPI this specific
+            # option's impact is measured against. Empirically validated this
+            # session as a clean discriminator of frame-widening: across the
+            # held-out lens_run/mbb_run corpus this always names the primary
+            # KPI; on a genuinely reframed run it names the chosen alternative.
+            target_metric = impact_est.get("metric")
+
             _impact_scope = impact_est.get("scope")
             _scope_warning: Optional[str] = None
             if _impact_scope == "segment":
@@ -906,7 +958,7 @@ async def _record_solution_action(
                         "Situation lookup for VA registration failed (non-fatal): %s", _sit_exc
                     )
 
-            # kpi_id: prefer the situation's registry KPI id (Situation.kpi_id — "used
+            # stated_kpi_id: the situation's registry KPI id (Situation.kpi_id — "used
             # to match against VA solution records" per its own field description),
             # then the situation's display name, then DA's nested plan.kpi_name.
             # NOTE: da_output.get("kpi_name") directly (the old behaviour here) is
@@ -915,12 +967,14 @@ async def _record_solution_action(
             # approval registered a VA solution with kpi_id="", breaking KPI-scoped
             # lookups (covenant check, strategy snapshot threshold lookup, portfolio
             # filtering) for every solution approved through this path.
-            kpi_id = (
+            _stated_kpi_id = (
                 _situation_full_payload.get("kpi_id")
                 or _situation_full_payload.get("kpi_name")
                 or (da_output.get("plan") or {}).get("kpi_name")
                 or ""
             )
+
+            kpi_id, framing_snapshot = _resolve_va_kpi_id_and_framing(wf_payload, _stated_kpi_id)
 
             plan_value_at_approval = _situation_full_payload.get("plan_value")
 
@@ -987,6 +1041,8 @@ async def _record_solution_action(
                 plan_value_at_approval=plan_value_at_approval,
                 client_id=_va_client_id,
                 bets_on_assumptions=bets_on_assumptions,
+                framing_snapshot=framing_snapshot,
+                target_metric=target_metric,
             )
 
             va_resp = await orchestrator.execute_agent_method(

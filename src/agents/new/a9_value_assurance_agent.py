@@ -421,6 +421,11 @@ class A9_Value_Assurance_Agent:
             baseline_kpi_value=baseline,
             pre_approval_slope=pre_slope,
             plan_value_at_approval=request.plan_value_at_approval,
+            # Phase 19 framing-gate capture (Aug 2026) — same "must thread it
+            # explicitly, the constructor call is a hand-maintained field list"
+            # trap already documented on RegisterSolutionRequest's own fields.
+            framing_snapshot=getattr(request, "framing_snapshot", None),
+            target_metric=getattr(request, "target_metric", None),
         )
 
         self._solutions_store[solution_id] = solution

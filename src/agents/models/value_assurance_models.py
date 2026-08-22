@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -67,6 +67,38 @@ class VsPlanVerdict(str, Enum):
 # ---------------------------------------------------------------------------
 # Phase 7A core models
 # ---------------------------------------------------------------------------
+
+class FramingSnapshot(BaseModel):
+    """What was believed true about the objective at the moment a solution was
+    approved — durable even if the live causal graph is later refined or the
+    KPI relationship reclassified. Phase 19 framing gate → VA capture, see
+    docs/architecture/reframe_relaunch_and_lineage_design.md.
+
+    `stated_kpi_id` is the KPI the situation card was originally raised
+    against; `chosen_kpi_id` is what the framing decision actually targeted —
+    the two differ exactly when a reframe happened, and that difference is
+    the whole reason this model exists (kpi_id on the parent AcceptedSolution
+    was silently always the FIRST of these two, never the second, before this
+    was added — see the VA-capture finding in kpi_relationship_basis_design.md).
+
+    Deliberately narrower than the full picture for now: `alternatives_considered`
+    (which other candidate objectives were offered, with their own hops/
+    causal_direction/confidence) and `assumption_id`/`decided_by_role` (the
+    framing record's own write-receipt fields) are NOT captured here yet —
+    neither `framing_prompt` nor `framing_record` reaches this far through the
+    frontend's `debateConfig.refinementResult` threading today, only
+    `framing_decision` does (DeepFocusView.tsx ~L348-360). Adding those is a
+    frontend change, not a schema one; named here so it isn't silently assumed
+    already covered.
+    """
+    choice: Literal["confirm_stated", "alternative", "other"]
+    chosen_kpi_id: Optional[str] = None
+    chosen_objective_text: str
+    falsification_criterion: str
+    stated_kpi_id: Optional[str] = Field(
+        None, description="The situation's original KPI, for lineage even when choice reframed away from it"
+    )
+
 
 class StrategySnapshot(BaseModel):
     """Captures the strategic context at the moment a solution is approved."""
@@ -218,6 +250,11 @@ class AcceptedSolution(BaseModel):
     pre_approval_slope: float = 0.0  # KPI change per month before approval
     # Phase 11I-C: plan/budget baseline captured at approval, if the KPI has one
     plan_value_at_approval: Optional[float] = None
+    # Phase 19 framing-gate capture (Aug 2026) — see FramingSnapshot's own docstring
+    framing_snapshot: Optional[FramingSnapshot] = None
+    target_metric: Optional[str] = Field(
+        None, description="The approved option's own impact_estimate.metric — which KPI its impact is measured against, empirically validated this session as a clean discriminator of frame-widening (docs/architecture/dq_l1_framing_signal_design.md)"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -239,6 +276,9 @@ class RegisterSolutionRequest(BaseModel):
     # Phase 7C: full BenchmarkSegment objects from DA
     control_group_segments: Optional[List[dict]] = None  # BenchmarkSegment dicts (type=control_group)
     benchmark_segments: Optional[List[dict]] = None       # All BenchmarkSegment dicts
+    # Phase 19 framing-gate capture (Aug 2026)
+    framing_snapshot: Optional[FramingSnapshot] = None
+    target_metric: Optional[str] = None
     pre_approval_kpi_value: Optional[float] = None        # comparison-period KPI value for slope calc
     analysis_mode: str = "problem"                        # "problem" | "opportunity" — controls inaction trend direction
     plan_value_at_approval: Optional[float] = None        # Phase 11I-C: budget/plan baseline, if the KPI has one

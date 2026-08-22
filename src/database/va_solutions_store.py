@@ -129,6 +129,12 @@ class VASolutionsStore:
                 "completed_at": getattr(solution, "completed_at", None),
                 # Phase 11I-C: plan/budget baseline
                 "plan_value_at_approval": getattr(solution, "plan_value_at_approval", None),
+                # Phase 19 framing-gate capture (Aug 2026) — same explicit-field-list
+                # trap that already silently dropped causal_direction twice in this
+                # codebase (KPIRelationshipProvider._row_to_model/upsert). Adding a
+                # field to AcceptedSolution does nothing here unless it's added here too.
+                "framing_snapshot": _safe_json(getattr(solution, "framing_snapshot", None)),
+                "target_metric": getattr(solution, "target_metric", None),
             }
 
             # Drop None values for trend fields that aren't yet on the model

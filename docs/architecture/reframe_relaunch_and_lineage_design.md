@@ -116,11 +116,31 @@ the evidence above still reflects the original KPI's own analysis, re-framed to 
 in this session's `live-framing-gate.spec.ts` run) — a live screenshot check would still be worth doing
 before this is considered fully confirmed in the running app, not just compiled correctly.
 
-**Not built, the rest:**
+**✅ Built (2026-08-22): the VA-capture half of the pending follow-up.** `FramingSnapshot`
+(`value_assurance_models.py`) — `choice`, `chosen_kpi_id`, `chosen_objective_text`,
+`falsification_criterion`, `stated_kpi_id` — plus `target_metric` (the approved option's own
+`impact_estimate.metric`), threaded through three separate hand-maintained field lists that would each
+have silently dropped it otherwise (`AcceptedSolution` construction in
+`a9_value_assurance_agent.py::register_solution`, the `row` dict in
+`va_solutions_store.py::upsert_solution`, and the new `framing_snapshot`/`target_metric` columns
+themselves — migration `20260822_va_solutions_framing_snapshot.sql`, applied and verified live against
+local Supabase). The `kpi_id` bug itself is fixed: `_resolve_va_kpi_id_and_framing()`
+(`workflows.py`, extracted as a pure module-level function specifically so it's unit-testable without
+the full route/runtime stack) now prefers `framing_decision.chosen_kpi_id` when a genuine reframe
+happened, falling back to the situation's stated KPI otherwise. 6 new regression tests
+(`test_va_registration_framing_kpi.py`) pin the exact reframe scenario from today's own live test
+(Gross Margin % → COGS), the confirm-stated case, no-framing-gate-ran, and malformed-decision
+non-fatal degradation. 1352 unit tests pass.
+
+**Still not built:**
 - The new-window URL-param entry route and `useDecisionStudio.ts` wiring to trigger DA directly from it.
 - `reframed_from_id` on `Assumption`, and the UI work to display a reconstructed chain.
-- Threading the full chain (not just the last hop) into `AcceptedSolution`'s framing snapshot — extends
-  the still-unwritten VA-capture design from `kpi_relationship_basis_design.md`'s pending follow-up.
+- Threading the *full chain* (not just the last hop) into `FramingSnapshot` — today's capture records
+  one hop's decision correctly, but a margin→COGS→base_oil_cost chain would only preserve the last step
+  until lineage exists. `alternatives_considered` also isn't captured yet — neither `framing_prompt` nor
+  `framing_record` reaches this far through the frontend's `debateConfig.refinementResult` threading
+  today, only `framing_decision` does (a frontend change, not a schema one — named in
+  `FramingSnapshot`'s own docstring so it isn't silently assumed already covered).
 - Any cap or safeguard on chain depth — not needed today (the causal graph is finite), flagged as a
   tripwire if this pattern ever needs revisiting.
 
