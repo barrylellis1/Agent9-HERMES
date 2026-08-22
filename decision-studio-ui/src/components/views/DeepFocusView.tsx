@@ -596,6 +596,29 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                 );
                             })()}
 
+                            {/* Reframe disclosure — spec'd in the Phase 19 implementation plan
+                                ("A separate analysis of {kpi} has not been run") but never actually
+                                shipped; the SCQA above is re-narrated from the ORIGINAL KPI's
+                                evidence, not independently re-analyzed for the chosen objective.
+                                See docs/architecture/reframe_relaunch_and_lineage_design.md §1.
+                                Only shown on a genuine reframe (choice !== confirm_stated) — a
+                                confirmed objective's SCQA is exactly what it claims to be. */}
+                            {(() => {
+                                const decision = refinementResult?.framing_decision ?? framingDecision;
+                                if (!decision || decision.choice === 'confirm_stated') return null;
+                                const target = decision.chosen_objective_text || decision.other_text || 'the chosen objective';
+                                return (
+                                  <div className="bg-amber-950/20 border border-amber-800/40 rounded-xl p-4 flex items-start gap-2.5">
+                                    <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                                    <p className="text-xs text-amber-200/90 leading-relaxed">
+                                      <span className="font-semibold">{target}.</span>{' '}
+                                      A separate analysis has not been run for this objective — the evidence above
+                                      still reflects the original KPI's own analysis, re-framed to this decision.
+                                    </p>
+                                  </div>
+                                );
+                            })()}
+
                             {/* Phase 19 — while the framing gate defers the full (frame-aware)
                                 SCQA, this panel would otherwise be completely empty: the change-
                                 points fallback below is dead whenever a Variance Breakdown

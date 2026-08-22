@@ -105,9 +105,18 @@ grade the right ones, not just the one edge nearest the final KPI.
 
 ## 5. What's built vs. not
 
-**Not built, none of it:**
-- The disclosure text (spec'd in Phase 19, never shipped) — cheap, could ship standalone regardless of
-  everything else in this note.
+**✅ Built (2026-08-22):** the disclosure banner. Rendered in `DeepFocusView.tsx` immediately below the
+SCQA block, conditioned on `(refinementResult?.framing_decision ?? framingDecision)` having
+`choice !== 'confirm_stated'` — the exact same decision-resolution pattern already used (and live-
+verified this session) for SF's dispatch payload at the same file's line 359, so the data path is known
+correct. States the chosen objective plus *"A separate analysis has not been run for this objective —
+the evidence above still reflects the original KPI's own analysis, re-framed to this decision."*
+`tsc --noEmit` and `npm run build` both clean. Not re-verified against a fresh live run (the underlying
+`framing_decision` resolution was already live-verified for the SF-dispatch consumer of the same field
+in this session's `live-framing-gate.spec.ts` run) — a live screenshot check would still be worth doing
+before this is considered fully confirmed in the running app, not just compiled correctly.
+
+**Not built, the rest:**
 - The new-window URL-param entry route and `useDecisionStudio.ts` wiring to trigger DA directly from it.
 - `reframed_from_id` on `Assumption`, and the UI work to display a reconstructed chain.
 - Threading the full chain (not just the last hop) into `AcceptedSolution`'s framing snapshot — extends
