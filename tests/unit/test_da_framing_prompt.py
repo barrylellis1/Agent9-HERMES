@@ -158,6 +158,32 @@ class TestCausalGraphAlternatives:
         assert any("mechanism" in c.lower() for c in alt.evidence_caveats)
 
     @pytest.mark.asyncio
+    async def test_identity_edge_with_no_confidence_flows_through_cleanly(self):
+        """An accounting-identity edge (kpi_relationship_basis_design.md) carries
+        confidence=None and causal_rung=None -- neither applies to arithmetic
+        that's true by construction. Verified live 2026-08-22 against the real
+        provider for the four reclassified lubricants edges
+        (net_revenue<->gross_margin_pct, gross_margin_pct<->cogs,
+        base_oil_cost->cogs, distribution_cost->cogs); this pins the same
+        behavior through _build_framing_prompt end-to-end so a future refactor
+        can't silently start fabricating a confidence value or raising on None."""
+        da = _make_da_stub()
+        edge = _relationship(
+            confidence=None, causal_rung=None, provenance="confirmed",
+            mechanism="Gross Margin % is calculated from Net Revenue and COGS; "
+                      "COGS movements directly move the ratio (Revenue held constant), not the reverse.",
+        )
+        with _registry_patch([_kpi("gross_margin_pct", "hess"), _kpi("cogs", "hess")]), \
+             _providers(neighbourhood=[(edge, 1)]):
+            result = await da._build_framing_prompt(_da_output(), {})
+        assert result is not None
+        assert len(result.alternatives) == 1
+        alt = result.alternatives[0]
+        assert alt.confidence is None
+        assert alt.causal_rung is None
+        assert alt.mechanism is not None  # identity edges keep their (accurate) mechanism text
+
+    @pytest.mark.asyncio
     async def test_two_hop_edge_preserves_hop_distance_not_flattened(self):
         da = _make_da_stub()
         # base_oil_cost -> cogs (hop 1, already visited via kpi_id="cogs")

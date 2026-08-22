@@ -1047,6 +1047,21 @@ ACCOUNTABILITY: List[Dict[str, Any]] = [
 
 # ─── KPI Relationships (Phase 11I-B) ─────────────────────────────────────────
 # Declared cross-KPI relationships for compound alert detection.
+#
+# NOT YET direction-backfilled (causal_direction defaults to "unknown" on
+# both edges below) -- dormant in the framing gate for now. Heads up for
+# whoever does that backfill next
+# (docs/architecture/kpi_relationship_basis_design.md):
+# `net_revenue -> gross_margin_pct` is the same edge id pair as lubricants'
+# reclassified accounting-identity edge (2026-08-22) -- almost certainly the
+# same identity here too if gross_margin_pct is computed from net_revenue and
+# cogs the same way. Verify against this client's own SQL before assuming,
+# but classify with confidence=None, causal_rung=None if confirmed, not a
+# confidence tier. `product_sales_revenue -> cogs` is the same edge id pair
+# lubricants deliberately left causal_direction="unknown" for -- "describes a
+# co-movement (revenue vs. COGS growth rates), not a recorded cause" -- same
+# reasoning likely applies here; product_sales_revenue isn't itself an
+# arithmetic input to cogs the way net_revenue is to gross_margin_pct.
 
 KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
     {

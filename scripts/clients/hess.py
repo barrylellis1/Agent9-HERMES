@@ -604,6 +604,22 @@ for _kpi in KPIS:
 # Compound cross-KPI relationships for 11I-B detection.
 # Revenue growing while margin compresses → volume/margin divergence (pricing or mix issue).
 # SG&A growing faster than production revenue → overhead inefficiency signal.
+#
+# NOT YET direction-backfilled (causal_direction defaults to "unknown" on both
+# edges below) -- currently dormant in the framing gate, same pre-Aug-2026
+# state lubricants was in before its causal_direction/confidence work. Heads
+# up for whoever does that backfill next
+# (docs/architecture/kpi_relationship_basis_design.md):
+# `upstream_revenue -> gross_margin_pct` is almost certainly an accounting
+# identity, not a causal_estimate -- confirmed via SQL, gross_margin_pct here
+# is `ROUND(100.0 * ...)` over the same dp_hess_financials base table
+# upstream_revenue sums from, the same shape as lubricants'
+# net_revenue<->gross_margin_pct edge. Classify with confidence=None,
+# causal_rung=None, not a confidence tier, when this gets enriched.
+# `production_revenue -> sga_expense` has NOT been checked -- an expense
+# isn't obviously an arithmetic input to a revenue KPI the way a ratio's own
+# components are; verify against its actual SQL/account structure before
+# assuming either category.
 KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
     {
         "kpi_id": "upstream_revenue",
