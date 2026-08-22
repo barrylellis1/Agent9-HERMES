@@ -53,7 +53,7 @@ Checked directly against `scripts/clients/lubricants.py`, not asserted from memo
 |---|---|---|
 | `net_revenue → gross_margin_pct` | `causal_rung: correlational`, `confidence: high`, `provenance: confirmed` | **Accounting identity.** `gross_margin_pct = (net_revenue − cogs) / net_revenue`. Direction is already correct (fixed 2026-08-20); the *epistemic category* is still wrong — this edge carries zero uncertainty, and labelling it "high confidence" alongside a genuinely uncertain edge like `premium_mix_pct → gross_margin_pct` (`provenance: template`, `confidence: moderate`) makes them look like the same kind of fact when they aren't. |
 | `gross_margin_pct → cogs` | Same treatment; `mechanism` describes "base oil price volatility passes through to COGS with a lag" | **Also an identity** — COGS is the other direct input to the same formula. **Plus a second, distinct problem**: the mechanism text isn't describing the COGS→margin% arithmetic at all — it's describing a genuinely causal claim about an *external* commodity price affecting a ledger line, one hop removed from what this edge actually connects. |
-| `base_oil_cost → cogs`, `distribution_cost → cogs` | `causal_rung: correlational`, `confidence: high`, `provenance: confirmed`, mechanism cites "inventory-buffered lag," "trucking spot rates" | **Both accounting identities, confirmed by their own SQL.** `base_oil_cost` is `SUM(amount) WHERE account_category = 'Raw Materials'`; `distribution_cost` is `SUM(amount) WHERE account_category = 'Distribution'` — both are `account_category` sub-slices *within* `cogs`'s own `account_type = 'COGS'` bucket. COGS literally equals the sum of its `account_category` components. The lag/pass-through story in each mechanism is real, but it describes something these edges don't actually encode: an *external* commodity or logistics-market driver moving a ledger line's dollar value, not the ledger line summing into its own parent total. |
+| `base_oil_cost → cogs` (`causal_rung: correlational`, `confidence: high`, `provenance: confirmed`), `distribution_cost → cogs` (`causal_rung: correlational`, `confidence: moderate`, `provenance: template`) | mechanism cites "inventory-buffered lag," "trucking spot rates" | **Both accounting identities, confirmed by their own SQL.** `base_oil_cost` is `SUM(amount) WHERE account_category = 'Raw Materials'`; `distribution_cost` is `SUM(amount) WHERE account_category = 'Distribution'` — both are `account_category` sub-slices *within* `cogs`'s own `account_type = 'COGS'` bucket. COGS literally equals the sum of its `account_category` components. The lag/pass-through story in each mechanism is real, but it describes something these edges don't actually encode: an *external* commodity or logistics-market driver moving a ledger line's dollar value, not the ledger line summing into its own parent total. |
 
 **Correctly classified today, for contrast:** `units_sold`/`sales_order_count`/
 `average_order_value` → `net_revenue`, and `premium_mix_pct → gross_margin_pct` — each is a real
@@ -222,10 +222,24 @@ separate carve-out needed for "is this KPI FI-schema."
 
 ---
 
-## 6. Not built
+## 6. Built vs. not built
 
-This is a design note only. Reclassifying live edges (`net_revenue↔gross_margin_pct`,
-`gross_margin_pct↔cogs`, `base_oil_cost→cogs`, `distribution_cost→cogs`) changes what the
-framing gate has been showing in production since 2026-08-20 — needs explicit confirmation
-before touching the seed file, the model, or a migration, same as every other schema change this
-session.
+**Done (2026-08-22):** the four misclassified edges' `confidence`/`causal_rung` fields dropped to
+`None` and `provenance` normalized to `confirmed` in `scripts/clients/lubricants.py`, using only
+fields that already exist on `KPIRelationship` — no schema change. `gross_margin_pct→cogs`,
+`base_oil_cost→cogs`, and `distribution_cost→cogs` also had their `mechanism` text corrected from
+the one-hop-removed external-causal story to an accurate description of the actual identity
+relationship (§1's finding #2); `distribution_cost→cogs`'s `provenance` was upgraded from
+`template` to `confirmed` in the same pass, since an identity doesn't need to graduate through the
+evidence ladder — it's true by construction from day one. `lag_periods` dropped from the two COGS
+component edges (an identity sums same-period, no lag applies). Deliberately **not yet synced to
+production** — per the registry data-sync protocol (root `CLAUDE.md`), this seed-file change needs
+`onboard_client.py --client lubricants --env production` run explicitly before it reaches the live
+framing gate; local/dev only until then. All 1345 unit tests pass unchanged.
+
+**Not built:** the `basis` field itself (§2) — today's fix corrects the *values* on the four known
+edges by hand; it doesn't add the field that would let a validator catch the next misclassified
+edge automatically, or drive the Framing Evidence Map's chart choice programmatically. The
+variance-bridge computation (§4), the panel restructuring (§5), and the Port-model gap (§3) all
+remain design-only, explicitly deferred as lower priority than validating the framing gate itself
+first (conversation 2026-08-21/22).

@@ -777,10 +777,15 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         # correctly removes "Addressing Gross Margin %" from Net Revenue's
         # own framing gate (previously shown, unfiltered, at hop 1) while
         # keeping "Addressing Net Revenue" available from Gross Margin %'s.
+        #
+        # Reclassified 2026-08-22 (docs/architecture/kpi_relationship_basis_design.md):
+        # direction was right, epistemic category wasn't. This is an
+        # accounting identity, not a believed empirical claim -- there is no
+        # "confidence" in arithmetic. confidence/causal_rung dropped (neither
+        # applies to a relationship that's true by construction); provenance
+        # stays "confirmed" (the edge itself is real, just not evidence-based).
         "mechanism": "Gross Margin % is calculated from Net Revenue and COGS; revenue movements (volume, price, mix) move the ratio directly, not the reverse.",
-        "causal_rung": "correlational",
         "provenance": "confirmed",
-        "confidence": "high",
         "causal_direction": "kpi_causes_related",
     },
     {
@@ -801,30 +806,50 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "relationship_type": "custom",
         "conflict_direction": "diverging",
         "description": "COGS increases compress gross margin when revenue is flat",
-        "mechanism": "Base oil (largest COGS input) price volatility passes through to COGS with a lag; margin absorbs the difference before pricing catches up",
-        "lag_periods": 1,
-        "causal_rung": "correlational",
+        # Reclassified 2026-08-22 (docs/architecture/kpi_relationship_basis_design.md
+        # §1): the previous mechanism text ("Base oil price volatility passes
+        # through to COGS with a lag") described a real but ONE-HOP-REMOVED
+        # claim -- an external commodity price affecting COGS's dollar value,
+        # not what this edge actually connects. COGS is the other direct
+        # algebraic input to Gross Margin % ((Revenue - COGS) / Revenue) --
+        # this edge is an accounting identity, same category as the
+        # net_revenue<->gross_margin_pct edge above. lag_periods dropped (an
+        # identity sums same-period, by construction, no lag); confidence and
+        # causal_rung dropped for the same reason as above. The genuinely
+        # causal base-oil-price story that used to live here has no KPI to
+        # attach to yet -- see design note §3, not solved by this edit.
+        "mechanism": "Gross Margin % is calculated from Net Revenue and COGS; COGS movements directly move the ratio (Revenue held constant), not the reverse.",
         "provenance": "confirmed",
-        "confidence": "high",
-        # The mechanism is explicit: COGS (via base oil) drives margin, not
+        # The formula is explicit: COGS (via the ratio) drives margin, not
         # the reverse. related_kpi_id (cogs) causes kpi_id (gross_margin_pct).
         "causal_direction": "related_causes_kpi",
     },
     {
         # The 11F anchor scenario, now expressible as an internal edge because
-        # base_oil_cost is itself a registered KPI (account_category = 'Base Oil').
+        # base_oil_cost is itself a registered KPI (account_category = 'Raw Materials').
         "kpi_id": "base_oil_cost",
         "related_kpi_id": "cogs",
         "client_id": CLIENT_ID,
         "relationship_type": "custom",
         # Both are costs: moving together upward is the adverse signal.
         "conflict_direction": "converging",
-        "description": "Base oil price increases flow through to COGS as inventory turns",
-        "mechanism": "Base oil is the primary raw-material input (~50-60% of COGS). Price moves pass through to reported COGS with an inventory-buffered lag of roughly one month, so a spot-price spike shows up in margin a period later.",
-        "lag_periods": 1,
-        "causal_rung": "correlational",
+        "description": "Raw materials (base oil) cost is a direct component of total COGS",
+        # Reclassified 2026-08-22 (docs/architecture/kpi_relationship_basis_design.md
+        # §1): confirmed against base_oil_cost's own sql_query
+        # (SUM(amount) WHERE account_category = 'Raw Materials') -- this is
+        # an exact account_category sub-slice WITHIN cogs's own
+        # account_type = 'COGS' bucket. COGS literally equals the sum of its
+        # account_category components; this is an accounting identity, not
+        # an inferred pass-through relationship. The old mechanism ("price
+        # moves pass through with an inventory-buffered lag") described the
+        # real, but genuinely external, causal story -- commodity spot price
+        # affecting this ledger line's dollar value -- which this edge does
+        # not encode (it connects two ledger lines, not a commodity price to
+        # a ledger line). That external claim has no KPI to attach to yet;
+        # see design note §3. lag_periods/confidence/causal_rung dropped --
+        # an identity component sums same-period, by construction.
+        "mechanism": "Raw Materials (base oil) is an account_category component of COGS; it sums into the COGS total directly, not via an inferred pass-through.",
         "provenance": "confirmed",
-        "confidence": "high",
         # base_oil_cost (kpi_id) causes cogs (related_kpi_id) -- this is the
         # edge that lets base_oil_cost validly reach a gross_margin_pct
         # analysis at 2 hops (through the cogs edge above, both confirmed).
@@ -854,11 +879,19 @@ KPI_RELATIONSHIPS: List[Dict[str, Any]] = [
         "relationship_type": "custom",
         "conflict_direction": "converging",
         "description": "Freight and packaging costs are a direct COGS component",
-        "mechanism": "Trucking spot rates and HDPE resin/packaging costs land in COGS with little buffering, so they move reported cost in-period rather than on the base-oil lag.",
-        "lag_periods": 0,
-        "causal_rung": "correlational",
-        "provenance": "template",
-        "confidence": "moderate",
+        # Reclassified 2026-08-22 (docs/architecture/kpi_relationship_basis_design.md
+        # §1): confirmed against distribution_cost's own sql_query
+        # (SUM(amount) WHERE account_category = 'Distribution') -- same shape
+        # as base_oil_cost above, an exact account_category sub-slice within
+        # cogs's own account_type = 'COGS' bucket. Accounting identity, not
+        # an inferred pass-through claim. lag_periods dropped along with
+        # confidence/causal_rung -- an identity component sums same-period.
+        # provenance upgraded from "template" to "confirmed" -- an identity
+        # doesn't need graduating through the evidence ladder at all; it's
+        # true by construction from day one, same as the other three edges
+        # reclassified alongside it.
+        "mechanism": "Distribution (freight and packaging) is an account_category component of COGS; it sums into the COGS total directly, not via an inferred pass-through.",
+        "provenance": "confirmed",
         # distribution_cost (kpi_id) causes cogs (related_kpi_id).
         "causal_direction": "kpi_causes_related",
     },
