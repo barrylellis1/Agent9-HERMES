@@ -129,11 +129,20 @@ test.describe('Live — Phase 19 framing gate (gross_margin_pct)', () => {
     const focusRecovery = page.getByRole('button', { name: /focus on recovery/i });
     const focusOpportunity = page.getByRole('button', { name: /focus on opportunity/i });
     const letAgent9Decide = page.getByRole('button', { name: /let agent9 decide/i });
+    const framingCard = page.getByTestId('framing-gate-card');
+    // Auto-launch (fixed this session, 2026-08-21): DeepFocusView now fires
+    // refinement automatically once analysis resolves, keyed on
+    // kpi_name/analysis_mode — so the intermediate button row never renders
+    // at all when auto-launch fires before this check runs. Accept either:
+    // the button row (auto-launch didn't fire, e.g. a re-visit where the
+    // guard ref already fired once) OR the framing card already visible
+    // (auto-launch beat this test to the click).
     await expect(async () => {
-      const [nStart, nRec, nOpp, nDec] = await Promise.all([
+      const [nStart, nRec, nOpp, nDec, nFraming] = await Promise.all([
         startRefinement.count(), focusRecovery.count(), focusOpportunity.count(), letAgent9Decide.count(),
+        framingCard.count(),
       ]);
-      expect(nStart + nRec + nOpp + nDec).toBeGreaterThan(0);
+      expect(nStart + nRec + nOpp + nDec + nFraming).toBeGreaterThan(0);
     }).toPass({ timeout: 120_000, intervals: [2_000] });
 
     // Mixed-mode resolution gate, if this card resolved to one — orthogonal to
@@ -150,7 +159,16 @@ test.describe('Live — Phase 19 framing gate (gross_margin_pct)', () => {
       await page.waitForTimeout(1_000);
     }
 
-    await expect(startRefinement, 'Start Refinement Session must be reachable once mixed-mode (if any) is resolved').toBeVisible({ timeout: 60_000 });
+    // Auto-launch is async (a useEffect firing off the post-mixed-mode-
+    // resolution re-render, not instant) — a one-shot count() check right
+    // after the click races it and loses. Give it a real window before
+    // falling back to the manual-click path.
+    const autoLaunched = await framingCard.waitFor({ state: 'visible', timeout: 15_000 }).then(() => true).catch(() => false);
+    if (!autoLaunched) {
+      await expect(startRefinement, 'Start Refinement Session must be reachable once mixed-mode (if any) is resolved').toBeVisible({ timeout: 60_000 });
+    } else {
+      console.log('[framing] auto-launch already opened the framing gate — skipping the manual "Start Refinement Session" click');
+    }
 
     // ── CHECK 1: pre-gate DA console — real evidence visible, no SCQA block ──
     // ScqaBlock needs no code change (it's already conditional on scqa_summary)
@@ -175,8 +193,7 @@ test.describe('Live — Phase 19 framing gate (gross_margin_pct)', () => {
     expect(enabledCount, 'a real (enabled) Generate Solutions button is reachable before framing is answered').toBe(0);
 
     // ── Start refinement — the gate must be the FIRST thing shown ───────────
-    await startRefinement.click();
-    const framingCard = page.getByTestId('framing-gate-card');
+    if (!autoLaunched) await startRefinement.click();
     await framingCard.waitFor({ state: 'visible', timeout: 90_000 });
     await page.waitForTimeout(1_000);
     await page.screenshot({ path: testInfo.outputPath('03-framing-gate-card.png'), fullPage: true });
