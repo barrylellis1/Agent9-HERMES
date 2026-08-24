@@ -2334,10 +2334,19 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                                 # which is easy to miss and impossible to diagnose after
                                 # the fact. Observed 2026-08-02: 2 of 3 personas vanished
                                 # with nothing logged anywhere.
+                                # NOTE: A9AgentBaseResponse.error is a classmethod CONSTRUCTOR
+                                # (error(cls, request_id, error_message, **kwargs)), not a data
+                                # field -- getattr(s1_resp, "error", None) always returns that
+                                # bound method object, which is truthy, so `or error_message`
+                                # never evaluated. Found live 2026-08-23: every real Stage 1
+                                # failure logged `error=<bound method ...>` instead of the
+                                # actual message, making root-causing a total lens_council
+                                # Stage 1 outage (all 3 personas, status=error) impossible from
+                                # the logs alone. error_message is the only real field.
                                 self.logger.warning(
                                     "[SF] Stage 1 produced no usable hypothesis for %s: status=%s, analysis_type=%s, error=%s",
                                     p.id, _s1_status, type(getattr(s1_resp, "analysis", None)).__name__,
-                                    getattr(s1_resp, "error", None) or getattr(s1_resp, "error_message", None),
+                                    getattr(s1_resp, "error_message", None),
                                 )
                             except Exception as _s1e:
                                 self.logger.warning(f"[SF] Stage 1 call failed for {p.id}: {_s1e}")

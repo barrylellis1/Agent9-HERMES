@@ -550,3 +550,22 @@ and, via the same `_CapturingOrchestrator` stub-harness `test_sf_stage_d_causal_
 established, an end-to-end proof the section reaches BOTH the synthesis prompt AND every Stage
 1 persona's prompt when a decision is present, and reaches neither when it's absent (the
 flag-off-equivalent control).
+
+## Stage 1 failure logging swallowed the real error message (Aug 2026)
+
+Found live 2026-08-23: the first real production run of the Lens Council preset (Commercial /
+Operational / Structural) had all three Stage 1 calls fail (`status=error`), but every log line
+read `error=<bound method A9AgentBaseResponse.error of ...>` instead of the actual reason —
+`A9AgentBaseResponse.error` is a classmethod constructor (`error(cls, request_id, error_message,
+**kwargs)`), not a data field, so `getattr(s1_resp, "error", None)` always returned that bound
+method object (truthy), and the `getattr(..., "error_message", None)` fallback in the same `or`
+expression never evaluated. `error_message` is the only real field. Fixed by dropping the dead
+`"error"` lookup entirely.
+
+Ruled out persona resolution and `to_prompt_context()` as the cause — tested directly against
+the live registry for all three lens personas, each resolves and builds a real prompt context
+cleanly, no exceptions. The actual `A9_LLM_Service_Agent.analyze()` call is the remaining
+suspect (three parallel calls via `asyncio.gather` failing identically and simultaneously is
+consistent with something environmental at that moment — rate/concurrency limit, transient API
+issue — rather than a persona-content defect, but unconfirmed). This fix means the next
+occurrence logs the real reason instead of a useless method reference.
