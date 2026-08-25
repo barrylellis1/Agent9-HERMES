@@ -767,6 +767,32 @@ export async function getPrincipalActions(
 }
 export type { PrincipalActionSummary };
 
+// Decision Framer/Decision Maker split (2026-08-25) — the Decision Maker
+// landing view's data source. Backed by PendingDecisionsStore via
+// GET /workflows/solutions/pending; see src/api/routes/workflows.py.
+export interface PendingDecisionSummary {
+  request_id: string;
+  client_id: string;
+  principal_id: string;
+  situation_id?: string | null;
+  kpi_id?: string | null;
+  human_action_type?: string | null;
+  summary?: string | null;
+  human_action_context?: Record<string, unknown> | null;
+  resolved: boolean;
+  created_at?: string | null;
+}
+export async function getPendingDecisions(
+  principalId: string,
+  clientId: string,
+): Promise<PendingDecisionSummary[]> {
+  const params = new URLSearchParams({ principal_id: principalId, client_id: clientId });
+  const envelope = await requestJson<Envelope<PendingDecisionSummary[]>>(
+    `/workflows/solutions/pending?${params.toString()}`
+  );
+  return envelope.data;
+}
+
 // ---------------------------------------------------------------------------
 // KPI Accountability — Phase 11A (read-only)
 // ---------------------------------------------------------------------------

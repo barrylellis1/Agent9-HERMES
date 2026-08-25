@@ -1,8 +1,16 @@
+import { useState } from 'react';
 import { useDecisionStudio } from '../hooks/useDecisionStudio';
 import { DashboardView } from '../components/views/DashboardView';
 import { DeepFocusView } from '../components/views/DeepFocusView';
+import { DecisionMakerLanding } from './DecisionMakerLanding';
 
 export function DecisionStudio() {
+  // Decision Framer/Decision Maker split (2026-08-25, Wave 4 item 16) — the
+  // escape hatch. Role sets the DEFAULT view, never a permission: once a
+  // decision_maker principal opts into the full dashboard for this session,
+  // it stays until they navigate away (no per-situation re-prompt).
+  const [showFullView, setShowFullView] = useState(false);
+
   const {
     // State
     loading,
@@ -60,6 +68,22 @@ export function DecisionStudio() {
   } = useDecisionStudio();
 
   // View Routing
+  if (currentPrincipal.workflow_role === 'decision_maker' && !selectedSituation && !showFullView) {
+    return (
+      <DecisionMakerLanding
+        principalId={selectedPrincipal}
+        clientId={selectedClientId}
+        currentPrincipal={currentPrincipal}
+        availablePrincipals={availablePrincipals}
+        onSelectPrincipal={setSelectedPrincipal}
+        situations={situations}
+        scanComplete={scanComplete}
+        onOpenSituation={(sit) => { setSelectedSituation(sit); handleDeepAnalysis(sit); }}
+        onViewFullDashboard={() => setShowFullView(true)}
+      />
+    );
+  }
+
   if (selectedSituation) {
     return (
       <DeepFocusView
