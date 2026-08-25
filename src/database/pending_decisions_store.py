@@ -103,6 +103,12 @@ class PendingDecisionsStore:
                 response = await client.post(
                     self.endpoint,
                     headers={**self.headers, "Prefer": "resolution=merge-duplicates"},
+                    # request_id is a UNIQUE INDEX, not the primary key (id is)
+                    # -- PostgREST only merge-duplicates against the conflict
+                    # target named here; without on_conflict it tries the PK,
+                    # finds no match, and a genuine re-run 409s instead of
+                    # upserting. Caught live by the idempotency test below.
+                    params={"on_conflict": "request_id"},
                     json=row,
                 )
                 if response.status_code not in (200, 201, 204):

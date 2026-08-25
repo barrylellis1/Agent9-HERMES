@@ -496,6 +496,19 @@ async def get_solution_status(request_id: str) -> Envelope:
     return wrap(record.to_dict())
 
 
+@router.get("/solutions/pending", response_model=Envelope)
+async def list_pending_decisions(principal_id: str, client_id: str) -> Envelope:
+    """List SF runs awaiting this principal's decision (Stage 5, Decision
+    Framer/Maker split) — the Decision Maker landing view's data source.
+    Registered before {request_id} routes below in file order does not
+    matter here (different path shapes — /solutions/pending is 2 segments,
+    /solutions/{request_id}/status is 3 — no route-matching ambiguity)."""
+    from src.database.pending_decisions_store import PendingDecisionsStore
+
+    rows = await PendingDecisionsStore().list_unresolved(principal_id, client_id)
+    return wrap(rows)
+
+
 @router.post("/situations/{request_id}/annotations", response_model=Envelope)
 async def annotate_situation(request_id: str, request: AnnotationRequest) -> Envelope:
     record = await _ensure_record(request_id, "situations")
@@ -860,6 +873,20 @@ async def _record_solution_action(
         "payload": serialize(request.payload) if request.payload else None,
         "timestamp": datetime.utcnow().isoformat(),
     }
+
+    # Resolve the pending-decision row (Stage 5, Decision Framer/Maker split).
+    # Any of approve/request-changes/iterate resolves it — the point is that
+    # a human acted, not which action they took. Non-fatal, mirrors every
+    # other store call in this handler.
+    try:
+        import logging as _lg5
+        from src.database.pending_decisions_store import PendingDecisionsStore
+
+        await PendingDecisionsStore().resolve(request_id, action_type)
+    except Exception as exc:  # pragma: no cover - defensive
+        _lg5.getLogger(__name__).warning(
+            "Pending-decision resolve failed (non-fatal): %s", exc
+        )
 
     # VA registration on approve — reconstruct from workflow record
     if action_type == "approve" and runtime is not None:
@@ -1501,7 +1528,40 @@ async def _run_solution_workflow(request_id: str, runtime: AgentRuntime, request
             await _update_record(request_id, state="failed", error=error_msg)
         else:
             await _update_record(request_id, state="completed", result={"solutions": serialize(response)})
-            
+
+            # Persist "awaiting a decision" (Stage 4, Decision Framer/Maker split).
+            # Before this, human_action_required lived only in the in-memory
+            # _workflow_store above, with no way to list it by principal — see
+            # docs/architecture/decision_framer_and_decision_maker_personas_design.md.
+            # Non-fatal: a persistence failure here must never fail the SF
+            # response that triggered it (PendingDecisionsStore itself never
+            # raises, but the import/construction is guarded anyway).
+            if getattr(response, "human_action_required", False):
+                try:
+                    import logging as _lg4
+                    from src.database.pending_decisions_store import PendingDecisionsStore
+
+                    recommended_title = None
+                    if response.recommendation is not None:
+                        recommended_title = response.recommendation.title
+                    elif response.options_ranked:
+                        recommended_title = response.options_ranked[0].title
+
+                    pending_store = PendingDecisionsStore()
+                    await pending_store.create_pending(
+                        request_id=request_id,
+                        client_id=request.client_id or "",
+                        principal_id=request.principal_id,
+                        situation_id=request.situation_id,
+                        human_action_type=response.human_action_type,
+                        summary=recommended_title,
+                        human_action_context=response.human_action_context,
+                    )
+                except Exception as exc:  # pragma: no cover - defensive
+                    _lg4.getLogger(__name__).warning(
+                        "Pending-decision persistence failed (non-fatal): %s", exc
+                    )
+
     except Exception as exc:  # pragma: no cover - defensive
         await _update_record(request_id, state="failed", error=str(exc))
 
