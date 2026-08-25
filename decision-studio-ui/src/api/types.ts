@@ -354,6 +354,10 @@ export interface Principal {
   initials: string;
   decision_style: 'analytical' | 'visionary' | 'pragmatic' | 'decisive';
   color: string;
+  /** Workflow-stage default (framer = situations dashboard, decision_maker =
+   *  pending-decisions queue). Strictly a registry attribute -- never
+   *  inferred from title/role. See PrincipalProfile.workflow_role. */
+  workflow_role: 'framer' | 'decision_maker';
 }
 
 export interface Client {

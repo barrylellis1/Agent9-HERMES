@@ -32,6 +32,9 @@ interface PrincipalRecord {
   title?: string
   description?: string
   decision_style?: string
+  /** Workflow-stage default. STRICTLY a registry attribute set here by an
+   *  admin — never inferred from title/name anywhere in this codebase. */
+  workflow_role?: 'framer' | 'decision_maker'
   business_processes?: string[]
   kpis?: string[]
   responsibilities?: string[]
@@ -70,7 +73,7 @@ export function PrincipalForm({
   const [draft, setDraft] = useState<PrincipalRecord>(() => ({
     id: '', name: '', title: '', description: '',
     business_processes: [], kpis: [], responsibilities: [],
-    decision_style: 'analytical', email: '', metadata: {},
+    decision_style: 'analytical', workflow_role: 'framer', email: '', metadata: {},
   }))
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -159,6 +162,17 @@ export function PrincipalForm({
           <label className={labelCls}>Decision Style</label>
           <input value={draft.decision_style || ''} onChange={(e) => update('decision_style', e.target.value)} className={inputCls} placeholder="analytical, visionary, pragmatic" />
         </div>
+      </div>
+      <div>
+        <label className={labelCls}>Workflow Role</label>
+        <select value={draft.workflow_role || 'framer'} onChange={(e) => update('workflow_role', e.target.value)} className={inputCls}>
+          <option value="framer">Framer — stewards SA → DA → SF, runs refinement</option>
+          <option value="decision_maker">Decision Maker — reviews a distilled brief, approves</option>
+        </select>
+        <p className="text-xs text-slate-600 mt-1">
+          Sets the default landing view only, never a permission — either role can always reach the
+          full pipeline.
+        </p>
       </div>
       <div>
         <label className={labelCls}>Email <span className="text-slate-600">(required for briefing delivery)</span></label>
@@ -346,6 +360,11 @@ export function PrincipalCardList({ clientId }: { clientId: string }) {
                   {p.decision_style && (
                     <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">{p.decision_style}</span>
                   )}
+                  <span
+                    className={`px-2 py-0.5 rounded ${p.workflow_role === 'decision_maker' ? 'bg-emerald-900/40 text-emerald-300' : 'bg-slate-800 text-slate-400'}`}
+                  >
+                    {p.workflow_role === 'decision_maker' ? 'Decision Maker' : 'Framer'}
+                  </span>
                   <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400">
                     {bpCount} process{bpCount === 1 ? '' : 'es'}
                   </span>

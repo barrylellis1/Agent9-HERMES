@@ -42,6 +42,15 @@ function inferDecisionStyle(raw: any): Principal['decision_style'] {
   return 'analytical';
 }
 
+// workflow_role is STRICTLY an attribute of the principal registry
+// (2026-08-25, explicit user direction) — no title-keyword inference here,
+// unlike inferDecisionStyle above. A missing value means the record
+// predates the migration; the only fallback is the same plain default the
+// backend Pydantic model itself uses (WorkflowRole.FRAMER), never a guess.
+function resolveWorkflowRole(raw: any): Principal['workflow_role'] {
+  return raw.workflow_role === 'decision_maker' ? 'decision_maker' : 'framer';
+}
+
 function toInitials(name: string): string {
   return name.split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
@@ -55,6 +64,7 @@ function mapApiPrincipal(raw: any): Principal {
     initials: toInitials(raw.name || raw.id),
     decision_style: style,
     color: STYLE_COLORS[style] || 'bg-slate-500/20 text-slate-400',
+    workflow_role: resolveWorkflowRole(raw),
   };
 }
 

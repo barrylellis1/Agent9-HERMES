@@ -54,6 +54,9 @@ function mapApiPrincipal(raw: any): Principal {
     initials: toInitials(raw.name || raw.id),
     decision_style: style,
     color: STYLE_COLORS[style] || 'bg-slate-500/20 text-slate-400',
+    // Strictly a registry attribute (2026-08-25) -- no title-keyword
+    // inference, matching useDecisionStudio.ts's resolveWorkflowRole.
+    workflow_role: raw.workflow_role === 'decision_maker' ? 'decision_maker' : 'framer',
   };
 }
 
