@@ -642,6 +642,21 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       // the API — and then discarded one map() short of the screen.
       key_assumptions: Array.isArray(opt?.key_assumptions) ? opt.key_assumptions : [],
       flagged_side_effects: Array.isArray(opt?.flagged_side_effects) ? opt.flagged_side_effects : [],
+      // Executive Briefing redesign moves #2/#3 (2026-08-25) — both fields
+      // already existed end-to-end on the backend (dominated_by added
+      // 2026-08-24 by src/analysis/option_dominance.py; scope/scope_label
+      // predate that) but neither was threaded to the frontend until now.
+      // dominated_by: labelled, not hidden — a dominated option stays a
+      // visible row with a flag, per the design doc's explicit instruction.
+      dominated_by: opt?.dominated_by ?? null,
+      // scopeQualifier: distinct from the `roi` string above, which already
+      // bakes scope into its own prose (formatImpactEstimate) — this is the
+      // same scope/scope_label pair as a structured value for a dedicated
+      // chip, so the scope signal survives even where the full roi string
+      // isn't rendered (e.g. a compact table cell).
+      scopeQualifier: opt?.impact_estimate?.scope
+        ? { scope: opt.impact_estimate.scope as 'enterprise' | 'segment', label: opt.impact_estimate.scope_label ?? null }
+        : null,
     }))
 
     const buildTitle = (): string => {

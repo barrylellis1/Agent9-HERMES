@@ -944,12 +944,30 @@ export function ExecutiveBriefing() {
                             Option 0
                           </th>
                         )}
-                        {data.options?.map((opt: any, i: number) => (
-                          <th key={i} className={`p-3 border-b border-slate-700 min-w-[160px] print:border-slate-200 ${opt.recommended ? 'bg-emerald-900/30 print:bg-emerald-50 print:text-emerald-800' : ''}`}>
-                            {opt.recommended && <div className="text-[9px] text-emerald-400 mb-0.5 flex items-center gap-1 print:text-emerald-600"><CheckCircle className="w-2.5 h-2.5" /> RECOMMENDED</div>}
-                            Option {String.fromCharCode(65 + i)}
-                          </th>
-                        ))}
+                        {data.options?.map((opt: any, i: number) => {
+                          // Move #2 (executive_briefing_redesign.md §4) — a
+                          // dominated option is LABELLED, not hidden. Found
+                          // live 2026-08-24: two options modelled at an
+                          // identical recovery range while one was strictly
+                          // worse on speed and reversibility, invisible as
+                          // table rows. dominated_by is another option's id;
+                          // resolve it to that option's display letter.
+                          const dominatorIdx = opt.dominated_by
+                            ? data.options.findIndex((o: any) => o.id === opt.dominated_by)
+                            : -1;
+                          return (
+                            <th key={i} className={`p-3 border-b border-slate-700 min-w-[160px] print:border-slate-200 ${opt.recommended ? 'bg-emerald-900/30 print:bg-emerald-50 print:text-emerald-800' : ''}`}>
+                              {opt.recommended && <div className="text-[9px] text-emerald-400 mb-0.5 flex items-center gap-1 print:text-emerald-600"><CheckCircle className="w-2.5 h-2.5" /> RECOMMENDED</div>}
+                              Option {String.fromCharCode(65 + i)}
+                              {dominatorIdx >= 0 && (
+                                <div className="text-[9px] font-normal text-amber-500/90 mt-0.5 normal-case print:text-amber-700"
+                                     title="Matches or is worse than another option on modelled impact, cost, and risk.">
+                                  dominated by Option {String.fromCharCode(65 + dominatorIdx)}
+                                </div>
+                              )}
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800 print:divide-slate-100">
@@ -1001,6 +1019,28 @@ export function ExecutiveBriefing() {
                           {data.options?.map((opt: any, i: number) => (
                             <td key={i} className={`p-3 ${cls} ${opt.recommended ? 'bg-emerald-900/10 print:bg-emerald-50/30' : ''}`}>
                               {shown[i] ?? '—'}
+                              {/* Move #3 — scope travels with every number. The
+                                  `roi` string above already bakes scope into its
+                                  own prose (formatImpactEstimate); this chip makes
+                                  it visible even at a glance, not just on a close
+                                  read of the cell text. */}
+                              {key === 'roi' && (
+                                <div className="mt-1">
+                                  {opt.scopeQualifier?.scope === 'enterprise' ? (
+                                    <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-slate-700/60 text-slate-300 print:bg-slate-200 print:text-slate-700">
+                                      Enterprise
+                                    </span>
+                                  ) : opt.scopeQualifier?.scope === 'segment' ? (
+                                    <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-indigo-900/40 text-indigo-300 print:bg-indigo-100 print:text-indigo-700">
+                                      Segment{opt.scopeQualifier.label ? `: ${opt.scopeQualifier.label}` : ''}
+                                    </span>
+                                  ) : (
+                                    <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-amber-900/30 text-amber-500/90 print:bg-amber-100 print:text-amber-700">
+                                      Scope unverified
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </td>
                           ))}
                         </tr>
@@ -1059,10 +1099,32 @@ export function ExecutiveBriefing() {
                           <div>
                             <h3 className="text-lg font-bold text-white print:text-slate-900">Option {String.fromCharCode(65 + i)}: {option.title}</h3>
                             <p className="text-slate-400 text-sm mt-0.5 print:text-slate-600">{option.subtitle}</p>
+                            {option.dominated_by && (() => {
+                              const dominatorIdx = data.options.findIndex((o: any) => o.id === option.dominated_by);
+                              return dominatorIdx >= 0 ? (
+                                <p className="text-[11px] text-amber-500/90 mt-1 print:text-amber-700"
+                                   title="Matches or is worse than another option on modelled impact, cost, and risk.">
+                                  dominated by Option {String.fromCharCode(65 + dominatorIdx)}
+                                </p>
+                              ) : null;
+                            })()}
                           </div>
                           <div className="text-right">
                             <p className="text-xs text-slate-500">Est. ROI</p>
                             <p className="text-xl font-bold text-emerald-400 print:text-emerald-600">{formatROI(option.roi)}</p>
+                            {option.scopeQualifier?.scope === 'enterprise' ? (
+                              <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-slate-700/60 text-slate-300 print:bg-slate-200 print:text-slate-700">
+                                Enterprise
+                              </span>
+                            ) : option.scopeQualifier?.scope === 'segment' ? (
+                              <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-indigo-900/40 text-indigo-300 print:bg-indigo-100 print:text-indigo-700">
+                                Segment{option.scopeQualifier.label ? `: ${option.scopeQualifier.label}` : ''}
+                              </span>
+                            ) : (
+                              <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-amber-900/30 text-amber-500/90 print:bg-amber-100 print:text-amber-700">
+                                Scope unverified
+                              </span>
+                            )}
                           </div>
                         </div>
                         <p className="text-slate-300 text-sm leading-relaxed mb-4 print:text-slate-700">{option.description}</p>
