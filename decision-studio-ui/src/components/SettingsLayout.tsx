@@ -12,10 +12,9 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Box, Briefcase, Building2, CheckCircle2, ChevronRight,
-  Database, Eye, GitBranch, LineChart, LogOut, ShieldCheck, Sparkles, Users,
+  Database, GitBranch, LogOut, ShieldCheck, Sparkles, Users,
   UserCheck, Activity, Shield, BarChart2, Target, Library,
 } from 'lucide-react'
-import { BrandLogo } from './BrandLogo'
 import { AppShell } from './shared/AppShell'
 import { getSettingsMode, getSettingsClientId, type SettingsMode } from '../utils/settingsMode'
 import { exitAdminMode } from '../utils/adminMode'
@@ -94,13 +93,12 @@ const GOVERNANCE_NAV: NavGroup[] = [
       { label: 'Principal Directory', to: '/settings/governance/principals',  icon: <Users className="w-4 h-4" /> },
     ],
   },
-  {
-    group: 'Assessment',
-    items: [
-      { label: 'Portfolio',    to: '/portfolio',                     icon: <LineChart className="w-4 h-4" /> },
-      { label: 'Situation Console', to: '/dashboard',                icon: <Eye className="w-4 h-4" /> },
-    ],
-  },
+  // Assessment group (Portfolio, Situation Console) removed 2026-08-25 —
+  // both linked to the exact same routes as two of the app-wide LeftNav's
+  // own top-level items (/portfolio, /dashboard), one column over. Live
+  // approved-solutions tracking and live-monitoring are genuinely distinct
+  // functions, but neither was missing from top-level nav — this group
+  // duplicated the link, not the function.
 ]
 
 // ─────────────────────────────────────────────────
@@ -242,12 +240,11 @@ function Sidebar({ mode, clientId }: { mode: SettingsMode; clientId: string }) {
 
   return (
     <aside className="w-56 flex-shrink-0 flex flex-col h-full border-r border-slate-800/60 bg-slate-950/80">
-      {/* Header */}
-      <div className="px-4 pt-6 pb-4 border-b border-slate-800/60">
-        <div className="flex items-center gap-2.5 mb-3">
-          <BrandLogo size={28} />
-          <span className="text-base font-bold text-white tracking-tight">Settings</span>
-        </div>
+      {/* Header — no BrandLogo here (2026-08-25): the app-wide LeftNav one
+          column over already anchors brand identity; repeating it here
+          rendered "Decision Studio" twice side by side, caught live. */}
+      <div className="px-4 pt-6 pb-4 border-b border-slate-800/60 flex flex-col items-start gap-3">
+        <span className="text-base font-bold text-white tracking-tight">Settings</span>
         <span className={`inline-flex items-center text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded border ${modeBadgeClass[mode]}`}>
           {modeLabel[mode]}
         </span>
