@@ -153,7 +153,17 @@ class TestDASCQANarrative:
 
     @pytest.mark.asyncio
     async def test_problem_fallback_uses_variance_language(self):
-        """When LLM is unavailable, problem fallback says 'under-performing' not 'replication'."""
+        """When LLM is unavailable, problem fallback states the movement as a
+        numeric fact ('risen'/'fallen'), not 'replication'.
+
+        Was pinned to 'under-performing'/'performing' — the exact wording bug
+        fixed 2026-08-24: those words are a value judgment in English
+        regardless of polarity, so an inverse-logic KPI's cost INCREASE
+        (bad news, CRITICAL severity) rendered as "is over-performing" (reads
+        as good news). Fixed to state the numeric movement plainly; severity
+        elsewhere already carries good-vs-bad. See a9_deep_analysis_agent.py's
+        `movement_verb` computation.
+        """
         agent = _make_da_agent()
         agent.llm_service_agent.generate = AsyncMock(side_effect=RuntimeError("LLM down"))
 
@@ -168,7 +178,8 @@ class TestDASCQANarrative:
             principal_id="cfo_001", analysis_mode="problem",
         )
 
-        assert "under-performing" in result.lower() or "performing" in result.lower()
+        assert "risen" in result.lower() or "fallen" in result.lower()
+        assert "performing" not in result.lower()
         assert "replication" not in result.lower()
 
     @pytest.mark.asyncio
@@ -227,6 +238,67 @@ class TestDASCQANarrative:
         assert "Question:" in result
         assert "Answer:" in result
         assert "underperforming" not in result.lower()
+
+
+class TestDAPolarityAwareMovementWording:
+    """Fixed 2026-08-24: 'over-performing'/'under-performing' are inescapably
+    a value judgment in English ("outperforming expectations" = good news),
+    but `direction` in _generate_scqa_summary is a purely NUMERIC
+    over/under-the-comparator fact. For an inverse-logic KPI (cost/expense —
+    lower is better) in problem mode, a genuine cost INCREASE computed
+    direction="over" and rendered as "is over-performing" — read by every
+    reader as good news about a cost that had just been flagged CRITICAL.
+    Found live 2026-08-24 on a real scan: "Raw Materials Cost is
+    over-performing vs. yoy" for a cost up 22.3%, badged CRITICAL on the same
+    screen. The fix states the numeric movement plainly ('has risen'/'has
+    fallen'); severity/badges elsewhere already carry good-vs-bad."""
+
+    @pytest.mark.asyncio
+    async def test_inverse_kpi_cost_increase_says_risen_not_over_performing(self):
+        """The exact live case: an inverse-logic (cost) KPI that increased —
+        bad news — must never render as 'over-performing' (reads as good
+        news)."""
+        agent = _make_da_agent()
+        agent.llm_service_agent.generate = AsyncMock(side_effect=RuntimeError("LLM down"))
+
+        plan = _make_da_plan("problem")
+        plan.kpi_name = "Raw Materials Cost"
+        kt = _make_kt(
+            where_is=[{"key": "Synthetic Blend", "dimension": "product_line"}],
+            where_is_not=[{"key": "Conventional Oil", "dimension": "product_line"}],
+        )
+
+        result = await agent._generate_scqa_summary(
+            plan=plan, kt=kt, change_points=[], spec={"inverse_logic": True, "comparison_type": "yoy"},
+            principal_id="cfo_001", analysis_mode="problem",
+        )
+
+        assert "over-performing" not in result.lower()
+        assert "risen" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_inverse_kpi_cost_decrease_in_opportunity_mode_says_fallen(self):
+        """The mirror case: an inverse-logic KPI that decreased in opportunity
+        mode (genuine good news) must never render as 'under-performing'
+        alongside this function's own 'outperformance' wording — a direct
+        contradiction in the same two sentences."""
+        agent = _make_da_agent()
+        agent.llm_service_agent.generate = AsyncMock(side_effect=RuntimeError("LLM down"))
+
+        plan = _make_da_plan("opportunity")
+        plan.kpi_name = "Distribution Cost"
+        kt = _make_kt(
+            where_is=[{"key": "North America", "dimension": "region"}],
+            where_is_not=[{"key": "EMEA", "dimension": "region"}],
+        )
+
+        result = await agent._generate_scqa_summary(
+            plan=plan, kt=kt, change_points=[], spec={"inverse_logic": True, "comparison_type": "yoy"},
+            principal_id="cfo_001", analysis_mode="opportunity",
+        )
+
+        assert "under-performing" not in result.lower()
+        assert "fallen" in result.lower()
 
 
 # ---------------------------------------------------------------------------

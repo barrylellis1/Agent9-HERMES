@@ -15,6 +15,14 @@
 export const STABLE_MONTHLY_THRESHOLD = 0.0001
 const MAX_MONTHLY_RATE = 1.0 / 12
 
+// Format snake_case dimension names to human-readable Title Case, e.g.
+// "customer_region" → "Customer Region". Promoted to module scope 2026-08-24
+// so DivergingBarChart.tsx's Variance Breakdown can reuse it instead of
+// rendering the raw registry column name (e.g. "CUSTOMER_REGI…", truncated
+// mid-word by the fixed-width label column) directly.
+export const formatDimLabel = (dim: string): string =>
+  String(dim || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+
 /**
  * How well one criterion separates the options — computed, not guessed.
  *
@@ -352,9 +360,8 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
     }
     const decisionDeadline = deadlineMap[situation?.severity?.toLowerCase()] || 'TBD'
 
-    // Format snake_case dimension names to human-readable Title Case
-    const formatDimLabel = (dim: string): string =>
-      String(dim || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+    // formatDimLabel is now module-scope (see top of file) — reused by
+    // DivergingBarChart.tsx too.
 
     // Format a delta value at the appropriate scale (no unit assumption)
     // A ratio KPI's numbers are percentages, not counts. Without a unit the

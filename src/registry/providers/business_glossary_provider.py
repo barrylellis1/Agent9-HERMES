@@ -237,6 +237,32 @@ class BusinessGlossaryProvider:
         
         return None
     
+    def get_by_technical_name(self, technical_name: str, client_id: Optional[str] = None) -> Optional[BusinessTerm]:
+        """Reverse lookup: given a raw technical field/column name (e.g.
+        'customer_region'), find the BusinessTerm whose technical_mappings
+        contains it — the opposite direction from get_term()/get_technical_mapping(),
+        which go business term → technical name.
+
+        Added 2026-08-24 for dimension-label display (e.g. the Variance
+        Breakdown exhibit): a raw contract dimension_semantics identifier like
+        "customer_region" needs to become "Customer Region" via a governed
+        glossary entry, not a client-side mechanical transform, once the
+        glossary actually carries dimension-level terms (see
+        EXTRA_GLOSSARY_TERMS in scripts/clients/<client>.py).
+
+        Scoped to client_id when given, matching get_by_client()'s tenant
+        discipline — a technical name is not guaranteed unique across
+        clients (two clients' contracts can both use "region").
+        """
+        tn = (technical_name or "").strip().lower()
+        if not tn:
+            return None
+        candidates = self.get_by_client(client_id) if client_id else list(self.terms.values())
+        for term in candidates:
+            if any(str(v).strip().lower() == tn for v in term.technical_mappings.values()):
+                return term
+        return None
+
     def get_technical_mapping(self, term_name: str, system: str = "duckdb") -> Optional[str]:
         """
         Get the technical mapping for a business term.

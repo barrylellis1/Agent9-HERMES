@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { formatExecutive } from '../../utils/formatExecutive'
+import { formatDimLabel } from '../../utils/briefingUtils'
 
 // --- Types ---
 export interface IsIsNotItem {
@@ -14,6 +15,12 @@ export interface IsIsNotItem {
   // Phase 11I-D segment matrix — second comparison basis + cross-basis tier
   secondary_delta?: number | null
   basis_agreement?: 'confirmed' | 'basis_specific' | 'secondary_only' | 'healthy' | null
+  // Governed business-glossary display label for `dimension` (e.g.
+  // "Customer Region" for "customer_region"), resolved server-side by DA via
+  // A9_Data_Governance_Agent.resolve_dimension_label(). Absent — not a
+  // mechanical guess — when the glossary has no entry yet for this field;
+  // see formatDimLabel for the client-side fallback used in that case.
+  dimension_label?: string
 }
 
 export interface KTIsIsNotData {
@@ -101,13 +108,24 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
   // Group items by dimension
   interface ProcessedDimension {
     dimension: string
+    /** Governed glossary term when the backend resolved one, else a
+     *  mechanical Title Case fallback (formatDimLabel) — never the raw
+     *  "CUSTOMER_REGION"-style field name a reader would have to decode. */
+    dimensionLabel: string
     is: IsIsNotItem[]
     isNot: IsIsNotItem[]
     /** Null when the deltas are not additive — show no total rather than a wrong one. */
     netIsVariance: number | null
-    /** Most extreme single member delta. Meaningful whether or not deltas are
-     *  additive, so ordering never depends on a sum we may not be allowed to take. */
+    /** Most extreme single member delta — from CONFIRMED (bad on both bases)
+     *  members when any exist, else from all members. Meaningful whether or
+     *  not deltas are additive, so ordering never depends on a sum we may not
+     *  be allowed to take. */
     sortKey: number
+    /** True when sortKey was computed from confirmed-tier segments only
+     *  (dual-basis matrix mode, at least one segment confirmed) — drives the
+     *  column caption/tooltip wording so a reader knows which claim is being
+     *  made. */
+    sortKeyIsConfirmedOnly: boolean
   }
 
   const processedData: ProcessedDimension[] = useMemo(() => {
@@ -134,6 +152,7 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
           segment_type: item.segment_type,
           secondary_delta: item.secondary_delta ?? null,
           basis_agreement: item.basis_agreement ?? null,
+          dimension_label: item.dimension_label,
         })
         dimData.isKeys.add(key)
       })
@@ -156,6 +175,7 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
           text: item.text,
           secondary_delta: item.secondary_delta ?? null,
           basis_agreement: item.basis_agreement ?? null,
+          dimension_label: item.dimension_label,
         })
       })
 
@@ -166,15 +186,43 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
         const t = totals[dimension]
         const netIsVariance = typeof t?.delta === 'number' ? t.delta : null
         const deltas = items.is.map(i => i.delta || 0)
-        const sortKey = deltas.length
-          ? (isOpportunity ? Math.max(...deltas) : Math.min(...deltas))
+        // In dual-basis (11I-D matrix) mode, prefer CONFIRMED segments (bad on
+        // BOTH bases — the genuine problem, per DA's own
+        // _build_situation_complication_facts framing) over ones merely
+        // flagged "artifact?" (bad on the primary basis only — likely a
+        // comparison-timing quirk, not a real issue). Found live 2026-08-24:
+        // Customer Region's largest RAW delta was North America at -$17.1M,
+        // tagged "artifact?" (it's actually +$2.8M vs the secondary basis) —
+        // that single number was both the row's headline "Largest driver"
+        // AND the dimension's sort-order key, burying International and
+        // Europe underneath it despite both being tagged "confirmed" at a
+        // fraction of the magnitude. Ranking by raw size alone, blind to the
+        // tier the matrix itself computed, contradicted what the matrix was
+        // built to establish. Falls back to all deltas when no item in this
+        // dimension carries a confirmed tag — including the common case where
+        // basis_agreement is absent entirely (single-basis analyses have no
+        // tier to prefer, and every delta already means the same thing).
+        const confirmedDeltas = items.is
+          .filter(i => i.basis_agreement === 'confirmed')
+          .map(i => i.delta || 0)
+        const rankingDeltas = confirmedDeltas.length ? confirmedDeltas : deltas
+        const sortKey = rankingDeltas.length
+          ? (isOpportunity ? Math.max(...rankingDeltas) : Math.min(...rankingDeltas))
           : 0
+        const sortKeyIsConfirmedOnly = confirmedDeltas.length > 0
+        // Every item sharing this raw `dimension` carries the same
+        // dimension_label (it's resolved per-field server-side, not
+        // per-segment) — take it from whichever item has it.
+        const glossaryLabel = items.is.find(i => i.dimension_label)?.dimension_label
+          ?? items.isNot.find(i => i.dimension_label)?.dimension_label
         result.push({
           dimension,
+          dimensionLabel: glossaryLabel || formatDimLabel(dimension),
           is: items.is,
           isNot: items.isNot,
           netIsVariance,
           sortKey,
+          sortKeyIsConfirmedOnly,
         })
       })
 
@@ -261,6 +309,22 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
         </div>
       )}
 
+      {/* Column caption — once, not repeated per row. Names what the number in
+          each row actually is (see the rationale on that span below): the
+          largest single-segment driver, not a repeated dimension-wide total.
+          In matrix mode the actual per-row answer varies — some dimensions
+          have a confirmed segment to prefer, some don't — so the caption
+          says "confirmed where available" rather than promising every row
+          is confirmed; the per-row chip (see below) is what tells you which
+          case a given row is in. */}
+      <div className="flex items-center gap-3 px-4 pb-1">
+        <span className="w-3.5 flex-shrink-0" />
+        <span className="w-36 flex-shrink-0 text-[9px] uppercase tracking-widest text-slate-600">Dimension</span>
+        <span className="w-32 flex-shrink-0 text-right text-[9px] uppercase tracking-widest text-slate-600">
+          {matrixRan ? 'Largest driver (confirmed where available)' : 'Largest driver'}
+        </span>
+      </div>
+
       {/* Dimension rows */}
       <div className="border border-slate-800 rounded-lg overflow-hidden">
         {processedData.map((dim, idx) => {
@@ -283,32 +347,69 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                   }
                 </span>
 
-                {/* Dimension name */}
-                <span className="w-28 flex-shrink-0 text-[11px] uppercase tracking-wider text-slate-400 font-medium truncate">
-                  {dim.dimension}
+                {/* Dimension name — governed glossary term when the backend
+                    resolved one (see IsIsNotItem.dimension_label), else a
+                    mechanical Title Case fallback. Widened from w-28 and no
+                    longer force-uppercased: that width/casing fit raw column
+                    names like "CUSTOMER_REGION" (which is exactly why they
+                    were truncating mid-word, e.g. "CUSTOMER_REGI…"), not real
+                    English phrases like "Customer Region". The raw technical
+                    field name is still available on hover for a Framer who
+                    wants it. */}
+                <span
+                  className="w-36 flex-shrink-0 text-[11px] tracking-wide text-slate-400 font-medium truncate"
+                  title={dim.dimension}
+                >
+                  {dim.dimensionLabel}
                 </span>
 
-                {/* Net IS variance — shown only when the deltas are additive. */}
-                <span
-                  className={`w-24 flex-shrink-0 text-right font-mono text-xs ${
-                    hasProblem && dim.netIsVariance != null
-                      ? isMixed
-                        ? (dim.netIsVariance < 0 ? 'text-red-400' : 'text-emerald-400')
-                        : isOpportunity ? 'text-emerald-400' : 'text-red-400'
-                      : 'text-slate-600'
-                  }`}
-                  title={
+                {/* Largest single-segment driver — NOT the dimension rollup total.
+                    Was showing dim.netIsVariance here, which is the SAME rollup
+                    figure re-derived for every dimension (it's a full-partition
+                    total, mathematically identical across any GROUP BY slicing of
+                    the same data) — so every row showed the identical number
+                    (e.g. "-$3.0M" repeated across all 7 dimensions), telling a
+                    reader nothing about which dimension actually concentrates the
+                    variance. dim.sortKey (the most extreme single member delta,
+                    already computed above for row ORDERING) is what genuinely
+                    varies per dimension and answers "how bad is the worst segment
+                    here" — showing it is what makes the existing sort order
+                    legible, not just a hidden implementation detail. The rollup
+                    total is still available, in the tooltip, correctly framed. */}
+                <div
+                  className="w-32 flex-shrink-0 flex items-center justify-end gap-1"
+                  title={[
+                    dim.sortKeyIsConfirmedOnly
+                      ? 'Largest CONFIRMED segment driver (bad on both comparison bases) in this dimension — segments flagged "artifact?" are excluded from this figure even if their raw delta is larger, since the matrix itself marked them as likely comparison-timing noise, not a genuine problem.'
+                      : matrixRan
+                        ? 'No segment in this dimension is confirmed on both bases — this is the largest single-segment driver by raw magnitude only, and every segment behind it is flagged "artifact?" (likely a comparison-timing quirk, not a confirmed problem). Treat this figure as provisional.'
+                        : 'Largest single-segment driver in this dimension.',
                     dim.netIsVariance == null
-                      ? 'No overall figure was supplied for this dimension. Segment changes are shown individually; for a ratio KPI they cannot be added together.'
-                      : `Overall movement for this dimension, computed across all segments (not the sum of the rows below).`
-                  }
+                      ? 'No dimension-level rollup total was supplied (a ratio KPI\'s segments cannot be summed to derive one).'
+                      : `Dimension-wide rollup total: ${fmtDelta(dim.netIsVariance)} (computed across all segments, not the sum of the rows below).`,
+                  ].join(' ')}
                 >
-                  {!hasProblem
-                    ? '—'
-                    : dim.netIsVariance == null
-                      ? '—'
-                      : fmtDelta(dim.netIsVariance)}
-                </span>
+                  {/* Visible, not just hover-only: a dimension whose "largest"
+                      figure had no confirmed segment to draw from gets the
+                      same "artifact?" chip already taught to the reader by
+                      the per-segment rows below — not a new visual language,
+                      reused so the same figure can't read as a confirmed
+                      problem when it is only the largest unconfirmed one. */}
+                  {matrixRan && hasProblem && !dim.sortKeyIsConfirmedOnly && (
+                    <TierChip tier="basis_specific" />
+                  )}
+                  <span
+                    className={`font-mono text-xs ${
+                      hasProblem
+                        ? isMixed
+                          ? (dim.sortKey < 0 ? 'text-red-400' : 'text-emerald-400')
+                          : isOpportunity ? 'text-emerald-400' : 'text-red-400'
+                        : 'text-slate-600'
+                    }`}
+                  >
+                    {!hasProblem ? '—' : fmtDelta(dim.sortKey)}
+                  </span>
+                </div>
 
                 {/* IS count badges */}
                 <div className="flex items-center gap-2 ml-auto">

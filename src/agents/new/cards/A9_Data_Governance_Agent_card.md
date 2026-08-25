@@ -197,3 +197,28 @@ On ambiguity (e.g., "Margin" could be gross_margin or net_margin), `human_action
 - Found auditing for other cases after fixing `A9_Principal_Context_Agent`'s cross-tenant leak (see that card): `map_business_process()` fell back to a bare, flat, non-tenant-aware `BusinessProcessProvider()` the instant `registry_factory.get_business_process_provider()` came up empty — same shape, lower blast radius (a local variable, never registered back into the shared factory, so it can't poison the process the way the principal one did).
 - Fixed the same way: on an empty factory slot, call `RegistryBootstrap.initialize()` first (idempotent, self-healing) and re-check before giving up. Only degrades to the flat fallback — now logged as an error, not silent — if the provider is still missing afterward.
 - `connect()` itself still does not call `RegistryBootstrap.initialize()` — only `RegistryFactory()` — unlike the now-fixed `A9_Principal_Context_Agent.connect()`. Left as-is this pass since `map_business_process` is this agent's only bare-fallback call site found; worth revisiting if another one turns up.
+
+## New: `resolve_dimension_label()` — reverse glossary lookup for dimension display (Aug 2026)
+
+**Gap found:** the Business Glossary (`business_glossary_terms`) only ever carried KPI/metric
+concepts (Gross Revenue, EBITDA, YoY — 10 rows for lubricants), never dimension/attribute-level
+terms. `A9_Deep_Analysis_Agent`'s Variance Breakdown exhibit showed raw contract
+`dimension_semantics` identifiers (`CUSTOMER_REGION`, `PRODUCT_CATEGORY`) with no governed
+translation, and the lookup direction that existed (`translate_business_terms`: business term →
+technical name) was the reverse of what's needed (technical field → display term).
+
+**Fix:** `BusinessGlossaryProvider.get_by_technical_name()` (`src/registry/providers/
+business_glossary_provider.py`) searches `technical_mappings` values for a match, scoped to
+`client_id`. New agent method `resolve_dimension_label(field_name, client_id)` wraps it —
+enrichment, not a gate: returns `None` (never raises) when the glossary has no entry yet, so DA
+falls back to a client-side mechanical transform in that case rather than blocking.
+
+Seeded 14 real dimension-label terms for lubricants (`EXTRA_GLOSSARY_TERMS` in
+`scripts/clients/lubricants.py`) matching `lubricants_star_schema.yaml`'s `dimension_semantics`
+list. Also fixed a real pipeline gap while doing this: `onboard_client.py`'s `_GLOSSARY_COLS`
+allow-list was silently stripping `technical_mappings`/`synonyms` from every seeded row — no
+client's glossary terms could ever carry a technical mapping through onboarding until this session.
+
+Tests: `tests/unit/test_business_glossary_reverse_lookup.py` (10). Verified live: 10/10 dimension
+labels resolved correctly (Customer Region, Product Category, Profit Center, etc.), zero raw
+identifiers reaching the UI.
