@@ -503,3 +503,17 @@ Checked against BigQuery, the windows genuinely differ, so the numbers are **not
 **Fix:** `_window_suffix(kpi_value)` renders the resolved window from the `MeasurementContext` already stamped on the reading, appended to both threshold-path descriptions. Emitted **only** for `comparison_basis in ("temporal", "version")` — `peer`, `projection` and `series` have no comparison window, and a fabricated range is worse than none because something downstream can compare against it and "confirm" nothing. Returns `""` when context is absent or incomplete, so an unstamped value degrades to the previous wording rather than inventing dates.
 
 **Related, not fixed here:** the underlying pattern is prose *restating* a figure instead of referencing it. Token substitution (the LLM references `{{kpi.current}}` rather than restating the number, with a basis-aware vocabulary) is the structural fix — see `DEVELOPMENT_PLAN.md` → Phase 15.
+
+## Severity Calibration — AMBER Band Was Unreachable (Aug 2026)
+
+**Bug fixed:** the threshold-breach severity emulation (mirroring `KPI.evaluate()` in
+`src/registry/models/kpi.py`) checked the red-threshold condition and then fell through to an
+identical `else` — both produced RED. There was no way to distinguish "just missed yellow" (e.g.
++3.3% growth against a yellow=5 band) from "genuinely below red" (e.g. -20%). Every KPI that merely
+fell short of yellow reported as CRITICAL. Found live 2026-08-24: 11 of 12 KPIs on a single CFO scan
+flagged CRITICAL, several with small positive percent changes.
+
+**Fix:** a genuine `'amber'` evaluation outcome for "missed yellow but still within the red band,"
+mapped to `SituationSeverity.MEDIUM` (not CRITICAL). Kept in sync with the canonical model's own
+`KPIEvaluationStatus.AMBER`. Verified live: CRITICAL count on the same scan dropped to 5 of 12, with
+2 correctly landing in the new MEDIUM tier. Tests: `tests/unit/test_kpi_evaluate_amber_band.py` (11).
