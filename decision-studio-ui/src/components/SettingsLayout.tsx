@@ -6,12 +6,13 @@
  *
  * Mode 1 (Onboarding)  — Day 1–6 sequential steps with progress indicators
  * Mode 2 (Maintenance) — Registry / Intelligence / Ownership / Workspace groups
- * Mode 3 (Governance)  — Strategic / Registry / Assessment (read-only)
+ * Mode 3 (Governance)  — Strategic / Registry (read-only)
  */
 
+import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
-  Box, Briefcase, Building2, CheckCircle2, ChevronRight,
+  Box, Briefcase, Building2, CheckCircle2, ChevronDown, ChevronRight,
   Database, GitBranch, LogOut, ShieldCheck, Sparkles, Users,
   UserCheck, Activity, Shield, BarChart2, Target, Library,
 } from 'lucide-react'
@@ -126,26 +127,83 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   )
 }
 
+// Persisted across navigations, not just component state — each Settings
+// page wraps itself in <SettingsLayout> independently (same pattern as
+// AppShell), so GroupNav remounts on every route change within Settings.
+// Without this, a manually-opened group would silently re-collapse the
+// moment you clicked one of its own links.
+const SETTINGS_NAV_OPEN_GROUPS_KEY = 'a9_settings_nav_open_groups'
+
+function loadOpenGroups(): Set<string> {
+  try {
+    const raw = localStorage.getItem(SETTINGS_NAV_OPEN_GROUPS_KEY)
+    const arr = raw ? JSON.parse(raw) : []
+    return new Set(Array.isArray(arr) ? arr : [])
+  } catch {
+    return new Set()
+  }
+}
+
+function saveOpenGroups(groups: Set<string>): void {
+  try {
+    localStorage.setItem(SETTINGS_NAV_OPEN_GROUPS_KEY, JSON.stringify([...groups]))
+  } catch {
+    /* private mode / blocked storage — open state just won't persist */
+  }
+}
+
+// Collapsible groups (2026-08-25) — Maintenance mode's Registry/Intelligence/
+// Ownership/Workspace is 14 leaf items; rendered flat, that forced an
+// internal scrollbar in this w-56 column, one panel over from the app-wide
+// LeftNav's own w-56. Caught live. The group containing the current page
+// always renders open regardless of stored state, so navigating here never
+// hides the active link.
 function GroupNav({ groups }: { groups: NavGroup[] }) {
   const { pathname } = useLocation()
+  const activeGroup = groups.find((g) =>
+    g.items.some((item) => pathname === item.to || pathname.startsWith(item.to + '/'))
+  )?.group
+
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => loadOpenGroups())
+
+  function toggleGroup(name: string) {
+    setOpenGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      saveOpenGroups(next)
+      return next
+    })
+  }
+
   return (
-    <div className="space-y-5">
-      {groups.map((g) => (
-        <div key={g.group}>
-          <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-600">
-            {g.group}
-          </p>
-          <div className="space-y-0.5">
-            {g.items.map((item) => (
-              <NavLink
-                key={item.to}
-                item={item}
-                active={pathname === item.to || pathname.startsWith(item.to + '/')}
-              />
-            ))}
+    <div className="space-y-1">
+      {groups.map((g) => {
+        const isOpen = g.group === activeGroup || openGroups.has(g.group)
+        return (
+          <div key={g.group}>
+            <button
+              type="button"
+              onClick={() => toggleGroup(g.group)}
+              className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-[10px] font-semibold uppercase tracking-widest text-slate-600 hover:text-slate-400 hover:bg-slate-800/40 transition-colors"
+            >
+              <span>{g.group}</span>
+              <ChevronDown className={`w-3 h-3 flex-shrink-0 transition-transform duration-150 ${isOpen ? '' : '-rotate-90'}`} />
+            </button>
+            {isOpen && (
+              <div className="space-y-0.5 mb-3">
+                {g.items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    item={item}
+                    active={pathname === item.to || pathname.startsWith(item.to + '/')}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

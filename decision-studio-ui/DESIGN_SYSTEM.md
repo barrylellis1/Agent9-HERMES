@@ -230,7 +230,7 @@ unreachable on touch — found live, Aug 2026. Decoration is hover-only; the aff
 ### Accordion section
 Used in DeepFocusView for collapsible analysis sections. State managed with `Set<string>` of open section IDs.
 This is **content collapse** — a panel's contents hide in place, the panel itself doesn't change size.
-See "Width-collapse nav" below for the other collapse family.
+See "Width-collapse nav" and "Group-collapse nav" below for the other two collapse families.
 
 ### Width-collapse nav (`LeftNav`)
 The app-wide nav rail (`src/components/shared/LeftNav.tsx`, wrapped via `AppShell.tsx`) collapses by
@@ -247,6 +247,25 @@ State persists per-viewer in `localStorage` (`a9_nav_collapsed`), read once at m
 `try/catch` (private browsing / blocked storage falls back to expanded, never throws). Apply this
 pattern — not a new accordion — to any future component that needs to reclaim horizontal space
 without losing its content entirely (e.g. a collapsible detail rail).
+
+### Group-collapse nav (`SettingsLayout`'s `GroupNav`)
+A third collapse family, distinct from both above — a *list of groups* collapses independently, not
+the whole panel's width and not one panel's contents as a unit. Introduced 2026-08-25 when
+Maintenance mode's Registry/Intelligence/Ownership/Workspace (14 leaf items across 4 groups) forced
+an internal scrollbar rendered flat, one column over from the app-wide `LeftNav`'s own `w-56` — found
+live, testing as a Maintenance-mode principal for the first time this session.
+
+- The group containing the **current page always renders open**, regardless of stored state — this
+  nav must never hide the page you're already on.
+- Manually-opened groups persist across navigation in `localStorage`
+  (`a9_settings_nav_open_groups`, a JSON array of group names) — necessary here, unlike a plain
+  accordion, because each Settings page wraps itself in a fresh `<SettingsLayout>` (same
+  self-wrapping pattern as `AppShell`), so `GroupNav` remounts on every route change within Settings.
+  Component-local state alone would silently re-collapse a group the moment you clicked one of its
+  own links.
+- Reach for this pattern (not the accordion, not width-collapse) whenever a **flat list of items is
+  itself long enough to need grouping** — the accordion pattern above collapses one section's
+  content in place; this collapses *which of several sibling groups* are expanded at once.
 
 ### Responsive / breakpoint conventions
 No component in this codebase used Tailwind's `sm:`/`md:`/`lg:` prefixes for **layout structure**
