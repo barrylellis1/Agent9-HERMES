@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import {
-  ArrowLeft,
   BarChart3,
   Database,
   GitBranch,
@@ -15,6 +13,7 @@ import {
   listDataProducts,
   listAccountabilities,
 } from '../api/client'
+import { AppShell } from '../components/shared/AppShell'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -265,17 +264,12 @@ export function ContextExplorer() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
+    <AppShell>
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
       {/* Page header */}
       <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm px-6 py-4 flex items-center gap-4 shrink-0">
-        <Link
-          to="/dashboard"
-          className="flex items-center gap-1.5 text-slate-400 hover:text-slate-100 transition-colors text-sm"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </Link>
-        <div className="w-px h-5 bg-slate-700" />
+        {/* Back link removed 2026-08-25 — superseded by the app-wide LeftNav
+            (AppShell), which now renders alongside this page. */}
         <div>
           <h1 className="text-lg font-semibold text-slate-100 leading-none">
             Context Explorer
@@ -383,5 +377,6 @@ export function ContextExplorer() {
         )}
       </main>
     </div>
+    </AppShell>
   )
 }

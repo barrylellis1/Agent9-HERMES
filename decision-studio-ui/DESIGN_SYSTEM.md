@@ -154,7 +154,9 @@ Dark-first. Color is scarce — used only for semantic meaning.
 
 | Component | File | Props | Usage |
 |---|---|---|---|
-| `AppHeader` | `AppHeader.tsx` | `selectedPrincipal, availablePrincipals, onSelectPrincipal, loading, onRefresh, statusMsg?` | Top nav bar — every view |
+| `AppShell` | `AppShell.tsx` | `children` | App-wide layout wrapper — `LeftNav` + content pane. Pages wrap themselves in it (no nested-route layout); see the component's own docstring for why |
+| `LeftNav` | `LeftNav.tsx` | none (reads `localStorage`/`settingsMode` itself) | Primary nav rail — Situations / Portfolio / Context / Settings, width-collapse (see §7) |
+| `AppHeader` | `AppHeader.tsx` | `selectedPrincipal, availablePrincipals, onSelectPrincipal, loading, onRefresh, statusMsg?` | Dashboard-local header — principal selector + scan control (global nav/branding live in `LeftNav` now) |
 | `PrincipalSelector` | `PrincipalSelector.tsx` | `principals, selectedId, onSelect` | Principal dropdown with "Viewing as" context cue |
 | `SummaryStrip` | `SummaryStrip.tsx` | `kpisScanned, breachCount, impactLevel, impactColor, situations` | Single-line scan results strip |
 | `SolutionsProgressBar` | `SolutionsProgressBar.tsx` | `portfolio, selectedPrincipal` | VA solutions segmented bar + legend |
@@ -209,18 +211,51 @@ Dark-first. Color is scarce — used only for semantic meaning.
 ## 7. Common Patterns
 
 ### Hover-reveal action overlay
-Used on KPITile and HeroBriefing — `group` on parent, `group-hover:opacity-100 opacity-0` on overlay:
+Used on KPITile and HeroBriefing — `group` on parent, `group-hover:opacity-100 opacity-0` on the
+**decorative gradient scrim only**. The action label itself must render unconditionally: hover-gating
+the label (not just the scrim) meant the tile's primary action was invisible across a full grid and
+unreachable on touch — found live, Aug 2026. Decoration is hover-only; the affordance is not:
 ```tsx
 <div className="group relative ...">
   {/* content */}
   <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none ...">
-    Analyze →
+    {/* gradient scrim only — decoration */}
   </div>
+  <span className="absolute inset-x-0 bottom-0 ...">
+    Analyze → {/* always visible — the affordance */}
+  </span>
 </div>
 ```
 
 ### Accordion section
 Used in DeepFocusView for collapsible analysis sections. State managed with `Set<string>` of open section IDs.
+This is **content collapse** — a panel's contents hide in place, the panel itself doesn't change size.
+See "Width-collapse nav" below for the other collapse family.
+
+### Width-collapse nav (`LeftNav`)
+The app-wide nav rail (`src/components/shared/LeftNav.tsx`, wrapped via `AppShell.tsx`) collapses by
+shrinking its own width, not by hiding content in place — a different pattern from the accordion
+above, introduced 2026-08-25 (first precedent in the codebase). Two states, both fixed widths so the
+transition is a clean `transition-[width]`, not a reflow:
+
+| State | Width | Shows |
+|---|---|---|
+| Expanded | `w-56` (matches `SettingsLayout`'s own sidebar, so the two navs read as one system) | icon + label |
+| Collapsed | `w-14` | icon rail only, `title` attribute for a native tooltip |
+
+State persists per-viewer in `localStorage` (`a9_nav_collapsed`), read once at mount inside a
+`try/catch` (private browsing / blocked storage falls back to expanded, never throws). Apply this
+pattern — not a new accordion — to any future component that needs to reclaim horizontal space
+without losing its content entirely (e.g. a collapsible detail rail).
+
+### Responsive / breakpoint conventions
+No component in this codebase used Tailwind's `sm:`/`md:`/`lg:` prefixes for **layout structure**
+before 2026-08-25 (a few grids use `md:grid-cols-*`/`lg:grid-cols-*` for column count only). `LeftNav`
+is currently **rail-only at every width** — it does not yet collapse to an off-canvas drawer below a
+mobile breakpoint; that is an explicit open item in `collapsible_left_nav_design.md` §5, not an
+oversight. When it's built, establish the convention here rather than improvising per-component:
+Tailwind's default `md` (768px) is the recommended cutover point, since it's already the point
+`SettingsLayout`'s and the dashboard's own grids switch column count.
 
 ### Answer-first SCQA
 `parseScqa(raw: string)` in `DeepFocusView.tsx` extracts S/C/Q/A from the flat backend string. `ScqaBlock` component renders Answer first, hides S/C/Q behind "Show reasoning" toggle.

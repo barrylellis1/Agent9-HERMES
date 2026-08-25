@@ -16,6 +16,7 @@ import {
   UserCheck, Activity, Shield, BarChart2, Target, Library,
 } from 'lucide-react'
 import { BrandLogo } from './BrandLogo'
+import { AppShell } from './shared/AppShell'
 import { getSettingsMode, getSettingsClientId, type SettingsMode } from '../utils/settingsMode'
 import { exitAdminMode } from '../utils/adminMode'
 import { ONBOARDING_STEPS } from '../config/onboardingSteps'
@@ -259,18 +260,10 @@ function Sidebar({ mode, clientId }: { mode: SettingsMode; clientId: string }) {
         {mode === 'governance' && <GroupNav groups={GOVERNANCE_NAV} />}
       </nav>
 
-      {/* Footer — back link */}
-      {mode !== 'onboarding' && (
-        <div className="px-3 py-4 border-t border-slate-800/60">
-          <Link
-            to="/dashboard"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-500 hover:text-slate-300 hover:bg-slate-800/40 transition-colors"
-          >
-            <Eye className="w-4 h-4" />
-            Back to Situation Console
-          </Link>
-        </div>
-      )}
+      {/* Footer back-link removed 2026-08-25 — redundant now that the
+          app-wide LeftNav's own "Situations" destination sits one level
+          up, always visible, on every Settings page (not just non-onboarding
+          modes as this link was scoped to). */}
     </aside>
   )
 }
@@ -290,12 +283,17 @@ export function SettingsLayout({ children, modeOverride }: SettingsLayoutProps) 
   const clientId = getSettingsClientId()
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans">
+    <AppShell>
+    {/* h-full, not h-screen — this is now the second nesting level inside
+        AppShell's own h-screen shell (2026-08-25); h-screen here would
+        double-count against it and either overflow or double-scroll. */}
+    <div className="flex h-full bg-background text-foreground overflow-hidden font-sans">
       <Sidebar mode={mode} clientId={clientId} />
       <main className="flex-1 overflow-y-auto">
         {children}
       </main>
     </div>
+    </AppShell>
   )
 }
 

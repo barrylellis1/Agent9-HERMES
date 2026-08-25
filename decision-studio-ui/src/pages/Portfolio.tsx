@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, TrendingUp, AlertCircle, BarChart2, ArrowUpRight, ShieldCheck, Target, FileText, Play, Rocket } from 'lucide-react';
+import { RefreshCw, TrendingUp, AlertCircle, BarChart2, ArrowUpRight, ShieldCheck, Target, FileText, Play, Rocket } from 'lucide-react';
 import { getVAPortfolio, recordKPIMeasurement, updateSolutionPhase, listPrincipals } from '../api/client';
-import { BrandLogo } from '../components/BrandLogo';
+import { AppShell } from '../components/shared/AppShell';
 import type { StrategyAwarePortfolio, AcceptedSolution, SolutionVerdict, SolutionPhase } from '../types/valueAssurance';
 import { PortfolioDashboard } from '../components/PortfolioDashboard';
 import { TrajectoryChart } from '../components/visualizations/TrajectoryChart';
@@ -475,21 +475,15 @@ export function Portfolio() {
   };
 
   return (
+    <AppShell>
     <div className="bg-slate-950 min-h-screen text-white">
       {/* Top bar */}
       <div className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => window.history.back()}
-              className="flex items-center gap-1.5 text-slate-400 hover:text-white text-sm transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </button>
-            <div className="w-px h-5 bg-slate-700" />
-            <BrandLogo size={24} />
-            <div className="w-px h-5 bg-slate-700" />
+            {/* Back button + BrandLogo removed 2026-08-25 — superseded by the
+                app-wide LeftNav (AppShell), which now renders alongside this
+                page and already provides both branding and navigation. */}
             <div>
               <h1 className="text-2xl font-bold text-white leading-none">Solutions Portfolio</h1>
               {principalId && (
@@ -583,5 +577,6 @@ export function Portfolio() {
         )}
       </div>
     </div>
+    </AppShell>
   );
 }

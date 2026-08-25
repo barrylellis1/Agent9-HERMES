@@ -1,4 +1,4 @@
-import { RefreshCw, Settings, LayoutGrid } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { Principal } from '../../api/types';
 import { BrandLogo } from '../BrandLogo';
 import { PrincipalSelector } from './PrincipalSelector';
@@ -65,14 +65,9 @@ export function AppHeader({
             )}
           </div>
         </div>
-
-        {/* #14: LayoutGrid is recognizable as "registry / data explorer" */}
-        <a href="/context" className="p-2 text-slate-400 hover:text-white transition-colors" title="Context Explorer — View KPIs, Principals & Data Products">
-          <LayoutGrid className="w-5 h-5" />
-        </a>
-        <a href="/settings" className="p-2 text-slate-400 hover:text-white transition-colors" title="Settings">
-          <Settings className="w-5 h-5" />
-        </a>
+        {/* Context/Settings icon links removed 2026-08-25 — superseded by the
+            app-wide LeftNav (see AppShell), which now renders on every
+            authenticated page, not just this one. */}
       </div>
     </header>
   );

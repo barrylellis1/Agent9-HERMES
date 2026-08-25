@@ -3,6 +3,7 @@ import { RefreshCw, Scan, Activity, Clock, CheckCircle, ChevronDown, Settings2 }
 import { KPITile } from '../dashboard/KPITile';
 import { HeroBriefing } from '../dashboard/HeroBriefing';
 import { AppHeader } from '../shared/AppHeader';
+import { AppShell } from '../shared/AppShell';
 import { SummaryStrip } from '../shared/SummaryStrip';
 import { SolutionsProgressBar } from '../shared/SolutionsProgressBar';
 import { ThresholdEditorModal } from '../ThresholdEditorModal';
@@ -98,6 +99,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   );
 
   return (
+    <AppShell>
     <div className="min-h-screen bg-background text-foreground p-8 font-sans relative overflow-x-hidden">
 
       <AppHeader
@@ -287,5 +289,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         />
       )}
     </div>
+    </AppShell>
   );
 };
