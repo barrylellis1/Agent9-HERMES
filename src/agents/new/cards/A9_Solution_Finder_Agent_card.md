@@ -569,3 +569,26 @@ suspect (three parallel calls via `asyncio.gather` failing identically and simul
 consistent with something environmental at that moment — rate/concurrency limit, transient API
 issue — rather than a persona-content defect, but unconfirmed). This fix means the next
 occurrence logs the real reason instead of a useless method reference.
+
+## Internal option IDs leaking into reader-facing prose; dominated options ranked as peers (Aug 2026)
+
+**Defect 1 — option ID leak.** A real synthesis run rendered `decision_ask.decision_text` as
+"...diagnostic under opt_1." and `immediate_actions[*].why_it_matters` carried the same leak twice
+more (`opt_2`'s hypothesis, `opt_3`'s thesis). The synthesis prompt hands the model `opt_1`/`opt_2`/
+`opt_3` as JSON keys to cross-reference options by, but nothing told it those keys were structure
+only, never something a reader should see written out. Fixed with a new CONSTRAINTS-block rule
+(same shape as the existing firm-name rule) plus a deterministic backstop —
+`src/analysis/option_id_leak.py` scans `decision_ask`/`immediate_actions` text for a literal
+`opt_\d+` and logs an `option_id_leak` audit event if the prompt fix ever fails, rather than
+trusting the instruction alone. Tests: `tests/unit/test_option_id_leak.py` (8).
+
+**Defect 2 — dominated options presented as independent choices.** The same live run modelled
+`opt_1` and `opt_2` at an identical `$3.8M–$5.2M` recovery range while `opt_2` took 12+ months (vs
+`opt_1`'s 0–90 days), cost more (0.60 vs 0.45), and carried more risk (0.55 vs 0.40) — a strict
+Pareto dominance invisible in a trade-off table where both render as equal peers. New
+`src/analysis/option_dominance.py` computes real dominance (matches or beats on modelled recovery
+range, cost, AND risk, strictly better on at least one), comparing only within the same
+`impact_estimate.scope` (never segment-vs-enterprise — the same trap `ImpactEstimate`'s own
+docstring warns about). Sets a new `SolutionOption.dominated_by` field in place after ranking, in
+both `recommend_actions` and `evaluate_options`. Tests: `tests/unit/test_option_dominance.py` (10),
+including the exact live-observed case.

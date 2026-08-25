@@ -1541,6 +1541,22 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                         "  * Name the METHOD, never the firm that is associated with it. Write 'portfolio segmentation by volume and margin', not \"BCG's Growth-Share Matrix\". Write 'a mutually-exclusive cost-driver decomposition', not \"McKinsey's MECE framing\". Write 'a multi-year margin-architecture reset', not \"Bain's Full Potential Transformation\".\n"
                         "  * This applies to possessives and paraphrases equally — \"the Bain approach\" and \"a McKinsey-style teardown\" are both violations. If a method has no firm-neutral name, describe what it does in plain words.\n"
                         "  * Keep using each council member's distinct methodology and priorities. This rule governs the WORDS YOU RETURN, not the analysis you perform.\n"
+                        # ── Internal option IDs are structure, not prose ──
+                        #
+                        # Found live 2026-08-24 (real synthesis run): decision_ask.decision_text
+                        # rendered as "Approve immediate launch of the 30-day Base Oil &
+                        # Additives cost-and-pricing diagnostic under opt_1." — the internal
+                        # option key leaking straight into the sentence a CFO reads.
+                        # immediate_actions[*].why_it_matters carried the same leak twice more
+                        # ("the pricing diagnostic in opt_1", "opt_2's structural cost
+                        # hypothesis"). Same failure shape as the firm-name rule above: the
+                        # template below hands the model "opt_1"/"opt_2"/"opt_3" as JSON keys
+                        # to cross-reference options by, and nothing told it those keys were
+                        # for structure only, not something a reader should ever see written
+                        # out. The keys themselves are unchanged and still required — this
+                        # only forbids them leaking into text a person reads.
+                        "- INTERNAL OPTION IDs (opt_1/opt_2/opt_3) ARE STRUCTURE, NOT PROSE. They exist only as JSON keys and cross-reference fields (the top-level 'id' field, unresolved_tensions[].options_affected, critiques[].target, endorsements[].target, and any other keyed cross-reference the template below asks for). NEVER write 'opt_1', 'opt_2', or 'opt_3' inside any text a person reads — not in decision_ask.decision_text, immediate_actions[*].why_it_matters/action_text, titles, descriptions, rationales, next_steps, or any other free-text field.\n"
+                        "  * Refer to an option by its actual title or a plain description ('the pricing diagnostic', 'the supply-chain reset'), never by its id.\n"
                         "- CRITICAL: The Deep Analysis is COMPLETE. Do NOT suggest 'more data gathering' or 'implementing analytics' as a primary solution. Focus on OPERATIONAL INTERVENTIONS to address the identified drivers.\n"
                         f"- CONTEXT: The analysis focuses on '{target_kpi}'. Ensure the Problem Reframe explicitly mentions this KPI.\n"
                         "- QUANTIFIED IMPACT REQUIREMENT: For each option, populate 'impact_estimate' using the actual numbers from the SITUATION METRICS section:\n"
@@ -3018,6 +3034,33 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                             # Observation must never break generation.
                             self.logger.info(f"[SF] narrative check unavailable (non-fatal): {_ne}")
 
+                        # Deterministic backstop for the "INTERNAL OPTION IDs ARE
+                        # STRUCTURE, NOT PROSE" prompt rule above — same discipline
+                        # as the narrative check just above: a prompt instruction
+                        # can fail, and a literal opt_N substring is checkable
+                        # without a model. Found live 2026-08-24 in decision_ask
+                        # and immediate_actions text.
+                        try:
+                            from src.analysis.option_id_leak import (
+                                find_option_id_leaks, as_audit_event as _leak_audit_event,
+                            )
+                            _leak_fields = {}
+                            if decision_ask is not None:
+                                _leak_fields["decision_ask.decision_text"] = getattr(decision_ask, "decision_text", None)
+                            for _i, _ia in enumerate(immediate_actions_list):
+                                _leak_fields[f"immediate_actions[{_i}].action_text"] = getattr(_ia, "action_text", None)
+                                _leak_fields[f"immediate_actions[{_i}].why_it_matters"] = getattr(_ia, "why_it_matters", None)
+                            _leak_findings = find_option_id_leaks(_leak_fields)
+                            _leak_ev = _leak_audit_event(_leak_findings)
+                            if _leak_ev:
+                                audit_log.append(_leak_ev)
+                                self.logger.warning(
+                                    "[SF] internal option id(s) leaked into %d reader-facing field(s): %s",
+                                    len(_leak_findings), "; ".join(f["field"] for f in _leak_findings),
+                                )
+                        except Exception as _le:
+                            self.logger.info(f"[SF] option-id-leak check unavailable (non-fatal): {_le}")
+
                     # Market signals flow in from DA → Problem Refinement → external_context
                     # (MA call removed — no longer duplicated here)
                     ma_response = None
@@ -3145,6 +3188,25 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                 ]
             ranked = self._rank_options(options, criteria)
             recommendation = ranked[0] if ranked else None
+
+            # Deterministic Pareto-dominance flag — mutates .dominated_by on
+            # each dominated option in place, before the dict payload below is
+            # built from these same objects. See option_dominance.py.
+            try:
+                from src.analysis.option_dominance import (
+                    apply_dominance_flags, as_audit_event as _dominance_audit_event,
+                )
+                _dominance_findings = apply_dominance_flags(ranked)
+                _dom_ev = _dominance_audit_event(_dominance_findings)
+                if _dom_ev:
+                    audit_log.append(_dom_ev)
+                    self.logger.warning(
+                        "[SF] %d option(s) are Pareto-dominated by another: %s",
+                        len(_dominance_findings),
+                        "; ".join(f"{f['dominated_id']} by {f['dominated_by_id']}" for f in _dominance_findings),
+                    )
+            except Exception as _de:
+                self.logger.info(f"[SF] dominance check unavailable (non-fatal): {_de}")
 
             # Normalize nested models to plain dict payloads to avoid cross-module identity issues
             try:
@@ -3313,6 +3375,11 @@ class A9_Solution_Finder_Agent(SolutionFinderProtocol):
                     TradeOffCriterion(name="risk", weight=self.config.weight_risk),
                 ]
             ranked = self._rank_options(normalized, criteria)
+            try:
+                from src.analysis.option_dominance import apply_dominance_flags
+                apply_dominance_flags(ranked)
+            except Exception as _de:
+                self.logger.info(f"[SF] dominance check unavailable (non-fatal): {_de}")
             matrix = TradeOffMatrix(criteria=criteria, options=ranked, criteria_source=_src_h)
             recommendation = ranked[0] if ranked else None
             return SolutionFinderResponse.success(
