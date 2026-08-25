@@ -17,6 +17,7 @@ import { DecisionAskBlock } from '../components/briefing/DecisionAskBlock'
 import { ImmediateActionsChecklist } from '../components/briefing/ImmediateActionsChecklist'
 import { AssumptionsPanel } from '../components/briefing/AssumptionsPanel'
 import { OptionDetailDrawer } from '../components/briefing/OptionDetailDrawer'
+import { ContradictionBanner } from '../components/briefing/ContradictionBanner'
 import { personaDisplayLabel, councilCompositionLabel } from '../utils/personaLabels'
 import type { AcceptedSolution as VASolution } from '../types/valueAssurance'
 
@@ -49,7 +50,7 @@ function AccordionSection({
 }) {
   const isOpen = openSections.has(id)
   return (
-    <div className="mb-3 rounded-xl overflow-hidden border border-slate-800 print:border-0 print:mb-8">
+    <div id={`accordion-${id}`} className="mb-3 rounded-xl overflow-hidden border border-slate-800 print:border-0 print:mb-8">
       <button
         onClick={() => onToggle(id)}
         className="w-full flex items-center justify-between px-5 py-3 bg-slate-900 text-white hover:bg-slate-800 transition-colors border-b border-slate-800 print:hidden"
@@ -321,6 +322,17 @@ export function ExecutiveBriefing() {
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
+    })
+  }
+
+  // ContradictionBanner's "see full analysis" link (move #1) — force-open
+  // (not toggle: clicking twice must not re-close it) then scroll, since
+  // the accordion's content is display:none while collapsed and a plain
+  // href anchor would scroll to an invisible section.
+  const openBlindSpotsAndScroll = () => {
+    setOpenSections(prev => new Set(prev).add('blindspots'))
+    requestAnimationFrame(() => {
+      document.getElementById('accordion-blindspots')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
   }
 
@@ -916,6 +928,17 @@ export function ExecutiveBriefing() {
                 </div>
               )
             })()}
+
+            {/* Move #1 (executive_briefing_redesign.md §4) — the contradiction
+                becomes the headline. unresolved_tensions[0] used to be buried
+                in the collapsed Blind Spots accordion at the bottom of the
+                page; it is frequently the actual decision ("we cannot yet
+                tell which hypothesis is true"), not a footnote. The full
+                list stays in that accordion unchanged — this is a headline
+                pointing at it, not a replacement. */}
+            {data.unresolved_tensions?.[0] && (
+              <ContradictionBanner tension={data.unresolved_tensions[0]} onViewDetail={openBlindSpotsAndScroll} />
+            )}
 
             {/* [D] Strategic Options */}
             <AccordionSection id="options" title="Strategic Options" openSections={openSections} onToggle={toggleSection}
