@@ -403,8 +403,15 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
 
 export function Portfolio() {
   const [searchParams] = useSearchParams();
-  const principalId = searchParams.get('principal') ?? '';
   const activeClientId = localStorage.getItem('a9_active_client_id') ?? undefined;
+
+  // The query param is an override, not a requirement. Falling back to the
+  // session's active principal is what makes /portfolio work from the Settings
+  // nav link (which passes no param) and survive a refresh or a bookmark.
+  // Previously an absent param produced a developer error instructing the user
+  // to hand-edit the URL.
+  const principalId = searchParams.get('principal')
+    || (() => { try { return localStorage.getItem('a9_selected_principal_id') ?? ''; } catch (_) { return ''; } })();
 
   const [portfolio, setPortfolio] = useState<StrategyAwarePortfolio | null>(null);
   const [selectedSolution, setSelectedSolution] = useState<AcceptedSolution | null>(null);
@@ -414,7 +421,7 @@ export function Portfolio() {
 
   const loadPortfolio = useCallback(async () => {
     if (!principalId) {
-      setError('No principal ID provided. Add ?principal=cfo_001 to the URL.');
+      setError('Select a principal to see their tracked solutions. Open the Situation Console and choose one, then come back.');
       setLoading(false);
       return;
     }

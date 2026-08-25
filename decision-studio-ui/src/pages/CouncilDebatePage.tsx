@@ -229,12 +229,18 @@ export const CouncilDebatePage: React.FC = () => {
     if (!situation || !debateConfig) return;
 
     try {
-      // Clear stale solution data before starting a new debate run
-      try {
-        Object.keys(localStorage)
-          .filter(k => k.startsWith('solutions_') || k.startsWith('briefing_') || k.startsWith('solution_request_'))
-          .forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
-      } catch (_) {}
+      // Clear stale solution data for THIS situation before re-running.
+      //
+      // This used to drop every solutions_*/briefing_*/solution_request_* key in
+      // localStorage regardless of which situation it belonged to — so
+      // re-running the debate for one KPI silently destroyed the solutions and
+      // briefings of every other situation the user had already generated.
+      // Scoped to the current id: the new run overwrites these three keys
+      // anyway (see the write below), so nothing else needs removing.
+      const sid = situation.situation_id;
+      for (const key of [`solutions_${sid}`, `briefing_${sid}`, `solution_request_${sid}`]) {
+        try { localStorage.removeItem(key); } catch (_) {}
+      }
 
       setPhase(1);
 

@@ -130,8 +130,24 @@ export function useDecisionStudio() {
   // see COUNCIL_PRESET_PERSONAS's comment in uiConstants.ts.
   const [selectedPersonas, setSelectedPersonas] = useState<string[]>(COUNCIL_PRESET_PERSONAS.mbb_council);
   
-  // Context / Principal — seed from router state so there's only one SA scan on mount
-  const [selectedPrincipal, setSelectedPrincipal] = useState(location.state?.principalId || "cfo_001");
+  // Context / Principal — seed from router state so there's only one SA scan on
+  // mount, then from the last persisted choice. Persisting matters beyond this
+  // hook: routes outside the Decision Studio tree (Portfolio, and anything the
+  // Settings nav links to) cannot see this React state, and previously had no
+  // way at all to learn which principal was active.
+  const [selectedPrincipal, setSelectedPrincipal] = useState(() => {
+    if (location.state?.principalId) return location.state.principalId;
+    try {
+      const stored = localStorage.getItem('a9_selected_principal_id');
+      if (stored) return stored;
+    } catch (_) { /* private mode / blocked storage — fall through to default */ }
+    return "cfo_001";
+  });
+
+  useEffect(() => {
+    if (!selectedPrincipal) return;
+    try { localStorage.setItem('a9_selected_principal_id', selectedPrincipal); } catch (_) {}
+  }, [selectedPrincipal]);
   const [timeframe, setTimeframe] = useState("year_to_date");
   const [principalInput, setPrincipalInput] = useState<{current_priorities: string[], known_constraints: string[]}>({
       current_priorities: [],
@@ -310,7 +326,10 @@ export function useDecisionStudio() {
     }
   }, [selectedPrincipal, timeframe, selectedClientId, handleRefresh]);
 
-  const handleDeepAnalysis = async (overrideSituation?: typeof selectedSituation) => {
+  const handleDeepAnalysis = async (
+    overrideSituation?: typeof selectedSituation,
+    forceRerun = false,
+  ) => {
     const sit = overrideSituation ?? selectedSituation;
     if (!sit) return;
     const sitId = sit.situation_id;
@@ -318,6 +337,15 @@ export function useDecisionStudio() {
     if (!sit.kpi_name) {
       console.error('[DA] kpi_name missing from situation:', sit);
       setAnalysisError(`Cannot run analysis: situation is missing kpi_name (id=${sitId})`);
+      return;
+    }
+
+    // Reuse a result we already have for this situation. Without this guard,
+    // clicking away from a situation and back re-dispatched a full
+    // /workflows/deep-analysis/run — a fresh LLM + warehouse round trip — and
+    // overwrote an identical result. `force` is the escape hatch for the paths
+    // that genuinely need a re-run (a reframe, or an explicit refresh).
+    if (!forceRerun && analysisResults[sitId]) {
       return;
     }
 

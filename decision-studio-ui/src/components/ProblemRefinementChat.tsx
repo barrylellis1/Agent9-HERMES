@@ -447,8 +447,11 @@ export const ProblemRefinementChat: React.FC<ProblemRefinementChatProps> = ({
         </div>
       )}
 
-      {/* Accumulated refinements summary */}
-      {(refinementState.exclusions?.length || refinementState.external_context?.length ||
+      {/* Accumulated refinements summary.
+          The guard must coerce to boolean: a bare `||` chain of `.length` values
+          yields 0 when every list is empty, and React renders that 0 as a visible
+          text node in the footer. Found live, Aug 2026. */}
+      {Boolean(refinementState.exclusions?.length || refinementState.external_context?.length ||
         refinementState.constraints?.length || refinementState.validated_hypotheses?.length) && (
         <div className="px-3 py-1.5 border-t border-slate-700 bg-slate-900 max-h-16 overflow-y-auto">
           <div className="text-[10px] text-slate-400 space-y-0.5">
