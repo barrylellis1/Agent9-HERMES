@@ -9,7 +9,7 @@ import { ConnectionProfileManager } from '../components/ConnectionProfileManager
 import { DataProductSelector } from '../components/DataProductSelector'
 import { API_ENDPOINTS, API_BASE_URL, buildUrl } from '../config/api-endpoints'
 import type { ConnectionProfile } from '../utils/connectionProfileStorage'
-import { BrandLogo } from '../components/BrandLogo'
+import { SettingsLayout } from '../components/SettingsLayout'
 import { getSettingsClientId } from '../utils/settingsMode'
 
 // Step definitions
@@ -451,8 +451,8 @@ export function DataProductOnboardingNew({
     }
     void _updateSemanticTag
 
-    return (
-        <div className={embedded ? 'font-sans' : 'min-h-screen bg-background text-foreground p-8 font-sans'}>
+    const content = (
+        <div className={embedded ? 'font-sans' : 'min-h-full bg-background text-foreground p-8 font-sans'}>
             {/* Data Product Selector Modal */}
             {showProductSelector && (
                 <DataProductSelector
@@ -568,7 +568,11 @@ export function DataProductOnboardingNew({
                             </p>
                         </div>
                     </div>
-                    <BrandLogo size={32} />
+                    {/* BrandLogo removed 2026-08-25 — this page was never
+                        wrapped in SettingsLayout at all, so the app-wide
+                        LeftNav (and its own brand mark) was missing here
+                        whenever accessed standalone, user-caught live. Now
+                        wrapped below. */}
                 </header>
             )}
 
@@ -1592,4 +1596,6 @@ export function DataProductOnboardingNew({
             </main>
         </div>
     )
+
+    return embedded ? content : <SettingsLayout>{content}</SettingsLayout>
 }

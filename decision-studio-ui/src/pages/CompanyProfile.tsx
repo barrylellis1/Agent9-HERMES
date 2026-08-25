@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowLeft, Loader2, Check, X, ChevronDown, ChevronUp, Building2, Lock } from 'lucide-react'
-import { BrandLogo } from '../components/BrandLogo'
+import { Loader2, Check, X, ChevronDown, ChevronUp, Building2, Lock } from 'lucide-react'
+import { SettingsLayout } from '../components/SettingsLayout'
 import { API_BASE_URL } from '../config/api-endpoints'
 import { getToolTargetClientId, isAdminMode, setAdminTargetClient } from '../utils/adminMode'
 
@@ -413,26 +412,21 @@ export default function CompanyProfile({ embedded = false }: { embedded?: boolea
   const selectCls =
     'w-full p-3 bg-slate-950 border border-slate-800 rounded-lg text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none'
 
-  return (
-    <div className={embedded ? 'font-sans' : 'min-h-screen bg-background text-foreground p-8 font-sans'}>
-      {/* Header — omitted when embedded in the onboarding wizard shell */}
+  const content = (
+    <div className={embedded ? 'font-sans' : 'min-h-full bg-background text-foreground p-8 font-sans'}>
+      {/* Header — omitted when embedded in the onboarding wizard shell.
+          Back-link + BrandLogo removed 2026-08-25: this page was never
+          wrapped in SettingsLayout at all when accessed standalone, so the
+          entire app-wide nav (LeftNav) was missing here — user-caught,
+          live. Now wrapped below; the global nav supersedes this page's own
+          Back affordance and brand mark, same as Portfolio/ContextExplorer
+          earlier the same day. */}
       {!embedded && (
-        <header className="mb-8 flex justify-between items-center max-w-6xl mx-auto">
-          <div className="flex items-center gap-4">
-            <Link
-              to="/settings"
-              className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-white">Company Profile</h1>
-              <p className="text-sm text-slate-400">
-                Business context used for KPI suggestions and situational analysis
-              </p>
-            </div>
-          </div>
-          <BrandLogo size={32} />
+        <header className="mb-8 max-w-6xl mx-auto">
+          <h1 className="text-2xl font-bold tracking-tight text-white">Company Profile</h1>
+          <p className="text-sm text-slate-400">
+            Business context used for KPI suggestions and situational analysis
+          </p>
         </header>
       )}
 
@@ -981,4 +975,6 @@ export default function CompanyProfile({ embedded = false }: { embedded?: boolea
       </main>
     </div>
   )
+
+  return embedded ? content : <SettingsLayout>{content}</SettingsLayout>
 }
