@@ -9,12 +9,11 @@
  * materially riskier change than four pages each wrapping themselves.
  *
  * Owns the full viewport height. A page rendered inside it must use
- * min-h-screen (a floor, compatible with sitting in a flex-1 child) rather
- * than h-screen (a fixed height, which double-counts against this
- * wrapper's own h-screen and either overflows or double-scrolls).
- * SettingsLayout is the one exception — it already had its own h-screen
- * shell and was changed to h-full when it became the second nesting level
- * under this one (see its own comment).
+ * min-h-screen or min-h-full (a floor, compatible with sitting in a
+ * flex-1 child) rather than h-screen (a fixed height, which double-counts
+ * against this wrapper's own h-screen and either overflows or
+ * double-scrolls). SettingsLayout is a thin pass-through of this
+ * component — it no longer has a shell of its own (see its own comment).
  */
 import { LeftNav } from './LeftNav';
 

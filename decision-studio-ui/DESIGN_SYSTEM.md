@@ -240,27 +240,35 @@ transition is a clean `transition-[width]`, not a reflow:
 
 | State | Width | Shows |
 |---|---|---|
-| Expanded | `w-56` (matches `SettingsLayout`'s own sidebar, so the two navs read as one system) | icon + label |
-| Collapsed | `w-14` | icon rail only, `title` attribute for a native tooltip |
+| Expanded | `w-56` | icon + label (+ the Settings sub-tree, see below, if active) |
+| Collapsed | `w-14` | icon rail only, `title` attribute for a native tooltip, sub-tree hidden |
 
 State persists per-viewer in `localStorage` (`a9_nav_collapsed`), read once at mount inside a
 `try/catch` (private browsing / blocked storage falls back to expanded, never throws). Apply this
 pattern — not a new accordion — to any future component that needs to reclaim horizontal space
 without losing its content entirely (e.g. a collapsible detail rail).
 
-### Group-collapse nav (`SettingsLayout`'s `GroupNav`)
+`LeftNav` briefly had a same-day sibling: `SettingsLayout` rendered its own second full-height
+sidebar immediately to the right of this one, each anchoring its own brand mark — live-caught by a
+user screenshot within hours of shipping. That sidebar's entire nav tree (types, `MAINTENANCE_NAV`/
+`GOVERNANCE_NAV`, the onboarding step list) moved into `LeftNav.tsx` the same day and renders indented
+directly beneath the "Settings" destination whenever a `/settings/*` route is active — one panel, not
+two. `SettingsLayout` is now a one-line pass-through of `AppShell`. **There is exactly one `<aside>`
+in this app now; if a future change reintroduces a second one, that's the same defect recurring.**
+
+### Group-collapse nav (`LeftNav`'s `SettingsGroupNav`)
 A third collapse family, distinct from both above — a *list of groups* collapses independently, not
 the whole panel's width and not one panel's contents as a unit. Introduced 2026-08-25 when
 Maintenance mode's Registry/Intelligence/Ownership/Workspace (14 leaf items across 4 groups) forced
-an internal scrollbar rendered flat, one column over from the app-wide `LeftNav`'s own `w-56` — found
-live, testing as a Maintenance-mode principal for the first time this session.
+an internal scrollbar rendered flat — found live, testing as a Maintenance-mode principal for the
+first time this session.
 
 - The group containing the **current page always renders open**, regardless of stored state — this
   nav must never hide the page you're already on.
 - Manually-opened groups persist across navigation in `localStorage`
   (`a9_settings_nav_open_groups`, a JSON array of group names) — necessary here, unlike a plain
   accordion, because each Settings page wraps itself in a fresh `<SettingsLayout>` (same
-  self-wrapping pattern as `AppShell`), so `GroupNav` remounts on every route change within Settings.
+  self-wrapping pattern as `AppShell`), so `LeftNav` remounts on every route change within Settings.
   Component-local state alone would silently re-collapse a group the moment you clicked one of its
   own links.
 - Reach for this pattern (not the accordion, not width-collapse) whenever a **flat list of items is
@@ -273,8 +281,8 @@ before 2026-08-25 (a few grids use `md:grid-cols-*`/`lg:grid-cols-*` for column 
 is currently **rail-only at every width** — it does not yet collapse to an off-canvas drawer below a
 mobile breakpoint; that is an explicit open item in `collapsible_left_nav_design.md` §5, not an
 oversight. When it's built, establish the convention here rather than improvising per-component:
-Tailwind's default `md` (768px) is the recommended cutover point, since it's already the point
-`SettingsLayout`'s and the dashboard's own grids switch column count.
+Tailwind's default `md` (768px) is the recommended cutover point, since it's already the point the
+dashboard's own grids switch column count.
 
 ### Answer-first SCQA
 `parseScqa(raw: string)` in `DeepFocusView.tsx` extracts S/C/Q/A from the flat backend string. `ScqaBlock` component renders Answer first, hides S/C/Q behind "Show reasoning" toggle.

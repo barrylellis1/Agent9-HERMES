@@ -1236,7 +1236,8 @@ export function RegistryExplorer() {
     }
   }
 
-  // handleExitAdmin moved to SettingsLayout OnboardingNav
+  // handleExitAdmin moved to LeftNav's OnboardingRailContent (2026-08-25 —
+  // SettingsLayout no longer renders its own nav; see LeftNav.tsx)
 
   return (
     <SettingsLayout>
