@@ -117,7 +117,15 @@ function ProjectionRow({
   const delta = projectedValue - currentValue;
   const isNegative = delta < 0;
 
-  const valueColorClass =
+  // The DELTA is now the primary figure, the projected LEVEL the smaller
+  // supporting context — reversed 2026-08-24. Found live: the level (e.g.
+  // "$-74.0M", a projected EBITDA level) rendered semibold/normal-size while
+  // the delta (e.g. "$-618K", the actual 30-day erosion) rendered at
+  // text-xs in parentheses — an order of magnitude apart, with the smaller
+  // number answering the section's own question ("what does waiting cost?")
+  // and the larger, more prominent one answering a different question
+  // nobody asked here.
+  const deltaColorClass =
     trendDirection === 'deteriorating'
       ? 'text-amber-800 font-semibold'
       : trendDirection === 'recovering'
@@ -133,11 +141,15 @@ function ProjectionRow({
       />
       <span>
         <span className="font-medium">In {horizon}:</span>{' '}
-        <span className={`font-mono ${valueColorClass}`}>
-          {formatValue(projectedValue, kpiUnit)}
+        <span className={`font-mono ${deltaColorClass}`}>
+          {formatDelta(delta, kpiUnit)}
         </span>{' '}
-        <span className={`font-mono text-xs ${isNegative ? 'text-red-600' : 'text-emerald-600'}`}>
-          ({formatDelta(delta, kpiUnit)})
+        <span className={`font-mono text-xs ${
+          trendDirection === 'deteriorating' ? 'text-amber-700'
+          : trendDirection === 'recovering' ? 'text-emerald-700'
+          : 'text-slate-400'
+        }`}>
+          (projected: {formatValue(projectedValue, kpiUnit)})
         </span>
         {revenueImpact !== undefined && (
           <>
