@@ -295,6 +295,22 @@ export const CouncilDebatePage: React.FC = () => {
         localStorage.getItem('a9_active_client_id') ||
         undefined;
 
+      // Same class of bug, same fix: `situation.principal_id || 'default'`
+      // below used to be the ONLY source, but Situation has no principal_id
+      // field at all -- every SF run ever made through this page tagged
+      // itself with the literal string "default", never a real principal.
+      // Invisible until something finally queried by principal_id (the new
+      // pending-decisions store, 2026-08-26) -- found live when a completed
+      // run never appeared in the Decision Maker's own queue. principalContext
+      // is the primary carrier (same object runClientId already reads above);
+      // the stored session principal is the same deep-link/refresh fallback
+      // runClientId uses for client_id.
+      const runPrincipalId =
+        principalContext?.principal_id ||
+        situation.principal_id ||
+        localStorage.getItem('a9_selected_principal_id') ||
+        'default';
+
       // Stage H collapse (2026-08-04): two dispatches, not four. The audited
       // `hypothesis` and `cross_review` stages were IDENTICAL requests to
       // synthesis (debate_stage only gates Stage-1 skipping; prior_transcript
@@ -305,7 +321,7 @@ export const CouncilDebatePage: React.FC = () => {
       // ── Stage 1: Hypotheses ────────────────────────────────────────────────
       const s1Result = await runSolutionFinder(
         deepAnalysisPayload, [], null,
-        situation.principal_id || 'default',
+        runPrincipalId,
         { ...preferencesBase, debate_stage: 'stage1_only' },
         principalContext || {}, situation.situation_id,
         runClientId
@@ -319,7 +335,7 @@ export const CouncilDebatePage: React.FC = () => {
       setPhase(3);
       const s4Result = await runSolutionFinder(
         deepAnalysisPayload, [], null,
-        situation.principal_id || 'default',
+        runPrincipalId,
         {
           ...preferencesBase,
           debate_stage: 'synthesis',
