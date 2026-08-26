@@ -905,6 +905,14 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
         } : null
       })(),
       principalId: situation?.principal_id || null,
+      // Executive Briefing redesign (2026-08-26) — the explicit situation
+      // statement needs to know whether this is a problem to solve or an
+      // opportunity to capture; the wording is not interchangeable ("cost
+      // of waiting" vs "upside available"). SA's own card_type was never
+      // carried through this transform before — found live when a user
+      // asked "no problem or opportunity situational statement?" and the
+      // answer was that nothing upstream of this even preserved the signal.
+      cardType: (situation?.card_type === 'opportunity' ? 'opportunity' : 'problem') as 'problem' | 'opportunity',
     }
 
     // Option 0 is built AFTER `transformed` so it reads the resolved kpiData

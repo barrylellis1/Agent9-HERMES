@@ -7,7 +7,7 @@ import {
   Users, Target, Zap, Clock, Sparkles, ShieldCheck, Loader2, CheckCircle2,
   ChevronDown, Send, MessageSquare, FileText
 } from 'lucide-react'
-import { approveSolution, askBriefingQuestion, BriefingQAResponse, storeBriefingSnapshot, getBriefingSnapshot, getVASolution } from '../api/client'
+import { approveSolution, askBriefingQuestion, BriefingQAResponse, storeBriefingSnapshot, getBriefingSnapshot, getVASolution, listPrincipals } from '../api/client'
 import { CostOfInactionBanner } from '../components/CostOfInactionBanner'
 import { projectKpiTrend, condenseTimeToValue, truncateProse, endsSentence, axisDiscrimination } from '../utils/briefingUtils'
 import { ValueAssurancePanel } from '../components/ValueAssurancePanel'
@@ -294,6 +294,13 @@ function DecisionChat({
   )
 }
 
+// Stage 9 (Decision Framer/Decision Maker split, 2026-08-26) — the seven
+// "supporting analysis" sections (situation/market/stage1/crossreview/
+// moderator/risks/blindspots) move together as one group. Generalizes the
+// "Supporting Analysis" divider that already existed for 4 of the 7 —
+// widened to all 7 rather than inventing a separate toggle concept.
+const ANALYSIS_SECTION_IDS = ['situation', 'market', 'stage1', 'crossreview', 'moderator', 'risks', 'blindspots']
+
 // ─────────────────────────────────────────────────
 // Main page
 // ─────────────────────────────────────────────────
@@ -316,6 +323,10 @@ export function ExecutiveBriefing() {
     new Set(['options', 'recommendation', 'roadmap'])
   )
 
+  // Stage 9 role-default effect lives further down, right after principalId
+  // is resolved from the briefing payload — see there.
+  const roleDefaultApplied = useRef(false)
+
   const toggleSection = (id: string) => {
     setOpenSections(prev => {
       const next = new Set(prev)
@@ -327,12 +338,18 @@ export function ExecutiveBriefing() {
 
   // ContradictionBanner's "see full analysis" link (move #1) — force-open
   // (not toggle: clicking twice must not re-close it) then scroll, since
-  // the accordion's content is display:none while collapsed and a plain
-  // href anchor would scroll to an invisible section.
+  // the section's content is display:none while collapsed and a plain href
+  // anchor would scroll to an invisible target. Retargeted (Stage 9,
+  // 2026-08-26) at the single consolidated "analysis" toggle — blindspots
+  // is one of seven sections folded into it now, not its own accordion.
   const openBlindSpotsAndScroll = () => {
-    setOpenSections(prev => new Set(prev).add('blindspots'))
+    setOpenSections(prev => {
+      const next = new Set(prev)
+      ANALYSIS_SECTION_IDS.forEach((id) => next.add(id))
+      return next
+    })
     requestAnimationFrame(() => {
-      document.getElementById('accordion-blindspots')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      document.getElementById('accordion-analysis')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
   }
 
@@ -481,6 +498,33 @@ export function ExecutiveBriefing() {
     return () => { document.title = 'Decision Studio' }
   }, [canonicalTitle])
 
+  // Stage 9 (Decision Framer/Decision Maker split, 2026-08-26) — the single
+  // "Show the analysis" toggle (situation/market/stage1/crossreview/moderator/
+  // risks/blindspots, consolidated below) defaults OPEN for a framer, closed
+  // for a decision_maker. Applied once, the moment the role is known — a
+  // ref guard so it never fights a reader's own manual toggle afterward.
+  // This page has no other route into a Principal object (principalId is
+  // only ever a bare string here), so it fetches the list itself rather
+  // than threading a new prop through every caller.
+  useEffect(() => {
+    if (roleDefaultApplied.current || !principalId) return
+    const clientId = localStorage.getItem('a9_active_client_id') || undefined
+    listPrincipals(clientId)
+      .then((rows: any[]) => {
+        if (roleDefaultApplied.current) return
+        const match = rows.find((p) => p.id === principalId)
+        if (match?.workflow_role === 'framer') {
+          setOpenSections((prev) => {
+            const next = new Set(prev)
+            ANALYSIS_SECTION_IDS.forEach((id) => next.add(id))
+            return next
+          })
+        }
+        roleDefaultApplied.current = true
+      })
+      .catch(() => { roleDefaultApplied.current = true })
+  }, [principalId])
+
   if (loading) {
     return (
       <div className="h-screen bg-slate-950 flex items-center justify-center">
@@ -554,15 +598,16 @@ export function ExecutiveBriefing() {
           <span className="text-sm font-semibold text-white truncate max-w-xs mr-3">{canonicalTitle}</span>
           <button
             onClick={() => {
-              // 'moderator' = Stage H verdicts; renders instead of 'crossreview'
-              // depending on which adjudication the backend ran, so both are listed.
-              const allIds = ['situation', 'market', 'stage1', 'crossreview', 'moderator', 'options', 'roadmap', 'risks', 'blindspots', 'inaction', 'recommendation']
-              const allOpen = allIds.every(id => openSections.has(id))
-              setOpenSections(allOpen ? new Set(['options', 'recommendation', 'roadmap']) : new Set(allIds))
+              const allOpen = ANALYSIS_SECTION_IDS.every(id => openSections.has(id))
+              setOpenSections(prev => {
+                const next = new Set(prev)
+                ANALYSIS_SECTION_IDS.forEach(id => allOpen ? next.delete(id) : next.add(id))
+                return next
+              })
             }}
             className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
           >
-            {['situation', 'market', 'stage1', 'crossreview', 'moderator', 'risks', 'blindspots', 'inaction'].every(id => openSections.has(id)) ? 'Collapse All' : 'Expand All'}
+            {ANALYSIS_SECTION_IDS.every(id => openSections.has(id)) ? 'Hide the analysis' : 'Show the analysis'}
           </button>
           <button
             onClick={() => window.print()}
@@ -814,6 +859,21 @@ export function ExecutiveBriefing() {
                 Briefing and Situation & Context blocks above; rendering this as
                 well would put the same three facts on the page twice, which is
                 the duplicate-recommendation defect Cat 1 fixed once already. */}
+            {/* Problem vs. opportunity framing — added 2026-08-26, found live
+                ("no problem or opportunity situational statement?"). Kept
+                OUTSIDE DecisionAskBlock rather than added as a prop to it:
+                that component's own M1 invariant comment says it "is
+                IDENTICAL for every principal" and stays untouched; this is a
+                framing label about the SITUATION, not a per-principal
+                variation of the ask. Only rendered for opportunity — a
+                problem situation is the majority case and already reads
+                correctly with no badge at all. */}
+            {data.cardType === 'opportunity' && (
+              <div className="print:hidden mb-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-900/30 border border-emerald-700/40 text-[11px] font-semibold uppercase tracking-wider text-emerald-300">
+                <Sparkles className="w-3 h-3" /> Opportunity — upside available, not a problem to fix
+              </div>
+            )}
+
             <div className="print:hidden">
               {(() => {
                 const recOption = data.options?.find((o: any) => o.recommended) ?? data.options?.[0]
@@ -1249,6 +1309,43 @@ export function ExecutiveBriefing() {
               </div>
             </AccordionSection>
 
+            {/* "Before you approve" — Executive Briefing redesign, 2026-08-26.
+                narrative_warnings (data-vs-prose mismatches) already rendered
+                above the fold; blind_spots did not — they only ever lived in
+                the collapsed accordion at the bottom, alongside a full
+                Supporting Analysis a reader would have to open to find them.
+                Genuine caveats that could change a reader's confidence belong
+                above the fold; that is a different axis from "is this
+                technical detail", which the rest of Supporting Analysis
+                correctly stays collapsed for. Shows at most 2 — a link to the
+                same Supporting Analysis toggle (already wired for
+                ContradictionBanner above) surfaces the rest, never silently
+                drops them. */}
+            {data.blind_spots?.length > 0 && (
+              <div className="print:hidden mb-6 rounded-xl border border-amber-700/40 bg-amber-950/10 p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-500/90 mb-2">
+                  Before you approve
+                </p>
+                <ul className="space-y-1.5">
+                  {data.blind_spots.slice(0, 2).map((bs: string, i: number) => (
+                    <li key={i} className="text-sm text-amber-100/90 leading-relaxed flex items-start gap-2">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                      <span>{bs}</span>
+                    </li>
+                  ))}
+                </ul>
+                {data.blind_spots.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={openBlindSpotsAndScroll}
+                    className="text-xs text-amber-400 hover:text-amber-300 underline mt-2"
+                  >
+                    {data.blind_spots.length - 2} more consideration{data.blind_spots.length - 2 === 1 ? '' : 's'} in the full analysis ↓
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* [E] Next Steps & Implementation */}
             <AccordionSection id="recommendation" title="Next Steps & Implementation" openSections={openSections} onToggle={toggleSection}
               icon={<CheckCircle2 className="w-4 h-4 text-slate-400" />}>
@@ -1396,16 +1493,19 @@ export function ExecutiveBriefing() {
               </AccordionSection>
             )}
 
-            {/* [G] Supporting Analysis divider */}
-            <div className="print:hidden flex items-center gap-3 mt-6 mb-2">
+            {/* [G] Supporting Analysis divider — Stage 9 widened this from 4
+                of the 7 sections to all 7, matching the toolbar's own
+                "Show/Hide the analysis" toggle exactly (same ANALYSIS_SECTION_IDS
+                constant, same open/closed state — this is the same toggle,
+                reachable from two places, not two competing ones). */}
+            <div id="accordion-analysis" className="print:hidden flex items-center gap-3 mt-6 mb-2">
               <div className="h-px flex-1 bg-slate-800" />
               <button
                 onClick={() => {
-                  const ids = ['situation', 'market', 'stage1', 'crossreview']
-                  const allOpen = ids.every(id => openSections.has(id))
+                  const allOpen = ANALYSIS_SECTION_IDS.every(id => openSections.has(id))
                   setOpenSections(prev => {
                     const next = new Set(prev)
-                    ids.forEach(id => allOpen ? next.delete(id) : next.add(id))
+                    ANALYSIS_SECTION_IDS.forEach(id => allOpen ? next.delete(id) : next.add(id))
                     return next
                   })
                 }}
