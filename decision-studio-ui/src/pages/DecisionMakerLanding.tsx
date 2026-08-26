@@ -15,13 +15,24 @@
  * without its own AppShell the global nav would silently disappear here,
  * the same class of bug fixed earlier this session for CompanyProfile.tsx
  * and DataProductOnboardingNew.tsx.
+ *
+ * User-caught, live (2026-08-26): the first version of this component wired
+ * a click straight into DeepFocusView via handleDeepAnalysis — which re-ran
+ * Deep Analysis for real, against BigQuery, every time. A pending decision
+ * is a completed recommendation awaiting sign-off, not an invitation to
+ * redo the analysis. Clicking now navigates directly to the Executive
+ * Briefing's snapshot of what synthesis already produced — the exact same
+ * "review a fixed artifact" pattern value_assurance_solutions.briefing_snapshot
+ * already uses for the POST-approval case (Portfolio replay); this is its
+ * pre-approval counterpart, not a new pattern.
  */
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Inbox, ArrowRight, Clock, RefreshCw } from 'lucide-react';
 import { AppShell } from '../components/shared/AppShell';
 import { PrincipalSelector } from '../components/shared/PrincipalSelector';
-import { getPendingDecisions, PendingDecisionSummary } from '../api/client';
-import { Principal, Situation } from '../api/types';
+import { getPendingDecisions, getPendingDecisionSnapshot, PendingDecisionSummary } from '../api/client';
+import { Principal } from '../api/types';
 
 function timeAgo(iso?: string | null): string {
   if (!iso) return '';
@@ -41,14 +52,6 @@ interface DecisionMakerLandingProps {
   currentPrincipal: Principal;
   availablePrincipals: Principal[];
   onSelectPrincipal: (id: string) => void;
-  /** Situations from the SA scan already in flight for this session — a
-   *  pending decision's situation_id is matched against these to jump
-   *  straight into DeepFocusView; a scan that hasn't completed yet (or
-   *  never surfaced this situation) degrades to an informational row,
-   *  never a broken link. */
-  situations: Situation[];
-  scanComplete: boolean;
-  onOpenSituation: (situation: Situation) => void;
   onViewFullDashboard: () => void;
 }
 
@@ -58,13 +61,12 @@ export function DecisionMakerLanding({
   currentPrincipal,
   availablePrincipals,
   onSelectPrincipal,
-  situations,
-  scanComplete,
-  onOpenSituation,
   onViewFullDashboard,
 }: DecisionMakerLandingProps) {
+  const navigate = useNavigate();
   const [pending, setPending] = useState<PendingDecisionSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [openingId, setOpeningId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!principalId || !clientId) return;
@@ -76,6 +78,36 @@ export function DecisionMakerLanding({
   }, [principalId, clientId]);
 
   const loading = pending === null && !error;
+
+  // Opens the completed recommendation's snapshot — never re-runs DA/SF.
+  // Prefers this browser's own localStorage cache (written by
+  // CouncilDebatePage.tsx the moment synthesis completed, same key
+  // ExecutiveBriefing.tsx already reads directly); falls back to the
+  // server-side snapshot (Stage 4.1) for any other session/device.
+  async function openPendingDecision(item: PendingDecisionSummary) {
+    if (!item.situation_id) {
+      setError('This recommendation has no linked situation to open.');
+      return;
+    }
+    const localKey = `briefing_${item.situation_id}`;
+    if (localStorage.getItem(localKey)) {
+      navigate(`/briefing/${item.situation_id}`);
+      return;
+    }
+    setOpeningId(item.request_id);
+    try {
+      const snapshot = await getPendingDecisionSnapshot(item.request_id);
+      localStorage.setItem(localKey, JSON.stringify(snapshot));
+      navigate(`/briefing/${item.situation_id}`);
+    } catch {
+      setError(
+        'No saved snapshot found for this recommendation yet — it may predate snapshot capture. ' +
+        'Re-running the analysis is the only way to see it, and is not done automatically.'
+      );
+    } finally {
+      setOpeningId(null);
+    }
+  }
 
   return (
     <AppShell>
@@ -129,17 +161,12 @@ export function DecisionMakerLanding({
           {!loading && pending && pending.length > 0 && (
             <div className="space-y-3">
               {pending.map((item) => {
-                const matchedSituation = situations.find(
-                  (s) => s.situation_id === item.situation_id
-                );
-                const openable = Boolean(matchedSituation);
+                const isOpening = openingId === item.request_id;
                 return (
                   <div
                     key={item.request_id}
-                    className={`border-l-[3px] border-l-indigo-500 bg-card border border-border rounded-xl p-5 flex items-center justify-between gap-4 transition-colors ${
-                      openable ? 'hover:bg-slate-900/60 cursor-pointer' : 'opacity-70'
-                    }`}
-                    onClick={() => { if (matchedSituation) onOpenSituation(matchedSituation); }}
+                    className="border-l-[3px] border-l-indigo-500 bg-card border border-border rounded-xl p-5 flex items-center justify-between gap-4 transition-colors hover:bg-slate-900/60 cursor-pointer"
+                    onClick={() => openPendingDecision(item)}
                   >
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-white truncate">
@@ -154,15 +181,13 @@ export function DecisionMakerLanding({
                         )}
                       </div>
                     </div>
-                    {openable ? (
-                      <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-indigo-400 shrink-0">
-                        Review <ArrowRight className="w-3.5 h-3.5" />
-                      </span>
-                    ) : (
-                      <span className="text-xs text-slate-600 shrink-0">
-                        {scanComplete ? 'Not in current scan' : 'Scanning…'}
-                      </span>
-                    )}
+                    <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-indigo-400 shrink-0">
+                      {isOpening ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <>Review <ArrowRight className="w-3.5 h-3.5" /></>
+                      )}
+                    </span>
                   </div>
                 );
               })}

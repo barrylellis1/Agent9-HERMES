@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle, Loader2, CheckCircle2 } from 'lucide-react';
-import { runSolutionFinder } from '../api/client';
+import { runSolutionFinder, storePendingDecisionSnapshot } from '../api/client';
 import { BrandLogo } from '../components/BrandLogo';
 import { buildExecutiveBriefing } from '../utils/briefingUtils';
 
@@ -363,6 +363,15 @@ export const CouncilDebatePage: React.FC = () => {
           const bp = buildExecutiveBriefing(situation, deepAnalysisResults, enriched, marketSignals || []);
           localStorage.setItem(`briefing_${situationId}`, JSON.stringify(bp));
           if (lastRequestId) localStorage.setItem(`solution_request_${situationId}`, lastRequestId);
+          // Pending-decision snapshot (2026-08-26, user-caught) — the same
+          // payload just written to localStorage above, also persisted
+          // server-side so the Decision Maker landing view can show the
+          // actual completed recommendation without re-running DA/SF, and
+          // so it survives beyond this one browser session. Fire-and-forget,
+          // same non-fatal contract as VA's own storeBriefingSnapshot.
+          if (lastRequestId) {
+            storePendingDecisionSnapshot(lastRequestId, bp).catch(() => {});
+          }
         } catch (_) { /* quota still exceeded — skip persistence, state held in memory */ }
       }
 

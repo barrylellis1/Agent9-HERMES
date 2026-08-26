@@ -76,9 +76,6 @@ export function DecisionStudio() {
         currentPrincipal={currentPrincipal}
         availablePrincipals={availablePrincipals}
         onSelectPrincipal={setSelectedPrincipal}
-        situations={situations}
-        scanComplete={scanComplete}
-        onOpenSituation={(sit) => { setSelectedSituation(sit); handleDeepAnalysis(sit); }}
         onViewFullDashboard={() => setShowFullView(true)}
       />
     );

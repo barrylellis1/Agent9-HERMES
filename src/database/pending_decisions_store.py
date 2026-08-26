@@ -175,7 +175,14 @@ class PendingDecisionsStore:
                 "principal_id": f"eq.{principal_id}",
                 "client_id": f"eq.{client_id}",
                 "resolved": "eq.false",
-                "select": "*",
+                # Explicit column list, NOT select=* -- briefing_snapshot is the
+                # full Executive Briefing payload and has no business bloating
+                # every row of a list the landing view polls repeatedly. Fetched
+                # separately, only for the one item a user actually opens, via
+                # get_briefing_snapshot below.
+                "select": "id,request_id,client_id,principal_id,situation_id,kpi_id,"
+                          "human_action_type,summary,human_action_context,resolved,"
+                          "resolved_action,resolved_at,created_at",
                 "order": "created_at.desc",
             }
             async with httpx.AsyncClient() as client:
@@ -185,3 +192,52 @@ class PendingDecisionsStore:
         except Exception as exc:
             logger.warning("PendingDecisionsStore.list_unresolved failed (non-fatal): %s", exc)
             return []
+
+    async def store_briefing_snapshot(self, request_id: str, snapshot: Dict[str, Any]) -> bool:
+        """Store the fully-transformed Executive Briefing payload for a pending
+        decision, mirroring VASolutionsStore.store_briefing_snapshot exactly
+        (same shape, same non-fatal contract) -- this is the pre-approval
+        counterpart to that post-approval mechanism."""
+        if not self.enabled:
+            return False
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.patch(
+                    self.endpoint,
+                    headers=self.headers,
+                    params={"request_id": f"eq.{request_id}"},
+                    json={"briefing_snapshot": snapshot},
+                )
+                if response.status_code not in (200, 204):
+                    logger.warning(
+                        "PendingDecisionsStore.store_briefing_snapshot: unexpected status %s — %s",
+                        response.status_code, response.text[:200],
+                    )
+                    return False
+            return True
+        except Exception as exc:
+            logger.warning("PendingDecisionsStore.store_briefing_snapshot failed (non-fatal): %s", exc)
+            return False
+
+    async def get_briefing_snapshot(self, request_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve the stored briefing snapshot for a pending decision.
+        Returns None if not found or on any error -- caller must degrade to
+        "cannot preview this yet" rather than crash or fall back to a live
+        DA/SF re-run."""
+        if not self.enabled:
+            return None
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    self.endpoint,
+                    headers=self.headers,
+                    params={"request_id": f"eq.{request_id}", "select": "briefing_snapshot"},
+                )
+                response.raise_for_status()
+                rows = json.loads(response.content) if response.content else []
+                if not rows or not rows[0].get("briefing_snapshot"):
+                    return None
+                return rows[0]["briefing_snapshot"]
+        except Exception as exc:
+            logger.warning("PendingDecisionsStore.get_briefing_snapshot failed (non-fatal): %s", exc)
+            return None

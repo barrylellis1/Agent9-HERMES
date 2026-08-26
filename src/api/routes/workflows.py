@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from src.api.runtime import AgentRuntime, get_agent_runtime
@@ -507,6 +507,44 @@ async def list_pending_decisions(principal_id: str, client_id: str) -> Envelope:
 
     rows = await PendingDecisionsStore().list_unresolved(principal_id, client_id)
     return wrap(rows)
+
+
+@router.put("/solutions/pending/{request_id}/briefing", response_model=Envelope)
+async def store_pending_decision_snapshot(request_id: str, request: Request) -> Envelope:
+    """Store the fully-transformed Executive Briefing payload for a pending
+    decision -- mirrors value_assurance.py's PUT /solutions/{id}/briefing
+    exactly, same non-fatal contract, pre-approval counterpart. Written by
+    CouncilDebatePage.tsx right after it computes the identical payload for
+    its own localStorage cache, so a Decision Maker can review the actual
+    completed analysis later without re-running DA/SF (user-caught live,
+    2026-08-26: clicking a pending item was re-running Deep Analysis for
+    real against BigQuery instead of showing what synthesis already produced)."""
+    import json as _json
+    from src.database.pending_decisions_store import PendingDecisionsStore
+
+    body_bytes = await request.body()
+    body = _json.loads(body_bytes)
+    store = PendingDecisionsStore()
+    if not store.enabled:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    success = await store.store_briefing_snapshot(request_id, body)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to store briefing snapshot")
+    return wrap({"request_id": request_id, "stored": True})
+
+
+@router.get("/solutions/pending/{request_id}/briefing", response_model=Envelope)
+async def get_pending_decision_snapshot(request_id: str) -> Envelope:
+    """Retrieve the stored briefing snapshot for a pending decision."""
+    from src.database.pending_decisions_store import PendingDecisionsStore
+
+    store = PendingDecisionsStore()
+    if not store.enabled:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    snapshot = await store.get_briefing_snapshot(request_id)
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail="No briefing snapshot found for this pending decision")
+    return wrap(snapshot)
 
 
 @router.post("/situations/{request_id}/annotations", response_model=Envelope)
