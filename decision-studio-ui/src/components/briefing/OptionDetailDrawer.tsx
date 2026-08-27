@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useEffect, useRef } from 'react'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { X, CheckCircle, AlertTriangle, Users, ChevronRight, Zap } from 'lucide-react'
 import { AssumptionsPanel } from './AssumptionsPanel'
 
@@ -24,13 +24,61 @@ interface OptionDetailDrawerProps {
 }
 
 export function OptionDetailDrawer({ option, optionLabel, onClose }: OptionDetailDrawerProps) {
-  // Escape closes. A drawer that can only be dismissed by hitting a small target
-  // is a trap on the page an executive is skimming.
+  const panelRef = useRef<HTMLElement>(null)
+  const restoreFocusRef = useRef<HTMLElement | null>(null)
+  const reduceMotion = useReducedMotion()
+
+  // Escape closes, and Tab is trapped inside the panel.
+  //
+  // Before 2026-08-27 this drawer had Escape and nothing else: no role, no
+  // aria-modal, focus was never moved into it, never trapped, never restored,
+  // and the page behind stayed scrollable and reachable by Tab. A screen-reader
+  // user pressed "View full analysis", heard nothing, and the next Tab landed
+  // on the NEXT option's button behind the overlay — so the drawer's entire
+  // contents (arguments for and against, side effects, prerequisites, the
+  // assumptions panel) were effectively unreachable. That is the whole
+  // per-option narrative, on the surface where money gets committed.
   useEffect(() => {
     if (!option) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+
+    restoreFocusRef.current = (document.activeElement as HTMLElement) ?? null
+
+    const focusables = () => Array.from(
+      panelRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+      ) ?? []
+    ).filter(el => el.offsetParent !== null)
+
+    // Move focus in, so the drawer is announced and the next Tab stays inside.
+    const first = focusables()[0] ?? panelRef.current
+    first?.focus()
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return }
+      if (e.key !== 'Tab') return
+      const els = focusables()
+      if (els.length === 0) return
+      const firstEl = els[0]
+      const lastEl = els[els.length - 1]
+      const active = document.activeElement as HTMLElement
+      if (e.shiftKey && (active === firstEl || !panelRef.current?.contains(active))) {
+        e.preventDefault(); lastEl.focus()
+      } else if (!e.shiftKey && active === lastEl) {
+        e.preventDefault(); firstEl.focus()
+      }
+    }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+
+    // Lock the page behind the overlay. The briefing column is its own scroll
+    // container on desktop and the document scrolls on mobile, so both need it.
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+      restoreFocusRef.current?.focus?.()
+    }
   }, [option, onClose])
 
   return (
@@ -40,17 +88,28 @@ export function OptionDetailDrawer({ option, optionLabel, onClose }: OptionDetai
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose}
+            aria-hidden="true"
             className="fixed inset-0 z-40 bg-black/60 print:hidden"
           />
+          {/* A 100%-of-viewport slide is exactly the motion that makes people
+              with vestibular disorders ill, and nothing in this codebase
+              consulted the OS setting. Reduced motion gets a plain fade. */}
           <motion.aside
-            initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-            transition={{ type: 'tween', duration: 0.2 }}
-            className="fixed right-0 top-0 z-50 flex h-full w-full max-w-lg flex-col border-l border-slate-700 bg-slate-900 shadow-2xl print:hidden"
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="option-drawer-title"
+            tabIndex={-1}
+            initial={reduceMotion ? { opacity: 0 } : { x: '100%' }}
+            animate={reduceMotion ? { opacity: 1 } : { x: 0 }}
+            exit={reduceMotion ? { opacity: 0 } : { x: '100%' }}
+            transition={{ type: 'tween', duration: reduceMotion ? 0.12 : 0.2 }}
+            className="fixed right-0 top-0 z-50 flex h-full w-full max-w-lg flex-col border-l border-slate-700 bg-slate-900 shadow-2xl focus:outline-none print:hidden"
           >
             <header className="flex flex-shrink-0 items-start justify-between gap-3 border-b border-slate-800 px-5 py-4">
               <div className="min-w-0">
                 <p className="text-[10px] font-mono uppercase tracking-widest text-slate-500">{optionLabel}</p>
-                <h3 className="text-base font-bold leading-snug text-white">{option.title}</h3>
+                <h3 id="option-drawer-title" className="text-base font-bold leading-snug text-white">{option.title}</h3>
                 {option.subtitle && <p className="mt-0.5 text-xs text-slate-400">{option.subtitle}</p>}
               </div>
               <button

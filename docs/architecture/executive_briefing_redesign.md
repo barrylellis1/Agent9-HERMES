@@ -149,9 +149,15 @@ then defeated by composition. What changed on 2026-08-27:
 | 5. Option titles a person would say aloud | Not done | Titles are still the generated ones, truncated in the workspace selector. |
 | 6. Ten accordions become one page and one toggle | **Done** | Shipped as ten accordions *plus* one toggle. Four (Market Intelligence, Stage 1, Stage 2, Moderator Verdicts) and the Implementation Roadmap now live on `/report/:situationId` and `/debate/:situationId`, which already rendered them from the same payload. `ANALYSIS_SECTION_IDS` went from seven ids to three. |
 
-Deliberately still open, and **not** silently assumed done: the accessibility layer (0 `aria-*`,
-no focus trap on `OptionDetailDrawer`), the 107 hardcoded semantic colours vs 0 `severity-*`
-tokens, two-step approve confirmation, and load-bearing meaning in `title=` tooltips.
+Deliberately still open, and **not** silently assumed done: the 107 hardcoded semantic colours
+vs 0 `severity-*` tokens on this surface, two-step approve confirmation, and load-bearing meaning
+in `title=` tooltips.
+
+Accessibility was closed in a follow-up pass the same day — see the a11y note in
+`decision-studio-ui/DESIGN_SYSTEM.md`. Verified behaviourally in a browser, not by grep: focus
+moves into `OptionDetailDrawer` on open, is trapped (0 escapes in 40 Tab presses), and returns to
+the trigger on Escape; body scroll locks; `prefers-reduced-motion` swaps the full-viewport slide
+for a fade.
 
 Open question §6 ("three overlapping output surfaces") is now **answered**: the briefing decides,
 the report explains. Print and Export were also collapsed — Export survives at narrow widths.

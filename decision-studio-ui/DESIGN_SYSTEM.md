@@ -306,6 +306,35 @@ pass. Prefer `block: 'nearest'`, which does nothing when the anchor is already v
 `LeftNav` remains **rail-only at every width** — it does not yet collapse to an off-canvas drawer;
 that is an explicit open item in `collapsible_left_nav_design.md` §5, not an oversight.
 
+### Accessibility baseline (established 2026-08-27)
+
+Before this date `ExecutiveBriefing.tsx` had **0 `aria-*` and 0 `role=`** across 2,000+ lines, and
+`prefers-reduced-motion` appeared **0 times in the entire `src` tree**. What the foundation got
+right, and what to keep: there were **zero `<div onClick>`** — every control was a real `<button>`,
+`<Link>`, or `<input type="radio">` in a `<label>`, so all of them were already keyboard-reachable.
+The semantic layer was simply never added on top.
+
+Required on any new page or panel:
+
+- **Disclosure/accordion** — a heading whose only child is the toggle: `<h2><button aria-expanded
+  aria-controls>`, with the panel carrying `id`, `role="region"`, `aria-labelledby`. See
+  `AccordionSection` in `ExecutiveBriefing.tsx`; ten sections inherit it from one component.
+- **Modal / drawer** — `role="dialog"`, `aria-modal="true"`, `aria-labelledby` pointing at a real
+  heading id, `tabIndex={-1}` on the panel, focus moved in on open, Tab trapped, focus restored to
+  the trigger on close, `document.body.style.overflow` locked and restored, overlay
+  `aria-hidden="true"`. Escape alone is **not** a dialog: it only helps a sighted keyboard user who
+  already knows the drawer opened. `OptionDetailDrawer` is the reference implementation.
+- **Async state** — `aria-live="polite"` on the region that receives new content, and `role="status"`
+  plus an `sr-only` label on every spinner. An icon that spins announces nothing.
+- **Icon-only controls** — `aria-label` on the control, `aria-hidden="true"` on the icon.
+- **Motion** — `useReducedMotion()` from framer-motion; swap transform-based entrances for a fade.
+- **Focus** — `focus-visible:ring-2` on interactive surfaces; the UA default outline disappears
+  against `bg-slate-800`.
+
+**Verify behaviourally, not by grep.** Attribute presence proves nothing about focus order. Drive it
+in a browser: does focus actually land inside the dialog, does Tab escape it, does Escape restore
+focus to the trigger, does the body still scroll behind the overlay.
+
 ### Page headline / `<h1>`
 Every full-page route owes the document exactly one `<h1>`. The Executive Briefing had **zero** until
 2026-08-27 — it named itself only in `text-sm` truncated nav chrome. Where a page leads with a

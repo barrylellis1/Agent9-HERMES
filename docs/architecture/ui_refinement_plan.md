@@ -148,12 +148,16 @@ State verified against source 2026-08-27, not against this table's own prior cla
 | **7** | Dashboard entry point into `ProblemRefinementChat` (§7.2) | **Open** — still one call site, in `DeepFocusView` |
 | **8** | Dark/light theme toggle — accessibility (§7.1) | **Open** — no theme machinery in the tree |
 
-### §8.5 was never given a tier, and is still live
+### §8.5 was never given a tier — **fixed 2026-08-27**
 
-The fabricated sparkline. `KPITile.tsx` still synthesises a 9-point quadratic curve from a single
-`percent_change` when `monthly_values` is absent, renders it identically to real data, and draws a
-mean baseline computed from the invented numbers. Dormant on lubricants, and a direct contradiction
-of "The Chart is the Receipt" on a surface whose entire claim is that the chart is proof.
+The fabricated sparkline. `KPITile.tsx` synthesised a 9-point quadratic curve from a single
+`percent_change` when `monthly_values` was absent, rendered it identically to real data, and drew a
+mean baseline computed from the invented numbers — undetectable by looking. Dormant on lubricants
+(0 of 15 live tiles), and a direct contradiction of "The Chart is the Receipt" on a surface whose
+entire claim is that the chart is proof.
+
+The fallback is deleted. Fewer than two measured points now renders no chart at all. A blank space
+costs less than an unfalsifiable one.
 
 ### Executive Briefing composition pass (2026-08-27)
 

@@ -54,10 +54,10 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
   // months") while isGoodTrend — computed purely from the YoY percentChange
   // sign — called that a good trend, so the chart rendered green over data
   // that was visibly falling left to right. A chart's colour must agree with
-  // what it draws. Null (not a boolean) when there's no real series to read,
-  // so callers can fall back to the YoY-based isGoodTrend for that case —
-  // the synthetic fallback sparkline is itself derived from percentChange,
-  // so isGoodTrend is already the correct signal for it.
+  // what it draws. Null (not a boolean) when there's no real series to read;
+  // since the synthetic fallback series was removed no chart renders in that
+  // case at all, so the isGoodTrend fallback below now only colours the
+  // non-chart elements.
   const recentTrendIsGood = (() => {
     if (isOpportunity) return true;
     if (monthlyValues.length < 2) return null;
@@ -146,22 +146,22 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
   const PLOT_H   = PLOT_BOT - PLOT_TOP;
 
   const sparkline = (() => {
-    const vals = monthlyValues.length > 0
-      ? monthlyValues.map(m => m.value)
-      : (() => {
-          if (percentChange == null) return null;
-          const pct = Math.min(Math.abs(percentChange), 80) / 100;
-          const base = 100;
-          const pts: number[] = [];
-          const trendUp = (percentChange ?? 0) >= 0;
-          for (let i = 0; i < 9; i++) {
-            const t = i / 8;
-            const ease = t * t;
-            const drift = trendUp ? base * (1 + ease * pct) : base * (1 - ease * pct);
-            pts.push(drift);
-          }
-          return pts;
-        })();
+    // Real measured points only. No series, no chart.
+    //
+    // This used to synthesise a 9-point quadratic from the single
+    // `percent_change` scalar whenever `monthly_values` was absent, and render
+    // it identically to measured data — same stroke, same fill, same dashed
+    // "mean baseline", except the mean was computed from the invented numbers.
+    // Nothing on screen distinguished it, so it was undetectable by looking.
+    //
+    // `ui_brand_guidelines.md` §3 is "The Chart is the Receipt": the chart's
+    // only job is to prove the analysis did the arithmetic. A curve drawn from
+    // a shape function is not a receipt, and an unfalsifiable chart on a
+    // surface whose whole pitch is provable numbers costs more than a blank
+    // space does. Logged as §8.5 in ui_refinement_plan.md ("latent, not
+    // currently firing" — 0 of 15 live tiles were synthetic), never assigned a
+    // tier, removed 2026-08-27. Do not reintroduce a fallback series here.
+    const vals = monthlyValues.length > 1 ? monthlyValues.map(m => m.value) : null;
 
     if (!vals || vals.length < 2) return null;
 

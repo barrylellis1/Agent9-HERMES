@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import html2pdf from 'html2pdf.js'
 import {
   ArrowLeft, ArrowRight, Download, Printer, AlertTriangle, CheckCircle, ChevronRight,
@@ -49,20 +49,37 @@ function AccordionSection({
   openSections: Set<string>; onToggle: (id: string) => void; children: React.ReactNode;
 }) {
   const isOpen = openSections.has(id)
+  const panelId = `accordion-panel-${id}`
+  const headerId = `accordion-header-${id}`
+  /* The standard disclosure pattern: a heading whose only child is the toggle
+     button. Ten sections inherit this, and until 2026-08-27 none of them
+     announced anything — no aria-expanded, no aria-controls, and the title was
+     a <span>, so a screen-reader user toggling a section got no confirmation
+     that anything happened and the page exposed no outline to navigate by. */
   return (
     <div id={`accordion-${id}`} className="mb-3 rounded-xl overflow-hidden border border-slate-800 print:border-0 print:mb-8">
-      <button
-        onClick={() => onToggle(id)}
-        className="w-full flex items-center justify-between px-5 py-3 bg-slate-900 text-white hover:bg-slate-800 transition-colors border-b border-slate-800 print:hidden"
+      <h2 className="print:hidden">
+        <button
+          id={headerId}
+          onClick={() => onToggle(id)}
+          aria-expanded={isOpen}
+          aria-controls={panelId}
+          className="w-full flex items-center justify-between px-5 py-3 bg-slate-900 text-white hover:bg-slate-800 transition-colors border-b border-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-inset"
+        >
+          <span className="flex items-center gap-2">
+            {icon}
+            <span className="font-semibold text-sm">{title}</span>
+            {badge && <span className="px-2 py-0.5 text-[10px] bg-indigo-600 text-white rounded-full">{badge}</span>}
+          </span>
+          <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
+      </h2>
+      <div
+        id={panelId}
+        role="region"
+        aria-labelledby={headerId}
+        className={`accordion-content ${isOpen ? 'block' : 'hidden'} print:block bg-slate-950 print:bg-white`}
       >
-        <div className="flex items-center gap-2">
-          {icon}
-          <span className="font-semibold text-sm">{title}</span>
-          {badge && <span className="px-2 py-0.5 text-[10px] bg-indigo-600 text-white rounded-full">{badge}</span>}
-        </div>
-        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-      <div className={`accordion-content ${isOpen ? 'block' : 'hidden'} print:block bg-slate-950 print:bg-white`}>
         {children}
       </div>
     </div>
@@ -161,7 +178,7 @@ function DecisionChat({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3" aria-live="polite" aria-atomic="false">
         {messages.length === 0 && (
           <div className="space-y-2 pt-2">
             <p className="text-xs text-slate-400 text-center mb-3">Ask a question about this briefing</p>
@@ -201,8 +218,9 @@ function DecisionChat({
         ))}
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-slate-800 rounded-lg px-3 py-2">
-              <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+            <div className="bg-slate-800 rounded-lg px-3 py-2" role="status">
+              <Loader2 className="w-4 h-4 animate-spin text-indigo-400" aria-hidden="true" />
+              <span className="sr-only">Answering your question…</span>
             </div>
           </div>
         )}
@@ -219,15 +237,17 @@ function DecisionChat({
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask about this briefing..."
+              aria-label="Ask a question about this briefing"
               disabled={loading}
               className="flex-1 px-3 py-1.5 text-xs bg-slate-800 text-white border border-slate-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder-slate-500 disabled:opacity-50"
             />
             <button
               onClick={() => sendQuestion(input)}
               disabled={!input.trim() || loading}
+              aria-label="Send question"
               className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40 transition-colors"
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -292,7 +312,8 @@ function DecisionChat({
             <button
               onClick={() => onApprove(selectedOption)}
               disabled={approveState === 'approving' || !selectedOption}
-              className="w-full py-2 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+              aria-live="polite"
+              className="w-full py-2 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
             >
               {approveState === 'approving' ? (
                 <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Registering...</>
@@ -339,6 +360,10 @@ export function ExecutiveBriefing() {
   const [openSections, setOpenSections] = useState<Set<string>>(
     new Set(['options', 'recommendation', 'roadmap'])
   )
+  // Honours the OS "reduce motion" setting. Nothing in this codebase consulted
+  // it before 2026-08-27 — grep for prefers-reduced-motion returned zero files
+  // across the whole src tree while a drawer slid a full viewport width.
+  const reduceMotion = useReducedMotion()
 
   // Stage 9 role-default effect lives further down, right after principalId
   // is resolved from the briefing payload — see there.
@@ -558,8 +583,9 @@ export function ExecutiveBriefing() {
 
   if (loading) {
     return (
-      <div className="h-screen bg-slate-950 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+      <div className="h-screen bg-slate-950 flex items-center justify-center" role="status">
+        <Loader2 className="w-6 h-6 animate-spin text-slate-400" aria-hidden="true" />
+        <span className="sr-only">Loading briefing…</span>
       </div>
     )
   }
@@ -1196,7 +1222,10 @@ export function ExecutiveBriefing() {
                 {/* Option detail cards */}
                 <div className="space-y-6">
                   {data.options?.map((option: any, i: number) => (
-                    <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                    <motion.div key={i}
+                      initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+                      animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+                      transition={{ delay: reduceMotion ? 0 : i * 0.05 }}
                       // print:overflow-visible only — NOT break-inside-avoid. These
                       // cards are frequently taller than a page, and forbidding a break
                       // would push the whole card past the page end and clip more, not
