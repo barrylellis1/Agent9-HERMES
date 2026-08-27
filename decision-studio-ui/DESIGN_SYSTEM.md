@@ -276,13 +276,51 @@ first time this session.
   content in place; this collapses *which of several sibling groups* are expanded at once.
 
 ### Responsive / breakpoint conventions
-No component in this codebase used Tailwind's `sm:`/`md:`/`lg:` prefixes for **layout structure**
-before 2026-08-25 (a few grids use `md:grid-cols-*`/`lg:grid-cols-*` for column count only). `LeftNav`
-is currently **rail-only at every width** — it does not yet collapse to an off-canvas drawer below a
-mobile breakpoint; that is an explicit open item in `collapsible_left_nav_design.md` §5, not an
-oversight. When it's built, establish the convention here rather than improvising per-component:
-Tailwind's default `md` (768px) is the recommended cutover point, since it's already the point the
-dashboard's own grids switch column count.
+
+**The convention, established on the Executive Briefing 2026-08-27. Follow it; don't improvise
+per-component.**
+
+| Pattern | Breakpoint | Rule |
+|---|---|---|
+| **Two-pane split** (content + fixed-width side rail) | `lg` (1024px) | Stack below it. A 320px rail needs ~1024px before *both* panes have room — at `md` (768px) it leaves the content 448px, narrower than a comparison table's own minimum. |
+| **Grid column count** | `sm` / `md` | `grid-cols-2 md:grid-cols-4`, `grid-cols-1 sm:grid-cols-3`. A 4-up metric row is unreadable below `sm`. |
+| **Wide tables** | `lg` | Hide below `lg` **only when an equivalent stacked representation already exists** (e.g. per-option cards). If a column has no equivalent — a baseline/status-quo column — render a compact card for it rather than dropping it silently. |
+| **Nav bars** | `sm` | `flex-wrap` plus `hidden sm:inline` on button labels, keeping the icon. |
+
+Why `lg` and not the `md` this section previously recommended: `md` is right for *column counts*,
+which is what the dashboard grids use it for. It is wrong for a **two-pane split against a fixed
+rail**, because the rail's width is absolute while the breakpoint is not.
+
+**What "no responsive layout" actually looked like**, measured before the fix: the Executive
+Briefing's rail was `w-80 flex-shrink-0` with no breakpoint at any width. At a 390px viewport that
+left the briefing column **70px wide**, rendering the document as a vertical column of one- and
+two-character fragments. Nothing in the type system or the tests could see this; it took a render.
+
+**When a fixed-height inner scroll pane becomes a document scroll below a breakpoint, re-check every
+`scrollIntoView` on the page.** A chat auto-scroll that was a harmless no-op inside a 320px rail
+dragged the whole mobile document to y=8504 of 9786 — the page opened on its own footer. Guard such
+effects on *content* (`if (messages.length === 0) return`), never on a `didMount` ref: StrictMode
+runs effects twice against the same refs in dev, so a mount flag is already spent by the second
+pass. Prefer `block: 'nearest'`, which does nothing when the anchor is already visible.
+
+`LeftNav` remains **rail-only at every width** — it does not yet collapse to an off-canvas drawer;
+that is an explicit open item in `collapsible_left_nav_design.md` §5, not an oversight.
+
+### Page headline / `<h1>`
+Every full-page route owes the document exactly one `<h1>`. The Executive Briefing had **zero** until
+2026-08-27 — it named itself only in `text-sm` truncated nav chrome. Where a page leads with a
+finding rather than a label, the finding *is* the `<h1>` (`ContradictionBanner`'s `headline`
+variant). Do not stack a `text-[10px] uppercase` kicker above it: an eyebrow over a heading is
+decoration the heading already earns, and it was how this page previously avoided having a real
+title at all.
+
+### Dark-first is not optional per-state
+A component with per-state styling must be dark in **every** state. `CostOfInactionBanner` had a
+dark `stable` state and light `bg-amber-50` / `bg-emerald-50` states, so it became the brightest
+object on a slate-950 page whenever the KPI happened to be moving. Centralize per-state colour in a
+single config object rather than repeating ternaries through the render — five scattered ternaries
+is how those three states drifted apart. Add `print:` variants there: on paper the light treatment
+is correct.
 
 ### Answer-first SCQA
 `parseScqa(raw: string)` in `DeepFocusView.tsx` extracts S/C/Q/A from the flat backend string. `ScqaBlock` component renders Answer first, hides S/C/Q behind "Show reasoning" toggle.

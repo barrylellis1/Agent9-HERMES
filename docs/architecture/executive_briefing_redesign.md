@@ -1,7 +1,9 @@
 # Executive Briefing Redesign — one document, two default disclosure states
 
 **Created:** 2026-08-22
-**Status:** Design note + published mockup. **Not built.**
+**Status:** Built. Stages 1-9 shipped Aug 2026; the composition pass that made move #1 real
+landed 2026-08-27. See "Build state" below.
+**Updated:** 2026-08-27
 **Mockup:** https://claude.ai/code/artifact/2a1b0c69-654a-4592-8ae4-0ce0c3c6f3bb
 **Evidence:** a full live SF pipeline run executed 2026-08-22 (EBITDA / Base Oil & Additives,
 lubricants, CFO principal). Raw payload and screenshots:
@@ -129,6 +131,30 @@ content difference would violate it.
 That is exactly "confidence in the details," and it needs **no new backend fields** — only promotion
 out of a bottom accordion into a compact, scannable ledger. The mockup renders it as three
 pass/fail rows with the mechanism underneath.
+
+---
+
+## Build state (2026-08-27)
+
+Stages 1-9 shipped the components. A design critique of the assembled page then scored it
+**19/40 — Poor**, with 7 of 8 cognitive-load checks failing, because several moves were built and
+then defeated by composition. What changed on 2026-08-27:
+
+| Move | State | Note |
+|---|---|---|
+| 1. Contradiction becomes the headline | **Done** | Shipped in Stage 8 but rendered *fifth*, below two statements of the answer — one full scroll under the fold. `ContradictionBanner` now has a `headline` variant, leads the page, and carries the document's only `<h1>`. |
+| 2. Dominated option labelled, not hidden | Built, unverified live | `dominated_by` is `null` on all three options in the verified payload, so the flag has never been seen firing on real data. |
+| 3. Scope travels with every number | Built | Scope chip present; still renders at 9px. |
+| 4. Cost of inaction leads with incremental loss | **Done** | The number was fixed earlier; the *panel* was not — it was `bg-amber-50` on a slate-950 page, making it the brightest object in the first viewport. Now dark-first, with `print:` variants for paper. |
+| 5. Option titles a person would say aloud | Not done | Titles are still the generated ones, truncated in the workspace selector. |
+| 6. Ten accordions become one page and one toggle | **Done** | Shipped as ten accordions *plus* one toggle. Four (Market Intelligence, Stage 1, Stage 2, Moderator Verdicts) and the Implementation Roadmap now live on `/report/:situationId` and `/debate/:situationId`, which already rendered them from the same payload. `ANALYSIS_SECTION_IDS` went from seven ids to three. |
+
+Deliberately still open, and **not** silently assumed done: the accessibility layer (0 `aria-*`,
+no focus trap on `OptionDetailDrawer`), the 107 hardcoded semantic colours vs 0 `severity-*`
+tokens, two-step approve confirmation, and load-bearing meaning in `title=` tooltips.
+
+Open question §6 ("three overlapping output surfaces") is now **answered**: the briefing decides,
+the report explains. Print and Export were also collapsed — Export survives at narrow widths.
 
 ---
 

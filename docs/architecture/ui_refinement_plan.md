@@ -2,7 +2,7 @@
 
 **Created:** 2026-08-21
 **Updated:** 2026-08-22 — added §7 (external-input review) and §8 (live Playwright findings)
-**Status:** Design note — audit complete, fixes not yet built (except where marked)
+**Status:** Tiers 1-6 built. Tiers 7-8 open. See §5 for per-tier state (verified 2026-08-27).
 **Scope:** Originally compliance-and-cleanup against the design language that already exists
 (§1–§6). §8 goes beyond that: it records defects found by driving the running app, several of
 which are not compliance questions at all. The "not a redesign" boundary in §6 still holds for
@@ -135,16 +135,44 @@ Reordered 2026-08-22. Demo-blocking defects from §8 take precedence over the or
 compliance work — a raw developer error on a route and a test record on the login screen are worse
 than an inconsistent token.
 
-| Tier | Item | Why this order |
+State verified against source 2026-08-27, not against this table's own prior claims.
+
+| Tier | Item | State |
 |---|---|---|
-| **1** | Portfolio direct-nav error + `Test Probe` principal (§8.1) | Demo-blocking, both small, both visible within the first minute of any walkthrough |
-| **2** | Severity-token color sweep (§4.1) | Mechanical, no logic/layout change, directly checkable against the doc's own token table, highest file count so highest latent-drift risk if left alone |
-| **3** | Colour-encoding collision on KPI tiles (§8.2) | A card whose number is red and whose chart is green is self-contradictory; same design-system rule as Tier 2, but a real misread risk rather than latent drift |
-| **4** | Client indicator badge (§4.2) | Small, contained, closes a known demo-confusion gap — may fall out of `collapsible_left_nav_design.md` for free |
-| **5** | Persistent `ANALYZE` affordance + stray `0` fix (§8.3) | Two small, unambiguous fixes |
-| **6** | Variance breakdown: rank by explanatory power, humanise column labels (§8.4) | Supersedes the §4.3 disclosure-depth question — the depth was never the real problem |
-| **7** | Dashboard entry point into `ProblemRefinementChat` (§7.2) | Closes a discoverability gap without new NL infrastructure |
-| **8** | Dark/light theme toggle — accessibility (§7.1) | Additive, opt-in, lowest priority |
+| **1** | Portfolio direct-nav error + `Test Probe` principal (§8.1) | **Done** — neither string exists in the tree |
+| **2** | Severity-token color sweep (§4.1) | **Open, and larger than this document estimated.** §4.1 said "at least 15 files". Actual: **56 files, 544 hardcoded `red/amber/emerald/green` utilities against 55 `severity-*` uses.** On the Executive Briefing surface alone it is 107 screen-visible violations to **zero** token uses. Newer files written *after* this audit (`ContradictionBanner.tsx`, `OptionDetailDrawer.tsx`) are on the list, so it is still accreting |
+| **3** | Colour-encoding collision on KPI tiles (§8.2) | **Done** — `chartTrendIsGood` drives the sparkline stroke |
+| **4** | Client indicator badge (§4.2) | **Done** — fell out of the nav work as predicted (`LeftNav.tsx`) |
+| **5** | Persistent `ANALYZE` affordance + stray `0` fix (§8.3) | **Done** — label unconditional; guard coerced with `Boolean()` |
+| **6** | Variance breakdown ranking + humanised labels (§8.4) | **Done** |
+| **7** | Dashboard entry point into `ProblemRefinementChat` (§7.2) | **Open** — still one call site, in `DeepFocusView` |
+| **8** | Dark/light theme toggle — accessibility (§7.1) | **Open** — no theme machinery in the tree |
+
+### §8.5 was never given a tier, and is still live
+
+The fabricated sparkline. `KPITile.tsx` still synthesises a 9-point quadratic curve from a single
+`percent_change` when `monthly_values` is absent, renders it identically to real data, and draws a
+mean baseline computed from the invented numbers. Dormant on lubricants, and a direct contradiction
+of "The Chart is the Receipt" on a surface whose entire claim is that the chart is proof.
+
+### Executive Briefing composition pass (2026-08-27)
+
+Not from this document's backlog. A `/impeccable critique` of the Executive Briefing scored it
+**19/40 — Poor** (7 of 8 cognitive-load checks failing) after nine consecutive feature-layering
+commits with no design review between any of them. Fixes are recorded in
+`executive_briefing_redesign.md` under "Build state". Measured before/after, real data, six
+viewports:
+
+| Metric | Before | After |
+|---|---|---|
+| Briefing pane width @ 390px | **70px** | 390px |
+| Workspace rail width @ 390px | 320px (fixed at every width) | full-width, stacked |
+| Blocks above the fold | 7 | 3 |
+| Contradiction visible in first viewport | no | yes |
+| `<h1>` count | 0 | 1 |
+| Scroll height (Decision Maker, collapsed) | 6,635px | 5,632px |
+| Worst measured text contrast | 1.95:1 | 3.07:1 |
+| Console errors | 0 | 0 |
 
 ~~Settings tab bar hierarchical nav~~ — shipped; remaining collapse/taxonomy work moved to
 `collapsible_left_nav_design.md` (§4.4).

@@ -100,14 +100,14 @@ export function AssumptionsPanel({ assumptions, impactLabel, defaultOpen = false
                       </span>
                     )}
                     {a.validated_by && (
-                      <span className="text-[9px] text-slate-600 print:text-slate-500">
+                      <span className="text-[9px] text-slate-400 print:text-slate-500">
                         {VALIDATED_BY_LABELS[a.validated_by] ?? a.validated_by}
                       </span>
                     )}
                     {/* The specific source, when one was recorded. This is what
                         turns "grounded" from a badge into something checkable. */}
                     {a.provenance && (
-                      <span className="text-[9px] font-mono text-slate-600 print:text-slate-500">· {a.provenance}</span>
+                      <span className="text-[9px] font-mono text-slate-400 print:text-slate-500">· {a.provenance}</span>
                     )}
                   </div>
                 </div>

@@ -3,8 +3,8 @@ import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import html2pdf from 'html2pdf.js'
 import {
-  ArrowLeft, Download, Printer, AlertTriangle, CheckCircle, ChevronRight,
-  Users, Target, Zap, Clock, Sparkles, ShieldCheck, Loader2, CheckCircle2,
+  ArrowLeft, ArrowRight, Download, Printer, AlertTriangle, CheckCircle, ChevronRight,
+  Users, Target, Zap, TrendingUp, ShieldCheck, Loader2, CheckCircle2,
   ChevronDown, Send, MessageSquare, FileText
 } from 'lucide-react'
 import { approveSolution, askBriefingQuestion, BriefingQAResponse, storeBriefingSnapshot, getBriefingSnapshot, getVASolution, listPrincipals } from '../api/client'
@@ -18,7 +18,7 @@ import { ImmediateActionsChecklist } from '../components/briefing/ImmediateActio
 import { AssumptionsPanel } from '../components/briefing/AssumptionsPanel'
 import { OptionDetailDrawer } from '../components/briefing/OptionDetailDrawer'
 import { ContradictionBanner } from '../components/briefing/ContradictionBanner'
-import { personaDisplayLabel, councilCompositionLabel } from '../utils/personaLabels'
+import { councilCompositionLabel } from '../utils/personaLabels'
 import type { AcceptedSolution as VASolution } from '../types/valueAssurance'
 
 // ─────────────────────────────────────────────────
@@ -96,8 +96,23 @@ function DecisionChat({
   })
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  // Two guards, both needed once the workspace stacks BELOW the briefing on
+  // narrow screens instead of sitting in its own independently-scrolling rail.
+  //
+  //  - Empty check: this used to fire on first render with no conversation to
+  //    scroll to. Inside the old 320px rail that was a harmless no-op; with the
+  //    document itself scrolling on mobile it dragged the reader to y=8504 of
+  //    9786, so the briefing opened on its own footer. Caught by rendering at
+  //    390px — no type or lint check sees this.
+  //    Guard on the message count, NOT a didMount ref: StrictMode runs effects
+  //    twice against the same refs in dev, so a mount flag is already spent by
+  //    the second pass and the scroll fires anyway.
+  //  - `block: 'nearest'`: scrolls the chat's own container only, and does
+  //    nothing when the anchor is already visible, so answering a question
+  //    never jerks the whole page.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messages.length === 0) return
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [messages])
 
   const sendQuestion = async (question: string) => {
@@ -294,12 +309,14 @@ function DecisionChat({
   )
 }
 
-// Stage 9 (Decision Framer/Decision Maker split, 2026-08-26) — the seven
-// "supporting analysis" sections (situation/market/stage1/crossreview/
-// moderator/risks/blindspots) move together as one group. Generalizes the
-// "Supporting Analysis" divider that already existed for 4 of the 7 —
-// widened to all 7 rather than inventing a separate toggle concept.
-const ANALYSIS_SECTION_IDS = ['situation', 'market', 'stage1', 'crossreview', 'moderator', 'risks', 'blindspots']
+// The "supporting analysis" sections that move together as one group behind
+// the single "Show/Hide the analysis" toggle.
+//
+// Was seven ids. Now three: market/stage1/crossreview/moderator moved off this
+// page entirely (see the note where they were rendered). What remains is what
+// actually bears on the DECISION — the situation, the risks, and the blind
+// spots — rather than the record of how the council argued.
+const ANALYSIS_SECTION_IDS = ['situation', 'risks', 'blindspots']
 
 // ─────────────────────────────────────────────────
 // Main page
@@ -336,20 +353,34 @@ export function ExecutiveBriefing() {
     })
   }
 
-  // ContradictionBanner's "see full analysis" link (move #1) — force-open
-  // (not toggle: clicking twice must not re-close it) then scroll, since
-  // the section's content is display:none while collapsed and a plain href
-  // anchor would scroll to an invisible target. Retargeted (Stage 9,
-  // 2026-08-26) at the single consolidated "analysis" toggle — blindspots
-  // is one of seven sections folded into it now, not its own accordion.
-  const openBlindSpotsAndScroll = () => {
+  const analysisAllOpen = ANALYSIS_SECTION_IDS.every(id => openSections.has(id))
+
+  // Open every analysis section at once. Shared by the toolbar toggle and the
+  // divider toggle, which previously carried byte-identical copies of this
+  // logic in two places.
+  const setAllAnalysisSections = (open: boolean) => {
     setOpenSections(prev => {
       const next = new Set(prev)
-      ANALYSIS_SECTION_IDS.forEach((id) => next.add(id))
+      ANALYSIS_SECTION_IDS.forEach(id => open ? next.add(id) : next.delete(id))
       return next
     })
+  }
+
+  // ContradictionBanner's "see the full analysis" link (move #1) — force-open
+  // (not toggle: clicking twice must not re-close it) then scroll, since the
+  // section's content is display:none while collapsed and a plain href anchor
+  // would scroll to an invisible target.
+  //
+  // Scrolls to #accordion-blindspots, NOT the group divider. Stage 9 retargeted
+  // this at the divider when blindspots was folded into a seven-section group,
+  // but the link's own label says "in Blind Spots & Tensions" — so the reader
+  // clicked it and landed seven sections short of the thing it named. This is
+  // the only path from the page's headline finding to its evidence; it has to
+  // land on the evidence.
+  const openBlindSpotsAndScroll = () => {
+    setAllAnalysisSections(true)
     requestAnimationFrame(() => {
-      document.getElementById('accordion-analysis')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      document.getElementById('accordion-blindspots')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
   }
 
@@ -553,40 +584,23 @@ export function ExecutiveBriefing() {
 
   const data = briefing
 
-  // ── Council persona styling ────────────────────────────────────────────────
-  //
-  // De-branded 2026-08-16 (Phase 13 / Phase 18 reconciliation, resolved in favour
-  // of Phase 18). This block previously held full legal names — "McKinsey &
-  // Company", "Bain & Company" — each paired with an approximation of that firm's
-  // real brand colour, on the artifact an executive exports to PDF and forwards.
-  //
-  // Names now come from personaDisplayLabel(), which states the analytical
-  // tradition the persona prompt encodes rather than the firm that inspired it.
-  // The palette is assigned by POSITION, so a run keeps stable per-persona colours
-  // without any of them being a trademark approximation.
-  //
-  // Nothing about generation changes: the persona id is still the reasoning
-  // anchor inside the prompt (M3's substantive point, kept).
-  const PERSONA_PALETTE: Array<{ bar: string; border: string; badge: string; dot: string }> = [
-    { bar: 'bg-indigo-600',  border: 'border-l-indigo-600',  badge: 'bg-indigo-50 text-indigo-800',   dot: 'bg-indigo-600' },
-    { bar: 'bg-teal-600',    border: 'border-l-teal-600',    badge: 'bg-teal-50 text-teal-800',       dot: 'bg-teal-600' },
-    { bar: 'bg-amber-600',   border: 'border-l-amber-600',   badge: 'bg-amber-50 text-amber-800',     dot: 'bg-amber-600' },
-    { bar: 'bg-sky-700',     border: 'border-l-sky-700',     badge: 'bg-sky-50 text-sky-800',         dot: 'bg-sky-700' },
-    { bar: 'bg-violet-600',  border: 'border-l-violet-600',  badge: 'bg-violet-50 text-violet-800',   dot: 'bg-violet-600' },
-  ]
+  // Council persona ORDER, still needed by the audit footer's
+  // councilCompositionLabel(). The per-persona colour palette and conviction
+  // badge styles that used to sit here went with the Stage 1 / Stage 2
+  // accordions — that five-hue palette (indigo/teal/amber/sky/violet, each with
+  // a light-mode badge) was also the largest single source of non-semantic
+  // colour on a page whose brand rule is that colour is scarce.
   const personaOrder: string[] = Object.keys(data.stage_1_hypotheses || {})
-  const personaStyle = (personaId: string) => {
-    const idx = personaOrder.indexOf(personaId)
-    return PERSONA_PALETTE[(idx >= 0 ? idx : 0) % PERSONA_PALETTE.length]
-  }
-  const convictionStyle: Record<string, string> = {
-    High: 'bg-emerald-100 text-emerald-800', Medium: 'bg-amber-100 text-amber-800', Low: 'bg-slate-100 text-slate-600',
-  }
 
   return (
-    <div className="h-screen flex flex-col bg-slate-950 overflow-hidden print:h-auto print:overflow-visible print:text-black print:bg-white">
+    <div className="min-h-screen lg:h-screen flex flex-col bg-slate-950 lg:overflow-hidden print:h-auto print:overflow-visible print:text-black print:bg-white">
       {/* Nav */}
-      <nav className="flex-shrink-0 bg-slate-900 border-b border-slate-800 py-3 px-6 flex justify-between items-center print:hidden z-50">
+      {/* The title span that sat in here was the ONLY place this page named
+          itself on screen — at text-sm, truncated, in the chrome. The document
+          now opens with a real <h1>, so repeating it here is duplication; it
+          stays from `lg` up purely as a scroll anchor and is dropped below that
+          where the space is needed. */}
+      <nav className="flex-shrink-0 bg-slate-900 border-b border-slate-800 py-3 px-4 sm:px-6 flex flex-wrap gap-y-2 justify-between items-center print:hidden z-50">
         <div className="flex items-center gap-4">
           <Link to="/dashboard" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors text-sm">
             <ArrowLeft className="w-4 h-4" />
@@ -595,23 +609,20 @@ export function ExecutiveBriefing() {
           <BrandLogo size={24} />
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-white truncate max-w-xs mr-3">{canonicalTitle}</span>
+          <span className="hidden lg:block text-sm font-semibold text-white truncate max-w-xs mr-3">{canonicalTitle}</span>
           <button
-            onClick={() => {
-              const allOpen = ANALYSIS_SECTION_IDS.every(id => openSections.has(id))
-              setOpenSections(prev => {
-                const next = new Set(prev)
-                ANALYSIS_SECTION_IDS.forEach(id => allOpen ? next.delete(id) : next.add(id))
-                return next
-              })
-            }}
+            onClick={() => setAllAnalysisSections(!analysisAllOpen)}
             className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
           >
-            {ANALYSIS_SECTION_IDS.every(id => openSections.has(id)) ? 'Hide the analysis' : 'Show the analysis'}
+            {analysisAllOpen ? 'Hide the analysis' : 'Show the analysis'}
           </button>
+          {/* Print and Export both produce a document and were competing with
+              View Report for the same intent with no hierarchy between them.
+              Export (a real file) is the one that survives at narrow widths;
+              Print stays on wider screens for hardcopy. */}
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
             title="Opens print dialog for multi-page PDF or hardcopy"
           >
             <Printer className="w-3.5 h-3.5" />
@@ -623,7 +634,7 @@ export function ExecutiveBriefing() {
             title="Download as standalone PDF file"
           >
             <Download className="w-3.5 h-3.5" />
-            Export
+            <span className="hidden sm:inline">Export</span>
           </button>
           <button
             onClick={() => navigate(`/report/${situationId}`)}
@@ -631,15 +642,15 @@ export function ExecutiveBriefing() {
             title="Open narrative-arc white-paper report"
           >
             <FileText className="w-3.5 h-3.5" />
-            View Report
+            <span className="hidden sm:inline">View </span>Report
           </button>
         </div>
       </nav>
 
       {/* Two-panel body */}
-      <div className="flex-1 min-h-0 flex overflow-hidden print:overflow-visible print:block">
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row lg:overflow-hidden print:overflow-visible print:block">
         {/* ── Left: Briefing content ── */}
-        <div className="briefing-content flex-1 overflow-y-auto bg-slate-950 p-4 print:p-0 print:bg-white print:overflow-visible">
+        <div className="briefing-content flex-1 lg:overflow-y-auto bg-slate-950 p-4 sm:p-6 print:p-0 print:bg-white print:overflow-visible">
           <div className="max-w-3xl mx-auto">
 
             {/* ── Print-only header ─────────────────────────────────────────── */}
@@ -859,6 +870,37 @@ export function ExecutiveBriefing() {
                 Briefing and Situation & Context blocks above; rendering this as
                 well would put the same three facts on the page twice, which is
                 the duplicate-recommendation defect Cat 1 fixed once already. */}
+            {/* ── THE FOLD ──────────────────────────────────────────────────
+                Order here is load-bearing, and it is the fix for the defect
+                the Aug 2026 design critique scored hardest (19/40).
+
+                The page used to open: situation bullets → decision ask →
+                recommended path → owner → Cost of Inaction → "Recommendation
+                at a glance" → and only THEN the contradiction, one full scroll
+                below the fold. So it asserted an answer twice before admitting
+                the question was still open — the exact inverse of BLUF, and it
+                defeated move #1 of executive_briefing_redesign.md ("the
+                contradiction becomes the headline") while technically shipping
+                the component.
+
+                Now: open question → the decision it forces → why now →
+                the options. Four beats, each saying one thing once.
+                Do not reintroduce a block above the contradiction. */}
+            {data.unresolved_tensions?.[0] ? (
+              <ContradictionBanner
+                tension={data.unresolved_tensions[0]}
+                onViewDetail={openBlindSpotsAndScroll}
+                variant="headline"
+              />
+            ) : (
+              /* No tension in this run — the page still needs exactly one <h1>,
+                 both for the document outline and because assistive tech had
+                 nothing to anchor on here before. */
+              <h1 className="text-xl sm:text-2xl font-semibold text-white leading-snug tracking-tight mb-6 print:text-slate-900">
+                {canonicalTitle}
+              </h1>
+            )}
+
             {/* Problem vs. opportunity framing — added 2026-08-26, found live
                 ("no problem or opportunity situational statement?"). Kept
                 OUTSIDE DecisionAskBlock rather than added as a prop to it:
@@ -870,7 +912,7 @@ export function ExecutiveBriefing() {
                 correctly with no badge at all. */}
             {data.cardType === 'opportunity' && (
               <div className="print:hidden mb-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-900/30 border border-emerald-700/40 text-[11px] font-semibold uppercase tracking-wider text-emerald-300">
-                <Sparkles className="w-3 h-3" /> Opportunity — upside available, not a problem to fix
+                <TrendingUp className="w-3 h-3" /> Opportunity — upside available, not a problem to fix
               </div>
             )}
 
@@ -901,8 +943,15 @@ export function ExecutiveBriefing() {
               })()}
             </div>
 
-            {/* Cost of Inaction — shown pre-approval when KPI data is available */}
-            {approveState !== 'approved' && data.kpiData?.current_value != null && (() => {
+            {/* Cost of Inaction — the "why now" behind the decision above.
+                Was gated on `approveState !== 'approved'`, which deleted the
+                justification from the page at the exact moment it started
+                mattering: getBriefingSnapshot sets approved on load, so a
+                Portfolio replay of this briefing could NEVER show the cost of
+                waiting that drove the decision. The most persuasive artifact
+                in the record was the one thing the record dropped. It now
+                renders in both states. */}
+            {data.kpiData?.current_value != null && (() => {
               const kd = data.kpiData
               // Projection + trend live in briefingUtils.projectKpiTrend so the
               // number an executive reads first is unit-testable rather than
@@ -928,77 +977,23 @@ export function ExecutiveBriefing() {
               )
             })()}
 
-            {/* Hero Recommendation Card */}
-            {(() => {
-              const recOption = data.options?.find((o: any) => o.recommended) ?? data.options?.[0]
-              if (!recOption) return null
-              const roi = recOption?.roi || recOption?.expected_roi || '—'
-              const timeline = recOption?.timeline || '—'
-              const investment = recOption?.investment || recOption?.effort || 'Moderate'
-              const risk = recOption?.riskLevel || recOption?.risk || '—'
-              const riskColor = risk === 'Low' ? 'text-emerald-400' : risk === 'Medium' ? 'text-amber-400' : risk === 'High' ? 'text-red-400' : 'text-slate-300'
-              return (
-                <div className="print:hidden mb-4">
-                  {/* Kicker */}
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="h-px flex-1 bg-slate-700" />
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500">Recommendation at a glance</span>
-                    <div className="h-px flex-1 bg-slate-700" />
-                  </div>
-                  {/* Main card.
-                      The option TITLE and the owner/deadline row used to live here
-                      as well. Both now sit in the block above the Cost of Inaction
-                      banner, so this card carries only what that block does not:
-                      the four metrics and the approval state. Repeating the
-                      recommendation two panels apart is the duplicate-headline
-                      defect Cat 1 removed from the Hero Card once already. */}
-                  <div className="border border-slate-700 border-l-4 border-l-emerald-500 bg-slate-900 rounded-xl p-6">
-                    {approveState === 'approved' && (
-                      <div className="flex justify-end mb-3">
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-900/50 border border-emerald-600 rounded-full">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                          <span className="text-xs font-semibold text-emerald-300">Approved</span>
-                        </div>
-                      </div>
-                    )}
-                    {/* 4-metric grid */}
-                    <div className="grid grid-cols-4 gap-3">
-                      <div className="bg-slate-800/60 rounded-lg p-3">
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Est. ROI</p>
-                        <p className="text-sm font-bold text-emerald-400">{formatROI(roi)}</p>
-                      </div>
-                      <div className="bg-slate-800/60 rounded-lg p-3 min-w-0">
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Time to Value</p>
-                        {/* The model writes time_to_value as prose and is often expansive;
-                            condense for the tile, keep the full text on hover. */}
-                        <p className="text-sm font-bold text-amber-400 break-words" title={timeline}>
-                          {condenseTimeToValue(timeline)}
-                        </p>
-                      </div>
-                      <div className="bg-slate-800/60 rounded-lg p-3">
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Investment</p>
-                        <p className="text-sm font-bold text-blue-400">{investment}</p>
-                      </div>
-                      <div className="bg-slate-800/60 rounded-lg p-3">
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Risk Level</p>
-                        <p className={`text-sm font-bold ${riskColor}`}>{risk}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )
-            })()}
+            {/* The "Recommendation at a glance" hero card stood here and was
+                DELETED in the Aug 2026 composition pass. It was the third
+                statement of one recommendation: DecisionAskBlock already gives
+                the recommended path and impact range above it, and every
+                option card below carries the same four metrics per option.
 
-            {/* Move #1 (executive_briefing_redesign.md §4) — the contradiction
-                becomes the headline. unresolved_tensions[0] used to be buried
-                in the collapsed Blind Spots accordion at the bottom of the
-                page; it is frequently the actual decision ("we cannot yet
-                tell which hypothesis is true"), not a footnote. The full
-                list stays in that accordion unchanged — this is a headline
-                pointing at it, not a replacement. */}
-            {data.unresolved_tensions?.[0] && (
-              <ContradictionBanner tension={data.unresolved_tensions[0]} onViewDetail={openBlindSpotsAndScroll} />
-            )}
+                It was also the source of the page's colour problem. Its four
+                tiles rendered emerald / amber / blue / white — and "Investment"
+                was blue for no semantic reason at all, purely because it was
+                the fourth tile and the other three hues were taken. The brand
+                rule is that colour is scarce and strictly semantic; a
+                four-metric row is exactly where that rule quietly dies.
+
+                The approved badge it carried is not lost: the approval
+                confirmation card below and the workspace rail both already
+                report that state. Three simultaneous confirmations was itself
+                a finding. Do not restore this card. */}
 
             {/* [D] Strategic Options */}
             <AccordionSection id="options" title="Strategic Options" openSections={openSections} onToggle={toggleSection}
@@ -1012,8 +1007,43 @@ export function ExecutiveBriefing() {
                   financial impact, complexity, risk, and priority alignment
                   {data.statusQuo ? ', measured against doing nothing (Option 0)' : ''}.
                 </p>
-                {/* Comparison table */}
-                <div className="overflow-x-auto rounded-lg border border-slate-700 mb-6 print:border-slate-200">
+                {/* Option 0 — mobile only.
+                    The comparison table below is hidden under `lg` (see there).
+                    Every proposed option survives that, because the option cards
+                    further down carry the same per-option metrics. The status quo
+                    does NOT: it exists only as the table's leading column. So it
+                    gets a compact card here rather than silently vanishing on a
+                    phone — it is the reference the other options are measured
+                    against, and a comparison that quietly drops its baseline is
+                    worse than one that scrolls. */}
+                {data.statusQuo && (
+                  <div className="lg:hidden mb-4 rounded-lg border border-slate-700 bg-slate-800/40 p-4">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Baseline · Option 0</p>
+                    <p className="text-sm font-semibold text-white mb-2">{data.statusQuo.title}</p>
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
+                      {[
+                        { k: 'Est. ROI', v: data.statusQuo.roi },
+                        { k: 'Timeline', v: data.statusQuo.timeline },
+                        { k: 'Investment', v: data.statusQuo.investment },
+                        { k: 'Risk', v: data.statusQuo.riskLevel },
+                      ].filter(x => x.v).map(({ k, v }) => (
+                        <div key={k} className="min-w-0">
+                          <dt className="text-[10px] text-slate-400 uppercase">{k}</dt>
+                          <dd className="text-xs text-slate-200 break-words">{v}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                )}
+
+                {/* Comparison table — desktop and print only.
+                    Its columns declare 120 + 150 + 160-per-option of minimum
+                    width, so it was already clipping Option C mid-word at 1440px
+                    and needed horizontal scrolling on the one exhibit most likely
+                    to be shown to a board. Below `lg` the option cards below carry
+                    the identical per-option data, so this is hidden rather than
+                    duplicated into a stacked variant. */}
+                <div className="hidden lg:block overflow-x-auto rounded-lg border border-slate-700 mb-6 print:!block print:border-slate-200">
                   <table className="w-full text-xs text-left">
                     <thead className="bg-slate-800 text-slate-300 font-bold uppercase print:bg-slate-100 print:text-slate-900">
                       <tr>
@@ -1023,7 +1053,7 @@ export function ExecutiveBriefing() {
                             candidate appended after them. */}
                         {data.statusQuo && (
                           <th data-testid="status-quo-column" className="p-3 border-b border-r-2 border-slate-700 border-r-slate-600 min-w-[150px] bg-slate-800/40 print:border-slate-200 print:bg-slate-50">
-                            <div className="text-[9px] text-slate-500 mb-0.5">BASELINE</div>
+                            <div className="text-[9px] text-slate-400 mb-0.5 print:text-slate-500">BASELINE</div>
                             Option 0
                           </th>
                         )}
@@ -1211,13 +1241,19 @@ export function ExecutiveBriefing() {
                           </div>
                         </div>
                         <p className="text-slate-300 text-sm leading-relaxed mb-4 print:text-slate-700">{option.description}</p>
-                        <div className="grid grid-cols-4 gap-3 mb-4">
-                          {[{ label: 'Investment', val: option.investment }, { label: 'Timeline', val: option.timeline },
+{/* Timeline is condensed here for the same reason it is in the
+                            table: the model writes time_to_value as prose and is
+                            often expansive, and a full sentence wrapped to six
+                            lines inside a 160px tile is not a metric. Full text
+                            stays on hover and in the drawer. */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                          {[{ label: 'Investment', val: option.investment },
+                            { label: 'Timeline', val: condenseTimeToValue(option.timeline), title: option.timeline },
                             { label: 'Risk', val: option.riskLevel, cls: option.riskLevel === 'Low' ? 'text-emerald-400 print:text-emerald-600' : option.riskLevel === 'Medium' ? 'text-amber-400 print:text-amber-600' : 'text-red-400 print:text-red-600' },
-                            { label: 'Reversibility', val: option.reversibility }].map(({ label, val, cls }) => (
-                            <div key={label} className="text-center p-2 bg-slate-800/60 rounded-lg print:bg-slate-100">
-                              <p className="text-[10px] text-slate-500 uppercase">{label}</p>
-                              <p className={`font-bold text-xs text-slate-200 print:text-slate-900 ${cls || ''}`}>{val}</p>
+                            { label: 'Reversibility', val: option.reversibility, cls: 'capitalize' }].map(({ label, val, cls, title }) => (
+                            <div key={label} className="text-center p-2 bg-slate-800/60 rounded-lg print:bg-slate-100 min-w-0">
+                              <p className="text-[10px] text-slate-400 uppercase">{label}</p>
+                              <p className={`font-bold text-xs text-slate-200 print:text-slate-900 break-words ${cls || ''}`} title={title}>{val}</p>
                             </div>
                           ))}
                         </div>
@@ -1228,7 +1264,7 @@ export function ExecutiveBriefing() {
                             no drawer to open, so print keeps them where they were —
                             the exported PDF loses nothing. */}
                         <div className="hidden print:block">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <h4 className="font-semibold text-slate-300 mb-2 flex items-center gap-1.5 text-sm print:text-slate-700">
                               <CheckCircle className="w-3.5 h-3.5 text-slate-500" /> Arguments For
@@ -1261,7 +1297,7 @@ export function ExecutiveBriefing() {
                             <h4 className="font-semibold text-slate-200 mb-2 flex items-center gap-1.5 text-sm print:text-slate-900">
                               <Users className="w-3.5 h-3.5" /> Council Lenses
                             </h4>
-                            <div className="grid grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                               {option.lens_views.map((p: any, j: number) => (
                                 <div key={j} className="bg-slate-800/60 p-2.5 rounded-lg print:bg-slate-50">
                                   <p className="font-medium text-slate-200 text-xs print:text-slate-900">{p.role}</p>
@@ -1393,7 +1429,7 @@ export function ExecutiveBriefing() {
                           <p className="text-xs text-emerald-700">Value Assurance tracking has been initiated</p>
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-3 mb-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                         {[
                           { label: 'Approved Strategy', val: approvedOption?.title || data.recommendation?.headline },
                           { label: 'Expected Recovery', val: formatROI(approvedOption?.roi || '') || 'See option details' },
@@ -1460,55 +1496,20 @@ export function ExecutiveBriefing() {
               </div>
             </AccordionSection>
 
-            {/* [F] Implementation Roadmap */}
-            {data.roadmap?.length > 0 && (
-              <AccordionSection id="roadmap" title="Implementation Roadmap" openSections={openSections} onToggle={toggleSection}
-                icon={<Clock className="w-4 h-4 text-slate-400" />}>
-                <div className="p-5">
-                  <div className="relative">
-                    <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-slate-700 print:bg-slate-300" />
-                    <div className="space-y-4">
-                      {data.roadmap.map((phase: any, i: number) => (
-                        <div key={i} className="relative pl-12">
-                          <div className={`absolute left-3.5 w-4 h-4 rounded-full border-2 ${i === 0 ? 'bg-emerald-600 border-emerald-600 print:bg-blue-600 print:border-blue-600' : 'bg-slate-900 border-slate-600 print:bg-white print:border-slate-300'}`} />
-                          <div className="bg-slate-900 border border-slate-700 p-3 rounded-lg print:bg-slate-50 print:border-0">
-                            <div className="flex justify-between items-start mb-1.5">
-                              <h4 className="font-semibold text-slate-200 text-sm print:text-slate-900">{phase.phase}</h4>
-                              <span className="text-xs text-slate-500 flex items-center gap-1">
-                                <Clock className="w-3 h-3" />{phase.timeline || phase.duration}
-                              </span>
-                            </div>
-                            {phase.description && <p className="text-slate-400 text-xs mb-2 print:text-slate-700">{phase.description}</p>}
-                            <div className="flex flex-wrap gap-1.5">
-                              {(phase.items || phase.deliverables || []).map((d: string, j: number) => (
-                                <span key={j} className="px-2 py-0.5 bg-slate-800 text-slate-300 text-xs rounded-full print:bg-blue-100 print:text-blue-700">{d}</span>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </AccordionSection>
-            )}
+            {/* Implementation Roadmap was here. Moved out — WhitePaperReport
+                already renders `data.roadmap` from the same localStorage
+                payload (WhitePaperReport.tsx §"Implementation Roadmap"), so
+                this was the same content on two surfaces. See the "rest of the
+                analysis" block at the end of this page. */}
 
-            {/* [G] Supporting Analysis divider — Stage 9 widened this from 4
-                of the 7 sections to all 7, matching the toolbar's own
-                "Show/Hide the analysis" toggle exactly (same ANALYSIS_SECTION_IDS
-                constant, same open/closed state — this is the same toggle,
-                reachable from two places, not two competing ones). */}
+            {/* Supporting Analysis divider — the same toggle as the toolbar's
+                "Show/Hide the analysis", reachable from two places rather than
+                two competing controls. Both now call setAllAnalysisSections;
+                they previously carried byte-identical copies of the logic. */}
             <div id="accordion-analysis" className="print:hidden flex items-center gap-3 mt-6 mb-2">
               <div className="h-px flex-1 bg-slate-800" />
               <button
-                onClick={() => {
-                  const allOpen = ANALYSIS_SECTION_IDS.every(id => openSections.has(id))
-                  setOpenSections(prev => {
-                    const next = new Set(prev)
-                    ANALYSIS_SECTION_IDS.forEach(id => allOpen ? next.delete(id) : next.add(id))
-                    return next
-                  })
-                }}
+                onClick={() => setAllAnalysisSections(!analysisAllOpen)}
                 className="text-[10px] font-mono uppercase tracking-widest text-slate-500 hover:text-slate-300 flex items-center gap-1.5 transition-colors"
               >
                 <ChevronDown className="w-3 h-3" /> Supporting Analysis
@@ -1520,7 +1521,7 @@ export function ExecutiveBriefing() {
             <AccordionSection id="situation" title="Situation Analysis" openSections={openSections} onToggle={toggleSection}
               icon={<Zap className="w-4 h-4 text-slate-400" />}>
               <div className="p-5 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="bg-slate-900 border border-slate-700 p-5 rounded-lg print:bg-slate-50 print:border-slate-200">
                     <h3 className="font-semibold text-slate-200 mb-2 flex items-center gap-2 text-sm print:text-slate-900">
                       <Target className="w-4 h-4 text-slate-400 print:text-blue-600" /> Current State
@@ -1606,234 +1607,35 @@ export function ExecutiveBriefing() {
               </div>
             </AccordionSection>
 
-            {/* [I] Market Intelligence */}
-            {data.market_signals?.length > 0 && (
-              <AccordionSection id="market" title="Market Intelligence" openSections={openSections} onToggle={toggleSection}
-                badge={`${data.market_signals.length} signals`}
-                icon={<Sparkles className="w-4 h-4 text-amber-400" />}>
-                <div className="p-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {data.market_signals.map((signal: any, i: number) => (
-                      <div key={i} className="bg-slate-900 border border-slate-700 rounded-lg p-4 print:bg-amber-50 print:border-amber-200">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <h3 className="font-semibold text-slate-200 text-sm leading-snug print:text-slate-900">{signal.title}</h3>
-                          {signal.relevance_score != null && (
-                            <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-900/40 text-amber-400 print:bg-amber-200 print:text-amber-800">
-                              {Math.round(signal.relevance_score * 100)}%
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-slate-400 leading-relaxed mb-2 print:text-slate-700">{signal.summary}</p>
-                        {signal.source && (
-                          <p className="text-xs text-slate-500">
-                            Source:{' '}
-                            {signal.source === 'llm_knowledge' ? 'AI Knowledge Base'
-                              : signal.source === 'perplexity' ? 'Real-time Web Search'
-                              : signal.source}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </AccordionSection>
-            )}
+            {/* Market Intelligence, Stage 1: Independent Proposals, Stage 2:
+                Cross-Review and Moderator Verdicts were four accordions here.
+                All four moved out in the Aug 2026 composition pass.
 
-            {/* [J] Stage 1: Independent Proposals */}
-            {data.stage_1_hypotheses && (
-              <AccordionSection id="stage1" title="Stage 1: Independent Proposals" openSections={openSections} onToggle={toggleSection}
-                icon={<Users className="w-4 h-4 text-slate-400" />}>
-                <div className="p-5">
-                  <p className="text-slate-400 text-sm mb-4 print:text-slate-600">Each perspective analysed the problem independently and proposed an intervention using its own framework.</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 print:block print:space-y-4">
-                    {Object.entries(data.stage_1_hypotheses).map(([firmId, hyp]: [string, any]) => {
-                      const s = personaStyle(firmId)
-                      const conviction = hyp.conviction || 'High'
-                      const displayName = personaDisplayLabel(firmId)
-                      return (
-                        // print:break-inside-avoid — a persona card that straddles a page
-                        // boundary was CLIPPED rather than flowed, because `overflow-hidden`
-                        // (needed on screen for the rounded top bar) truncates at the card
-                        // edge in print. A live briefing lost "Primary Focus: Synthetic Blend
-                        // Engine Oil" mid-line that way. Overflow is released in print, where
-                        // there is no rounded-corner clipping to preserve.
-                        <div key={firmId} className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden flex flex-col print:bg-white print:border-slate-200 print:shadow-sm print:overflow-visible print:break-inside-avoid">
-                          <div className={`h-1.5 w-full ${s.bar}`} />
-                          <div className="p-4 flex flex-col flex-1">
-                            <div className="flex items-start justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full ${s.dot}`} />
-                                <h4 className="font-bold text-slate-200 text-sm print:text-slate-900">{displayName}</h4>
-                              </div>
-                              {conviction && (
-                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${convictionStyle[conviction] ?? convictionStyle.Medium}`}>
-                                  {conviction}
-                                </span>
-                              )}
-                            </div>
-                            {hyp.framework && (
-                              <span className={`self-start text-xs font-medium px-2 py-0.5 rounded-full mb-2 ${s.badge}`}>{hyp.framework}</span>
-                            )}
-                            <p className="text-sm text-slate-400 leading-relaxed mb-3 flex-1 print:text-slate-700">{hyp.hypothesis}</p>
-                            {Array.isArray(hyp.key_evidence) && hyp.key_evidence.length > 0 && (
-                              <div className="bg-slate-800/60 rounded-lg p-2 mb-3 print:bg-slate-50">
-                                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Evidence</p>
-                                <ul className="space-y-1">
-                                  {hyp.key_evidence.slice(0, 3).map((ev: string, i: number) => (
-                                    <li key={i} className="flex items-start gap-1 text-xs text-slate-400 print:text-slate-600">
-                                      <span className="text-slate-600 shrink-0 print:text-slate-400">▸</span><span>{ev}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                            {hyp.recommended_focus && (
-                              <div className={`border-l-4 ${s.border} pl-2 mt-auto`}>
-                                <p className="text-[10px] font-semibold text-slate-500 uppercase">Primary Focus</p>
-                                <p className="text-sm font-semibold text-slate-200 print:text-slate-900">{hyp.recommended_focus}</p>
-                              </div>
-                            )}
-                            {hyp.proposed_option?.title && (
-                              <div className="mt-2">
-                                <p className="text-[10px] font-semibold text-slate-500 uppercase">Proposed Action</p>
-                                <p className="text-sm font-semibold text-indigo-400 leading-snug print:text-blue-700">{hyp.proposed_option.title}</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </AccordionSection>
-            )}
+                They are process transparency — how the council reached the
+                answer — and this page is where the answer gets DECIDED. A
+                Decision Maker was scrolling past seven collapsed accordions
+                with names like "Stage 1: Independent Proposals" that exist for
+                the other persona entirely. Measured before the change: 6,635px
+                of content in an 847px viewport, 7.8 screens, at the COLLAPSED
+                default.
 
-            {/* [K] Stage 2: Cross-Review */}
-            {data.cross_review && (
-              <AccordionSection id="crossreview" title="Stage 2: Cross-Review" openSections={openSections} onToggle={toggleSection}
-                icon={<ShieldCheck className="w-4 h-4 text-slate-400" />}>
-                <div className="p-5">
-                  <p className="text-slate-400 text-sm mb-4 print:text-slate-600">Each perspective reviewed the others' hypotheses to surface blind spots and tensions.</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {Object.entries(data.cross_review).map(([personaId, review]: [string, any]) => (
-                      <div key={personaId} className="bg-slate-900 border border-slate-700 rounded-lg p-4 print:bg-slate-50 print:border-slate-200">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center print:bg-purple-100">
-                            <Users className="w-3.5 h-3.5 text-slate-400 print:text-purple-600" />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-slate-200 text-sm print:text-slate-900">
-                              {personaDisplayLabel(personaId)}
-                            </h4>
-                            <p className="text-xs text-slate-500">Council Member</p>
-                          </div>
-                        </div>
-                        {review.critiques?.length > 0 && (
-                          <div className="mb-2">
-                            <h5 className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-1 print:text-red-600">Critiques</h5>
-                            <ul className="space-y-1">
-                              {review.critiques.map((c: any, i: number) => (
-                                <li key={i} className="text-xs text-slate-400 bg-slate-800/60 p-2 rounded border border-slate-700 print:text-slate-700 print:bg-white print:border-slate-100">
-                                  <span className="font-medium text-slate-200 block mb-0.5 print:text-slate-900">Re: {c.target}</span>
-                                  "{c.concern}"
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        {review.endorsements?.length > 0 && (
-                          <div>
-                            <h5 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1 print:text-emerald-600">Endorsements</h5>
-                            <ul className="space-y-1">
-                              {review.endorsements.map((e: any, i: number) => (
-                                <li key={i} className="text-xs text-slate-400 bg-slate-800/60 p-2 rounded border border-slate-700 print:text-slate-700 print:bg-white print:border-slate-100">
-                                  <span className="font-medium text-slate-200 block mb-0.5 print:text-slate-900">Re: {e.target}</span>
-                                  "{e.reason}"
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </AccordionSection>
-            )}
+                Both destinations already existed and already read the same
+                localStorage briefing payload, so this was deletion, not
+                migration:
+                  - stage_1_hypotheses / cross_review -> /debate/:situationId
+                    (CouncilDebatePage already renders both)
+                  - market_signals -> /report/:situationId
+                    (WhitePaperReport already renders it)
+                The briefing had no link to the debate page at all before now —
+                that surface was orphaned. See the block at the end of the
+                page. */}
 
-            {/* [K2] Moderator Verdicts (Stage H arm — present instead of cross_review).
-                Minimal rendering by design: full grade-table treatment belongs to the
-                Stage G briefing rebuild. This exists so moderator runs are visible in
-                the briefing rather than silently dropping their adjudication. */}
-            {(data as any).moderator_grades && Object.keys((data as any).moderator_grades).length > 0 && (
-              <AccordionSection id="moderator" title="Moderator Verdicts (graded against verified theory)" openSections={openSections} onToggle={toggleSection}
-                icon={<ShieldCheck className="w-4 h-4 text-slate-400" />}>
-                <div className="p-5">
-                  <p className="text-slate-400 text-sm mb-4 print:text-slate-600">
-                    Each option graded against the client's constraint register, causal model, and the critic's findings — not debate rhetoric.
-                    &ldquo;Insufficient data&rdquo; means the theory register was too thin to grade against, not that the option passed.
-                  </p>
-                  <div className="space-y-3">
-                    {Object.entries((data as any).moderator_grades).map(([optId, g]: [string, any]) => (
-                      <div key={optId} className="bg-slate-900 border border-slate-700 rounded-lg p-4 print:bg-slate-50 print:border-slate-200">
-                        {/* Resolve the generation id to the option's real title.
-                            Printing raw "opt_1" asked the reader to hold a mapping
-                            the briefing never showed them. Matched by id, never by
-                            position: options here are RANKED, so opt_N != Nth. */}
-                        <h4 className="font-bold text-slate-200 text-sm mb-2 print:text-slate-900">
-                          {(data.options || []).find((o: any) => o?.id === optId)?.title || optId}
-                        </h4>
-                        <div className="flex flex-wrap gap-2 mb-2 text-xs">
-                          <span className={`px-2 py-0.5 rounded border ${g.constraint_survival === 'pass' ? 'text-emerald-400 border-emerald-700' : g.constraint_survival === 'fail' ? 'text-red-400 border-red-700' : 'text-amber-400 border-amber-700'}`}>
-                            constraints: {g.constraint_survival ?? 'ungraded'}
-                          </span>
-                          <span className={`px-2 py-0.5 rounded border ${g.arithmetic_consistency === 'pass' ? 'text-emerald-400 border-emerald-700' : g.arithmetic_consistency === 'flag' ? 'text-red-400 border-red-700' : 'text-amber-400 border-amber-700'}`}>
-                            arithmetic: {g.arithmetic_consistency ?? 'ungraded'}
-                          </span>
-                          <span className="px-2 py-0.5 rounded border text-slate-300 border-slate-600">
-                            causal: {g.causal_grounding ?? 'ungraded'}
-                          </span>
-                        </div>
-                        {g.violated_constraints?.length > 0 && (
-                          <p className="text-xs text-red-400 mb-1">Violates: {g.violated_constraints.join('; ')}</p>
-                        )}
-                        {g.arithmetic_note && (
-                          <p className="text-xs text-amber-400 mb-1">{g.arithmetic_note}</p>
-                        )}
-                        {g.critic_findings_response?.length > 0 && (
-                          <p className="text-xs text-slate-400 mb-1">
-                            Critic findings: {g.critic_findings_response.map((f: any) => `${f.finding} — ${f.disposition}`).join('; ')}
-                          </p>
-                        )}
-                        {g.grade_rationale && (
-                          <p className="text-xs text-slate-500 italic">{g.grade_rationale}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </AccordionSection>
-            )}
-
-            {/* [L] Risk & Considerations divider */}
-            <div className="print:hidden flex items-center gap-3 mt-6 mb-2">
-              <div className="h-px flex-1 bg-slate-800" />
-              <button
-                onClick={() => {
-                  const ids = ['risks', 'blindspots', 'inaction']
-                  const allOpen = ids.every(id => openSections.has(id))
-                  setOpenSections(prev => {
-                    const next = new Set(prev)
-                    ids.forEach(id => allOpen ? next.delete(id) : next.add(id))
-                    return next
-                  })
-                }}
-                className="text-[10px] font-mono uppercase tracking-widest text-slate-500 hover:text-slate-300 flex items-center gap-1.5 transition-colors"
-              >
-                <ChevronDown className="w-3 h-3" /> Risk &amp; Considerations
-              </button>
-              <div className="h-px flex-1 bg-slate-800" />
-            </div>
+            {/* The "Risk & Considerations" divider stood here and was removed.
+                It toggled ['risks','blindspots','inaction'] — a set that now
+                overlaps ANALYSIS_SECTION_IDS almost exactly, so two dividers
+                claimed the same two sections and either one could leave the
+                other's label lying about what was open. One group, one
+                control. */}
 
             {/* [M] Risk Analysis */}
             {data.risks?.length > 0 && (
@@ -1960,6 +1762,59 @@ export function ExecutiveBriefing() {
               </div>
             )}
 
+            {/* Where the rest of the analysis lives.
+                Replaces four accordions (Market Intelligence, Stage 1, Stage 2,
+                Moderator Verdicts) and the Implementation Roadmap. Both targets
+                read the same localStorage briefing payload this page does, so
+                these are real destinations for this exact run, not generic nav.
+                Screen only: the print path already carries its own appendices,
+                and a "click here" on paper is dead text. */}
+            <div className="print:hidden mt-8 pt-5 border-t border-slate-800">
+              <p className="text-xs text-slate-400 mb-3">
+                This page carries the decision. The full record sits alongside it:
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Link
+                  to={`/report/${situationId}`}
+                  className="flex-1 flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 hover:bg-slate-800/60 transition-colors group"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-white">Full report</span>
+                    <span className="block text-xs text-slate-400 mt-0.5">
+                      Situation, market context, roadmap, risks — the narrative version
+                    </span>
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-slate-500 shrink-0 group-hover:text-slate-300 transition-colors" />
+                </Link>
+                <Link
+                  to={`/debate/${situationId}`}
+                  className="flex-1 flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 hover:bg-slate-800/60 transition-colors group"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-white">How the council decided</span>
+                    <span className="block text-xs text-slate-400 mt-0.5">
+                      Independent proposals, cross-review, and the moderator's grades
+                    </span>
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-slate-500 shrink-0 group-hover:text-slate-300 transition-colors" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Mobile-only jump to the Decision Workspace, which now stacks
+                below this column instead of pinning a 320px rail beside it.
+                A link, not a second Approve control — one commit affordance
+                per page. */}
+            <div className="lg:hidden sticky bottom-0 -mx-4 mt-6 px-4 py-3 bg-slate-900/95 backdrop-blur border-t border-slate-800 print:hidden">
+              <a
+                href="#decision-workspace"
+                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-semibold transition-colors"
+              >
+                Review &amp; approve
+                <ChevronDown className="w-4 h-4" />
+              </a>
+            </div>
+
             {/* Footer */}
             <footer className="py-6 text-center text-xs text-slate-500 print:block print:border-t print:border-slate-300 print:pt-4 print:text-slate-600">
               <p>This briefing was generated by Decision Studio using AI-assisted analysis.</p>
@@ -1977,7 +1832,7 @@ export function ExecutiveBriefing() {
                   for the Phase 13 M3 / Phase 18 reconciliation. This footer used to
                   title-case the raw persona ids, printing "Mckinsey · Bcg · Bain"
                   onto the exported PDF. */}
-              <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[10px] text-slate-700 font-mono">
+              <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[10px] text-slate-400 font-mono print:text-slate-600">
                 {data.kpiData?.kpi_name && <span>KPI: {data.kpiData.kpi_name}</span>}
                 {(() => {
                   const ctx = data.kpiData?.context
@@ -2016,7 +1871,7 @@ export function ExecutiveBriefing() {
         />
 
         {/* ── Right: Decision Workspace ── */}
-        <div className="w-80 flex-shrink-0 border-l border-slate-800 print:hidden">
+        <div id="decision-workspace" className="w-full lg:w-80 flex-shrink-0 border-t lg:border-t-0 lg:border-l border-slate-800 print:hidden">
           <DecisionChat
             data={data}
             situationId={situationId}

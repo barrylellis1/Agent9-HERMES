@@ -29,11 +29,59 @@ interface ContradictionBannerProps {
    *  disable the link (e.g. print view, where the appendix is reached by
    *  reading on, not clicking). */
   onViewDetail?: () => void;
+  /** `headline` promotes the tension to the page's lead statement and its
+   *  only <h1>. `inline` is the original supporting-callout treatment, kept
+   *  for the print path. Default `inline` so no existing caller changes. */
+  variant?: 'headline' | 'inline';
 }
 
-export function ContradictionBanner({ tension, onViewDetail }: ContradictionBannerProps) {
+export function ContradictionBanner({ tension, onViewDetail, variant = 'inline' }: ContradictionBannerProps) {
   const tensionText = typeof tension === 'string' ? tension : tension?.tension;
   if (!tensionText) return null;
+
+  const detailLink = onViewDetail && (
+    <button
+      type="button"
+      onClick={onViewDetail}
+      className="inline-block text-xs text-amber-400 hover:text-amber-300 underline mt-2 print:hidden"
+    >
+      See the full analysis in Blind Spots &amp; Tensions ↓
+    </button>
+  );
+
+  /* Headline variant — move #1 of executive_briefing_redesign.md, finally at
+     the top of the page rather than fifth down it. Two deliberate choices:
+
+     1. The tension text IS the <h1>. There is no "THE OPEN QUESTION" kicker
+        above it any more. An uppercase micro-label stacked over a larger
+        heading is decoration that the heading already earns on its own, and
+        this page had no <h1> at all before now.
+     2. The framing that label used to carry moves into a supporting line
+        underneath, written as the BLUF consequence — the reader is told what
+        the open question MEANS for the decision, not just that one exists. */
+  if (variant === 'headline') {
+    return (
+      <div className="mb-6 border-l-[3px] border-l-amber-500 pl-4 sm:pl-5 print:border-l-amber-600">
+        <div className="flex items-start gap-2.5">
+          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-1.5 print:text-amber-600" />
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-semibold text-white leading-snug tracking-tight print:text-slate-900">
+              {tensionText}
+            </h1>
+            <p className="text-sm text-amber-200/80 leading-relaxed mt-2 print:text-amber-800">
+              This is unresolved. The recommended first action below is the one that settles it.
+            </p>
+            {tension?.requires && (
+              <p className="text-xs text-slate-400 mt-2 print:text-slate-600">
+                Requires: {tension.requires}
+              </p>
+            )}
+            {detailLink}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-4 mb-6 print:bg-amber-50 print:border-amber-200">
@@ -49,15 +97,7 @@ export function ContradictionBanner({ tension, onViewDetail }: ContradictionBann
               Requires: {tension.requires}
             </p>
           )}
-          {onViewDetail && (
-            <button
-              type="button"
-              onClick={onViewDetail}
-              className="inline-block text-xs text-amber-400 hover:text-amber-300 underline mt-2 print:hidden"
-            >
-              See full analysis in Blind Spots &amp; Tensions ↓
-            </button>
-          )}
+          {detailLink}
         </div>
       </div>
     </div>

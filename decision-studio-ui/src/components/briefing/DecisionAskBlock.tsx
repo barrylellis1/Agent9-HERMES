@@ -102,13 +102,13 @@ export function DecisionAskBlock({
         <div className="flex items-center justify-between border-t border-slate-800 px-6 py-2.5 print:border-slate-200">
           {owner && (
             <div>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-slate-600">Decision Owner</span>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 print:text-slate-600">Decision Owner</span>
               <p className="text-xs font-semibold text-slate-300 print:text-slate-800">{owner}</p>
             </div>
           )}
           {deadline && (
             <div className="text-right">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-slate-600">By</span>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 print:text-slate-600">By</span>
               <p className="text-xs font-semibold text-slate-300 print:text-slate-800">{deadline}</p>
             </div>
           )}

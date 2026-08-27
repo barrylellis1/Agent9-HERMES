@@ -584,6 +584,19 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       return roiMap(opt?.expected_impact || 0.5)
     }
 
+    // Which option the council actually recommended. Resolved ONCE here and
+    // reused by both the per-option `recommended` badge below and the
+    // `recommendation.optionId` field emitted further down, so the badge and
+    // the headline can never name different options.
+    //
+    // This previously read `idx === 0 || (id match)`, an unconditional override:
+    // whenever `sol.recommendation.id` named anything other than the first
+    // ranked option, TWO options came back flagged `recommended`, and every
+    // consumer using `.find(o => o.recommended)` silently took the first — while
+    // the headline (built from `sol.recommendation.title`) named the other one.
+    // Index position is not a substitute for the id; see the note below.
+    const recommendedOptionId = sol?.recommendation?.id || topOptions[0]?.id || null
+
     const options = topOptions.slice(0, 3).map((opt: any, idx: number) => ({
       // Carry the generation id. moderator_grades is keyed by it, and the
       // briefing previously had no way to resolve a grade back to an option, so
@@ -608,7 +621,9 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
         return riskLevelMap(r) + relativeSuffix(r, peers, riskLevelMap(r), riskLevelMap)
       })(),
       reversibility: opt?.reversibility || 'medium',
-      recommended: idx === 0 || ((sol?.recommendation?.id && opt?.id) ? sol.recommendation.id === opt.id : false),
+      // Exactly one option can be recommended. Falls back to rank order only
+      // when the options carry no ids at all.
+      recommended: (recommendedOptionId && opt?.id) ? opt.id === recommendedOptionId : idx === 0,
       // `lens_views` is the current key; `perspectives` is the pre-2026-08-16 one
       // and still arrives from briefing snapshots replayed out of Supabase or
       // localStorage. Resolved once here so the three read sites below cannot
@@ -813,14 +828,20 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       decision_ask: sol?.decision_ask || null,
       immediate_actions: Array.isArray(sol?.immediate_actions) ? sol.immediate_actions : [],
       recommendation: {
+        // Fall back to the option `recommendedOptionId` actually resolved to —
+        // not options[0]. Defaulting to the first ranked option here would
+        // reintroduce the disagreement the single-source id above removes.
         headline: sol?.recommendation?.title
           ? `Proceed with: ${sol.recommendation.title}`
-          : (options[0]?.title ? `Proceed with: ${options[0].title}` : 'Review options and approve next steps'),
+          : (() => {
+              const rec = options.find((o: any) => o.recommended) || options[0]
+              return rec?.title ? `Proceed with: ${rec.title}` : 'Review options and approve next steps'
+            })(),
         rationale,
         nextSteps,
         decisionOwner: 'Finance Leadership',
         deadline: decisionDeadline,
-        optionId: sol?.recommendation?.id || topOptions[0]?.id || null,
+        optionId: recommendedOptionId,
       },
       // Hybrid Council artifacts — either the simulated cross_review (baseline
       // arm) or the theory-guided moderator grades (Stage H arm), never both.
