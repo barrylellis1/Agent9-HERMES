@@ -98,10 +98,11 @@ const TIER_BADGE_COLORS: Record<number, string> = {
 
 function DecisionChat({
   data, situationId, principalId,
-  approveState, onApprove,
+  approveState, approveError, onApprove,
 }: {
   data: any; situationId: string | undefined; principalId: string;
   approveState: 'idle' | 'approving' | 'approved' | 'error';
+  approveError: string | null;
   onApprove: (optionId: string) => void;
 }) {
   const [messages, setMessages] = useState<Array<{ role: string; content: string; qa?: BriefingQAResponse }>>([])
@@ -112,6 +113,16 @@ function DecisionChat({
     return rec?.id || data?.recommendation?.optionId || data?.options?.[0]?.id || 'opt_1'
   })
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Two-step commit. Before this, "Approve & Track" committed on ONE click
+  // from a panel that showed only a letter, a REC chip, a TRUNCATED title,
+  // and ROI — no scope, no owner, no deadline, and no warning when the
+  // selected option was itself flagged dominated_by another one. An
+  // executive could approve a strictly dominated option in one click, from a
+  // screen that gave them nothing to warn against it. Step one shows what is
+  // actually being committed to, in full; step two commits.
+  const [confirming, setConfirming] = useState(false)
+  const [dominanceAck, setDominanceAck] = useState(false)
 
   // Two guards, both needed once the workspace stacks BELOW the briefing on
   // narrow screens instead of sitting in its own independently-scrolling rail.
@@ -252,8 +263,13 @@ function DecisionChat({
           </div>
         </div>
 
-        {/* Initiative selection */}
-        {data?.options && data.options.length > 0 && approveState !== 'approved' && (
+        {/* Initiative selection — hidden during the confirm step, not merely
+            disabled underneath it. "One thing at a time" (cognitive-load
+            checklist): while confirming, the radio list and the confirm card
+            are two live decision points on screen at once, which is exactly
+            the failure the checklist flags. A compact "Change" link inside
+            the confirm card is the way back. */}
+        {data?.options && data.options.length > 0 && approveState !== 'approved' && !confirming && (
           <div className="px-3 py-2 border-b border-slate-700">
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Select Initiative</p>
             <div className="space-y-1.5">
@@ -274,6 +290,7 @@ function DecisionChat({
                       <div className="flex items-center gap-1.5">
                         <span className="text-[10px] font-bold text-slate-400">{label}</span>
                         {opt.recommended && <span className="text-[9px] bg-severity-opportunity/20 text-severity-opportunity px-1 rounded">REC</span>}
+                        {opt.dominated_by && <span className="text-[9px] bg-severity-warning/20 text-severity-warning px-1 rounded">DOMINATED</span>}
                       </div>
                       <p className="text-xs text-slate-200 leading-snug truncate">{opt.title}</p>
                       {opt.roi && <p className="text-[10px] text-severity-opportunity">{formatROI(opt.roi)}</p>}
@@ -285,8 +302,90 @@ function DecisionChat({
           </div>
         )}
 
+        {/* Confirm step. Everything the radio list left out, made visible
+            before the commit rather than only in the table/card the reader
+            may already have scrolled past: the full title, scope, the
+            dominance flag with a required acknowledgement, and who/when this
+            commits to. */}
+        {confirming && approveState !== 'approved' && (() => {
+          const selected = data?.options?.find((o: any) => (o.id || '') === selectedOption)
+          if (!selected) return null
+          const dominatorIdx = selected.dominated_by
+            ? data.options.findIndex((o: any) => o.id === selected.dominated_by)
+            : -1
+          const owner = data?.decision_ask?.decision_owner?.trim() || data?.recommendation?.decisionOwner || null
+          const deadline = data?.decision_ask?.deadline?.trim() || data?.recommendation?.deadline || null
+          const isDominated = dominatorIdx >= 0
+          return (
+            <div className="px-3 py-2 border-b border-slate-700 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Confirm approval</p>
+                <button
+                  type="button"
+                  onClick={() => { setConfirming(false); setDominanceAck(false) }}
+                  className="text-[10px] text-indigo-300 hover:brightness-125 underline"
+                >
+                  Change
+                </button>
+              </div>
+
+              <div className="bg-slate-800 border border-slate-700 rounded-lg p-2.5">
+                <p className="text-xs font-semibold text-slate-100 leading-snug">{selected.title}</p>
+                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                  {selected.roi && <span className="text-[10px] text-severity-opportunity">{formatROI(selected.roi)}</span>}
+                  {selected.scopeQualifier?.scope === 'enterprise' ? (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-slate-700/60 text-slate-300">Enterprise</span>
+                  ) : selected.scopeQualifier?.scope === 'segment' ? (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-indigo-900/40 text-indigo-300">
+                      Segment{selected.scopeQualifier.label ? `: ${selected.scopeQualifier.label}` : ''}
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-severity-warning/20 text-severity-warning/90">Scope unverified</span>
+                  )}
+                </div>
+              </div>
+
+              {(owner || deadline) && (
+                <div className="flex items-center justify-between text-[10px] text-slate-400">
+                  {owner && <span>Owner: <span className="text-slate-300">{owner}</span></span>}
+                  {deadline && <span>By: <span className="text-slate-300">{deadline}</span></span>}
+                </div>
+              )}
+
+              {data?.blind_spots?.length > 0 && (
+                <p className="text-[10px] text-slate-400">
+                  {data.blind_spots.length} consideration{data.blind_spots.length === 1 ? '' : 's'} noted in the full analysis — not blocking, worth a read first.
+                </p>
+              )}
+
+              {isDominated && (
+                <div className="flex items-start gap-2 px-2.5 py-2 bg-severity-warning/20 border border-severity-warning/40 rounded-lg">
+                  <AlertTriangle className="w-3.5 h-3.5 text-severity-warning flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-severity-warning leading-snug">
+                      This option is dominated by Option {String.fromCharCode(65 + dominatorIdx)} — it matches or
+                      underperforms it on modelled impact, cost, and risk.
+                    </p>
+                    <label className="flex items-start gap-1.5 mt-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={dominanceAck}
+                        onChange={e => setDominanceAck(e.target.checked)}
+                        className="mt-0.5 accent-severity-warning"
+                      />
+                      <span className="text-[10px] text-severity-warning/90 leading-snug">
+                        I understand this option is dominated and want to proceed anyway.
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
+
         {/* Approve button */}
-        <div className="px-3 py-2">
+        <div className="px-3 py-2 space-y-1.5">
           {approveState === 'approved' ? (
             <div className="flex items-center gap-2 px-3 py-2 bg-severity-opportunity/40 border border-severity-opportunity rounded-lg">
               <CheckCircle2 className="w-4 h-4 text-severity-opportunity flex-shrink-0" />
@@ -309,20 +408,40 @@ function DecisionChat({
               </p>
             </div>
           ) : (
-            <button
-              onClick={() => onApprove(selectedOption)}
-              disabled={approveState === 'approving' || !selectedOption}
-              aria-live="polite"
- className="hover:brightness-110 w-full py-2 bg-severity-opportunity disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-severity-opportunity"
-            >
-              {approveState === 'approving' ? (
-                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Registering...</>
-              ) : approveState === 'error' ? (
-                <><AlertTriangle className="w-3.5 h-3.5" /> Retry Approval</>
-              ) : (
-                <><ShieldCheck className="w-3.5 h-3.5" /> Approve &amp; Track</>
+            <>
+              <button
+                onClick={() => {
+                  // Step one commits nothing — it only reveals the confirm
+                  // card above. Step two (below) is the one that calls
+                  // onApprove. A dominated selection additionally requires the
+                  // acknowledgement checkbox before step two is enabled.
+                  if (!confirming) { setConfirming(true); return }
+                  onApprove(selectedOption)
+                }}
+                disabled={
+                  approveState === 'approving' ||
+                  !selectedOption ||
+                  (confirming && data?.options?.find((o: any) => (o.id || '') === selectedOption)?.dominated_by && !dominanceAck)
+                }
+                aria-live="polite"
+                className="hover:brightness-110 w-full py-2 bg-severity-opportunity disabled:opacity-50 disabled:hover:brightness-100 text-white text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-severity-opportunity"
+              >
+                {approveState === 'approving' ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Registering...</>
+                ) : approveState === 'error' ? (
+                  <><AlertTriangle className="w-3.5 h-3.5" /> Retry Approval</>
+                ) : confirming ? (
+                  <><ShieldCheck className="w-3.5 h-3.5" /> Confirm Approval</>
+                ) : (
+                  <><ShieldCheck className="w-3.5 h-3.5" /> Approve &amp; Track</>
+                )}
+              </button>
+              {approveError && (
+                <p role="alert" className="text-[10px] text-severity-critical leading-snug">
+                  {approveError}
+                </p>
               )}
-            </button>
+            </>
           )}
         </div>
       </div>
@@ -350,6 +469,11 @@ export function ExecutiveBriefing() {
   const [briefing, setBriefing] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [approveState, setApproveState] = useState<'idle' | 'approving' | 'approved' | 'error'>('idle')
+  // Was silently absent: approveState flipped to 'error' and the button
+  // became "Retry Approval" with NO explanation anywhere on screen — the
+  // actual diagnosis went to console.error only. Two real, distinguishable
+  // failure modes now get their own message instead of one generic retry.
+  const [approveError, setApproveError] = useState<string | null>(null)
   const [vaSolutionId, setVaSolutionId] = useState<string | null>(null)
   const [vaData, setVaData] = useState<VASolution | null>(null)
   const [showAttribution, setShowAttribution] = useState(false)
@@ -473,10 +597,23 @@ export function ExecutiveBriefing() {
         '[ExecutiveBriefing] Blocked approve on a degraded run — options were not produced by the analysis.',
         { degraded_reason: briefing?.degraded_reason }
       )
+      setApproveError('This run is degraded — the disabled-button banner above explains why. Re-run the analysis first.')
       return
     }
     const requestId = localStorage.getItem(`solution_request_${situationId}`)
-    if (!requestId) return
+    if (!requestId) {
+      // Was a bare `return` — a dead click with no state change and no console
+      // line, on the highest-stakes control on the page. Missing requestId
+      // means the localStorage key this page relies on to resolve back to the
+      // pending-decision record is gone (cleared storage, an old tab, a
+      // briefing reopened from a link days later) — distinct from a network
+      // failure, and worth telling the reader apart from "try again."
+      console.error('[ExecutiveBriefing] Approve blocked — no solution_request id in localStorage for', situationId)
+      setApproveError("Couldn't find this briefing's approval record — it may have been opened from an old link. Reload the briefing from Situations and try again.")
+      setApproveState('error')
+      return
+    }
+    setApproveError(null)
     setApproveState('approving')
     try {
       const result = await approveSolution(requestId, optionId)
@@ -497,6 +634,11 @@ export function ExecutiveBriefing() {
       setApproveState('approved')
     } catch (err) {
       console.error('Approve failed:', err)
+      setApproveError(
+        err instanceof Error && err.message
+          ? `Approval didn't go through: ${err.message}`
+          : "Approval didn't go through. The request may not have reached the server."
+      )
       setApproveState('error')
     }
   }, [situationId, briefing])
@@ -1243,10 +1385,17 @@ export function ExecutiveBriefing() {
                             <p className="text-slate-400 text-sm mt-0.5 print:text-slate-600">{option.subtitle}</p>
                             {option.dominated_by && (() => {
                               const dominatorIdx = data.options.findIndex((o: any) => o.id === option.dominated_by);
+                              // Definition inline, not in a title= tooltip. The
+                              // table header just above states the same flag in
+                              // 9px with the fuller wording only on hover — fine
+                              // as a glanceable comparison view, but this card is
+                              // the primary reading surface and has the room, so
+                              // the explanation belongs on the page, not behind a
+                              // mouseover a touch or keyboard user can't trigger.
                               return dominatorIdx >= 0 ? (
-                                <p className="text-[11px] text-severity-warning/90 mt-1 print:text-amber-700"
-                                   title="Matches or is worse than another option on modelled impact, cost, and risk.">
-                                  dominated by Option {String.fromCharCode(65 + dominatorIdx)}
+                                <p className="text-[11px] text-severity-warning/90 mt-1 leading-snug print:text-amber-700">
+                                  Dominated by Option {String.fromCharCode(65 + dominatorIdx)} — matches or
+                                  underperforms it on modelled impact, cost, and risk.
                                 </p>
                               ) : null;
                             })()}
@@ -1906,6 +2055,7 @@ export function ExecutiveBriefing() {
             situationId={situationId}
             principalId={principalId}
             approveState={approveState}
+            approveError={approveError}
             onApprove={handleApprove}
           />
         </div>

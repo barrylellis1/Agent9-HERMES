@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gray-on-color",
+        "value": "text-slate-100 on bg-indigo-600",
+        "files": [
+          "decision-studio-ui/src/pages/ExecutiveBriefing.tsx"
+        ],
+        "createdAt": "2026-08-27T23:55:01.340Z",
+        "reason": "false positive, verified 3x this session: msg.role ternary pairs bg-indigo-600/text-white and bg-slate-800/text-slate-100 independently, detector cross-matches branches on one line"
+      }
+    ]
+  }
+}
