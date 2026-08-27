@@ -11,6 +11,24 @@
         ],
         "createdAt": "2026-08-27T23:55:01.340Z",
         "reason": "false positive, verified 3x this session: msg.role ternary pairs bg-indigo-600/text-white and bg-slate-800/text-slate-100 independently, detector cross-matches branches on one line"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/pages/ExecutiveBriefing.tsx"
+        ],
+        "createdAt": "2026-08-27T23:57:46.940Z",
+        "reason": "DESIGN_SYSTEM.md sec1 prescribes border-l-[3px] border-l-severity-* as the canonical accent treatment app-wide; the 3 flagged sites are that pattern (severity-token accent), a print-only variant, and a pre-existing neutral-gray callout following the same established left-accent convention -- none introduced this session"
+      },
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/pages/ExecutiveBriefing.tsx"
+        ],
+        "createdAt": "2026-08-27T23:57:47.582Z",
+        "reason": "flagged site is print:bg-purple-50/border-purple-200/text-purple-900 -- print-only, light stylesheet; screen classes are plain bg-slate-900 border-slate-700 with no purple/gradient/cyan at all, so the rule's actual dark-mode-AI-gradient concern does not apply"
       }
     ]
   }
