@@ -313,7 +313,7 @@ function DecisionChat({
               onClick={() => onApprove(selectedOption)}
               disabled={approveState === 'approving' || !selectedOption}
               aria-live="polite"
-              className="w-full py-2 bg-severity-opportunity hover:bg-severity-opportunity disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-severity-opportunity"
+ className="hover:brightness-110 w-full py-2 bg-severity-opportunity disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-severity-opportunity"
             >
               {approveState === 'approving' ? (
                 <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Registering...</>
@@ -1403,7 +1403,7 @@ export function ExecutiveBriefing() {
                   <button
                     type="button"
                     onClick={openBlindSpotsAndScroll}
-                    className="text-xs text-severity-warning hover:text-severity-warning underline mt-2"
+ className="hover:brightness-125 text-xs text-severity-warning underline mt-2"
                   >
                     {data.blind_spots.length - 2} more consideration{data.blind_spots.length - 2 === 1 ? '' : 's'} in the full analysis ↓
                   </button>
@@ -1486,7 +1486,7 @@ export function ExecutiveBriefing() {
                       </div>
                       <Link
                         to={`/portfolio?principal=${encodeURIComponent(principalId)}`}
-                        className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-severity-opportunity text-white text-xs font-semibold rounded-lg hover:bg-severity-opportunity transition-colors"
+ className="hover:brightness-110 mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-severity-opportunity text-white text-xs font-semibold rounded-lg transition-all"
                       >
                         View Portfolio <ChevronRight className="w-3.5 h-3.5" />
                       </Link>
@@ -1837,7 +1837,7 @@ export function ExecutiveBriefing() {
             <div className="lg:hidden sticky bottom-0 -mx-4 mt-6 px-4 py-3 bg-slate-900/95 backdrop-blur border-t border-slate-800 print:hidden">
               <a
                 href="#decision-workspace"
-                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-severity-opportunity hover:bg-severity-opportunity text-white text-sm font-semibold transition-colors"
+ className="hover:brightness-110 flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-severity-opportunity text-white text-sm font-semibold transition-all"
               >
                 Review &amp; approve
                 <ChevronDown className="w-4 h-4" />

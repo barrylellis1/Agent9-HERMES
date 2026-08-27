@@ -194,7 +194,7 @@ export function DataProductOnboarding() {
                                     <button 
                                         onClick={handleHydrate}
                                         disabled={hydrating}
-                                        className="w-full py-3 bg-severity-opportunity hover:bg-severity-opportunity text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+ className="hover:brightness-110 w-full py-3 bg-severity-opportunity text-white rounded-lg font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                                     >
                                         {hydrating && <Loader2 className="w-4 h-4 animate-spin" />}
                                         {hydrating ? 'Provision Mock Table' : 'Start Provisioning'}

@@ -263,7 +263,7 @@ export function KPIAssistantChat({
                         <h4 className="text-sm font-semibold text-slate-400">Current KPIs ({currentKPIs.length})</h4>
                         <button
                             onClick={handleAcceptAll}
-                            className="px-3 py-1 bg-severity-healthy hover:bg-severity-healthy text-white text-xs rounded-md transition-colors flex items-center gap-1"
+ className="hover:brightness-110 px-3 py-1 bg-severity-healthy text-white text-xs rounded-md transition-all flex items-center gap-1"
                         >
                             <CheckCircle className="w-3 h-3" />
                             Accept All
@@ -279,7 +279,7 @@ export function KPIAssistantChat({
                                     </div>
                                     <button
                                         onClick={() => handleRemoveKPI(kpi.id)}
-                                        className="opacity-0 group-hover:opacity-100 p-1 text-severity-critical hover:text-severity-critical transition-all"
+ className="hover:brightness-125 opacity-0 group-hover:opacity-100 p-1 text-severity-critical transition-all"
                                     >
                                         <Trash2 className="w-3 h-3" />
                                     </button>
@@ -335,9 +335,9 @@ export function KPIAssistantChat({
                                                     handleAcceptAll()
                                                 }
                                             }}
-                                            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                                                action.action === 'accept' 
-                                                    ? 'bg-severity-healthy hover:bg-severity-healthy text-white'
+                                            className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                                                action.action === 'accept'
+ ? 'bg-severity-healthy hover:brightness-110 text-white'
                                                     : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
                                             }`}
                                         >

@@ -390,7 +390,7 @@ export function BusinessProcessIntelligence({
               <button
                 onClick={handleCommit}
                 disabled={accepted.size === 0}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-severity-opportunity hover:bg-severity-opportunity disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white text-sm font-semibold"
+ className="hover:brightness-110 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-severity-opportunity disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white text-sm font-semibold"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 Commit {accepted.size} process{accepted.size === 1 ? '' : 'es'} to registry

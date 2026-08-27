@@ -70,6 +70,61 @@ def _is_exempt_line(line: str, match: "re.Match") -> bool:
     return False
 
 
+MEANINGS = ["critical", "warning", "opportunity", "healthy", "info"]
+
+# A severity token is ONE fixed shade — that has two structural consequences a
+# raw-color linter can't catch, and both shipped as real bugs the same day
+# this lint was written (see ui_refinement_plan.md "Severity token sweep"):
+#
+# 1. `bg-severity-X` + `text-severity-X`, both solid (no alpha), on one
+#    element: background and text render as the IDENTICAL color — invisible
+#    text. Shipped on Portfolio.tsx's verdict pills (blank pills where
+#    "Validated"/"Failed" should read).
+# 2. `{prefix}-severity-X` + `hover:{prefix}-severity-X` with the same alpha
+#    (most commonly no alpha at all): the hover state is pixel-identical to
+#    the base state — no hover feedback. Shipped on the Executive Briefing's
+#    own Approve button among 13 others, all from buttons that used two
+#    ADJACENT Tailwind shades before the sweep (e.g. emerald-700/emerald-600)
+#    and collapsed to the token's single value.
+#
+# Neither is a hardcoded-color problem — both sides are already correctly
+# tokenized — so PATTERN/lint() above can't see them. Checked separately here.
+BG_SOLID = {m: re.compile(rf"(?<!hover:)bg-severity-{m}(?!/)\b") for m in MEANINGS}
+TEXT_SOLID = {m: re.compile(rf"(?<!hover:)text-severity-{m}(?!/)\b") for m in MEANINGS}
+HOVER_MATCH = {
+    prefix: {m: re.compile(rf"\bhover:{prefix}-severity-{m}(/\d+)?\b") for m in MEANINGS}
+    for prefix in ("bg", "text", "border")
+}
+BASE_MATCH = {
+    prefix: {m: re.compile(rf"(?<!hover:){prefix}-severity-{m}(/\d+)?\b") for m in MEANINGS}
+    for prefix in ("bg", "text", "border")
+}
+
+
+def _same_shade_collisions(line: str) -> list[str]:
+    if SUPPRESS.search(line):
+        return []
+    out = []
+    for m in MEANINGS:
+        if BG_SOLID[m].search(line) and TEXT_SOLID[m].search(line):
+            out.append(
+                f"`bg-severity-{m}` + `text-severity-{m}`, both solid — text is "
+                f"invisible. Tint the background instead: `bg-severity-{m}/20`."
+            )
+    for prefix in ("bg", "text", "border"):
+        for m in MEANINGS:
+            base_hit = BASE_MATCH[prefix][m].search(line)
+            hov_hit = HOVER_MATCH[prefix][m].search(line)
+            if base_hit and hov_hit and base_hit.group(1) == hov_hit.group(1):
+                out.append(
+                    f"`{prefix}-severity-{m}` + identical `hover:` variant — no "
+                    f"hover feedback. Use `hover:brightness-110` (backgrounds) or "
+                    f"`hover:brightness-125` (text/borders) instead of repeating "
+                    f"the token."
+                )
+    return out
+
+
 def lint() -> list[str]:
     violations: list[str] = []
     if not UI_SRC.exists():
@@ -95,6 +150,9 @@ def lint() -> list[str]:
                     f"reviewed exception (print variant or a light-on-dark badge "
                     f"needing two shades)."
                 )
+            rel = path.relative_to(REPO_ROOT)
+            for msg in _same_shade_collisions(line):
+                violations.append(f"{rel}:{i}: {msg}")
     return violations
 
 

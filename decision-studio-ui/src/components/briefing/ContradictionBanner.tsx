@@ -43,7 +43,7 @@ export function ContradictionBanner({ tension, onViewDetail, variant = 'inline' 
     <button
       type="button"
       onClick={onViewDetail}
-      className="inline-block text-xs text-severity-warning hover:text-severity-warning underline mt-2 print:hidden"
+ className="hover:brightness-125 inline-block text-xs text-severity-warning underline mt-2 print:hidden"
     >
       See the full analysis in Blind Spots &amp; Tensions ↓
     </button>

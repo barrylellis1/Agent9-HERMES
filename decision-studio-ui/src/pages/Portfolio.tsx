@@ -183,7 +183,7 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
             <button
               onClick={() => handlePhaseTransition('IMPLEMENTING')}
               disabled={transitioning}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-severity-warning hover:bg-severity-warning disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-colors"
+ className="hover:brightness-110 flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-severity-warning disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-all"
             >
               <Rocket className="w-3.5 h-3.5" />
               {transitioning ? 'Updating...' : 'Mark Implementing'}
@@ -193,7 +193,7 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
             <button
               onClick={() => handlePhaseTransition('LIVE')}
               disabled={transitioning}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-severity-opportunity hover:bg-severity-opportunity disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-colors"
+ className="hover:brightness-110 flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-severity-opportunity disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-all"
             >
               <Play className="w-3.5 h-3.5" />
               {transitioning ? 'Updating...' : 'Go Live'}

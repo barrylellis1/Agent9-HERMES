@@ -1581,7 +1581,7 @@ export function DataProductOnboardingNew({
                                                 }
                                             }}
                                             disabled={registrationSuccess}
-                                            className="flex-1 py-3 bg-severity-healthy hover:bg-severity-healthy disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+ className="hover:brightness-110 flex-1 py-3 bg-severity-healthy disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all flex items-center justify-center gap-2"
                                         >
                                             <Check className="w-4 h-4" />
                                             {registrationSuccess ? 'Registered' : 'Register Data Product'}
