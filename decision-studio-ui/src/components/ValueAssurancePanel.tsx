@@ -65,15 +65,15 @@ const ALIGNMENT_CONFIG: Record<
 > = {
   ALIGNED: {
     label: 'Aligned',
-    className: 'bg-green-900/20 border border-green-500/30 text-green-400',
+    className: 'bg-severity-healthy/20 border border-severity-healthy/30 text-severity-healthy',
     Icon: CheckCircle2,
-    iconClass: 'text-green-400',
+    iconClass: 'text-severity-healthy',
   },
   DRIFTED: {
     label: 'Drifted',
-    className: 'bg-amber-900/20 border border-amber-500/30 text-amber-400',
+    className: 'bg-severity-warning/20 border border-severity-warning/30 text-severity-warning',
     Icon: AlertTriangle,
-    iconClass: 'text-amber-400',
+    iconClass: 'text-severity-warning',
   },
   SUPERSEDED: {
     label: 'Superseded',
@@ -84,9 +84,9 @@ const ALIGNMENT_CONFIG: Record<
 };
 
 const CONFIDENCE_COLORS: Record<string, string> = {
-  HIGH: 'text-green-400',
-  MODERATE: 'text-amber-400',
-  LOW: 'text-red-400',
+  HIGH: 'text-severity-healthy',
+  MODERATE: 'text-severity-warning',
+  LOW: 'text-severity-critical',
 };
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -212,7 +212,7 @@ export const ValueAssurancePanel: React.FC<ValueAssurancePanelProps> = ({
               <div className="flex items-baseline gap-2">
                 <span
                   className={`text-2xl font-bold ${
-                    evaluation.total_kpi_change >= 0 ? 'text-emerald-400' : 'text-red-400'
+                    evaluation.total_kpi_change >= 0 ? 'text-severity-opportunity' : 'text-severity-critical'
                   }`}
                 >
                   {formatDelta(evaluation.total_kpi_change)}
@@ -229,7 +229,7 @@ export const ValueAssurancePanel: React.FC<ValueAssurancePanelProps> = ({
                   <span className="text-slate-400">Attributable</span>
                   <span
                     className={`font-mono font-medium ${
-                      evaluation.attributable_impact >= 0 ? 'text-emerald-400' : 'text-red-400'
+                      evaluation.attributable_impact >= 0 ? 'text-severity-opportunity' : 'text-severity-critical'
                     }`}
                   >
                     {formatDelta(evaluation.attributable_impact)}
@@ -318,7 +318,7 @@ export const ValueAssurancePanel: React.FC<ValueAssurancePanelProps> = ({
                       {compositeVerdict.composite_label}
                     </span>
                     {compositeVerdict.include_in_roi_totals ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-900/30 border border-emerald-500/30 text-emerald-400 px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-[10px] bg-severity-opportunity/30 border border-severity-opportunity/30 text-severity-opportunity px-2 py-0.5 rounded-full">
                         <CheckCircle2 className="w-2.5 h-2.5" /> Include in ROI
                       </span>
                     ) : (
@@ -328,7 +328,7 @@ export const ValueAssurancePanel: React.FC<ValueAssurancePanelProps> = ({
                     )}
                   </div>
                   {compositeVerdict.executive_attention_required && (
-                    <p className="text-xs text-amber-400 flex items-center gap-1">
+                    <p className="text-xs text-severity-warning flex items-center gap-1">
                       <AlertTriangle className="w-3 h-3" />
                       Executive attention required
                     </p>

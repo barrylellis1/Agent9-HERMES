@@ -21,9 +21,9 @@ import { orderedCausalKpiIds, causalColorFor, alternativeShortLabel, CAUSAL_PRIM
  */
 
 const CONFIDENCE_TONE: Record<string, string> = {
-  high: 'text-emerald-400 border-emerald-700',
-  moderate: 'text-amber-400 border-amber-700',
-  low: 'text-red-400 border-red-700',
+  high: 'text-severity-opportunity border-severity-opportunity',
+  moderate: 'text-severity-warning border-severity-warning',
+  low: 'text-severity-critical border-severity-critical',
 };
 
 function fmtPct(v: number | null | undefined): string {
@@ -82,7 +82,7 @@ function EvidenceCard({ alt, dotColor }: { alt: FramingAlternative; dotColor: st
             <p className="mt-1 text-xs italic text-slate-500">{alt.provenance_caveat}</p>
           )}
           {alt.evidence_caveats?.map((c, i) => (
-            <p key={i} className="mt-1 text-xs italic text-amber-500/80">{c}</p>
+            <p key={i} className="mt-1 text-xs italic text-severity-warning/80">{c}</p>
           ))}
         </div>
       </div>

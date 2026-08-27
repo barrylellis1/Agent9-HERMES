@@ -226,7 +226,7 @@ export function WhitePaperReport() {
             </h2>
             <div className="space-y-6">
               {data.options.map((opt: any, i: number) => (
-                <div key={i} className={`border rounded-lg p-5 ${opt.recommended ? 'border-emerald-300 bg-emerald-50/30' : 'border-slate-200'}`}>
+                <div key={i} className={`border rounded-lg p-5 ${opt.recommended ? 'border-severity-opportunity bg-severity-opportunity/30' : 'border-slate-200'}`}>
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="text-base font-semibold text-slate-900">
                       Option {i + 1}: {opt.title}
@@ -257,7 +257,7 @@ export function WhitePaperReport() {
                     <div className="text-center p-2 bg-slate-50 rounded">
                       <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-0.5">Risk</div>
                       <div className={`text-xs font-semibold ${
-                        opt.riskLevel === 'High' ? 'text-red-600' : opt.riskLevel === 'Medium' ? 'text-amber-600' : 'text-emerald-600'
+                        opt.riskLevel === 'High' ? 'text-severity-critical' : opt.riskLevel === 'Medium' ? 'text-severity-warning' : 'text-severity-opportunity'
                       }`}>{opt.riskLevel || '—'}</div>
                     </div>
                   </div>
@@ -267,7 +267,7 @@ export function WhitePaperReport() {
                     <div className="grid grid-cols-2 gap-4 text-xs">
                       {opt.prosDetailed?.length > 0 && (
                         <div>
-                          <p className="font-semibold text-emerald-700 mb-1">Strengths</p>
+                          <p className="font-semibold text-severity-opportunity mb-1">Strengths</p>
                           <ul className="list-disc list-inside text-slate-600 space-y-0.5">
                             {opt.prosDetailed.map((p: any, j: number) => (
                               <li key={j}>{p.point}</li>
@@ -277,7 +277,7 @@ export function WhitePaperReport() {
                       )}
                       {opt.consDetailed?.length > 0 && (
                         <div>
-                          <p className="font-semibold text-red-700 mb-1">Considerations</p>
+                          <p className="font-semibold text-severity-critical mb-1">Considerations</p>
                           <ul className="list-disc list-inside text-slate-600 space-y-0.5">
                             {opt.consDetailed.map((c: any, j: number) => (
                               <li key={j}>{c.point}</li>
@@ -301,7 +301,7 @@ export function WhitePaperReport() {
             <h2 className="text-lg font-serif font-bold text-slate-900 mb-3 pb-1 border-b border-slate-200">
               {data.market_signals?.length > 0 ? '5' : '4'}. Recommendation &amp; Rationale
             </h2>
-            <div className="border-l-4 border-emerald-500 bg-emerald-50/40 px-5 py-4 rounded-r-lg mb-4">
+            <div className="border-l-4 border-severity-opportunity bg-severity-opportunity/40 px-5 py-4 rounded-r-lg mb-4">
               <p className="text-base font-semibold text-slate-900 mb-2">{data.recommendation.headline}</p>
               <p className="text-sm text-slate-700 leading-relaxed">{data.recommendation.rationale}</p>
             </div>
@@ -394,7 +394,7 @@ export function WhitePaperReport() {
             {data.blind_spots?.length > 0 && (
               <div className="mb-5">
                 <h3 className="text-sm font-semibold text-slate-800 mb-2 flex items-center gap-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                  <AlertTriangle className="w-3.5 h-3.5 text-severity-warning" />
                   Identified Blind Spots
                 </h3>
                 <ul className="list-disc list-inside text-sm text-slate-600 space-y-1">

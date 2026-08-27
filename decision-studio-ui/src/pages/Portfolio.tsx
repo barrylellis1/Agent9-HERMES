@@ -57,9 +57,9 @@ function formatDate(iso: string): string {
 function StatusBadge({ status }: { status: SolutionVerdict }) {
   const map: Record<SolutionVerdict, string> = {
     MEASURING: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    VALIDATED: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-    PARTIAL: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-    FAILED: 'bg-red-500/20 text-red-400 border-red-500/30',
+    VALIDATED: 'bg-severity-opportunity/20 text-severity-opportunity border-severity-opportunity/30',
+    PARTIAL: 'bg-severity-warning/20 text-severity-warning border-severity-warning/30',
+    FAILED: 'bg-severity-critical/20 text-severity-critical border-severity-critical/30',
   };
   const labels: Record<SolutionVerdict, string> = {
     MEASURING: 'Measuring',
@@ -78,8 +78,8 @@ function StatusBadge({ status }: { status: SolutionVerdict }) {
 
 const PHASE_CONFIG: Record<SolutionPhase, { color: string; label: string }> = {
   APPROVED: { color: 'bg-slate-500/20 text-slate-300 border-slate-500/30', label: 'Approved' },
-  IMPLEMENTING: { color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', label: 'Implementing' },
-  LIVE: { color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', label: 'Live' },
+  IMPLEMENTING: { color: 'bg-severity-warning/20 text-severity-warning border-severity-warning/30', label: 'Implementing' },
+  LIVE: { color: 'bg-severity-opportunity/20 text-severity-opportunity border-severity-opportunity/30', label: 'Live' },
   MEASURING: { color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', label: 'Measuring' },
   COMPLETE: { color: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30', label: 'Complete' },
 };
@@ -183,7 +183,7 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
             <button
               onClick={() => handlePhaseTransition('IMPLEMENTING')}
               disabled={transitioning}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-500 disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-severity-warning hover:bg-severity-warning disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-colors"
             >
               <Rocket className="w-3.5 h-3.5" />
               {transitioning ? 'Updating...' : 'Mark Implementing'}
@@ -193,7 +193,7 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
             <button
               onClick={() => handlePhaseTransition('LIVE')}
               disabled={transitioning}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-severity-opportunity hover:bg-severity-opportunity disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-colors"
             >
               <Play className="w-3.5 h-3.5" />
               {transitioning ? 'Updating...' : 'Go Live'}
@@ -252,12 +252,12 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
 
         return (
           <div className="grid grid-cols-3 gap-4">
-            <div className="bg-emerald-900/15 border border-emerald-500/20 rounded-xl p-4">
+            <div className="bg-severity-opportunity/15 border border-severity-opportunity/20 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
-                <ArrowUpRight className="w-4 h-4 text-emerald-400" />
-                <span className="text-[10px] font-bold text-emerald-400/70 uppercase tracking-wider">Realized Recovery</span>
+                <ArrowUpRight className="w-4 h-4 text-severity-opportunity" />
+                <span className="text-[10px] font-bold text-severity-opportunity/70 uppercase tracking-wider">Realized Recovery</span>
               </div>
-              <p className="text-2xl font-bold text-emerald-400">
+              <p className="text-2xl font-bold text-severity-opportunity">
                 {formatImpact(realizedRecovery, solution.kpi_id)}
               </p>
               <p className="text-[10px] text-slate-500 mt-1">
@@ -276,12 +276,12 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
                 vs inaction scenario ({formatImpact(inactionAtMonth, solution.kpi_id).replace(/^[+-]/, '')} at M{monthsElapsed})
               </p>
             </div>
-            <div className={`${vsPlan >= 0 ? 'bg-indigo-900/15 border-indigo-500/20' : 'bg-amber-900/15 border-amber-500/20'} border rounded-xl p-4`}>
+            <div className={`${vsPlan >= 0 ? 'bg-indigo-900/15 border-indigo-500/20' : 'bg-severity-warning/15 border-severity-warning/20'} border rounded-xl p-4`}>
               <div className="flex items-center gap-2 mb-2">
-                <Target className={`w-4 h-4 ${vsPlan >= 0 ? 'text-indigo-400' : 'text-amber-400'}`} />
-                <span className={`text-[10px] font-bold uppercase tracking-wider ${vsPlan >= 0 ? 'text-indigo-400/70' : 'text-amber-400/70'}`}>vs Plan</span>
+                <Target className={`w-4 h-4 ${vsPlan >= 0 ? 'text-indigo-400' : 'text-severity-warning'}`} />
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${vsPlan >= 0 ? 'text-indigo-400/70' : 'text-severity-warning/70'}`}>vs Plan</span>
               </div>
-              <p className={`text-2xl font-bold ${vsPlan >= 0 ? 'text-indigo-400' : 'text-amber-400'}`}>
+              <p className={`text-2xl font-bold ${vsPlan >= 0 ? 'text-indigo-400' : 'text-severity-warning'}`}>
                 {formatImpact(vsPlan, solution.kpi_id)}
               </p>
               <p className="text-[10px] text-slate-500 mt-1">
@@ -321,7 +321,7 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
 
       {/* Attribution note (when no evaluation yet) */}
       {!hasEvaluation && attributionNote && (
-        <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-900/10 border border-amber-500/20 rounded-lg px-4 py-2.5">
+        <div className="flex items-center gap-2 text-xs text-severity-warning bg-severity-warning/10 border border-severity-warning/20 rounded-lg px-4 py-2.5">
           <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
           {attributionNote}
         </div>
@@ -389,10 +389,10 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
           </button>
         </div>
         {recordError && (
-          <p className="mt-2 text-xs text-red-400">{recordError}</p>
+          <p className="mt-2 text-xs text-severity-critical">{recordError}</p>
         )}
         {recordSuccess && (
-          <p className="mt-2 text-xs text-emerald-400">Measurement recorded successfully.</p>
+          <p className="mt-2 text-xs text-severity-opportunity">Measurement recorded successfully.</p>
         )}
       </div>
     </div>
@@ -517,11 +517,11 @@ export function Portfolio() {
 
         {/* Error */}
         {!loading && error && (
-          <div className="flex items-start gap-3 bg-red-900/15 border border-red-500/30 rounded-xl px-5 py-4 max-w-lg mx-auto mt-16">
-            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+          <div className="flex items-start gap-3 bg-severity-critical/15 border border-severity-critical/30 rounded-xl px-5 py-4 max-w-lg mx-auto mt-16">
+            <AlertCircle className="w-5 h-5 text-severity-critical flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-red-400">Failed to load portfolio</p>
-              <p className="text-xs text-red-400/70 mt-1">{error}</p>
+              <p className="text-sm font-semibold text-severity-critical">Failed to load portfolio</p>
+              <p className="text-xs text-severity-critical/70 mt-1">{error}</p>
             </div>
           </div>
         )}

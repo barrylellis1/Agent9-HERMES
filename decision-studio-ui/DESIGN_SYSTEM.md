@@ -73,6 +73,31 @@ style={{ color: 'rgb(251 191 36)' }}    // warning
 style={{ color: 'rgb(52 211 153)' }}    // opportunity
 ```
 
+### Enforcement (2026-08-27)
+
+`scripts/severity_token_lint.py`, wired into `.pre-commit-config.yaml`, fails any new hardcoded
+`red/amber/emerald/green` on screen. 742 pre-existing sites were swept to tokens the same day (55 →
+797 uses); full write-up, including two real bugs found by rendering rather than reading the diff, is
+in `docs/architecture/ui_refinement_plan.md` under "Severity token sweep."
+
+**A single token is one fixed shade — this has two consequences, both learned the hard way:**
+
+1. **Never pair `bg-severity-X` and `text-severity-X` both solid (no alpha) on one element.** They
+   render as the identical color — invisible text. This exact bug shipped mid-sweep on `Portfolio.tsx`'s
+   verdict pills (blank pills where "Validated"/"Failed" should read) and was only caught by rendering
+   the page, not by reading the diff. If text needs to sit on a same-hue background, tint the background
+   (`bg-severity-X/20`), never both solid.
+2. **A light badge (`bg-X-100 text-X-800`) cannot be token-swapped directly** — it relies on two
+   *different* shades for contrast, and the token only has one. ~20 such call sites remain deliberately
+   unconverted (tracked in `ui_refinement_plan.md`, not silently declared compliant); redesigning them to
+   the dark-tinted idiom is a separate, larger change than a token rename.
+
+Two exception classes are permanent, not technical debt: `print:` variants (paper needs different
+literal shades than the single screen token provides) and the four Persuade-mode marketing pages
+(`LandingPage.tsx`, `LandingPageAlternate.tsx`, `HowItWorks.tsx`, `InsightsBIModernization.tsx` — their
+accent color is a brand choice, not a KPI-severity indicator, and coupling the two would make a rebrand
+of either break the other).
+
 ---
 
 ## 2. Color Palette

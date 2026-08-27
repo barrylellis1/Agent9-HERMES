@@ -140,7 +140,7 @@ export function PrincipalForm({
   return (
     <div className="space-y-4">
       {error && (
-        <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm">{error}</div>
+        <div className="p-3 rounded-lg border border-severity-critical/30 bg-severity-critical/10 text-severity-critical text-sm">{error}</div>
       )}
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -300,11 +300,11 @@ export function PrincipalCardList({ clientId }: { clientId: string }) {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm">{error}</div>
+        <div className="mb-4 p-3 rounded-lg border border-severity-critical/30 bg-severity-critical/10 text-severity-critical text-sm">{error}</div>
       )}
 
       {principals.length > 0 && adminCount === 0 && (
-        <div className="mb-4 p-3 rounded-lg border border-amber-700/40 bg-amber-950/30 text-amber-200 text-sm">
+        <div className="mb-4 p-3 rounded-lg border border-severity-warning/40 bg-severity-warning/30 text-severity-warning text-sm">
           <span className="font-medium">No principal has Settings Admin rights yet.</span>{' '}
           Once onboarding is complete and this client logs in normally, nobody will be able to maintain
           KPIs or the registry unless at least one principal below has "Grant Settings Admin" checked.
@@ -361,7 +361,7 @@ export function PrincipalCardList({ clientId }: { clientId: string }) {
                     <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">{p.decision_style}</span>
                   )}
                   <span
-                    className={`px-2 py-0.5 rounded ${p.workflow_role === 'decision_maker' ? 'bg-emerald-900/40 text-emerald-300' : 'bg-slate-800 text-slate-400'}`}
+                    className={`px-2 py-0.5 rounded ${p.workflow_role === 'decision_maker' ? 'bg-severity-opportunity/40 text-severity-opportunity' : 'bg-slate-800 text-slate-400'}`}
                   >
                     {p.workflow_role === 'decision_maker' ? 'Decision Maker' : 'Framer'}
                   </span>
@@ -374,11 +374,11 @@ export function PrincipalCardList({ clientId }: { clientId: string }) {
                 </div>
                 <div className="mt-3 flex items-center gap-1.5 text-xs">
                   {p.email ? (
-                    <span className="inline-flex items-center gap-1 text-emerald-400">
+                    <span className="inline-flex items-center gap-1 text-severity-opportunity">
                       <Mail className="w-3 h-3" /> {p.email}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-amber-400">
+                    <span className="inline-flex items-center gap-1 text-severity-warning">
                       <Mail className="w-3 h-3" /> No email — excluded from briefings
                     </span>
                   )}

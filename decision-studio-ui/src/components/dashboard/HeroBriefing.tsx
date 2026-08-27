@@ -217,7 +217,7 @@ export const HeroBriefing: React.FC<HeroBriefingProps> = ({
               <p className="text-sm text-slate-300 leading-relaxed">{whyItMatters}</p>
             )}
             {trendNote && (
-              <p className="text-[11px] text-amber-400/80 leading-relaxed mt-2">{trendNote}</p>
+              <p className="text-[11px] text-severity-warning/80 leading-relaxed mt-2">{trendNote}</p>
             )}
             {situation.key_observations && situation.key_observations.length > 0 && (
               <ul className="mt-3 space-y-1">

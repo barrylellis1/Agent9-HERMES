@@ -140,7 +140,7 @@ State verified against source 2026-08-27, not against this table's own prior cla
 | Tier | Item | State |
 |---|---|---|
 | **1** | Portfolio direct-nav error + `Test Probe` principal (§8.1) | **Done** — neither string exists in the tree |
-| **2** | Severity-token color sweep (§4.1) | **Open, and larger than this document estimated.** §4.1 said "at least 15 files". Actual: **56 files, 544 hardcoded `red/amber/emerald/green` utilities against 55 `severity-*` uses.** On the Executive Briefing surface alone it is 107 screen-visible violations to **zero** token uses. Newer files written *after* this audit (`ContradictionBanner.tsx`, `OptionDetailDrawer.tsx`) are on the list, so it is still accreting |
+| **2** | Severity-token color sweep (§4.1) | **Done, 2026-08-27.** 742 sites converted across 52 files (55 → 797 `severity-*` uses). Four Persuade-mode marketing pages and two documented pattern classes were deliberately left as literal Tailwind colors — see the write-up below, not a gap. A permanent lint (`scripts/severity_token_lint.py`, wired into `.pre-commit-config.yaml`) now fails any new hardcoded occurrence, so this does not need re-auditing. |
 | **3** | Colour-encoding collision on KPI tiles (§8.2) | **Done** — `chartTrendIsGood` drives the sparkline stroke |
 | **4** | Client indicator badge (§4.2) | **Done** — fell out of the nav work as predicted (`LeftNav.tsx`) |
 | **5** | Persistent `ANALYZE` affordance + stray `0` fix (§8.3) | **Done** — label unconditional; guard coerced with `Boolean()` |
@@ -158,6 +158,53 @@ entire claim is that the chart is proof.
 
 The fallback is deleted. Fewer than two measured points now renders no chart at all. A blank space
 costs less than an unfalsifiable one.
+
+### Severity token sweep — what was converted, what wasn't, and why (2026-08-27)
+
+**Converted: 742 sites, 52 files, mechanically.** Every `{prefix}-{red|amber|emerald|green}-{shade}` on
+screen (not `print:`) mapped 1:1 by hue — red→critical, amber→warning, emerald→opportunity,
+green→healthy — preserving any alpha modifier. This is the exact transform `DESIGN_SYSTEM.md` §1
+already prescribes: since each token is a single fixed shade, `bg-red-700/40` → `bg-severity-critical/40`
+is not a shade-number swap, it's the alpha-modifier idiom the doc's own usage examples show.
+
+**Two real bugs found and fixed mid-sweep, both by rendering, not by reading the diff:**
+- A first version of the script substituted per *line* rather than per *match*, converting print-scoped
+  colors that shared a line with a screen color (e.g. `bg-amber-950/20 ... print:bg-amber-50` both became
+  `severity-warning`). Caught before commit; the whole sweep was reverted and rerun with match-level
+  print detection.
+- A second version dropped the line-level gating that kept "light badge" patterns
+  (`bg-green-100 text-green-800`) out of scope, converting some of them anyway. Since severity tokens are
+  a single shade, `bg-severity-healthy text-severity-healthy` collapses background and text to the
+  identical color — **invisible text**. Caught live on `Portfolio.tsx`'s VALIDATED/FAILED verdict pills
+  (blank colored bars where "Validated"/"Failed" should read). Isolated to 9 true collisions
+  (`bg-severity-X` + `text-severity-X`, both solid, no alpha) across 3 files and fixed by adding a `/20`
+  tint to the background only — the documented idiom, not a new pattern.
+
+**Deliberately excluded, not silently declared compliant:**
+- **Four Persuade-mode marketing pages** (`LandingPage.tsx`, `LandingPageAlternate.tsx`,
+  `HowItWorks.tsx`, `InsightsBIModernization.tsx`, 64 occurrences) — `ui_brand_guidelines.md` §5 requires
+  these to share the app's *style*, not its severity CSS variables; coupling a landing page's accent
+  color to "what counts as a critical KPI" would make a rebrand of either one break the other.
+  `AgentAnimations.tsx` is the one exception inside that boundary: it renders a live mock-up of the real
+  app's severity UI for the "how it works" explainer, so it was converted to stay visually identical to
+  what it's demonstrating.
+- **104 `print:` occurrences** — a severity token is one fixed shade; print needs a different, lighter
+  or darker shade for contrast on white paper. Forcing the single screen value onto paper would either
+  wash out or over-darken text depending on direction. Left as literal colors; not covered by the lint.
+- **67 "light badge" occurrences** (`bg-X-100 text-X-800`, screen only) — same single-shade problem as
+  above, this time on a light chip on a dark page. This is arguably its own defect (a light island on a
+  dark-first surface, the same class of issue fixed in `CostOfInactionBanner`), not merely an unconverted
+  token. Flagged as a follow-up, not fixed here — redesigning ~20 badge call sites to the dark-tinted
+  idiom is a larger, more visible change than a token rename and deserves its own review.
+- **Two hand-reviewed categorical exceptions**: `Login.tsx`'s decision-style archetype badges
+  (analytical/visionary/pragmatic/decisive → blue/purple/emerald/amber) are an identity palette, not a
+  severity indicator — same shape as the persona-lens palette removed from `ExecutiveBriefing.tsx`
+  earlier in this sweep. Marked with `// severity-lint-allow:` rather than silently skipped.
+
+**New, unrelated finding surfaced by a pixel probe, not the sweep itself:** `PortfolioDashboard.tsx`'s
+`PARTIAL` verdict uses `text-yellow-400` — Tailwind's `yellow`, not `amber` — which is neither a
+severity token nor covered by this lint's four governed hues at all. Not fixed here; flagged for a
+follow-up decision on whether "yellow" should exist in this palette.
 
 ### Executive Briefing composition pass (2026-08-27)
 

@@ -165,7 +165,7 @@ export function DecisionStudio() {
       kpisScanned={kpisScanned}
       breachCount={situations.length}
       impactLevel={situations.length > 3 ? 'High' : situations.length > 0 ? 'Medium' : 'Low'}
-      impactColor={situations.length > 3 ? 'text-red-400' : situations.length > 0 ? 'text-amber-400' : 'text-green-400'}
+      impactColor={situations.length > 3 ? 'text-severity-critical' : situations.length > 0 ? 'text-severity-warning' : 'text-severity-healthy'}
       
       selectedPrincipal={selectedPrincipal}
       availablePrincipals={availablePrincipals}

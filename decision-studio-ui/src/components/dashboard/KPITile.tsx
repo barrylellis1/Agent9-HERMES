@@ -253,7 +253,7 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
           {situation.compound_alert && (
             <span
               data-testid="compound-alert-badge"
-              className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-800/50"
+              className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-severity-warning/80 text-severity-warning border border-severity-warning/50"
             >
               Compound
             </span>
@@ -290,7 +290,7 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
       {/* ── Lead finding + sparkline (always together at bottom) ── */}
       <div className="mt-auto">
         {situation.trend_note ? (
-          <p className="text-[11px] text-amber-400/80 leading-snug px-0 pb-2 line-clamp-2">
+          <p className="text-[11px] text-severity-warning/80 leading-snug px-0 pb-2 line-clamp-2">
             {situation.trend_note}
           </p>
         ) : situation.key_observations && situation.key_observations.length > 0 ? (

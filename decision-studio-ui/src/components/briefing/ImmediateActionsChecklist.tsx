@@ -39,8 +39,8 @@ function dueLabel(days: number | null | undefined): string | null {
 /** Urgency band drives the badge colour only — never the order, which is the model's. */
 function dueTone(days: number | null | undefined): string {
   if (days == null) return 'text-slate-400 border-slate-600'
-  if (days <= 7) return 'text-red-400 border-red-700 print:text-red-700'
-  if (days <= 30) return 'text-amber-400 border-amber-700 print:text-amber-700'
+  if (days <= 7) return 'text-severity-critical border-severity-critical print:text-red-700'
+  if (days <= 30) return 'text-severity-warning border-severity-warning print:text-amber-700'
   return 'text-slate-400 border-slate-600'
 }
 
@@ -96,7 +96,7 @@ export function ImmediateActionsChecklist({ actions, fallbackSteps = [] }: Immed
                       className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] ${
                         a.owner
                           ? 'border-slate-600 text-slate-300 print:text-slate-700'
-                          : 'border-amber-700 text-amber-400 print:text-amber-700'
+                          : 'border-severity-warning text-severity-warning print:text-amber-700'
                       }`}
                     >
                       <User className="h-2.5 w-2.5" />

@@ -431,7 +431,7 @@ export default function CompanyProfile({ embedded = false }: { embedded?: boolea
       )}
 
       {loadError && (
-        <div className="max-w-6xl mx-auto mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-300 text-sm">
+        <div className="max-w-6xl mx-auto mb-4 p-3 bg-severity-warning/10 border border-severity-warning/20 rounded-lg text-severity-warning text-sm">
           {loadError}
         </div>
       )}
@@ -450,7 +450,7 @@ export default function CompanyProfile({ embedded = false }: { embedded?: boolea
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-400 mb-2">
-                    Company Name <span className="text-red-400">*</span>
+                    Company Name <span className="text-severity-critical">*</span>
                   </label>
                   <input
                     type="text"
@@ -499,7 +499,7 @@ export default function CompanyProfile({ embedded = false }: { embedded?: boolea
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-400 mb-2">
-                      Industry <span className="text-red-400">*</span>
+                      Industry <span className="text-severity-critical">*</span>
                     </label>
                     <input
                       type="text"
@@ -778,7 +778,7 @@ export default function CompanyProfile({ embedded = false }: { embedded?: boolea
                           <button
                             type="button"
                             onClick={() => removeSystem(idx)}
-                            className="text-slate-500 hover:text-red-400 transition-colors"
+                            className="text-slate-500 hover:text-severity-critical transition-colors"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -871,12 +871,12 @@ export default function CompanyProfile({ embedded = false }: { embedded?: boolea
                   {/* Confidence badge */}
                   <div>
                     {industryResearch.confidence >= 0.7 ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-500/15 text-green-400 rounded-full text-xs font-medium">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-severity-healthy/15 text-severity-healthy rounded-full text-xs font-medium">
                         <Check className="w-3 h-3" />
                         High confidence
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2.5 py-1 bg-amber-500/15 text-amber-400 rounded-full text-xs font-medium">
+                      <span className="inline-flex items-center px-2.5 py-1 bg-severity-warning/15 text-severity-warning rounded-full text-xs font-medium">
                         Moderate
                       </span>
                     )}

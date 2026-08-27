@@ -50,14 +50,14 @@ const REGISTRIES: RegistryDescriptor[] = [
     key: 'business-processes',
     label: 'Business Processes',
     icon: Briefcase,
-    colorClass: 'text-amber-400 bg-amber-500/10',
+    colorClass: 'text-severity-warning bg-severity-warning/10',
     editable: true,
   },
   {
     key: 'data-products',
     label: 'Data Products',
     icon: Box,
-    colorClass: 'text-emerald-400 bg-emerald-500/10',
+    colorClass: 'text-severity-opportunity bg-severity-opportunity/10',
     editable: true,
   },
   {
@@ -249,7 +249,7 @@ function AccountabilityPanel({ clientId }: { clientId?: string }) {
       )}
 
       {error && !loading && (
-        <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm">{error}</div>
+        <div className="p-3 rounded-lg border border-severity-critical/30 bg-severity-critical/10 text-severity-critical text-sm">{error}</div>
       )}
 
       {!loading && !error && rows.length === 0 && (
@@ -876,7 +876,7 @@ export function RegistryExplorer() {
                   const next = [...thresholds]; next[i] = { ...next[i], red_threshold: e.target.value ? Number(e.target.value) : null }; updateDraft('thresholds', next)
                 }} className={inputCls + ' w-24'} />
                 <button onClick={() => { const next = thresholds.filter((_: any, j: number) => j !== i); updateDraft('thresholds', next) }}
-                  className="p-1 text-slate-500 hover:text-red-400"><X className="w-4 h-4" /></button>
+                  className="p-1 text-slate-500 hover:text-severity-critical"><X className="w-4 h-4" /></button>
               </div>
             ))}
             <button onClick={() => updateDraft('thresholds', [...thresholds, { comparison_type: 'target', green_threshold: null, yellow_threshold: null, red_threshold: null }])}
@@ -1110,7 +1110,7 @@ export function RegistryExplorer() {
           </select>
         </div>
         {formDraft.causal_rung === 'intervention_tested' && formDraft.provenance !== 'va_validated' && (
-          <p className="text-xs text-amber-400">
+          <p className="text-xs text-severity-warning">
             "Intervention Tested" requires provenance "VA Validated" — the server will reject this combination otherwise (HITL confirmation alone can't establish a tested causal claim).
           </p>
         )}
@@ -1205,7 +1205,7 @@ export function RegistryExplorer() {
           </div>
         </div>
         {formDraft.record_type === 'explanation' && !formDraft.expiry && (
-          <p className="text-xs text-amber-400">
+          <p className="text-xs text-severity-warning">
             Explanation records require an expiry date — the server will reject this without one (mandatory self-falsification, never indefinite suppression).
           </p>
         )}
@@ -1286,7 +1286,7 @@ export function RegistryExplorer() {
                     className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-sm font-medium">
                     {creatingClient ? 'Creating…' : 'Create and select'}
                   </button>
-                  {clientCreateError && <p className="text-xs text-red-400">{clientCreateError}</p>}
+                  {clientCreateError && <p className="text-xs text-severity-critical">{clientCreateError}</p>}
                 </div>
               </div>
             )}
@@ -1386,7 +1386,7 @@ export function RegistryExplorer() {
             </div>
 
             {error ? (
-              <div className="mb-4 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm">{error}</div>
+              <div className="mb-4 p-3 rounded-lg border border-severity-critical/30 bg-severity-critical/10 text-severity-critical text-sm">{error}</div>
             ) : null}
 
             <div className="mb-4">

@@ -148,13 +148,13 @@ export function OptionDetailDrawer({ option, optionLabel, onClose }: OptionDetai
                   each lever through the causal graph specifically to surface a
                   downstream cost the option's own narrative will not mention. */}
               {option.flagged_side_effects?.length > 0 && (
-                <div className="mb-4 rounded-lg border border-amber-700/50 bg-amber-950/20 p-3">
-                  <h4 className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-amber-300">
+                <div className="mb-4 rounded-lg border border-severity-warning/50 bg-severity-warning/20 p-3">
+                  <h4 className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-severity-warning">
                     <Zap className="h-3.5 w-3.5" /> Side effects flagged against the causal model
                   </h4>
                   <ul className="space-y-1">
                     {option.flagged_side_effects.map((s: string, i: number) => (
-                      <li key={i} className="text-xs leading-snug text-amber-200/80">• {s}</li>
+                      <li key={i} className="text-xs leading-snug text-severity-warning/80">• {s}</li>
                     ))}
                   </ul>
                 </div>

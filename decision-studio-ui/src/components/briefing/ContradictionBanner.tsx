@@ -43,7 +43,7 @@ export function ContradictionBanner({ tension, onViewDetail, variant = 'inline' 
     <button
       type="button"
       onClick={onViewDetail}
-      className="inline-block text-xs text-amber-400 hover:text-amber-300 underline mt-2 print:hidden"
+      className="inline-block text-xs text-severity-warning hover:text-severity-warning underline mt-2 print:hidden"
     >
       See the full analysis in Blind Spots &amp; Tensions ↓
     </button>
@@ -61,14 +61,14 @@ export function ContradictionBanner({ tension, onViewDetail, variant = 'inline' 
         the open question MEANS for the decision, not just that one exists. */
   if (variant === 'headline') {
     return (
-      <div className="mb-6 border-l-[3px] border-l-amber-500 pl-4 sm:pl-5 print:border-l-amber-600">
+      <div className="mb-6 border-l-[3px] border-l-severity-warning pl-4 sm:pl-5 print:border-l-amber-600">
         <div className="flex items-start gap-2.5">
-          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-1.5 print:text-amber-600" />
+          <AlertTriangle className="w-5 h-5 text-severity-warning shrink-0 mt-1.5 print:text-amber-600" />
           <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-semibold text-white leading-snug tracking-tight print:text-slate-900">
               {tensionText}
             </h1>
-            <p className="text-sm text-amber-200/80 leading-relaxed mt-2 print:text-amber-800">
+            <p className="text-sm text-severity-warning/80 leading-relaxed mt-2 print:text-amber-800">
               This is unresolved. The recommended first action below is the one that settles it.
             </p>
             {tension?.requires && (
@@ -84,16 +84,16 @@ export function ContradictionBanner({ tension, onViewDetail, variant = 'inline' 
   }
 
   return (
-    <div className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-4 mb-6 print:bg-amber-50 print:border-amber-200">
+    <div className="rounded-xl border border-severity-warning/40 bg-severity-warning/20 p-4 mb-6 print:bg-amber-50 print:border-amber-200">
       <div className="flex items-start gap-3">
-        <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5 print:text-amber-600" />
+        <AlertTriangle className="w-5 h-5 text-severity-warning shrink-0 mt-0.5 print:text-amber-600" />
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-500/90 mb-1 print:text-amber-700">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-severity-warning/90 mb-1 print:text-amber-700">
             The open question
           </p>
-          <p className="text-sm text-amber-100 leading-relaxed print:text-amber-900">{tensionText}</p>
+          <p className="text-sm text-severity-warning leading-relaxed print:text-amber-900">{tensionText}</p>
           {tension?.requires && (
-            <p className="text-xs text-amber-500/80 mt-1.5 print:text-amber-700">
+            <p className="text-xs text-severity-warning/80 mt-1.5 print:text-amber-700">
               Requires: {tension.requires}
             </p>
           )}

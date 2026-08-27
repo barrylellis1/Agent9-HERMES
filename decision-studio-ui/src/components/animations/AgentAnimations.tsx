@@ -138,7 +138,7 @@ export function KPIGridAnimation() {
       style={{ aspectRatio: '16/10' }}
     >
       <div className="flex items-center gap-2">
-        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        <div className="w-1.5 h-1.5 rounded-full bg-severity-opportunity animate-pulse" />
         <span className="text-xs text-slate-500 font-mono tracking-wider">LIVE MONITORING</span>
       </div>
 
@@ -177,11 +177,11 @@ export function KPIGridAnimation() {
         initial={{ opacity: 0, y: 8 }}
         animate={showCard ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
         transition={{ duration: 0.5 }}
-        className="rounded-lg border-l-2 border-red-500 bg-red-500/5 p-2.5"
+        className="rounded-lg border-l-2 border-severity-critical bg-severity-critical/5 p-2.5"
       >
         <div className="flex items-center gap-1.5 mb-1">
-          <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
-          <span className="text-xs font-semibold text-red-400">CRITICAL — Situation Detected</span>
+          <div className="w-1.5 h-1.5 rounded-full bg-severity-critical" />
+          <span className="text-xs font-semibold text-severity-critical">CRITICAL — Situation Detected</span>
         </div>
         <p className="text-xs text-slate-300 font-medium">Gross Margin Below Threshold</p>
         <p className="text-xs text-slate-500 mt-0.5">-4.7% YoY · Southeast, Midwest · Premium Synthetics</p>
@@ -235,8 +235,8 @@ export function IsIsNotAnimation() {
             transition={{ delay: i * 0.3 + 0.2, duration: 0.4 }}
           >
             <div className="px-2 py-1.5 text-xs text-slate-300">{row.dimension}</div>
-            <div className="px-2 py-1.5 text-xs text-red-400 font-medium">{row.is}</div>
-            <div className="px-2 py-1.5 text-xs text-emerald-400">{row.isNot}</div>
+            <div className="px-2 py-1.5 text-xs text-severity-critical font-medium">{row.is}</div>
+            <div className="px-2 py-1.5 text-xs text-severity-opportunity">{row.isNot}</div>
             <div className="px-2 py-1.5 text-xs text-slate-400">{row.insight}</div>
           </motion.div>
         ))}
@@ -251,7 +251,7 @@ export function IsIsNotAnimation() {
       >
         <div className="text-xs font-semibold text-indigo-400 mb-1">SCQA Diagnostic Summary</div>
         <p className="text-xs text-slate-400 leading-relaxed">
-          <span className="text-amber-400 font-medium">Complication: </span>
+          <span className="text-severity-warning font-medium">Complication: </span>
           Premium Synthetics margin compressed in SE/MW industrial accounts — not elsewhere. Recent onset, accelerating.
         </p>
       </motion.div>
@@ -404,7 +404,7 @@ export function RefinementChatAnimation() {
                 >
                   <td className="py-1 text-xs text-slate-300 truncate max-w-[120px]">{a.name}</td>
                   <td className="py-1 text-xs text-slate-400">{a.region}</td>
-                  <td className="py-1 text-xs font-semibold text-red-400">{a.delta}</td>
+                  <td className="py-1 text-xs font-semibold text-severity-critical">{a.delta}</td>
                 </motion.tr>
               ))}
             </tbody>
@@ -480,7 +480,7 @@ export function CouncilDebateAnimation() {
             <div className="text-xs font-semibold mb-1" style={{ color: p.color }}>{p.label}</div>
             <p className="text-xs text-slate-400 leading-relaxed flex-1">{p.text}</p>
             <div className="mt-2 pt-2 border-t border-slate-700/50">
-              <div className="text-xs font-bold text-emerald-400">{p.impact}</div>
+              <div className="text-xs font-bold text-severity-opportunity">{p.impact}</div>
               <div className="text-xs text-slate-500">expected recovery</div>
             </div>
           </motion.div>
@@ -497,7 +497,7 @@ export function CouncilDebateAnimation() {
         <div className="flex items-center gap-2 mb-1">
           <div className="w-4 h-4 rounded flex items-center justify-center bg-indigo-600 text-white text-xs font-bold">∑</div>
           <span className="text-xs font-semibold text-indigo-400">Synthesized Recommendation</span>
-          <span className="ml-auto text-xs text-emerald-400 font-bold">+3.8pp · 90 days</span>
+          <span className="ml-auto text-xs text-severity-opportunity font-bold">+3.8pp · 90 days</span>
         </div>
         <p className="text-xs text-slate-400">Tiered pricing → supplier renegotiation → bundled contracts pilot.</p>
       </motion.div>

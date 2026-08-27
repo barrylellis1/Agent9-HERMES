@@ -478,9 +478,9 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
           <div>
             <div className="flex items-center gap-2 mb-1">
                <span className={`px-2 py-0.5 text-xs font-bold rounded uppercase ${
-                 analysisMode === 'opportunity' ? 'bg-green-500/20 text-green-400' :
-                 analysisMode === 'mixed' ? 'bg-amber-500/20 text-amber-400' :
-                 'bg-red-500/20 text-red-400'
+                 analysisMode === 'opportunity' ? 'bg-severity-healthy/20 text-severity-healthy' :
+                 analysisMode === 'mixed' ? 'bg-severity-warning/20 text-severity-warning' :
+                 'bg-severity-critical/20 text-severity-critical'
                }`}>
                  {analysisMode === 'opportunity' ? 'Opportunity' : analysisMode === 'mixed' ? 'Mixed' : situation.severity}
                </span>
@@ -526,10 +526,10 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                     title="Situation Summary"
                     icon={
                       analysisMode === 'opportunity'
-                        ? <TrendingUp className="w-5 h-5 text-green-400" />
+                        ? <TrendingUp className="w-5 h-5 text-severity-healthy" />
                         : analysisMode === 'mixed'
-                        ? <AlertTriangle className="w-5 h-5 text-amber-500" />
-                        : <AlertTriangle className="w-5 h-5 text-red-400" />
+                        ? <AlertTriangle className="w-5 h-5 text-severity-warning" />
+                        : <AlertTriangle className="w-5 h-5 text-severity-critical" />
                     }
                     summary={situation.description?.substring(0, 80) + (situation.description && situation.description.length > 80 ? '...' : '') || "Significant variance detected"}
                 >
@@ -565,7 +565,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                     )}
 
                     {analysisError && (
-                         <div className="p-4 bg-red-900/20 border border-red-500/30 rounded-lg text-red-300">
+                         <div className="p-4 bg-severity-critical/20 border border-severity-critical/30 rounded-lg text-severity-critical">
                              {analysisError}
                          </div>
                     )}
@@ -608,9 +608,9 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                 if (!decision || decision.choice === 'confirm_stated') return null;
                                 const target = decision.chosen_objective_text || decision.other_text || 'the chosen objective';
                                 return (
-                                  <div className="bg-amber-950/20 border border-amber-800/40 rounded-xl p-4 flex items-start gap-2.5">
-                                    <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-                                    <p className="text-xs text-amber-200/90 leading-relaxed">
+                                  <div className="bg-severity-warning/20 border border-severity-warning/40 rounded-xl p-4 flex items-start gap-2.5">
+                                    <AlertTriangle className="w-4 h-4 text-severity-warning flex-shrink-0 mt-0.5" />
+                                    <p className="text-xs text-severity-warning/90 leading-relaxed">
                                       <span className="font-semibold">{target}.</span>{' '}
                                       A separate analysis has not been run for this objective — the evidence above
                                       still reflects the original KPI's own analysis, re-framed to this decision.
@@ -640,7 +640,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                 dropped a dimension because slice-validity flagged it, so "why isn't
                                 X in this breakdown" always has a visible answer. */}
                             {currentAnalysis.dimensions_excluded && currentAnalysis.dimensions_excluded.length > 0 && (
-                                <div className="text-xs text-amber-400/90 bg-amber-950/20 border border-amber-500/20 rounded-lg px-3 py-2">
+                                <div className="text-xs text-severity-warning/90 bg-severity-warning/20 border border-severity-warning/20 rounded-lg px-3 py-2">
                                     <span className="font-semibold">Not sliced:</span>{' '}
                                     {currentAnalysis.dimensions_excluded.map((e: any) => e.dimension).join(', ')} — flagged by
                                     slice-validity as unreliable for this KPI, excluded rather than shown with a wrong number.
@@ -658,7 +658,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                                  <span className="text-[10px] text-slate-500 uppercase">{cp.dimension}</span>
                                                  <span className="text-sm font-medium text-white">{cp.key}</span>
                                              </div>
-                                             <span className={`text-sm font-mono ${cp.delta < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                                             <span className={`text-sm font-mono ${cp.delta < 0 ? 'text-severity-critical' : 'text-severity-opportunity'}`}>
                                                  {formatExecutive(cp.delta || 0)}
                                              </span>
                                          </div>
@@ -686,7 +686,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                               <span className="font-semibold text-slate-200">
                                 {diagnosedComparator === 'budget' ? 'Budget / Plan' : 'prior period'}
                               </span>
-                              {viewingDrill && <span className="ml-1 text-amber-400">(on-demand drill)</span>}
+                              {viewingDrill && <span className="ml-1 text-severity-warning">(on-demand drill)</span>}
                             </span>
                             <div className="flex items-center gap-2">
                               {viewingDrill && (
@@ -711,7 +711,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                           </div>
                         )}
                         {drillError && (
-                          <div className="mb-3 text-xs text-red-400">{drillError}</div>
+                          <div className="mb-3 text-xs text-severity-critical">{drillError}</div>
                         )}
                         <IsIsNotExhibit
                             data={currentAnalysis.kt_is_is_not}
@@ -738,26 +738,26 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                     <AccordionSection
                         id="replication-targets"
                         title={sectionTitle}
-                        icon={<TrendingUp className="w-4 h-4 text-green-400" />}
+                        icon={<TrendingUp className="w-4 h-4 text-severity-healthy" />}
                         summary={`${benchmarks.length} ${analysisMode === 'opportunity' ? 'leading segment' : 'internal benchmark'}${benchmarks.length === 1 ? '' : 's'}`}
                     >
-                      <div className="bg-slate-900/50 border border-green-500/20 rounded-xl p-6">
+                      <div className="bg-slate-900/50 border border-severity-healthy/20 rounded-xl p-6">
                         <p className="text-xs text-slate-500 mb-4">
                           {sectionDesc}
                         </p>
                         {benchmarks.length > 0 && (
                           <div className="space-y-2 mb-4">
                             {benchmarks.map((seg: any, i: number) => (
-                              <div key={i} className="flex items-center justify-between bg-slate-950 border border-green-500/10 rounded-lg px-4 py-3">
+                              <div key={i} className="flex items-center justify-between bg-slate-950 border border-severity-healthy/10 rounded-lg px-4 py-3">
                                 <div>
                                   <span className="text-xs text-slate-500 uppercase">{seg.dimension}</span>
                                   <div className="text-sm font-medium text-white">{seg.key}</div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                  <span className="text-sm font-mono text-green-400">{formatExecutive(seg.delta || 0)}</span>
+                                  <span className="text-sm font-mono text-severity-healthy">{formatExecutive(seg.delta || 0)}</span>
                                   {seg.is_outlier && (
                                     <span
-                                      className="text-[10px] px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded font-medium cursor-help"
+                                      className="text-[10px] px-1.5 py-0.5 bg-severity-warning/40 text-severity-warning rounded font-medium cursor-help"
                                       title="This segment's variance is a statistical outlier — it accounts for a disproportionate share of the gap"
                                     >
                                       Outlier
@@ -773,7 +773,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                   )}
                                   {seg.replication_potential != null && (
                                     <span
-                                      className="text-[10px] px-2 py-0.5 bg-green-900/40 text-green-300 rounded-full font-medium cursor-help"
+                                      className="text-[10px] px-2 py-0.5 bg-severity-healthy/40 text-severity-healthy rounded-full font-medium cursor-help"
                                       title={seg.replication_potential >= 1 ? "This segment is performing at 100% of its own target — a proven playbook to replicate" : `Estimated ${Math.round(seg.replication_potential * 100)}% of the gap could be closed by replicating this segment's approach`}
                                     >
                                       {Math.round(seg.replication_potential * 100)}% potential
@@ -795,7 +795,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                   <div className="flex items-center gap-2">
                                     {seg.is_outlier && (
                                       <span
-                                        className="text-[10px] px-1.5 py-0.5 bg-amber-900/30 text-amber-400 rounded font-medium cursor-help"
+                                        className="text-[10px] px-1.5 py-0.5 bg-severity-warning/30 text-severity-warning rounded font-medium cursor-help"
                                         title="Statistical outlier — delta exceeds mean + 2σ of peer segments. Excluded from replication candidates; interpret with caution."
                                       >
                                         Outlier
@@ -826,7 +826,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                     <AccordionSection
                         id="market-intelligence"
                         title="Market Intelligence"
-                        icon={<Sparkles className={`w-4 h-4 ${initialMarketConflict?.detected ? 'text-amber-400' : 'text-amber-400'}`} />}
+                        icon={<Sparkles className={`w-4 h-4 ${initialMarketConflict?.detected ? 'text-severity-warning' : 'text-severity-warning'}`} />}
                         summary={initialMarketSignals && initialMarketSignals.length > 0 ? `${initialMarketSignals.length} signal${initialMarketSignals.length === 1 ? '' : 's'}` : 'conflict detected'}
                     >
                         <div className="space-y-3">
@@ -836,7 +836,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                             {initialMarketSynthesis?.summary && (
                               <div className="bg-slate-950 border border-slate-800 rounded-lg p-4">
                                 <div className="flex items-center justify-between mb-1">
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-severity-warning">
                                     Market Synthesis
                                   </span>
                                   {initialMarketSynthesis.confidence != null && (
@@ -855,18 +855,18 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                             )}
                             {/* Conflict banner — shown at top when MA signals contradict DA conclusion */}
                             {initialMarketConflict?.detected && initialMarketConflict.summary && (
-                              <div className="flex gap-3 bg-amber-950/40 border border-amber-600/30 rounded-lg px-4 py-3">
-                                <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                              <div className="flex gap-3 bg-severity-warning/40 border border-severity-warning/30 rounded-lg px-4 py-3">
+                                <AlertTriangle className="w-4 h-4 text-severity-warning flex-shrink-0 mt-0.5" />
                                 <div>
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 block mb-0.5">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-severity-warning block mb-0.5">
                                     Signal Conflict
                                     {initialMarketConflict.confidence != null && (
-                                      <span className="ml-2 font-normal normal-case text-amber-500">
+                                      <span className="ml-2 font-normal normal-case text-severity-warning">
                                         ({Math.round(initialMarketConflict.confidence * 100)}% confidence)
                                       </span>
                                     )}
                                   </span>
-                                  <p className="text-xs text-amber-200/80">{initialMarketConflict.summary}</p>
+                                  <p className="text-xs text-severity-warning/80">{initialMarketConflict.summary}</p>
                                 </div>
                               </div>
                             )}
@@ -876,7 +876,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                         <h4 className="text-sm font-semibold text-white">{signal.title}</h4>
                                         {signal.relevance_score != null && (
                                             <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                                                signal.relevance_score >= 0.7 ? 'bg-amber-900/50 text-amber-300' :
+                                                signal.relevance_score >= 0.7 ? 'bg-severity-warning/50 text-severity-warning' :
                                                 signal.relevance_score >= 0.4 ? 'bg-slate-800 text-slate-300' :
                                                 'bg-slate-800 text-slate-500'
                                             }`}>
@@ -963,14 +963,14 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
 
                      {/* ── Mixed Signal Resolution Panel (only when mode=mixed) ── */}
                      {analysisMode === 'mixed' && (
-                       <div className="bg-slate-900/50 border border-amber-500/30 rounded-xl p-5">
+                       <div className="bg-slate-900/50 border border-severity-warning/30 rounded-xl p-5">
 
                          {/* Collapsed confirmation chip — shown after resolution */}
                          {resolvedAnalysisMode !== null ? (
                            <div className="flex items-center justify-between">
                              <div className="flex items-center gap-2">
-                               <CheckCircle2 className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                               <span className="text-xs font-semibold text-amber-300">
+                               <CheckCircle2 className="w-4 h-4 text-severity-warning flex-shrink-0" />
+                               <span className="text-xs font-semibold text-severity-warning">
                                  {resolvedAnalysisMode === 'problem' ? 'Recovery mode selected' : 'Opportunity mode selected'}
                                </span>
                                {agentDecisionMessage && (
@@ -981,7 +981,7 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                              </div>
                              <button
                                onClick={() => { setResolvedAnalysisMode(null); setAgentDecisionMessage(null); }}
-                               className="ml-2 flex-shrink-0 px-2 py-0.5 text-[10px] font-medium rounded-full border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 transition-colors"
+                               className="ml-2 flex-shrink-0 px-2 py-0.5 text-[10px] font-medium rounded-full border border-severity-warning/40 text-severity-warning hover:bg-severity-warning/10 transition-colors"
                              >
                                Change
                              </button>
@@ -990,8 +990,8 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                            /* Expanded panel — resolution not yet made */
                            <>
                              <div className="flex items-center gap-2 mb-2">
-                               <SplitSquareHorizontal className="w-4 h-4 text-amber-400" />
-                               <h3 className="text-sm font-semibold text-amber-300">Mixed Signal Detected</h3>
+                               <SplitSquareHorizontal className="w-4 h-4 text-severity-warning" />
+                               <h3 className="text-sm font-semibold text-severity-warning">Mixed Signal Detected</h3>
                              </div>
                              <p className="text-xs text-slate-400 mb-4 leading-relaxed">
                                This KPI shows both underperforming and outperforming segments simultaneously. Choose which side Agent9 should focus on before generating solutions.
@@ -1004,15 +1004,15 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                </p>
                              ) : (
                                <div className="grid grid-cols-2 gap-2 mb-4 text-xs">
-                                 <div className="bg-red-950/40 border border-red-800/40 rounded-lg px-3 py-2">
-                                   <div className="text-red-400 font-medium mb-0.5">Problem exposure</div>
-                                   <div className="font-mono text-red-300 text-sm">
+                                 <div className="bg-severity-critical/40 border border-severity-critical/40 rounded-lg px-3 py-2">
+                                   <div className="text-severity-critical font-medium mb-0.5">Problem exposure</div>
+                                   <div className="font-mono text-severity-critical text-sm">
                                      {netProblemDelta > 0 ? formatDelta(netProblemDelta) : '—'}
                                    </div>
                                  </div>
-                                 <div className="bg-emerald-950/40 border border-emerald-800/40 rounded-lg px-3 py-2">
-                                   <div className="text-emerald-400 font-medium mb-0.5">Opportunity upside</div>
-                                   <div className="font-mono text-emerald-300 text-sm">
+                                 <div className="bg-severity-opportunity/40 border border-severity-opportunity/40 rounded-lg px-3 py-2">
+                                   <div className="text-severity-opportunity font-medium mb-0.5">Opportunity upside</div>
+                                   <div className="font-mono text-severity-opportunity text-sm">
                                      {netOppDelta > 0 ? formatDelta(netOppDelta) : '—'}
                                    </div>
                                  </div>
@@ -1023,10 +1023,10 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                              <div className="space-y-2">
                                <button
                                  onClick={() => { setResolvedAnalysisMode('problem'); setAgentDecisionMessage(null); }}
-                                 className="w-full text-left bg-slate-950 border border-slate-700 hover:border-amber-500/50 rounded-lg p-3 transition-colors group"
+                                 className="w-full text-left bg-slate-950 border border-slate-700 hover:border-severity-warning/50 rounded-lg p-3 transition-colors group"
                                >
                                  <div className="flex items-center gap-2 mb-1">
-                                   <span className="text-xs font-bold text-red-400 uppercase tracking-wide">Focus on Recovery</span>
+                                   <span className="text-xs font-bold text-severity-critical uppercase tracking-wide">Focus on Recovery</span>
                                  </div>
                                  <p className="text-[11px] text-slate-500 group-hover:text-slate-400 transition-colors leading-snug">
                                    Generate solutions to close the performance gap in underperforming segments.
@@ -1035,10 +1035,10 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
 
                                <button
                                  onClick={() => { setResolvedAnalysisMode('opportunity'); setAgentDecisionMessage(null); }}
-                                 className="w-full text-left bg-slate-950 border border-slate-700 hover:border-amber-500/50 rounded-lg p-3 transition-colors group"
+                                 className="w-full text-left bg-slate-950 border border-slate-700 hover:border-severity-warning/50 rounded-lg p-3 transition-colors group"
                                >
                                  <div className="flex items-center gap-2 mb-1">
-                                   <span className="text-xs font-bold text-emerald-400 uppercase tracking-wide">Focus on Opportunity</span>
+                                   <span className="text-xs font-bold text-severity-opportunity uppercase tracking-wide">Focus on Opportunity</span>
                                  </div>
                                  <p className="text-[11px] text-slate-500 group-hover:text-slate-400 transition-colors leading-snug">
                                    Generate solutions to scale and replicate what's already working well.
@@ -1055,10 +1055,10 @@ export const DeepFocusView: React.FC<DeepFocusViewProps> = ({
                                        : `Agent9 chose Recovery — problem exposure (${formatDelta(netProblemDelta)}) outweighs upside (${formatDelta(netOppDelta)}).`
                                    );
                                  }}
-                                 className="w-full text-left bg-slate-950 border border-slate-700 hover:border-amber-500/50 rounded-lg p-3 transition-colors group"
+                                 className="w-full text-left bg-slate-950 border border-slate-700 hover:border-severity-warning/50 rounded-lg p-3 transition-colors group"
                                >
                                  <div className="flex items-center gap-2 mb-1">
-                                   <Sparkles className="w-3 h-3 text-amber-400" />
+                                   <Sparkles className="w-3 h-3 text-severity-warning" />
                                    <span className="text-xs font-bold text-slate-300 uppercase tracking-wide">Let Agent9 Decide</span>
                                  </div>
                                  <p className="text-[11px] text-slate-500 group-hover:text-slate-400 transition-colors leading-snug">

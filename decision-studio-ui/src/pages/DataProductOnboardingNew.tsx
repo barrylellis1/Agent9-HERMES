@@ -615,18 +615,18 @@ export function DataProductOnboardingNew({
                                     setShowProductSelector(true)
                                     setLogs(prev => [...prev, 'Opening data product selector'])
                                 }}
-                                className="group p-8 bg-slate-800/50 hover:bg-slate-800 border-2 border-slate-700 hover:border-green-500 rounded-xl transition-all text-left"
+                                className="group p-8 bg-slate-800/50 hover:bg-slate-800 border-2 border-slate-700 hover:border-severity-healthy rounded-xl transition-all text-left"
                             >
-                                <div className="w-12 h-12 bg-green-500/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-green-500/20 transition-colors">
-                                    <Sparkles className="w-6 h-6 text-green-400" />
+                                <div className="w-12 h-12 bg-severity-healthy/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-severity-healthy/20 transition-colors">
+                                    <Sparkles className="w-6 h-6 text-severity-healthy" />
                                 </div>
-                                <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-green-400 transition-colors">
+                                <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-severity-healthy transition-colors">
                                     Extend Existing Product
                                 </h3>
                                 <p className="text-sm text-slate-400 mb-4">
                                     Add new KPIs to a registered data product with pre-loaded context
                                 </p>
-                                <div className="flex items-center gap-2 text-sm text-green-400">
+                                <div className="flex items-center gap-2 text-sm text-severity-healthy">
                                     <span>Select Product</span>
                                     <ChevronRight className="w-4 h-4" />
                                 </div>
@@ -662,7 +662,7 @@ export function DataProductOnboardingNew({
                                 const isCompleted = idx < currentStep
                                 return (
                                     <div key={step.id} className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${isActive ? 'bg-slate-800 text-white' : 'text-slate-500'}`}>
-                                        <div className={`p-2 rounded-md ${isActive ? 'bg-blue-500/20 text-blue-400' : isCompleted ? 'bg-green-500/10 text-green-400' : 'bg-slate-800'}`}>
+                                        <div className={`p-2 rounded-md ${isActive ? 'bg-blue-500/20 text-blue-400' : isCompleted ? 'bg-severity-healthy/10 text-severity-healthy' : 'bg-slate-800'}`}>
                                             <Icon className="w-4 h-4" />
                                         </div>
                                         <span className={`text-sm font-medium ${isActive ? 'text-white' : 'text-slate-400'}`}>{step.label}</span>
@@ -689,7 +689,7 @@ export function DataProductOnboardingNew({
                     {/* Content Area */}
                     <div className="flex-1 bg-card border border-border rounded-xl p-8 min-h-[600px] relative">
                         {error && (
-                            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm flex items-start gap-2">
+                            <div className="mb-6 p-4 bg-severity-critical/10 border border-severity-critical/20 rounded-lg text-severity-critical text-sm flex items-start gap-2">
                                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                                 <span>{error}</span>
                             </div>
@@ -768,7 +768,7 @@ export function DataProductOnboardingNew({
                                                     ))}
                                                 </select>
                                                 {isPlatformMetadataRich() && (
-                                                    <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
+                                                    <p className="text-xs text-severity-healthy mt-2 flex items-center gap-1">
                                                         <Check className="w-3 h-3" /> Metadata catalog available - FK relationships will be auto-extracted
                                                     </p>
                                                 )}
@@ -827,7 +827,7 @@ export function DataProductOnboardingNew({
                                                 placeholder="main"
                                                 className="w-full p-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                                             />
-                                            <p className="text-xs text-amber-400 mt-2 flex items-center gap-1">
+                                            <p className="text-xs text-severity-warning mt-2 flex items-center gap-1">
                                                 <AlertCircle className="w-3 h-3" /> FK relationships will be inferred - manual review recommended
                                             </p>
                                         </div>
@@ -1173,7 +1173,7 @@ export function DataProductOnboardingNew({
                                                             {table.foreign_keys.map((fk, idx) => (
                                                                 <p key={idx} className="text-xs text-slate-300 font-mono">
                                                                     {fk.source_column} → {fk.target_table}.{fk.target_column}
-                                                                    <span className={`ml-2 ${fk.confidence === 1.0 ? 'text-green-400' : 'text-amber-400'}`}>
+                                                                    <span className={`ml-2 ${fk.confidence === 1.0 ? 'text-severity-healthy' : 'text-severity-warning'}`}>
                                                                         ({fk.confidence === 1.0 ? 'catalog' : 'inferred'})
                                                                     </span>
                                                                 </p>
@@ -1196,8 +1196,8 @@ export function DataProductOnboardingNew({
                                                                         <span key={tag} className={`px-2 py-0.5 rounded text-xs ${
                                                                             tag === 'measure' ? 'bg-purple-500/20 text-purple-400' :
                                                                             tag === 'dimension' ? 'bg-blue-500/20 text-blue-400' :
-                                                                            tag === 'time' ? 'bg-green-500/20 text-green-400' :
-                                                                            tag === 'identifier' ? 'bg-amber-500/20 text-amber-400' :
+                                                                            tag === 'time' ? 'bg-severity-healthy/20 text-severity-healthy' :
+                                                                            tag === 'identifier' ? 'bg-severity-warning/20 text-severity-warning' :
                                                                             'bg-slate-700 text-slate-400'
                                                                         }`}>
                                                                             {tag}
@@ -1352,17 +1352,17 @@ export function DataProductOnboardingNew({
                                         {/* Validation Summary */}
                                         <div className={`p-4 rounded-lg border ${
                                             validationStatus === 'all_passed' 
-                                                ? 'bg-green-500/10 border-green-500/20' 
+                                                ? 'bg-severity-healthy/10 border-severity-healthy/20' 
                                                 : validationStatus === 'some_failed'
                                                 ? 'bg-yellow-500/10 border-yellow-500/20'
-                                                : 'bg-red-500/10 border-red-500/20'
+                                                : 'bg-severity-critical/10 border-severity-critical/20'
                                         }`}>
                                             <p className={`text-sm font-medium ${
                                                 validationStatus === 'all_passed' 
-                                                    ? 'text-green-400' 
+                                                    ? 'text-severity-healthy' 
                                                     : validationStatus === 'some_failed'
                                                     ? 'text-yellow-400'
-                                                    : 'text-red-400'
+                                                    : 'text-severity-critical'
                                             }`}>
                                                 {validationStatus === 'all_passed' && '✅ All queries validated successfully'}
                                                 {validationStatus === 'some_failed' && '⚠️ Some queries failed validation'}
@@ -1377,12 +1377,12 @@ export function DataProductOnboardingNew({
                                                     <div className="flex items-center gap-2">
                                                         {result.status === 'success' ? (
                                                             result.warning_message ? (
-                                                                <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+                                                                <AlertCircle className="w-5 h-5 text-severity-warning shrink-0" />
                                                             ) : (
-                                                                <CheckCircle className="w-5 h-5 text-green-400 shrink-0" />
+                                                                <CheckCircle className="w-5 h-5 text-severity-healthy shrink-0" />
                                                             )
                                                         ) : (
-                                                            <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+                                                            <AlertCircle className="w-5 h-5 text-severity-critical shrink-0" />
                                                         )}
                                                         <h4 className="font-medium text-white">{result.kpi_name}</h4>
                                                     </div>
@@ -1395,7 +1395,7 @@ export function DataProductOnboardingNew({
                                                             {result.row_count} {result.row_count === 1 ? 'row' : 'rows'} returned
                                                         </p>
                                                         {result.warning_message && (
-                                                            <div className="mb-2 p-2 bg-amber-950/30 border border-amber-700/40 rounded text-xs text-amber-300">
+                                                            <div className="mb-2 p-2 bg-severity-warning/30 border border-severity-warning/40 rounded text-xs text-severity-warning">
                                                                 ⚠️ {result.warning_message}
                                                             </div>
                                                         )}
@@ -1426,7 +1426,7 @@ export function DataProductOnboardingNew({
                                                     </div>
                                                 ) : (
                                                     <div className="mt-3">
-                                                        <p className="text-sm text-red-400 mb-1">
+                                                        <p className="text-sm text-severity-critical mb-1">
                                                             Error: {result.error_type || 'unknown'}
                                                         </p>
                                                         <p className="text-xs text-slate-400 font-mono bg-slate-950 p-2 rounded border border-slate-800">
@@ -1525,15 +1525,15 @@ export function DataProductOnboardingNew({
                                     </div>
 
                                     {registrationSuccess ? (
-                                        <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
-                                            <p className="text-sm text-green-400 flex items-center gap-2 font-medium">
+                                        <div className="p-4 bg-severity-healthy/10 border border-severity-healthy/20 rounded-lg">
+                                            <p className="text-sm text-severity-healthy flex items-center gap-2 font-medium">
                                                 <Check className="w-4 h-4" />
                                                 Data product registered successfully
                                             </p>
                                         </div>
                                     ) : (
-                                        <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
-                                            <p className="text-sm text-green-400 flex items-center gap-2">
+                                        <div className="p-4 bg-severity-healthy/10 border border-severity-healthy/20 rounded-lg">
+                                            <p className="text-sm text-severity-healthy flex items-center gap-2">
                                                 <Check className="w-4 h-4" />
                                                 Ready to register data product to Agent9 registry
                                             </p>
@@ -1581,7 +1581,7 @@ export function DataProductOnboardingNew({
                                                 }
                                             }}
                                             disabled={registrationSuccess}
-                                            className="flex-1 py-3 bg-green-600 hover:bg-green-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                                            className="flex-1 py-3 bg-severity-healthy hover:bg-severity-healthy disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
                                         >
                                             <Check className="w-4 h-4" />
                                             {registrationSuccess ? 'Registered' : 'Register Data Product'}

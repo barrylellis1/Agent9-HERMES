@@ -160,9 +160,9 @@ const SETTINGS_MODE_LABEL: Record<SettingsMode, string> = {
   governance: 'Executive',
 };
 const SETTINGS_MODE_BADGE_CLASS: Record<SettingsMode, string> = {
-  onboarding: 'text-amber-400 bg-amber-950/40 border-amber-700/30',
+  onboarding: 'text-severity-warning bg-severity-warning/40 border-severity-warning/30',
   maintenance: 'text-indigo-300 bg-indigo-950/40 border-indigo-700/30',
-  governance: 'text-emerald-300 bg-emerald-950/40 border-emerald-700/30',
+  governance: 'text-severity-opportunity bg-severity-opportunity/40 border-severity-opportunity/30',
 };
 
 function SettingsSubLink({ item, active }: { item: SettingsNavItem; active: boolean }) {
@@ -276,9 +276,9 @@ function OnboardingRailContent({ collapsed, clientId }: { collapsed: boolean; cl
   return (
     <>
       {clientId && !collapsed && (
-        <div className="mx-2 mt-2 mb-1 px-3 py-2 rounded-lg bg-amber-950/40 border border-amber-700/30">
-          <p className="text-[9px] text-amber-500 uppercase tracking-wider font-medium">Onboarding</p>
-          <p className="text-sm font-semibold text-amber-200 font-mono truncate">{clientId}</p>
+        <div className="mx-2 mt-2 mb-1 px-3 py-2 rounded-lg bg-severity-warning/40 border border-severity-warning/30">
+          <p className="text-[9px] text-severity-warning uppercase tracking-wider font-medium">Onboarding</p>
+          <p className="text-sm font-semibold text-severity-warning font-mono truncate">{clientId}</p>
         </div>
       )}
       <nav className="flex-1 overflow-y-auto px-2 py-2 min-h-0 space-y-0.5">
@@ -305,7 +305,7 @@ function OnboardingRailContent({ collapsed, clientId }: { collapsed: boolean; cl
             >
               <div
                 className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${
-                  active ? 'bg-indigo-500 text-white' : isComplete ? 'bg-emerald-600/80 text-white' : 'bg-slate-700/60 text-slate-400'
+                  active ? 'bg-indigo-500 text-white' : isComplete ? 'bg-severity-opportunity/80 text-white' : 'bg-slate-700/60 text-slate-400'
                 }`}
               >
                 {isComplete ? <CheckCircle2 className="w-3 h-3" /> : step.step}

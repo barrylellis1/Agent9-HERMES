@@ -65,8 +65,8 @@ export function DecisionAskBlock({
             <p data-testid="decision-ask-text" className="text-base font-semibold leading-snug text-white print:text-slate-900">{askText}</p>
           ) : (
             <div data-testid="decision-ask-absent" className="flex items-start gap-2">
-              <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400 print:text-amber-700" />
-              <p className="text-sm text-amber-300 print:text-amber-800">
+              <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-severity-warning print:text-amber-700" />
+              <p className="text-sm text-severity-warning print:text-amber-800">
                 This run did not produce a decision ask. Read the recommendation below and state the
                 decision yourself — nothing here should be treated as one.
               </p>
@@ -82,7 +82,7 @@ export function DecisionAskBlock({
       <div className="grid grid-cols-1 gap-px border-t border-slate-800 bg-slate-800 sm:grid-cols-2 print:border-slate-200 print:bg-white">
         <div className="bg-slate-900 px-6 py-3 print:bg-white">
           <p className="text-[10px] font-mono uppercase tracking-widest text-slate-500 mb-1">Recommended Path</p>
-          <p className="flex items-start gap-1.5 text-sm font-semibold text-emerald-400 print:text-emerald-700">
+          <p className="flex items-start gap-1.5 text-sm font-semibold text-severity-opportunity print:text-emerald-700">
             <ArrowRight className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
             <span className="leading-snug">{recommendedPath || 'No option was recommended'}</span>
           </p>

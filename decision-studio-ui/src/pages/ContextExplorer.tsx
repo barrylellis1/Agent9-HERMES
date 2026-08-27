@@ -122,9 +122,9 @@ function DetailPanel({ detail }: { detail: ActiveDetail }) {
 
   const kindColor: Record<NonNullable<ActiveDetail>['kind'], string> = {
     principal: 'text-violet-400',
-    bp: 'text-amber-400',
+    bp: 'text-severity-warning',
     kpi: 'text-sky-400',
-    dp: 'text-emerald-400',
+    dp: 'text-severity-opportunity',
   }
 
   const item = detail.item
@@ -283,7 +283,7 @@ export function ContextExplorer() {
       {/* Main content */}
       <main className="flex-1 flex flex-col p-6 min-h-0 overflow-auto">
         {error ? (
-          <div className="rounded-lg border border-red-800 bg-red-950/40 px-4 py-3 text-sm text-red-300">
+          <div className="rounded-lg border border-severity-critical bg-severity-critical/40 px-4 py-3 text-sm text-severity-critical">
             {error}
           </div>
         ) : (

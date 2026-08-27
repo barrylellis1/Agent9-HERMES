@@ -45,7 +45,7 @@ export function AdminConsole() {
             {/* Principal Management Card */}
             <Link to="/admin/principals" className="group block p-6 bg-card border border-border rounded-xl hover:border-slate-500 transition-colors">
                 <div className="flex items-center justify-between mb-4">
-                    <div className="p-3 bg-green-500/10 text-green-400 rounded-lg">
+                    <div className="p-3 bg-severity-healthy/10 text-severity-healthy rounded-lg">
                         <Users className="w-6 h-6" />
                     </div>
                     <ArrowLeft className="w-4 h-4 text-slate-500 opacity-0 group-hover:opacity-100 rotate-180 transition-all" />

@@ -61,8 +61,8 @@ const basisLabel = (c?: string): string => (c === 'budget' ? 'vs Budget' : 'vs P
 const TierChip: React.FC<{ tier?: string | null }> = ({ tier }) => {
   if (!tier || tier === 'healthy') return null
   const cfg: Record<string, { label: string; cls: string }> = {
-    confirmed: { label: 'confirmed', cls: 'bg-red-950 text-red-300 border-red-800/60' },
-    basis_specific: { label: 'artifact?', cls: 'bg-amber-950 text-amber-300 border-amber-800/60' },
+    confirmed: { label: 'confirmed', cls: 'bg-severity-critical/20 text-severity-critical border-severity-critical/60' },
+    basis_specific: { label: 'artifact?', cls: 'bg-severity-warning/20 text-severity-warning border-severity-warning/60' },
     secondary_only: { label: '2nd-basis', cls: 'bg-blue-950 text-blue-300 border-blue-800/60' },
   }
   const c = cfg[tier]
@@ -274,18 +274,18 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
           {isMixed ? (
             <>
               <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-sm bg-red-600" />
+                <div className="w-2 h-2 rounded-sm bg-severity-critical" />
                 <span className="text-[10px] text-slate-500">Problem area</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-sm bg-emerald-600" />
+                <div className="w-2 h-2 rounded-sm bg-severity-opportunity" />
                 <span className="text-[10px] text-slate-500">Opportunity</span>
               </div>
             </>
           ) : (
             <>
               <div className="flex items-center gap-1.5">
-                <div className={`w-2 h-2 rounded-sm ${isOpportunity ? 'bg-emerald-600' : 'bg-red-600'}`} />
+                <div className={`w-2 h-2 rounded-sm ${isOpportunity ? 'bg-severity-opportunity' : 'bg-severity-critical'}`} />
                 <span className="text-[10px] text-slate-500">{isOpportunity ? 'Leading segment' : 'Problem area'}</span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -402,8 +402,8 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                     className={`font-mono text-xs ${
                       hasProblem
                         ? isMixed
-                          ? (dim.sortKey < 0 ? 'text-red-400' : 'text-emerald-400')
-                          : isOpportunity ? 'text-emerald-400' : 'text-red-400'
+                          ? (dim.sortKey < 0 ? 'text-severity-critical' : 'text-severity-opportunity')
+                          : isOpportunity ? 'text-severity-opportunity' : 'text-severity-critical'
                         : 'text-slate-600'
                     }`}
                   >
@@ -419,12 +419,12 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                     return (
                       <>
                         {probCt > 0 && (
-                          <span className="text-[10px] px-2 py-0.5 rounded font-medium bg-red-950 border border-red-900/60 text-red-400">
+                          <span className="text-[10px] px-2 py-0.5 rounded font-medium bg-severity-critical/20 border border-severity-critical/60 text-severity-critical">
                             {probCt} problem
                           </span>
                         )}
                         {oppCt > 0 && (
-                          <span className="text-[10px] px-2 py-0.5 rounded font-medium bg-emerald-950 border border-emerald-900/60 text-emerald-400">
+                          <span className="text-[10px] px-2 py-0.5 rounded font-medium bg-severity-opportunity/20 border border-severity-opportunity/60 text-severity-opportunity">
                             {oppCt} opportunity
                           </span>
                         )}
@@ -433,12 +433,12 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                   })() : (
                     <>
                       {hasProblem && (
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${isOpportunity ? 'bg-emerald-950 border border-emerald-900/60 text-emerald-400' : 'bg-red-950 border border-red-900/60 text-red-400'}`}>
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${isOpportunity ? 'bg-severity-opportunity/20 border border-severity-opportunity/60 text-severity-opportunity' : 'bg-severity-critical/20 border border-severity-critical/60 text-severity-critical'}`}>
                           {dim.is.length} {isOpportunity ? 'leading' : (dim.is.length === 1 ? 'problem area' : 'problem areas')}
                         </span>
                       )}
                       {hasHealthy && (
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${isOpportunity ? 'bg-amber-950 border border-amber-900/40 text-amber-600' : 'bg-emerald-950 border border-emerald-900/40 text-emerald-600'}`}>
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${isOpportunity ? 'bg-severity-warning/20 border border-severity-warning/40 text-severity-warning' : 'bg-severity-opportunity/20 border border-severity-opportunity/40 text-severity-opportunity'}`}>
                           {dim.isNot.length} {isOpportunity ? 'unrealised' : 'healthy'}
                         </span>
                       )}
@@ -464,11 +464,11 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                         </div>
                         <div className="flex-1 h-4 bg-slate-900 rounded overflow-hidden">
                           <div
-                            className={`h-full rounded ${isOppItem ? 'bg-emerald-700' : 'bg-red-700'}`}
+                            className={`h-full rounded ${isOppItem ? 'bg-severity-opportunity' : 'bg-severity-critical'}`}
                             style={{ width: `${barPct}%` }}
                           />
                         </div>
-                        <span className={`w-20 flex-shrink-0 text-right font-mono text-xs ${isOppItem ? 'text-emerald-400' : 'text-red-400'}`}>
+                        <span className={`w-20 flex-shrink-0 text-right font-mono text-xs ${isOppItem ? 'text-severity-opportunity' : 'text-severity-critical'}`}>
                           {fmtDelta(item.delta || 0)}
                         </span>
                         {matrixRan && (
@@ -501,11 +501,11 @@ export const IsIsNotExhibit: React.FC<IsIsNotExhibitProps> = ({
                         </div>
                         <div className="flex-1 h-4 bg-slate-900 rounded overflow-hidden">
                           <div
-                            className={`h-full rounded ${isOpportunity ? 'bg-amber-800' : 'bg-emerald-800'}`}
+                            className={`h-full rounded ${isOpportunity ? 'bg-severity-warning' : 'bg-severity-opportunity'}`}
                             style={{ width: `${barPct}%` }}
                           />
                         </div>
-                        <span className={`w-20 flex-shrink-0 text-right font-mono text-xs ${isOpportunity ? 'text-amber-600' : 'text-emerald-600'}`}>
+                        <span className={`w-20 flex-shrink-0 text-right font-mono text-xs ${isOpportunity ? 'text-severity-warning' : 'text-severity-opportunity'}`}>
                           {displayVal}
                         </span>
                         {matrixRan && (

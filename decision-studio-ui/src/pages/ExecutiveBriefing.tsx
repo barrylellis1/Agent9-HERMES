@@ -92,8 +92,8 @@ function AccordionSection({
 const TIER_BADGE_COLORS: Record<number, string> = {
   1: 'bg-slate-800 text-slate-400',
   2: 'bg-slate-800 text-slate-400',
-  3: 'bg-slate-800 text-amber-600',
-  4: 'bg-slate-800 text-red-500',
+  3: 'bg-slate-800 text-severity-warning',
+  4: 'bg-slate-800 text-severity-critical',
 }
 
 function DecisionChat({
@@ -273,10 +273,10 @@ function DecisionChat({
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className="text-[10px] font-bold text-slate-400">{label}</span>
-                        {opt.recommended && <span className="text-[9px] bg-emerald-700 text-emerald-100 px-1 rounded">REC</span>}
+                        {opt.recommended && <span className="text-[9px] bg-severity-opportunity/20 text-severity-opportunity px-1 rounded">REC</span>}
                       </div>
                       <p className="text-xs text-slate-200 leading-snug truncate">{opt.title}</p>
-                      {opt.roi && <p className="text-[10px] text-emerald-400">{formatROI(opt.roi)}</p>}
+                      {opt.roi && <p className="text-[10px] text-severity-opportunity">{formatROI(opt.roi)}</p>}
                     </div>
                   </label>
                 )
@@ -288,11 +288,11 @@ function DecisionChat({
         {/* Approve button */}
         <div className="px-3 py-2">
           {approveState === 'approved' ? (
-            <div className="flex items-center gap-2 px-3 py-2 bg-emerald-900/40 border border-emerald-700 rounded-lg">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            <div className="flex items-center gap-2 px-3 py-2 bg-severity-opportunity/40 border border-severity-opportunity rounded-lg">
+              <CheckCircle2 className="w-4 h-4 text-severity-opportunity flex-shrink-0" />
               <div>
-                <p className="text-xs font-semibold text-emerald-300">Decision Approved</p>
-                <p className="text-[10px] text-emerald-500">Value Assurance tracking initiated</p>
+                <p className="text-xs font-semibold text-severity-opportunity">Decision Approved</p>
+                <p className="text-[10px] text-severity-opportunity">Value Assurance tracking initiated</p>
               </div>
             </div>
           ) : data?.analysis_degraded ? (
@@ -301,9 +301,9 @@ function DecisionChat({
             // scrolled past while the button beneath it still works is not a
             // guard — this is the discoverable half, handleApprove's own check
             // is the one that cannot be bypassed.
-            <div className="flex items-start gap-2 px-3 py-2 bg-red-950/40 border border-red-700/60 rounded-lg">
-              <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-              <p className="text-[10px] text-red-300 leading-snug">
+            <div className="flex items-start gap-2 px-3 py-2 bg-severity-critical/40 border border-severity-critical/60 rounded-lg">
+              <AlertTriangle className="w-4 h-4 text-severity-critical flex-shrink-0 mt-0.5" />
+              <p className="text-[10px] text-severity-critical leading-snug">
                 Approval is disabled — these options were not produced by the analysis.
                 Re-run once the underlying problem is resolved.
               </p>
@@ -313,7 +313,7 @@ function DecisionChat({
               onClick={() => onApprove(selectedOption)}
               disabled={approveState === 'approving' || !selectedOption}
               aria-live="polite"
-              className="w-full py-2 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+              className="w-full py-2 bg-severity-opportunity hover:bg-severity-opportunity disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-severity-opportunity"
             >
               {approveState === 'approving' ? (
                 <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Registering...</>
@@ -754,14 +754,14 @@ export function ExecutiveBriefing() {
                 2026-08-09 with an exhausted API quota: state=completed, error=None,
                 two plausible options, no signal anywhere the reader could see. */}
             {(data as any).analysis_degraded && (
-              <div className="mb-6 rounded-lg border-2 border-red-500/60 bg-red-950/30 p-4 print:bg-red-50 print:border-red-400">
+              <div className="mb-6 rounded-lg border-2 border-severity-critical/60 bg-severity-critical/30 p-4 print:bg-red-50 print:border-red-400">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5 print:text-red-700" />
+                  <AlertTriangle className="w-5 h-5 text-severity-critical flex-shrink-0 mt-0.5 print:text-red-700" />
                   <div>
-                    <p className="text-sm font-bold text-red-300 mb-1 print:text-red-900">
+                    <p className="text-sm font-bold text-severity-critical mb-1 print:text-red-900">
                       These options were not produced by the analysis
                     </p>
-                    <p className="text-xs text-red-200/90 print:text-red-800">
+                    <p className="text-xs text-severity-critical/90 print:text-red-800">
                       {(data as any).degraded_reason === 'llm_unavailable'
                         ? 'The language model was unavailable for this run — an outage, a credentials problem, or an exhausted quota. No analysis took place.'
                         : 'The model responded but its output could not be read as a set of options, most often because the response was cut short.'}
@@ -775,21 +775,21 @@ export function ExecutiveBriefing() {
             )}
 
             {Array.isArray((data as any).narrative_warnings) && (data as any).narrative_warnings.length > 0 && (
-              <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-950/20 p-4 print:bg-amber-50 print:border-amber-300">
+              <div className="mb-6 rounded-lg border border-severity-warning/40 bg-severity-warning/20 p-4 print:bg-amber-50 print:border-amber-300">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5 print:text-amber-700" />
+                  <AlertTriangle className="w-4 h-4 text-severity-warning flex-shrink-0 mt-0.5 print:text-amber-700" />
                   <div>
-                    <p className="text-sm font-semibold text-amber-300 mb-1 print:text-amber-900">
+                    <p className="text-sm font-semibold text-severity-warning mb-1 print:text-amber-900">
                       Narrative figures disagree with the measured data
                     </p>
-                    <p className="text-xs text-amber-200/80 mb-2 print:text-amber-800">
+                    <p className="text-xs text-severity-warning/80 mb-2 print:text-amber-800">
                       The written summary below asserts {(data as any).narrative_warnings.length === 1 ? 'a figure that does' : 'figures that do'} not
                       match what the pipeline measured. The measured values are authoritative; treat the prose with caution.
                     </p>
                     <ul className="space-y-1">
                       {(data as any).narrative_warnings.map((w: any, i: number) => (
-                        <li key={i} className="text-xs text-amber-200/70 print:text-amber-800">
-                          <span className="font-mono text-[10px] uppercase tracking-wider text-amber-400/80 print:text-amber-700">
+                        <li key={i} className="text-xs text-severity-warning/70 print:text-amber-800">
+                          <span className="font-mono text-[10px] uppercase tracking-wider text-severity-warning/80 print:text-amber-700">
                             {String(w?.kind || 'mismatch').replace(/_/g, ' ')}
                           </span>
                           {' — '}{w?.detail}
@@ -937,7 +937,7 @@ export function ExecutiveBriefing() {
                 problem situation is the majority case and already reads
                 correctly with no badge at all. */}
             {data.cardType === 'opportunity' && (
-              <div className="print:hidden mb-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-900/30 border border-emerald-700/40 text-[11px] font-semibold uppercase tracking-wider text-emerald-300">
+              <div className="print:hidden mb-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-severity-opportunity/30 border border-severity-opportunity/40 text-[11px] font-semibold uppercase tracking-wider text-severity-opportunity">
                 <TrendingUp className="w-3 h-3" /> Opportunity — upside available, not a problem to fix
               </div>
             )}
@@ -1096,10 +1096,10 @@ export function ExecutiveBriefing() {
                             : -1;
                           return (
                             <th key={i} className={`p-3 border-b border-slate-700 min-w-[160px] print:border-slate-200 ${opt.recommended ? 'bg-emerald-900/30 print:bg-emerald-50 print:text-emerald-800' : ''}`}>
-                              {opt.recommended && <div className="text-[9px] text-emerald-400 mb-0.5 flex items-center gap-1 print:text-emerald-600"><CheckCircle className="w-2.5 h-2.5" /> RECOMMENDED</div>}
+                              {opt.recommended && <div className="text-[9px] text-severity-opportunity mb-0.5 flex items-center gap-1 print:text-emerald-600"><CheckCircle className="w-2.5 h-2.5" /> RECOMMENDED</div>}
                               Option {String.fromCharCode(65 + i)}
                               {dominatorIdx >= 0 && (
-                                <div className="text-[9px] font-normal text-amber-500/90 mt-0.5 normal-case print:text-amber-700"
+                                <div className="text-[9px] font-normal text-severity-warning/90 mt-0.5 normal-case print:text-amber-700"
                                      title="Matches or is worse than another option on modelled impact, cost, and risk.">
                                   dominated by Option {String.fromCharCode(65 + dominatorIdx)}
                                 </div>
@@ -1112,7 +1112,7 @@ export function ExecutiveBriefing() {
                     <tbody className="divide-y divide-slate-800 print:divide-slate-100">
                       {[
                         { label: 'Strategy', key: 'title', cls: 'font-medium text-slate-200 print:text-slate-900' },
-                        { label: 'Est. ROI', key: 'roi', cls: 'font-bold text-emerald-400 print:text-emerald-600' },
+                        { label: 'Est. ROI', key: 'roi', cls: 'font-bold text-severity-opportunity print:text-emerald-600' },
                         { label: 'Investment', key: 'investment', cls: 'text-slate-400 print:text-slate-600' },
                         { label: 'Timeline', key: 'timeline', cls: 'text-slate-400 print:text-slate-600' },
                         // Reversibility varies (high/medium/low) and was already on the
@@ -1138,7 +1138,7 @@ export function ExecutiveBriefing() {
                           <td className="p-3 font-semibold text-slate-400 bg-slate-900/50 print:text-slate-700 print:bg-slate-50">
                             {label}
                             {disc.uniform && (
-                              <div className="text-[9px] font-normal text-amber-500/90 mt-0.5 print:text-amber-700"
+                              <div className="text-[9px] font-normal text-severity-warning/90 mt-0.5 print:text-amber-700"
                                    title="Every proposed option scores the same here, so this row cannot separate them.">
                                 same for all — does not inform the choice
                               </div>
@@ -1156,7 +1156,7 @@ export function ExecutiveBriefing() {
                             </td>
                           )}
                           {data.options?.map((opt: any, i: number) => (
-                            <td key={i} className={`p-3 ${cls} ${opt.recommended ? 'bg-emerald-900/10 print:bg-emerald-50/30' : ''}`}>
+                            <td key={i} className={`p-3 ${cls} ${opt.recommended ? 'bg-severity-opportunity/10 print:bg-emerald-50/30' : ''}`}>
                               {shown[i] ?? '—'}
                               {/* Move #3 — scope travels with every number. The
                                   `roi` string above already bakes scope into its
@@ -1197,7 +1197,7 @@ export function ExecutiveBriefing() {
                           </td>
                         )}
                         {data.options?.map((opt: any, i: number) => (
-                          <td key={i} className={`p-3 ${opt.recommended ? 'bg-emerald-900/10 print:bg-emerald-50/30' : ''}`}>
+                          <td key={i} className={`p-3 ${opt.recommended ? 'bg-severity-opportunity/10 print:bg-emerald-50/30' : ''}`}>
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                               opt.riskLevel === 'Low' ? 'bg-emerald-900/40 text-emerald-400 print:bg-emerald-100 print:text-emerald-700' :
                               opt.riskLevel === 'Medium' ? 'bg-amber-900/40 text-amber-400 print:bg-amber-100 print:text-amber-700' : 'bg-red-900/40 text-red-400 print:bg-red-100 print:text-red-700'}`}>
@@ -1230,9 +1230,9 @@ export function ExecutiveBriefing() {
                       // cards are frequently taller than a page, and forbidding a break
                       // would push the whole card past the page end and clip more, not
                       // less. Releasing overflow lets the content flow across pages.
-                      className={`rounded-xl overflow-hidden border print:overflow-visible ${option.recommended ? 'border-slate-600 border-l-4 border-l-emerald-500 bg-slate-900' : 'border-slate-700 bg-slate-900'} print:bg-white print:border-slate-200 ${option.recommended ? 'print:border-l-slate-800' : ''}`}>
+                      className={`rounded-xl overflow-hidden border print:overflow-visible ${option.recommended ? 'border-slate-600 border-l-4 border-l-severity-opportunity bg-slate-900' : 'border-slate-700 bg-slate-900'} print:bg-white print:border-slate-200 ${option.recommended ? 'print:border-l-slate-800' : ''}`}>
                       {option.recommended && (
-                        <div className="bg-emerald-900/40 text-emerald-300 px-4 py-1.5 text-xs font-semibold flex items-center gap-2 print:bg-slate-800 print:text-white">
+                        <div className="bg-severity-opportunity/40 text-severity-opportunity px-4 py-1.5 text-xs font-semibold flex items-center gap-2 print:bg-slate-800 print:text-white">
                           <CheckCircle className="w-3.5 h-3.5" /> RECOMMENDED
                         </div>
                       )}
@@ -1244,7 +1244,7 @@ export function ExecutiveBriefing() {
                             {option.dominated_by && (() => {
                               const dominatorIdx = data.options.findIndex((o: any) => o.id === option.dominated_by);
                               return dominatorIdx >= 0 ? (
-                                <p className="text-[11px] text-amber-500/90 mt-1 print:text-amber-700"
+                                <p className="text-[11px] text-severity-warning/90 mt-1 print:text-amber-700"
                                    title="Matches or is worse than another option on modelled impact, cost, and risk.">
                                   dominated by Option {String.fromCharCode(65 + dominatorIdx)}
                                 </p>
@@ -1253,7 +1253,7 @@ export function ExecutiveBriefing() {
                           </div>
                           <div className="text-right">
                             <p className="text-xs text-slate-500">Est. ROI</p>
-                            <p className="text-xl font-bold text-emerald-400 print:text-emerald-600">{formatROI(option.roi)}</p>
+                            <p className="text-xl font-bold text-severity-opportunity print:text-emerald-600">{formatROI(option.roi)}</p>
                             {option.scopeQualifier?.scope === 'enterprise' ? (
                               <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-slate-700/60 text-slate-300 print:bg-slate-200 print:text-slate-700">
                                 Enterprise
@@ -1278,7 +1278,7 @@ export function ExecutiveBriefing() {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                           {[{ label: 'Investment', val: option.investment },
                             { label: 'Timeline', val: condenseTimeToValue(option.timeline), title: option.timeline },
-                            { label: 'Risk', val: option.riskLevel, cls: option.riskLevel === 'Low' ? 'text-emerald-400 print:text-emerald-600' : option.riskLevel === 'Medium' ? 'text-amber-400 print:text-amber-600' : 'text-red-400 print:text-red-600' },
+                            { label: 'Risk', val: option.riskLevel, cls: option.riskLevel === 'Low' ? 'text-severity-opportunity print:text-emerald-600' : option.riskLevel === 'Medium' ? 'text-severity-warning print:text-amber-600' : 'text-severity-critical print:text-red-600' },
                             { label: 'Reversibility', val: option.reversibility, cls: 'capitalize' }].map(({ label, val, cls, title }) => (
                             <div key={label} className="text-center p-2 bg-slate-800/60 rounded-lg print:bg-slate-100 min-w-0">
                               <p className="text-[10px] text-slate-400 uppercase">{label}</p>
@@ -1343,9 +1343,9 @@ export function ExecutiveBriefing() {
                             harder at an option; hiding it one interaction deeper
                             than the option's own sales pitch inverts that. */}
                         {option.flagged_side_effects?.length > 0 && (
-                          <div data-testid="side-effects-chip" className="print:hidden mt-3 flex items-start gap-2 rounded-lg border border-amber-700/50 bg-amber-950/20 px-3 py-2">
-                            <Zap className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
-                            <p className="text-xs text-amber-200/90">
+                          <div data-testid="side-effects-chip" className="print:hidden mt-3 flex items-start gap-2 rounded-lg border border-severity-warning/50 bg-severity-warning/20 px-3 py-2">
+                            <Zap className="w-3.5 h-3.5 text-severity-warning flex-shrink-0 mt-0.5" />
+                            <p className="text-xs text-severity-warning/90">
                               {option.flagged_side_effects.length} side effect{option.flagged_side_effects.length === 1 ? '' : 's'} flagged
                               against the causal model — see full analysis.
                             </p>
@@ -1387,14 +1387,14 @@ export function ExecutiveBriefing() {
                 ContradictionBanner above) surfaces the rest, never silently
                 drops them. */}
             {data.blind_spots?.length > 0 && (
-              <div className="print:hidden mb-6 rounded-xl border border-amber-700/40 bg-amber-950/10 p-4">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-500/90 mb-2">
+              <div className="print:hidden mb-6 rounded-xl border border-severity-warning/40 bg-severity-warning/10 p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-severity-warning/90 mb-2">
                   Before you approve
                 </p>
                 <ul className="space-y-1.5">
                   {data.blind_spots.slice(0, 2).map((bs: string, i: number) => (
-                    <li key={i} className="text-sm text-amber-100/90 leading-relaxed flex items-start gap-2">
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                    <li key={i} className="text-sm text-severity-warning/90 leading-relaxed flex items-start gap-2">
+                      <AlertTriangle className="w-3.5 h-3.5 text-severity-warning shrink-0 mt-0.5" />
                       <span>{bs}</span>
                     </li>
                   ))}
@@ -1403,7 +1403,7 @@ export function ExecutiveBriefing() {
                   <button
                     type="button"
                     onClick={openBlindSpotsAndScroll}
-                    className="text-xs text-amber-400 hover:text-amber-300 underline mt-2"
+                    className="text-xs text-severity-warning hover:text-severity-warning underline mt-2"
                   >
                     {data.blind_spots.length - 2} more consideration{data.blind_spots.length - 2 === 1 ? '' : 's'} in the full analysis ↓
                   </button>
@@ -1448,14 +1448,14 @@ export function ExecutiveBriefing() {
                 {approveState === 'approved' && (() => {
                   const approvedOption = data.options?.find((o: any) => o.recommended) || data.options?.[0]
                   return (
-                    <div className="mt-4 bg-emerald-50 border-2 border-emerald-300 rounded-xl p-5 print:hidden">
+                    <div className="mt-4 bg-severity-opportunity border-2 border-severity-opportunity rounded-xl p-5 print:hidden">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="w-9 h-9 bg-emerald-600 rounded-full flex items-center justify-center">
+                        <div className="w-9 h-9 bg-severity-opportunity rounded-full flex items-center justify-center">
                           <CheckCircle2 className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                          <h3 className="text-base font-bold text-emerald-900">Decision Approved</h3>
-                          <p className="text-xs text-emerald-700">Value Assurance tracking has been initiated</p>
+                          <h3 className="text-base font-bold text-severity-opportunity">Decision Approved</h3>
+                          <p className="text-xs text-severity-opportunity">Value Assurance tracking has been initiated</p>
                         </div>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
@@ -1464,21 +1464,21 @@ export function ExecutiveBriefing() {
                           { label: 'Expected Recovery', val: formatROI(approvedOption?.roi || '') || 'See option details' },
                           { label: 'Monitoring Window', val: approvedOption?.timeline || '30 days' },
                         ].map(({ label, val }) => (
-                          <div key={label} className="bg-white rounded-lg p-2.5 border border-emerald-200">
+                          <div key={label} className="bg-white rounded-lg p-2.5 border border-severity-opportunity">
                             <p className="text-[10px] text-slate-500 uppercase mb-0.5">{label}</p>
                             <p className="text-xs font-semibold text-slate-900">{val}</p>
                           </div>
                         ))}
                       </div>
                       {vaSolutionId && (
-                        <div className="bg-white rounded-lg p-2.5 border border-emerald-200 mb-3">
+                        <div className="bg-white rounded-lg p-2.5 border border-severity-opportunity mb-3">
                           <p className="text-[10px] text-slate-500 uppercase mb-0.5">VA Reference</p>
                           <p className="text-xs font-mono text-slate-700">{vaSolutionId.slice(0, 8)}...</p>
                         </div>
                       )}
                       <div className="bg-emerald-100/50 rounded-lg p-3 text-xs text-emerald-800">
                         <p className="font-medium mb-1">What happens next:</p>
-                        <ol className="space-y-0.5 text-emerald-700 list-decimal list-inside">
+                        <ol className="space-y-0.5 text-severity-opportunity list-decimal list-inside">
                           <li>Value Assurance Agent monitors KPI performance against the expected recovery range</li>
                           <li>Difference-in-Differences attribution separates your intervention's impact from market movements</li>
                           <li>Results will appear in your Solutions Portfolio</li>
@@ -1486,7 +1486,7 @@ export function ExecutiveBriefing() {
                       </div>
                       <Link
                         to={`/portfolio?principal=${encodeURIComponent(principalId)}`}
-                        className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-500 transition-colors"
+                        className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-severity-opportunity text-white text-xs font-semibold rounded-lg hover:bg-severity-opportunity transition-colors"
                       >
                         View Portfolio <ChevronRight className="w-3.5 h-3.5" />
                       </Link>
@@ -1559,7 +1559,7 @@ export function ExecutiveBriefing() {
                   </div>
                   <div className="bg-slate-900 border border-slate-700 p-5 rounded-lg print:bg-red-50 print:border-red-200">
                     <h3 className="font-semibold text-slate-200 mb-2 flex items-center gap-2 text-sm print:text-slate-900">
-                      <AlertTriangle className="w-4 h-4 text-red-400 print:text-red-600" /> The Problem
+                      <AlertTriangle className="w-4 h-4 text-severity-critical print:text-red-600" /> The Problem
                     </h3>
                     <p className="text-slate-400 text-sm leading-relaxed print:text-slate-700">{data.situation?.problem}</p>
                   </div>
@@ -1574,7 +1574,7 @@ export function ExecutiveBriefing() {
                           only VA's DiD/Granger testing reaches a causal claim,
                           so the briefing must not promote a ranked delta list to
                           "root cause" in front of an executive. */}
-                      <Zap className="w-4 h-4 text-amber-400" /> Largest Variance Contributors
+                      <Zap className="w-4 h-4 text-severity-warning" /> Largest Variance Contributors
                     </h3>
                     {/* Segments from DIFFERENT dimensions are not disjoint, so they
                         cannot be read as a single ranking. A live briefing listed four
@@ -1585,7 +1585,7 @@ export function ExecutiveBriefing() {
                         caveat, and a caveat that always shows gets ignored. */}
                     {new Set((data.situation.rootCauses as any[])
                       .map(c => c?.dimension).filter(Boolean)).size > 1 && (
-                      <p className="text-[11px] text-amber-400/80 mb-3 print:text-amber-700">
+                      <p className="text-[11px] text-severity-warning/80 mb-3 print:text-amber-700">
                         These come from different dimensions and overlap — a customer's result is
                         already counted inside its division. Compare within a dimension, not down the list.
                       </p>
@@ -1593,7 +1593,7 @@ export function ExecutiveBriefing() {
                     <div className="space-y-3">
                       {data.situation.rootCauses.map((cause: any, i: number) => (
                         <div key={i} className="flex items-start gap-3">
-                          <div className="w-5 h-5 bg-amber-500 text-slate-900 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">{i + 1}</div>
+                          <div className="w-5 h-5 bg-severity-warning text-slate-900 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">{i + 1}</div>
                           <div>
                             {/* The dimension is NOT decoration. This list mixes
                                 dimensions -- four profit centres and one customer in the
@@ -1608,7 +1608,7 @@ export function ExecutiveBriefing() {
                               )}
                             </p>
                             <p className="text-slate-400 text-xs">{cause.evidence}</p>
-                            <p className="text-amber-400 text-xs font-medium mt-0.5">Impact: {cause.impact}</p>
+                            <p className="text-severity-warning text-xs font-medium mt-0.5">Impact: {cause.impact}</p>
                           </div>
                         </div>
                       ))}
@@ -1725,16 +1725,16 @@ export function ExecutiveBriefing() {
             {((data.blind_spots?.length > 0) || (data.unresolved_tensions?.length > 0)) && (
               <div className="print:hidden">
               <AccordionSection id="blindspots" title="Considerations & Blind Spots" openSections={openSections} onToggle={toggleSection}
-                icon={<AlertTriangle className="w-4 h-4 text-amber-400" />}>
+                icon={<AlertTriangle className="w-4 h-4 text-severity-warning" />}>
                 <div className="p-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {data.blind_spots?.length > 0 && (
                       <div className="bg-slate-900 border border-slate-700 p-4 rounded-lg print:bg-amber-50 print:border-amber-200">
-                        <h3 className="font-semibold text-amber-400 mb-2 text-sm print:text-amber-900">Potential Blind Spots</h3>
+                        <h3 className="font-semibold text-severity-warning mb-2 text-sm print:text-amber-900">Potential Blind Spots</h3>
                         <ul className="space-y-1.5">
                           {data.blind_spots.map((bs: string, i: number) => (
                             <li key={i} className="text-slate-400 text-xs flex items-start gap-1.5 print:text-amber-800">
-                              <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />{bs}
+                              <AlertTriangle className="w-3.5 h-3.5 text-severity-warning flex-shrink-0 mt-0.5" />{bs}
                             </li>
                           ))}
                         </ul>
@@ -1837,7 +1837,7 @@ export function ExecutiveBriefing() {
             <div className="lg:hidden sticky bottom-0 -mx-4 mt-6 px-4 py-3 bg-slate-900/95 backdrop-blur border-t border-slate-800 print:hidden">
               <a
                 href="#decision-workspace"
-                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-semibold transition-colors"
+                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-severity-opportunity hover:bg-severity-opportunity text-white text-sm font-semibold transition-colors"
               >
                 Review &amp; approve
                 <ChevronDown className="w-4 h-4" />

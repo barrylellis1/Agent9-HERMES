@@ -228,13 +228,13 @@ export function KPIAssistantChat({
 
     const getMetadataBadgeColor = (type: string, value: string) => {
         if (type === 'line') {
-            return value === 'top_line' ? 'bg-green-500/20 text-green-400' :
+            return value === 'top_line' ? 'bg-severity-healthy/20 text-severity-healthy' :
                    value === 'middle_line' ? 'bg-blue-500/20 text-blue-400' :
                    'bg-purple-500/20 text-purple-400'
         }
         if (type === 'altitude') {
-            return value === 'strategic' ? 'bg-red-500/20 text-red-400' :
-                   value === 'tactical' ? 'bg-amber-500/20 text-amber-400' :
+            return value === 'strategic' ? 'bg-severity-critical/20 text-severity-critical' :
+                   value === 'tactical' ? 'bg-severity-warning/20 text-severity-warning' :
                    'bg-slate-500/20 text-slate-400'
         }
         return 'bg-slate-700/50 text-slate-300'
@@ -263,7 +263,7 @@ export function KPIAssistantChat({
                         <h4 className="text-sm font-semibold text-slate-400">Current KPIs ({currentKPIs.length})</h4>
                         <button
                             onClick={handleAcceptAll}
-                            className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white text-xs rounded-md transition-colors flex items-center gap-1"
+                            className="px-3 py-1 bg-severity-healthy hover:bg-severity-healthy text-white text-xs rounded-md transition-colors flex items-center gap-1"
                         >
                             <CheckCircle className="w-3 h-3" />
                             Accept All
@@ -279,7 +279,7 @@ export function KPIAssistantChat({
                                     </div>
                                     <button
                                         onClick={() => handleRemoveKPI(kpi.id)}
-                                        className="opacity-0 group-hover:opacity-100 p-1 text-red-400 hover:text-red-300 transition-all"
+                                        className="opacity-0 group-hover:opacity-100 p-1 text-severity-critical hover:text-severity-critical transition-all"
                                     >
                                         <Trash2 className="w-3 h-3" />
                                     </button>
@@ -337,7 +337,7 @@ export function KPIAssistantChat({
                                             }}
                                             className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
                                                 action.action === 'accept' 
-                                                    ? 'bg-green-600 hover:bg-green-500 text-white'
+                                                    ? 'bg-severity-healthy hover:bg-severity-healthy text-white'
                                                     : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
                                             }`}
                                         >

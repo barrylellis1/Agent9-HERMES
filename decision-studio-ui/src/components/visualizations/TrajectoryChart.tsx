@@ -415,9 +415,9 @@ const InnerChart: React.FC<InnerChartProps> = ({
             <div className="text-slate-400 font-medium mb-1.5">M{tooltip.monthIndex}</div>
             {inactionVal !== null && (
               <div className="flex items-center gap-2 mb-0.5">
-                <span className="w-3 h-0.5 bg-red-500 opacity-50 inline-block" />
+                <span className="w-3 h-0.5 bg-severity-critical opacity-50 inline-block" />
                 <span className="text-slate-400">Inaction</span>
-                <span className="text-red-400 font-mono ml-auto pl-3">{inactionVal.toFixed(2)}</span>
+                <span className="text-severity-critical font-mono ml-auto pl-3">{inactionVal.toFixed(2)}</span>
               </div>
             )}
             {expectedVal !== null && (
@@ -436,9 +436,9 @@ const InnerChart: React.FC<InnerChartProps> = ({
             )}
             {hasPlanValue && (
               <div className="flex items-center gap-2">
-                <span className="w-3 h-0.5 bg-amber-500 opacity-70 inline-block" />
+                <span className="w-3 h-0.5 bg-severity-warning opacity-70 inline-block" />
                 <span className="text-slate-400">Plan / Budget</span>
-                <span className="text-amber-400 font-mono ml-auto pl-3">{(planValue as number).toFixed(2)}</span>
+                <span className="text-severity-warning font-mono ml-auto pl-3">{(planValue as number).toFixed(2)}</span>
               </div>
             )}
           </motion.div>

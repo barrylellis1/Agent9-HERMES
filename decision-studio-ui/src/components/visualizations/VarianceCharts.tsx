@@ -38,7 +38,7 @@ export const VarianceSummary: React.FC<{
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
           <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Problem Variance</div>
-          <div className="text-sm font-mono text-red-400">
+          <div className="text-sm font-mono text-severity-critical">
             {totalIsVariance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
           </div>
           <div className="text-[10px] text-slate-600 mt-0.5">{isItems.length} areas</div>
@@ -46,7 +46,7 @@ export const VarianceSummary: React.FC<{
 
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
           <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Healthy Areas</div>
-          <div className="text-sm font-mono text-emerald-600">
+          <div className="text-sm font-mono text-severity-opportunity">
             {isNotItems.length}
           </div>
           <div className="text-[10px] text-slate-600 mt-0.5">IS NOT impacted</div>
@@ -54,7 +54,7 @@ export const VarianceSummary: React.FC<{
 
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
           <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Net Impact</div>
-          <div className={`text-sm font-mono font-bold ${netImpact < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+          <div className={`text-sm font-mono font-bold ${netImpact < 0 ? 'text-severity-critical' : 'text-severity-opportunity'}`}>
             {netImpact > 0 ? '+' : ''}{netImpact.toLocaleString(undefined, { maximumFractionDigits: 0 })}
           </div>
         </div>

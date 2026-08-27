@@ -43,8 +43,8 @@ function buildSegments(props: AttributionBreakdownProps): SegmentDef[] {
       key: 'attributable',
       label: 'Attributable',
       value: props.attributableImpact,
-      barClass: 'bg-emerald-500',
-      valueClass: 'text-emerald-400',
+      barClass: 'bg-severity-opportunity',
+      valueClass: 'text-severity-opportunity',
     },
     {
       key: 'market',
@@ -97,11 +97,11 @@ function RangeAnnotation({ expectedLower, expectedUpper, totalChange, kpiUnit }:
         {kpiUnit}
       </span>
       {totalChange >= expectedLower && totalChange <= expectedUpper ? (
-        <span className="text-emerald-500 font-semibold">(within range)</span>
+        <span className="text-severity-opportunity font-semibold">(within range)</span>
       ) : totalChange > expectedUpper ? (
         <span className="text-blue-400 font-semibold">(above range)</span>
       ) : (
-        <span className="text-red-400 font-semibold">(below range)</span>
+        <span className="text-severity-critical font-semibold">(below range)</span>
       )}
     </div>
   );
@@ -186,7 +186,7 @@ export const AttributionBreakdown: React.FC<AttributionBreakdownProps> = (props)
         </h4>
         <span
           className={`text-lg font-bold font-mono ${
-            props.totalChange >= 0 ? 'text-emerald-400' : 'text-red-400'
+            props.totalChange >= 0 ? 'text-severity-opportunity' : 'text-severity-critical'
           }`}
         >
           Total KPI change: {totalSign}
@@ -220,7 +220,7 @@ export const AttributionBreakdown: React.FC<AttributionBreakdownProps> = (props)
         ) : (
           <span>
             No control group available &mdash; attribution is{' '}
-            <span className="text-amber-500">directional only</span>. Interpret with caution.
+            <span className="text-severity-warning">directional only</span>. Interpret with caution.
           </span>
         )}
       </div>

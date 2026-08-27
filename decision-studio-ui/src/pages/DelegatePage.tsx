@@ -217,7 +217,7 @@ export function DelegatePage() {
           {/* Done */}
           {pageState === 'done' && (
             <div className="text-center">
-              <CheckCircle className="mx-auto mb-4 h-10 w-10 text-emerald-500" />
+              <CheckCircle className="mx-auto mb-4 h-10 w-10 text-severity-opportunity" />
               <p className="text-gray-900 font-semibold mb-1">Situation Delegated</p>
               <p className="text-gray-500 text-sm">
                 {selectedPrincipal
@@ -230,7 +230,7 @@ export function DelegatePage() {
           {/* Error */}
           {pageState === 'error' && (
             <div className="text-center">
-              <XCircle className="mx-auto mb-4 h-10 w-10 text-red-400" />
+              <XCircle className="mx-auto mb-4 h-10 w-10 text-severity-critical" />
               <p className="text-gray-900 font-semibold mb-4">{errorMsg}</p>
               <button
                 onClick={() => navigate('/')}

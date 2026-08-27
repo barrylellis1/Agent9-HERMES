@@ -106,7 +106,7 @@ export function ActionHandler() {
 
           {pageState === 'success' && (
             <>
-              <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-emerald-900/20 flex items-center justify-center">
+              <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-severity-opportunity/20 flex items-center justify-center">
                 <CheckCircle className="h-8 w-8 text-white" />
               </div>
               <p className="text-white font-medium mb-1">{message}</p>
@@ -116,7 +116,7 @@ export function ActionHandler() {
 
           {pageState === 'error' && (
             <>
-              <XCircle className="mx-auto mb-4 h-10 w-10 text-red-400" />
+              <XCircle className="mx-auto mb-4 h-10 w-10 text-severity-critical" />
               <p className="text-white font-medium mb-4">{message}</p>
               <button
                 onClick={() => navigate('/')}

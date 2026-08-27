@@ -59,7 +59,7 @@ type TrendKey = CostOfInactionBannerProps['trendDirection'];
 /**
  * Dark-first, like every other surface in this app.
  *
- * `deteriorating` and `recovering` were `bg-amber-50` and `bg-emerald-50` —
+ * `deteriorating` and `recovering` were `bg-severity-warning` and `bg-severity-opportunity` —
  * light panels on a slate-950 page. Rendered, that made this banner the
  * single brightest object in the Executive Briefing's first viewport, and it
  * is not the decision; the decision sat next to it in slate. `stable` was
@@ -92,14 +92,14 @@ const TREND_CONFIG: Record<
   }
 > = {
   deteriorating: {
-    containerClass: 'bg-amber-950/20 border border-amber-700/40 print:bg-amber-50 print:border-amber-300',
-    headerClass: 'text-amber-100 print:text-amber-900',
-    iconClass: 'text-amber-500 print:text-amber-600',
-    introClass: 'text-amber-200/70 print:text-amber-800',
-    bodyClass: 'text-amber-50 print:text-amber-900',
-    deltaClass: 'text-amber-300 font-semibold print:text-amber-800',
-    subtleClass: 'text-amber-300/70 print:text-amber-700',
-    footerClass: 'border-amber-800/40 text-amber-300/80 print:border-amber-200 print:text-amber-700',
+    containerClass: 'bg-severity-warning/20 border border-severity-warning/40 print:bg-amber-50 print:border-amber-300',
+    headerClass: 'text-severity-warning print:text-amber-900',
+    iconClass: 'text-severity-warning print:text-amber-600',
+    introClass: 'text-severity-warning/70 print:text-amber-800',
+    bodyClass: 'text-severity-warning print:text-amber-900',
+    deltaClass: 'text-severity-warning font-semibold print:text-amber-800',
+    subtleClass: 'text-severity-warning/70 print:text-amber-700',
+    footerClass: 'border-severity-warning/40 text-severity-warning/80 print:border-amber-200 print:text-amber-700',
     Icon: AlertTriangle,
     label: 'Deteriorating',
   },
@@ -116,14 +116,14 @@ const TREND_CONFIG: Record<
     label: 'Stable',
   },
   recovering: {
-    containerClass: 'bg-emerald-950/20 border border-emerald-700/40 print:bg-emerald-50 print:border-emerald-300',
-    headerClass: 'text-emerald-100 print:text-emerald-900',
-    iconClass: 'text-emerald-400 print:text-emerald-600',
-    introClass: 'text-emerald-200/70 print:text-emerald-800',
-    bodyClass: 'text-emerald-50 print:text-emerald-900',
-    deltaClass: 'text-emerald-300 font-semibold print:text-emerald-700',
-    subtleClass: 'text-emerald-300/70 print:text-emerald-700',
-    footerClass: 'border-emerald-800/40 text-emerald-300/80 print:border-emerald-200 print:text-emerald-700',
+    containerClass: 'bg-severity-opportunity/20 border border-severity-opportunity/40 print:bg-emerald-50 print:border-emerald-300',
+    headerClass: 'text-severity-opportunity print:text-emerald-900',
+    iconClass: 'text-severity-opportunity print:text-emerald-600',
+    introClass: 'text-severity-opportunity/70 print:text-emerald-800',
+    bodyClass: 'text-severity-opportunity print:text-emerald-900',
+    deltaClass: 'text-severity-opportunity font-semibold print:text-emerald-700',
+    subtleClass: 'text-severity-opportunity/70 print:text-emerald-700',
+    footerClass: 'border-severity-opportunity/40 text-severity-opportunity/80 print:border-emerald-200 print:text-emerald-700',
     Icon: TrendingUp,
     label: 'Recovering',
   },
@@ -172,7 +172,7 @@ function ProjectionRow({
     <li className="flex items-start gap-2 text-sm">
       <TrendIcon
         className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
-          isNegative ? 'text-red-400 print:text-red-600' : 'text-emerald-400 print:text-emerald-600'
+          isNegative ? 'text-severity-critical print:text-red-600' : 'text-severity-opportunity print:text-emerald-600'
         }`}
       />
       <span>
@@ -190,8 +190,8 @@ function ProjectionRow({
               est. revenue impact:{' '}
               <span className={`font-semibold ${
                 revenueImpact < 0
-                  ? 'text-red-400 print:text-red-600'
-                  : 'text-emerald-400 print:text-emerald-600'
+                  ? 'text-severity-critical print:text-red-600'
+                  : 'text-severity-opportunity print:text-emerald-600'
               }`}>
                 {formatRevenue(revenueImpact)}
               </span>
