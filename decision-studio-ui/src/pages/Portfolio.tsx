@@ -278,10 +278,17 @@ function DetailPanel({ solution, principalId, onMeasurementRecorded, onPhaseUpda
             </div>
             <div className={`${vsPlan >= 0 ? 'bg-indigo-900/15 border-indigo-500/20' : 'bg-severity-warning/15 border-severity-warning/20'} border rounded-xl p-4`}>
               <div className="flex items-center gap-2 mb-2">
-                <Target className={`w-4 h-4 ${vsPlan >= 0 ? 'text-indigo-400' : 'text-severity-warning'}`} />
-                <span className={`text-[10px] font-bold uppercase tracking-wider ${vsPlan >= 0 ? 'text-indigo-400/70' : 'text-severity-warning/70'}`}>vs Plan</span>
+                {/* H audit: was indigo for the positive case — indigo is this
+                    app's documented AI-action color, not a status color, and
+                    "ahead of plan" is exactly the positive-variance meaning
+                    severity-opportunity exists for. Flagged by the AI-cliché
+                    detector (ai-color-palette) as an indigo-on-heading hit;
+                    the real defect underneath was a semantic mismatch, not
+                    the hue itself. */}
+                <Target className={`w-4 h-4 ${vsPlan >= 0 ? 'text-severity-opportunity' : 'text-severity-warning'}`} />
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${vsPlan >= 0 ? 'text-severity-opportunity/70' : 'text-severity-warning/70'}`}>vs Plan</span>
               </div>
-              <p className={`text-2xl font-bold ${vsPlan >= 0 ? 'text-indigo-400' : 'text-severity-warning'}`}>
+              <p className={`text-2xl font-bold ${vsPlan >= 0 ? 'text-severity-opportunity' : 'text-severity-warning'}`}>
                 {formatImpact(vsPlan, solution.kpi_id)}
               </p>
               <p className="text-[10px] text-slate-500 mt-1">
