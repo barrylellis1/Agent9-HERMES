@@ -1,7 +1,9 @@
 # Decision Framer and Decision Maker — two principal workflow roles
 
 **Created:** 2026-08-22
-**Status:** Design note. **Not built.** Three open questions require sign-off (§7).
+**Status:** Built. Stages 1-9 (Aug 2026) shipped `workflow_role`, the routing branch, the Decision
+Maker landing view, and the briefing disclosure-state split. All three §7 questions resolved by what
+was actually built — see there. **Updated:** 2026-08-28.
 
 ---
 
@@ -118,31 +120,61 @@ design).
 
 ---
 
-## 6. Onboarding
+## 6. Onboarding — captured in the admin editor, NOT in the wizard, no title inference
 
-Add the question to Day 2 (`PrincipalEditor.tsx`, also embedded in the wizard step per
-`onboardingSteps.ts:42-54`). Keep it orthogonal to the existing `settings_admin` checkbox — that
-flag governs registry maintenance access, an unrelated axis.
+**Corrected 2026-08-28 against what actually shipped, which differs from this section's original plan
+in two ways:**
 
-Suggested default from title keywords (CEO/CFO/COO/Chief → `decision_maker`; Manager/Analyst/
-Director → `framer`), presented for confirmation, never silently applied.
+**Title-keyword suggested default — explicitly rejected, not just unbuilt.** `useDecisionStudio.ts`
+carries a dated comment: *"workflow_role is STRICTLY an attribute of the principal registry
+(2026-08-25, explicit user direction) — no title-keyword inference here, unlike
+`inferDecisionStyle`."* `decision_style` already does exactly the keyword-inference this section
+proposed, and was named in §2 as *the precedent to avoid repeating* for a different reason (it lived
+in `metadata`, not as a first-class field). The keyword-inference *mechanism itself* was
+independently rejected for this field one workflow_role file iteration later — a plain manual
+`<select>` in `PrincipalEditor.tsx`, defaulting to `framer`, with no suggestion logic. Do not add
+inference here; it was considered and turned down.
+
+**Wizard step — not built, a real gap, orthogonal to the field's own design.** The field is
+selectable in `PrincipalEditor.tsx` (used for editing any principal, new or existing, via Settings →
+Principal Management) but `OnboardingSteps`/`OnboardingDayView.tsx`'s Day 2 flow never surfaces it —
+grep for `workflow_role` in either file returns nothing. A brand-new client's principals therefore all
+start as the `framer` default with nothing in the onboarding wizard prompting an admin to mark any of
+them `decision_maker`; the field only gets set if someone separately visits Principal Management
+afterward. Not blocking — the field is reachable, just not discoverable at the moment it would matter
+most. Left as a follow-up, not built as part of this correction pass; it is a new wizard step, not a
+documentation fix.
 
 ---
 
-## 7. Open questions requiring sign-off
+## 7. Open questions — resolved by what shipped (2026-08-28)
 
-1. **Can one principal be both, over time?** A Finance Manager frames most weeks and decides on
-   small items. Is `workflow_role` a fixed profile attribute, or a per-situation stance derived from
-   RACI (`accountable` → decides, `responsible` → frames)? The RACI-derived version is more correct
-   and more work; the profile attribute ships sooner. **Recommendation: profile attribute now, with
-   the RACI derivation as the eventual replacement** — noted so the field is not designed in a way
-   that blocks it.
-2. **Does the Decision Maker default view need building, or is PIB already it?** PIB delivers
-   email-only today with no in-app briefing inbox. A "what's awaiting my decision" landing view is a
-   real new surface; leaning on PIB instead is cheaper but leaves the in-app experience unchanged.
-3. **Does `workflow_role` drive briefing disclosure, or does `communication.detail_level`?**
-   The former is semantically right; the latter already exists and needs no migration. See
-   `executive_briefing_redesign.md` §6.3.
+1. **Can one principal be both, over time?** **Shipped as recommended: profile attribute.**
+   `workflow_role` is a first-class field on the principal record (`PrincipalEditor.tsx`), editable
+   any time — not derived from RACI. The RACI-derived version remains the correct eventual
+   replacement; nothing here blocks it (the field is just an enum, not baked into routing logic that
+   would need to change shape).
+2. **Does the Decision Maker default view need building, or is PIB already it?** **Built —
+   `DecisionMakerLanding.tsx`, not a lean on PIB.** A real "Awaiting Your Decision" inbox, backed by
+   `GET /workflows/solutions/pending`, opening the completed recommendation's *snapshot* (never
+   re-running DA/SF live — a live-caught bug in the first version did exactly that and was fixed the
+   same day). Routed in `DecisionStudio.tsx`: `workflow_role === 'decision_maker' && !selectedSituation
+   && !showFullView`. The full-view escape hatch is real and was verified live — clicking "View full
+   dashboard" routes to the same situation console a Framer sees by default, kicking off the same live
+   scan.
+3. **Does `workflow_role` drive briefing disclosure, or `communication.detail_level`?**
+   **`workflow_role`**, as recommended. `ExecutiveBriefing.tsx`'s `roleDefaultApplied` effect looks up
+   the principal's `workflow_role` and defaults `ANALYSIS_SECTION_IDS` open for a framer, closed for a
+   decision maker.
+
+**What this means for the M1 invariant (§3):** the Executive Briefing itself is content-identical for
+both roles by design — only default disclosure state differs. A design critique this session
+(2026-08-27) initially read that as the split being merely cosmetic ("what would you delete entirely
+from a Decision Maker's briefing?"). That question assumed the wrong axis: this document already
+settled, in three independent places (§3), that role adaptation must never touch facts or the
+recommendation. The real differentiation is the ENTRY POINT — an entirely different landing surface,
+not a trimmed version of the same one — and that part is substantial and correctly built. The
+critique's error, not a build gap; corrected here so it isn't re-litigated.
 
 ---
 
