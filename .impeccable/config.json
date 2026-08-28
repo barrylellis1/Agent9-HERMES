@@ -38,6 +38,11 @@
         ],
         "createdAt": "2026-08-28T02:27:28.633Z",
         "reason": "indigo-500 is DESIGN_SYSTEM.md sec2's documented AI-action/CTA color (Refinement, Generate Solutions, Solution Active badge); this box IS the AI-authored decision ask, so an indigo left-border accent is the same sanctioned-by-convention pattern as severity-token borders, just for the AI-action semantic instead of severity. Found during the 2026-08-28 AI-cliche audit, not previously disclosed"
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "text-slate-100",
+        "createdAt": "2026-08-28T23:18:29.458Z"
       }
     ]
   }
