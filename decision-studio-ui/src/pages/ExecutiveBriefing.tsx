@@ -3,21 +3,23 @@ import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
 import html2pdf from 'html2pdf.js'
 import {
-  ArrowLeft, ArrowRight, Download, Printer, AlertTriangle, CheckCircle, ChevronRight,
-  Users, Target, Zap, TrendingUp, ShieldCheck, Loader2, CheckCircle2,
+  ArrowLeft, ArrowRight, Download, Printer, AlertTriangle, ChevronRight,
+  Target, Zap, TrendingUp, ShieldCheck, Loader2, CheckCircle2,
   ChevronDown, Send, MessageSquare, FileText
 } from 'lucide-react'
 import { approveSolution, askBriefingQuestion, BriefingQAResponse, storeBriefingSnapshot, getBriefingSnapshot, getVASolution, listPrincipals } from '../api/client'
-import { CostOfInactionBanner } from '../components/CostOfInactionBanner'
-import { projectKpiTrend, condenseTimeToValue, truncateProse, endsSentence, axisDiscrimination } from '../utils/briefingUtils'
+import { projectKpiTrend, truncateProse, endsSentence, axisDiscrimination } from '../utils/briefingUtils'
 import { ValueAssurancePanel } from '../components/ValueAssurancePanel'
 import { AttributionBreakdown } from '../components/AttributionBreakdown'
 import { BrandLogo } from '../components/BrandLogo'
 import { DecisionAskBlock } from '../components/briefing/DecisionAskBlock'
 import { ImmediateActionsChecklist } from '../components/briefing/ImmediateActionsChecklist'
-import { AssumptionsPanel } from '../components/briefing/AssumptionsPanel'
 import { OptionDetailDrawer } from '../components/briefing/OptionDetailDrawer'
-import { ContradictionBanner } from '../components/briefing/ContradictionBanner'
+import { DecisionMasthead } from '../components/briefing/DecisionMasthead'
+import { RelatedOptionsFork } from '../components/briefing/RelatedOptionsFork'
+import { WhyNowBand } from '../components/briefing/WhyNowBand'
+import { CompactOptionRow } from '../components/briefing/CompactOptionRow'
+import { VerificationLedger } from '../components/briefing/VerificationLedger'
 import { councilCompositionLabel } from '../utils/personaLabels'
 import type { AcceptedSolution as VASolution } from '../types/valueAssurance'
 
@@ -462,7 +464,7 @@ function DecisionChat({
 // page entirely (see the note where they were rendered). What remains is what
 // actually bears on the DECISION — the situation, the risks, and the blind
 // spots — rather than the record of how the council argued.
-const ANALYSIS_SECTION_IDS = ['situation', 'risks', 'blindspots']
+const ANALYSIS_SECTION_IDS = ['verification', 'situation', 'risks', 'blindspots']
 
 // ─────────────────────────────────────────────────
 // Main page
@@ -1060,20 +1062,21 @@ export function ExecutiveBriefing() {
                 Now: open question → the decision it forces → why now →
                 the options. Four beats, each saying one thing once.
                 Do not reintroduce a block above the contradiction. */}
-            {data.unresolved_tensions?.[0] ? (
-              <ContradictionBanner
-                tension={data.unresolved_tensions[0]}
-                onViewDetail={openBlindSpotsAndScroll}
-                variant="headline"
-              />
-            ) : (
-              /* No tension in this run — the page still needs exactly one <h1>,
-                 both for the document outline and because assistive tech had
-                 nothing to anchor on here before. */
-              <h1 className="text-xl sm:text-2xl font-semibold text-white leading-snug tracking-tight mb-6 print:text-slate-900">
-                {canonicalTitle}
-              </h1>
-            )}
+            <DecisionMasthead
+              tension={data.unresolved_tensions?.[0]}
+              onViewDetail={openBlindSpotsAndScroll}
+              kpiName={data.kpiData?.kpi_name || canonicalTitle}
+              principalId={principalId}
+              deadline={data.recommendation?.deadline}
+            />
+
+            {/* Real data only — the affected options' own titles/ROI, not
+                synthesized "if it's X / if it's Y" interpretive framing. See
+                RelatedOptionsFork's own docstring for why. */}
+            <RelatedOptionsFork
+              optionsAffected={data.unresolved_tensions?.[0]?.options_affected}
+              options={data.options || []}
+            />
 
             {/* Problem vs. opportunity framing — added 2026-08-26, found live
                 ("no problem or opportunity situational statement?"). Kept
@@ -1090,64 +1093,69 @@ export function ExecutiveBriefing() {
               </div>
             )}
 
+            {/* "The ask" — trimmed to the decision statement + owner/deadline.
+                The situation bullets that used to live here moved to
+                WhyNowBand's "why now" pane below (2026-08-28 restructure) —
+                the mockup this mirrors treats "the ask" as one sentence, not
+                a sentence plus supporting bullets; the bullets belong beside
+                the cost-of-waiting number, not above it. */}
+            {/* recommendedPath/impactRange props were dropped 2026-08-28 along
+                with DecisionAskBlock's own footer grid that rendered them —
+                the recommended option's title and ROI are already stated in
+                the fork above and the option row below; see that component's
+                comment for the "stated three times" reasoning. */}
             <div className="print:hidden">
-              {(() => {
-                const recOption = data.options?.find((o: any) => o.recommended) ?? data.options?.[0]
-                // At most three, and the problem statement leads. Variance
-                // contributors carry their dimension label for the same reason
-                // the detail section does — "National Auto Parts Chain A" without
-                // it reads as a division.
-                const bullets: string[] = []
-                if (data.situation?.problem) bullets.push(String(data.situation.problem))
-                ;(data.situation?.rootCauses ?? []).slice(0, 2).forEach((c: any) => {
-                  const dim = c?.dimension ? ` (${c.dimension})` : ''
-                  const impact = c?.impact ? ` — ${c.impact}` : ''
-                  if (c?.driver) bullets.push(`${c.driver}${dim}${impact}`)
-                })
-                return (
-                  <DecisionAskBlock
-                    situationBullets={bullets.slice(0, 3)}
-                    decisionAsk={data.decision_ask ?? null}
-                    recommendedPath={recOption?.title ?? null}
-                    impactRange={recOption?.roi ?? null}
-                    fallbackOwner={data.recommendation?.decisionOwner}
-                    fallbackDeadline={data.recommendation?.deadline}
-                  />
-                )
-              })()}
+              <DecisionAskBlock
+                decisionAsk={data.decision_ask ?? null}
+                fallbackOwner={data.recommendation?.decisionOwner}
+                fallbackDeadline={data.recommendation?.deadline}
+              />
             </div>
 
-            {/* Cost of Inaction — the "why now" behind the decision above.
-                Was gated on `approveState !== 'approved'`, which deleted the
-                justification from the page at the exact moment it started
-                mattering: getBriefingSnapshot sets approved on load, so a
-                Portfolio replay of this briefing could NEVER show the cost of
-                waiting that drove the decision. The most persuasive artifact
-                in the record was the one thing the record dropped. It now
-                renders in both states. */}
-            {data.kpiData?.current_value != null && (() => {
+            {/* Why now + Cost of waiting, merged. Was two separate cards; the
+                mockup treats "why is this urgent" and "what does waiting
+                cost" as one question with two halves. The gate that used to
+                hide Cost of Inaction after approval is gone (see the prior
+                comment history in git — getBriefingSnapshot sets approved on
+                load, so a Portfolio replay could never show the cost of
+                waiting that drove the decision; the most persuasive artifact
+                was the one thing the record dropped). WhyNowBand renders in
+                both states. */}
+            {(() => {
+              const bullets: string[] = []
+              ;(data.situation?.rootCauses ?? []).slice(0, 2).forEach((c: any) => {
+                const dim = c?.dimension ? ` (${c.dimension})` : ''
+                const impact = c?.impact ? ` — ${c.impact}` : ''
+                if (c?.driver) bullets.push(`${c.driver}${dim}${impact}`)
+              })
               const kd = data.kpiData
-              // Projection + trend live in briefingUtils.projectKpiTrend so the
-              // number an executive reads first is unit-testable rather than
-              // buried in JSX. Two sign traps are handled there — see its
-              // docstring; both were live in a real briefing.
-              const { projected30d, projected90d, trend: trendDir } =
-                projectKpiTrend(kd.current_value, kd.percent_change, kd.comparison_value)
-              const confidenceLevelMap: Record<string, 'HIGH' | 'MODERATE' | 'LOW'> = {
-                'Low': 'LOW', 'Medium': 'MODERATE', 'High': 'HIGH', 'Very High': 'HIGH',
-              }
+              const headlineDelta = kd?.current_value != null && kd?.comparison_value != null
+                ? kd.current_value - kd.comparison_value
+                : null
+              const costOfInaction = kd?.current_value != null ? (() => {
+                const { projected30d, projected90d, trend: trendDir } =
+                  projectKpiTrend(kd.current_value, kd.percent_change, kd.comparison_value)
+                const confidenceLevelMap: Record<string, 'HIGH' | 'MODERATE' | 'LOW'> = {
+                  'Low': 'LOW', 'Medium': 'MODERATE', 'High': 'HIGH', 'Very High': 'HIGH',
+                }
+                return {
+                  kpiName: kd.kpi_name,
+                  currentValue: kd.current_value,
+                  projected30d, projected90d,
+                  trendDirection: trendDir,
+                  trendConfidence: confidenceLevelMap[data.metrics?.confidence] || 'LOW' as const,
+                  kpiUnit: kd.unit,
+                }
+              })() : null
               return (
-                <div className="mb-4">
-                  <CostOfInactionBanner
-                    kpiName={kd.kpi_name}
-                    currentValue={kd.current_value}
-                    projected30d={projected30d}
-                    projected90d={projected90d}
-                    trendDirection={trendDir}
-                    trendConfidence={confidenceLevelMap[data.metrics?.confidence] || 'LOW'}
-                    kpiUnit={kd.unit}
-                  />
-                </div>
+                <WhyNowBand
+                  problem={data.situation?.problem}
+                  bullets={bullets}
+                  headlineDelta={headlineDelta}
+                  headlineUnit={kd?.unit}
+                  isOpportunity={data.cardType === 'opportunity'}
+                  costOfInaction={costOfInaction}
+                />
               )
             })()}
 
@@ -1181,20 +1189,19 @@ export function ExecutiveBriefing() {
                   financial impact, complexity, risk, and priority alignment
                   {data.statusQuo ? ', measured against doing nothing (Option 0)' : ''}.
                 </p>
-                {/* Option 0 — mobile only.
-                    The comparison table below is hidden under `lg` (see there).
-                    Every proposed option survives that, because the option cards
-                    further down carry the same per-option metrics. The status quo
-                    does NOT: it exists only as the table's leading column. So it
-                    gets a compact card here rather than silently vanishing on a
-                    phone — it is the reference the other options are measured
-                    against, and a comparison that quietly drops its baseline is
-                    worse than one that scrolls. */}
+                {/* Option 0 — baseline row, every breakpoint (was `lg:hidden`,
+                    a fallback for the deleted table's leading column; now the
+                    reference row every other row is measured against, styled
+                    consistently with them rather than a special-cased mini
+                    card). Still simpler than CompactOptionRow's shape — no
+                    dominance, no scope, no narrative — so it stays its own
+                    small block rather than forcing a shared component across
+                    two genuinely different data shapes. */}
                 {data.statusQuo && (
-                  <div className="lg:hidden mb-4 rounded-lg border border-slate-700 bg-slate-800/40 p-4">
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Baseline · Option 0</p>
-                    <p className="text-sm font-semibold text-white mb-2">{data.statusQuo.title}</p>
-                    <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
+                  <div className="mb-4 rounded-lg border border-slate-700 bg-slate-800/40 p-4">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 print:text-slate-500">Baseline · Option 0</p>
+                    <p className="text-sm font-semibold text-white mb-2 print:text-slate-900">{data.statusQuo.title}</p>
+                    <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2">
                       {[
                         { k: 'Est. ROI', v: data.statusQuo.roi },
                         { k: 'Timeline', v: data.statusQuo.timeline },
@@ -1202,335 +1209,89 @@ export function ExecutiveBriefing() {
                         { k: 'Risk', v: data.statusQuo.riskLevel },
                       ].filter(x => x.v).map(({ k, v }) => (
                         <div key={k} className="min-w-0">
-                          <dt className="text-[10px] text-slate-400 uppercase">{k}</dt>
-                          <dd className="text-xs text-slate-200 break-words">{v}</dd>
+                          <dt className="text-[10px] text-slate-400 uppercase print:text-slate-500">{k}</dt>
+                          <dd className="text-xs text-slate-200 break-words print:text-slate-700">{v}</dd>
                         </div>
                       ))}
                     </dl>
+                    {/* Caveat travels with the row. A baseline showing "Flat —
+                        no measured drift" changes how every option below
+                        should be read. */}
+                    {data.statusQuo.caveat && (
+                      <p className="mt-2 text-xs text-slate-500 print:text-slate-600">{data.statusQuo.caveat}</p>
+                    )}
                   </div>
                 )}
 
-                {/* Comparison table — desktop and print only.
-                    Its columns declare 120 + 150 + 160-per-option of minimum
-                    width, so it was already clipping Option C mid-word at 1440px
-                    and needed horizontal scrolling on the one exhibit most likely
-                    to be shown to a board. Below `lg` the option cards below carry
-                    the identical per-option data, so this is hidden rather than
-                    duplicated into a stacked variant. */}
-                <div className="hidden lg:block overflow-x-auto rounded-lg border border-slate-700 mb-6 print:!block print:border-slate-200">
-                  <table className="w-full text-xs text-left">
-                    <thead className="bg-slate-800 text-slate-300 font-bold uppercase print:bg-slate-100 print:text-slate-900">
-                      <tr>
-                        <th className="p-3 border-b border-slate-700 min-w-[120px] print:border-slate-200">Criteria</th>
-                        {/* Option 0 leads, on the left, because it is the reference
-                            the other columns are measured against — not a fourth
-                            candidate appended after them. */}
-                        {data.statusQuo && (
-                          <th data-testid="status-quo-column" className="p-3 border-b border-r-2 border-slate-700 border-r-slate-600 min-w-[150px] bg-slate-800/40 print:border-slate-200 print:bg-slate-50">
-                            <div className="text-[9px] text-slate-400 mb-0.5 print:text-slate-500">BASELINE</div>
-                            Option 0
-                          </th>
-                        )}
-                        {data.options?.map((opt: any, i: number) => {
-                          // Move #2 (executive_briefing_redesign.md §4) — a
-                          // dominated option is LABELLED, not hidden. Found
-                          // live 2026-08-24: two options modelled at an
-                          // identical recovery range while one was strictly
-                          // worse on speed and reversibility, invisible as
-                          // table rows. dominated_by is another option's id;
-                          // resolve it to that option's display letter.
-                          const dominatorIdx = opt.dominated_by
-                            ? data.options.findIndex((o: any) => o.id === opt.dominated_by)
-                            : -1;
-                          return (
-                            <th key={i} className={`p-3 border-b border-slate-700 min-w-[160px] print:border-slate-200 ${opt.recommended ? 'bg-emerald-900/30 print:bg-emerald-50 print:text-emerald-800' : ''}`}>
-                              {opt.recommended && <div className="text-[9px] text-severity-opportunity mb-0.5 flex items-center gap-1 print:text-emerald-600"><CheckCircle className="w-2.5 h-2.5" /> RECOMMENDED</div>}
-                              Option {String.fromCharCode(65 + i)}
-                              {dominatorIdx >= 0 && (
-                                <div className="text-[9px] font-normal text-severity-warning/90 mt-0.5 normal-case print:text-amber-700"
-                                     title="Matches or is worse than another option on modelled impact, cost, and risk.">
-                                  dominated by Option {String.fromCharCode(65 + dominatorIdx)}
-                                </div>
-                              )}
-                            </th>
-                          );
-                        })}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800 print:divide-slate-100">
-                      {[
-                        { label: 'Strategy', key: 'title', cls: 'font-medium text-slate-200 print:text-slate-900' },
-                        { label: 'Est. ROI', key: 'roi', cls: 'font-bold text-severity-opportunity print:text-emerald-600' },
-                        { label: 'Investment', key: 'investment', cls: 'text-slate-400 print:text-slate-600' },
-                        { label: 'Timeline', key: 'timeline', cls: 'text-slate-400 print:text-slate-600' },
-                        // Reversibility varies (high/medium/low) and was already on the
-                        // payload but absent from this table — so the exhibit showed
-                        // three criteria that separated nothing while omitting one that did.
-                        { label: 'Reversibility', key: 'reversibility', cls: 'text-slate-400 print:text-slate-600 capitalize' },
-                      ].map(({ label, key, cls }) => {
-                        // Say plainly when a criterion cannot inform the choice. Laying
-                        // out identical values as though they were a comparison is what
-                        // made this table misleading — two options carried the SAME Est.
-                        // ROI and all three the same effort and risk.
-                        const shown = (data.options ?? []).map((o: any) => key === 'roi' ? formatROI(o[key]) : o[key])
-                        // Discrimination is computed over the PROPOSED options only.
-                        // Option 0 is a reference, and its values differ from all of
-                        // them almost by construction ($0 investment, a negative
-                        // return) — folding it in would turn "all three proposals
-                        // score the same here" into a cheerful "3 of 4 distinct" and
-                        // suppress the exact finding this annotation exists to make.
-                        const disc = axisDiscrimination(shown)
-                        const sqValue = data.statusQuo ? (data.statusQuo as any)[key] : null
+                {/* Discrimination finding, preserved from the deleted table —
+                    same computed function (axisDiscrimination), presentation
+                    adapted from per-column annotations to one summary line.
+                    Computed over PROPOSED options only, same reasoning as
+                    before: Option 0 differs from all of them almost by
+                    construction and would suppress the finding. */}
+                {(() => {
+                  const uniformCriteria: string[] = []
+                  const CRITERIA: Array<{ label: string; key: string }> = [
+                    { label: 'Investment', key: 'investment' },
+                    { label: 'Timeline', key: 'timeline' },
+                    { label: 'Est. ROI', key: 'roi' },
+                    { label: 'Reversibility', key: 'reversibility' },
+                  ]
+                  CRITERIA.forEach(({ label, key }) => {
+                    const shown = (data.options ?? []).map((o: any) => key === 'roi' ? formatROI(o[key]) : o[key])
+                    if (axisDiscrimination(shown).uniform) uniformCriteria.push(label)
+                  })
+                  if (uniformCriteria.length === 0) return null
+                  // "same for all" is the stable anchor phrase this finding has
+                  // used since the table version — kept literally, not just in
+                  // spirit, so it stays a checkable signal rather than prose
+                  // that can drift.
+                  return (
+                    <p className="text-[11px] text-severity-warning/80 mb-4 print:text-amber-700">
+                      {uniformCriteria.join(', ')} — same for all, does not inform the choice
+                      {uniformCriteria.length < CRITERIA.length ? '; the rest is what actually separates them' : ''}.
+                    </p>
+                  )
+                })()}
+
+                {/* Option rows — one format at every breakpoint. Replaces
+                    both the desktop/print-only comparison table (whose
+                    print:!block forced it visible on paper at every screen
+                    width, so this row list is now the printed comparison
+                    exhibit — see CompactOptionRow's own print handling) and
+                    the separate full-detail cards; narrative content
+                    (description, print-only pros/cons, AssumptionsPanel,
+                    drawer trigger) is unchanged, nested in each row. */}
+                {(() => {
+                  const maxRange = (data.options ?? []).reduce((max: number, o: any) => {
+                    const h = o?.impactRangeNumeric?.high
+                    return typeof h === 'number' && h > max ? h : max
+                  }, 0) * 1.1 || null
+                  return (
+                    <div className="space-y-6">
+                      {data.options?.map((option: any, i: number) => {
+                        const dominatorIdx = option.dominated_by
+                          ? data.options.findIndex((o: any) => o.id === option.dominated_by)
+                          : -1
                         return (
-                        <tr key={key}>
-                          <td className="p-3 font-semibold text-slate-400 bg-slate-900/50 print:text-slate-700 print:bg-slate-50">
-                            {label}
-                            {disc.uniform && (
-                              <div className="text-[9px] font-normal text-severity-warning/90 mt-0.5 print:text-amber-700"
-                                   title="Every proposed option scores the same here, so this row cannot separate them.">
-                                same for all — does not inform the choice
-                              </div>
-                            )}
-                            {disc.partial && (
-                              <div className="text-[9px] font-normal text-slate-500 mt-0.5 print:text-slate-500"
-                                   title="Some proposed options are identical on this criterion.">
-                                {disc.distinct} of {disc.total} distinct
-                              </div>
-                            )}
-                          </td>
-                          {data.statusQuo && (
-                            <td className="p-3 border-r-2 border-slate-600 bg-slate-800/20 text-slate-400 print:bg-slate-50 print:text-slate-600">
-                              {sqValue ?? '—'}
-                            </td>
-                          )}
-                          {data.options?.map((opt: any, i: number) => (
-                            <td key={i} className={`p-3 ${cls} ${opt.recommended ? 'bg-severity-opportunity/10 print:bg-emerald-50/30' : ''}`}>
-                              {shown[i] ?? '—'}
-                              {/* Move #3 — scope travels with every number. The
-                                  `roi` string above already bakes scope into its
-                                  own prose (formatImpactEstimate); this chip makes
-                                  it visible even at a glance, not just on a close
-                                  read of the cell text. */}
-                              {key === 'roi' && (
-                                <div className="mt-1">
-                                  {opt.scopeQualifier?.scope === 'enterprise' ? (
-                                    <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-slate-700/60 text-slate-300 print:bg-slate-200 print:text-slate-700">
-                                      Enterprise
-                                    </span>
-                                  ) : opt.scopeQualifier?.scope === 'segment' ? (
-                                    <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-indigo-900/40 text-indigo-300 print:bg-indigo-100 print:text-indigo-700">
-                                      Segment{opt.scopeQualifier.label ? `: ${opt.scopeQualifier.label}` : ''}
-                                    </span>
-                                  ) : (
-                                    <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-amber-900/30 text-amber-500/90 print:bg-amber-100 print:text-amber-700">
-                                      Scope unverified
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </td>
-                          ))}
-                        </tr>
-                      )})}
-                      <tr>
-                        <td className="p-3 font-semibold text-slate-400 bg-slate-900/50 print:text-slate-700 print:bg-slate-50">Risk</td>
-                        {data.statusQuo && (
-                          <td className="p-3 border-r-2 border-slate-600 bg-slate-800/20 print:bg-slate-50">
-                            {/* Deliberately NOT badged Low/Medium/High. The status
-                                quo's risk is a trajectory, not a score on the same
-                                scale as an intervention's execution risk, and giving
-                                it a matching pill would invite a comparison that the
-                                two quantities do not support. */}
-                            <span className="text-[10px] text-slate-400 print:text-slate-600">{data.statusQuo.riskLevel}</span>
-                          </td>
-                        )}
-                        {data.options?.map((opt: any, i: number) => (
-                          <td key={i} className={`p-3 ${opt.recommended ? 'bg-severity-opportunity/10 print:bg-emerald-50/30' : ''}`}>
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              opt.riskLevel === 'Low' ? 'bg-emerald-900/40 text-emerald-400 print:bg-emerald-100 print:text-emerald-700' :
-                              opt.riskLevel === 'Medium' ? 'bg-amber-900/40 text-amber-400 print:bg-amber-100 print:text-amber-700' : 'bg-red-900/40 text-red-400 print:bg-red-100 print:text-red-700'}`}>
-                              {opt.riskLevel}
-                            </span>
-                          </td>
-                        ))}
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                {/* Option 0's caveat travels with the column. A baseline showing
-                    "Flat — no measured drift" or "Improving without intervention"
-                    changes how every other column should be read, and that is
-                    exactly the case where the reader must not have to infer it. */}
-                {data.statusQuo?.caveat && (
-                  <p className="-mt-4 mb-6 text-xs text-slate-500 print:text-slate-600">
-                    <span className="font-semibold text-slate-400 print:text-slate-700">Option 0 — </span>
-                    {data.statusQuo.caveat}
-                  </p>
-                )}
-                {/* Option detail cards */}
-                <div className="space-y-6">
-                  {data.options?.map((option: any, i: number) => (
-                    <motion.div key={i}
-                      initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-                      animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-                      transition={{ delay: reduceMotion ? 0 : i * 0.05 }}
-                      // print:overflow-visible only — NOT break-inside-avoid. These
-                      // cards are frequently taller than a page, and forbidding a break
-                      // would push the whole card past the page end and clip more, not
-                      // less. Releasing overflow lets the content flow across pages.
-                      className={`rounded-xl overflow-hidden border print:overflow-visible ${option.recommended ? 'border-slate-600 border-l-4 border-l-severity-opportunity bg-slate-900' : 'border-slate-700 bg-slate-900'} print:bg-white print:border-slate-200 ${option.recommended ? 'print:border-l-slate-800' : ''}`}>
-                      {option.recommended && (
-                        <div className="bg-severity-opportunity/40 text-severity-opportunity px-4 py-1.5 text-xs font-semibold flex items-center gap-2 print:bg-slate-800 print:text-white">
-                          <CheckCircle className="w-3.5 h-3.5" /> RECOMMENDED
-                        </div>
-                      )}
-                      <div className="p-5">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            {/* I: same unbounded-title risk as the confirm
-                                card above, on the card that has to hold the
-                                longest titles observed this session. 3 lines,
-                                not 2 — this heading has the full card width
-                                and carries the "Option X: " prefix too. */}
-                            <h3 className="text-lg font-bold text-white print:text-slate-900 line-clamp-3">Option {String.fromCharCode(65 + i)}: {option.title}</h3>
-                            <p className="text-slate-400 text-sm mt-0.5 print:text-slate-600">{option.subtitle}</p>
-                            {option.dominated_by && (() => {
-                              const dominatorIdx = data.options.findIndex((o: any) => o.id === option.dominated_by);
-                              // Definition inline, not in a title= tooltip. The
-                              // table header just above states the same flag in
-                              // 9px with the fuller wording only on hover — fine
-                              // as a glanceable comparison view, but this card is
-                              // the primary reading surface and has the room, so
-                              // the explanation belongs on the page, not behind a
-                              // mouseover a touch or keyboard user can't trigger.
-                              return dominatorIdx >= 0 ? (
-                                <p className="text-[11px] text-severity-warning/90 mt-1 leading-snug print:text-amber-700">
-                                  Dominated by Option {String.fromCharCode(65 + dominatorIdx)} — matches or
-                                  underperforms it on modelled impact, cost, and risk.
-                                </p>
-                              ) : null;
-                            })()}
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-slate-500">Est. ROI</p>
-                            <p className="text-xl font-bold text-severity-opportunity print:text-emerald-600">{formatROI(option.roi)}</p>
-                            {option.scopeQualifier?.scope === 'enterprise' ? (
-                              <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-slate-700/60 text-slate-300 print:bg-slate-200 print:text-slate-700">
-                                Enterprise
-                              </span>
-                            ) : option.scopeQualifier?.scope === 'segment' ? (
-                              <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-indigo-900/40 text-indigo-300 print:bg-indigo-100 print:text-indigo-700">
-                                Segment{option.scopeQualifier.label ? `: ${option.scopeQualifier.label}` : ''}
-                              </span>
-                            ) : (
-                              <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-amber-900/30 text-amber-500/90 print:bg-amber-100 print:text-amber-700">
-                                Scope unverified
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <p className="text-slate-300 text-sm leading-relaxed mb-4 print:text-slate-700">{option.description}</p>
-{/* Timeline is condensed here for the same reason it is in the
-                            table: the model writes time_to_value as prose and is
-                            often expansive, and a full sentence wrapped to six
-                            lines inside a 160px tile is not a metric. Full text
-                            stays on hover and in the drawer. */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                          {[{ label: 'Investment', val: option.investment },
-                            { label: 'Timeline', val: condenseTimeToValue(option.timeline), title: option.timeline },
-                            { label: 'Risk', val: option.riskLevel, cls: option.riskLevel === 'Low' ? 'text-severity-opportunity print:text-emerald-600' : option.riskLevel === 'Medium' ? 'text-severity-warning print:text-amber-600' : 'text-severity-critical print:text-red-600' },
-                            { label: 'Reversibility', val: option.reversibility, cls: 'capitalize' }].map(({ label, val, cls, title }) => (
-                            <div key={label} className="text-center p-2 bg-slate-800/60 rounded-lg print:bg-slate-100 min-w-0">
-                              <p className="text-[10px] text-slate-400 uppercase">{label}</p>
-                              <p className={`font-bold text-xs text-slate-200 print:text-slate-900 break-words ${cls || ''}`} title={title}>{val}</p>
-                            </div>
-                          ))}
-                        </div>
-                        {/* ── Full narrative: PRINT ONLY ────────────────────────
-                            On screen this moves into the option drawer. Three
-                            complete analyses expanded inline is what pushed the
-                            briefing past a 2-minute read (Cat 3). On paper there is
-                            no drawer to open, so print keeps them where they were —
-                            the exported PDF loses nothing. */}
-                        <div className="hidden print:block">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div>
-                            <h4 className="font-semibold text-slate-300 mb-2 flex items-center gap-1.5 text-sm print:text-slate-700">
-                              <CheckCircle className="w-3.5 h-3.5 text-slate-500" /> Arguments For
-                            </h4>
-                            <ul className="space-y-1.5">
-                              {option.prosDetailed?.map((pro: any, j: number) => (
-                                <li key={j} className="text-xs text-slate-400 flex items-start gap-1.5 print:text-slate-700">
-                                  <ChevronRight className="w-3.5 h-3.5 text-slate-600 flex-shrink-0 mt-0.5" />
-                                  <span>{pro.point?.replace(/[:]+$/, '')}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                          <div>
-                            <h4 className="font-semibold text-slate-300 mb-2 flex items-center gap-1.5 text-sm print:text-slate-700">
-                              <AlertTriangle className="w-3.5 h-3.5 text-slate-500" /> Arguments Against
-                            </h4>
-                            <ul className="space-y-1.5">
-                              {option.consDetailed?.map((con: any, j: number) => (
-                                <li key={j} className="text-xs text-slate-400 flex items-start gap-1.5 print:text-slate-700">
-                                  <ChevronRight className="w-3.5 h-3.5 text-slate-600 flex-shrink-0 mt-0.5" />
-                                  <span>{con.point?.replace(/[:]+$/, '')}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                        {option.lens_views && (
-                          <div className="mt-4 pt-4 border-t border-slate-700 print:border-slate-200">
-                            <h4 className="font-semibold text-slate-200 mb-2 flex items-center gap-1.5 text-sm print:text-slate-900">
-                              <Users className="w-3.5 h-3.5" /> Council Lenses
-                            </h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                              {option.lens_views.map((p: any, j: number) => (
-                                <div key={j} className="bg-slate-800/60 p-2.5 rounded-lg print:bg-slate-50">
-                                  <p className="font-medium text-slate-200 text-xs print:text-slate-900">{p.role}</p>
-                                  <p className="text-xs text-slate-400 mt-0.5 print:text-slate-600">{p.view}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        </div>
-
-                        {/* Critic-pass findings stay ON the card, not behind the
-                            drawer click. A flagged side effect is a reason to look
-                            harder at an option; hiding it one interaction deeper
-                            than the option's own sales pitch inverts that. */}
-                        {option.flagged_side_effects?.length > 0 && (
-                          <div data-testid="side-effects-chip" className="print:hidden mt-3 flex items-start gap-2 rounded-lg border border-severity-warning/50 bg-severity-warning/20 px-3 py-2">
-                            <Zap className="w-3.5 h-3.5 text-severity-warning flex-shrink-0 mt-0.5" />
-                            <p className="text-xs text-severity-warning/90">
-                              {option.flagged_side_effects.length} side effect{option.flagged_side_effects.length === 1 ? '' : 's'} flagged
-                              against the causal model — see full analysis.
-                            </p>
-                          </div>
-                        )}
-
-                        {/* M6: the ROI range above does not stand alone — and that
-                            has to hold on the exported PDF too, which is the copy
-                            that gets forwarded and challenged. The panel prints
-                            fully expanded (its toggle is print:hidden, its body
-                            print:block), so it is deliberately NOT wrapped in a
-                            print:hidden div like the rest of the screen-only chrome. */}
-                        <AssumptionsPanel assumptions={option.key_assumptions || []} impactLabel={formatROI(option.roi)} />
-
-                        <button
-                          onClick={() => setDrawerIdx(i)}
-                          className="print:hidden mt-4 inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white"
-                        >
-                          View full analysis
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
+                          <motion.div key={i}
+                            initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+                            animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+                            transition={{ delay: reduceMotion ? 0 : i * 0.05 }}
+                          >
+                            <CompactOptionRow
+                              option={option}
+                              letter={String.fromCharCode(65 + i)}
+                              dominatorLetter={dominatorIdx >= 0 ? String.fromCharCode(65 + dominatorIdx) : null}
+                              maxRange={maxRange}
+                              onOpenDrawer={() => setDrawerIdx(i)}
+                            />
+                          </motion.div>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
               </div>
             </AccordionSection>
 
@@ -1705,6 +1466,25 @@ export function ExecutiveBriefing() {
               </button>
               <div className="h-px flex-1 bg-slate-800" />
             </div>
+
+            {/* Verification Ledger — the distilled "did this survive
+                scrutiny" check, first among Supporting Analysis. The data
+                (moderator_grades) already flowed through this payload; it
+                just stopped being rendered here when Stage 1/2/Moderator
+                Verdicts moved out to /debate earlier this session. Gated the
+                same way `risks`/`blindspots` already are. */}
+            {data.moderator_grades && Object.keys(data.moderator_grades).length > 0 && (() => {
+              const recIdx = data.options?.findIndex((o: any) => o.recommended) ?? -1
+              const recOption = recIdx >= 0 ? data.options[recIdx] : data.options?.[0]
+              const grade = recOption?.id ? data.moderator_grades[recOption.id] : null
+              const letter = recIdx >= 0 ? String.fromCharCode(65 + recIdx) : 'A'
+              return (
+                <AccordionSection id="verification" title="Verification Ledger" openSections={openSections} onToggle={toggleSection}
+                  icon={<ShieldCheck className="w-4 h-4 text-slate-400" />}>
+                  <VerificationLedger grade={grade} optionLabel={letter} situationId={situationId} />
+                </AccordionSection>
+              )
+            })()}
 
             {/* [H] Situation Analysis */}
             <AccordionSection id="situation" title="Situation Analysis" openSections={openSections} onToggle={toggleSection}

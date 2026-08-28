@@ -609,6 +609,20 @@ export const buildExecutiveBriefing = (situation: any, analysis: any, sol: any, 
       description: opt?.description || opt?.rationale || '',
       roi: formatImpactEstimate(opt, idx),
       impactBasis: opt?.impact_estimate?.basis || null,
+      // Additive, for RangeBar (2026-08-28 compact-brief restructure). `roi`
+      // above stays the prose source of truth for display — this is the raw
+      // numeric pair alongside it, needed to draw a low-high bar on a shared
+      // scale. Never derived/guessed: null straight through when the backend
+      // didn't send a recovery_range, so a caller can tell "no range" from
+      // "zero range" rather than a RangeBar silently drawing a fake one.
+      impactRangeNumeric: opt?.impact_estimate?.recovery_range
+        ? {
+            low: opt.impact_estimate.recovery_range.low ?? null,
+            high: opt.impact_estimate.recovery_range.high ?? null,
+            unit: opt.impact_estimate.unit ?? null,
+            metric: opt.impact_estimate.metric ?? null,
+          }
+        : null,
       investment: (() => {
         const c = opt?.cost ?? 0.5
         const peers = topOptions.map((o: any) => o?.cost ?? 0.5)

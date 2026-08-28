@@ -2,7 +2,7 @@ import React from 'react';
 import { AlertTriangle, TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { ConfidenceLevel } from '../types/valueAssurance';
 
-interface CostOfInactionBannerProps {
+export interface CostOfInactionBannerProps {
   kpiName: string;
   currentValue: number;
   projected30d: number;
@@ -13,6 +13,12 @@ interface CostOfInactionBannerProps {
   estimatedRevenueImpact90d?: number;
   /** e.g. "%" or "$M" — defaults to "%" */
   kpiUnit?: string;
+  /** WhyNowBand (2026-08-28 compact-brief restructure) hosts this as the
+   *  right pane of a shared two-column band — its own card shell would
+   *  double up against the band's own border/background. `bare` renders the
+   *  header/intro/rows/footer only, no outer `rounded-xl` wrapper. Defaults
+   *  false so every existing standalone usage is unaffected. */
+  bare?: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -215,12 +221,13 @@ export const CostOfInactionBanner: React.FC<CostOfInactionBannerProps> = ({
   estimatedRevenueImpact30d,
   estimatedRevenueImpact90d,
   kpiUnit = '',
+  bare = false,
 }) => {
   const cfg = TREND_CONFIG[trendDirection];
   const { Icon } = cfg;
 
   return (
-    <div className={`rounded-xl px-5 py-4 ${cfg.containerClass}`}>
+    <div className={bare ? '' : `rounded-xl px-5 py-4 ${cfg.containerClass}`}>
       {/* Header */}
       <div className={`flex items-center gap-2 mb-3 ${cfg.headerClass}`}>
         <Icon className={`w-4 h-4 flex-shrink-0 ${cfg.iconClass}`} />
