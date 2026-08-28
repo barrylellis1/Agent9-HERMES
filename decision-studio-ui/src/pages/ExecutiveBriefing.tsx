@@ -330,7 +330,13 @@ function DecisionChat({
               </div>
 
               <div className="bg-slate-800 border border-slate-700 rounded-lg p-2.5">
-                <p className="text-xs font-semibold text-slate-100 leading-snug">{selected.title}</p>
+                {/* I: unbounded before — a real title runs 80-100+ chars
+                    ("Rapid Volume/Price/Mix Diagnostic and Win-Back in
+                    Coolants & Antifreeze and International Franchise
+                    Network") and would overflow this card with nothing to
+                    stop it. Wording untouched — this bounds the container,
+                    it doesn't rewrite what the model said. */}
+                <p className="text-xs font-semibold text-slate-100 leading-snug line-clamp-2">{selected.title}</p>
                 <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                   {selected.roi && <span className="text-[10px] text-severity-opportunity">{formatROI(selected.roi)}</span>}
                   {selected.scopeQualifier?.scope === 'enterprise' ? (
@@ -1381,7 +1387,12 @@ export function ExecutiveBriefing() {
                       <div className="p-5">
                         <div className="flex justify-between items-start mb-3">
                           <div>
-                            <h3 className="text-lg font-bold text-white print:text-slate-900">Option {String.fromCharCode(65 + i)}: {option.title}</h3>
+                            {/* I: same unbounded-title risk as the confirm
+                                card above, on the card that has to hold the
+                                longest titles observed this session. 3 lines,
+                                not 2 — this heading has the full card width
+                                and carries the "Option X: " prefix too. */}
+                            <h3 className="text-lg font-bold text-white print:text-slate-900 line-clamp-3">Option {String.fromCharCode(65 + i)}: {option.title}</h3>
                             <p className="text-slate-400 text-sm mt-0.5 print:text-slate-600">{option.subtitle}</p>
                             {option.dominated_by && (() => {
                               const dominatorIdx = data.options.findIndex((o: any) => o.id === option.dominated_by);

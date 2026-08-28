@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, MessageSquare } from 'lucide-react';
 import { Situation } from '../../api/types';
 import { getTriggeringComparison } from '../../utils/triggeringComparison';
 
@@ -236,11 +236,15 @@ export const HeroBriefing: React.FC<HeroBriefingProps> = ({
           opacity-0 until group-hover, which hid the card's primary action
           until the mouse arrived and hid it permanently on touch. */}
       <div className="opacity-70 group-hover:opacity-100 transition-opacity duration-150 border-t border-slate-800/60 px-6 py-3 flex items-center justify-between">
+        {/* G: named the actual next step. The click already leads to a
+            conversation (DeepFocusView auto-launches refinement chat once
+            analysis completes, non-mixed modes) — this caption previously
+            described only the first half of what happens. */}
         <span className="text-[10px] text-slate-600 uppercase tracking-wider">
-          Click to open deep analysis
+          Deep analysis, then a follow-up conversation
         </span>
         <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-indigo-400">
-          Analyze <ArrowRight className="w-3 h-3" />
+          <MessageSquare className="w-3 h-3" /> Analyze <ArrowRight className="w-3 h-3" />
         </span>
       </div>
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, MessageSquare } from 'lucide-react';
 import { Situation } from '../../api/types';
 import { getTriggeringComparison } from '../../utils/triggeringComparison';
 
@@ -316,8 +316,14 @@ export const KPITile: React.FC<KPITileProps> = ({ situation, onClick, isDelegate
         style={{ background: 'linear-gradient(to top, rgba(15,23,42,0.85) 0%, transparent 60%)' }}
       />
       <div className="absolute inset-x-0 bottom-0 pointer-events-none flex items-end justify-end p-4">
+        {/* G: the click here already leads to an AI conversation, not just
+            deeper charts — DA runs, then DeepFocusView auto-launches
+            refinement chat once it completes (non-mixed modes). Nothing
+            on this tile signalled that; "Analyze" alone reads as "more
+            analysis," not "a conversation." One icon, no new click target,
+            no change to what the click already does. */}
         <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-indigo-400/70 group-hover:text-indigo-400 transition-colors duration-150">
-          Analyze <ArrowRight className="w-3 h-3" />
+          <MessageSquare className="w-3 h-3" /> Analyze <ArrowRight className="w-3 h-3" />
         </span>
       </div>
     </button>
