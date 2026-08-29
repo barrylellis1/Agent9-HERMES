@@ -22,15 +22,6 @@
         "reason": "flagged site is print:bg-purple-50/border-purple-200/text-purple-900 -- print-only, light stylesheet; screen classes are plain bg-slate-900 border-slate-700 with no purple/gradient/cyan at all, so the rule's actual dark-mode-AI-gradient concern does not apply"
       },
       {
-        "rule": "side-tab",
-        "value": "border-l-4",
-        "files": [
-          "decision-studio-ui/src/components/briefing/DecisionAskBlock.tsx"
-        ],
-        "createdAt": "2026-08-28T02:27:28.633Z",
-        "reason": "indigo-500 is DESIGN_SYSTEM.md sec2's documented AI-action/CTA color (Refinement, Generate Solutions, Solution Active badge); this box IS the AI-authored decision ask, so an indigo left-border accent is the same sanctioned-by-convention pattern as severity-token borders, just for the AI-action semantic instead of severity. Found during the 2026-08-28 AI-cliche audit, not previously disclosed"
-      },
-      {
         "rule": "gray-on-color",
         "value": "*",
         "files": [
@@ -38,6 +29,15 @@
         ],
         "createdAt": "2026-08-29T17:02:23.354Z",
         "reason": "gray-on-color is not in the detector's directValueRules allowlist (impeccable-config.mjs extractFindingIgnoreValue), so value-scoped ignores for this rule are silently inert -- only a '*' wildcard actually suppresses anything, same as side-tab/ai-color-palette below. Two prior value-scoped attempts (2026-08-27, 2026-08-28) for this exact same finding never worked, which is why it kept re-firing. The finding itself: the sole match in this file is ExecutiveBriefing.tsx's chat-message ternary (bg-indigo-600 text-white | bg-slate-800 text-slate-100) -- the detector cross-matches text-slate-100 against bg-indigo-600 from the OTHER branch on the same line; text-slate-100 (#f1f5f9) is near-white regardless, exactly the remedy the rule itself prescribes. Verified no other gray-on-color candidate exists in this file before scoping the wildcard to it."
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/components/briefing/DecisionAskBlock.tsx"
+        ],
+        "createdAt": "2026-08-29T17:05:56.094Z",
+        "reason": "Replaces a 2026-08-28 value-scoped entry ('border-l-4') that was silently dead for the same reason as the gray-on-color fix above: side-tab is not in directValueRules either, so only a '*' wildcard actually suppresses anything. The underlying finding is unchanged from that entry's own reasoning: indigo-500 is DESIGN_SYSTEM.md sec2's documented AI-action/CTA color (Refinement, Generate Solutions, Solution Active badge); this box IS the AI-authored decision ask, so an indigo left-border accent is the same sanctioned-by-convention pattern as severity-token borders, just for the AI-action semantic instead of severity. Verified only one border-l-* candidate exists in this file (the same one) before scoping the wildcard to it."
       }
     ]
   }
