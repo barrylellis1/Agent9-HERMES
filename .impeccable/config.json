@@ -4,15 +4,6 @@
     "ignoreFiles": [],
     "ignoreValues": [
       {
-        "rule": "gray-on-color",
-        "value": "text-slate-100 on bg-indigo-600",
-        "files": [
-          "decision-studio-ui/src/pages/ExecutiveBriefing.tsx"
-        ],
-        "createdAt": "2026-08-27T23:55:01.340Z",
-        "reason": "false positive, verified 3x this session: msg.role ternary pairs bg-indigo-600/text-white and bg-slate-800/text-slate-100 independently, detector cross-matches branches on one line"
-      },
-      {
         "rule": "side-tab",
         "value": "*",
         "files": [
@@ -41,8 +32,12 @@
       },
       {
         "rule": "gray-on-color",
-        "value": "text-slate-100",
-        "createdAt": "2026-08-28T23:18:29.458Z"
+        "value": "*",
+        "files": [
+          "decision-studio-ui/src/pages/ExecutiveBriefing.tsx"
+        ],
+        "createdAt": "2026-08-29T17:02:23.354Z",
+        "reason": "gray-on-color is not in the detector's directValueRules allowlist (impeccable-config.mjs extractFindingIgnoreValue), so value-scoped ignores for this rule are silently inert -- only a '*' wildcard actually suppresses anything, same as side-tab/ai-color-palette below. Two prior value-scoped attempts (2026-08-27, 2026-08-28) for this exact same finding never worked, which is why it kept re-firing. The finding itself: the sole match in this file is ExecutiveBriefing.tsx's chat-message ternary (bg-indigo-600 text-white | bg-slate-800 text-slate-100) -- the detector cross-matches text-slate-100 against bg-indigo-600 from the OTHER branch on the same line; text-slate-100 (#f1f5f9) is near-white regardless, exactly the remedy the rule itself prescribes. Verified no other gray-on-color candidate exists in this file before scoping the wildcard to it."
       }
     ]
   }
